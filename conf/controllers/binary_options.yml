@@ -5,6 +5,7 @@ id: binary_options_main
 
 # === Connection ===
 connector_name: limitless
+trading_pair: BTC-USDC
 
 # === Budget ===
 total_amount_quote: 100.0

@@ -173,16 +173,33 @@ class LimitlessConnector:
         # REST fallback
         try:
             logger.debug("REST fallback for orderbook %s", market_slug)
-            ob = await self._market_fetcher.get_orderbook(market_slug)
-            result = {
-                "bids": [{"price": e.price, "size": e.size} for e in ob.bids],
-                "asks": [{"price": e.price, "size": e.size} for e in ob.asks],
-                "token_id": ob.token_id,
-            }
+            try:
+                ob = await self._market_fetcher.get_orderbook(market_slug)
+                result = {
+                    "bids": [{"price": e.price, "size": e.size} for e in ob.bids],
+                    "asks": [{"price": e.price, "size": e.size} for e in ob.asks],
+                    "token_id": ob.token_id,
+                }
+            except Exception as sdk_err:
+                # SDK Pydantic model may fail on null fields (e.g. lastTradePrice=None).
+                # Fall back to raw JSON parsing.
+                logger.debug("SDK parse failed for %s, using raw JSON: %s", market_slug, sdk_err)
+                raw = await self._http.get(f"/markets/{market_slug}/orderbook")
+                data = raw.data if hasattr(raw, 'data') else raw
+                if isinstance(data, dict):
+                    result = {
+                        "bids": [{"price": e.get("price", 0), "size": e.get("size", 0)} for e in data.get("bids", [])],
+                        "asks": [{"price": e.get("price", 0), "size": e.get("size", 0)} for e in data.get("asks", [])],
+                        "token_id": data.get("tokenId", ""),
+                    }
+                else:
+                    raise ConnectorError(f"Unexpected orderbook response for {market_slug}: {type(data)}") from sdk_err
             self._orderbooks[market_slug] = result
             self._ob_timestamps[market_slug] = time.time()
             logger.debug("REST orderbook: %d bids, %d asks", len(result["bids"]), len(result["asks"]))
             return result
+        except ConnectorError:
+            raise
         except Exception as exc:
             logger.error("REST orderbook fetch failed for %s: %s", market_slug, exc)
             raise ConnectorError(f"Failed to get orderbook for {market_slug}", exc) from exc
@@ -832,11 +849,15 @@ class LimitlessConnector:
             "market_type": market.market_type,
             "expiration_date": market.expiration_date,
             "expiration_timestamp": getattr(market, "expiration_timestamp", None),
+            "expiry": market.expiration_date,  # Alias for controller compatibility
             "deadline": market.expiration_date,
             "categories": getattr(market, "categories", []),
             "prices": market.prices,
+            "yes_price": market.prices.get("yes") if isinstance(market.prices, dict) else None,
+            "no_price": market.prices.get("no") if isinstance(market.prices, dict) else None,
             "volume": market.volume,
             "volume_formatted": getattr(market, "volume_formatted", None),
+            "type": market.market_type,  # "CLOB" or "AMM"
         }
         if market.tokens:
             d["tokens"] = {"yes": market.tokens.yes, "no": market.tokens.no}

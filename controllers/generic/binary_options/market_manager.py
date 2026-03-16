@@ -64,7 +64,7 @@ class MarketManager:
     # Layer 1: discover
     # ------------------------------------------------------------------
 
-    def discover(self, spots: Dict[str, float], now_ts: float, force: bool = False) -> Dict[str, dict]:
+    async def discover(self, spots: Dict[str, float], now_ts: float, force: bool = False) -> Dict[str, dict]:
         """Market discovery + ATM selection per coin.
 
         Args:
@@ -86,7 +86,7 @@ class MarketManager:
         self._last_discover_ts = now_ts
 
         # Fetch all active markets from connector
-        raw_markets = self._connector.get_active_markets()
+        raw_markets = await self._connector.get_active_markets()
         if not raw_markets:
             logger.warning("discover: connector returned no active markets")
             return dict(self._locked_markets)
@@ -96,12 +96,15 @@ class MarketManager:
         # Collect candidates per ticker
         candidates: Dict[str, list] = {}  # {ticker: [market_dict, ...]}
 
+        logger.info("discover: processing %d raw markets", len(raw_markets) if raw_markets else 0)
         for mkt in raw_markets:
             title = mkt.get("title", "")
             parsed = _parse_title(title)
             if not parsed:
+                logger.debug("discover: skipping unparseable title: %s", title[:50])
                 continue
             ticker, strike = parsed
+            logger.debug("discover: parsed %s strike=%s from: %s", ticker, strike, title[:50])
 
             # Skip BANNED coins
             if self._roster.tier(ticker) == "BANNED":
@@ -190,7 +193,7 @@ class MarketManager:
     # Layer 2: evaluate
     # ------------------------------------------------------------------
 
-    def evaluate(self, now_ts: float, force: bool = False) -> Dict[str, dict]:
+    async def evaluate(self, now_ts: float, force: bool = False) -> Dict[str, dict]:
         """WS-based scoring for market switching within a ticker.
 
         Only runs every msel_eval_interval_s. Hysteresis prevents frivolous switching.
@@ -207,7 +210,7 @@ class MarketManager:
         hysteresis = float(self._rb.get_coin_param("_global", "msel_hysteresis_pct", 0.10))
 
         # Get all active markets for re-scoring
-        raw_markets = self._connector.get_active_markets()
+        raw_markets = await self._connector.get_active_markets()
         if not raw_markets:
             return dict(self._locked_markets)
 

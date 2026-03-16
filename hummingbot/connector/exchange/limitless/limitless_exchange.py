@@ -7,6 +7,7 @@ fetching) to it. This class implements Hummingbot's ExchangePyBase interface.
 
 import asyncio
 import hashlib
+import logging
 import time
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -34,6 +35,8 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+logger = logging.getLogger(__name__)
 
 
 class LimitlessExchange(ExchangePyBase):
@@ -95,6 +98,41 @@ class LimitlessExchange(ExchangePyBase):
         if self._inner_connector and self._inner_started:
             await self._inner_connector.stop()
             self._inner_started = False
+
+    # ── Network lifecycle ──────────────────────────────────────
+
+    async def start_network(self):
+        """Override to eagerly initialize symbol map and trading rules."""
+        await self._ensure_inner_connector()
+        await self._initialize_trading_pair_symbol_map()
+        await self._update_trading_rules()
+        await self._update_balances()
+        await super().start_network()
+
+    # ── Readiness ─────────────────────────────────────────────
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        # For Limitless, the inner connector handles orderbook via WS.
+        # Skip the HB orderbook tracker ready check if inner connector has cached orderbooks.
+        ob_ready = self.order_book_tracker.ready if self.order_book_tracker else False
+        if not ob_ready and self._inner_started and self._inner_connector:
+            # Check if inner connector has any cached orderbooks
+            cached = self._inner_connector.cached_orderbooks
+            if cached:
+                ob_ready = True
+        sd = {
+            "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+            "order_books_initialized": ob_ready,
+            "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
+            "inner_connector_started": self._inner_started,
+        }
+        not_ready = {k: v for k, v in sd.items() if not v}
+        if not_ready:
+            logger.warning("LimitlessExchange status_dict not ready: %s", not_ready)
+        return sd
 
     # ── ExchangePyBase required properties ──────────────────────
 
@@ -167,6 +205,25 @@ class LimitlessExchange(ExchangePyBase):
 
     # ── Trading pair / symbol mapping ───────────────────────────
 
+    # ── Pass-through methods for controller access ─────────────
+
+    async def get_active_markets(self, ticker: Optional[str] = None) -> list:
+        """Delegate to inner connector."""
+        await self._ensure_inner_connector()
+        return await self._inner_connector.get_active_markets(ticker=ticker)
+
+    async def get_order_book(self, market_slug: str) -> dict:
+        """Delegate to inner connector."""
+        await self._ensure_inner_connector()
+        return await self._inner_connector.get_order_book(market_slug)
+
+    async def get_market(self, market_slug: str) -> dict:
+        """Delegate to inner connector."""
+        await self._ensure_inner_connector()
+        return await self._inner_connector.get_market(market_slug)
+
+    # ── Slug mapping ─────────────────────────────────────────────
+
     def _trading_pair_to_slug(self, trading_pair: str) -> str:
         """Convert Hummingbot trading pair to Limitless market slug."""
         return self._slug_map.get(trading_pair, trading_pair)
@@ -178,11 +235,12 @@ class LimitlessExchange(ExchangePyBase):
     async def _initialize_trading_pair_symbol_map(self):
         """Discover markets from Limitless and build the symbol mapping.
 
-        For each configured trading pair (e.g. "BTC-1H"), we resolve the
+        For each configured trading pair (e.g. "BTC-USDC"), we resolve the
         ticker part (BTC) to find active markets, then map the trading pair
         to the first matching market slug.
         """
         try:
+            logger.info("Initializing trading pair symbol map for: %s", self._trading_pairs)
             await self._ensure_inner_connector()
             mapping = bidict()
 
@@ -192,8 +250,9 @@ class LimitlessExchange(ExchangePyBase):
 
                 try:
                     markets = await self._inner_connector.get_active_markets(ticker=ticker)
+                    logger.info("Found %d markets for ticker %s", len(markets), ticker)
                 except Exception:
-                    self.logger().warning(f"Failed to discover markets for ticker {ticker}")
+                    self.logger().warning(f"Failed to discover markets for ticker {ticker}", exc_info=True)
                     markets = []
 
                 if markets:
@@ -204,6 +263,7 @@ class LimitlessExchange(ExchangePyBase):
                     self._slug_reverse_map[slug] = tp
                     self._market_data[slug] = market
                     mapping[slug] = tp
+                    logger.info("Mapped %s -> %s", tp, slug)
 
                     # Ensure the inner connector has this market cached
                     if slug not in self._inner_connector._markets:
@@ -212,12 +272,13 @@ class LimitlessExchange(ExchangePyBase):
                     await self._inner_connector.subscribe_market(slug)
                 else:
                     self.logger().warning(f"No active markets found for {tp}")
-                    # Create a pass-through mapping
+                    # Create a pass-through mapping so connector can still start
                     mapping[tp] = tp
                     self._slug_map[tp] = tp
                     self._slug_reverse_map[tp] = tp
 
             self._set_trading_pair_symbol_map(mapping)
+            logger.info("Trading pair symbol map initialized: %s", dict(mapping))
         except Exception:
             self.logger().exception("Error initializing trading pair symbol map.")
 

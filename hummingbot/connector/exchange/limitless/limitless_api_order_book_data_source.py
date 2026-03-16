@@ -1,14 +1,13 @@
-"""Order book data source that delegates to the inner LimitlessConnector."""
+"""Order book data source that delegates to the inner LimitlessConnector's WS."""
 
 import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.limitless import limitless_constants as CONSTANTS, limitless_web_utils as web_utils
+from hummingbot.connector.exchange.limitless import limitless_constants as CONSTANTS
 from hummingbot.connector.exchange.limitless.limitless_order_book import LimitlessOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -21,6 +20,7 @@ class LimitlessAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
+    POLL_INTERVAL = 2.0  # seconds between orderbook polls from inner connector
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -66,70 +66,100 @@ class LimitlessAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        url = web_utils.wss_url(self._domain)
-        ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
-        return ws
+        """Not used — we poll the inner connector's cached orderbooks instead."""
+        raise NotImplementedError("LimitlessAPIOrderBookDataSource uses polling, not direct WS")
 
     async def _subscribe_channels(self, ws: WSAssistant):
-        """Subscribe to orderbook updates for all trading pairs.
+        """Not used — inner connector handles WS subscriptions."""
+        pass
 
-        Since the inner LimitlessConnector handles WS subscriptions for the
-        actual data feed, we also subscribe via the Hummingbot WS assistant
-        if needed. For now, the orderbook data is primarily served by polling
-        the inner connector.
+    async def listen_for_subscriptions(self):
+        """Override the parent's WS-based listener with a polling loop.
+
+        The inner LimitlessConnector already maintains a WS connection and
+        caches orderbook snapshots. We poll those cached values and push
+        them as snapshot messages into the diff queue.
         """
-        try:
-            for trading_pair in self._trading_pairs:
-                slug = self._connector._trading_pair_to_slug(trading_pair)
-                payload = {
-                    "method": "subscribe",
-                    "subscription": {
-                        "type": "subscribe_market_prices",
-                        "marketSlugs": [slug],
-                    },
-                }
-                subscribe_request = WSJSONRequest(payload=payload)
-                await ws.send(subscribe_request)
-            self.logger().info("Subscribed to public order book channels...")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book data streams."
-            )
-            raise
+        while True:
+            try:
+                inner = self._connector._inner_connector
+                if inner is None:
+                    await asyncio.sleep(self.POLL_INTERVAL)
+                    continue
+
+                cached = inner.cached_orderbooks() if callable(inner.cached_orderbooks) else inner.cached_orderbooks
+                for trading_pair in self._trading_pairs:
+                    slug = self._connector._trading_pair_to_slug(trading_pair)
+                    if not slug or slug not in cached:
+                        continue
+
+                    ob = cached[slug]
+                    msg_data = {
+                        "trading_pair": trading_pair,
+                        "bids": [[b["price"], b["size"]] for b in ob.get("bids", [])],
+                        "asks": [[a["price"], a["size"]] for a in ob.get("asks", [])],
+                    }
+                    timestamp = time.time()
+                    snapshot_msg = LimitlessOrderBook.snapshot_message_from_exchange(
+                        msg_data, timestamp, {"trading_pair": trading_pair}
+                    )
+                    self._message_queue[self._diff_messages_queue_key].put_nowait(snapshot_msg)
+
+                await asyncio.sleep(self.POLL_INTERVAL)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().warning(
+                    "Unexpected error polling inner connector orderbooks. Retrying in 5s...",
+                    exc_info=True,
+                )
+                await asyncio.sleep(5.0)
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """Diffs come through listen_for_subscriptions as snapshots."""
+        pass
+
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        """Initial snapshots for each trading pair."""
+        while True:
+            try:
+                for trading_pair in self._trading_pairs:
+                    try:
+                        snapshot_msg = await self._order_book_snapshot(trading_pair)
+                        output.put_nowait(snapshot_msg)
+                    except Exception:
+                        self.logger().warning(
+                            f"Failed to get snapshot for {trading_pair}",
+                            exc_info=True,
+                        )
+                await asyncio.sleep(60.0)
+            except asyncio.CancelledError:
+                raise
 
     async def _parse_order_book_diff_message(
         self, raw_message: Dict[str, Any], message_queue: asyncio.Queue
     ):
-        # Extract slug from message and map back to trading pair
-        data = raw_message.get("data", raw_message)
-        slug = data.get("marketSlug", data.get("market_slug", ""))
-        trading_pair = self._connector._slug_to_trading_pair(slug)
-        if not trading_pair:
-            return
+        pass
 
-        ob = data.get("orderbook", data)
-        bids_raw = ob.get("bids", [])
-        asks_raw = ob.get("asks", [])
+    async def _parse_trade_message(
+        self, raw_message: Dict[str, Any], message_queue: asyncio.Queue
+    ):
+        pass
 
-        msg_data = {
-            "trading_pair": trading_pair,
-            "bids": [[b.get("price", 0), b.get("size", 0)] for b in bids_raw],
-            "asks": [[a.get("price", 0), a.get("size", 0)] for a in asks_raw],
-        }
-        timestamp = time.time()
-        order_book_message = LimitlessOrderBook.diff_message_from_exchange(
-            msg_data, timestamp, {"trading_pair": trading_pair}
-        )
-        message_queue.put_nowait(order_book_message)
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        return self._diff_messages_queue_key
 
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
-        """Subscribe to orderbook updates for a single trading pair."""
         try:
             if trading_pair not in self._trading_pairs:
                 self._trading_pairs.append(trading_pair)
+            # Also subscribe inner connector's WS
+            slug = self._connector._trading_pair_to_slug(trading_pair)
+            if slug:
+                inner = self._connector._inner_connector
+                if inner:
+                    await inner.subscribe_market(slug)
             self.logger().info(f"Subscribed to {trading_pair}")
             return True
         except Exception:
@@ -137,7 +167,6 @@ class LimitlessAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
-        """Unsubscribe from orderbook updates for a single trading pair."""
         try:
             if trading_pair in self._trading_pairs:
                 self._trading_pairs.remove(trading_pair)
@@ -146,18 +175,3 @@ class LimitlessAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except Exception:
             self.logger().error(f"Failed to unsubscribe from {trading_pair}")
             return False
-
-    async def _parse_trade_message(
-        self, raw_message: Dict[str, Any], message_queue: asyncio.Queue
-    ):
-        pass
-
-    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        channel = ""
-        if "result" not in event_message:
-            event_type = event_message.get("channel", event_message.get("type", ""))
-            if "orderbook" in event_type.lower() or "l2book" in event_type.lower():
-                channel = self._diff_messages_queue_key
-            elif "trade" in event_type.lower():
-                channel = self._trade_messages_queue_key
-        return channel

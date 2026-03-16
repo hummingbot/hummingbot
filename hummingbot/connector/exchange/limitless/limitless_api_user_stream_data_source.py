@@ -1,18 +1,17 @@
 """User stream data source for Limitless.
 
-Limitless does not currently provide a user-specific WebSocket stream.
-Order/fill updates are handled via REST polling in the main exchange class.
-This data source satisfies the Hummingbot interface with a minimal
-polling-based implementation.
+Limitless order/fill updates are polled via REST in the main exchange class.
+This data source keeps the Hummingbot interface happy with a no-op polling
+loop that never fails (so the connector reports ready).
 """
 
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.limitless import limitless_constants as CONSTANTS, limitless_web_utils as web_utils
+from hummingbot.connector.exchange.limitless import limitless_constants as CONSTANTS
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -41,53 +40,41 @@ class LimitlessAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._connector = connector
         self._trading_pairs = trading_pairs
-        self._ws_assistants: List[WSAssistant] = []
+        self._last_recv_time = time.time()
 
     @property
     def last_recv_time(self) -> float:
-        if self._ws_assistant:
-            return self._ws_assistant.last_recv_time
-        return 0
-
-    async def _get_ws_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
-        return self._ws_assistant
+        return self._last_recv_time
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        ws: WSAssistant = await self._get_ws_assistant()
-        url = web_utils.wss_url(self._domain)
-        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
-        return ws
+        """Not used — user updates handled via REST polling in exchange class."""
+        raise NotImplementedError("LimitlessAPIUserStreamDataSource uses polling, not WS")
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        """No user-specific WS channels on Limitless yet; keep connection alive."""
-        try:
-            ping_payload = {"method": "ping"}
-            ping_request = WSJSONRequest(payload=ping_payload)
-            await websocket_assistant.send(ping_request)
-            self.logger().info("User stream WS connected (polling mode)...")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().exception("Unexpected error subscribing to user streams...")
-            raise
+        """Not used."""
+        pass
+
+    async def listen_for_user_stream(self, output: asyncio.Queue):
+        """Override parent's WS-based listener with a keep-alive loop.
+
+        The inner connector handles order/fill tracking via REST polling.
+        This loop just keeps the user stream tracker alive so the connector
+        reports ready.
+        """
+        while True:
+            try:
+                self._last_recv_time = time.time()
+                await asyncio.sleep(self.HEARTBEAT_TIME_INTERVAL)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().warning(
+                    "Unexpected error in user stream keep-alive. Retrying...",
+                    exc_info=True,
+                )
+                await asyncio.sleep(5.0)
 
     async def _process_event_message(
         self, event_message: Dict[str, Any], queue: asyncio.Queue
     ):
-        if event_message.get("error") is not None:
-            err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
-            raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
-
-    async def _process_websocket_messages(
-        self, websocket_assistant: WSAssistant, queue: asyncio.Queue
-    ):
-        while True:
-            try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant, queue=queue
-                )
-            except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"method": "ping"})
-                await websocket_assistant.send(ping_request)
+        pass

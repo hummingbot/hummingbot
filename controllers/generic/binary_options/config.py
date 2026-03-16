@@ -102,9 +102,16 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
 
     def update_markets(self, markets):
         """Register connector so Hummingbot instantiates it."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("BinaryOptionsControllerConfig.update_markets called: connector=%s, trading_pair=%s, markets_type=%s",
+                    self.connector_name, self.trading_pair, type(markets).__name__)
         # markets is a GroupedSetDict; call add_or_update directly
         if hasattr(markets, 'add_or_update'):
-            return markets.add_or_update(self.connector_name, self.trading_pair)
+            result = markets.add_or_update(self.connector_name, self.trading_pair)
+            logger.info("After add_or_update: markets=%s", dict(result) if hasattr(result, 'items') else result)
+            return result
+        logger.warning("markets has no add_or_update method!")
         return markets
 
     def get_controller_class(self):

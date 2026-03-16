@@ -13,7 +13,11 @@ from typing import Dict, List
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop, TripleBarrierConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TrailingStop,
+    TripleBarrierConfig,
+)
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 from .action_router import ActionRouter
@@ -21,7 +25,7 @@ from .config import BinaryOptionsControllerConfig, CoinRoster, RuntimeBridge
 from .exit_monitor import ExitMonitor
 from .market_manager import MarketManager
 from .position_tracker import PositionTracker
-from .quote_manager import QuoteManager, QuoteAction, QuoteActions
+from .quote_manager import QuoteAction, QuoteActions, QuoteManager
 from .signal_engine import SignalEngine
 from .spot_feed import SpotFeed
 
@@ -103,8 +107,8 @@ class BinaryOptionsController(ControllerBase):
         btc_spot = spots.get("BTC", 0.0)
 
         # 3. Market discovery + evaluation + build
-        self.market_manager.discover(spots, now_ts)
-        self.market_manager.evaluate(now_ts)
+        await self.market_manager.discover(spots, now_ts)
+        await self.market_manager.evaluate(now_ts)
         market_data = self.market_manager.build_market_data(now_ts)
 
         # 4. Update spot feed with pyth addresses from discovered markets
