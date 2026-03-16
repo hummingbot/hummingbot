@@ -3,7 +3,7 @@ import logging
 import math
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -13,9 +13,26 @@ _TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Time formats for parsing expiry from title (same as limitless_client.py)
+_TIME_FMTS = ["%b %d, %H:%M UTC", "%b %d, %Y, %H:%M UTC", "%b %d, %Y"]
 
-def _parse_title(title: str) -> Optional[tuple]:
-    """Extract (ticker, strike_float) from market title, or None."""
+
+def _parse_time(s: str) -> Optional[datetime]:
+    """Parse expiry datetime from title date string (e.g. 'Mar 16, 23:00 UTC')."""
+    now = datetime.now(timezone.utc)
+    for fmt in _TIME_FMTS:
+        try:
+            dt = datetime.strptime(s.strip(), fmt)
+            if dt.year == 1900:
+                dt = dt.replace(year=now.year)
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_title(title: str) -> Optional[Tuple[str, float, Optional[datetime]]]:
+    """Extract (ticker, strike_float, expiry_dt) from market title, or None."""
     m = _TITLE_RE.search(title)
     if not m:
         return None
@@ -25,7 +42,8 @@ def _parse_title(title: str) -> Optional[tuple]:
         strike = float(strike_str)
     except ValueError:
         return None
-    return ticker, strike
+    expiry_dt = _parse_time(m.group(3).strip())
+    return ticker, strike, expiry_dt
 
 
 class MarketManager:
@@ -103,43 +121,57 @@ class MarketManager:
             if not parsed:
                 logger.debug("discover: skipping unparseable title: %s", title[:50])
                 continue
-            ticker, strike = parsed
-            logger.debug("discover: parsed %s strike=%s from: %s", ticker, strike, title[:50])
+            ticker, strike, title_expiry = parsed
+            logger.debug("discover: parsed %s strike=%s expiry=%s", ticker, strike, title_expiry)
 
             # Skip BANNED coins
             if self._roster.tier(ticker) == "BANNED":
                 continue
 
-            # CLOB only
-            if mkt.get("type", "").upper() == "AMM":
+            # CLOB only — check tradeType (SDK field) or trade_type
+            trade_type = mkt.get("tradeType", mkt.get("trade_type", "clob"))
+            if trade_type and trade_type.lower() != "clob":
                 continue
 
-            # Expiry checks
-            expiry = mkt.get("expiry")
-            if isinstance(expiry, (int, float)):
-                expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
-            elif isinstance(expiry, datetime):
-                expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
-            elif isinstance(expiry, str):
-                try:
-                    expiry_dt = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
-                except ValueError:
-                    continue
-            else:
+            # Expiry: prefer parsed from title (has exact time), fall back to API field
+            expiry_dt = title_expiry
+            if not expiry_dt:
+                expiry = mkt.get("expiry") or mkt.get("expiration_date")
+                if isinstance(expiry, (int, float)):
+                    expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
+                elif isinstance(expiry, datetime):
+                    expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
+                elif isinstance(expiry, str):
+                    expiry_dt = _parse_time(expiry)
+            if not expiry_dt:
+                logger.debug("discover: no valid expiry for %s", title[:50])
                 continue
 
             # Must not be expired
             if expiry_dt <= now_dt:
                 continue
 
-            # Hourly only: expiry within 6 hours
+            # Configurable look-ahead (default 6h)
             hours_until = (expiry_dt - now_dt).total_seconds() / 3600
             max_expiry_h = 6.0
             if hours_until > max_expiry_h:
                 continue
 
-            yes_price = float(mkt.get("yes_price", 0.5))
-            no_price = float(mkt.get("no_price", 0.5))
+            # Extract yes/no prices — handle both list and dict format
+            prices = mkt.get("prices", [])
+            if isinstance(prices, list) and len(prices) >= 2:
+                yes_price = float(prices[0])
+                no_price = float(prices[1])
+            elif isinstance(prices, dict):
+                yes_price = float(prices.get("yes", 0.5))
+                no_price = float(prices.get("no", 0.5))
+            else:
+                yes_price = float(mkt.get("yes_price", 0.5))
+                no_price = float(mkt.get("no_price", 0.5))
+            # Normalize if prices are in cents (>2.0 sum)
+            if yes_price + no_price > 2.0:
+                yes_price /= 100.0
+                no_price /= 100.0
 
             market_dict = {
                 "coin": ticker,
@@ -228,32 +260,50 @@ class MarketManager:
             if ticker not in self._locked_markets:
                 continue  # only evaluate tickers we already track
 
-            expiry = mkt.get("expiry")
-            if isinstance(expiry, (int, float)):
-                expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
-            elif isinstance(expiry, datetime):
-                expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
-            elif isinstance(expiry, str):
-                try:
-                    expiry_dt = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
-                except ValueError:
-                    continue
+            # Use title-parsed expiry (has exact time)
+            title = mkt.get("title", "")
+            title_parsed = _parse_title(title)
+            if title_parsed:
+                _, _, title_expiry = title_parsed
+                expiry_dt = title_expiry
             else:
+                expiry_dt = None
+            if not expiry_dt:
+                expiry = mkt.get("expiry") or mkt.get("expiration_date")
+                if isinstance(expiry, (int, float)):
+                    expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
+                elif isinstance(expiry, datetime):
+                    expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
+                elif isinstance(expiry, str):
+                    expiry_dt = _parse_time(expiry)
+            if not expiry_dt or expiry_dt <= now_dt:
                 continue
 
-            if expiry_dt <= now_dt:
-                continue
+            # Extract prices from list or dict
+            prices = mkt.get("prices", [])
+            if isinstance(prices, list) and len(prices) >= 2:
+                yes_p = float(prices[0])
+                no_p = float(prices[1])
+            elif isinstance(prices, dict):
+                yes_p = float(prices.get("yes", 0.5))
+                no_p = float(prices.get("no", 0.5))
+            else:
+                yes_p = float(mkt.get("yes_price", 0.5))
+                no_p = float(mkt.get("no_price", 0.5))
+            if yes_p + no_p > 2.0:
+                yes_p /= 100.0
+                no_p /= 100.0
 
             slug = mkt.get("slug", "")
             ticker_candidates.setdefault(ticker, []).append({
                 "slug": slug,
                 "market_id": mkt.get("market_id", mkt.get("id", "")),
-                "title": mkt.get("title", ""),
+                "title": title,
                 "strike": strike,
                 "coin": ticker,
                 "expiry": expiry_dt,
-                "yes_price": float(mkt.get("yes_price", 0.5)),
-                "no_price": float(mkt.get("no_price", 0.5)),
+                "yes_price": yes_p,
+                "no_price": no_p,
                 "pyth_address": mkt.get("pyth_address", ""),
                 "max_spread": float(mkt.get("max_spread", 0.035)),
                 "volume": float(mkt.get("volume", 0)),
