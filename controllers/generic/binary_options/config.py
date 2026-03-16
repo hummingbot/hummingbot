@@ -66,8 +66,8 @@ class QuoteConfig(BaseModel):
     inner_fraction: float = 0.2
     outer_fraction: float = 0.9
     skew_sensitivity: float = 0.5
-    base_size: int = 100
-    max_size: int = 500
+    base_size: float = 100.0
+    max_size: float = 500.0
     reprice_threshold: float = 0.01
     odds_min: float = 0.05
     odds_max: float = 0.95

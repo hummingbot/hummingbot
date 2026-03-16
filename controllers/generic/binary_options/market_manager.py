@@ -259,7 +259,7 @@ class MarketManager:
             parsed = _parse_title(mkt.get("title", ""))
             if not parsed:
                 continue
-            ticker, strike = parsed
+            ticker, strike, _ = parsed
             if self._roster.tier(ticker) == "BANNED":
                 continue
             if ticker not in self._locked_markets:
@@ -314,10 +314,10 @@ class MarketManager:
                 "volume": float(mkt.get("volume", 0)),
             })
 
-        def _score(md: dict) -> float:
+        async def _score(md: dict) -> float:
             """Compute score: depth_weight × normalized_depth + atm_weight × atm_proximity."""
             slug = md.get("slug", "")
-            ob = self._connector.get_order_book(slug)
+            ob = await self._connector.get_order_book(slug)
             near_depth = 0.0
             if ob:
                 mid = (ob.get("bid", 0.5) + ob.get("ask", 0.5)) / 2.0
@@ -345,7 +345,7 @@ class MarketManager:
 
             # Score all candidates
             for c in cands:
-                _score(c)
+                await _score(c)
 
             # Normalize
             max_depth = max((c["_near_depth"] for c in cands), default=1.0) or 1.0
@@ -388,7 +388,7 @@ class MarketManager:
     # Layer 3: build_market_data
     # ------------------------------------------------------------------
 
-    def build_market_data(self, now_ts: float) -> Dict[str, dict]:
+    async def build_market_data(self, now_ts: float) -> Dict[str, dict]:
         """Per-tick price refresh from connector order books.
 
         Returns {coin: {yes_price, no_price, bid, ask, bid_depth, ask_depth,
@@ -399,7 +399,7 @@ class MarketManager:
 
         for coin, md in self._locked_markets.items():
             slug = md.get("slug", "")
-            ob = self._connector.get_order_book(slug)
+            ob = await self._connector.get_order_book(slug)
 
             if ob:
                 entry = {

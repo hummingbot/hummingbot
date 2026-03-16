@@ -109,7 +109,7 @@ class BinaryOptionsController(ControllerBase):
         # 3. Market discovery + evaluation + build
         await self.market_manager.discover(spots, now_ts)
         await self.market_manager.evaluate(now_ts)
-        market_data = self.market_manager.build_market_data(now_ts)
+        market_data = await self.market_manager.build_market_data(now_ts)
 
         # 4. Update spot feed with pyth addresses from discovered markets
         pyth_addresses = {}

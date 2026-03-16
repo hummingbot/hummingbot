@@ -184,7 +184,7 @@ class LimitlessConnector:
                 # SDK Pydantic model may fail on null fields (e.g. lastTradePrice=None).
                 # Fall back to raw JSON parsing.
                 logger.debug("SDK parse failed for %s, using raw JSON: %s", market_slug, sdk_err)
-                raw = await self._http.get(f"/markets/{market_slug}/orderbook")
+                raw = await self._http_client.get(f"/markets/{market_slug}/orderbook")
                 data = raw.data if hasattr(raw, 'data') else raw
                 if isinstance(data, dict):
                     result = {
