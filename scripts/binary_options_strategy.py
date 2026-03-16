@@ -1,10 +1,10 @@
 import os
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
-from hummingbot.strategy_v2.models.executor_actions import StopExecutorAction
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 
 class BinaryOptionsStrategyConfig(StrategyV2ConfigBase):
@@ -22,7 +22,6 @@ class BinaryOptionsStrategy(StrategyV2Base):
     def on_tick(self):
         super().on_tick()
         if not self._is_stop_triggered:
-            self.check_manual_kill_switch()
             if self.config.max_controller_drawdown_quote:
                 self._check_max_controller_drawdown()
             if self.config.max_global_drawdown_quote:
@@ -54,6 +53,12 @@ class BinaryOptionsStrategy(StrategyV2Base):
             self.logger().warning(f"Global drawdown hit ({total_pnl}). Stopping all.")
             for controller in self.controllers.values():
                 controller.stop()
+
+    def create_actions_proposal(self) -> List[CreateExecutorAction]:
+        return []
+
+    def stop_actions_proposal(self) -> List[StopExecutorAction]:
+        return []
 
     def format_status(self) -> str:
         lines = ["Binary Options Strategy\n"]

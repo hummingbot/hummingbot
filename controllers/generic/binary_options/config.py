@@ -79,6 +79,10 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
 
     routing: ActionRoutingConfig = Field(default_factory=ActionRoutingConfig)
 
+    def get_controller_class(self):
+        from .controller import BinaryOptionsController
+        return BinaryOptionsController
+
 
 # ---------------------------------------------------------------------------
 # RuntimeBridge — hot-reloadable runtime.json reader

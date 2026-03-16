@@ -64,9 +64,13 @@ class BinaryOptionsController(ControllerBase):
         # Action router
         self.action_router = ActionRouter(config.routing, self.position_tracker)
 
-    def on_start(self):
-        """Wire the connector once available via ControllerBase.connectors."""
-        self.market_manager._connector = self.connectors.get(self.config.connector_name)
+    async def on_start(self):
+        """Wire the connector once available.
+        NOTE: ControllerBase doesn't have self.connectors — that's on the Strategy.
+        Market discovery uses Limitless REST API directly (via market_manager),
+        not the Hummingbot connector. Phase 2 may wire the connector here.
+        """
+        pass
 
     async def update_processed_data(self):
         """Called every tick by the V2 control loop."""
