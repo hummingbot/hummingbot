@@ -316,9 +316,31 @@ class LimitlessConnector:
             raise ConnectorError(f"Failed to get open orders for {market_slug}: {exc}", exc) from exc
 
     async def get_order_status(self, order_id: str) -> dict:
-        """Return status of a tracked order (local cache)."""
+        """Return status of a tracked order.
+
+        Checks local cache first, then queries the API for live status.
+        """
         if order_id in self._orders:
-            return self._orders[order_id]
+            cached = self._orders[order_id]
+            if cached.get("status") not in (None, "unknown"):
+                return cached
+        # Query API for live order status via SDK http client
+        try:
+            if self._http_client:
+                data = await self._http_client.get(f"/orders/{order_id}")
+                if isinstance(data, dict):
+                    order_data = {
+                        "order_id": order_id,
+                        "status": data.get("status", "unknown"),
+                        "price": data.get("price"),
+                        "size": data.get("size"),
+                        "filled": data.get("filled_size", data.get("filledSize")),
+                        "created_at": data.get("created_at", data.get("createdAt")),
+                    }
+                    self._orders[order_id] = order_data
+                    return order_data
+        except Exception as e:
+            logger.debug("API order status lookup failed for %s: %s", order_id, e)
         return {"order_id": order_id, "status": "unknown"}
 
     # ── Settlement / Redemption ──────────────────────────────────
@@ -505,7 +527,7 @@ class LimitlessConnector:
             )
 
         # Resolve token_id
-        token_id = self._resolve_token_id(market_slug, token)
+        token_id = await self._resolve_token_id(market_slug, token)
         sdk_order_type = OrderType.GTC if order_type == "GTC" else OrderType.FOK
 
         log_data = {
@@ -572,13 +594,19 @@ class LimitlessConnector:
             logger.error("Order failed: %s — %s", log_data, exc)
             raise ConnectorError(f"Order failed: {exc}", exc) from exc
 
-    def _resolve_token_id(self, market_slug: str, token: str) -> str:
-        """Resolve YES/NO token string to actual token ID from cached market."""
+    async def _resolve_token_id(self, market_slug: str, token: str) -> str:
+        """Resolve YES/NO token string to actual token ID. Auto-fetches if not cached."""
         market = self._markets.get(market_slug)
         if market is None:
-            raise ConnectorError(
-                f"Market {market_slug} not cached. Call get_market() or start() first."
-            )
+            try:
+                market = await self._market_fetcher.get_market(market_slug)
+                self._markets[market_slug] = market
+                if market.venue:
+                    self._venues[market_slug] = market.venue
+            except Exception as exc:
+                raise ConnectorError(
+                    f"Market {market_slug} not found: {exc}"
+                ) from exc
         tokens = getattr(market, "tokens", None)
         if tokens is None:
             raise ConnectorError(f"Market {market_slug} has no token IDs (not a CLOB market?)")
@@ -608,8 +636,12 @@ class LimitlessConnector:
             "trade_type": market.trade_type,
             "market_type": market.market_type,
             "expiration_date": market.expiration_date,
+            "expiration_timestamp": getattr(market, "expiration_timestamp", None),
+            "deadline": market.expiration_date,
+            "categories": getattr(market, "categories", []),
             "prices": market.prices,
             "volume": market.volume,
+            "volume_formatted": getattr(market, "volume_formatted", None),
         }
         if market.tokens:
             d["tokens"] = {"yes": market.tokens.yes, "no": market.tokens.no}
@@ -617,6 +649,12 @@ class LimitlessConnector:
             d["venue"] = {"exchange": market.venue.exchange, "adapter": market.venue.adapter}
         if market.price_oracle_metadata:
             d["ticker"] = market.price_oracle_metadata.ticker
+            d["asset_type"] = market.price_oracle_metadata.asset_type
+        if market.metadata:
+            d["open_price"] = getattr(market.metadata, "open_price", None)
+        if getattr(market, "settings", None):
+            d["min_size"] = getattr(market.settings, "min_size", None)
+            d["max_spread"] = getattr(market.settings, "max_spread", None)
         return d
 
     # ── WebSocket ──────────────────────────────────────────────
