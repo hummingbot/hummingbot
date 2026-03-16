@@ -60,6 +60,22 @@ class ActionRoutingConfig(BaseModel):
 # Controller config
 # ---------------------------------------------------------------------------
 
+class QuoteConfig(BaseModel):
+    """Configuration for the quote manager (market-making on binary options)."""
+    enabled: bool = False
+    inner_fraction: float = 0.2
+    outer_fraction: float = 0.9
+    skew_sensitivity: float = 0.5
+    base_size: int = 100
+    max_size: int = 500
+    reprice_threshold: float = 0.01
+    odds_min: float = 0.05
+    odds_max: float = 0.95
+    min_hours_for_quoting: float = 0.25
+    max_capital_per_market: float = 50.0
+    max_total_capital: float = 200.0
+
+
 class BinaryOptionsControllerConfig(ControllerConfigBase):
     """Top-level config for the BinaryOptionsController."""
 
@@ -78,6 +94,7 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     vol_warmup_ticks: int = Field(default=20)
 
     routing: ActionRoutingConfig = Field(default_factory=ActionRoutingConfig)
+    quoting: QuoteConfig = Field(default_factory=QuoteConfig)
 
     def get_controller_class(self):
         from .controller import BinaryOptionsController

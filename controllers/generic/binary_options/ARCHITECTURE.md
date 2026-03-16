@@ -2,8 +2,11 @@
 
 ## Overview
 
-Signal-driven binary options trading controller for Limitless Exchange prediction markets.
+Signal-driven binary options controller for Limitless Exchange prediction markets.
 Extends Hummingbot V2 `ControllerBase` — platform-agnostic, modular, all params backtestable via Optuna.
+
+**Dual mode:** Directional trading (action_router) OR signal-informed market making (quote_manager).
+Config toggle switches between modes. Both share the same signal infrastructure.
 
 ## Module Map
 
@@ -17,10 +20,12 @@ controllers/generic/binary_options/
 ├── position_tracker.py   # Pre-entry gates, cooldowns, streaks, circuit breaker
 ├── exit_monitor.py       # BTC reversal + settlement detection (Phase 1 only)
 ├── action_router.py      # Decision tree → 12 entry paths, conflict modes, sizing
+├── quote_manager.py      # Signal-informed MM — reward tunnel, z-score driven quoting
 ├── spot_feed.py          # Spot prices: Pyth batch primary, Binance fallback
 ├── order_types.py        # Order type enums, dataclasses, BinaryOrderExecutor routing
 ├── __init__.py           # Exports BinaryOptionsController + Config
 └── tests/
+    ├── conftest.py           # Shared HB module stubs
     ├── test_controller.py
     ├── test_config.py
     ├── test_signal_engine.py
@@ -29,7 +34,8 @@ controllers/generic/binary_options/
     ├── test_position_tracker.py
     ├── test_exit_monitor.py
     ├── test_action_router.py
-    └── test_spot_feed.py
+    ├── test_spot_feed.py
+    └── test_quote_manager.py
 ```
 
 ## Data Flow (per tick)
@@ -47,9 +53,12 @@ controllers/generic/binary_options/
 │    6. signal_engine.tick()            ← generate signals        │
 │                                                                 │
 │  determine_executor_actions():                                  │
-│    1. exit_monitor.check_all()        → StopExecutorAction[]    │
-│    2. action_router.route()           → CreateExecutorAction[]  │
-│    3. sync closed executors           → position_tracker        │
+│    if quoting.enabled:                                          │
+│      7a. quote_manager.tick()         → QuoteActions            │
+│    else:                                                        │
+│      7b. exit_monitor.check_all()     → StopExecutorAction[]    │
+│      7c. action_router.route()        → CreateExecutorAction[]  │
+│    8. sync closed executors           → position_tracker        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -58,71 +67,91 @@ controllers/generic/binary_options/
 ### controller.py
 - Extends `ControllerBase` — ONLY file importing Hummingbot classes
 - Wires all modules in `__init__`, connector in `on_start()`
+- Routes to quote_manager (MM mode) or action_router (directional mode) based on config
 - Converts plain dicts from modules → `CreateExecutorAction` / `StopExecutorAction`
-- Builds `PositionExecutorConfig` + `TripleBarrierConfig` per entry (Phase 1)
 
 ### config.py
 - `BinaryOptionsControllerConfig` — top-level controller config (Pydantic)
-- `ActionRoutingConfig` — 18 toggles for decision tree (all Optuna-sweepable)
-- `RuntimeBridge` — hot-reload `runtime.json`, per-coin param access, tier management
-- `CoinRoster` — tier→multiplier mapping (NORMAL=1.0, REHAB=0.5, BANNED=0)
+- `ActionRoutingConfig` — 18 toggles for directional decision tree
+- `QuoteConfig` — MM parameters (tunnel bounds, skew, sizing)
+- `RuntimeBridge` — hot-reload `runtime.json`, per-coin param access
+- `CoinRoster` — tier→multiplier mapping (MAIN=1.0, REHAB=0.5, BANNED=0)
 
 ### signal_engine.py
 - `SignalEngine` — main signal pipeline class
-- `TypeStats`, `OpenSignal`, `EMALayer`, `CoinProfile`, `DynamicThresholds`
-- Type 1/2/3 classification (plumbing → EMA layers, not entry decisions)
+- Type 1/2/3 classification → EMA layers (behavioral plumbing)
 - Dual-score entry: SPOT z-score + BTC z-score → COMBINED
-- Hour boundary rotation (EMA state rollover)
+- Output used by BOTH action_router and quote_manager
 
 ### fair_value.py
 - `compute_model_prob()` — Black-Scholes probability with time decay
 - `compute_edge()` — model_prob vs market_price
-- `MispricingProfile` — spot mispricing magnitude + direction
+- `MispricingProfile` — spot mispricing tracking + z-score gating
 - `BtcImpliedProfile` — BTC-implied price divergence
-- `halflife_to_alpha()` — EMA alpha from halflife in seconds
-- Pure math, zero side effects, explicit `ts` parameter
+- Pure math, zero side effects
 
 ### market_manager.py
 - 3-layer selection: discover → evaluate → per-tick prices
-- `discover()` — find hourly crypto markets, ATM strike selection
-- `evaluate()` — WS subscription scoring, liquidity check
-- `build_market_data()` — current YES/NO prices, volume, expiry
-- BANNED filtering, drain mode, expiry detection
+- ATM strike selection, BANNED filtering, drain mode, expiry detection
 
 ### position_tracker.py
-- 7 pre-entry gates (position limits, cooldown, streak, circuit breaker, etc.)
-- `can_open(coin, now_ts)` → bool (called by action_router)
-- `record_open()` / `record_close()` — state tracking
-- Circuit breaker: N consecutive losses → pause trading for cooldown period
+- 7 pre-entry gates (position limits, cooldown, streak, circuit breaker)
+- Used by BOTH action_router (directional) and quote_manager (post-fill)
 
-### exit_monitor.py (Phase 1 — temporary)
-- BTC reversal: cross-asset exit when BTC moves against position ≥ threshold
-- Settlement: hold winners near expiry (→ $1.00), exit losers
-- Returns plain dicts — controller wraps in `StopExecutorAction`
-- **Removed in Phase 2** when `BinaryOptionsExecutor` owns all exits
+### exit_monitor.py (Phase 1)
+- BTC reversal detection (cross-asset exit trigger)
+- Settlement proximity detection (hold winners, exit losers)
+- Used in directional mode AND for filled MM positions
 
-### action_router.py
-- `ExecutionPath` enum — 12 entry paths (5 bullish, 5 bearish, 2 neutral)
-- Decision tree: delta neutral → mint → taker/market → DEFAULT limit
-- `_check_conflict()` — veto / reduce / ignore signal disagreement
-- `_compute_size()` — fixed / edge_scaled / kelly
-- Phase 1: only paths 2 (BUY_YES_LIMIT) and 7 (BUY_NO_LIMIT) active
+### action_router.py (directional mode)
+- 12 entry paths via `ExecutionPath` enum
+- Decision tree: delta neutral → mint → taker/market → limit
+- Signal conflict handling (veto/reduce/ignore)
+- Position sizing (fixed/edge_scaled/kelly)
+
+### quote_manager.py (MM mode)
+- Signal-informed market making within LP reward tunnel
+- **Reward tunnel:** inner wall (competitive) ↔ outer wall (LP spread limit)
+- Z-score slides quote position within tunnel
+- Model disagreement skews tunnel asymmetrically
+- At threshold: favored side stays (inner wall), opposing side pulls
+- Post-fill: dynamic close order using `tp_distance` from runtime.json
+- 5 states: IDLE → SYMMETRIC → SKEWED → ONE_SIDED → FILLED → CONVERGED
+- **No new thresholds** — all from existing runtime.json via RuntimeBridge
 
 ### spot_feed.py
-- Source-agnostic spot prices (Pyth primary, Binance fallback)
-- Pyth: batch HTTP to Hermes API (all tickers in 1 call)
-- Binance: individual ticker fallback
-- Independent circuit breakers per source
-- Cache with 3s TTL, auto Pyth recovery every 50 ticks
-- `is_stale` property for health monitoring
+- Pyth batch primary + Binance individual fallback
+- Independent circuit breakers per source, cache with 3s TTL
 
 ### order_types.py
-- `OrderSide`, `OrderExecution`, `MintAction` enums
-- `BinaryOrderConfig` — order params (side, price, size, execution, mint)
-- `BinaryOrderExecutor` — routing: limit/market/mint flows via connector
-- Phase 1 plumbing — full executor lifecycle in Phase 2
+- Order type enums, dataclasses, routing plumbing
+- Phase 1: limit buy only. Phase 2: full lifecycle.
 
-## 14 Execution Paths
+## Revenue Streams (MM Mode)
+
+| Stream | Mechanism | Requires Fills? |
+|--------|-----------|-----------------|
+| LP Rewards | Orders within spread of midpoint, per-minute calculation | No |
+| Maker Rebates | 20% of taker fees on Hourly + 15-min Crypto | Yes |
+| Spread Capture | Both sides filled at total < $1.00 = settlement profit | Yes (both) |
+
+**LP Reward Rules:**
+- Max spread from midpoint (per-market, e.g. 3¢)
+- Min shares threshold (per-market, e.g. 100)
+- Bonus multiplier for tighter quotes
+- One-sided OK only at 5%–95% odds
+- **Makers pay ZERO fees** — placing/cancelling is free
+
+## Threshold Reuse (MM Mode)
+
+| runtime.json param | Directional usage | MM usage |
+|---|---|---|
+| `edge_z_threshold` | Entry trigger | Opposing-side pull trigger |
+| `btc_z_threshold` | BTC signal gate | Opposing-side pull trigger |
+| `tp_distance` | Take profit | Post-fill close order distance |
+| `scale_in_cooldown_seconds` | Scale-in cooldown | Post-fill requoting cooldown |
+
+## 14 Execution Paths (Directional Mode)
 
 | # | Path | Direction | Method | Phase |
 |---|------|-----------|--------|-------|
@@ -159,13 +188,14 @@ All other modules: stdlib + sibling imports only
 ```
 conf/controllers/binary_options.yml     ← YAML loaded by Hummingbot
   → BinaryOptionsControllerConfig       ← Pydantic model
-    → ActionRoutingConfig               ← 18 toggles (decision tree)
+    → ActionRoutingConfig               ← 18 toggles (directional)
+    → QuoteConfig                       ← MM parameters (tunnel, skew, sizing)
     → runtime_json_path                 ← points to runtime.json
 
 runtime.json (external, hot-reloaded)   ← written by Optuna evaluator
-  → per-coin params (stop_loss, trailing, timeout, thresholds)
+  → per-coin params (thresholds, tp_distance, cooldowns)
   → param_space (Optuna search ranges)
-  → tiers (NORMAL/REHAB/BANNED)
+  → tiers (MAIN/REHAB/BANNED)
   → _pinned (locked params)
 ```
 
@@ -173,9 +203,10 @@ runtime.json (external, hot-reloaded)   ← written by Optuna evaluator
 
 | Phase | What | Status |
 |-------|------|--------|
-| 1 | BinaryOptionsController + PositionExecutor (limit buy only) | **Building** |
-| 2 | Custom BinaryOptionsExecutor (7-priority exits, mint, settlement) | Specced |
-| 3 | Port signal logic fully, kill standalone tracker | Planned |
+| 1 | BinaryOptionsController + PositionExecutor (limit buy only) | ✅ Done |
+| 2 | Integration test + MM module (quote_manager) | ✅ Building |
+| 3 | Custom BinaryOptionsExecutor (7-priority exits, mint, settlement) | Specced |
+| 4 | Port signal logic fully, kill standalone tracker | Planned |
 
 ## Test Summary
 
@@ -189,9 +220,10 @@ runtime.json (external, hot-reloaded)   ← written by Optuna evaluator
 | exit_monitor | 11 |
 | action_router | 20 |
 | spot_feed | 10 |
-| controller | 9 (7 pass, 2 need mock fixes) |
+| controller | 9 |
 | order_types | 32 |
-| **Total** | **192** |
+| quote_manager | TBD |
+| **Total** | **192+** |
 
 ## Spec Documents
 
@@ -203,6 +235,7 @@ All in `docs/limitless/`:
 - `specs/SPEC-binary-options-controller.md` — controller architecture
 - `specs/SPEC-module-breakdown.md` — 9-module plan + build order
 - `specs/SPEC-binary-options-executor.md` — Phase 2 executor
+- `specs/SPEC-quote-manager.md` — MM module (reward tunnel, z-score quoting)
 - `specs/SPEC-execution-paths.md` — 14 paths taxonomy
 - `specs/SPEC-order-types.md` — order type system
 - `specs/SPEC-script-and-config.md` — top-level script + YAML
