@@ -160,16 +160,16 @@ controllers/
       binary_options_controller.py   # ControllerBase subclass
 ```
 
-Config:
-- `connector_name` = "limitless"
-- `asset_whitelist` = ["BTC", "ETH", "SOL"]
-- `max_concurrent_positions` = 3
-- `position_size_usdc` = 1.0 (per trade)
-- `min_signal_strength` = 0.5
-- `time_buffer_seconds` = 120 (exit 2 min before expiry)
-- `taker_threshold_seconds` = 300 (only go taker if <5 min to expiry)
-- `taker_signal_threshold` = 0.8 (strong signal required for taker)
-- `limit_price_offset` = 0.01 (1¢ better than best bid for priority)
+Config (structure, not values — all thresholds from backtesting):
+- `connector_name` — exchange connector
+- `asset_whitelist` — which underlyings to trade
+- `max_concurrent_positions` — concurrency limit
+- `position_size_usdc` — per-trade budget
+- `min_signal_strength` — minimum signal to act (TBD from backtest)
+- `time_buffer_seconds` — exit before expiry window
+- `taker_threshold_seconds` — when to fall back to taker
+- `taker_signal_threshold` — signal strength required for taker entry
+- `limit_price_offset` — how far from best bid to place
 
 **Limit-first execution model:**
 Every entry and exit defaults to LIMIT MAKER orders. This earns:
@@ -178,24 +178,21 @@ Every entry and exit defaults to LIMIT MAKER orders. This earns:
 
 `update_processed_data()`:
 1. Fetch active markets from connector
-2. Filter: asset whitelist, hourly only, >10 min to expiry
+2. Filter: asset whitelist, market type, sufficient time to expiry
 3. For each market: compute ATM score (how close to strike)
-4. For each ATM market: compute directional signal (our divergence/beta logic)
-5. Rank by signal_strength × ATM_score
-6. Track resting order LP reward accumulation time
+4. For each ATM market: compute directional signal (divergence/beta from tracker)
+5. Rank opportunities
 
 `determine_executor_actions()`:
 1. Check active executors count + cooldown
-2. If best signal > threshold AND budget available:
-   - Time to expiry > `taker_threshold_seconds`:
-     → LIMIT BUY YES/NO at best bid + offset (maker entry)
-   - Time to expiry < `taker_threshold_seconds` AND signal > `taker_signal_threshold`:
-     → MARKET BUY YES/NO (taker fallback, rare)
-   - Else: SKIP (not enough edge or time)
+2. If signal passes threshold AND budget available:
+   - Enough time to expiry → LIMIT BUY YES/NO (maker entry)
+   - Near expiry + strong signal → MARKET BUY YES/NO (taker fallback, rare)
+   - Else → SKIP
 3. Exits:
-   - Approaching expiry (< time_buffer): Limit SELL or hold to settlement
+   - Approaching expiry: Limit SELL or hold to settlement
    - Reversal signal: Limit SELL (if time), Market SELL (if urgent)
-   - Strong unrealized gain: Limit SELL to lock profit + earn exit rebate
+   - Unrealized gain: Limit SELL to lock profit + earn exit rebate
 
 ### Phase 2: Mint Paths + Delta Neutral
 - MINT + SELL opposite side for capital-efficient directional entries
