@@ -86,8 +86,15 @@ _hb_scb.ControllerConfigBase = _StubControllerConfigBase
 _hb_se = ModuleType("hummingbot.strategy_v2.executors")
 _hb_sep = ModuleType("hummingbot.strategy_v2.executors.position_executor")
 _hb_sepd = ModuleType("hummingbot.strategy_v2.executors.position_executor.data_types")
+class _TrailingStop:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
 _hb_sepd.PositionExecutorConfig = _PositionExecutorConfig
 _hb_sepd.TripleBarrierConfig = _TripleBarrierConfig
+_hb_sepd.TrailingStop = _TrailingStop
 _hb_sed = ModuleType("hummingbot.strategy_v2.executors.data_types")
 
 _hb_sm = ModuleType("hummingbot.strategy_v2.models")

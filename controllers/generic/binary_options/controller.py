@@ -13,7 +13,7 @@ from typing import Dict, List
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
+from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 from .action_router import ActionRouter
@@ -67,6 +67,9 @@ class BinaryOptionsController(ControllerBase):
 
         # Quote manager (MM mode)
         self.quote_manager = QuoteManager(config.quoting, self.runtime_bridge)
+
+        # MM executor map: "COIN:SIDE" -> executor_id
+        self._mm_executor_map: Dict[str, str] = {}
 
     async def on_start(self):
         """Wire the connector once available.
@@ -233,7 +236,7 @@ class BinaryOptionsController(ControllerBase):
         return actions
 
     def _determine_mm_actions(self) -> List:
-        """MM mode: quote_manager drives, PositionExecutor manages fills."""
+        """MM mode: each quote = a PositionExecutor with full barriers."""
         actions: List = []
         now_ts = self.processed_data.get("now_ts", time.time())
         signals = self.processed_data.get("coins", {})
@@ -251,84 +254,122 @@ class BinaryOptionsController(ControllerBase):
         )
 
         for qa in quote_actions.actions:
+            trading_pair = market_data.get(qa.coin, {}).get("slug", "")
+            if not trading_pair:
+                continue
+
             if qa.action == "place":
-                trading_pair = market_data.get(qa.coin, {}).get("slug", "")
-                if not trading_pair:
-                    continue
-
-                triple_barrier = TripleBarrierConfig(
-                    open_order_type=OrderType.LIMIT_MAKER,
-                    time_limit=int(hours_left.get(qa.coin, 1) * 3600),
+                coin = qa.coin
+                executor_config = self._make_mm_executor_config(
+                    coin, trading_pair, qa.price, qa.size, hours_left, now_ts
                 )
-
-                executor_config = PositionExecutorConfig(
-                    timestamp=now_ts,
-                    trading_pair=trading_pair,
-                    connector_name=self.config.connector_name,
-                    side=TradeType.BUY,
-                    entry_price=Decimal(str(qa.price)),
-                    amount=Decimal(str(qa.size)),
-                    triple_barrier_config=triple_barrier,
-                )
+                self._mm_executor_map[f"{qa.coin}:{qa.side}"] = executor_config.id
                 actions.append(CreateExecutorAction(
                     controller_id=self.config.id,
                     executor_config=executor_config,
                 ))
 
             elif qa.action == "cancel":
-                if qa.order_id:
+                key = f"{qa.coin}:{qa.side}"
+                executor_id = self._mm_executor_map.pop(key, None)
+                if executor_id:
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
-                        executor_id=qa.order_id,
+                        executor_id=executor_id,
                     ))
 
-            elif qa.action == "close_order":
-                trading_pair = market_data.get(qa.coin, {}).get("slug", "")
-                if not trading_pair:
-                    continue
-
-                coin = qa.coin
-                sl = self.runtime_bridge.get_coin_param(coin, "stop_loss_pct", 0.03)
-                tp = self.runtime_bridge.get_coin_param(coin, "tp_distance", 0.05)
-                tt = self.runtime_bridge.get_coin_param(coin, "trailing_trigger_pct", 0.05)
-                td = self.runtime_bridge.get_coin_param(coin, "trailing_distance_pct", 0.02)
-                timeout = int(hours_left.get(coin, 1) * 3600)
-
-                triple_barrier = TripleBarrierConfig(
-                    stop_loss=Decimal(str(sl)),
-                    take_profit=Decimal(str(tp)),
-                    trailing_stop={
-                        "activation_price": Decimal(str(tt)),
-                        "trailing_delta": Decimal(str(td)),
-                    } if tt and td else None,
-                    time_limit=timeout,
+            elif qa.action == "update":
+                key = f"{qa.coin}:{qa.side}"
+                old_id = self._mm_executor_map.pop(key, None)
+                if old_id:
+                    actions.append(StopExecutorAction(
+                        controller_id=self.config.id,
+                        executor_id=old_id,
+                    ))
+                executor_config = self._make_mm_executor_config(
+                    qa.coin, trading_pair, qa.price, qa.size, hours_left, now_ts
                 )
-
-                executor_config = PositionExecutorConfig(
-                    timestamp=now_ts,
-                    trading_pair=trading_pair,
-                    connector_name=self.config.connector_name,
-                    side=TradeType.BUY,
-                    entry_price=Decimal(str(qa.price)),
-                    amount=Decimal(str(qa.size)),
-                    triple_barrier_config=triple_barrier,
-                )
+                self._mm_executor_map[key] = executor_config.id
                 actions.append(CreateExecutorAction(
                     controller_id=self.config.id,
                     executor_config=executor_config,
                 ))
 
+            # close_order is NOT handled — PositionExecutor manages exit via barriers
+
+        # Detect fills: notify quote_manager so it can pull opposing side
+        for ei in self.executors_info:
+            is_active = hasattr(ei, 'is_active') and ei.is_active
+            if not is_active:
+                continue
+            eid = ei.id if hasattr(ei, 'id') else ''
+            for key, mapped_id in list(self._mm_executor_map.items()):
+                if mapped_id == eid:
+                    coin, side = key.split(":", 1)
+                    fill_price = float(ei.entry_price) if hasattr(ei, 'entry_price') else 0.0
+                    fill_size = float(ei.filled_amount_quote) if hasattr(ei, 'filled_amount_quote') else 0.0
+                    if fill_price > 0:
+                        fill_actions = self.quote_manager.on_fill(coin, side, fill_price, fill_size)
+                        for fa in fill_actions.actions:
+                            if fa.action == "cancel":
+                                opp_key = f"{fa.coin}:{fa.side}"
+                                opp_id = self._mm_executor_map.pop(opp_key, None)
+                                if opp_id:
+                                    actions.append(StopExecutorAction(
+                                        controller_id=self.config.id,
+                                        executor_id=opp_id,
+                                    ))
+                    break
+
         # Sync closed executors
         for ei in self.executors_info:
-            is_closed = ei.is_closed if hasattr(ei, "is_closed") else False
+            is_closed = ei.is_closed if hasattr(ei, 'is_closed') else False
             if not is_closed:
                 continue
-            eid = ei.id if hasattr(ei, "id") else ""
+            eid = ei.id if hasattr(ei, 'id') else ''
             if eid:
-                pnl = float(ei.net_pnl_quote) if hasattr(ei, "net_pnl_quote") else 0.0
-                self.position_tracker.record_close("", eid, pnl)
+                pnl = float(ei.net_pnl_quote) if hasattr(ei, 'net_pnl_quote') else 0.0
+                for key, mapped_id in list(self._mm_executor_map.items()):
+                    if mapped_id == eid:
+                        coin = key.split(":")[0]
+                        self._mm_executor_map.pop(key)
+                        self.quote_manager.on_close_fill(coin)
+                        self.position_tracker.record_close(coin, eid, pnl)
+                        break
 
         return actions
+
+    def _make_mm_executor_config(
+        self, coin: str, trading_pair: str, price: float, size: float,
+        hours_left: dict, now_ts: float,
+    ) -> PositionExecutorConfig:
+        """Build a PositionExecutorConfig with full TripleBarrier for MM quotes."""
+        sl = self.runtime_bridge.get_coin_param(coin, "stop_loss_pct", 0.03)
+        tp = self.runtime_bridge.get_coin_param(coin, "tp_distance", 0.05)
+        tt = self.runtime_bridge.get_coin_param(coin, "trailing_trigger_pct", 0.05)
+        td = self.runtime_bridge.get_coin_param(coin, "trailing_distance_pct", 0.02)
+        timeout = int(hours_left.get(coin, 1) * 3600)
+
+        triple_barrier = TripleBarrierConfig(
+            stop_loss=Decimal(str(sl)),
+            take_profit=Decimal(str(tp)),
+            trailing_stop=TrailingStop(
+                activation_price=Decimal(str(tt)),
+                trailing_delta=Decimal(str(td)),
+            ) if tt and td else None,
+            time_limit=timeout,
+            open_order_type=OrderType.LIMIT_MAKER,
+        )
+
+        return PositionExecutorConfig(
+            timestamp=now_ts,
+            trading_pair=trading_pair,
+            connector_name=self.config.connector_name,
+            side=TradeType.BUY,
+            entry_price=Decimal(str(price)),
+            amount=Decimal(str(size)),
+            triple_barrier_config=triple_barrier,
+        )
 
     def to_format_status(self) -> List[str]:
         """Dashboard display for the Hummingbot status command."""

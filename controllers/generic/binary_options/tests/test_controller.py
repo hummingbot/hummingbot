@@ -204,6 +204,7 @@ class TestMMMode:
         assert actions == []
 
     def test_mm_place_creates_executor(self, config):
+        """Place quote creates executor with full TripleBarrier (SL/TP/trailing)."""
         ctrl = self._make_mm_controller(config)
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
         qa = QuoteActions(actions=[
@@ -213,34 +214,134 @@ class TestMMMode:
         actions = ctrl.determine_executor_actions()
         assert len(actions) == 1
         assert isinstance(actions[0], _CreateExecutorAction)
-        assert actions[0].executor_config.trading_pair == "BTC-YES-100K"
-        assert actions[0].executor_config.entry_price == Decimal("0.45")
+        cfg = actions[0].executor_config
+        assert cfg.trading_pair == "BTC-YES-100K"
+        assert cfg.entry_price == Decimal("0.45")
+        # Verify full barrier config from runtime params
+        tb = cfg.triple_barrier_config
+        assert tb.stop_loss == Decimal("0.03")
+        assert tb.take_profit == Decimal("0.05")
+        assert tb.trailing_stop is not None
+        assert tb.trailing_stop.activation_price == Decimal("0.05")
+        assert tb.trailing_stop.trailing_delta == Decimal("0.02")
+        assert tb.open_order_type is not None  # LIMIT_MAKER
+        assert tb.time_limit == 7200  # 2 hours * 3600
 
     def test_mm_cancel_creates_stop(self, config):
+        """Cancel uses _mm_executor_map to find the right executor_id."""
         ctrl = self._make_mm_controller(config)
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        # Pre-populate executor map
+        ctrl._mm_executor_map["BTC:YES"] = "exec_123"
         qa = QuoteActions(actions=[
-            QuoteAction(action="cancel", coin="BTC", side="YES", order_id="order123"),
+            QuoteAction(action="cancel", coin="BTC", side="YES"),
         ])
         self._wire_mm_mocks(ctrl, quote_actions=qa)
         actions = ctrl.determine_executor_actions()
         assert len(actions) == 1
         assert isinstance(actions[0], _StopExecutorAction)
-        assert actions[0].executor_id == "order123"
+        assert actions[0].executor_id == "exec_123"
+        assert "BTC:YES" not in ctrl._mm_executor_map
 
-    def test_mm_close_order_creates_executor_with_barriers(self, config):
+    def test_mm_cancel_no_mapped_executor_no_action(self, config):
+        """Cancel with no mapped executor produces no action."""
         ctrl = self._make_mm_controller(config)
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
         qa = QuoteActions(actions=[
-            QuoteAction(action="close_order", coin="BTC", side="YES", price=0.55, size=10.0),
+            QuoteAction(action="cancel", coin="BTC", side="YES"),
         ])
         self._wire_mm_mocks(ctrl, quote_actions=qa)
         actions = ctrl.determine_executor_actions()
-        assert len(actions) == 1
-        assert isinstance(actions[0], _CreateExecutorAction)
-        cfg = actions[0].executor_config
-        assert cfg.triple_barrier_config.stop_loss == Decimal("0.03")
-        assert cfg.triple_barrier_config.take_profit == Decimal("0.05")
+        assert actions == []
+
+    def test_mm_update_reprices(self, config):
+        """Update = stop old executor + create new one with updated price."""
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        ctrl._mm_executor_map["BTC:YES"] = "old_exec_1"
+        qa = QuoteActions(actions=[
+            QuoteAction(action="update", coin="BTC", side="YES", price=0.48, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, quote_actions=qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 2
+        assert isinstance(actions[0], _StopExecutorAction)
+        assert actions[0].executor_id == "old_exec_1"
+        assert isinstance(actions[1], _CreateExecutorAction)
+        assert actions[1].executor_config.entry_price == Decimal("0.48")
+        # New executor should be in the map
+        assert "BTC:YES" in ctrl._mm_executor_map
+        assert ctrl._mm_executor_map["BTC:YES"] != "old_exec_1"
+
+    def test_mm_executor_map_tracking(self, config):
+        """Place populates _mm_executor_map with coin:side -> executor_id."""
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="place", coin="BTC", side="YES", price=0.45, size=10.0),
+            QuoteAction(action="place", coin="BTC", side="NO", price=0.55, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, quote_actions=qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 2
+        assert "BTC:YES" in ctrl._mm_executor_map
+        assert "BTC:NO" in ctrl._mm_executor_map
+        # IDs should match the executor configs
+        assert ctrl._mm_executor_map["BTC:YES"] == actions[0].executor_config.id
+        assert ctrl._mm_executor_map["BTC:NO"] == actions[1].executor_config.id
+
+    def test_mm_fill_detection_pulls_opposing(self, config):
+        """When executor fill detected, quote_manager.on_fill cancels opposing side."""
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        self._wire_mm_mocks(ctrl, quote_actions=QuoteActions())
+
+        # Set up executor map with both sides
+        ctrl._mm_executor_map["BTC:YES"] = "exec_yes"
+        ctrl._mm_executor_map["BTC:NO"] = "exec_no"
+
+        # Simulate a filled YES executor
+        ei = MagicMock()
+        ei.is_active = True
+        ei.id = "exec_yes"
+        ei.entry_price = Decimal("0.45")
+        ei.filled_amount_quote = Decimal("4.5")
+        ei.is_closed = False
+        ctrl.executors_info = [ei]
+
+        # on_fill should return cancel for opposing NO side
+        fill_result = QuoteActions(actions=[
+            QuoteAction(action="cancel", coin="BTC", side="NO"),
+        ])
+        ctrl.quote_manager.on_fill = MagicMock(return_value=fill_result)
+
+        actions = ctrl.determine_executor_actions()
+        ctrl.quote_manager.on_fill.assert_called_once_with("BTC", "YES", 0.45, 4.5)
+        # Should have a StopExecutorAction for the NO side
+        stop_actions = [a for a in actions if isinstance(a, _StopExecutorAction)]
+        assert len(stop_actions) == 1
+        assert stop_actions[0].executor_id == "exec_no"
+        assert "BTC:NO" not in ctrl._mm_executor_map
+
+    def test_mm_closed_executor_sync(self, config):
+        """Closed executors trigger on_close_fill and record_close."""
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteActions
+        self._wire_mm_mocks(ctrl, quote_actions=QuoteActions())
+
+        ctrl._mm_executor_map["BTC:YES"] = "exec_done"
+
+        ei = MagicMock()
+        ei.is_closed = True
+        ei.is_active = False
+        ei.id = "exec_done"
+        ei.net_pnl_quote = Decimal("3.5")
+        ctrl.executors_info = [ei]
+
+        actions = ctrl.determine_executor_actions()
+        ctrl.quote_manager.on_close_fill.assert_called_once_with("BTC")
+        ctrl.position_tracker.record_close.assert_called_once_with("BTC", "exec_done", 3.5)
+        assert "BTC:YES" not in ctrl._mm_executor_map
 
     def test_mm_disabled_uses_directional(self, config, controller):
         """When quoting.enabled=False, directional path is used."""
