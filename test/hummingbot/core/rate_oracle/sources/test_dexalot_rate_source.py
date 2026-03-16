@@ -99,3 +99,121 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
         self.assertNotIn(self.ignored_trading_pair, prices)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @aioresponses()
+    async def test_get_prices_skips_null_low_high(self, mock_api, ws_connect_mock):
+        """Bug fix #7335: records with null low/high must be skipped, not crash the update cycle.
+
+        Before the fix, ``Decimal(str(None))`` raised ``decimal.InvalidOperation`` and the
+        entire ``get_prices`` call returned an empty dict.  After the fix, only the bad
+        record is skipped; valid pairs are still returned.
+        """
+        symbols_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        symbols_response = [
+            {'env': 'production-multi-subnet', 'pair': 'ALOT/USDC', 'base': 'ALOT', 'quote': 'USDC',
+             'basedisplaydecimals': 2, 'quotedisplaydecimals': 4,
+             'baseaddress': '0x093783055F9047C2BfF99c4e414501F8A147bC69',  # noqa: mock
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',  # noqa: mock
+             'mintrade_amnt': '5.000000000000000000', 'maxtrade_amnt': '50000.000000000000000000',
+             'base_evmdecimals': 18, 'quote_evmdecimals': 6, 'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed',
+             'maker_rate_bps': 10, 'taker_rate_bps': 12, 'allowed_slippage_pct': 20,
+             'additional_ordertypes': None, 'taker_fee': 0.001, 'maker_fee': 0.0012},
+            {'env': 'production-multi-subnet', 'pair': 'WBTC/USDC', 'base': 'WBTC', 'quote': 'USDC',
+             'basedisplaydecimals': 2, 'quotedisplaydecimals': 4,
+             'baseaddress': '0x093783055F9047C2BfF99c4e414501F8A147bC69',  # noqa: mock
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',  # noqa: mock
+             'mintrade_amnt': '5.000000000000000000', 'maxtrade_amnt': '50000.000000000000000000',
+             'base_evmdecimals': 18, 'quote_evmdecimals': 6, 'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed',
+             'maker_rate_bps': 10, 'taker_rate_bps': 12, 'allowed_slippage_pct': 20,
+             'additional_ordertypes': None, 'taker_fee': 0.001, 'maker_fee': 0.0012},
+        ]
+        mock_api.get(url=symbols_url, body=json.dumps(symbols_response))
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        # WBTC record has null low — should be skipped.  ALOT record is valid and must appear.
+        result_subscribe = {'data': [
+            {'pair': 'WBTC/USDC', 'date': '2024-10-04T08:54:32.021Z',
+             'low': None, 'high': '62315',
+             'open': '61466.985162', 'close': '61985.1',
+             'volume': '28.4564045', 'quote_volume': '1753078.71879646658951', 'change': '0.0084'},
+            {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '9', 'high': '11',
+             'open': '0.56628', 'close': '0.5659', 'volume': '124062.5422952677657237',
+             'quote_volume': '70336.660027130678322247184899', 'change': '-0.0007'},
+        ], 'type': 'marketSnapShot'}
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe))
+
+        rate_source = DexalotRateSource()
+        prices = await rate_source.get_prices()
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        # Valid pair must be present
+        alot_usdc = combine_to_hb_trading_pair("ALOT", "USDC")
+        self.assertIn(alot_usdc, prices)
+        self.assertEqual(Decimal("10"), prices[alot_usdc])
+        # Pair with null low must be absent (skipped, not crash)
+        wbtc_usdc = combine_to_hb_trading_pair("WBTC", "USDC")
+        self.assertNotIn(wbtc_usdc, prices)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @aioresponses()
+    async def test_get_prices_skips_non_numeric_low_high(self, mock_api, ws_connect_mock):
+        """Bug fix #7335: records with non-numeric low/high strings must be skipped gracefully.
+
+        The Dexalot API has been observed returning empty strings or placeholder text for
+        price fields.  Before the fix this caused ``decimal.InvalidOperation``; after the
+        fix the bad record is silently skipped and other pairs remain unaffected.
+        """
+        symbols_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        symbols_response = [
+            {'env': 'production-multi-subnet', 'pair': 'ALOT/USDC', 'base': 'ALOT', 'quote': 'USDC',
+             'basedisplaydecimals': 2, 'quotedisplaydecimals': 4,
+             'baseaddress': '0x093783055F9047C2BfF99c4e414501F8A147bC69',  # noqa: mock
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',  # noqa: mock
+             'mintrade_amnt': '5.000000000000000000', 'maxtrade_amnt': '50000.000000000000000000',
+             'base_evmdecimals': 18, 'quote_evmdecimals': 6, 'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed',
+             'maker_rate_bps': 10, 'taker_rate_bps': 12, 'allowed_slippage_pct': 20,
+             'additional_ordertypes': None, 'taker_fee': 0.001, 'maker_fee': 0.0012},
+            {'env': 'production-multi-subnet', 'pair': 'EURC/USDC', 'base': 'EURC', 'quote': 'USDC',
+             'basedisplaydecimals': 2, 'quotedisplaydecimals': 4,
+             'baseaddress': '0x093783055F9047C2BfF99c4e414501F8A147bC69',  # noqa: mock
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',  # noqa: mock
+             'mintrade_amnt': '5.000000000000000000', 'maxtrade_amnt': '50000.000000000000000000',
+             'base_evmdecimals': 18, 'quote_evmdecimals': 6, 'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed',
+             'maker_rate_bps': 10, 'taker_rate_bps': 12, 'allowed_slippage_pct': 20,
+             'additional_ordertypes': None, 'taker_fee': 0.001, 'maker_fee': 0.0012},
+        ]
+        mock_api.get(url=symbols_url, body=json.dumps(symbols_response))
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        # EURC record has an empty-string high — must be skipped without crashing.
+        result_subscribe = {'data': [
+            {'pair': 'EURC/USDC', 'date': '2024-10-04T08:54:32.021Z',
+             'low': '1.0973', 'high': '',
+             'open': '1.104082', 'close': '1.0985',
+             'volume': '202943.428252', 'quote_volume': '223745.305841618516', 'change': '-0.0051'},
+            {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '9', 'high': '11',
+             'open': '0.56628', 'close': '0.5659', 'volume': '124062.5422952677657237',
+             'quote_volume': '70336.660027130678322247184899', 'change': '-0.0007'},
+        ], 'type': 'marketSnapShot'}
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe))
+
+        rate_source = DexalotRateSource()
+        prices = await rate_source.get_prices()
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        alot_usdc = combine_to_hb_trading_pair("ALOT", "USDC")
+        self.assertIn(alot_usdc, prices)
+        self.assertEqual(Decimal("10"), prices[alot_usdc])
+        eurc_usdc = combine_to_hb_trading_pair("EURC", "USDC")
+        self.assertNotIn(eurc_usdc, prices)
