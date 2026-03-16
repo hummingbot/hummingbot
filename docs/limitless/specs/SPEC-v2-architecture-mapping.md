@@ -150,7 +150,7 @@ Phase 2: Custom `BinaryOptionsExecutor` for:
 
 ## Implementation Plan
 
-### Phase 1: BinaryOptionsController (Generic Controller)
+### Phase 1: BinaryOptionsController (Generic Controller, Limit-First)
 
 ```
 controllers/
@@ -165,10 +165,16 @@ Config:
 - `asset_whitelist` = ["BTC", "ETH", "SOL"]
 - `max_concurrent_positions` = 3
 - `position_size_usdc` = 1.0 (per trade)
-- `min_signal_strength` = 0.6
+- `min_signal_strength` = 0.5
 - `time_buffer_seconds` = 120 (exit 2 min before expiry)
-- `stop_loss_pct` = 0.50 (50% of entry cost)
-- `take_profit_pct` = 0.80 (80% return)
+- `taker_threshold_seconds` = 300 (only go taker if <5 min to expiry)
+- `taker_signal_threshold` = 0.8 (strong signal required for taker)
+- `limit_price_offset` = 0.01 (1¢ better than best bid for priority)
+
+**Limit-first execution model:**
+Every entry and exit defaults to LIMIT MAKER orders. This earns:
+1. LP Rewards — every minute while order rests on book
+2. Maker Rebates — 20% of taker fee when filled
 
 `update_processed_data()`:
 1. Fetch active markets from connector
@@ -176,25 +182,33 @@ Config:
 3. For each market: compute ATM score (how close to strike)
 4. For each ATM market: compute directional signal (our divergence/beta logic)
 5. Rank by signal_strength × ATM_score
+6. Track resting order LP reward accumulation time
 
 `determine_executor_actions()`:
-1. Check active executors count
-2. If best signal > threshold AND cooldown passed AND budget available:
-   - CreateExecutorAction with PositionExecutorConfig
-   - Map: trading_pair = market_slug, side = BUY, amount = position_size
-   - TripleBarrier: time_limit = seconds_to_expiry - buffer, SL/TP mapped to binary prices
-3. Check active executors approaching expiry → StopExecutorAction
+1. Check active executors count + cooldown
+2. If best signal > threshold AND budget available:
+   - Time to expiry > `taker_threshold_seconds`:
+     → LIMIT BUY YES/NO at best bid + offset (maker entry)
+   - Time to expiry < `taker_threshold_seconds` AND signal > `taker_signal_threshold`:
+     → MARKET BUY YES/NO (taker fallback, rare)
+   - Else: SKIP (not enough edge or time)
+3. Exits:
+   - Approaching expiry (< time_buffer): Limit SELL or hold to settlement
+   - Reversal signal: Limit SELL (if time), Market SELL (if urgent)
+   - Strong unrealized gain: Limit SELL to lock profit + earn exit rebate
 
-### Phase 2: Custom BinaryOptionsExecutor
-- Reversal detection + early exit
-- Token minting for two-sided MM
-- Post-settlement redemption
-- Slippage-aware trailing stop
+### Phase 2: Mint Paths + Delta Neutral
+- MINT + SELL opposite side for capital-efficient directional entries
+- MINT + SELL BOTH for delta neutral income (when spread > $1)
+- Two-sided order management (linked YES+NO)
+- Inventory tracking across minted pairs
+- Post-settlement redemption automation
 
-### Phase 3: Signal Integration
+### Phase 3: Adaptive Execution + Signal Integration
+- Dynamic path selection: limit vs mint vs market based on orderbook + time + signal
 - Port divergence tracker signal logic INTO controller's `update_processed_data()`
-- Use Hummingbot's candles feed for price data instead of our custom WS
-- Keep beta/z-score computation, ditch the standalone tracker process
+- Use Hummingbot's candles feed for price data
+- Smart order routing with cost model per execution path
 
 ## File Structure
 ```

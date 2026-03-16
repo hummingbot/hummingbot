@@ -141,24 +141,33 @@ Even if only one side fills, you're left with a directional position that cost y
 
 ## Implementation Priority
 
-### Phase 1 (Get Trading)
-- Path 1: Market BUY YES (taker, bullish)
-- Path 6: Market BUY NO (taker, bearish)
-- Path E1: Market SELL (exit)
+### Phase 1 (Get Trading — Limit-First)
+- Path 2: Limit BUY YES (maker entry, bullish) ← DEFAULT
+- Path 7: Limit BUY NO (maker entry, bearish) ← DEFAULT
+- Path E2: Limit SELL (maker exit) ← DEFAULT
 - Path E3: Hold to settlement + redeem
-- Simple: signal → market order → hold or exit
+- Fallback ONLY: Market BUY/SELL when <5 min to expiry with strong signal
+- From day one: every entry earns LP rewards while resting + maker rebate on fill
 
-### Phase 2 (Earn Rebates)
-- Path 2: Limit BUY YES (maker entry)
-- Path 7: Limit BUY NO (maker entry)
-- Path E2: Limit SELL (maker exit)
-- Adds: LP rewards + maker rebates on entries/exits
-
-### Phase 3 (Full Arsenal)
-- Paths 3-5, 8-10: MINT paths (directional via mint)
-- Path 11-12: Neutral MM (mint + sell both)
-- Adds: Delta neutral income, capital-efficient entries
+### Phase 2 (Mint Paths)
+- Paths 3-5, 8-10: MINT + SELL for directional via mint
+- Path 11-12: MINT + SELL BOTH for delta neutral income
+- Adds: capital-efficient entries, zero-risk arb when spread > $1
 - Requires: mint/redeem integration, inventory management, two-sided order tracking
+
+### Phase 3 (Adaptive Execution)
+- Dynamic path selection based on orderbook state, time to expiry, signal strength
+- Taker fallback for time-critical exits / strong edge near expiry
+- Smart order routing: limit vs mint vs market based on cost model
+- Linked order management (cancel YES if NO fills, etc.)
+
+### Why Limit-First From Day One
+The old bot used market orders. That was leaving money on the table:
+- Market BUY YES @ $0.50 = pay spread (say $0.52 actual) + 0 rewards
+- Limit BUY YES @ $0.49 = save 3¢ + LP rewards while resting + rebate on fill
+- On $1 positions: 3¢ spread + rewards = 6-10% edge improvement
+- Worst case (no fill): earned LP rewards, lost nothing
+- Only exception: <5 min to expiry with >0.8 signal strength → taker OK
 
 ---
 
