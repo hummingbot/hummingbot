@@ -1,0 +1,58 @@
+# === Controller identity ===
+controller_type: generic
+controller_name: binary_options
+id: binary_options_main
+
+# === Connection ===
+connector_name: limitless
+
+# === Budget ===
+total_amount_quote: 100.0
+
+# === Runtime config paths ===
+runtime_json_path: /home/tiger/.openclaw/workspace/skills/limitless-recon/data/runtime.json
+config_json_path: /home/tiger/.openclaw/workspace/skills/limitless-recon/config.json
+
+# === Signal engine ===
+poll_interval_ms: 1500
+vol_warmup_ticks: 20
+
+# === Action routing ===
+routing:
+  entry_mode: limit
+  taker_edge_threshold: 0.15
+  taker_time_threshold_min: 5.0
+  mint_enabled: false
+  mint_min_spread: 0.03
+  mint_prefer_over_buy: false
+  delta_neutral_enabled: false
+  delta_neutral_max_edge: 0.03
+  delta_neutral_min_spread: 0.02
+  require_signal_agreement: false
+  conflict_mode: veto
+  conflict_size_mult: 0.5
+  exit_mode: limit
+  exit_taker_urgency_min: 2.0
+  hold_to_settlement: true
+  settlement_hold_threshold: 0.70
+  max_positions_per_coin: 1
+  max_total_positions: 5
+  position_size_mode: fixed
+  fixed_position_size: 5.0
+  max_position_size: 20.0
+  edge_size_multiplier: 100.0
+
+# === Market Making (quote_manager) ===
+quoting:
+  enabled: true
+  inner_fraction: 0.2          # 20% of reward spread = closest to mid
+  outer_fraction: 0.9          # 90% of reward spread = widest before pull
+  skew_sensitivity: 0.5        # model disagreement → tunnel asymmetry
+  base_size: 100               # shares per order (must meet LP min_shares)
+  max_size: 500                # max shares per order
+  reprice_threshold: 0.01      # reprice when fair value drifts by this much
+  odds_min: 0.05               # don't quote below 5%
+  odds_max: 0.95               # don't quote above 95%
+  min_hours_for_quoting: 0.25  # 15 min — don't quote near expiry
+  max_capital_per_market: 50.0 # USDC per market
+  max_total_capital: 200.0     # USDC total across all markets
