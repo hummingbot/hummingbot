@@ -43,8 +43,8 @@ routing:
   max_positions_per_coin: 1
   max_total_positions: 5
   position_size_mode: fixed
-  fixed_position_size: 5.0
-  max_position_size: 20.0
+  fixed_position_size: 0.1
+  max_position_size: 1.0
   edge_size_multiplier: 100.0
 
 # === Market Making (quote_manager) ===
@@ -53,11 +53,11 @@ quoting:
   inner_fraction: 0.2          # 20% of reward spread = closest to mid
   outer_fraction: 0.9          # 90% of reward spread = widest before pull
   skew_sensitivity: 0.5        # model disagreement → tunnel asymmetry
-  base_size: 100               # shares per order (must meet LP min_shares)
-  max_size: 500                # max shares per order
+  base_size: 0.1               # shares per order (dust testing)
+  max_size: 1.0                # max shares per order
   reprice_threshold: 0.01      # reprice when fair value drifts by this much
   odds_min: 0.05               # don't quote below 5%
   odds_max: 0.95               # don't quote above 95%
   min_hours_for_quoting: 0.25  # 15 min — don't quote near expiry
-  max_capital_per_market: 50.0 # USDC per market
-  max_total_capital: 200.0     # USDC total across all markets
+  max_capital_per_market: 1.0  # USDC per market (dust testing)
+  max_total_capital: 2.0       # USDC total across all markets

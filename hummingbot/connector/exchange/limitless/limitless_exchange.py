@@ -700,6 +700,7 @@ class LimitlessExchange(ExchangePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         return []
 
-    async def stop(self):
-        await self._stop_inner_connector()
-        await super().stop()
+    def stop(self, clock=None):
+        import asyncio
+        asyncio.ensure_future(self._stop_inner_connector())
+        super().stop(clock)
