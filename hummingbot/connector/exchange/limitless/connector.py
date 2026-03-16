@@ -324,23 +324,27 @@ class LimitlessConnector:
             cached = self._orders[order_id]
             if cached.get("status") not in (None, "unknown"):
                 return cached
-        # Query API for live order status via SDK http client
+        # Query via open orders on all cached markets
         try:
-            if self._http_client:
-                data = await self._http_client.get(f"/orders/{order_id}")
-                if isinstance(data, dict):
+            for slug in list(self._markets.keys()):
+                orders = await self.get_open_orders(slug)
+                for o in orders:
+                    oid = o.get("id", "")
                     order_data = {
-                        "order_id": order_id,
-                        "status": data.get("status", "unknown"),
-                        "price": data.get("price"),
-                        "size": data.get("size"),
-                        "filled": data.get("filled_size", data.get("filledSize")),
-                        "created_at": data.get("created_at", data.get("createdAt")),
+                        "order_id": oid,
+                        "status": o.get("status", "unknown"),
+                        "price": o.get("price"),
+                        "size": o.get("originalSize"),
+                        "remaining": o.get("remainingSize"),
+                        "side": o.get("side"),
+                        "created_at": o.get("createdAt"),
+                        "market_slug": slug,
                     }
-                    self._orders[order_id] = order_data
-                    return order_data
+                    self._orders[oid] = order_data
+                    if oid == order_id:
+                        return order_data
         except Exception as e:
-            logger.debug("API order status lookup failed for %s: %s", order_id, e)
+            logger.debug("API order status scan failed for %s: %s", order_id, e)
         return {"order_id": order_id, "status": "unknown"}
 
     # ── Settlement / Redemption ──────────────────────────────────
