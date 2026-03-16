@@ -30,9 +30,10 @@ controllers/
   - `redeem_positions(market_slug)` → dict with tx_hash, usdc_redeemed
   - `get_active_markets(ticker=None)` → list of market dicts
   - `get_market(market_slug)` → market dict
-- Connector method NOT YET BUILT (needed for Phase 2):
-  - `mint_tokens(market_slug, amount)` — calls CTF `splitPosition` ($1 USDC → 1 YES + 1 NO)
+- Connector methods to ADD (same file, follow `redeem_positions` pattern):
+  - `mint_tokens(market_slug, amount_usdc)` — calls CTF `splitPosition` ($N USDC → N YES + N NO)
   - `get_token_balance(market_slug, token)` — YES/NO token balance for a specific market
+  - See "Connector Additions" section below for implementation details
 
 ## Enums
 
@@ -388,20 +389,88 @@ For MINT paths (Phase 2):
 1. `connector.mint_tokens(slug, amount)` → get YES + NO tokens
 2. Then place SELL order(s) per mapping above
 
-## Phase 1 Scope
+## Connector Additions
 
-Implement:
+Add these two methods to `hummingbot/connector/exchange/limitless/connector.py`.
+Use `redeem_positions()` as the template — same contract, same web3 pattern, same signing.
+
+### `mint_tokens(market_slug, amount_usdc)`
+
+Calls `splitPosition` on the Gnosis CTF contract (same address as redeem: `0xC9c98965297Bc527861c898329Ee280632B76e18`).
+
+**What it does:** Send N USDC → receive N YES + N NO conditional tokens for that market.
+
+**Steps:**
+1. Fetch market (need `condition_id`, `collateral_token.address`)
+2. Market must NOT be resolved (can't mint on settled markets)
+3. Approve USDC spending to CTF contract if needed (ERC20 `approve`)
+4. Call `splitPosition(collateralToken, parentCollectionId, conditionId, partition, amount)`
+   - `collateralToken` = USDC address on Base
+   - `parentCollectionId` = `bytes32(0)` (same as redeem)
+   - `conditionId` = market's condition_id
+   - `partition` = `[1, 2]` (YES=1, NO=2, same as redeem indexSets)
+   - `amount` = amount_usdc × 1e6 (USDC has 6 decimals)
+5. Return dict: `{tx_hash, status, gas_used, amount_minted, yes_token_id, no_token_id}`
+
+**CTF ABI entry for splitPosition:**
+```json
+{
+    "inputs": [
+        {"name": "collateralToken", "type": "address"},
+        {"name": "parentCollectionId", "type": "bytes32"},
+        {"name": "conditionId", "type": "bytes32"},
+        {"name": "partition", "type": "uint256[]"},
+        {"name": "amount", "type": "uint256"}
+    ],
+    "name": "splitPosition",
+    "outputs": [],
+    "type": "function",
+    "stateMutability": "nonpayable"
+}
+```
+
+**USDC approval:** Before `splitPosition`, must ensure CTF contract has USDC allowance.
+Check via `allowance(wallet, CTF_ADDRESS)`. If insufficient, call `approve(CTF_ADDRESS, amount)`.
+Use max approval (`2**256 - 1`) to avoid re-approving every time — we already did this manually during testing.
+
+### `get_token_balance(market_slug, token)`
+
+Returns the balance of YES or NO tokens for a specific market.
+
+**Steps:**
+1. Resolve token_id via `_resolve_token_id(market_slug, token)`
+2. Call `balanceOf(wallet_address, token_id)` on the CTF contract (ERC1155)
+3. Return balance as float (divide by 1e6 for USDC-denominated amount)
+
+**CTF ERC1155 ABI entry:**
+```json
+{
+    "inputs": [
+        {"name": "account", "type": "address"},
+        {"name": "id", "type": "uint256"}
+    ],
+    "name": "balanceOf",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "type": "function",
+    "stateMutability": "view"
+}
+```
+
+## Scope
+
+Implement ALL of:
 - All enums (`OrderSide`, `ExecutionMethod`, `OrderIntent`)
 - All data classes (`OrderTypeConfig`, `OrderRequest`, `OrderResult`)
 - All 14 `OrderTypeConfig` registry instances
 - `BinaryOrderExecutor` with `execute()`, `_execute_simple_order()`, `cancel_order()`, `cancel_all_orders()`
-- Stub `_execute_mint_and_sell()` and `_execute_mint_and_sell_both()` with `raise NotImplementedError("Phase 2")`
+- `BinaryOrderExecutor._execute_mint_and_sell()` — mint via connector, then place sell order
+- `BinaryOrderExecutor._execute_mint_and_sell_both()` — mint via connector, then place sell on BOTH sides
+- `connector.mint_tokens(market_slug, amount_usdc)` — on-chain splitPosition
+- `connector.get_token_balance(market_slug, token)` — ERC1155 balanceOf
 
 Do NOT implement:
 - Any trading logic (signal interpretation, market selection, entry/exit decisions)
 - Any parameter tuning
-- Connector changes (use existing methods as-is)
-- Mint functionality (stub only)
 
 ## Tests
 
