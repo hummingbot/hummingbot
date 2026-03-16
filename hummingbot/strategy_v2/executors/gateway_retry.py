@@ -81,7 +81,7 @@ class GatewayRetryMixin:
                 f"Manual intervention required. Error: {error}"
             )
             self.logger().error(msg)
-            if hasattr(self, '_strategy') and self._strategy:
+            if hasattr(self, '_strategy') and self._strategy and hasattr(self._strategy, 'notify_hb_app_with_timestamp'):
                 self._strategy.notify_hb_app_with_timestamp(msg)
             self._max_retries_reached = True
             return RetryAction.STOP
