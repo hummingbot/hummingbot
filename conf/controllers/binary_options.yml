@@ -7,6 +7,10 @@ id: binary_options_main
 connector_name: limitless
 trading_pair: BTC-USDC
 
+# === Market selection ===
+coins: [ETH]                   # Only trade these coins (empty = all discovered)
+max_expiry_hours: 1.0          # Look-ahead window for market discovery
+
 # === Budget ===
 total_amount_quote: 100.0
 

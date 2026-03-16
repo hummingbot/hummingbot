@@ -87,6 +87,10 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     # NOTE: Must be 2-part (BASE-QUOTE) to satisfy Hummingbot's market init
     trading_pair: str = "BTC-USDC"
 
+    # Market selection
+    coins: list = Field(default_factory=list, description="Coin whitelist (empty = all discovered)")
+    max_expiry_hours: float = Field(default=1.0, description="Look-ahead window for market discovery")
+
     runtime_json_path: str = Field(
         ..., description="Path to runtime.json (hot-reloaded by RuntimeBridge)"
     )

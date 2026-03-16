@@ -124,6 +124,11 @@ class MarketManager:
             ticker, strike, title_expiry = parsed
             logger.debug("discover: parsed %s strike=%s expiry=%s", ticker, strike, title_expiry)
 
+            # Coin whitelist filter (from YAML config)
+            coin_whitelist = getattr(self._config, 'coins', [])
+            if coin_whitelist and ticker not in coin_whitelist:
+                continue
+
             # Skip BANNED coins
             if self._roster.tier(ticker) == "BANNED":
                 continue
@@ -151,9 +156,9 @@ class MarketManager:
             if expiry_dt <= now_dt:
                 continue
 
-            # Configurable look-ahead (default 6h)
+            # Configurable look-ahead from YAML config
             hours_until = (expiry_dt - now_dt).total_seconds() / 3600
-            max_expiry_h = 6.0
+            max_expiry_h = getattr(self._config, 'max_expiry_hours', 1.0)
             if hours_until > max_expiry_h:
                 continue
 
