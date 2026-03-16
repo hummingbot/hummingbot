@@ -161,6 +161,118 @@ class TestDetermineExecutorActions:
         controller.exit_monitor.unregister.assert_called_once_with("closed1")
 
 
+class TestMMMode:
+    """Tests for market-making mode (quoting.enabled=True)."""
+
+    def _make_mm_controller(self, config):
+        config.quoting.enabled = True
+        ctrl = BinaryOptionsController(config, MagicMock(), asyncio.Queue())
+        ctrl.connectors = {config.connector_name: MagicMock()}
+        return ctrl
+
+    def _wire_mm_mocks(self, controller, trading=True, quote_actions=None):
+        controller.runtime_bridge = MagicMock()
+        controller.runtime_bridge.should_trade.return_value = trading
+        controller.runtime_bridge.get_coin_param = MagicMock(side_effect=lambda c, k, d=None: {
+            "stop_loss_pct": 0.03, "tp_distance": 0.05,
+            "trailing_trigger_pct": 0.05, "trailing_distance_pct": 0.02,
+        }.get(k, d))
+        controller.processed_data = {
+            "now_ts": 1000.0,
+            "coins": {},
+            "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
+            "orderbook_mids": {"BTC": 0.5},
+            "reward_spreads": {"BTC": 0.03},
+            "hours_left": {"BTC": 2.0},
+            "btc_spot": 100000.0,
+        }
+        controller.position_tracker = MagicMock()
+        controller.executors_info = []
+
+        if quote_actions is not None:
+            controller.quote_manager = MagicMock()
+            controller.quote_manager.tick.return_value = quote_actions
+
+    def test_mm_mode_uses_quote_manager(self, config):
+        ctrl = self._make_mm_controller(config)
+        self._wire_mm_mocks(ctrl)
+        from controllers.generic.binary_options.quote_manager import QuoteActions
+        ctrl.quote_manager = MagicMock()
+        ctrl.quote_manager.tick.return_value = QuoteActions()
+        actions = ctrl.determine_executor_actions()
+        ctrl.quote_manager.tick.assert_called_once()
+        assert actions == []
+
+    def test_mm_place_creates_executor(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="place", coin="BTC", side="YES", price=0.45, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, quote_actions=qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 1
+        assert isinstance(actions[0], _CreateExecutorAction)
+        assert actions[0].executor_config.trading_pair == "BTC-YES-100K"
+        assert actions[0].executor_config.entry_price == Decimal("0.45")
+
+    def test_mm_cancel_creates_stop(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="cancel", coin="BTC", side="YES", order_id="order123"),
+        ])
+        self._wire_mm_mocks(ctrl, quote_actions=qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 1
+        assert isinstance(actions[0], _StopExecutorAction)
+        assert actions[0].executor_id == "order123"
+
+    def test_mm_close_order_creates_executor_with_barriers(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="close_order", coin="BTC", side="YES", price=0.55, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, quote_actions=qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 1
+        assert isinstance(actions[0], _CreateExecutorAction)
+        cfg = actions[0].executor_config
+        assert cfg.triple_barrier_config.stop_loss == Decimal("0.03")
+        assert cfg.triple_barrier_config.take_profit == Decimal("0.05")
+
+    def test_mm_disabled_uses_directional(self, config, controller):
+        """When quoting.enabled=False, directional path is used."""
+        assert not config.quoting.enabled
+        controller.runtime_bridge = MagicMock()
+        controller.runtime_bridge.should_trade.return_value = True
+        controller.runtime_bridge.get_coin_param = MagicMock(return_value=0.03)
+        controller.processed_data = {
+            "now_ts": 1000.0, "market_data": {}, "btc_spot": 100000.0, "coins": {},
+        }
+        controller.market_manager = MagicMock()
+        controller.exit_monitor = MagicMock()
+        controller.exit_monitor.check_all.return_value = []
+        controller.exit_monitor._executor_coins = {}
+        controller.action_router = MagicMock()
+        controller.action_router.route.return_value = []
+        controller.position_tracker = MagicMock()
+        controller.executors_info = []
+        controller.determine_executor_actions()
+        controller.action_router.route.assert_called_once()
+
+    def test_mm_trading_disabled_no_actions(self, config):
+        ctrl = self._make_mm_controller(config)
+        self._wire_mm_mocks(ctrl, trading=False)
+        from controllers.generic.binary_options.quote_manager import QuoteActions
+        ctrl.quote_manager = MagicMock()
+        ctrl.quote_manager.tick.return_value = QuoteActions()
+        actions = ctrl.determine_executor_actions()
+        assert actions == []
+        ctrl.quote_manager.tick.assert_not_called()
+
+
 class TestToFormatStatus:
     def test_basic_output(self, controller):
         controller.runtime_bridge = MagicMock()

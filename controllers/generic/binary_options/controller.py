@@ -21,6 +21,7 @@ from .config import BinaryOptionsControllerConfig, CoinRoster, RuntimeBridge
 from .exit_monitor import ExitMonitor
 from .market_manager import MarketManager
 from .position_tracker import PositionTracker
+from .quote_manager import QuoteManager, QuoteAction, QuoteActions
 from .signal_engine import SignalEngine
 from .spot_feed import SpotFeed
 
@@ -64,6 +65,9 @@ class BinaryOptionsController(ControllerBase):
         # Action router
         self.action_router = ActionRouter(config.routing, self.position_tracker)
 
+        # Quote manager (MM mode)
+        self.quote_manager = QuoteManager(config.quoting, self.runtime_bridge)
+
     async def on_start(self):
         """Wire the connector once available.
         NOTE: ControllerBase doesn't have self.connectors — that's on the Strategy.
@@ -100,13 +104,31 @@ class BinaryOptionsController(ControllerBase):
         # 5. Signal engine tick
         signals = self.signal_engine.tick(spots, market_data, btc_spot, now_ts)
 
-        # 6. Store processed data
+        # 6. Gather MM data if quoting enabled
+        if self.config.quoting.enabled:
+            orderbook_mids = {}
+            reward_spreads = {}
+            hours_left_map = {}
+            for coin, md in market_data.items():
+                orderbook_mids[coin] = md.get("yes_price", 0.5)
+                reward_spreads[coin] = md.get("reward_spread", 0.03)
+                expiry = md.get("expiry_ts", now_ts + 3600)
+                hours_left_map[coin] = max(0, (expiry - now_ts) / 3600)
+        else:
+            orderbook_mids = {}
+            reward_spreads = {}
+            hours_left_map = {}
+
+        # 7. Store processed data
         self.processed_data.update({
             "coins": signals,
             "btc_spot": btc_spot,
             "spots": spots,
             "market_data": market_data,
             "now_ts": now_ts,
+            "orderbook_mids": orderbook_mids,
+            "reward_spreads": reward_spreads,
+            "hours_left": hours_left_map,
         })
 
     def determine_executor_actions(self) -> List:
@@ -116,6 +138,10 @@ class BinaryOptionsController(ControllerBase):
         market_data = self.processed_data.get("market_data", {})
         btc_spot = self.processed_data.get("btc_spot", 0.0)
         signals = self.processed_data.get("coins", {})
+
+        # 0. MM mode branch
+        if self.config.quoting.enabled:
+            return self._determine_mm_actions()
 
         # 1. Trading disabled → no actions
         if not self.runtime_bridge.should_trade():
@@ -206,6 +232,104 @@ class BinaryOptionsController(ControllerBase):
 
         return actions
 
+    def _determine_mm_actions(self) -> List:
+        """MM mode: quote_manager drives, PositionExecutor manages fills."""
+        actions: List = []
+        now_ts = self.processed_data.get("now_ts", time.time())
+        signals = self.processed_data.get("coins", {})
+        market_data = self.processed_data.get("market_data", {})
+        orderbook_mids = self.processed_data.get("orderbook_mids", {})
+        reward_spreads = self.processed_data.get("reward_spreads", {})
+        hours_left = self.processed_data.get("hours_left", {})
+
+        if not self.runtime_bridge.should_trade():
+            return actions
+
+        coins = list(market_data.keys())
+        quote_actions = self.quote_manager.tick(
+            coins, signals, orderbook_mids, reward_spreads, hours_left
+        )
+
+        for qa in quote_actions.actions:
+            if qa.action == "place":
+                trading_pair = market_data.get(qa.coin, {}).get("slug", "")
+                if not trading_pair:
+                    continue
+
+                triple_barrier = TripleBarrierConfig(
+                    open_order_type=OrderType.LIMIT_MAKER,
+                    time_limit=int(hours_left.get(qa.coin, 1) * 3600),
+                )
+
+                executor_config = PositionExecutorConfig(
+                    timestamp=now_ts,
+                    trading_pair=trading_pair,
+                    connector_name=self.config.connector_name,
+                    side=TradeType.BUY,
+                    entry_price=Decimal(str(qa.price)),
+                    amount=Decimal(str(qa.size)),
+                    triple_barrier_config=triple_barrier,
+                )
+                actions.append(CreateExecutorAction(
+                    controller_id=self.config.id,
+                    executor_config=executor_config,
+                ))
+
+            elif qa.action == "cancel":
+                if qa.order_id:
+                    actions.append(StopExecutorAction(
+                        controller_id=self.config.id,
+                        executor_id=qa.order_id,
+                    ))
+
+            elif qa.action == "close_order":
+                trading_pair = market_data.get(qa.coin, {}).get("slug", "")
+                if not trading_pair:
+                    continue
+
+                coin = qa.coin
+                sl = self.runtime_bridge.get_coin_param(coin, "stop_loss_pct", 0.03)
+                tp = self.runtime_bridge.get_coin_param(coin, "tp_distance", 0.05)
+                tt = self.runtime_bridge.get_coin_param(coin, "trailing_trigger_pct", 0.05)
+                td = self.runtime_bridge.get_coin_param(coin, "trailing_distance_pct", 0.02)
+                timeout = int(hours_left.get(coin, 1) * 3600)
+
+                triple_barrier = TripleBarrierConfig(
+                    stop_loss=Decimal(str(sl)),
+                    take_profit=Decimal(str(tp)),
+                    trailing_stop={
+                        "activation_price": Decimal(str(tt)),
+                        "trailing_delta": Decimal(str(td)),
+                    } if tt and td else None,
+                    time_limit=timeout,
+                )
+
+                executor_config = PositionExecutorConfig(
+                    timestamp=now_ts,
+                    trading_pair=trading_pair,
+                    connector_name=self.config.connector_name,
+                    side=TradeType.BUY,
+                    entry_price=Decimal(str(qa.price)),
+                    amount=Decimal(str(qa.size)),
+                    triple_barrier_config=triple_barrier,
+                )
+                actions.append(CreateExecutorAction(
+                    controller_id=self.config.id,
+                    executor_config=executor_config,
+                ))
+
+        # Sync closed executors
+        for ei in self.executors_info:
+            is_closed = ei.is_closed if hasattr(ei, "is_closed") else False
+            if not is_closed:
+                continue
+            eid = ei.id if hasattr(ei, "id") else ""
+            if eid:
+                pnl = float(ei.net_pnl_quote) if hasattr(ei, "net_pnl_quote") else 0.0
+                self.position_tracker.record_close("", eid, pnl)
+
+        return actions
+
     def to_format_status(self) -> List[str]:
         """Dashboard display for the Hummingbot status command."""
         lines = []
@@ -224,5 +348,11 @@ class BinaryOptionsController(ControllerBase):
                 direction = sig.get("direction", "—")
                 edge = sig.get("edge", 0.0)
                 lines.append(f"    {coin}: dir={direction} edge={edge:.4f}")
+
+        if self.config.quoting.enabled:
+            lines.append("  MM Quoting: ON")
+            for coin in sorted(self.processed_data.get("market_data", {}).keys()):
+                state = self.quote_manager.state(coin).value
+                lines.append(f"    {coin}: {state}")
 
         return lines
