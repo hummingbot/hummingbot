@@ -447,20 +447,23 @@ class LimitlessExchange(ExchangePyBase):
                         cost = Decimal(str(side_data.get("cost", "0"))) / Decimal("1000000")
                         total_usdc += cost
 
-                # Also check on-chain USDC via inner connector if available
-                if hasattr(self._inner_connector, "_w3") and self._inner_connector._w3:
-                    try:
-                        from web3 import Web3
-                        usdc_addr = Web3.to_checksum_address("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
-                        wallet = self._inner_connector._account.address
-                        usdc_abi = [{"inputs": [{"name": "account", "type": "address"}],
-                                     "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}],
-                                     "stateMutability": "view", "type": "function"}]
-                        contract = self._inner_connector._w3.eth.contract(address=usdc_addr, abi=usdc_abi)
-                        raw = contract.functions.balanceOf(wallet).call()
-                        total_usdc += Decimal(str(raw)) / Decimal("1000000")
-                    except Exception:
-                        pass
+                # Read on-chain USDC balance directly via web3
+                try:
+                    import os
+
+                    from web3 import Web3
+                    rpc_url = os.environ.get("ETHEREUM_PROVIDER_BASE", "https://base.llamarpc.com")
+                    w3 = Web3(Web3.HTTPProvider(rpc_url))
+                    usdc_addr = Web3.to_checksum_address("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+                    wallet = self._inner_connector._account.address
+                    usdc_abi = [{"inputs": [{"name": "account", "type": "address"}],
+                                 "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}],
+                                 "stateMutability": "view", "type": "function"}]
+                    contract = w3.eth.contract(address=usdc_addr, abi=usdc_abi)
+                    raw = contract.functions.balanceOf(wallet).call()
+                    total_usdc += Decimal(str(raw)) / Decimal("1000000")
+                except Exception as e:
+                    self.logger().debug(f"On-chain USDC read failed: {e}")
 
             self._account_available_balances["USDC"] = total_usdc - total_locked
             self._account_balances["USDC"] = total_usdc
