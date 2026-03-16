@@ -73,70 +73,6 @@ Double dip = strong incentive to be maker, not taker.
 
 ---
 
-## Execution Strategy Selection Logic
-
-### Decision Tree
-
-```
-Signal arrives (bullish/bearish + strength)
-│
-├─ Time to expiry > 30 min? (enough time for limit fills)
-│   │
-│   ├─ YES: Prefer MAKER entries (Limit BUY or MINT + Limit SELL)
-│   │   │
-│   │   ├─ Orderbook thin on our side? → MINT + Limit SELL (add liquidity where needed)
-│   │   ├─ Good depth exists? → Limit BUY (simpler, no mint cost)
-│   │   └─ Both sides thin + signal weak? → MINT + Limit SELL BOTH (neutral MM)
-│   │
-│   └─ NO: Prefer TAKER entries (speed matters near expiry)
-│       │
-│       ├─ Signal strong + good price? → Market BUY YES/NO
-│       └─ Signal weak near expiry? → SKIP (not enough edge to pay spread)
-│
-├─ Signal strength?
-│   │
-│   ├─ STRONG (>0.8): Taker OK — edge covers spread cost
-│   ├─ MEDIUM (0.5-0.8): Maker preferred — need rebate to be profitable
-│   └─ WEAK (<0.5): Neutral MM only or skip
-│
-└─ Current position?
-    │
-    ├─ Already holding YES + signal turns bearish → EXIT (Limit SELL YES or Market SELL)
-    ├─ Already holding NO + signal turns bullish → EXIT
-    └─ Holding minted pair (YES+NO) → SELL the side signal says, keep the other
-```
-
-### Cost Comparison (per $1 notional)
-
-| Path | Entry Cost | Potential Reward | Break-even | MM Income |
-|------|-----------|-----------------|------------|-----------|
-| Market BUY YES @ $0.50 | $0.50 + spread | $1.00 if wins | Need >50% win rate | None |
-| Limit BUY YES @ $0.48 | $0.48 (if fills) | $1.00 if wins | Need >48% win rate | LP rewards + rebate |
-| MINT + Limit SELL NO @ $0.52 | $1.00 - $0.52 = $0.48 net | $1.00 if wins (redeem YES) | Need >48% win rate | LP rewards + rebate on NO sale |
-| MINT + SELL BOTH @ $0.52/$0.52 | $1.00 - $1.04 = -$0.04 profit | Locked $0.04 regardless | Already profitable if both fill | LP rewards on both + rebates on both |
-
-### Key Insight: MINT + SELL BOTH
-
-If YES + NO sell prices > $1.00 (even by 1¢), minting is **instant risk-free profit** plus you earn LP rewards while orders rest AND maker rebates when they fill. This is the holy grail — no directional risk, pure income.
-
-Even if only one side fills, you're left with a directional position that cost you LESS than buying directly (because you got partial proceeds from the other side).
-
----
-
-## Capital Efficiency
-
-| Strategy | USDC Locked | Max Loss | Max Gain |
-|----------|------------|----------|----------|
-| Buy YES @ $0.40 | $0.40 | $0.40 (0%) | $0.60 (150%) |
-| Buy NO @ $0.60 | $0.60 | $0.60 (0%) | $0.40 (67%) |
-| Mint + Sell NO @ $0.60 | $1.00 upfront, $0.40 net after NO sale | $0.40 | $0.60 + rebate |
-| Mint + Sell Both @ $0.52/$0.52 | $1.00 upfront, -$0.04 net after both fill | $0 (if both fill) | $0.04 + LP rewards + rebates |
-
-**Mint path locks more capital upfront ($1 per pair)** but:
-- Earns LP rewards while orders rest
-- Earns maker rebates when filled
-- Can be profitable even without directional edge (if spread > 0)
-
 ---
 
 ## Implementation Priority
@@ -162,12 +98,9 @@ Even if only one side fills, you're left with a directional position that cost y
 - Linked order management (cancel YES if NO fills, etc.)
 
 ### Why Limit-First From Day One
-The old bot used market orders. That was leaving money on the table:
-- Market BUY YES @ $0.50 = pay spread (say $0.52 actual) + 0 rewards
-- Limit BUY YES @ $0.49 = save 3¢ + LP rewards while resting + rebate on fill
-- On $1 positions: 3¢ spread + rewards = 6-10% edge improvement
-- Worst case (no fill): earned LP rewards, lost nothing
-- Only exception: <5 min to expiry with >0.8 signal strength → taker OK
+Market orders pay spread and earn zero rewards.
+Limit orders save the spread, earn LP rewards while resting, and earn maker rebates on fill.
+Taker is a fallback for time-critical situations, not the default.
 
 ---
 
