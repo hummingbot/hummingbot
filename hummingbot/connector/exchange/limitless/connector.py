@@ -462,6 +462,197 @@ class LimitlessConnector:
 
         return result
 
+    # ── Minting / Token Balances ─────────────────────────────────
+
+    async def mint_tokens(self, market_slug: str, amount_usdc: float) -> dict:
+        """Mint YES + NO conditional tokens by splitting USDC.
+
+        Calls splitPosition on the Gnosis CTF contract.
+        $N USDC → N YES + N NO tokens for the given market.
+
+        Returns dict with tx_hash, status, gas_used, amount_minted.
+        """
+        self._ensure_started()
+        if not self._account:
+            raise ConnectorError("No wallet — cannot mint")
+
+        # Always re-fetch for latest status
+        market = await self._market_fetcher.get_market(market_slug)
+        self._markets[market_slug] = market
+
+        condition_id = getattr(market, "condition_id", None)
+        if not condition_id:
+            raise ConnectorError(f"No condition_id for {market_slug}")
+
+        status = getattr(market, "status", "")
+        if status == "RESOLVED":
+            raise ConnectorError(f"Cannot mint on resolved market (status={status})")
+
+        collateral = getattr(market.collateral_token, "address", None)
+        if not collateral:
+            raise ConnectorError("No collateral token address")
+
+        w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
+        CT_ADDRESS = Web3.to_checksum_address(
+            "0xC9c98965297Bc527861c898329Ee280632B76e18"
+        )
+
+        # USDC approval check + approve if needed
+        usdc_abi = [
+            {
+                "constant": True,
+                "inputs": [
+                    {"name": "owner", "type": "address"},
+                    {"name": "spender", "type": "address"},
+                ],
+                "name": "allowance",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "type": "function",
+            },
+            {
+                "inputs": [
+                    {"name": "spender", "type": "address"},
+                    {"name": "amount", "type": "uint256"},
+                ],
+                "name": "approve",
+                "outputs": [{"name": "", "type": "bool"}],
+                "type": "function",
+            },
+        ]
+        usdc = w3.eth.contract(
+            address=Web3.to_checksum_address(collateral), abi=usdc_abi
+        )
+
+        amount_raw = int(amount_usdc * 1e6)
+        allowance = usdc.functions.allowance(
+            self._account.address, CT_ADDRESS
+        ).call()
+
+        if allowance < amount_raw:
+            max_approval = 2**256 - 1
+            nonce = w3.eth.get_transaction_count(self._account.address)
+            approve_tx = usdc.functions.approve(
+                CT_ADDRESS, max_approval
+            ).build_transaction({
+                "from": self._account.address,
+                "nonce": nonce,
+                "gas": 60000,
+                "maxFeePerGas": w3.eth.gas_price * 2,
+                "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei"),
+                "chainId": 8453,
+            })
+            signed_approve = self._account.sign_transaction(approve_tx)
+            approve_hash = w3.eth.send_raw_transaction(
+                signed_approve.raw_transaction
+            )
+            w3.eth.wait_for_transaction_receipt(approve_hash, timeout=30)
+            logger.info("USDC approved for CTF contract: tx=%s", approve_hash.hex()[:16])
+
+        # splitPosition call
+        CTF_ABI = [
+            {
+                "inputs": [
+                    {"name": "collateralToken", "type": "address"},
+                    {"name": "parentCollectionId", "type": "bytes32"},
+                    {"name": "conditionId", "type": "bytes32"},
+                    {"name": "partition", "type": "uint256[]"},
+                    {"name": "amount", "type": "uint256"},
+                ],
+                "name": "splitPosition",
+                "outputs": [],
+                "type": "function",
+                "stateMutability": "nonpayable",
+            },
+        ]
+
+        ct = w3.eth.contract(address=CT_ADDRESS, abi=CTF_ABI)
+
+        parent = b"\x00" * 32
+        cond_bytes = bytes.fromhex(condition_id.replace("0x", ""))
+        partition = [1, 2]  # YES=1, NO=2
+
+        nonce = w3.eth.get_transaction_count(self._account.address)
+        tx = ct.functions.splitPosition(
+            Web3.to_checksum_address(collateral),
+            parent,
+            cond_bytes,
+            partition,
+            amount_raw,
+        ).build_transaction({
+            "from": self._account.address,
+            "nonce": nonce,
+            "gas": 150000,
+            "maxFeePerGas": w3.eth.gas_price * 2,
+            "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei"),
+            "chainId": 8453,
+        })
+
+        signed = self._account.sign_transaction(tx)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+
+        tokens = getattr(market, "tokens", None)
+        result = {
+            "tx_hash": tx_hash.hex(),
+            "status": receipt["status"],
+            "gas_used": receipt["gasUsed"],
+            "amount_minted": amount_usdc,
+            "yes_token_id": tokens.yes if tokens else None,
+            "no_token_id": tokens.no if tokens else None,
+        }
+
+        if receipt["status"] == 1:
+            logger.info(
+                "Minted %s: %.4f USDC → YES+NO (tx=%s, gas=%d)",
+                market_slug[:40], amount_usdc,
+                tx_hash.hex()[:16], receipt["gasUsed"],
+            )
+        else:
+            logger.error("Mint tx failed for %s: %s", market_slug, tx_hash.hex())
+
+        return result
+
+    async def get_token_balance(self, market_slug: str, token: str) -> float:
+        """Return balance of YES or NO tokens for a specific market.
+
+        Args:
+            market_slug: Market identifier.
+            token: "YES" or "NO".
+
+        Returns:
+            Balance as float (USDC-denominated, divided by 1e6).
+        """
+        self._ensure_started()
+        if not self._account:
+            raise ConnectorError("No wallet — cannot check balance")
+
+        token_id = await self._resolve_token_id(market_slug, token)
+
+        w3 = Web3(Web3.HTTPProvider("https://mainnet.base.org"))
+        CT_ADDRESS = Web3.to_checksum_address(
+            "0xC9c98965297Bc527861c898329Ee280632B76e18"
+        )
+
+        CTF_ABI = [
+            {
+                "inputs": [
+                    {"name": "account", "type": "address"},
+                    {"name": "id", "type": "uint256"},
+                ],
+                "name": "balanceOf",
+                "outputs": [{"name": "", "type": "uint256"}],
+                "type": "function",
+                "stateMutability": "view",
+            },
+        ]
+
+        ct = w3.eth.contract(address=CT_ADDRESS, abi=CTF_ABI)
+        raw_balance = ct.functions.balanceOf(
+            self._account.address, int(token_id)
+        ).call()
+
+        return raw_balance / 1e6
+
     # ── Market Discovery ───────────────────────────────────────
 
     async def get_active_markets(self, ticker: Optional[str] = None) -> list:
