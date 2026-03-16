@@ -72,16 +72,28 @@ class BinaryOptionsController(ControllerBase):
         self._mm_executor_map: Dict[str, str] = {}
 
     async def on_start(self):
-        """Wire the connector once available.
-        NOTE: ControllerBase doesn't have self.connectors — that's on the Strategy.
-        Market discovery uses Limitless REST API directly (via market_manager),
-        not the Hummingbot connector. Phase 2 may wire the connector here.
-        """
+        """Called by subclasses or manually — not by ControllerBase."""
         pass
+
+    def _ensure_connector(self):
+        """Wire the connector from market_data_provider on first tick."""
+        if self.market_manager._connector is not None:
+            return
+        connector = self.market_data_provider.connectors.get(self.config.connector_name)
+        if connector:
+            self.market_manager._connector = connector
+            logger.info("BinaryOptionsController: connector '%s' wired to market_manager",
+                        self.config.connector_name)
+        else:
+            logger.debug("BinaryOptionsController: connector '%s' not yet available",
+                         self.config.connector_name)
 
     async def update_processed_data(self):
         """Called every tick by the V2 control loop."""
         now_ts = time.time()
+
+        # 0. Wire connector on first tick
+        self._ensure_connector()
 
         # 1. Hot-reload runtime.json if changed
         self.runtime_bridge.check()

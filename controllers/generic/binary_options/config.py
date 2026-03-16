@@ -82,6 +82,10 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     controller_type: str = "generic"
     controller_name: str = "binary_options"
     connector_name: str = "limitless"
+    # Placeholder pair to trigger connector instantiation
+    # (actual markets are discovered dynamically via connector.get_active_markets)
+    # NOTE: Must be 2-part (BASE-QUOTE) to satisfy Hummingbot's market init
+    trading_pair: str = "BTC-USDC"
 
     runtime_json_path: str = Field(
         ..., description="Path to runtime.json (hot-reloaded by RuntimeBridge)"
@@ -95,6 +99,13 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
 
     routing: ActionRoutingConfig = Field(default_factory=ActionRoutingConfig)
     quoting: QuoteConfig = Field(default_factory=QuoteConfig)
+
+    def update_markets(self, markets):
+        """Register connector so Hummingbot instantiates it."""
+        # markets is a GroupedSetDict; call add_or_update directly
+        if hasattr(markets, 'add_or_update'):
+            return markets.add_or_update(self.connector_name, self.trading_pair)
+        return markets
 
     def get_controller_class(self):
         from .controller import BinaryOptionsController
