@@ -428,35 +428,43 @@ class LimitlessExchange(ExchangePyBase):
         try:
             balance_info = await self._inner_connector.get_balance()
 
-            # The SDK returns portfolio positions; extract USDC balance
+            # SDK returns dict with clob positions, rewards, etc.
+            # Extract USDC balance from on-chain + locked collateral
+            total_usdc = Decimal("0")
+            total_locked = Decimal("0")
+
             if isinstance(balance_info, dict):
-                usdc_balance = Decimal(str(balance_info.get("usdc_balance", balance_info.get("balance", 0))))
-                self._account_available_balances["USDC"] = usdc_balance
-                self._account_balances["USDC"] = usdc_balance
-                remote_asset_names.add("USDC")
-            elif isinstance(balance_info, list):
-                # List of position dicts
-                total_usdc = Decimal("0")
-                for pos in balance_info:
-                    if isinstance(pos, dict):
-                        total_usdc += Decimal(str(pos.get("balance", pos.get("usdc_balance", 0))))
-                if total_usdc > 0:
-                    self._account_available_balances["USDC"] = total_usdc
-                    self._account_balances["USDC"] = total_usdc
-                    remote_asset_names.add("USDC")
-            else:
-                # SDK object — try common attributes
-                usdc_val = Decimal("0")
-                if hasattr(balance_info, "usdc_balance"):
-                    usdc_val = Decimal(str(balance_info.usdc_balance))
-                elif hasattr(balance_info, "balance"):
-                    usdc_val = Decimal(str(balance_info.balance))
-                elif hasattr(balance_info, "total_value"):
-                    usdc_val = Decimal(str(balance_info.total_value))
-                if usdc_val > 0:
-                    self._account_available_balances["USDC"] = usdc_val
-                    self._account_balances["USDC"] = usdc_val
-                    remote_asset_names.add("USDC")
+                # Sum collateral locked in CLOB positions
+                for pos in balance_info.get("clob", []):
+                    orders = pos.get("orders", {})
+                    locked = orders.get("totalCollateralLocked", "0")
+                    total_locked += Decimal(str(locked)) / Decimal("1000000")
+
+                    # Track position values
+                    positions = pos.get("positions", {})
+                    for side in ("yes", "no"):
+                        side_data = positions.get(side, {})
+                        cost = Decimal(str(side_data.get("cost", "0"))) / Decimal("1000000")
+                        total_usdc += cost
+
+                # Also check on-chain USDC via inner connector if available
+                if hasattr(self._inner_connector, "_w3") and self._inner_connector._w3:
+                    try:
+                        from web3 import Web3
+                        usdc_addr = Web3.to_checksum_address("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+                        wallet = self._inner_connector._account.address
+                        usdc_abi = [{"inputs": [{"name": "account", "type": "address"}],
+                                     "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}],
+                                     "stateMutability": "view", "type": "function"}]
+                        contract = self._inner_connector._w3.eth.contract(address=usdc_addr, abi=usdc_abi)
+                        raw = contract.functions.balanceOf(wallet).call()
+                        total_usdc += Decimal(str(raw)) / Decimal("1000000")
+                    except Exception:
+                        pass
+
+            self._account_available_balances["USDC"] = total_usdc - total_locked
+            self._account_balances["USDC"] = total_usdc
+            remote_asset_names.add("USDC")
 
         except Exception as e:
             self.logger().warning(f"Failed to update balances: {e}")
