@@ -14,7 +14,7 @@ controllers/generic/binary_options/
 ├── signal_engine.py         # EMA layers, type classification, scoring, gates
 ├── market_manager.py        # Discovery, ATM selection, expiry, roster
 ├── action_router.py         # Decision tree → 14 execution paths
-├── exit_manager.py          # 7-priority exit cascade
+├── exit_monitor.py          # Phase 1: BTC reversal + settlement (exits move to executor Phase 2)
 ├── position_tracker.py      # Multi-coin state, cooldowns, circuit breaker
 ├── pyth_feed.py             # Spot price source via connector
 ├── order_types.py           # EXISTS — already built
@@ -22,7 +22,7 @@ controllers/generic/binary_options/
     ├── test_fair_value.py
     ├── test_signal_engine.py
     ├── test_action_router.py
-    ├── test_exit_manager.py
+    ├── test_exit_monitor.py
     └── test_market_manager.py
 ```
 
@@ -299,70 +299,42 @@ All thresholds from ActionRoutingConfig. Phase 1: only paths 2, 7 active (limit 
 
 ---
 
-## Module 6: exit_manager.py
+## Module 6: exit_monitor.py (controller-side, Phase 1 only)
 
-**Source:** `system-map/02-orchestration-execution.md` § 2.5 (check_positions — complete exit logic)
+**Source:** `system-map/02-orchestration-execution.md` § 2.5 (BTC reversal subsection only)
 
-### Contains
+### Phase 1 (PositionExecutor — temporary)
 
-7-priority exit cascade, evaluated in order for each active position:
+Most exit logic lives in PositionExecutor via TripleBarrierConfig (stop loss, trailing, timeout, TP).
+The controller only handles what PositionExecutor CAN'T do:
 
 ```python
-class ExitManager:
+class ExitMonitor:
     def __init__(self, config, runtime_bridge)
 
-    def check_all(self, active_executors: list, market_data: dict, profiles: dict) → list[StopExecutorAction]
-        # For each active executor:
-        # Run priority cascade, first trigger wins
-
-    def _check_exit(self, executor_info, coin_data, profile) → Optional[StopExecutorAction]
+    def check_all(self, active_executors: list, market_data: dict) → list[StopExecutorAction]
+        # Only two checks:
+        # 1. BTC reversal — cross-asset exit trigger
+        # 2. Settlement detection — hold winning, exit losing near expiry
 ```
 
-#### Priority 1: Market Expiry
-- `hours_left <= 0` or within `close_secs` of expiry
-- If winning (favorable price): hold for settlement ($1 payout) if `prob > settlement_hold_threshold`
-- If losing or uncertain: emergency market exit
+#### BTC Reversal (controller workaround)
+- Track BTC spot delta since each executor's entry
+- `|btc_spot_now - btc_entry_spot| >= btc_reversal_multiplier` AND opposes position → StopExecutorAction
+- **Temporary**: moves into BinaryOptionsExecutor in Phase 2
 
-#### Priority 2: BTC Reversal
-- Track cumulative BTC spot delta since entry: `net_btc_delta = btc_spot - pos.btc_entry_spot_price`
-- Trigger: `|net_btc_delta| >= btc_reversal_multiplier` AND direction opposes position
-- Source: 02 § 2.5, BTC reversal subsection
-- **This is the main reason we need a custom executor later** — standard PositionExecutor doesn't have cross-asset exit triggers
+#### Settlement Detection
+- Market about to expire → decide hold vs exit
+- Winning + high probability → no action (hold for $1.00 settlement)
+- Losing → StopExecutorAction (exit before worthless)
 
-#### Priority 3: Confirmed Stop Loss
-- `uPnL% < -stop_loss_pct` (per-coin from runtime.json)
-- Confirmation: must breach for `stop_loss_confirm_required` consecutive ticks (default 2) AND `stop_loss_confirm_secs` elapsed
-- Grace period: `stop_loss_grace_secs` after entry (no stop in first N seconds)
+### Phase 2 (BinaryOptionsExecutor)
 
-#### Priority 4: Trailing Stop Arm
-- When `uPnL% > trailing_trigger_pct`: activate trailing, record peak PnL
-- Per-coin params from runtime.json
+**All 7-priority exit logic moves to the custom executor.** See `SPEC-binary-options-executor.md`.
+`exit_monitor.py` becomes unnecessary — controller no longer manages exits.
+The executor handles: confirmed stops, trailing, TP squeeze, BTC reversal, timeout, settlement.
 
-#### Priority 5: Take Profit Squeeze
-- Threshold from `compute_magnitude_threshold()` (Type 2 magnitudes)
-- Time decay: `threshold × (1 - (elapsed/timeout)^decay_exp) × tp_squeeze_factor`
-- Squeezes TP target toward zero as time passes
-
-#### Priority 6: Trailing Stop Fire
-- If trailing active AND `peak_pnl - current_pnl > trailing_distance_pct × peak_pnl`
-- Fires the trail
-
-#### Priority 7: Adaptive Timeout
-- Base timeout from `compute_stop_timeout()` (fallback_pct × market_duration)
-- Extensions: if trending favorably, extend by `timeout_extension_factor` (up to `max_timeout_extensions`)
-- Hard ceiling: `max_timeout_multiplier × base_timeout`
-- "Trending" = price moved further in favorable direction since entry
-
-#### Exit routing
-- Same decision tree as entry but simpler: `exit_mode` config
-- "limit" → StopExecutorAction (executor closes via limit)
-- "market" → StopExecutorAction with force flag
-- "auto" → market if `minutes_left < exit_taker_urgency_min`, else limit
-
-### Changes from original
-- No walk-the-book simulation — real fills from executor
-- Phase 1: BTC reversal implemented in controller (StopExecutorAction). Phase 3: moves to custom executor.
-- Settlement/redeem: controller detects expiry, holds position (no action = hold), or stops executor for early exit
+Controller just sends `BinaryOptionsExecutorConfig` with all the per-coin params, executor does the rest.
 
 ---
 
@@ -458,7 +430,7 @@ class BinaryOptionsController(ControllerBase):
         self.pyth_feed = PythFeed(self)
         self.signal_engine = SignalEngine(config, self.runtime_bridge, fair_value)
         self.market_manager = MarketManager(self, config, self.roster, self.runtime_bridge)
-        self.exit_manager = ExitManager(config, self.runtime_bridge)
+        self.exit_monitor = ExitMonitor(config, self.runtime_bridge)  # Phase 1 only (BTC reversal + settlement)
         self.position_tracker = PositionTracker(config, self.runtime_bridge)
         self.action_router = ActionRouter(config.routing, self.position_tracker)
 
@@ -473,7 +445,9 @@ class BinaryOptionsController(ControllerBase):
     def determine_executor_actions(self) -> list:
         actions = []
         expired = self.market_manager.check_expiry(self.executors_info)
-        actions += self.exit_manager.check_all(self.executors_info, self.processed_data, self.signal_engine.get_profiles())
+        # Phase 1: controller only handles BTC reversal + settlement (rest is PositionExecutor TripleBarrier)
+        # Phase 2: exit_monitor removed, BinaryOptionsExecutor handles all exits internally
+        actions += self.exit_monitor.check_all(self.executors_info, self.processed_data)
         actions += self.action_router.route(self.processed_data["coins"], self.processed_data, self.executors_info)
         return actions
 
@@ -499,7 +473,7 @@ Modules with zero cross-dependencies first:
 3. **signal_engine.py** — needs fair_value + config
 4. **market_manager.py** — needs connector + config
 5. **position_tracker.py** — needs config
-6. **exit_manager.py** — needs config + position_tracker
+6. **exit_monitor.py** — needs config (Phase 1 only, removed in Phase 2)
 7. **action_router.py** — needs config + position_tracker + order_types
 8. **pyth_feed.py** — needs connector
 9. **controller.py** — wires everything, build last
@@ -513,9 +487,10 @@ Each can be built + tested independently. Sub-agents get: this spec (their modul
 | Doc | Path | Relevant modules |
 |-----|------|-----------------|
 | System Map 01 | `docs/limitless/system-map/01-divergence-tracker.md` | signal_engine, market_manager, config |
-| System Map 02 | `docs/limitless/system-map/02-orchestration-execution.md` | exit_manager, position_tracker |
+| System Map 02 | `docs/limitless/system-map/02-orchestration-execution.md` | exit_monitor, position_tracker |
 | System Map 04 | `docs/limitless/system-map/04-data-layer.md` | fair_value, pyth_feed |
-| V2 Reference | `docs/limitless/V2-REFERENCE.md` | controller, action_router, exit_manager |
+| V2 Reference | `docs/limitless/V2-REFERENCE.md` | controller, action_router, exit_monitor |
+| Executor Spec | `docs/limitless/specs/SPEC-binary-options-executor.md` | BinaryOptionsExecutor (7-priority exits, settlement, mint) |
 | Execution Paths | `docs/limitless/specs/SPEC-execution-paths.md` | action_router |
 | Order Types | `docs/limitless/specs/SPEC-order-types.md` | action_router |
 | Controller Spec | `docs/limitless/specs/SPEC-binary-options-controller.md` | controller, config |
