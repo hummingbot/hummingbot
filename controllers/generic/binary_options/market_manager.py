@@ -1,0 +1,437 @@
+"""Three-layer market selection for BinaryOptionsController."""
+import logging
+import math
+import re
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Set
+
+logger = logging.getLogger(__name__)
+
+# Title regex: "$TICKER above $STRIKE on DATE"
+_TITLE_RE = re.compile(
+    r"\$([A-Z]+)\s+above\s+\$([\d,.]+)\s+on\s+(.+?)(?:\s*\?)?$",
+    re.IGNORECASE,
+)
+
+
+def _parse_title(title: str) -> Optional[tuple]:
+    """Extract (ticker, strike_float) from market title, or None."""
+    m = _TITLE_RE.search(title)
+    if not m:
+        return None
+    ticker = m.group(1).upper()
+    strike_str = m.group(2).replace(",", "")
+    try:
+        strike = float(strike_str)
+    except ValueError:
+        return None
+    return ticker, strike
+
+
+class MarketManager:
+    """Wraps 3-layer market selection using the Hummingbot connector."""
+
+    def __init__(self, connector, config, roster, runtime_bridge):
+        """
+        connector:      Hummingbot connector (get_active_markets, get_order_book, etc.)
+        config:         BinaryOptionsControllerConfig
+        roster:         CoinRoster
+        runtime_bridge: RuntimeBridge
+        """
+        self._connector = connector
+        self._config = config
+        self._roster = roster
+        self._rb = runtime_bridge
+        self._locked_markets: Dict[str, dict] = {}
+        self._last_discover_ts: float = 0.0
+        self._last_evaluate_ts: float = 0.0
+        self._drain_coins: Set[str] = set()
+        self._prev_market_data: Dict[str, dict] = {}
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def locked_markets(self) -> Dict[str, dict]:
+        return dict(self._locked_markets)
+
+    @property
+    def drain_coins(self) -> Set[str]:
+        return set(self._drain_coins)
+
+    # ------------------------------------------------------------------
+    # Layer 1: discover
+    # ------------------------------------------------------------------
+
+    def discover(self, spots: Dict[str, float], now_ts: float, force: bool = False) -> Dict[str, dict]:
+        """Market discovery + ATM selection per coin.
+
+        Args:
+            spots: {coin: spot_price} e.g. {"BTC": 84000.0}
+            now_ts: current unix timestamp
+            force: bypass timing checks
+
+        Returns:
+            {coin: market_dict} of selected markets
+        """
+        # Trigger conditions: no locked markets, hourly boundary, or force
+        if not force and self._locked_markets:
+            # Check hourly boundary: different hour than last discover
+            last_hour = int(self._last_discover_ts // 3600)
+            cur_hour = int(now_ts // 3600)
+            if last_hour == cur_hour:
+                return dict(self._locked_markets)
+
+        self._last_discover_ts = now_ts
+
+        # Fetch all active markets from connector
+        raw_markets = self._connector.get_active_markets()
+        if not raw_markets:
+            logger.warning("discover: connector returned no active markets")
+            return dict(self._locked_markets)
+
+        now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+
+        # Collect candidates per ticker
+        candidates: Dict[str, list] = {}  # {ticker: [market_dict, ...]}
+
+        for mkt in raw_markets:
+            title = mkt.get("title", "")
+            parsed = _parse_title(title)
+            if not parsed:
+                continue
+            ticker, strike = parsed
+
+            # Skip BANNED coins
+            if self._roster.tier(ticker) == "BANNED":
+                continue
+
+            # CLOB only
+            if mkt.get("type", "").upper() == "AMM":
+                continue
+
+            # Expiry checks
+            expiry = mkt.get("expiry")
+            if isinstance(expiry, (int, float)):
+                expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
+            elif isinstance(expiry, datetime):
+                expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
+            elif isinstance(expiry, str):
+                try:
+                    expiry_dt = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+            else:
+                continue
+
+            # Must not be expired
+            if expiry_dt <= now_dt:
+                continue
+
+            # Hourly only: expiry within 6 hours
+            hours_until = (expiry_dt - now_dt).total_seconds() / 3600
+            max_expiry_h = 6.0
+            if hours_until > max_expiry_h:
+                continue
+
+            yes_price = float(mkt.get("yes_price", 0.5))
+            no_price = float(mkt.get("no_price", 0.5))
+
+            market_dict = {
+                "coin": ticker,
+                "yes_price": yes_price,
+                "no_price": no_price,
+                "strike": strike,
+                "slug": mkt.get("slug", ""),
+                "market_id": mkt.get("market_id", mkt.get("id", "")),
+                "title": title,
+                "expiry": expiry_dt,
+                "pyth_address": mkt.get("pyth_address", ""),
+                "max_spread": float(mkt.get("max_spread", 0.035)),
+                "volume": float(mkt.get("volume", 0)),
+            }
+
+            candidates.setdefault(ticker, []).append(market_dict)
+
+        # ATM selection per ticker
+        selected: Dict[str, dict] = {}
+        for ticker, mkts in candidates.items():
+            spot = spots.get(ticker)
+            best = None
+            best_dist = float("inf")
+            best_expiry = None
+
+            for md in mkts:
+                if spot and spot > 0:
+                    dist = abs(spot - md["strike"]) / spot
+                else:
+                    dist = abs(md["yes_price"] - 0.50)
+
+                expiry_dt = md["expiry"]
+
+                # Pick closest; tie-break by earlier expiry
+                if (dist < best_dist) or (
+                    math.isclose(dist, best_dist, abs_tol=1e-9) and
+                    best_expiry is not None and expiry_dt < best_expiry
+                ):
+                    best = md
+                    best_dist = dist
+                    best_expiry = expiry_dt
+
+            if best:
+                selected[ticker] = best
+
+        self._locked_markets = selected
+        logger.info("discover: selected %d markets: %s", len(selected), list(selected.keys()))
+        return dict(self._locked_markets)
+
+    # ------------------------------------------------------------------
+    # Layer 2: evaluate
+    # ------------------------------------------------------------------
+
+    def evaluate(self, now_ts: float, force: bool = False) -> Dict[str, dict]:
+        """WS-based scoring for market switching within a ticker.
+
+        Only runs every msel_eval_interval_s. Hysteresis prevents frivolous switching.
+        Pinned (open position) and draining coins never switch.
+        """
+        interval = float(self._rb.get_coin_param("_global", "msel_eval_interval_s", 60.0))
+        if not force and (now_ts - self._last_evaluate_ts) < interval:
+            return dict(self._locked_markets)
+
+        self._last_evaluate_ts = now_ts
+
+        depth_weight = float(self._rb.get_coin_param("_global", "msel_depth_weight", 0.5))
+        atm_weight = float(self._rb.get_coin_param("_global", "msel_atm_weight", 0.5))
+        hysteresis = float(self._rb.get_coin_param("_global", "msel_hysteresis_pct", 0.10))
+
+        # Get all active markets for re-scoring
+        raw_markets = self._connector.get_active_markets()
+        if not raw_markets:
+            return dict(self._locked_markets)
+
+        now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+
+        # Group valid candidates by ticker
+        ticker_candidates: Dict[str, list] = {}
+        for mkt in raw_markets:
+            parsed = _parse_title(mkt.get("title", ""))
+            if not parsed:
+                continue
+            ticker, strike = parsed
+            if self._roster.tier(ticker) == "BANNED":
+                continue
+            if ticker not in self._locked_markets:
+                continue  # only evaluate tickers we already track
+
+            expiry = mkt.get("expiry")
+            if isinstance(expiry, (int, float)):
+                expiry_dt = datetime.fromtimestamp(expiry, tz=timezone.utc)
+            elif isinstance(expiry, datetime):
+                expiry_dt = expiry if expiry.tzinfo else expiry.replace(tzinfo=timezone.utc)
+            elif isinstance(expiry, str):
+                try:
+                    expiry_dt = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+            else:
+                continue
+
+            if expiry_dt <= now_dt:
+                continue
+
+            slug = mkt.get("slug", "")
+            ticker_candidates.setdefault(ticker, []).append({
+                "slug": slug,
+                "market_id": mkt.get("market_id", mkt.get("id", "")),
+                "title": mkt.get("title", ""),
+                "strike": strike,
+                "coin": ticker,
+                "expiry": expiry_dt,
+                "yes_price": float(mkt.get("yes_price", 0.5)),
+                "no_price": float(mkt.get("no_price", 0.5)),
+                "pyth_address": mkt.get("pyth_address", ""),
+                "max_spread": float(mkt.get("max_spread", 0.035)),
+                "volume": float(mkt.get("volume", 0)),
+            })
+
+        def _score(md: dict) -> float:
+            """Compute score: depth_weight × normalized_depth + atm_weight × atm_proximity."""
+            slug = md.get("slug", "")
+            ob = self._connector.get_order_book(slug)
+            near_depth = 0.0
+            if ob:
+                mid = (ob.get("bid", 0.5) + ob.get("ask", 0.5)) / 2.0
+                # Depth within 0.30 of mid
+                for side in ("bids_levels", "asks_levels"):
+                    for level in ob.get(side, []):
+                        price = level.get("price", 0)
+                        if abs(price - mid) <= 0.30:
+                            near_depth += level.get("size", 0)
+                md["_bid"] = ob.get("bid", 0.5)
+            else:
+                md["_bid"] = md.get("yes_price", 0.5)
+
+            atm_proximity = 1.0 - abs(md.get("_bid", 0.5) - 0.50)
+            # Normalized: we use raw values; normalization across candidates
+            md["_near_depth"] = near_depth
+            md["_atm_proximity"] = atm_proximity
+            return near_depth, atm_proximity
+
+        switches = {}
+        for ticker, cands in ticker_candidates.items():
+            # Skip pinned (draining) coins
+            if ticker in self._drain_coins:
+                continue
+
+            # Score all candidates
+            for c in cands:
+                _score(c)
+
+            # Normalize
+            max_depth = max((c["_near_depth"] for c in cands), default=1.0) or 1.0
+            max_atm = max((c["_atm_proximity"] for c in cands), default=1.0) or 1.0
+
+            def full_score(c):
+                return (
+                    depth_weight * (c["_near_depth"] / max_depth) +
+                    atm_weight * (c["_atm_proximity"] / max_atm)
+                )
+
+            current_slug = self._locked_markets[ticker].get("slug")
+            current_score = 0.0
+            best_cand = None
+            best_score = -1.0
+
+            for c in cands:
+                s = full_score(c)
+                if c["slug"] == current_slug:
+                    current_score = s
+                if s > best_score:
+                    best_score = s
+                    best_cand = c
+
+            if best_cand and best_cand["slug"] != current_slug:
+                if best_score > current_score * (1.0 + hysteresis):
+                    # Switch
+                    new_md = {k: v for k, v in best_cand.items() if not k.startswith("_")}
+                    self._locked_markets[ticker] = new_md
+                    switches[ticker] = new_md
+                    logger.info(
+                        "evaluate: switched %s from %s to %s (%.3f > %.3f × %.2f)",
+                        ticker, current_slug, best_cand["slug"],
+                        best_score, current_score, 1.0 + hysteresis,
+                    )
+
+        return dict(self._locked_markets)
+
+    # ------------------------------------------------------------------
+    # Layer 3: build_market_data
+    # ------------------------------------------------------------------
+
+    def build_market_data(self, now_ts: float) -> Dict[str, dict]:
+        """Per-tick price refresh from connector order books.
+
+        Returns {coin: {yes_price, no_price, bid, ask, bid_depth, ask_depth,
+                        strike, slug, expiry, ...}}
+        Recycles previous data if connector is unavailable.
+        """
+        result: Dict[str, dict] = {}
+
+        for coin, md in self._locked_markets.items():
+            slug = md.get("slug", "")
+            ob = self._connector.get_order_book(slug)
+
+            if ob:
+                entry = {
+                    "coin": coin,
+                    "yes_price": ob.get("bid", md.get("yes_price", 0.5)),
+                    "no_price": 1.0 - ob.get("bid", 1.0 - md.get("no_price", 0.5)),
+                    "bid": ob.get("bid", 0.0),
+                    "ask": ob.get("ask", 0.0),
+                    "bid_depth": ob.get("bid_depth", 0.0),
+                    "ask_depth": ob.get("ask_depth", 0.0),
+                    "strike": md.get("strike", 0.0),
+                    "slug": slug,
+                    "expiry": md.get("expiry"),
+                    "market_id": md.get("market_id", ""),
+                    "pyth_address": md.get("pyth_address", ""),
+                    "max_spread": md.get("max_spread", 0.035),
+                    "volume": md.get("volume", 0),
+                }
+                result[coin] = entry
+                self._prev_market_data[coin] = entry
+            elif coin in self._prev_market_data:
+                # Recycle previous data
+                result[coin] = self._prev_market_data[coin]
+            else:
+                # Fallback from locked market static data
+                result[coin] = {
+                    "coin": coin,
+                    "yes_price": md.get("yes_price", 0.5),
+                    "no_price": md.get("no_price", 0.5),
+                    "bid": md.get("yes_price", 0.5),
+                    "ask": md.get("yes_price", 0.5),
+                    "bid_depth": 0.0,
+                    "ask_depth": 0.0,
+                    "strike": md.get("strike", 0.0),
+                    "slug": slug,
+                    "expiry": md.get("expiry"),
+                    "market_id": md.get("market_id", ""),
+                    "pyth_address": md.get("pyth_address", ""),
+                    "max_spread": md.get("max_spread", 0.035),
+                    "volume": md.get("volume", 0),
+                }
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Expiry management
+    # ------------------------------------------------------------------
+
+    def check_expiry(self, active_executors: list, now_ts: float) -> Set[str]:
+        """Check for expiring markets; manage drain mode.
+
+        Args:
+            active_executors: list of executor objects with .trading_pair or coin attribute
+            now_ts: current unix timestamp
+
+        Returns:
+            Set of coins that are expiring (added to drain)
+        """
+        close_secs = float(self._rb.get_coin_param("_global", "close_before_expiry_secs", 300.0))
+        now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+        expiring: Set[str] = set()
+        expired_coins: list = []
+
+        # Coins with active positions
+        active_coins: Set[str] = set()
+        for ex in active_executors:
+            coin = getattr(ex, "coin", None) or getattr(ex, "trading_pair", "").split("-")[0]
+            if coin:
+                active_coins.add(coin.upper())
+
+        for coin, md in list(self._locked_markets.items()):
+            expiry_dt = md.get("expiry")
+            if not isinstance(expiry_dt, datetime):
+                continue
+
+            secs_left = (expiry_dt - now_dt).total_seconds()
+
+            if secs_left <= 0:
+                # Already expired
+                expired_coins.append(coin)
+                self._drain_coins.discard(coin)
+                continue
+
+            if secs_left <= close_secs and coin in active_coins:
+                self._drain_coins.add(coin)
+                expiring.add(coin)
+
+        # Remove expired markets
+        for coin in expired_coins:
+            del self._locked_markets[coin]
+            logger.info("check_expiry: removed expired market for %s", coin)
+
+        return expiring

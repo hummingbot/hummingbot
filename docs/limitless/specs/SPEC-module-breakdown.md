@@ -16,7 +16,7 @@ controllers/generic/binary_options/
 ├── action_router.py         # Decision tree → 14 execution paths
 ├── exit_monitor.py          # Phase 1: BTC reversal + settlement (exits move to executor Phase 2)
 ├── position_tracker.py      # Multi-coin state, cooldowns, circuit breaker
-├── pyth_feed.py             # Spot price source via connector
+├── spot_feed.py             # Spot price source (Pyth primary, Binance fallback)
 ├── order_types.py           # EXISTS — already built
 └── tests/
     ├── test_fair_value.py
