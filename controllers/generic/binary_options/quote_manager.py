@@ -65,6 +65,17 @@ class QuoteManager:
         """Inject current open orders for a coin so tick() can diff."""
         self._current_orders[coin] = orders
 
+    def set_order_id(self, coin: str, side: str, order_id: str) -> None:
+        """Feed back executor id so _sync_side knows an order exists."""
+        orders = self._current_orders.setdefault(coin, {})
+        if side in orders:
+            orders[side]["order_id"] = order_id
+
+    def clear_order(self, coin: str, side: str) -> None:
+        """Remove tracked order for a side."""
+        orders = self._current_orders.get(coin, {})
+        orders.pop(side, None)
+
     # -- tick --
 
     def tick(

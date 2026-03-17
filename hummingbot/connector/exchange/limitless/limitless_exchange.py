@@ -494,12 +494,15 @@ class LimitlessExchange(ExchangePyBase):
                 token="YES",
             )
         else:
-            result = await self._inner_connector.sell(
+            # "SELL" in Hummingbot = buy the NO token on Limitless
+            # NO price = 1 - YES price
+            no_price = 1.0 - float(price)
+            result = await self._inner_connector.buy(
                 market_slug=slug,
-                price=float(price),
+                price=no_price,
                 size=float(amount),
                 order_type="GTC",
-                token="YES",
+                token="NO",
             )
 
         exchange_order_id = str(result.get("order_id", order_id))

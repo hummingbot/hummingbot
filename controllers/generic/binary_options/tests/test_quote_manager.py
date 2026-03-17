@@ -364,3 +364,63 @@ class TestCapitalLimits:
         for a in result.actions:
             if a.action == "place":
                 assert a.size <= 5.0  # 25 - 20 = 5
+
+
+# ---------------------------------------------------------------------------
+# 11. set_order_id prevents duplicate place actions
+# ---------------------------------------------------------------------------
+
+class TestSetOrderId:
+    def test_set_order_id_prevents_duplicate_place(self):
+        """After set_order_id, tick should emit update (not place) for that side."""
+        cfg = QuoteConfig(enabled=True, reprice_threshold=0.0001)
+        qm = QuoteManager(cfg, make_bridge())
+        # First tick: places both sides
+        result1 = qm.tick(**default_tick_args(mids={"BTC": 0.5}, spreads={"BTC": 0.10}))
+        places = [a for a in result1.actions if a.action == "place"]
+        assert len(places) == 2
+
+        # Feed back order IDs (simulating controller calling set_order_id)
+        for a in places:
+            qm.set_order_id("BTC", a.side, f"exec_{a.side}")
+
+        # Second tick with slightly changed mid: should emit updates, not places
+        result2 = qm.tick(**default_tick_args(mids={"BTC": 0.52}, spreads={"BTC": 0.10}))
+        for a in result2.actions:
+            assert a.action != "place", f"Expected no place actions, got {a}"
+
+    def test_set_order_id_on_missing_side_is_noop(self):
+        """set_order_id for a side not in _current_orders doesn't crash."""
+        cfg = QuoteConfig(enabled=True)
+        qm = QuoteManager(cfg, make_bridge())
+        # No orders tracked yet — should not raise
+        qm.set_order_id("BTC", "YES", "some_id")
+
+
+# ---------------------------------------------------------------------------
+# 12. clear_order allows fresh place
+# ---------------------------------------------------------------------------
+
+class TestClearOrder:
+    def test_clear_order_allows_fresh_place(self):
+        """After clear_order, tick should emit a place action for that side."""
+        cfg = QuoteConfig(enabled=True)
+        qm = QuoteManager(cfg, make_bridge())
+        # First tick places orders
+        result1 = qm.tick(**default_tick_args(mids={"BTC": 0.5}, spreads={"BTC": 0.10}))
+        for a in result1.actions:
+            qm.set_order_id("BTC", a.side, f"exec_{a.side}")
+
+        # Clear the YES side
+        qm.clear_order("BTC", "YES")
+
+        # Next tick should place YES again
+        result2 = qm.tick(**default_tick_args(mids={"BTC": 0.5}, spreads={"BTC": 0.10}))
+        yes_places = [a for a in result2.actions if a.action == "place" and a.side == "YES"]
+        assert len(yes_places) == 1
+
+    def test_clear_order_noop_for_unknown(self):
+        """clear_order for unknown coin/side doesn't crash."""
+        cfg = QuoteConfig(enabled=True)
+        qm = QuoteManager(cfg, make_bridge())
+        qm.clear_order("UNKNOWN", "YES")  # should not raise

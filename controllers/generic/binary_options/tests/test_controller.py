@@ -17,6 +17,9 @@ _sma = sys.modules["hummingbot.strategy_v2.models.executor_actions"]
 _CreateExecutorAction = _sma.CreateExecutorAction
 _StopExecutorAction = _sma.StopExecutorAction
 
+_common = sys.modules["hummingbot.core.data_type.common"]
+_TradeType = _common.TradeType
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -373,6 +376,127 @@ class TestMMMode:
         actions = ctrl.determine_executor_actions()
         assert actions == []
         ctrl.quote_manager.tick.assert_not_called()
+
+
+class TestSideMapping:
+    """Verify YES→TradeType.BUY and NO→TradeType.SELL mapping."""
+
+    def _make_mm_controller(self, config):
+        config.quoting.enabled = True
+        ctrl = BinaryOptionsController(config, MagicMock(), asyncio.Queue())
+        ctrl.connectors = {config.connector_name: MagicMock()}
+        return ctrl
+
+    def _wire_mm_mocks(self, controller, quote_actions):
+        controller.runtime_bridge = MagicMock()
+        controller.runtime_bridge.should_trade.return_value = True
+        controller.runtime_bridge.get_coin_param = MagicMock(side_effect=lambda c, k, d=None: {
+            "stop_loss_pct": 0.03, "tp_distance": 0.05,
+            "trailing_trigger_pct": 0.05, "trailing_distance_pct": 0.02,
+        }.get(k, d))
+        controller.processed_data = {
+            "now_ts": 1000.0,
+            "coins": {},
+            "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
+            "orderbook_mids": {"BTC": 0.5},
+            "reward_spreads": {"BTC": 0.03},
+            "hours_left": {"BTC": 2.0},
+            "btc_spot": 100000.0,
+        }
+        controller.position_tracker = MagicMock()
+        controller.executors_info = []
+        controller.quote_manager = MagicMock()
+        controller.quote_manager.tick.return_value = quote_actions
+
+    def test_yes_side_gets_buy(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="place", coin="BTC", side="YES", price=0.45, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 1
+        assert actions[0].executor_config.side == _TradeType.BUY
+
+    def test_no_side_gets_sell(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="place", coin="BTC", side="NO", price=0.55, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, qa)
+        actions = ctrl.determine_executor_actions()
+        assert len(actions) == 1
+        assert actions[0].executor_config.side == _TradeType.SELL
+
+
+class TestOrderFeedback:
+    """Verify set_order_id / clear_order are called from controller."""
+
+    def _make_mm_controller(self, config):
+        config.quoting.enabled = True
+        ctrl = BinaryOptionsController(config, MagicMock(), asyncio.Queue())
+        ctrl.connectors = {config.connector_name: MagicMock()}
+        return ctrl
+
+    def _wire_mm_mocks(self, controller, quote_actions):
+        controller.runtime_bridge = MagicMock()
+        controller.runtime_bridge.should_trade.return_value = True
+        controller.runtime_bridge.get_coin_param = MagicMock(side_effect=lambda c, k, d=None: {
+            "stop_loss_pct": 0.03, "tp_distance": 0.05,
+            "trailing_trigger_pct": 0.05, "trailing_distance_pct": 0.02,
+        }.get(k, d))
+        controller.processed_data = {
+            "now_ts": 1000.0,
+            "coins": {},
+            "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
+            "orderbook_mids": {"BTC": 0.5},
+            "reward_spreads": {"BTC": 0.03},
+            "hours_left": {"BTC": 2.0},
+            "btc_spot": 100000.0,
+        }
+        controller.position_tracker = MagicMock()
+        controller.executors_info = []
+        controller.quote_manager = MagicMock()
+        controller.quote_manager.tick.return_value = quote_actions
+
+    def test_place_calls_set_order_id(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        qa = QuoteActions(actions=[
+            QuoteAction(action="place", coin="BTC", side="YES", price=0.45, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, qa)
+        actions = ctrl.determine_executor_actions()
+        ctrl.quote_manager.set_order_id.assert_called_once_with(
+            "BTC", "YES", actions[0].executor_config.id
+        )
+
+    def test_cancel_calls_clear_order(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        ctrl._mm_executor_map["BTC:YES"] = "exec_123"
+        qa = QuoteActions(actions=[
+            QuoteAction(action="cancel", coin="BTC", side="YES"),
+        ])
+        self._wire_mm_mocks(ctrl, qa)
+        ctrl.determine_executor_actions()
+        ctrl.quote_manager.clear_order.assert_called_once_with("BTC", "YES")
+
+    def test_update_calls_set_order_id(self, config):
+        ctrl = self._make_mm_controller(config)
+        from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+        ctrl._mm_executor_map["BTC:YES"] = "old_exec"
+        qa = QuoteActions(actions=[
+            QuoteAction(action="update", coin="BTC", side="YES", price=0.48, size=10.0),
+        ])
+        self._wire_mm_mocks(ctrl, qa)
+        actions = ctrl.determine_executor_actions()
+        # set_order_id called with the new executor id
+        ctrl.quote_manager.set_order_id.assert_called_once_with(
+            "BTC", "YES", actions[1].executor_config.id
+        )
 
 
 class TestToFormatStatus:

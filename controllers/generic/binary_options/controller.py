@@ -353,9 +353,10 @@ class BinaryOptionsController(ControllerBase):
             if qa.action == "place":
                 coin = qa.coin
                 executor_config = self._make_mm_executor_config(
-                    coin, trading_pair, qa.price, qa.size, hours_left, now_ts
+                    coin, trading_pair, qa.price, qa.size, hours_left, now_ts, side=qa.side
                 )
                 self._mm_executor_map[f"{qa.coin}:{qa.side}"] = executor_config.id
+                self.quote_manager.set_order_id(qa.coin, qa.side, executor_config.id)
                 actions.append(CreateExecutorAction(
                     controller_id=self.config.id,
                     executor_config=executor_config,
@@ -369,6 +370,7 @@ class BinaryOptionsController(ControllerBase):
                         controller_id=self.config.id,
                         executor_id=executor_id,
                     ))
+                self.quote_manager.clear_order(qa.coin, qa.side)
 
             elif qa.action == "update":
                 key = f"{qa.coin}:{qa.side}"
@@ -379,9 +381,10 @@ class BinaryOptionsController(ControllerBase):
                         executor_id=old_id,
                     ))
                 executor_config = self._make_mm_executor_config(
-                    qa.coin, trading_pair, qa.price, qa.size, hours_left, now_ts
+                    qa.coin, trading_pair, qa.price, qa.size, hours_left, now_ts, side=qa.side
                 )
                 self._mm_executor_map[key] = executor_config.id
+                self.quote_manager.set_order_id(qa.coin, qa.side, executor_config.id)
                 actions.append(CreateExecutorAction(
                     controller_id=self.config.id,
                     executor_config=executor_config,
@@ -433,7 +436,7 @@ class BinaryOptionsController(ControllerBase):
 
     def _make_mm_executor_config(
         self, coin: str, trading_pair: str, price: float, size: float,
-        hours_left: dict, now_ts: float,
+        hours_left: dict, now_ts: float, side: str = "YES",
     ) -> PositionExecutorConfig:
         """Build a PositionExecutorConfig with full TripleBarrier for MM quotes."""
         sl = self.runtime_bridge.get_coin_param(coin, "stop_loss_pct", 0.03)
@@ -453,11 +456,13 @@ class BinaryOptionsController(ControllerBase):
             open_order_type=OrderType.LIMIT_MAKER,
         )
 
+        trade_side = TradeType.BUY if side == "YES" else TradeType.SELL
+
         return PositionExecutorConfig(
             timestamp=now_ts,
             trading_pair=trading_pair,
             connector_name=self.config.connector_name,
-            side=TradeType.BUY,
+            side=trade_side,
             entry_price=Decimal(str(price)),
             amount=Decimal(str(size)),
             triple_barrier_config=triple_barrier,
