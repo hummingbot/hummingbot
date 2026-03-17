@@ -8,6 +8,7 @@ fetching) to it. This class implements Hummingbot's ExchangePyBase interface.
 import asyncio
 import hashlib
 import logging
+import math
 import time
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -30,6 +31,8 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -335,6 +338,43 @@ class LimitlessExchange(ExchangePyBase):
                 return Decimal("0.5")  # safe fallback
         return super().get_price_by_type(trading_pair, price_type)
 
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        if self._is_no_pair(trading_pair):
+            yes_order_book = super().get_order_book(self._yes_pair(trading_pair))
+            return self._flip_order_book(yes_order_book)
+        return super().get_order_book(trading_pair)
+
+    def get_price(self, trading_pair: str, is_buy: bool, amount: Decimal = s_decimal_NaN) -> Decimal:
+        if self._is_no_pair(trading_pair):
+            yes_price = super().get_price(self._yes_pair(trading_pair), not is_buy)
+            if yes_price.is_nan():
+                return yes_price
+            return Decimal("1") - yes_price
+        return super().get_price(trading_pair, is_buy)
+
+    def _flip_order_book(self, yes_order_book: OrderBook) -> OrderBook:
+        flipped_order_book = yes_order_book.__class__()
+        flipped_bids = [
+            OrderBookRow(float(1 - ask.price), float(ask.amount), ask.update_id)
+            for ask in yes_order_book.ask_entries()
+        ]
+        flipped_asks = [
+            OrderBookRow(float(1 - bid.price), float(bid.amount), bid.update_id)
+            for bid in yes_order_book.bid_entries()
+        ]
+        update_id = max(
+            [yes_order_book.snapshot_uid, yes_order_book.last_diff_uid]
+            + [row.update_id for row in flipped_bids]
+            + [row.update_id for row in flipped_asks]
+        )
+        flipped_order_book.apply_snapshot(bids=flipped_bids, asks=flipped_asks, update_id=update_id)
+
+        if not math.isnan(yes_order_book.last_trade_price):
+            flipped_order_book.last_trade_price = float(1 - yes_order_book.last_trade_price)
+        flipped_order_book.last_trade_price_rest_updated = yes_order_book.last_trade_price_rest_updated
+
+        return flipped_order_book
+
     def get_trading_rules(self) -> Dict[str, TradingRule]:
         """Return all trading rules including dynamically registered ones."""
         return self._trading_rules
@@ -563,14 +603,23 @@ class LimitlessExchange(ExchangePyBase):
         if is_no_side:
             yes_pair = self._yes_pair(trading_pair)
             slug = self._trading_pair_to_slug(yes_pair)
-        
-        result = await self._inner_connector.buy(
-            market_slug=slug,
-            price=order_price,
-            size=float(amount),
-            order_type="GTC",
-            token=token,
-        )
+
+        if trade_type == TradeType.SELL:
+            result = await self._inner_connector.sell(
+                market_slug=slug,
+                price=order_price,
+                size=float(amount),
+                order_type="GTC",
+                token=token,
+            )
+        else:
+            result = await self._inner_connector.buy(
+                market_slug=slug,
+                price=order_price,
+                size=float(amount),
+                order_type="GTC",
+                token=token,
+            )
 
         exchange_order_id = str(result.get("order_id", order_id))
         return exchange_order_id, self.current_timestamp
