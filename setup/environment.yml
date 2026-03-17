@@ -29,7 +29,7 @@ dependencies:
   - commlib-py==0.11.5
   - cryptography>=41.0.2
   - eth-account>=0.13.0
-#  - injective-py==1.12.*
+  - injective-py>=1.12.*
   - libta-lib>=0.6.4
   - msgpack-python
   - numba>=0.61.2
@@ -64,5 +64,3 @@ dependencies:
   - xrpl-py==4.4.0
   - yaml>=0.2.5
   - zlib>=1.2.13
-  - pip:
-    - injective-py==1.13.*
