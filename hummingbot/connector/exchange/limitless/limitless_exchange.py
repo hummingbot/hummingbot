@@ -272,6 +272,19 @@ class LimitlessExchange(ExchangePyBase):
         )
         logger.info("Registered dynamic market: %s -> %s", tp, slug)
 
+        # Also register NO-side pair (same slug, different trading pair)
+        no_tp = tp.replace("-USDC", "-NO-USDC")
+        if no_tp != tp and no_tp not in self._trading_rules:
+            self._slug_map[no_tp] = slug  # same slug
+            self._trading_rules[no_tp] = TradingRule(
+                trading_pair=no_tp,
+                min_order_size=Decimal("0.01"),
+                min_base_amount_increment=Decimal("0.01"),
+                min_price_increment=Decimal("0.001"),
+                min_order_value=Decimal("0.01"),
+            )
+            logger.info("Registered NO-side pair: %s -> %s", no_tp, slug)
+
     async def _initialize_trading_pair_symbol_map(self):
         """Discover markets from Limitless and build the symbol mapping.
 
@@ -485,25 +498,26 @@ class LimitlessExchange(ExchangePyBase):
         await self._ensure_inner_connector()
         slug = self._trading_pair_to_slug(trading_pair)
 
-        if trade_type is TradeType.BUY:
-            result = await self._inner_connector.buy(
-                market_slug=slug,
-                price=float(price),
-                size=float(amount),
-                order_type="GTC",
-                token="YES",
-            )
-        else:
-            # "SELL" in Hummingbot = buy the NO token on Limitless
-            # NO price = 1 - YES price
-            no_price = 1.0 - float(price)
-            result = await self._inner_connector.buy(
-                market_slug=slug,
-                price=no_price,
-                size=float(amount),
-                order_type="GTC",
-                token="NO",
-            )
+        # Determine token from trading pair suffix
+        # ETH-USDC = YES side, ETH-NO-USDC = NO side
+        is_no_side = "-NO-" in trading_pair
+        token = "NO" if is_no_side else "YES"
+        order_price = float(price)
+        # NO price is already flipped by controller, send as-is
+
+        # Both sides use the same slug (same market)
+        if is_no_side:
+            # Map NO pair back to YES pair for slug lookup
+            yes_pair = trading_pair.replace("-NO-", "-")
+            slug = self._trading_pair_to_slug(yes_pair)
+        
+        result = await self._inner_connector.buy(
+            market_slug=slug,
+            price=order_price,
+            size=float(amount),
+            order_type="GTC",
+            token=token,
+        )
 
         exchange_order_id = str(result.get("order_id", order_id))
         return exchange_order_id, self.current_timestamp

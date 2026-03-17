@@ -75,6 +75,7 @@ class BinaryOptionsController(ControllerBase):
 
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
+
         self._last_log_ts: float = 0.0
 
     async def on_start(self):
@@ -88,6 +89,7 @@ class BinaryOptionsController(ControllerBase):
         connector = self.market_data_provider.connectors.get(self.config.connector_name)
         if connector:
             self.market_manager._connector = connector
+
             logger.info("BinaryOptionsController: connector '%s' wired to market_manager",
                         self.config.connector_name)
         else:
@@ -456,14 +458,22 @@ class BinaryOptionsController(ControllerBase):
             open_order_type=OrderType.LIMIT_MAKER,
         )
 
-        trade_side = TradeType.BUY if side == "YES" else TradeType.SELL
+        # Both sides use TradeType.BUY for PositionExecutor —
+        # Hummingbot's SELL path needs asks in orderbook (we don't have them).
+        # NO side uses "COIN-NO-USDC" trading pair so connector can route token.
+        if side == "NO":
+            entry = Decimal(str(1.0 - price))  # flip to NO token price
+            tp_for_executor = trading_pair.replace("-USDC", "-NO-USDC")
+        else:
+            entry = Decimal(str(price))
+            tp_for_executor = trading_pair
 
         return PositionExecutorConfig(
             timestamp=now_ts,
-            trading_pair=trading_pair,
+            trading_pair=tp_for_executor,
             connector_name=self.config.connector_name,
-            side=trade_side,
-            entry_price=Decimal(str(price)),
+            side=TradeType.BUY,
+            entry_price=entry,
             amount=Decimal(str(size)),
             triple_barrier_config=triple_barrier,
         )

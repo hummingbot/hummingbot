@@ -428,7 +428,10 @@ class TestSideMapping:
         self._wire_mm_mocks(ctrl, qa)
         actions = ctrl.determine_executor_actions()
         assert len(actions) == 1
-        assert actions[0].executor_config.side == _TradeType.SELL
+        # NO side also uses BUY (both sides are BUY on Limitless, token routing
+        # happens at connector level via trading pair suffix "-NO-USDC")
+        assert actions[0].executor_config.side == _TradeType.BUY
+        assert "-NO-" in actions[0].executor_config.trading_pair
 
 
 class TestOrderFeedback:
