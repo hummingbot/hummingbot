@@ -3,7 +3,7 @@ import logging
 import math
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +249,7 @@ class MarketManager:
 
         depth_weight = float(self._rb.get_coin_param("_global", "msel_depth_weight", 0.5))
         atm_weight = float(self._rb.get_coin_param("_global", "msel_atm_weight", 0.5))
+        volume_weight = float(self._rb.get_coin_param("_global", "msel_volume_weight", 0.0))
         hysteresis = float(self._rb.get_coin_param("_global", "msel_hysteresis_pct", 0.10))
 
         # Get all active markets for re-scoring
@@ -325,7 +326,7 @@ class MarketManager:
             })
 
         async def _score(md: dict) -> float:
-            """Compute score: depth_weight × normalized_depth + atm_weight × atm_proximity."""
+            """Collect score inputs for normalized depth, ATM proximity, and volume."""
             slug = md.get("slug", "")
             ob = await self._connector.get_order_book_data(slug)
             near_depth = 0.0
@@ -355,7 +356,8 @@ class MarketManager:
             # Normalized: we use raw values; normalization across candidates
             md["_near_depth"] = near_depth
             md["_atm_proximity"] = atm_proximity
-            return near_depth, atm_proximity
+            md["_volume"] = float(md.get("volume", 0.0) or 0.0)
+            return near_depth, atm_proximity, md["_volume"]
 
         switches = {}
         for ticker, cands in ticker_candidates.items():
@@ -370,11 +372,13 @@ class MarketManager:
             # Normalize
             max_depth = max((c["_near_depth"] for c in cands), default=1.0) or 1.0
             max_atm = max((c["_atm_proximity"] for c in cands), default=1.0) or 1.0
+            max_volume = max((c["_volume"] for c in cands), default=0.0) or 1.0
 
             def full_score(c):
                 return (
                     depth_weight * (c["_near_depth"] / max_depth) +
-                    atm_weight * (c["_atm_proximity"] / max_atm)
+                    atm_weight * (c["_atm_proximity"] / max_atm) +
+                    volume_weight * (c["_volume"] / max_volume)
                 )
 
             current_slug = self._locked_markets[ticker].get("slug")
