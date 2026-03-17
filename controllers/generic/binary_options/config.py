@@ -90,6 +90,7 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     # Market selection
     coins: list = Field(default_factory=list, description="Coin whitelist (empty = all discovered)")
     max_expiry_hours: float = Field(default=1.0, description="Look-ahead window for market discovery")
+    max_moneyness: float = Field(default=0.05, description="Max distance from ATM as fraction (5% default)")
     include_subhourly: bool = Field(
         default=False,
         description="If true, include :15/:30/:45 markets in selection; if false, hourly (:00) only",
