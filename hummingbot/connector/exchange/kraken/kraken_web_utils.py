@@ -68,13 +68,10 @@ async def get_current_server_time_s(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     """
-    Get the current server time in seconds
+    Get the current Kraken server time in seconds via the Time API endpoint.
     :param throttler: the throttler to use for the request
-    :param domain: the coinbase_advanced_trade domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the Kraken domain
     :return: the current server time in seconds
-    """
-    """
-    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getservertime
     """
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)

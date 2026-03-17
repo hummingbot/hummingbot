@@ -101,15 +101,6 @@ class KrakenExchange(ExchangePyBase):
 
     @property
     def status_dict(self) -> Dict[str, bool]:
-        # self.logger().debug(
-        #     f"\n   symbols_mapping_initialized: {self.trading_pair_symbol_map_ready()}\n"
-        #     f"   order_books_initialized: {self.order_book_tracker.ready}\n"
-        #     f"   account_balance: {len(self._account_balances) > 0}\n"
-        #     f"   account_balance: {len(self._account_available_balances) > 0}\n"
-        #     f"   trading_required: {self.is_trading_required}\n"
-        #     f"   trading_rule_initialized: {len(self._trading_rules) > 0 if self.is_trading_required else True}\n"
-        #     f"   user_stream_initialized: {self._is_user_stream_initialized()}\n"
-        # )
         return {
             "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
             "order_books_initialized": self.order_book_tracker.ready,
@@ -408,8 +399,9 @@ class KrakenExchange(ExchangePyBase):
     async def _get_exchange_order_id(self, tracked_order: InFlightOrder) -> str:
         if (exchange_order_id := tracked_order.exchange_order_id) is None:
             response = await self.get_open_orders_with_userref(int(tracked_order.client_order_id))
-            if any(response.get("open").values()):
-                exchange_order_id = list(response.get("open").keys())[0]
+            open_orders = response.get("open") or {}
+            if any(open_orders.values()):
+                exchange_order_id = list(open_orders.keys())[0]
             else:
                 exchange_order_id = None
         return exchange_order_id
