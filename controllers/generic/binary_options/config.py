@@ -90,6 +90,10 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     # Market selection
     coins: list = Field(default_factory=list, description="Coin whitelist (empty = all discovered)")
     max_expiry_hours: float = Field(default=1.0, description="Look-ahead window for market discovery")
+    include_subhourly: bool = Field(
+        default=False,
+        description="If true, include :15/:30/:45 markets in selection; if false, hourly (:00) only",
+    )
 
     runtime_json_path: str = Field(
         ..., description="Path to runtime.json (hot-reloaded by RuntimeBridge)"

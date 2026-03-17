@@ -110,6 +110,7 @@ class MarketManager:
             return dict(self._locked_markets)
 
         now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+        include_subhourly = bool(getattr(self._config, 'include_subhourly', False))
 
         # Collect candidates per ticker
         candidates: Dict[str, list] = {}  # {ticker: [market_dict, ...]}
@@ -154,6 +155,10 @@ class MarketManager:
 
             # Must not be expired
             if expiry_dt <= now_dt:
+                continue
+
+            # Timeframe filter: hourly-only unless include_subhourly is enabled
+            if not include_subhourly and expiry_dt.minute != 0:
                 continue
 
             # Configurable look-ahead from YAML config
@@ -252,6 +257,7 @@ class MarketManager:
             return dict(self._locked_markets)
 
         now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+        include_subhourly = bool(getattr(self._config, 'include_subhourly', False))
 
         # Group valid candidates by ticker
         ticker_candidates: Dict[str, list] = {}
@@ -282,6 +288,10 @@ class MarketManager:
                 elif isinstance(expiry, str):
                     expiry_dt = _parse_time(expiry)
             if not expiry_dt or expiry_dt <= now_dt:
+                continue
+
+            # Timeframe filter: hourly-only unless include_subhourly is enabled
+            if not include_subhourly and expiry_dt.minute != 0:
                 continue
 
             # Extract prices from list or dict

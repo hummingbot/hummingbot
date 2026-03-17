@@ -245,7 +245,19 @@ class LimitlessExchange(ExchangePyBase):
         """
         tp = trading_pair or slug
         if slug in self._slug_reverse_map:
-            return  # already registered
+            # Slug already registered for YES side, but ensure NO pair exists too
+            no_tp = tp.replace("-USDC", "-NO-USDC") if tp else ""
+            if no_tp and no_tp != tp and no_tp not in self._trading_rules:
+                self._slug_map[no_tp] = slug
+                self._trading_rules[no_tp] = TradingRule(
+                    trading_pair=no_tp,
+                    min_order_size=Decimal("0.01"),
+                    min_base_amount_increment=Decimal("0.01"),
+                    min_price_increment=Decimal("0.001"),
+                    min_order_value=Decimal("0.01"),
+                )
+                logger.info("Registered NO-side pair (late): %s -> %s", no_tp, slug)
+            return
 
         self._slug_map[tp] = slug
         self._slug_reverse_map[slug] = tp
