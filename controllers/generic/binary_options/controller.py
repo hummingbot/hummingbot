@@ -74,6 +74,7 @@ class BinaryOptionsController(ControllerBase):
 
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
+        self._last_log_ts: float = 0.0
 
     async def on_start(self):
         """Called by subclasses or manually — not by ControllerBase."""
@@ -110,6 +111,18 @@ class BinaryOptionsController(ControllerBase):
         await self.market_manager.discover(spots, now_ts)
         await self.market_manager.evaluate(now_ts)
         market_data = await self.market_manager.build_market_data(now_ts)
+        if (now_ts - self._last_log_ts) >= 30.0:
+            logger.info("tick: %d coins tracked, btc=%.2f", len(market_data), btc_spot)
+            for coin, md in market_data.items():
+                logger.debug(
+                    "  %s: yes=%.4f bid=%.4f ask=%.4f strike=%.2f",
+                    coin,
+                    md.get("yes_price", 0.0),
+                    md.get("bid", 0.0),
+                    md.get("ask", 0.0),
+                    md.get("strike", 0.0),
+                )
+            self._last_log_ts = now_ts
 
         # 4. Update spot feed with pyth addresses from discovered markets
         pyth_addresses = {}
@@ -122,6 +135,24 @@ class BinaryOptionsController(ControllerBase):
 
         # 5. Signal engine tick
         signals = self.signal_engine.tick(spots, market_data, btc_spot, now_ts)
+        for coin, sig in signals.items():
+            signal_z = sig.get("z_score", 0.0) or sig.get("btc_z_score", 0.0)
+            if (
+                signal_z != 0.0
+                or sig.get("edge", 0.0) != 0.0
+                or sig.get("direction") is not None
+                or sig.get("entry_path") is not None
+                or sig.get("spot_signal", False)
+                or sig.get("btc_signal", False)
+            ):
+                logger.info(
+                    "signal[%s]: z=%.3f fair=%.4f edge=%.4f tier=%s",
+                    coin,
+                    signal_z,
+                    sig.get("model_prob", 0.0),
+                    sig.get("edge", 0.0),
+                    sig.get("confidence", "LOW"),
+                )
 
         # 6. Gather MM data if quoting enabled
         if self.config.quoting.enabled:
@@ -173,6 +204,12 @@ class BinaryOptionsController(ControllerBase):
         exit_dicts = self.exit_monitor.check_all(
             self.executors_info, btc_spot, market_data, now_ts
         )
+        if exit_dicts:
+            logger.info(
+                "exit_monitor: %d exits → %s",
+                len(exit_dicts),
+                [ed.get("executor_id", "") for ed in exit_dicts],
+            )
         for ed in exit_dicts:
             actions.append(StopExecutorAction(
                 controller_id=self.config.id,
@@ -181,6 +218,29 @@ class BinaryOptionsController(ControllerBase):
 
         # 4. Action router → CreateExecutorAction
         entry_dicts = self.action_router.route(signals, market_data, self.executors_info, now_ts)
+        if entry_dicts:
+            logger.info(
+                "action_router: %d entries → %s",
+                len(entry_dicts),
+                [ad.get("coin", "") for ad in entry_dicts],
+            )
+        elif signals:
+            logger.debug(
+                "action_router: no entries (signals: %s)",
+                [
+                    f"{coin}:{sig.get('direction') or '-'}:{sig.get('edge', 0.0):.4f}"
+                    for coin, sig in signals.items()
+                    if (
+                        sig.get("z_score", 0.0) != 0.0
+                        or sig.get("btc_z_score", 0.0) != 0.0
+                        or sig.get("edge", 0.0) != 0.0
+                        or sig.get("direction") is not None
+                        or sig.get("entry_path") is not None
+                        or sig.get("spot_signal", False)
+                        or sig.get("btc_signal", False)
+                    )
+                ],
+            )
         for ad in entry_dicts:
             coin = ad.get("coin", "")
 
@@ -268,6 +328,15 @@ class BinaryOptionsController(ControllerBase):
         quote_actions = self.quote_manager.tick(
             coins, signals, orderbook_mids, reward_spreads, hours_left
         )
+        action_summary = "none"
+        if quote_actions.actions:
+            counts: Dict[str, int] = {}
+            for qa in quote_actions.actions:
+                counts[qa.action] = counts.get(qa.action, 0) + 1
+            action_summary = ",".join(
+                f"{action}={count}" for action, count in sorted(counts.items())
+            )
+        logger.info("mm_tick: %d coins, actions: %s", len(coins), action_summary)
 
         for qa in quote_actions.actions:
             trading_pair = market_data.get(qa.coin, {}).get("slug", "")
