@@ -1,4 +1,4 @@
-"""Source-agnostic spot price feed. Pyth primary, Binance fallback."""
+"""Source-agnostic spot price feed. Binance primary, Pyth fallback."""
 import logging
 
 import requests
@@ -12,6 +12,7 @@ class SpotFeed:
         self._cache: dict = {}
         self._cache_ttl = 3.0
         self._timeout = (0.3, 0.7)
+        self.core_tickers: set = {"BTC"}
 
         self._pyth_consecutive_failures = 0
         self._pyth_cb_threshold = 2
@@ -45,35 +46,21 @@ class SpotFeed:
             if all_fresh:
                 return {t: p for t, (ts, p) in self._cache.items()}
 
-        # Periodically retry Pyth for Binance-routed tickers
-        if self._binance_routed and self._tick_count % self._pyth_retry_interval == 0:
-            retry = [t for t in self._binance_routed if t in self._pyth_addresses]
-            if retry:
-                pyth_prices = self._fetch_pyth(retry)
-                for t, p in pyth_prices.items():
-                    self._cache[t] = (now_ts, p)
-                    self._binance_routed.discard(t)
-
-        # Split tickers
         all_tickers = set(self._pyth_addresses.keys())
-        pyth_tickers = [t for t in all_tickers if t not in self._binance_routed]
-        binance_tickers = list(self._binance_routed)
+        all_tickers.update(self.core_tickers)
 
-        # Fetch Pyth batch
+        binance_prices = {}
+        for t in all_tickers:
+            p = self._fetch_binance(t)
+            if p is not None:
+                self._cache[t] = (now_ts, p)
+                binance_prices[t] = p
+
+        # Fetch Pyth only for tickers Binance did not return
+        pyth_tickers = [t for t in all_tickers if t not in binance_prices]
         if pyth_tickers:
             pyth_prices = self._fetch_pyth(pyth_tickers)
             for t, p in pyth_prices.items():
-                self._cache[t] = (now_ts, p)
-            # Route failures to Binance
-            failed = [t for t in pyth_tickers if t not in pyth_prices]
-            for t in failed:
-                self._binance_routed.add(t)
-                binance_tickers.append(t)
-
-        # Fetch Binance for routed tickers
-        for t in binance_tickers:
-            p = self._fetch_binance(t)
-            if p is not None:
                 self._cache[t] = (now_ts, p)
 
         if not self._cache:

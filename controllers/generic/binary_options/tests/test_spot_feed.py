@@ -48,13 +48,17 @@ class TestSpotFeed(unittest.TestCase):
 
     @patch("controllers.generic.binary_options.spot_feed.requests.get")
     def test_get_prices_fetches_when_stale(self, mock_get):
-        mock_get.return_value = _ok_resp(_pyth_response([
-            ("abc123", 6000000, -2),
-            ("def456", 300000, -2),
-        ]))
+        def side_effect(*args, **kwargs):
+            url = args[0] if args else kwargs.get("url", "")
+            if "binance" in url:
+                symbol = kwargs["params"]["symbol"]
+                return _binance_response(60000.0 if symbol == "BTCUSDT" else 3000.0)
+            return _ok_resp(_pyth_response([]))
+
+        mock_get.side_effect = side_effect
         now = time.time()
         result = self.feed.get_prices(now)
-        mock_get.assert_called_once()
+        self.assertEqual(mock_get.call_count, 2)
         self.assertAlmostEqual(result["BTC"], 60000.0)
         self.assertAlmostEqual(result["ETH"], 3000.0)
 
@@ -110,19 +114,32 @@ class TestSpotFeed(unittest.TestCase):
         mock_get.assert_not_called()
 
     @patch("controllers.generic.binary_options.spot_feed.requests.get")
-    def test_fallback_pyth_to_binance(self, mock_get):
+    def test_fallback_binance_to_pyth(self, mock_get):
         def side_effect(*args, **kwargs):
             url = args[0] if args else kwargs.get("url", "")
-            if "pyth" in url:
-                raise Exception("pyth down")
-            return _binance_response(62000.0)
+            if "binance" in url:
+                raise Exception("binance down")
+            return _ok_resp(_pyth_response([
+                ("abc123", 6200000, -2),
+                ("def456", 310000, -2),
+            ]))
         mock_get.side_effect = side_effect
 
         now = time.time()
         result = self.feed.get_prices(now)
-        self.assertIn("BTC", self.feed._binance_routed)
-        self.assertIn("ETH", self.feed._binance_routed)
         self.assertAlmostEqual(result.get("BTC"), 62000.0)
+        self.assertAlmostEqual(result.get("ETH"), 3100.0)
+
+    @patch("controllers.generic.binary_options.spot_feed.requests.get")
+    def test_core_tickers_always_include_btc(self, mock_get):
+        feed = SpotFeed()
+        mock_get.return_value = _binance_response(63000.0)
+
+        result = feed.get_prices(time.time())
+
+        mock_get.assert_called_once()
+        self.assertEqual(mock_get.call_args.kwargs["params"]["symbol"], "BTCUSDT")
+        self.assertAlmostEqual(result["BTC"], 63000.0)
 
     def test_update_addresses(self):
         self.feed._binance_routed.add("SOL")

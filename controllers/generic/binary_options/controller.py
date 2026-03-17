@@ -52,8 +52,9 @@ class BinaryOptionsController(ControllerBase):
         self.runtime_bridge = RuntimeBridge(config.runtime_json_path)
         self.roster = CoinRoster(self.runtime_bridge)
 
-        # Spot feed (Pyth primary, Binance fallback)
+        # Spot feed (Binance primary, Pyth fallback)
         self.spot_feed = SpotFeed(config)
+        self.spot_feed.core_tickers.add("BTC")
 
         # Signal engine (takes a plain dict config)
         signal_cfg = _load_signal_config(config.config_json_path)

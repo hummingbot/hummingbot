@@ -71,6 +71,7 @@ class TestInstantiation:
         for attr in ("runtime_bridge", "roster", "spot_feed", "signal_engine",
                       "market_manager", "position_tracker", "exit_monitor", "action_router"):
             assert getattr(controller, attr) is not None
+        assert "BTC" in controller.spot_feed.core_tickers
 
     def test_connector_none_before_start(self, controller):
         assert controller.market_manager._connector is None
