@@ -320,14 +320,24 @@ class MarketManager:
             ob = await self._connector.get_order_book(slug)
             near_depth = 0.0
             if ob:
-                mid = (ob.get("bid", 0.5) + ob.get("ask", 0.5)) / 2.0
+                bids = ob.get("bids", [])
+                asks = ob.get("asks", [])
+                best_bid = float(bids[0]["price"]) if bids else 0.5
+                best_ask = float(asks[0]["price"]) if asks else 0.5
+                if best_bid > 1.0:
+                    best_bid /= 100.0
+                if best_ask > 1.0:
+                    best_ask /= 100.0
+                mid = (best_bid + best_ask) / 2.0
                 # Depth within 0.30 of mid
-                for side in ("bids_levels", "asks_levels"):
-                    for level in ob.get(side, []):
-                        price = level.get("price", 0)
+                for levels in (bids, asks):
+                    for level in levels:
+                        price = float(level.get("price", 0))
+                        if price > 1.0:
+                            price /= 100.0
                         if abs(price - mid) <= 0.30:
-                            near_depth += level.get("size", 0)
-                md["_bid"] = ob.get("bid", 0.5)
+                            near_depth += float(level.get("size", 0))
+                md["_bid"] = best_bid
             else:
                 md["_bid"] = md.get("yes_price", 0.5)
 
