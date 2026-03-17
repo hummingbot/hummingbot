@@ -651,6 +651,9 @@ def load_client_config_map_from_file() -> ClientConfigAdapter:
         config_data = read_yml_file(yml_path)
     else:
         config_data = {}
+    # Filter out legacy/removed fields that may still exist in the config file
+    valid_fields = set(ClientConfigMap.model_fields.keys())
+    config_data = {k: v for k, v in config_data.items() if k in valid_fields}
     client_config = ClientConfigMap(**config_data)
     config_map = ClientConfigAdapter(client_config)
     save_to_yml(yml_path, config_map)
