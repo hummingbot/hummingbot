@@ -257,6 +257,15 @@ class LimitlessExchange(ExchangePyBase):
         if slug not in self._inner_connector._markets:
             await self._inner_connector.get_market(slug)
         await self._inner_connector.subscribe_market(slug)
+
+        # Add trading rule so executors can place orders
+        self._trading_rules[tp] = TradingRule(
+            trading_pair=tp,
+            min_order_size=Decimal("1"),
+            min_base_amount_increment=Decimal("1"),
+            min_price_increment=Decimal("0.001"),
+            min_order_value=Decimal("1"),
+        )
         logger.info("Registered dynamic market: %s -> %s", tp, slug)
 
     async def _initialize_trading_pair_symbol_map(self):

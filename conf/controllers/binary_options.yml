@@ -58,6 +58,6 @@ quoting:
   reprice_threshold: 0.01      # reprice when fair value drifts by this much
   odds_min: 0.05               # don't quote below 5%
   odds_max: 0.95               # don't quote above 95%
-  min_hours_for_quoting: 0.25  # 15 min — don't quote near expiry
+  min_hours_for_quoting: 0.083  # 5 min — don't quote near expiry
   max_capital_per_market: 1.0  # USDC per market (dust testing)
   max_total_capital: 2.0       # USDC total across all markets
