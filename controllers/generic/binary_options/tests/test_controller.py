@@ -118,7 +118,7 @@ class TestDetermineExecutorActions:
             "base_timeout_secs": 3600,
         }.get(k, d))
         controller.processed_data = {
-            "now_ts": 1000.0, "market_data": {}, "btc_spot": 100000.0, "coins": {},
+            "now_ts": 1000.0, "market_data": {}, "btc_spot": 100000.0, "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
         }
         controller.market_manager = MagicMock()
         controller.market_manager.check_expiry.return_value = set()
@@ -183,7 +183,7 @@ class TestMMMode:
         }.get(k, d))
         controller.processed_data = {
             "now_ts": 1000.0,
-            "coins": {},
+            "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
             "reward_spreads": {"BTC": 0.03},
@@ -354,7 +354,7 @@ class TestMMMode:
         controller.runtime_bridge.should_trade.return_value = True
         controller.runtime_bridge.get_coin_param = MagicMock(return_value=0.03)
         controller.processed_data = {
-            "now_ts": 1000.0, "market_data": {}, "btc_spot": 100000.0, "coins": {},
+            "now_ts": 1000.0, "market_data": {}, "btc_spot": 100000.0, "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
         }
         controller.market_manager = MagicMock()
         controller.exit_monitor = MagicMock()
@@ -396,7 +396,7 @@ class TestSideMapping:
         }.get(k, d))
         controller.processed_data = {
             "now_ts": 1000.0,
-            "coins": {},
+            "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
             "reward_spreads": {"BTC": 0.03},
@@ -452,7 +452,7 @@ class TestOrderFeedback:
         }.get(k, d))
         controller.processed_data = {
             "now_ts": 1000.0,
-            "coins": {},
+            "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
             "reward_spreads": {"BTC": 0.03},

@@ -270,6 +270,12 @@ class LimitlessExchange(ExchangePyBase):
             min_price_increment=Decimal("0.001"),
             min_order_value=Decimal("0.01"),
         )
+        # Register in orderbook tracker so c_get_order_book / get_price_by_type works
+        try:
+            self._trading_pair_symbol_map[slug] = tp
+        except Exception:
+            pass
+
         logger.info("Registered dynamic market: %s -> %s", tp, slug)
 
         # Also register NO-side pair (same slug, different trading pair)
@@ -284,6 +290,22 @@ class LimitlessExchange(ExchangePyBase):
                 min_order_value=Decimal("0.01"),
             )
             logger.info("Registered NO-side pair: %s -> %s", no_tp, slug)
+
+    def get_price_by_type(self, trading_pair: str, price_type) -> Decimal:
+        """Override to handle NO-side pairs by flipping YES orderbook prices."""
+        if "-NO-" in trading_pair:
+            # Look up the YES pair's price and flip it
+            yes_tp = trading_pair.replace("-NO-USDC", "-USDC")
+            try:
+                yes_price = super().get_price_by_type(yes_tp, price_type)
+                return Decimal("1") - yes_price
+            except Exception:
+                return Decimal("0.5")  # safe fallback
+        return super().get_price_by_type(trading_pair, price_type)
+
+    def get_trading_rules(self) -> Dict[str, TradingRule]:
+        """Return all trading rules including dynamically registered ones."""
+        return self._trading_rules
 
     async def _initialize_trading_pair_symbol_map(self):
         """Discover markets from Limitless and build the symbol mapping.
