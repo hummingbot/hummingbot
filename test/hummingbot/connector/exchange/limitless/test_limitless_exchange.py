@@ -118,3 +118,11 @@ class TestLimitlessExchange(unittest.TestCase):
             token="NO",
         )
         self.exchange._inner_connector.buy.assert_not_awaited()
+
+    def test_paper_mode_setter_updates_inner_connector(self):
+        self.exchange._inner_connector = SimpleNamespace(_paper_mode=False)
+
+        self.exchange.paper_mode = True
+
+        self.assertTrue(self.exchange.paper_mode)
+        self.assertTrue(self.exchange._inner_connector._paper_mode)

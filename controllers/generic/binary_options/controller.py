@@ -117,16 +117,23 @@ class BinaryOptionsController(ControllerBase):
     def _ensure_connector(self):
         """Wire the connector from market_data_provider on first tick."""
         if self.market_manager._connector is not None:
+            self._apply_connector_paper_mode(self.market_manager._connector)
             return
         connector = self.market_data_provider.connectors.get(self.config.connector_name)
         if connector:
             self.market_manager._connector = connector
+            self._apply_connector_paper_mode(connector)
 
             logger.info("BinaryOptionsController: connector '%s' wired to market_manager",
                         self.config.connector_name)
         else:
             logger.debug("BinaryOptionsController: connector '%s' not yet available",
                          self.config.connector_name)
+
+    def _apply_connector_paper_mode(self, connector) -> None:
+        """Push controller paper_mode into the exchange connector."""
+        if hasattr(connector, "paper_mode"):
+            connector.paper_mode = self.config.paper_mode
 
     async def update_processed_data(self):
         """Called every tick by the V2 control loop."""

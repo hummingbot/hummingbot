@@ -85,6 +85,10 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     # (actual markets are discovered dynamically via connector.get_active_markets)
     # NOTE: Must be 2-part (BASE-QUOTE) to satisfy Hummingbot's market init
     trading_pair: str = "BTC-USDC"
+    paper_mode: bool = Field(
+        default=False,
+        description="If true, log orders only and avoid real trading",
+    )
 
     # Market selection
     coins: list = Field(default_factory=list, description="Coin whitelist (empty = all discovered)")

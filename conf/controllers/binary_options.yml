@@ -6,6 +6,7 @@ id: binary_options_main
 # === Connection ===
 connector_name: limitless
 trading_pair: ETH-USDC
+paper_mode: true               # true = log orders only, false = real trading
 
 # === Market selection ===
 coins: [ETH]                   # Only trade these coins (empty = all discovered)

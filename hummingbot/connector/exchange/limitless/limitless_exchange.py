@@ -59,12 +59,14 @@ class LimitlessExchange(ExchangePyBase):
         domain: str = CONSTANTS.DOMAIN,
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
         rate_limits_share_pct: Decimal = Decimal("100"),
+        paper_mode: bool = False,
     ):
         self._api_key = limitless_api_key
         self._private_key = limitless_private_key
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs or []
         self._domain = domain
+        self._paper_mode = paper_mode
         self._last_trade_history_timestamp = None
 
         # Trading pair <-> market slug mapping
@@ -90,7 +92,7 @@ class LimitlessExchange(ExchangePyBase):
                 api_key=self._api_key,
                 private_key=self._private_key,
                 markets=[],  # will be populated per trading pair
-                paper_mode=False,
+                paper_mode=self.paper_mode,
                 max_order_size_usd=100.0,
                 ws_enabled=True,
             )
@@ -188,6 +190,16 @@ class LimitlessExchange(ExchangePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
+
+    @property
+    def paper_mode(self) -> bool:
+        return self._paper_mode
+
+    @paper_mode.setter
+    def paper_mode(self, value: bool) -> None:
+        self._paper_mode = value
+        if self._inner_connector is not None:
+            self._inner_connector._paper_mode = value
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
