@@ -187,7 +187,7 @@ class LimitlessExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     # ── Network / ping ──────────────────────────────────────────
 
