@@ -402,14 +402,26 @@ class MarketManager:
             ob = await self._connector.get_order_book(slug)
 
             if ob:
+                # Extract best bid/ask from orderbook arrays
+                bids = ob.get("bids", [])
+                asks = ob.get("asks", [])
+                best_bid = float(bids[0]["price"]) if bids else 0.0
+                best_ask = float(asks[0]["price"]) if asks else 0.0
+                bid_depth = sum(float(b.get("size", 0)) for b in bids)
+                ask_depth = sum(float(a.get("size", 0)) for a in asks)
+                # Normalize cents to fractions if needed
+                if best_bid > 1.0:
+                    best_bid /= 100.0
+                if best_ask > 1.0:
+                    best_ask /= 100.0
                 entry = {
                     "coin": coin,
-                    "yes_price": ob.get("bid", md.get("yes_price", 0.5)),
-                    "no_price": 1.0 - ob.get("bid", 1.0 - md.get("no_price", 0.5)),
-                    "bid": ob.get("bid", 0.0),
-                    "ask": ob.get("ask", 0.0),
-                    "bid_depth": ob.get("bid_depth", 0.0),
-                    "ask_depth": ob.get("ask_depth", 0.0),
+                    "yes_price": best_bid if best_bid > 0 else md.get("yes_price", 0.5),
+                    "no_price": 1.0 - best_bid if best_bid > 0 else md.get("no_price", 0.5),
+                    "bid": best_bid,
+                    "ask": best_ask,
+                    "bid_depth": bid_depth,
+                    "ask_depth": ask_depth,
                     "strike": md.get("strike", 0.0),
                     "slug": slug,
                     "expiry": md.get("expiry"),
