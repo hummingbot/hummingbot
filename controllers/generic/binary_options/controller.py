@@ -125,7 +125,10 @@ class BinaryOptionsController(ControllerBase):
                 )
             self._last_log_ts = now_ts
 
-        # 4. Update spot feed with pyth addresses from discovered markets
+        # 4. Update spot feed — add locked coins so Binance fetches them
+        for coin in market_data:
+            self.spot_feed.core_tickers.add(coin)
+        # Also pass pyth addresses if available (fallback)
         pyth_addresses = {}
         for coin, md in market_data.items():
             addr = md.get("pyth_address", "")
@@ -137,21 +140,16 @@ class BinaryOptionsController(ControllerBase):
         # 5. Signal engine tick
         signals = self.signal_engine.tick(spots, market_data, btc_spot, now_ts)
         for coin, sig in signals.items():
-            signal_z = sig.get("z_score", 0.0) or sig.get("btc_z_score", 0.0)
-            if (
-                signal_z != 0.0
-                or sig.get("edge", 0.0) != 0.0
-                or sig.get("direction") is not None
-                or sig.get("entry_path") is not None
-                or sig.get("spot_signal", False)
-                or sig.get("btc_signal", False)
-            ):
+            spot_z = sig.get("z_score", 0.0)
+            btc_z = sig.get("btc_z_score", 0.0)
+            misp = sig.get("mispricing", 0.0)
+            if spot_z != 0.0 or btc_z != 0.0 or misp != 0.0:
                 logger.info(
-                    "signal[%s]: z=%.3f fair=%.4f edge=%.4f tier=%s",
-                    coin,
-                    signal_z,
+                    "signal[%s]: spot_z=%.3f btc_z=%.3f misp=%.4f fair=%.4f yes=%.4f vol=%.4f conf=%s",
+                    coin, spot_z, btc_z, misp,
                     sig.get("model_prob", 0.0),
-                    sig.get("edge", 0.0),
+                    self.processed_data.get("market_data", {}).get(coin, {}).get("yes_price", 0.0),
+                    sig.get("vol", 0.0),
                     sig.get("confidence", "LOW"),
                 )
 

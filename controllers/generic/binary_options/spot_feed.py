@@ -11,7 +11,7 @@ class SpotFeed:
         self._hermes_url = "https://hermes.pyth.network/v2/updates/price/latest"
         self._cache: dict = {}
         self._cache_ttl = 3.0
-        self._timeout = (0.3, 0.7)
+        self._timeout = (2.0, 5.0)
         self.core_tickers: set = {"BTC"}
 
         self._pyth_consecutive_failures = 0
