@@ -208,7 +208,10 @@ class BinaryOptionsController(ControllerBase):
             reward_spreads = {}
             hours_left_map = {}
             for coin, md in market_data.items():
-                orderbook_mids[coin] = md.get("yes_price", 0.5)
+                yes_mid = md.get("yes_mid")
+                if not md.get("quote_valid") or yes_mid is None:
+                    continue
+                orderbook_mids[coin] = yes_mid
                 reward_spreads[coin] = md.get("reward_spread", 0.03)
                 expiry = md.get("expiry_ts", now_ts + 3600)
                 hours_left_map[coin] = max(0, (expiry - now_ts) / 3600)
@@ -374,7 +377,10 @@ class BinaryOptionsController(ControllerBase):
 
         # Warmup gate: don't quote until signals are valid (vol needs ~100 ticks)
         coins = list(market_data.keys())
-        warmed = [c for c in coins if signals.get(c, {}).get("vol", 0.0) > 0.0001]
+        warmed = [
+            c for c in orderbook_mids.keys()
+            if signals.get(c, {}).get("vol", 0.0) > 0.0001
+        ]
         if not warmed:
             return actions
 

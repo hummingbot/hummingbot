@@ -1,16 +1,13 @@
 """Tests for quote_manager.py"""
-import pytest
 from unittest.mock import MagicMock
 
-from controllers.generic.binary_options.quote_manager import (
-    QuoteAction, QuoteActions, QuoteManager, QuoteState,
-)
 from controllers.generic.binary_options.config import QuoteConfig
-
+from controllers.generic.binary_options.quote_manager import QuoteManager, QuoteState
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_bridge(coin_params=None, global_params=None):
     """Create a mock RuntimeBridge."""
@@ -46,10 +43,10 @@ def default_tick_args(coins=None, signals=None, mids=None, spreads=None, hours=N
     coins = coins or ["BTC"]
     return dict(
         coins=coins,
-        signals=signals or {c: make_signal() for c in coins},
-        orderbook_mids=mids or {c: 0.5 for c in coins},
-        reward_spreads=spreads or {c: 0.10 for c in coins},
-        hours_left=hours or {c: 5.0 for c in coins},
+        signals=signals if signals is not None else {c: make_signal() for c in coins},
+        orderbook_mids=mids if mids is not None else {c: 0.5 for c in coins},
+        reward_spreads=spreads if spreads is not None else {c: 0.10 for c in coins},
+        hours_left=hours if hours is not None else {c: 5.0 for c in coins},
     )
 
 
@@ -58,6 +55,12 @@ def default_tick_args(coins=None, signals=None, mids=None, spreads=None, hours=N
 # ---------------------------------------------------------------------------
 
 class TestMarketFiltering:
+    def test_missing_mid_produces_no_quote_actions(self):
+        cfg = QuoteConfig(enabled=True)
+        qm = QuoteManager(cfg, make_bridge())
+        result = qm.tick(**default_tick_args(mids={}))
+        assert len(result.actions) == 0
+
     def test_skip_low_odds(self):
         cfg = QuoteConfig(enabled=True)
         qm = QuoteManager(cfg, make_bridge())
@@ -133,7 +136,7 @@ class TestSkewed:
         bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         # z=1.0 → ratio=0.667 > 0.5 → SKEWED
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(model_prob=0.6, z_score=1.0)},
         ))
         assert qm.state("BTC") == QuoteState.SKEWED
@@ -179,7 +182,7 @@ class TestOneSided:
         bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "btc_z_threshold": 0.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         # z=1.5 → ratio=1.0 → ONE_SIDED
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(model_prob=0.6, z_score=1.5)},
         ))
         assert qm.state("BTC") == QuoteState.ONE_SIDED
@@ -235,7 +238,7 @@ class TestZClamping:
         bridge = make_bridge(global_params={"edge_z_threshold": 1.0})
         qm = QuoteManager(cfg, bridge)
         # z=5.0 → ratio=5.0 clamped to 1.0 → ONE_SIDED
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(z_score=5.0)},
         ))
         assert qm.state("BTC") == QuoteState.ONE_SIDED
@@ -245,7 +248,7 @@ class TestZClamping:
         bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
         qm = QuoteManager(cfg, bridge)
         # z=0 → ratio=0 → SYMMETRIC
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(z_score=0.0)},
         ))
         assert qm.state("BTC") == QuoteState.SYMMETRIC
@@ -254,7 +257,7 @@ class TestZClamping:
         cfg = QuoteConfig(enabled=True)
         bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "btc_z_threshold": 10.0, "combined_z_threshold": 10.0})
         qm = QuoteManager(cfg, bridge)
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(z_score=1.5, btc_z_score=0.0, combined_z=0.0)},
         ))
         assert qm.state("BTC") == QuoteState.ONE_SIDED
@@ -263,7 +266,7 @@ class TestZClamping:
         cfg = QuoteConfig(enabled=True)
         bridge = make_bridge(global_params={"edge_z_threshold": 10.0, "btc_z_threshold": 0.5, "combined_z_threshold": 10.0})
         qm = QuoteManager(cfg, bridge)
-        result = qm.tick(**default_tick_args(
+        qm.tick(**default_tick_args(
             signals={"BTC": make_signal(z_score=0.0, btc_z_score=0.5, combined_z=0.0)},
         ))
         assert qm.state("BTC") == QuoteState.ONE_SIDED
@@ -278,7 +281,7 @@ class TestFillHandling:
         cfg = QuoteConfig(enabled=True)
         bridge = make_bridge(coin_params={"BTC": {"tp_distance": 0.05}})
         qm = QuoteManager(cfg, bridge)
-        result = qm.on_fill("BTC", "YES", 0.45, 100)
+        qm.on_fill("BTC", "YES", 0.45, 100)
         assert qm.state("BTC") == QuoteState.FILLED
 
     def test_fill_emits_close_order(self):

@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .config import QuoteConfig, RuntimeBridge
 
-
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
+
 
 class QuoteState(enum.Enum):
     IDLE = "IDLE"
@@ -43,6 +43,7 @@ class QuoteActions:
 # ---------------------------------------------------------------------------
 # QuoteManager
 # ---------------------------------------------------------------------------
+
 
 class QuoteManager:
     """Stateful per-coin quoting engine."""
@@ -90,9 +91,14 @@ class QuoteManager:
         total_capital = sum(self._capital_used.get(c, 0.0) for c in coins)
 
         for coin in coins:
+            mid = orderbook_mids.get(coin)
+            reward_spread = reward_spreads.get(coin)
+            h_left = hours_left.get(coin)
+            if mid is None or reward_spread is None or h_left is None:
+                continue
             actions = self._tick_coin(
-                coin, signals.get(coin, {}), orderbook_mids.get(coin, 0.5),
-                reward_spreads.get(coin, 0.0), hours_left.get(coin, 0.0),
+                coin, signals.get(coin, {}), mid,
+                reward_spread, h_left,
                 total_capital,
             )
             result.actions.extend(actions)

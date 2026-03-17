@@ -3,7 +3,7 @@ import logging
 import math
 import re
 from datetime import datetime, timezone
-from typing import Callable, Dict, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,33 @@ def _parse_title(title: str) -> Optional[Tuple[str, float, Optional[datetime]]]:
         return None
     expiry_dt = _parse_time(m.group(3).strip())
     return ticker, strike, expiry_dt
+
+
+def _normalize_prob(value: Any) -> Optional[float]:
+    """Convert venue/API prices into 0..1 fractions when possible."""
+    if value is None:
+        return None
+    try:
+        prob = float(value)
+    except (TypeError, ValueError):
+        return None
+    if prob > 1.0:
+        prob /= 100.0
+    return prob
+
+
+def _normalize_api_midpoint(value: Any) -> Optional[float]:
+    """Venue midpoint is already fractional; values outside 0..1 are invalid."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_valid_prob(value: Optional[float]) -> bool:
+    return value is not None and 0.0 < value < 1.0
 
 
 class MarketManager:
@@ -445,31 +472,55 @@ class MarketManager:
         for coin, md in self._locked_markets.items():
             slug = md.get("slug", "")
             ob = await self._connector.get_order_book_data(slug)
+            expiry = md.get("expiry")
+            expiry_ts = expiry.timestamp() if isinstance(expiry, datetime) else None
 
             if ob:
-                # Extract best bid/ask from orderbook arrays
-                bids = ob.get("bids", [])
-                asks = ob.get("asks", [])
-                best_bid = float(bids[0]["price"]) if bids else 0.0
-                best_ask = float(asks[0]["price"]) if asks else 0.0
-                bid_depth = sum(float(b.get("size", 0)) for b in bids)
-                ask_depth = sum(float(a.get("size", 0)) for a in asks)
-                # Normalize cents to fractions if needed
-                if best_bid > 1.0:
-                    best_bid /= 100.0
-                if best_ask > 1.0:
-                    best_ask /= 100.0
+                bids = ob.get("bids") or ob.get("bids_levels") or []
+                asks = ob.get("asks") or ob.get("asks_levels") or []
+                best_bid = _normalize_prob(bids[0].get("price")) if bids else _normalize_prob(ob.get("bid"))
+                best_ask = _normalize_prob(asks[0].get("price")) if asks else _normalize_prob(ob.get("ask"))
+                bid_depth = sum(float(b.get("size", 0)) for b in bids) if bids else float(ob.get("bid_depth", 0.0) or 0.0)
+                ask_depth = sum(float(a.get("size", 0)) for a in asks) if asks else float(ob.get("ask_depth", 0.0) or 0.0)
+
+                yes_mid_api = _normalize_api_midpoint(ob.get("adjustedMidpoint"))
+                if not _is_valid_prob(yes_mid_api):
+                    yes_mid_api = None
+
+                local_mid_valid = (
+                    _is_valid_prob(best_bid)
+                    and _is_valid_prob(best_ask)
+                    and best_bid < best_ask
+                )
+                yes_mid_local = ((best_bid + best_ask) / 2.0) if local_mid_valid else None
+                yes_mid = yes_mid_api if yes_mid_api is not None else yes_mid_local
+                quote_valid = yes_mid is not None
+
+                no_bid = (1.0 - best_ask) if _is_valid_prob(best_ask) else None
+                no_ask = (1.0 - best_bid) if _is_valid_prob(best_bid) else None
+                no_mid = (1.0 - yes_mid) if yes_mid is not None else None
+
                 entry = {
                     "coin": coin,
                     "yes_price": best_bid if best_bid > 0 else md.get("yes_price", 0.5),
                     "no_price": 1.0 - best_bid if best_bid > 0 else md.get("no_price", 0.5),
-                    "bid": best_bid,
-                    "ask": best_ask,
+                    "bid": best_bid or 0.0,
+                    "ask": best_ask or 0.0,
+                    "yes_bid": best_bid,
+                    "yes_ask": best_ask,
+                    "yes_mid_local": yes_mid_local,
+                    "yes_mid_api": yes_mid_api,
+                    "yes_mid": yes_mid,
+                    "no_bid": no_bid,
+                    "no_ask": no_ask,
+                    "no_mid": no_mid,
+                    "quote_valid": quote_valid,
                     "bid_depth": bid_depth,
                     "ask_depth": ask_depth,
                     "strike": md.get("strike", 0.0),
                     "slug": slug,
-                    "expiry": md.get("expiry"),
+                    "expiry": expiry,
+                    "expiry_ts": expiry_ts,
                     "market_id": md.get("market_id", ""),
                     "pyth_address": md.get("pyth_address", ""),
                     "max_spread": md.get("max_spread", 0.035),
@@ -478,21 +529,39 @@ class MarketManager:
                 result[coin] = entry
                 self._prev_market_data[coin] = entry
             elif coin in self._prev_market_data:
-                # Recycle previous data
-                result[coin] = self._prev_market_data[coin]
+                # Recycle non-trading fields, but invalidate midpoint-derived MM inputs.
+                prev = dict(self._prev_market_data[coin])
+                prev.update({
+                    "yes_mid_local": None,
+                    "yes_mid_api": None,
+                    "yes_mid": None,
+                    "no_mid": None,
+                    "quote_valid": False,
+                })
+                result[coin] = prev
             else:
-                # Fallback from locked market static data
+                # Static fallback preserves compatibility fields only; midpoint remains invalid.
                 result[coin] = {
                     "coin": coin,
                     "yes_price": md.get("yes_price", 0.5),
                     "no_price": md.get("no_price", 0.5),
                     "bid": md.get("yes_price", 0.5),
                     "ask": md.get("yes_price", 0.5),
+                    "yes_bid": None,
+                    "yes_ask": None,
+                    "yes_mid_local": None,
+                    "yes_mid_api": None,
+                    "yes_mid": None,
+                    "no_bid": None,
+                    "no_ask": None,
+                    "no_mid": None,
+                    "quote_valid": False,
                     "bid_depth": 0.0,
                     "ask_depth": 0.0,
                     "strike": md.get("strike", 0.0),
                     "slug": slug,
-                    "expiry": md.get("expiry"),
+                    "expiry": expiry,
+                    "expiry_ts": expiry_ts,
                     "market_id": md.get("market_id", ""),
                     "pyth_address": md.get("pyth_address", ""),
                     "max_spread": md.get("max_spread", 0.035),

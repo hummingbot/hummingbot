@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 from decimal import Decimal
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -71,8 +71,16 @@ def controller(config):
 
 class TestInstantiation:
     def test_modules_wired(self, controller):
-        for attr in ("runtime_bridge", "roster", "spot_feed", "signal_engine",
-                      "market_manager", "position_tracker", "exit_monitor", "action_router"):
+        for attr in (
+            "runtime_bridge",
+            "roster",
+            "spot_feed",
+            "signal_engine",
+            "market_manager",
+            "position_tracker",
+            "exit_monitor",
+            "action_router",
+        ):
             assert getattr(controller, attr) is not None
         assert "BTC" in controller.spot_feed.core_tickers
 
@@ -80,7 +88,8 @@ class TestInstantiation:
         assert controller.market_manager._connector is None
 
     def test_on_start_wires_connector(self, controller):
-        controller.on_start()
+        controller.market_data_provider.connectors = {controller.config.connector_name: MagicMock()}
+        controller._ensure_connector()
         assert controller.market_manager._connector is not None
 
 
@@ -89,6 +98,9 @@ class TestUpdateProcessedData:
         controller.spot_feed = MagicMock()
         controller.spot_feed.get_prices.return_value = {"BTC": 100000.0}
         controller.market_manager = MagicMock()
+        controller.market_manager.discover = AsyncMock()
+        controller.market_manager.evaluate = AsyncMock()
+        controller.market_manager.build_market_data = AsyncMock()
         controller.market_manager.build_market_data.return_value = {
             "BTC": {"yes_price": 0.6, "pyth_address": "0xabc"},
         }
@@ -96,7 +108,7 @@ class TestUpdateProcessedData:
         controller.signal_engine.tick.return_value = {"BTC": {"direction": "YES", "edge": 0.05}}
         controller.runtime_bridge = MagicMock()
 
-        asyncio.get_event_loop().run_until_complete(controller.update_processed_data())
+        asyncio.run(controller.update_processed_data())
 
         controller.runtime_bridge.check.assert_called_once()
         controller.spot_feed.get_prices.assert_called_once()
@@ -106,6 +118,42 @@ class TestUpdateProcessedData:
         controller.spot_feed.update_addresses.assert_called_once_with({"BTC": "0xabc"})
         controller.signal_engine.tick.assert_called_once()
         assert controller.processed_data["btc_spot"] == 100000.0
+
+    def test_mm_processed_data_uses_yes_mid_for_valid_coins_only(self, controller):
+        controller.config.quoting.enabled = True
+        controller.spot_feed = MagicMock()
+        controller.spot_feed.get_prices.return_value = {"BTC": 100000.0}
+        controller.market_manager = MagicMock()
+        controller.market_manager.discover = AsyncMock()
+        controller.market_manager.evaluate = AsyncMock()
+        controller.market_manager.build_market_data = AsyncMock()
+        controller.market_manager.build_market_data.return_value = {
+            "BTC": {
+                "yes_price": 0.6,
+                "yes_mid": 0.57,
+                "quote_valid": True,
+                "expiry_ts": 5000.0,
+                "pyth_address": "0xabc",
+            },
+            "ETH": {
+                "yes_price": 0.4,
+                "yes_mid": None,
+                "quote_valid": False,
+                "expiry_ts": 5000.0,
+                "pyth_address": "0xdef",
+            },
+        }
+        controller.signal_engine = MagicMock()
+        controller.signal_engine.tick.return_value = {
+            "BTC": {"vol": 0.01},
+            "ETH": {"vol": 0.01},
+        }
+        controller.runtime_bridge = MagicMock()
+
+        asyncio.run(controller.update_processed_data())
+
+        assert controller.processed_data["orderbook_mids"] == {"BTC": 0.57}
+        assert "ETH" not in controller.processed_data["orderbook_mids"]
 
 
 class TestDetermineExecutorActions:
@@ -207,6 +255,22 @@ class TestMMMode:
         ctrl.quote_manager.tick.assert_called_once()
         assert actions == []
 
+    def test_mm_tick_passes_only_valid_mid_coins(self, config):
+        ctrl = self._make_mm_controller(config)
+        self._wire_mm_mocks(ctrl)
+        from controllers.generic.binary_options.quote_manager import QuoteActions
+        ctrl.processed_data["coins"]["ETH"] = {"vol": 0.02}
+        ctrl.processed_data["market_data"]["ETH"] = {"slug": "ETH-YES-3K", "yes_price": 0.5}
+        ctrl.processed_data["reward_spreads"]["ETH"] = 0.03
+        ctrl.processed_data["hours_left"]["ETH"] = 2.0
+        ctrl.quote_manager = MagicMock()
+        ctrl.quote_manager.tick.return_value = QuoteActions()
+
+        ctrl.determine_executor_actions()
+
+        args = ctrl.quote_manager.tick.call_args[0]
+        assert args[0] == ["BTC"]
+
     def test_mm_place_creates_executor(self, config):
         """Place quote creates executor with full TripleBarrier (SL/TP/trailing)."""
         ctrl = self._make_mm_controller(config)
@@ -219,7 +283,7 @@ class TestMMMode:
         assert len(actions) == 1
         assert isinstance(actions[0], _CreateExecutorAction)
         cfg = actions[0].executor_config
-        assert cfg.trading_pair == "BTC-YES-100K"
+        assert cfg.trading_pair == "BTC-USDC"
         assert cfg.entry_price == Decimal("0.45")
         # Verify full barrier config from runtime params
         tb = cfg.triple_barrier_config
@@ -235,6 +299,7 @@ class TestMMMode:
         """Cancel uses _mm_executor_map to find the right executor_id."""
         ctrl = self._make_mm_controller(config)
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
+
         # Pre-populate executor map
         ctrl._mm_executor_map["BTC:YES"] = "exec_123"
         qa = QuoteActions(actions=[
@@ -342,7 +407,7 @@ class TestMMMode:
         ei.net_pnl_quote = Decimal("3.5")
         ctrl.executors_info = [ei]
 
-        actions = ctrl.determine_executor_actions()
+        ctrl.determine_executor_actions()
         ctrl.quote_manager.on_close_fill.assert_called_once_with("BTC")
         ctrl.position_tracker.record_close.assert_called_once_with("BTC", "exec_done", 3.5)
         assert "BTC:YES" not in ctrl._mm_executor_map
