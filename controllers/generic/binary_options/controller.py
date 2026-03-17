@@ -333,9 +333,14 @@ class BinaryOptionsController(ControllerBase):
         if not self.runtime_bridge.should_trade():
             return actions
 
+        # Warmup gate: don't quote until signals are valid (vol needs ~100 ticks)
         coins = list(market_data.keys())
+        warmed = [c for c in coins if signals.get(c, {}).get("vol", 0.0) > 0.0001]
+        if not warmed:
+            return actions
+
         quote_actions = self.quote_manager.tick(
-            coins, signals, orderbook_mids, reward_spreads, hours_left
+            warmed, signals, orderbook_mids, reward_spreads, hours_left
         )
         action_summary = "none"
         if quote_actions.actions:
