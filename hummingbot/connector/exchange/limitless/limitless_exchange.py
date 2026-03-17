@@ -236,33 +236,54 @@ class LimitlessExchange(ExchangePyBase):
         """Convert Limitless market slug to Hummingbot trading pair."""
         return self._slug_reverse_map.get(slug)
 
+    def _make_trading_rule(self, trading_pair: str) -> TradingRule:
+        """Create a standard TradingRule for a Limitless market."""
+        return TradingRule(
+            trading_pair=trading_pair,
+            min_order_size=Decimal("0.01"),
+            min_base_amount_increment=Decimal("0.01"),
+            min_price_increment=Decimal("0.001"),
+            min_order_value=Decimal("0.01"),
+        )
+
+    def _ensure_no_pair(self, yes_tp: str, slug: str):
+        """Ensure the NO-side trading pair exists for a YES pair.
+
+        Every YES pair (e.g. ETH-USDC) needs a corresponding NO pair
+        (ETH-NO-USDC) so executors can trade the NO token. Both map to
+        the same market slug — the connector routes by detecting '-NO-'
+        in the trading pair.
+        """
+        no_tp = yes_tp.replace("-USDC", "-NO-USDC")
+        if no_tp == yes_tp or no_tp in self._trading_rules:
+            return  # not a USDC pair, or already registered
+        self._slug_map[no_tp] = slug
+        self._trading_rules[no_tp] = self._make_trading_rule(no_tp)
+        logger.info("Registered NO-side pair: %s -> %s", no_tp, slug)
+
     async def register_market(self, slug: str, trading_pair: Optional[str] = None):
         """Dynamically register a market slug so executors can trade it.
+
+        Idempotent — safe to call repeatedly. Creates both YES and NO
+        trading pairs on first registration, and backfills the NO pair
+        if only the YES pair existed (e.g. from startup discovery).
 
         Args:
             slug: Limitless market slug (e.g. 'dollareth-above-...')
             trading_pair: Hummingbot trading pair label (defaults to slug)
         """
         tp = trading_pair or slug
+
         if slug in self._slug_reverse_map:
-            # Slug already registered for YES side, but ensure NO pair exists too
-            no_tp = tp.replace("-USDC", "-NO-USDC") if tp else ""
-            if no_tp and no_tp != tp and no_tp not in self._trading_rules:
-                self._slug_map[no_tp] = slug
-                self._trading_rules[no_tp] = TradingRule(
-                    trading_pair=no_tp,
-                    min_order_size=Decimal("0.01"),
-                    min_base_amount_increment=Decimal("0.01"),
-                    min_price_increment=Decimal("0.001"),
-                    min_order_value=Decimal("0.01"),
-                )
-                logger.info("Registered NO-side pair (late): %s -> %s", no_tp, slug)
+            # YES side already known — just ensure NO pair exists
+            self._ensure_no_pair(tp, slug)
             return
 
+        # --- First registration: full setup ---
         self._slug_map[tp] = slug
         self._slug_reverse_map[slug] = tp
 
-        # Update the bidict symbol map
+        # Symbol map for orderbook tracker
         try:
             self._trading_pair_symbol_map[slug] = tp
         except Exception:
@@ -274,34 +295,12 @@ class LimitlessExchange(ExchangePyBase):
             await self._inner_connector.get_market(slug)
         await self._inner_connector.subscribe_market(slug)
 
-        # Add trading rule so executors can place orders
-        self._trading_rules[tp] = TradingRule(
-            trading_pair=tp,
-            min_order_size=Decimal("0.01"),
-            min_base_amount_increment=Decimal("0.01"),
-            min_price_increment=Decimal("0.001"),
-            min_order_value=Decimal("0.01"),
-        )
-        # Register in orderbook tracker so c_get_order_book / get_price_by_type works
-        try:
-            self._trading_pair_symbol_map[slug] = tp
-        except Exception:
-            pass
-
+        # Trading rules for YES side
+        self._trading_rules[tp] = self._make_trading_rule(tp)
         logger.info("Registered dynamic market: %s -> %s", tp, slug)
 
-        # Also register NO-side pair (same slug, different trading pair)
-        no_tp = tp.replace("-USDC", "-NO-USDC")
-        if no_tp != tp and no_tp not in self._trading_rules:
-            self._slug_map[no_tp] = slug  # same slug
-            self._trading_rules[no_tp] = TradingRule(
-                trading_pair=no_tp,
-                min_order_size=Decimal("0.01"),
-                min_base_amount_increment=Decimal("0.01"),
-                min_price_increment=Decimal("0.001"),
-                min_order_value=Decimal("0.01"),
-            )
-            logger.info("Registered NO-side pair: %s -> %s", no_tp, slug)
+        # Trading rules for NO side
+        self._ensure_no_pair(tp, slug)
 
     def get_price_by_type(self, trading_pair: str, price_type) -> Decimal:
         """Override to handle NO-side pairs by flipping YES orderbook prices."""
