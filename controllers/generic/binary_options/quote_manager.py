@@ -124,20 +124,27 @@ class QuoteManager:
         # --- Z-ratio ---
         spot_z = abs(sig.get("z_score", 0.0))
         btc_z = abs(sig.get("btc_z_score", 0.0))
-        threshold = self._rb.get_coin_param(coin, "edge_z_threshold", 1.5)
-        z_ratio = max(spot_z, btc_z) / threshold if threshold > 0 else 0.0
+        combined_z = sig.get("combined_z", 0.0)
+
+        spot_thresh = self._rb.get_coin_param(coin, "edge_z_threshold", 1.5)
+        btc_thresh = self._rb.get_coin_param(coin, "btc_z_threshold", 0.5)
+        combo_thresh = self._rb.get_coin_param(coin, "combined_z_threshold", 0.7)
+
+        spot_ratio = spot_z / spot_thresh if spot_thresh > 0 else 0.0
+        btc_ratio = btc_z / btc_thresh if btc_thresh > 0 else 0.0
+        combo_ratio = abs(combined_z) / combo_thresh if combo_thresh > 0 else 0.0
+
+        z_ratio = max(spot_ratio, btc_ratio, combo_ratio)
         z_ratio = max(0.0, min(1.0, z_ratio))
 
-        # --- Model disagree ---
-        model_prob = sig.get("model_prob", 0.5)
-        yes_price = sig.get("yes_price", mid)
-        model_disagree = model_prob - yes_price
+        combo_direction = combined_z / combo_thresh if combo_thresh > 0 else 0.0
+        combo_direction = max(-1.0, min(1.0, combo_direction))
 
         # --- Distances ---
         inner = cfg.inner_fraction * reward_spread
         outer = cfg.outer_fraction * reward_spread
         base_dist = inner + (outer - inner) * z_ratio
-        skew = model_disagree * cfg.skew_sensitivity
+        skew = combo_direction * cfg.skew_sensitivity * reward_spread
         yes_dist = max(0.0, min(reward_spread, base_dist - skew))
         no_dist = max(0.0, min(reward_spread, base_dist + skew))
 
@@ -162,7 +169,7 @@ class QuoteManager:
         actions: List[QuoteAction] = []
 
         if new_state == QuoteState.ONE_SIDED:
-            favored = "YES" if model_disagree > 0 else "NO"
+            favored = "YES" if combined_z > 0 else "NO"
             opposing = "NO" if favored == "YES" else "YES"
             # Cancel opposing side
             actions.extend(self._cancel_side(coin, opposing))

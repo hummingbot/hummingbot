@@ -30,8 +30,13 @@ def make_bridge(coin_params=None, global_params=None):
     return bridge
 
 
-def make_signal(model_prob=0.5, z_score=0.0, btc_z_score=0.0, yes_price=None):
-    sig = {"model_prob": model_prob, "z_score": z_score, "btc_z_score": btc_z_score}
+def make_signal(model_prob=0.5, z_score=0.0, btc_z_score=0.0, combined_z=0.0, yes_price=None):
+    sig = {
+        "model_prob": model_prob,
+        "z_score": z_score,
+        "btc_z_score": btc_z_score,
+        "combined_z": combined_z,
+    }
     if yes_price is not None:
         sig["yes_price"] = yes_price
     return sig
@@ -125,7 +130,7 @@ class TestSymmetric:
 class TestSkewed:
     def test_skewed_state(self):
         cfg = QuoteConfig(enabled=True)
-        bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         # z=1.0 → ratio=0.667 > 0.5 → SKEWED
         result = qm.tick(**default_tick_args(
@@ -135,11 +140,11 @@ class TestSkewed:
 
     def test_skew_tightens_favored(self):
         cfg = QuoteConfig(enabled=True, inner_fraction=0.2, outer_fraction=0.9, skew_sensitivity=0.5)
-        bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
-        # z=1.0, ratio=0.667, model_prob=0.6, mid=0.5 → disagree=0.1
+        # Positive combined_z should tighten YES relative to NO.
         result = qm.tick(**default_tick_args(
-            signals={"BTC": make_signal(model_prob=0.6, z_score=1.0)},
+            signals={"BTC": make_signal(model_prob=0.6, z_score=1.0, combined_z=0.35)},
             mids={"BTC": 0.5}, spreads={"BTC": 0.10},
         ))
         yes_a = [a for a in result.actions if a.side == "YES"][0]
@@ -149,6 +154,20 @@ class TestSkewed:
         no_dist = no_a.price - 0.5
         assert yes_dist < no_dist
 
+    def test_skew_direction_follows_combined_z_sign(self):
+        cfg = QuoteConfig(enabled=True, inner_fraction=0.2, outer_fraction=0.9, skew_sensitivity=0.5)
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
+        qm = QuoteManager(cfg, bridge)
+        result = qm.tick(**default_tick_args(
+            signals={"BTC": make_signal(z_score=1.0, combined_z=-0.35)},
+            mids={"BTC": 0.5}, spreads={"BTC": 0.10},
+        ))
+        yes_a = [a for a in result.actions if a.side == "YES"][0]
+        no_a = [a for a in result.actions if a.side == "NO"][0]
+        yes_dist = 0.5 - yes_a.price
+        no_dist = no_a.price - 0.5
+        assert yes_dist > no_dist
+
 
 # ---------------------------------------------------------------------------
 # 4. One-sided mode
@@ -157,7 +176,7 @@ class TestSkewed:
 class TestOneSided:
     def test_one_sided_state(self):
         cfg = QuoteConfig(enabled=True)
-        bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "btc_z_threshold": 0.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         # z=1.5 → ratio=1.0 → ONE_SIDED
         result = qm.tick(**default_tick_args(
@@ -167,13 +186,13 @@ class TestOneSided:
 
     def test_one_sided_cancels_opposing(self):
         cfg = QuoteConfig(enabled=True)
-        bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         # Set up existing NO order
         qm.set_orders("BTC", {"NO": {"price": 0.55, "size": 100, "order_id": "no_1"}})
-        # model_prob > mid → favors YES, opposing = NO
+        # combined_z > 0 → favors YES, opposing = NO
         result = qm.tick(**default_tick_args(
-            signals={"BTC": make_signal(model_prob=0.6, z_score=1.5)},
+            signals={"BTC": make_signal(model_prob=0.6, z_score=1.5, combined_z=1.0)},
         ))
         cancel_actions = [a for a in result.actions if a.action == "cancel"]
         assert len(cancel_actions) == 1
@@ -181,10 +200,10 @@ class TestOneSided:
 
     def test_one_sided_favored_at_inner(self):
         cfg = QuoteConfig(enabled=True, inner_fraction=0.2)
-        bridge = make_bridge(global_params={"edge_z_threshold": 1.5})
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         result = qm.tick(**default_tick_args(
-            signals={"BTC": make_signal(model_prob=0.6, z_score=1.5)},
+            signals={"BTC": make_signal(model_prob=0.6, z_score=1.5, combined_z=1.0)},
             mids={"BTC": 0.5}, spreads={"BTC": 0.10},
         ))
         place_actions = [a for a in result.actions if a.action == "place"]
@@ -192,6 +211,18 @@ class TestOneSided:
         assert place_actions[0].side == "YES"
         # inner = 0.2 * 0.10 = 0.02; YES price = 0.5 - 0.02 = 0.48
         assert abs(place_actions[0].price - 0.48) < 1e-9
+
+    def test_one_sided_favored_side_uses_combined_z_sign(self):
+        cfg = QuoteConfig(enabled=True)
+        bridge = make_bridge(global_params={"combined_z_threshold": 0.7})
+        qm = QuoteManager(cfg, bridge)
+        result = qm.tick(**default_tick_args(
+            signals={"BTC": make_signal(combined_z=-1.0)},
+            mids={"BTC": 0.5}, spreads={"BTC": 0.10},
+        ))
+        place_actions = [a for a in result.actions if a.action == "place"]
+        assert len(place_actions) == 1
+        assert place_actions[0].side == "NO"
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +249,24 @@ class TestZClamping:
             signals={"BTC": make_signal(z_score=0.0)},
         ))
         assert qm.state("BTC") == QuoteState.SYMMETRIC
+
+    def test_spot_z_threshold_triggers_one_sided_without_btc(self):
+        cfg = QuoteConfig(enabled=True)
+        bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "btc_z_threshold": 10.0, "combined_z_threshold": 10.0})
+        qm = QuoteManager(cfg, bridge)
+        result = qm.tick(**default_tick_args(
+            signals={"BTC": make_signal(z_score=1.5, btc_z_score=0.0, combined_z=0.0)},
+        ))
+        assert qm.state("BTC") == QuoteState.ONE_SIDED
+
+    def test_btc_z_threshold_triggers_one_sided_without_spot(self):
+        cfg = QuoteConfig(enabled=True)
+        bridge = make_bridge(global_params={"edge_z_threshold": 10.0, "btc_z_threshold": 0.5, "combined_z_threshold": 10.0})
+        qm = QuoteManager(cfg, bridge)
+        result = qm.tick(**default_tick_args(
+            signals={"BTC": make_signal(z_score=0.0, btc_z_score=0.5, combined_z=0.0)},
+        ))
+        assert qm.state("BTC") == QuoteState.ONE_SIDED
 
 
 # ---------------------------------------------------------------------------

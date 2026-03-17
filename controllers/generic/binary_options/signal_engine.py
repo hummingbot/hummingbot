@@ -665,10 +665,18 @@ class SignalEngine:
                     if follow_r < follow_floor:
                         btc_signal = False
 
+                combined_z = 0.0
+                if edge_dir is not None and btc_dir is not None and edge_dir == btc_dir:
+                    spot_weight = self._rb.get_coin_param(coin, "spot_weight", self._config.get("spot_weight", 1.0))
+                    btc_weight = self._rb.get_coin_param(coin, "btc_weight", self._config.get("btc_weight", 1.0))
+                    direction_sign = 1.0 if edge_dir == "YES" else -1.0
+                    combined_z = direction_sign * ((spot_z * spot_weight) + (btc_z * btc_weight))
+
                 sig["spot_signal"] = spot_signal
                 sig["btc_signal"] = btc_signal
                 sig["z_score"] = spot_z
                 sig["btc_z_score"] = btc_z
+                sig["combined_z"] = combined_z
                 sig["btc_mispricing"] = btc_misp
 
                 # Behavioral z-scores
@@ -779,6 +787,7 @@ class SignalEngine:
             "edge": 0.0,
             "z_score": 0.0,
             "btc_z_score": 0.0,
+            "combined_z": 0.0,
             "entry_path": None,
             "confidence": "LOW",
             "event_type": 0,
