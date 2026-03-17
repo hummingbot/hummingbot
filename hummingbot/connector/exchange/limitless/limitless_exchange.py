@@ -212,8 +212,12 @@ class LimitlessExchange(ExchangePyBase):
         await self._ensure_inner_connector()
         return await self._inner_connector.get_active_markets(ticker=ticker)
 
-    async def get_order_book(self, market_slug: str) -> dict:
-        """Delegate to inner connector."""
+    async def get_order_book_data(self, market_slug: str) -> dict:
+        """Fetch raw orderbook data from inner connector (for market_manager).
+
+        Named to avoid shadowing ExchangeBase.get_order_book() which the
+        Cython layer calls synchronously and expects an OrderBook object.
+        """
         await self._ensure_inner_connector()
         return await self._inner_connector.get_order_book(market_slug)
 

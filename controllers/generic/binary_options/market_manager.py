@@ -317,7 +317,7 @@ class MarketManager:
         async def _score(md: dict) -> float:
             """Compute score: depth_weight × normalized_depth + atm_weight × atm_proximity."""
             slug = md.get("slug", "")
-            ob = await self._connector.get_order_book(slug)
+            ob = await self._connector.get_order_book_data(slug)
             near_depth = 0.0
             if ob:
                 bids = ob.get("bids", [])
@@ -409,7 +409,7 @@ class MarketManager:
 
         for coin, md in self._locked_markets.items():
             slug = md.get("slug", "")
-            ob = await self._connector.get_order_book(slug)
+            ob = await self._connector.get_order_book_data(slug)
 
             if ob:
                 # Extract best bid/ask from orderbook arrays
