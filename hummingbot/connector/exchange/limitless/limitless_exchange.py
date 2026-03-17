@@ -232,6 +232,33 @@ class LimitlessExchange(ExchangePyBase):
         """Convert Limitless market slug to Hummingbot trading pair."""
         return self._slug_reverse_map.get(slug)
 
+    async def register_market(self, slug: str, trading_pair: Optional[str] = None):
+        """Dynamically register a market slug so executors can trade it.
+
+        Args:
+            slug: Limitless market slug (e.g. 'dollareth-above-...')
+            trading_pair: Hummingbot trading pair label (defaults to slug)
+        """
+        tp = trading_pair or slug
+        if slug in self._slug_reverse_map:
+            return  # already registered
+
+        self._slug_map[tp] = slug
+        self._slug_reverse_map[slug] = tp
+
+        # Update the bidict symbol map
+        try:
+            self._trading_pair_symbol_map[slug] = tp
+        except Exception:
+            pass  # bidict may reject duplicates
+
+        # Cache market data + subscribe WS
+        await self._ensure_inner_connector()
+        if slug not in self._inner_connector._markets:
+            await self._inner_connector.get_market(slug)
+        await self._inner_connector.subscribe_market(slug)
+        logger.info("Registered dynamic market: %s -> %s", tp, slug)
+
     async def _initialize_trading_pair_symbol_map(self):
         """Discover markets from Limitless and build the symbol mapping.
 

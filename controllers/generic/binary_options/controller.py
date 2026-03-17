@@ -112,6 +112,14 @@ class BinaryOptionsController(ControllerBase):
         await self.market_manager.discover(spots, now_ts)
         await self.market_manager.evaluate(now_ts)
         market_data = await self.market_manager.build_market_data(now_ts)
+
+        # 3b. Register discovered markets with connector for order execution
+        connector = self.market_manager._connector
+        if connector and hasattr(connector, "register_market"):
+            for coin, md in market_data.items():
+                slug = md.get("slug", "")
+                if slug:
+                    await connector.register_market(slug, f"{coin}-USDC")
         if (now_ts - self._last_log_ts) >= 30.0:
             logger.info("tick: %d coins tracked, btc=%.2f", len(market_data), btc_spot)
             for coin, md in market_data.items():
