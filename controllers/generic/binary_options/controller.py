@@ -346,7 +346,7 @@ class BinaryOptionsController(ControllerBase):
         logger.info("mm_tick: %d coins, actions: %s", len(coins), action_summary)
 
         for qa in quote_actions.actions:
-            trading_pair = market_data.get(qa.coin, {}).get("slug", "")
+            trading_pair = f"{qa.coin}-USDC"
             if not trading_pair:
                 continue
 
