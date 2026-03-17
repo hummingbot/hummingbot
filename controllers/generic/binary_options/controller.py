@@ -465,10 +465,11 @@ class BinaryOptionsController(ControllerBase):
 
         # Both sides use TradeType.BUY for PositionExecutor —
         # Hummingbot's SELL path needs asks in orderbook (we don't have them).
-        # NO side uses "COIN-NO-USDC" trading pair so connector can route token.
+        # NO side uses "COINNO-USDC" trading pair so connector can route token.
+        # Format: ETH-USDC -> ETHNO-USDC (single dash for Hummingbot base-quote compat)
         if side == "NO":
             entry = Decimal(str(1.0 - price))  # flip to NO token price
-            tp_for_executor = trading_pair.replace("-USDC", "-NO-USDC")
+            tp_for_executor = trading_pair.replace("-USDC", "NO-USDC")
         else:
             entry = Decimal(str(price))
             tp_for_executor = trading_pair

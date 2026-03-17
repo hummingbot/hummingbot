@@ -246,15 +246,36 @@ class LimitlessExchange(ExchangePyBase):
             min_order_value=Decimal("0.01"),
         )
 
+    @staticmethod
+    def _is_no_pair(trading_pair: str) -> bool:
+        """Check if a trading pair is a NO-side pair (e.g. ETHNO-USDC)."""
+        base = trading_pair.split("-")[0]
+        return base.endswith("NO")
+
+    @staticmethod
+    def _yes_pair(no_tp: str) -> str:
+        """Convert a NO pair back to YES pair: ETHNO-USDC -> ETH-USDC."""
+        base, quote = no_tp.split("-", 1)
+        return f"{base[:-2]}-{quote}"  # strip 'NO' suffix from base
+
+    @staticmethod
+    def no_pair(yes_tp: str) -> str:
+        """Derive the NO-side trading pair from a YES pair.
+
+        ETH-USDC -> ETHNO-USDC (single dash, compatible with Hummingbot's
+        base-quote split convention).
+        """
+        return yes_tp.replace("-USDC", "NO-USDC")
+
     def _ensure_no_pair(self, yes_tp: str, slug: str):
         """Ensure the NO-side trading pair exists for a YES pair.
 
         Every YES pair (e.g. ETH-USDC) needs a corresponding NO pair
-        (ETH-NO-USDC) so executors can trade the NO token. Both map to
-        the same market slug — the connector routes by detecting '-NO-'
-        in the trading pair.
+        (ETHNO-USDC) so executors can trade the NO token. Both map to
+        the same market slug — the connector routes by detecting 'NO-'
+        prefix in the base token.
         """
-        no_tp = yes_tp.replace("-USDC", "-NO-USDC")
+        no_tp = self.no_pair(yes_tp)
         if no_tp == yes_tp or no_tp in self._trading_rules:
             return  # not a USDC pair, or already registered
         self._slug_map[no_tp] = slug
@@ -304,9 +325,9 @@ class LimitlessExchange(ExchangePyBase):
 
     def get_price_by_type(self, trading_pair: str, price_type) -> Decimal:
         """Override to handle NO-side pairs by flipping YES orderbook prices."""
-        if "-NO-" in trading_pair:
+        if self._is_no_pair(trading_pair):
             # Look up the YES pair's price and flip it
-            yes_tp = trading_pair.replace("-NO-USDC", "-USDC")
+            yes_tp = self._yes_pair(trading_pair)
             try:
                 yes_price = super().get_price_by_type(yes_tp, price_type)
                 return Decimal("1") - yes_price
@@ -531,17 +552,16 @@ class LimitlessExchange(ExchangePyBase):
         await self._ensure_inner_connector()
         slug = self._trading_pair_to_slug(trading_pair)
 
-        # Determine token from trading pair suffix
-        # ETH-USDC = YES side, ETH-NO-USDC = NO side
-        is_no_side = "-NO-" in trading_pair
+        # Determine token from trading pair format
+        # ETH-USDC = YES side, ETHNO-USDC = NO side
+        is_no_side = self._is_no_pair(trading_pair)
         token = "NO" if is_no_side else "YES"
         order_price = float(price)
         # NO price is already flipped by controller, send as-is
 
         # Both sides use the same slug (same market)
         if is_no_side:
-            # Map NO pair back to YES pair for slug lookup
-            yes_pair = trading_pair.replace("-NO-", "-")
+            yes_pair = self._yes_pair(trading_pair)
             slug = self._trading_pair_to_slug(yes_pair)
         
         result = await self._inner_connector.buy(
