@@ -2,14 +2,12 @@ import time
 from decimal import Decimal
 from typing import Optional
 
+from kuru_sdk_py.configs import ConfigManager, MarketConfig
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema
-from kuru_sdk_py.configs import MarketConfig, ConfigManager
-
 from hummingbot.connector.exchange.kuru import kuru_constants as CONSTANTS
-
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # ----------------------------------------------------------------
 # Registration constants (read by AllConnectorSettings auto-discovery)

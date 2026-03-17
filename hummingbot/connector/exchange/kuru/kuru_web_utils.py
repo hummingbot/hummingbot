@@ -11,8 +11,6 @@ from typing import Optional
 
 import aiohttp
 
-from hummingbot.connector.exchange.kuru import kuru_constants as CONSTANTS
-
 
 async def get_current_server_time(**kwargs) -> float:
     """DEX connector - no server time sync needed."""

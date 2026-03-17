@@ -1,9 +1,7 @@
 import asyncio
 import logging
 
-from hummingbot.core.data_type.user_stream_tracker_data_source import (
-    UserStreamTrackerDataSource,
-)
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 
 logger = logging.getLogger(__name__)
 

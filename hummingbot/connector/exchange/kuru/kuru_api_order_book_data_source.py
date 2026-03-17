@@ -3,16 +3,11 @@ import logging
 import time
 from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import (
-    OrderBookTrackerDataSource,
-)
-
-from kuru_sdk_py.feed.orderbook_ws import (
-    FrontendOrderbookUpdate,
-)
+from kuru_sdk_py.feed.orderbook_ws import FrontendOrderbookUpdate
 
 from hummingbot.connector.exchange.kuru.kuru_order_book import KuruOrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
 logger = logging.getLogger(__name__)
 

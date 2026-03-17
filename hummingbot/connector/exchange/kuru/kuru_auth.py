@@ -1,5 +1,4 @@
 from eth_account import Account
-
 from kuru_sdk_py.configs import WalletConfig
 
 
