@@ -214,8 +214,6 @@ class MarketManager:
                     dist = abs(md["yes_price"] - 0.50)
 
                 expiry_dt = md["expiry"]
-                logger.debug("discover: candidate %s strike=%.2f dist=%.4f expiry=%s",
-                             ticker, md["strike"], dist, expiry_dt.strftime("%H:%M UTC"))
 
                 # Pick closest; tie-break by earlier expiry
                 if (dist < best_dist) or (
@@ -227,16 +225,7 @@ class MarketManager:
                     best_expiry = expiry_dt
 
             if best:
-                max_moneyness = getattr(self._config, 'max_moneyness', 0.05)
-                if best_dist > max_moneyness:
-                    logger.info("discover: %s best strike too far from spot (%.2f%% > %.2f%%), skipping",
-                                ticker, best_dist * 100, max_moneyness * 100)
-                    continue
                 selected[ticker] = best
-                strike = best["strike"]
-                moneyness = abs(spot - strike) / spot * 100 if spot else best_dist * 100
-                logger.info("discover: %s selected strike=$%.2f spot=$%.2f moneyness=%.2f%% slug=%s",
-                            ticker, strike, spot if spot is not None else 0.0, moneyness, best["slug"])
 
         self._locked_markets = selected
         logger.info("discover: selected %d markets: %s", len(selected), list(selected.keys()))
