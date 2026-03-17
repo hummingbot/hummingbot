@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import time
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -94,6 +93,7 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
         default=False,
         description="If true, include :15/:30/:45 markets in selection; if false, hourly (:00) only",
     )
+    switch_policy: str = Field(default="flat_only", description="flat_only")
 
     runtime_json_path: str = Field(
         ..., description="Path to runtime.json (hot-reloaded by RuntimeBridge)"

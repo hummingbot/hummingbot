@@ -11,6 +11,7 @@ trading_pair: ETH-USDC
 coins: [ETH]                   # Only trade these coins (empty = all discovered)
 max_expiry_hours: 1.0          # Look-ahead window for market discovery
 include_subhourly: true        # false = hourly (:00) only, true = include :15/:30/:45 too
+switch_policy: flat_only
 
 # === Budget ===
 total_amount_quote: 100.0

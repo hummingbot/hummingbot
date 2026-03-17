@@ -25,7 +25,7 @@ from .config import BinaryOptionsControllerConfig, CoinRoster, RuntimeBridge
 from .exit_monitor import ExitMonitor
 from .market_manager import MarketManager
 from .position_tracker import PositionTracker
-from .quote_manager import QuoteAction, QuoteActions, QuoteManager
+from .quote_manager import QuoteManager
 from .signal_engine import SignalEngine
 from .spot_feed import SpotFeed
 
@@ -61,7 +61,14 @@ class BinaryOptionsController(ControllerBase):
         self.signal_engine = SignalEngine(signal_cfg, self.runtime_bridge)
 
         # Market manager (connector wired in on_start)
-        self.market_manager = MarketManager(None, config, self.roster, self.runtime_bridge)
+        self.market_manager = MarketManager(
+            None,
+            config,
+            self.roster,
+            self.runtime_bridge,
+            exposure_guard=self._coin_has_exposure,
+            switch_policy=config.switch_policy,
+        )
 
         # Position tracker + exit monitor
         self.position_tracker = PositionTracker(config, self.runtime_bridge)
@@ -81,6 +88,31 @@ class BinaryOptionsController(ControllerBase):
     async def on_start(self):
         """Called by subclasses or manually — not by ControllerBase."""
         pass
+
+    def _coin_has_exposure(self, coin: str) -> bool:
+        """True when the coin has filled inventory or an open position."""
+        coin = coin.upper()
+
+        open_positions = getattr(self.position_tracker, "_open_positions", {})
+        for position in open_positions.values():
+            if position.get("coin", "").upper() == coin:
+                return True
+
+        for executor in self.executors_info:
+            if getattr(executor, "is_closed", False):
+                continue
+            executor_coin = (
+                getattr(executor, "coin", None)
+                or getattr(executor, "trading_pair", "").split("-", 1)[0]
+            )
+            if not executor_coin or executor_coin.upper() != coin:
+                continue
+
+            filled_amount = getattr(executor, "filled_amount_quote", None)
+            if filled_amount is not None and float(filled_amount) > 0:
+                return True
+
+        return False
 
     def _ensure_connector(self):
         """Wire the connector from market_data_provider on first tick."""

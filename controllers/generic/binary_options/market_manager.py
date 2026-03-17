@@ -3,7 +3,7 @@ import logging
 import math
 import re
 from datetime import datetime, timezone
-from typing import Dict, Optional, Set, Tuple
+from typing import Callable, Dict, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,15 @@ def _parse_title(title: str) -> Optional[Tuple[str, float, Optional[datetime]]]:
 class MarketManager:
     """Wraps 3-layer market selection using the Hummingbot connector."""
 
-    def __init__(self, connector, config, roster, runtime_bridge):
+    def __init__(
+        self,
+        connector,
+        config,
+        roster,
+        runtime_bridge,
+        exposure_guard: Optional[Callable[[str], bool]] = None,
+        switch_policy: str = "flat_only",
+    ):
         """
         connector:      Hummingbot connector (get_active_markets, get_order_book, etc.)
         config:         BinaryOptionsControllerConfig
@@ -60,6 +68,8 @@ class MarketManager:
         self._config = config
         self._roster = roster
         self._rb = runtime_bridge
+        self._exposure_guard = exposure_guard
+        self._switch_policy = switch_policy
         self._locked_markets: Dict[str, dict] = {}
         self._last_discover_ts: float = 0.0
         self._last_evaluate_ts: float = 0.0
@@ -396,6 +406,17 @@ class MarketManager:
 
             if best_cand and best_cand["slug"] != current_slug:
                 if best_score > current_score * (1.0 + hysteresis):
+                    if (
+                        self._switch_policy == "flat_only"
+                        and self._exposure_guard is not None
+                        and self._exposure_guard(ticker)
+                    ):
+                        logger.info(
+                            "evaluate: retained %s on %s due to flat_only exposure gate",
+                            ticker,
+                            current_slug,
+                        )
+                        continue
                     # Switch
                     new_md = {k: v for k, v in best_cand.items() if not k.startswith("_")}
                     self._locked_markets[ticker] = new_md
