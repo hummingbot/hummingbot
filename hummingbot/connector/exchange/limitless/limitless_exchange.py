@@ -265,10 +265,10 @@ class LimitlessExchange(ExchangePyBase):
         # Add trading rule so executors can place orders
         self._trading_rules[tp] = TradingRule(
             trading_pair=tp,
-            min_order_size=Decimal("1"),
-            min_base_amount_increment=Decimal("1"),
+            min_order_size=Decimal("0.01"),
+            min_base_amount_increment=Decimal("0.01"),
             min_price_increment=Decimal("0.001"),
-            min_order_value=Decimal("1"),
+            min_order_value=Decimal("0.01"),
         )
         logger.info("Registered dynamic market: %s -> %s", tp, slug)
 
@@ -359,10 +359,10 @@ class LimitlessExchange(ExchangePyBase):
             rules.append(
                 TradingRule(
                     trading_pair=tp,
-                    min_order_size=Decimal("1"),
-                    min_base_amount_increment=Decimal("1"),
+                    min_order_size=Decimal("0.01"),
+                    min_base_amount_increment=Decimal("0.01"),
                     min_price_increment=Decimal("0.001"),
-                    min_order_value=Decimal("1"),
+                    min_order_value=Decimal("0.01"),
                 )
             )
         return rules
