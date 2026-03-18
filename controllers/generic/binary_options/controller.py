@@ -435,7 +435,7 @@ class BinaryOptionsController(ControllerBase):
 
             elif qa.action == "cancel":
                 self._mm_pending_replacements.pop(key, None)
-                executor_id = self._mm_executor_map.get(key)
+                executor_id = self._mm_executor_map.pop(key, None)
                 if executor_id:
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
