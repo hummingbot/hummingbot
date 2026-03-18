@@ -212,16 +212,19 @@ class MarketManager:
 
             # Must not be expired
             if expiry_dt <= now_dt:
+                logger.info("discover: REJECTED %s — expired (expiry=%s now=%s)", ticker, expiry_dt, now_dt)
                 continue
 
             # Timeframe filter: hourly-only unless include_subhourly is enabled
             if not include_subhourly and expiry_dt.minute != 0:
+                logger.info("discover: REJECTED %s — subhourly disabled (expiry=%s)", ticker, expiry_dt)
                 continue
 
             # Configurable look-ahead from YAML config
             hours_until = (expiry_dt - now_dt).total_seconds() / 3600
             max_expiry_h = getattr(self._config, 'max_expiry_hours', 1.0)
             if hours_until > max_expiry_h:
+                logger.info("discover: REJECTED %s — too far out (%.2fh > %.2fh, expiry=%s)", ticker, hours_until, max_expiry_h, expiry_dt)
                 continue
 
             # Extract yes/no prices — handle both list and dict format
