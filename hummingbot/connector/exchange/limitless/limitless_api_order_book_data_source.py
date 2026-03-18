@@ -49,6 +49,9 @@ class LimitlessAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """Fetch orderbook snapshot via inner connector."""
         inner = self._connector._inner_connector
         slug = self._connector._trading_pair_to_slug(trading_pair)
+        # Skip if slug is still the placeholder (real slug not yet registered)
+        if slug == trading_pair:
+            raise ValueError(f"No real slug registered yet for {trading_pair}")
         ob = await inner.get_order_book(slug)
         return {
             "trading_pair": trading_pair,
