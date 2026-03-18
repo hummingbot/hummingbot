@@ -395,7 +395,8 @@ class BinaryOptionsController(ControllerBase):
         coins = list(market_data.keys())
         warmed = [
             c for c in orderbook_mids.keys()
-            if signals.get(c, {}).get("vol", 0.0) > 0.0001
+            if abs(signals.get(c, {}).get("spot_z", 0.0)) > 0
+            and abs(signals.get(c, {}).get("btc_z", 0.0)) > 0
         ]
         if not warmed:
             return actions
