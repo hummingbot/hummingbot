@@ -295,7 +295,7 @@ class TestEvaluate:
 class TestBuildMarketData:
     def test_returns_prices_from_connector(self):
         mkts = [_make_market("BTC", 84000, EXPIRY_1H, slug="btc-slug")]
-        ob = {"bid": 0.52, "ask": 0.54, "bid_depth": 200, "ask_depth": 150, "midpoint": 0.53}
+        ob = {"bid": 0.52, "ask": 0.54, "bid_depth": 200, "ask_depth": 150, "adjustedMidpoint": 0.53}
         conn = MockConnector(markets=mkts, order_books={"btc-slug": ob})
         rb = MockRuntimeBridge()
         config = MagicMock()
@@ -315,12 +315,12 @@ class TestBuildMarketData:
         assert data["BTC"]["no_mid"] == pytest.approx(0.47)
         assert data["BTC"]["quote_valid"] is True
 
-    def test_prefers_local_midpoint_over_api_midpoint(self):
+    def test_prefers_api_midpoint_over_local_midpoint(self):
         mkts = [_make_market("BTC", 84000, EXPIRY_1H, slug="btc-slug")]
         ob = {
             "bids": [{"price": 0.40, "size": 100}],
             "asks": [{"price": 0.60, "size": 100}],
-            "midpoint": 0.51,
+            "adjustedMidpoint": 0.51,
         }
         conn = MockConnector(markets=mkts, order_books={"btc-slug": ob})
         config = MagicMock()
@@ -332,15 +332,14 @@ class TestBuildMarketData:
 
         data = _run(mm.build_market_data(NOW_TS))
         assert data["BTC"]["yes_mid_local"] == pytest.approx(0.50)
-        assert data["BTC"]["yes_mid_api"] == pytest.approx(0.51)
-        assert data["BTC"]["yes_mid"] == pytest.approx(0.50)
+        assert data["BTC"]["yes_mid"] == pytest.approx(0.51)
 
     def test_uses_local_midpoint_only_when_api_invalid(self):
         mkts = [_make_market("BTC", 84000, EXPIRY_1H, slug="btc-slug")]
         ob = {
             "bids": [{"price": 0.48, "size": 100}],
             "asks": [{"price": 0.52, "size": 100}],
-            "midpoint": 1.2,
+            "adjustedMidpoint": 1.2,
         }
         conn = MockConnector(markets=mkts, order_books={"btc-slug": ob})
         config = MagicMock()
