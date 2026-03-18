@@ -127,11 +127,15 @@ class LimitlessExchange(ExchangePyBase):
             cached = self._inner_connector.cached_orderbooks
             if cached:
                 ob_ready = True
+        # In deferred mode (placeholder mapping), orderbooks arrive later
+        # via register_market(). Let connector start without them.
+        if not ob_ready and self._inner_started:
+            ob_ready = True
         sd = {
             "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
             "order_books_initialized": ob_ready,
             "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
-            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
+            "trading_rule_initialized": True,  # rules created dynamically by register_market()
             "user_stream_initialized": self._is_user_stream_initialized(),
             "inner_connector_started": self._inner_started,
         }
@@ -393,52 +397,26 @@ class LimitlessExchange(ExchangePyBase):
         return self._trading_rules
 
     async def _initialize_trading_pair_symbol_map(self):
-        """Discover markets from Limitless and build the symbol mapping.
+        """Create empty symbol map so the connector can start.
 
-        For each configured trading pair (e.g. "BTC-USDC"), we resolve the
-        ticker part (BTC) to find active markets, then map the trading pair
-        to the first matching market slug.
+        Market selection is owned by market_manager — it calls
+        register_dynamic_market() once it picks the right slug.
+        We just create pass-through placeholders here so Hummingbot's
+        startup checks pass.
         """
         try:
-            logger.info("Initializing trading pair symbol map for: %s", self._trading_pairs)
+            logger.info("Initializing trading pair symbol map (deferred to market_manager): %s", self._trading_pairs)
             await self._ensure_inner_connector()
             mapping = bidict()
 
             for tp in self._trading_pairs:
-                parts = tp.split("-")
-                ticker = parts[0] if parts else tp
-
-                try:
-                    markets = await self._inner_connector.get_active_markets(ticker=ticker)
-                    logger.info("Found %d markets for ticker %s", len(markets), ticker)
-                except Exception:
-                    self.logger().warning(f"Failed to discover markets for ticker {ticker}", exc_info=True)
-                    markets = []
-
-                if markets:
-                    # Use the first active market for this ticker
-                    market = markets[0]
-                    slug = market["slug"]
-                    self._slug_map[tp] = slug
-                    self._slug_reverse_map[slug] = tp
-                    self._market_data[slug] = market
-                    mapping[slug] = tp
-                    logger.info("Mapped %s -> %s", tp, slug)
-
-                    # Ensure the inner connector has this market cached
-                    if slug not in self._inner_connector._markets:
-                        await self._inner_connector.get_market(slug)
-                    # Subscribe WS
-                    await self._inner_connector.subscribe_market(slug)
-                else:
-                    self.logger().warning(f"No active markets found for {tp}")
-                    # Create a pass-through mapping so connector can still start
-                    mapping[tp] = tp
-                    self._slug_map[tp] = tp
-                    self._slug_reverse_map[tp] = tp
+                # Placeholder: map tp -> tp so connector reports "ready"
+                mapping[tp] = tp
+                self._slug_map[tp] = tp
+                self._slug_reverse_map[tp] = tp
 
             self._set_trading_pair_symbol_map(mapping)
-            logger.info("Trading pair symbol map initialized: %s", dict(mapping))
+            logger.info("Trading pair symbol map initialized (placeholder): %s", dict(mapping))
         except Exception:
             self.logger().exception("Error initializing trading pair symbol map.")
 

@@ -11,7 +11,7 @@ paper_mode: true               # true = log orders only, false = real trading
 # === Market selection ===
 coins: [ETH]                   # Only trade these coins (empty = all discovered)
 max_expiry_hours: 1.0          # Look-ahead window for market discovery
-include_subhourly: true        # false = hourly (:00) only, true = include :15/:30/:45 too
+include_subhourly: false       # false = hourly (:00) only, true = include :15/:30/:45 too
 switch_policy: flat_only
 
 # === Budget ===
