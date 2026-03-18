@@ -343,6 +343,28 @@ class LimitlessExchange(ExchangePyBase):
         # Trading rules for NO side
         self._ensure_no_pair(tp, slug)
 
+        # Bootstrap orderbook: fetch snapshot now that real slug is wired
+        await self._bootstrap_orderbook(tp)
+
+    async def _bootstrap_orderbook(self, trading_pair: str):
+        """Fetch a REST snapshot and push it into the orderbook tracker.
+
+        Called after register_market() wires the real slug so the tracker
+        becomes ready without waiting for the next 60-second snapshot cycle.
+        """
+        try:
+            tracker = self.order_book_tracker
+            data_source = tracker._data_source
+            snapshot_msg = await data_source._order_book_snapshot(trading_pair)
+            tracker._order_book_snapshot_stream.put_nowait(snapshot_msg)
+            logger.info("Bootstrapped orderbook snapshot for %s", trading_pair)
+        except Exception:
+            logger.warning(
+                "Failed to bootstrap orderbook for %s — will retry on next snapshot cycle",
+                trading_pair,
+                exc_info=True,
+            )
+
     def get_price_by_type(self, trading_pair: str, price_type) -> Decimal:
         """Override to handle NO-side pairs by flipping YES orderbook prices."""
         if self._is_no_pair(trading_pair):
