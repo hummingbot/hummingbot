@@ -340,7 +340,7 @@ class QuoteManager:
         }
 
     def _log_quote_action(self, action: str, coin: str, side: str, price: float, surface: dict) -> None:
-        logger.info(
+        logger.debug(
             "%s_quote coin=%s side=%s price=%.4f yes_bid=%s yes_ask=%s yes_mid=%s no_bid=%s no_ask=%s no_mid=%s",
             action,
             coin,
