@@ -483,7 +483,9 @@ class MarketManager:
                 bid_depth = sum(float(b.get("size", 0)) for b in bids) if bids else float(ob.get("bid_depth", 0.0) or 0.0)
                 ask_depth = sum(float(a.get("size", 0)) for a in asks) if asks else float(ob.get("ask_depth", 0.0) or 0.0)
 
-                yes_mid_api = _normalize_api_midpoint(ob.get("adjustedMidpoint"))
+                # Canonical midpoint for quoting must come from executable book prices.
+                # `adjustedMidpoint` can be venue-adjusted and drift from tradable bid/ask.
+                yes_mid_api = _normalize_api_midpoint(ob.get("midpoint"))
                 if not _is_valid_prob(yes_mid_api):
                     yes_mid_api = None
 
@@ -493,7 +495,9 @@ class MarketManager:
                     and best_bid < best_ask
                 )
                 yes_mid_local = ((best_bid + best_ask) / 2.0) if local_mid_valid else None
-                yes_mid = yes_mid_api if yes_mid_api is not None else yes_mid_local
+
+                # Prefer book-derived midpoint; API midpoint is fallback only.
+                yes_mid = yes_mid_local if yes_mid_local is not None else yes_mid_api
                 quote_valid = yes_mid is not None
 
                 no_bid = (1.0 - best_ask) if _is_valid_prob(best_ask) else None
