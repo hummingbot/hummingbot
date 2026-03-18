@@ -41,12 +41,25 @@ def make_signal(model_prob=0.5, z_score=0.0, btc_z_score=0.0, combined_z=0.0, ye
 
 def default_tick_args(coins=None, signals=None, mids=None, spreads=None, hours=None):
     coins = coins or ["BTC"]
+    mids_map = mids if mids is not None else {c: 0.5 for c in coins}
     return dict(
         coins=coins,
         signals=signals if signals is not None else {c: make_signal() for c in coins},
-        orderbook_mids=mids if mids is not None else {c: 0.5 for c in coins},
+        orderbook_mids=mids_map,
         reward_spreads=spreads if spreads is not None else {c: 0.10 for c in coins},
         hours_left=hours if hours is not None else {c: 5.0 for c in coins},
+        price_surfaces={
+            c: {
+                "yes_bid": None,
+                "yes_ask": None,
+                "yes_mid": mids_map.get(c),
+                "no_bid": None,
+                "no_ask": None,
+                "no_mid": (1.0 - mids_map[c]) if c in mids_map else None,
+                "quote_valid": c in mids_map,
+            }
+            for c in coins
+        },
     )
 
 
@@ -123,7 +136,7 @@ class TestSymmetric:
         # z=0 → base_dist = inner = 0.02
         # no skew → symmetric
         assert abs(yes_a.price - (0.5 - 0.02)) < 1e-9
-        assert abs(no_a.price - (0.5 + 0.02)) < 1e-9
+        assert abs(no_a.price - (0.5 - 0.02)) < 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +167,7 @@ class TestSkewed:
         no_a = [a for a in result.actions if a.side == "NO"][0]
         # YES should be tighter (closer to mid) than NO
         yes_dist = 0.5 - yes_a.price
-        no_dist = no_a.price - 0.5
+        no_dist = 0.5 - no_a.price
         assert yes_dist < no_dist
 
     def test_skew_direction_follows_combined_z_sign(self):
@@ -168,7 +181,7 @@ class TestSkewed:
         yes_a = [a for a in result.actions if a.side == "YES"][0]
         no_a = [a for a in result.actions if a.side == "NO"][0]
         yes_dist = 0.5 - yes_a.price
-        no_dist = no_a.price - 0.5
+        no_dist = 0.5 - no_a.price
         assert yes_dist > no_dist
 
 
@@ -202,7 +215,7 @@ class TestOneSided:
         assert cancel_actions[0].side == "NO"
 
     def test_one_sided_favored_at_inner(self):
-        cfg = QuoteConfig(enabled=True, inner_fraction=0.2)
+        cfg = QuoteConfig(enabled=True, inner_fraction=0.2, odds_min=0.0)
         bridge = make_bridge(global_params={"edge_z_threshold": 1.5, "combined_z_threshold": 0.7})
         qm = QuoteManager(cfg, bridge)
         result = qm.tick(**default_tick_args(
@@ -226,11 +239,61 @@ class TestOneSided:
         place_actions = [a for a in result.actions if a.action == "place"]
         assert len(place_actions) == 1
         assert place_actions[0].side == "NO"
+        assert place_actions[0].price < 0.5
 
 
 # ---------------------------------------------------------------------------
 # 5. Z-ratio clamping
 # ---------------------------------------------------------------------------
+
+class TestPriceSurfaces:
+    def test_no_side_uses_canonical_no_surface_once(self):
+        cfg = QuoteConfig(enabled=True, inner_fraction=0.2, outer_fraction=0.9)
+        qm = QuoteManager(cfg, make_bridge())
+        surface = {
+            "yes_bid": 0.76,
+            "yes_ask": 0.78,
+            "yes_mid": 0.77,
+            "no_bid": 0.22,
+            "no_ask": 0.24,
+            "no_mid": 0.23,
+            "quote_valid": True,
+        }
+        result = qm.tick(
+            coins=["BTC"],
+            signals={"BTC": make_signal(z_score=0.0, combined_z=0.0)},
+            orderbook_mids={"BTC": 0.77},
+            reward_spreads={"BTC": 0.10},
+            hours_left={"BTC": 5.0},
+            price_surfaces={"BTC": surface},
+        )
+
+        no_action = [a for a in result.actions if a.side == "NO"][0]
+        assert abs(no_action.price - 0.21) < 1e-9
+
+    def test_guard_skips_malformed_side_prices(self):
+        cfg = QuoteConfig(enabled=True, inner_fraction=0.2, odds_min=0.0)
+        qm = QuoteManager(cfg, make_bridge())
+        surface = {
+            "yes_bid": 0.01,
+            "yes_ask": 0.03,
+            "yes_mid": 0.02,
+            "no_bid": 0.97,
+            "no_ask": 0.99,
+            "no_mid": 0.98,
+            "quote_valid": True,
+        }
+        result = qm.tick(
+            coins=["BTC"],
+            signals={"BTC": make_signal(z_score=0.0, combined_z=0.0)},
+            orderbook_mids={"BTC": 0.02},
+            reward_spreads={"BTC": 0.10},
+            hours_left={"BTC": 5.0},
+            price_surfaces={"BTC": surface},
+        )
+
+        assert [a.side for a in result.actions] == ["NO"]
+
 
 class TestZClamping:
     def test_z_clamped_above_1(self):

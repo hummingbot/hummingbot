@@ -6,10 +6,14 @@ place/update/cancel actions without any connector dependency.
 from __future__ import annotations
 
 import enum
+import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from .config import QuoteConfig, RuntimeBridge
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -86,18 +90,20 @@ class QuoteManager:
         orderbook_mids: Dict[str, float],
         reward_spreads: Dict[str, float],
         hours_left: Dict[str, float],
+        price_surfaces: Optional[Dict[str, dict]] = None,
     ) -> QuoteActions:
         result = QuoteActions()
         total_capital = sum(self._capital_used.get(c, 0.0) for c in coins)
 
         for coin in coins:
             mid = orderbook_mids.get(coin)
+            surface = self._surface_for_coin(coin, mid, price_surfaces)
             reward_spread = reward_spreads.get(coin)
             h_left = hours_left.get(coin)
-            if mid is None or reward_spread is None or h_left is None:
+            if surface is None or reward_spread is None or h_left is None:
                 continue
             actions = self._tick_coin(
-                coin, signals.get(coin, {}), mid,
+                coin, signals.get(coin, {}), surface,
                 reward_spread, h_left,
                 total_capital,
             )
@@ -106,18 +112,22 @@ class QuoteManager:
         return result
 
     def _tick_coin(
-        self, coin: str, sig: dict, mid: float,
+        self, coin: str, sig: dict, surface: dict,
         reward_spread: float, h_left: float, total_capital: float,
     ) -> List[QuoteAction]:
         cfg = self._cfg
         state = self._states.get(coin, QuoteState.IDLE)
+        yes_mid = surface.get("yes_mid")
+        no_mid = surface.get("no_mid")
 
         # --- FILLED / CONVERGED management ---
         if state in (QuoteState.FILLED, QuoteState.CONVERGED):
             return self._manage_filled(coin)
 
         # --- Market filter ---
-        if mid < cfg.odds_min or mid > cfg.odds_max:
+        if yes_mid is None or no_mid is None or not surface.get("quote_valid", False):
+            return self._cancel_all(coin)
+        if yes_mid < cfg.odds_min or yes_mid > cfg.odds_max:
             return self._cancel_all(coin)
         if h_left < cfg.min_hours_for_quoting:
             return self._cancel_all(coin)
@@ -179,16 +189,13 @@ class QuoteManager:
             opposing = "NO" if favored == "YES" else "YES"
             # Cancel opposing side
             actions.extend(self._cancel_side(coin, opposing))
-            # Place/update favored at inner wall
-            fav_dist = inner
-            fav_price = (mid - fav_dist) if favored == "YES" else (mid + fav_dist)
-            actions.extend(self._sync_side(coin, favored, fav_price, size))
+            # Place/update favored at inner wall in its own price space
+            favored_mid = yes_mid if favored == "YES" else no_mid
+            actions.extend(self._sync_side(coin, favored, favored_mid - inner, size, surface))
         else:
-            # Both sides
-            yes_price_desired = mid - yes_dist
-            no_price_desired = mid + no_dist
-            actions.extend(self._sync_side(coin, "YES", yes_price_desired, size))
-            actions.extend(self._sync_side(coin, "NO", no_price_desired, size))
+            # Both sides quote from their own side-native midpoint
+            actions.extend(self._sync_side(coin, "YES", yes_mid - yes_dist, size, surface))
+            actions.extend(self._sync_side(coin, "NO", no_mid - no_dist, size, surface))
 
         return actions
 
@@ -261,8 +268,40 @@ class QuoteManager:
             return [QuoteAction(action="cancel", coin=coin, side=side, order_id=info["order_id"])]
         return []
 
-    def _sync_side(self, coin: str, side: str, price: float, size: float) -> List[QuoteAction]:
+    def _surface_for_coin(
+        self,
+        coin: str,
+        mid: Optional[float],
+        price_surfaces: Optional[Dict[str, dict]],
+    ) -> Optional[dict]:
+        if price_surfaces is not None:
+            surface = price_surfaces.get(coin)
+            if surface is not None:
+                return surface
+        if mid is None:
+            return None
+        return {
+            "yes_bid": None,
+            "yes_ask": None,
+            "yes_mid": mid,
+            "no_bid": None,
+            "no_ask": None,
+            "no_mid": 1.0 - mid,
+            "quote_valid": True,
+        }
+
+    def _sync_side(self, coin: str, side: str, price: float, size: float, surface: dict) -> List[QuoteAction]:
         """Compare desired price with current order; emit place/update/nothing."""
+        if not self._is_valid_quote_price(price):
+            logger.warning(
+                "quote_invariant_failed coin=%s side=%s price=%s surface=%s",
+                coin,
+                side,
+                price,
+                self._surface_snapshot(surface),
+            )
+            return []
+
         orders = self._current_orders.setdefault(coin, {})
         existing = orders.get(side)
 
@@ -272,6 +311,7 @@ class QuoteManager:
                 return []
             # Update
             orders[side] = {"price": price, "size": size, "order_id": existing["order_id"]}
+            self._log_quote_action("update", coin, side, price, surface)
             return [QuoteAction(
                 action="update", coin=coin, side=side,
                 price=price, size=size, order_id=existing["order_id"],
@@ -279,6 +319,37 @@ class QuoteManager:
         else:
             # Place new
             orders[side] = {"price": price, "size": size, "order_id": None}
+            self._log_quote_action("place", coin, side, price, surface)
             return [QuoteAction(
                 action="place", coin=coin, side=side, price=price, size=size,
             )]
+
+    @staticmethod
+    def _is_valid_quote_price(price: float) -> bool:
+        return math.isfinite(price) and 0.0 < price < 1.0
+
+    @staticmethod
+    def _surface_snapshot(surface: dict) -> dict:
+        return {
+            "yes_bid": surface.get("yes_bid"),
+            "yes_ask": surface.get("yes_ask"),
+            "yes_mid": surface.get("yes_mid"),
+            "no_bid": surface.get("no_bid"),
+            "no_ask": surface.get("no_ask"),
+            "no_mid": surface.get("no_mid"),
+        }
+
+    def _log_quote_action(self, action: str, coin: str, side: str, price: float, surface: dict) -> None:
+        logger.info(
+            "%s_quote coin=%s side=%s price=%.4f yes_bid=%s yes_ask=%s yes_mid=%s no_bid=%s no_ask=%s no_mid=%s",
+            action,
+            coin,
+            side,
+            price,
+            surface.get("yes_bid"),
+            surface.get("yes_ask"),
+            surface.get("yes_mid"),
+            surface.get("no_bid"),
+            surface.get("no_ask"),
+            surface.get("no_mid"),
+        )

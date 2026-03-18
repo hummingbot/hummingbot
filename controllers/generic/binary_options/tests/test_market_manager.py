@@ -312,8 +312,17 @@ class TestBuildMarketData:
         assert data["BTC"]["bid_depth"] == 200
         assert data["BTC"]["yes_mid_api"] == 0.53
         assert data["BTC"]["yes_mid"] == 0.53
+        assert data["BTC"]["no_bid"] == pytest.approx(0.46)
+        assert data["BTC"]["no_ask"] == pytest.approx(0.48)
         assert data["BTC"]["no_mid"] == pytest.approx(0.47)
         assert data["BTC"]["quote_valid"] is True
+        assert data["BTC"]["price_surface"]["yes_bid"] == pytest.approx(0.52)
+        assert data["BTC"]["price_surface"]["yes_ask"] == pytest.approx(0.54)
+        assert data["BTC"]["price_surface"]["yes_mid"] == pytest.approx(0.53)
+        assert data["BTC"]["price_surface"]["no_bid"] == pytest.approx(0.46)
+        assert data["BTC"]["price_surface"]["no_ask"] == pytest.approx(0.48)
+        assert data["BTC"]["price_surface"]["no_mid"] == pytest.approx(0.47)
+        assert data["BTC"]["price_surface"]["quote_valid"] is True
 
     def test_prefers_api_midpoint_over_local_midpoint(self):
         mkts = [_make_market("BTC", 84000, EXPIRY_1H, slug="btc-slug")]

@@ -153,6 +153,7 @@ class TestUpdateProcessedData:
         asyncio.run(controller.update_processed_data())
 
         assert controller.processed_data["orderbook_mids"] == {"BTC": 0.57}
+        assert controller.processed_data["price_surfaces"]["BTC"]["no_mid"] == 0.43
         assert "ETH" not in controller.processed_data["orderbook_mids"]
 
 
@@ -234,6 +235,7 @@ class TestMMMode:
             "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
+            "price_surfaces": {"BTC": {"yes_mid": 0.5, "no_mid": 0.5, "quote_valid": True}},
             "reward_spreads": {"BTC": 0.03},
             "hours_left": {"BTC": 2.0},
             "btc_spot": 100000.0,
@@ -356,7 +358,7 @@ class TestMMMode:
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
         qa = QuoteActions(actions=[
             QuoteAction(action="place", coin="BTC", side="YES", price=0.45, size=10.0),
-            QuoteAction(action="place", coin="BTC", side="NO", price=0.55, size=10.0),
+            QuoteAction(action="place", coin="BTC", side="NO", price=0.21, size=10.0),
         ])
         self._wire_mm_mocks(ctrl, quote_actions=qa)
         actions = ctrl.determine_executor_actions()
@@ -565,6 +567,7 @@ class TestSideMapping:
             "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
+            "price_surfaces": {"BTC": {"yes_mid": 0.5, "no_mid": 0.5, "quote_valid": True}},
             "reward_spreads": {"BTC": 0.03},
             "hours_left": {"BTC": 2.0},
             "btc_spot": 100000.0,
@@ -589,7 +592,7 @@ class TestSideMapping:
         ctrl = self._make_mm_controller(config)
         from controllers.generic.binary_options.quote_manager import QuoteAction, QuoteActions
         qa = QuoteActions(actions=[
-            QuoteAction(action="place", coin="BTC", side="NO", price=0.55, size=10.0),
+            QuoteAction(action="place", coin="BTC", side="NO", price=0.21, size=10.0),
         ])
         self._wire_mm_mocks(ctrl, qa)
         actions = ctrl.determine_executor_actions()
@@ -598,6 +601,7 @@ class TestSideMapping:
         # happens at connector level via trading pair suffix "NO-USDC")
         assert actions[0].executor_config.side == _TradeType.BUY
         assert actions[0].executor_config.trading_pair.endswith("NO-USDC")
+        assert actions[0].executor_config.entry_price == Decimal("0.21")
 
 
 class TestOrderFeedback:
@@ -621,6 +625,7 @@ class TestOrderFeedback:
             "coins": {"BTC": {"vol": 0.01, "z_score": 0.0, "btc_z_score": 0.0, "combined_z": 0.0}},
             "market_data": {"BTC": {"slug": "BTC-YES-100K", "yes_price": 0.5}},
             "orderbook_mids": {"BTC": 0.5},
+            "price_surfaces": {"BTC": {"yes_mid": 0.5, "no_mid": 0.5, "quote_valid": True}},
             "reward_spreads": {"BTC": 0.03},
             "hours_left": {"BTC": 2.0},
             "btc_spot": 100000.0,

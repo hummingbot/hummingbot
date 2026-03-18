@@ -208,18 +208,29 @@ class BinaryOptionsController(ControllerBase):
             orderbook_mids = {}
             reward_spreads = {}
             hours_left_map = {}
+            price_surfaces = {}
             for coin, md in market_data.items():
                 yes_mid = md.get("yes_mid")
                 if not md.get("quote_valid") or yes_mid is None:
                     continue
                 orderbook_mids[coin] = yes_mid
                 reward_spreads[coin] = md.get("reward_spread", 0.03)
+                price_surfaces[coin] = md.get("price_surface") or {
+                    "yes_bid": md.get("yes_bid"),
+                    "yes_ask": md.get("yes_ask"),
+                    "yes_mid": md.get("yes_mid"),
+                    "no_bid": md.get("no_bid") if md.get("no_bid") is not None else (round(1.0 - md.get("yes_ask"), 12) if md.get("yes_ask") is not None else None),
+                    "no_ask": md.get("no_ask") if md.get("no_ask") is not None else (round(1.0 - md.get("yes_bid"), 12) if md.get("yes_bid") is not None else None),
+                    "no_mid": md.get("no_mid") if md.get("no_mid") is not None else (round(1.0 - md.get("yes_mid"), 12) if md.get("yes_mid") is not None else None),
+                    "quote_valid": md.get("quote_valid", False),
+                }
                 expiry = md.get("expiry_ts", now_ts + 3600)
                 hours_left_map[coin] = max(0, (expiry - now_ts) / 3600)
         else:
             orderbook_mids = {}
             reward_spreads = {}
             hours_left_map = {}
+            price_surfaces = {}
 
         # 7. Store processed data
         self.processed_data.update({
@@ -229,6 +240,7 @@ class BinaryOptionsController(ControllerBase):
             "market_data": market_data,
             "now_ts": now_ts,
             "orderbook_mids": orderbook_mids,
+            "price_surfaces": price_surfaces,
             "reward_spreads": reward_spreads,
             "hours_left": hours_left_map,
         })
@@ -370,6 +382,7 @@ class BinaryOptionsController(ControllerBase):
         signals = self.processed_data.get("coins", {})
         market_data = self.processed_data.get("market_data", {})
         orderbook_mids = self.processed_data.get("orderbook_mids", {})
+        price_surfaces = self.processed_data.get("price_surfaces", {})
         reward_spreads = self.processed_data.get("reward_spreads", {})
         hours_left = self.processed_data.get("hours_left", {})
 
@@ -388,7 +401,7 @@ class BinaryOptionsController(ControllerBase):
             return actions
 
         quote_actions = self.quote_manager.tick(
-            warmed, signals, orderbook_mids, reward_spreads, hours_left
+            warmed, signals, orderbook_mids, reward_spreads, hours_left, price_surfaces=price_surfaces
         )
         action_summary = "none"
         if quote_actions.actions:
@@ -582,7 +595,7 @@ class BinaryOptionsController(ControllerBase):
         # NO side uses "COINNO-USDC" trading pair so connector can route token.
         # Format: ETH-USDC -> ETHNO-USDC (single dash for Hummingbot base-quote compat)
         if side == "NO":
-            entry = Decimal(str(1.0 - price))  # flip to NO token price
+            entry = Decimal(str(price))
             tp_for_executor = trading_pair.replace("-USDC", "NO-USDC")
         else:
             entry = Decimal(str(price))

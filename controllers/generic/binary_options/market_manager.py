@@ -73,6 +73,26 @@ def _is_valid_prob(value: Optional[float]) -> bool:
     return value is not None and 0.0 < value < 1.0
 
 
+def _build_price_surface(
+    yes_bid: Optional[float],
+    yes_ask: Optional[float],
+    yes_mid: Optional[float],
+) -> Dict[str, Optional[float] | bool]:
+    no_bid = (1.0 - yes_ask) if _is_valid_prob(yes_ask) else None
+    no_ask = (1.0 - yes_bid) if _is_valid_prob(yes_bid) else None
+    no_mid = (1.0 - yes_mid) if yes_mid is not None else None
+    quote_valid = yes_mid is not None
+    return {
+        "yes_bid": yes_bid,
+        "yes_ask": yes_ask,
+        "yes_mid": yes_mid,
+        "no_bid": no_bid,
+        "no_ask": no_ask,
+        "no_mid": no_mid,
+        "quote_valid": quote_valid,
+    }
+
+
 class MarketManager:
     """Wraps 3-layer market selection using the Hummingbot connector."""
 
@@ -494,11 +514,7 @@ class MarketManager:
                 )
                 yes_mid_local = ((best_bid + best_ask) / 2.0) if local_mid_valid else None
                 yes_mid = yes_mid_api if yes_mid_api is not None else yes_mid_local
-                quote_valid = yes_mid is not None
-
-                no_bid = (1.0 - best_ask) if _is_valid_prob(best_ask) else None
-                no_ask = (1.0 - best_bid) if _is_valid_prob(best_bid) else None
-                no_mid = (1.0 - yes_mid) if yes_mid is not None else None
+                price_surface = _build_price_surface(best_bid, best_ask, yes_mid)
 
                 entry = {
                     "coin": coin,
@@ -506,15 +522,16 @@ class MarketManager:
                     "no_price": 1.0 - best_bid if best_bid > 0 else md.get("no_price", 0.5),
                     "bid": best_bid or 0.0,
                     "ask": best_ask or 0.0,
-                    "yes_bid": best_bid,
-                    "yes_ask": best_ask,
+                    "yes_bid": price_surface["yes_bid"],
+                    "yes_ask": price_surface["yes_ask"],
                     "yes_mid_local": yes_mid_local,
                     "yes_mid_api": yes_mid_api,
-                    "yes_mid": yes_mid,
-                    "no_bid": no_bid,
-                    "no_ask": no_ask,
-                    "no_mid": no_mid,
-                    "quote_valid": quote_valid,
+                    "yes_mid": price_surface["yes_mid"],
+                    "no_bid": price_surface["no_bid"],
+                    "no_ask": price_surface["no_ask"],
+                    "no_mid": price_surface["no_mid"],
+                    "quote_valid": price_surface["quote_valid"],
+                    "price_surface": price_surface,
                     "bid_depth": bid_depth,
                     "ask_depth": ask_depth,
                     "strike": md.get("strike", 0.0),
@@ -531,31 +548,35 @@ class MarketManager:
             elif coin in self._prev_market_data:
                 # Recycle non-trading fields, but invalidate midpoint-derived MM inputs.
                 prev = dict(self._prev_market_data[coin])
+                prev_surface = _build_price_surface(prev.get("yes_bid"), prev.get("yes_ask"), None)
                 prev.update({
                     "yes_mid_local": None,
                     "yes_mid_api": None,
-                    "yes_mid": None,
-                    "no_mid": None,
-                    "quote_valid": False,
+                    "yes_mid": prev_surface["yes_mid"],
+                    "no_mid": prev_surface["no_mid"],
+                    "quote_valid": prev_surface["quote_valid"],
+                    "price_surface": prev_surface,
                 })
                 result[coin] = prev
             else:
                 # Static fallback preserves compatibility fields only; midpoint remains invalid.
+                price_surface = _build_price_surface(None, None, None)
                 result[coin] = {
                     "coin": coin,
                     "yes_price": md.get("yes_price", 0.5),
                     "no_price": md.get("no_price", 0.5),
                     "bid": md.get("yes_price", 0.5),
                     "ask": md.get("yes_price", 0.5),
-                    "yes_bid": None,
-                    "yes_ask": None,
+                    "yes_bid": price_surface["yes_bid"],
+                    "yes_ask": price_surface["yes_ask"],
                     "yes_mid_local": None,
                     "yes_mid_api": None,
-                    "yes_mid": None,
-                    "no_bid": None,
-                    "no_ask": None,
-                    "no_mid": None,
-                    "quote_valid": False,
+                    "yes_mid": price_surface["yes_mid"],
+                    "no_bid": price_surface["no_bid"],
+                    "no_ask": price_surface["no_ask"],
+                    "no_mid": price_surface["no_mid"],
+                    "quote_valid": price_surface["quote_valid"],
+                    "price_surface": price_surface,
                     "bid_depth": 0.0,
                     "ask_depth": 0.0,
                     "strike": md.get("strike", 0.0),
