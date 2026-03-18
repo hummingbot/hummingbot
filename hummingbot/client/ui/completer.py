@@ -1,8 +1,7 @@
-import importlib
 import inspect
+import logging
 import os
 import re
-import sys
 from os import listdir
 from os.path import exists, isfile, join
 from typing import List
@@ -13,6 +12,7 @@ from prompt_toolkit.document import Document
 from hummingbot.client import settings
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.config_data_types import BaseClientModel
+from hummingbot.client.config.script_loader import list_script_names, load_script_module
 from hummingbot.client.settings import (
     GATEWAY_CHAINS,
     GATEWAY_CONNECTORS,
@@ -81,25 +81,26 @@ class HummingbotCompleter(Completer):
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
 
     def get_strategies_v2_with_config(self):
-        file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
+        logger = logging.getLogger(__name__)
+        external_path = getattr(
+            self.hummingbot_application.client_config_map, "external_scripts_path", None
+        )
+        logger.info(f"V2 completer: external_path={external_path}, builtin_path={SCRIPT_STRATEGIES_PATH}")
+        script_names = list_script_names(SCRIPT_STRATEGIES_PATH, external_path)
+        logger.info(f"V2 completer: found scripts={script_names}")
         strategies_with_config = []
 
-        for script_name in file_names:
+        for script_name in script_names:
             try:
-                script_name = script_name.replace(".py", "")
-                module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
-                if module is not None:
-                    script_module = importlib.reload(module)
-                else:
-                    script_module = importlib.import_module(f".{script_name}",
-                                                            package=settings.SCRIPT_STRATEGIES_MODULE)
+                script_module = load_script_module(script_name, SCRIPT_STRATEGIES_PATH, external_path)
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                      if inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
                                      (issubclass(member, BaseClientModel) or issubclass(member, StrategyV2ConfigBase))))
                 if config_class:
                     strategies_with_config.append(script_name)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"V2 completer: failed to load '{script_name}': {type(e).__name__}: {e}")
+        logger.info(f"V2 completer: strategies_with_config={strategies_with_config}")
         return WordCompleter(strategies_with_config, ignore_case=True)
 
     def get_available_controllers(self):

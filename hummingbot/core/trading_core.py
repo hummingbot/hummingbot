@@ -1,8 +1,6 @@
 import asyncio
-import importlib
 import inspect
 import logging
-import sys
 import time
 from decimal import Decimal
 from enum import Enum
@@ -14,9 +12,10 @@ from sqlalchemy.orm import Query, Session
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_strategy_starter_file
+from hummingbot.client.config.script_loader import get_script_file_path, load_script_module
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import SCRIPT_STRATEGIES_MODULE, STRATEGIES
+from hummingbot.client.settings import STRATEGIES
 from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, MetricsCollector
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -323,8 +322,8 @@ class TradingCore:
 
     def is_v2_strategy(self, strategy_name: str) -> bool:
         """Check if the strategy is a V2 strategy."""
-        v2_file = self.scripts_path / f"{strategy_name}.py"
-        return v2_file.exists()
+        external_path = getattr(self.client_config_map, "external_scripts_path", None)
+        return get_script_file_path(strategy_name, self.scripts_path, external_path) is not None
 
     def initialize_markets_recorder(self, db_name: str = None):
         """
@@ -372,12 +371,8 @@ class TradingCore:
         Returns:
             Tuple of (strategy_class, config_object)
         """
-        module = sys.modules.get(f"{SCRIPT_STRATEGIES_MODULE}.{strategy_name}")
-
-        if module is not None:
-            strategy_module = importlib.reload(module)
-        else:
-            strategy_module = importlib.import_module(f".{strategy_name}", package=SCRIPT_STRATEGIES_MODULE)
+        external_path = getattr(self.client_config_map, "external_scripts_path", None)
+        strategy_module = load_script_module(strategy_name, self.scripts_path, external_path)
 
         try:
             strategy_class = next((member for member_name, member in inspect.getmembers(strategy_module)

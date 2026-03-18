@@ -17,6 +17,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH
+from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.client.ui.style import load_style
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -49,6 +50,7 @@ no_restart_pmm_keys = ["order_amount",
 client_configs_to_display = ["autofill_import",
                              "kill_switch_mode",
                              "kill_switch_rate",
+                             "external_scripts_path",
                              "mqtt_bridge",
                              "mqtt_host",
                              "mqtt_port",
@@ -271,6 +273,7 @@ class ConfigCommand:
                 else:
                     self.list_strategy_configs()
                 self.app.style = load_style(self.client_config_map)
+                self.app.input_field.completer = load_completer(self)
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:

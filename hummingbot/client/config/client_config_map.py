@@ -4,7 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
@@ -702,6 +702,13 @@ class ClientConfigMap(BaseClientModel):
         default=DEFAULT_LOG_FILE_PATH,
         json_schema_extra={"prompt": lambda cm: "Where would you like to save your logs? (default 'logs/hummingbot_logs.log')"},
     )
+    external_scripts_path: Optional[Path] = Field(
+        default=None,
+        description="Path to an external directory containing V2 script strategies",
+        json_schema_extra={
+            "prompt": lambda cm: "Enter path to external scripts directory (leave blank to skip)"
+        },
+    )
     kill_switch_mode: Union[tuple(KILL_SWITCH_MODES.values())] = Field(
         default=KillSwitchDisabledMode(),
         json_schema_extra={"prompt": lambda cm: f"Select the desired kill-switch mode ({'/'.join(list(KILL_SWITCH_MODES.keys()))})"},
@@ -911,6 +918,16 @@ class ClientConfigMap(BaseClientModel):
         if ret is not None:
             raise ValueError(ret)
         return v
+
+    @field_validator("external_scripts_path", mode="before")
+    @classmethod
+    def validate_external_scripts_path(cls, v):
+        if v is None or v == "" or v == "None":
+            return None
+        p = Path(v)
+        if p.exists() and not p.is_dir():
+            raise ValueError(f"The path '{v}' exists but is not a directory.")
+        return p
 
     # === post-validations ===
 

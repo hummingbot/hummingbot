@@ -5,7 +5,6 @@ import inspect
 import json
 import os
 import shutil
-import sys
 from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
@@ -27,6 +26,7 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml_legacy,
 )
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.script_loader import load_script_module
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
@@ -112,8 +112,10 @@ class CreateCommand:
     async def prompt_for_configuration_v2(self,  # type: HummingbotApplication
                                           script_to_config: str):
         try:
-            module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
-            script_module = importlib.reload(module)
+            external_path = getattr(self.client_config_map, "external_scripts_path", None)
+            script_module = load_script_module(
+                script_to_config, settings.SCRIPT_STRATEGIES_PATH, external_path
+            )
             config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                  if
                                  inspect.isclass(member) and member not in [BaseClientModel, StrategyV2ConfigBase] and
