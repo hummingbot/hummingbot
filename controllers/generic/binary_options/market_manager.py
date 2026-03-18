@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # Title regex: "$TICKER above $STRIKE on DATE"
 _TITLE_RE = re.compile(
-    r"\$([A-Z]+)\s+above\s+\$([\d,.]+)\s+on\s+(.+?)(?:\s*\?)?$",
+    r"\$?([A-Z]+)\s+above\s+\$([\d,.]+)\s+on\s+(.+?)(?:\s*\?)?$",
     re.IGNORECASE,
 )
 
@@ -177,7 +177,7 @@ class MarketManager:
             title = mkt.get("title", "")
             parsed = _parse_title(title)
             if not parsed:
-                logger.debug("discover: skipping unparseable title: %s", title[:50])
+                logger.info("discover: REJECTED unparseable title: %s", title[:80])
                 continue
             ticker, strike, title_expiry = parsed
             logger.debug("discover: parsed %s strike=%s expiry=%s", ticker, strike, title_expiry)
@@ -185,15 +185,18 @@ class MarketManager:
             # Coin whitelist filter (from YAML config)
             coin_whitelist = getattr(self._config, 'coins', [])
             if coin_whitelist and ticker not in coin_whitelist:
+                logger.info("discover: REJECTED %s — not in whitelist %s", ticker, coin_whitelist)
                 continue
 
             # Skip BANNED coins
             if self._roster.tier(ticker) == "BANNED":
+                logger.info("discover: REJECTED %s — BANNED", ticker)
                 continue
 
             # CLOB only — check tradeType (SDK field) or trade_type
             trade_type = mkt.get("tradeType", mkt.get("trade_type", "clob"))
             if trade_type and trade_type.lower() != "clob":
+                logger.info("discover: REJECTED %s — trade_type=%s", ticker, trade_type)
                 continue
 
             # Expiry: prefer parsed from title (has exact time), fall back to API field
