@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from hummingbot.connector.exchange.limitless.limitless_exchange import LimitlessExchange
 from hummingbot.connector.trading_rule import TradingRule
@@ -16,10 +16,12 @@ class TestLimitlessExchange(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.ev_loop.close()
+        asyncio.set_event_loop(None)
         super().tearDownClass()
 
     def setUp(self) -> None:
@@ -126,3 +128,41 @@ class TestLimitlessExchange(unittest.TestCase):
 
         self.assertTrue(self.exchange.paper_mode)
         self.assertTrue(self.exchange._inner_connector._paper_mode)
+
+    def test_update_balances_uses_synthetic_usdc_in_paper_mode(self):
+        self.exchange.paper_mode = True
+        self.exchange._inner_started = True
+        self.exchange._inner_connector = SimpleNamespace(get_balance=AsyncMock(side_effect=AssertionError("should not fetch")))
+        self.exchange._account_balances["BTC"] = Decimal("1")
+        self.exchange._account_available_balances["BTC"] = Decimal("1")
+        self.exchange.logger = MagicMock(return_value=MagicMock(info=MagicMock()))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertEqual(Decimal("1000000"), self.exchange._account_balances["USDC"])
+        self.assertEqual(Decimal("1000000"), self.exchange._account_available_balances["USDC"])
+        self.assertNotIn("BTC", self.exchange._account_balances)
+        self.exchange._inner_connector.get_balance.assert_not_awaited()
+
+    def test_update_balances_fetches_connector_balance_in_live_mode(self):
+        self.exchange.paper_mode = False
+        self.exchange._inner_started = True
+        self.exchange._inner_connector = SimpleNamespace(
+            get_balance=AsyncMock(return_value={
+                "clob": [{
+                    "orders": {"totalCollateralLocked": "2000000"},
+                    "positions": {
+                        "yes": {"cost": "3000000"},
+                        "no": {"cost": "1000000"},
+                    },
+                }],
+            }),
+            _account=SimpleNamespace(address="0x0"),
+        )
+        self.exchange.logger = MagicMock(return_value=MagicMock(debug=MagicMock(), warning=MagicMock()))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.exchange._inner_connector.get_balance.assert_awaited_once()
+        self.assertEqual(Decimal("4"), self.exchange._account_balances["USDC"])
+        self.assertEqual(Decimal("2"), self.exchange._account_available_balances["USDC"])

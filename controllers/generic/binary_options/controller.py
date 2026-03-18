@@ -82,6 +82,7 @@ class BinaryOptionsController(ControllerBase):
 
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
+        self._mm_pending_replacements: Dict[str, dict] = {}
 
         self._last_log_ts: float = 0.0
 
@@ -375,6 +376,8 @@ class BinaryOptionsController(ControllerBase):
         if not self.runtime_bridge.should_trade():
             return actions
 
+        self._sync_mm_closed_executors(prune_missing=True)
+
         # Warmup gate: don't quote until signals are valid (vol needs ~100 ticks)
         coins = list(market_data.keys())
         warmed = [
@@ -401,22 +404,25 @@ class BinaryOptionsController(ControllerBase):
             trading_pair = f"{qa.coin}-USDC"
             if not trading_pair:
                 continue
+            key = f"{qa.coin}:{qa.side}"
 
             if qa.action == "place":
-                coin = qa.coin
-                executor_config = self._make_mm_executor_config(
-                    coin, trading_pair, qa.price, qa.size, hours_left, now_ts, side=qa.side
+                if key in self._mm_executor_map or key in self._mm_pending_replacements:
+                    continue
+                self._create_mm_executor_action(
+                    actions=actions,
+                    coin=qa.coin,
+                    side=qa.side,
+                    trading_pair=trading_pair,
+                    price=qa.price,
+                    size=qa.size,
+                    hours_left=hours_left,
+                    now_ts=now_ts,
                 )
-                self._mm_executor_map[f"{qa.coin}:{qa.side}"] = executor_config.id
-                self.quote_manager.set_order_id(qa.coin, qa.side, executor_config.id)
-                actions.append(CreateExecutorAction(
-                    controller_id=self.config.id,
-                    executor_config=executor_config,
-                ))
 
             elif qa.action == "cancel":
-                key = f"{qa.coin}:{qa.side}"
-                executor_id = self._mm_executor_map.pop(key, None)
+                self._mm_pending_replacements.pop(key, None)
+                executor_id = self._mm_executor_map.get(key)
                 if executor_id:
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
@@ -425,22 +431,28 @@ class BinaryOptionsController(ControllerBase):
                 self.quote_manager.clear_order(qa.coin, qa.side)
 
             elif qa.action == "update":
-                key = f"{qa.coin}:{qa.side}"
-                old_id = self._mm_executor_map.pop(key, None)
-                if old_id:
+                replacement = {
+                    "coin": qa.coin,
+                    "side": qa.side,
+                    "price": qa.price,
+                    "size": qa.size,
+                    "trading_pair": trading_pair,
+                    "ts": now_ts,
+                }
+                old_id = self._mm_executor_map.get(key)
+                already_pending = key in self._mm_pending_replacements
+                self._mm_pending_replacements[key] = replacement
+                if old_id and not already_pending:
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
                         executor_id=old_id,
                     ))
-                executor_config = self._make_mm_executor_config(
-                    qa.coin, trading_pair, qa.price, qa.size, hours_left, now_ts, side=qa.side
-                )
-                self._mm_executor_map[key] = executor_config.id
-                self.quote_manager.set_order_id(qa.coin, qa.side, executor_config.id)
-                actions.append(CreateExecutorAction(
-                    controller_id=self.config.id,
-                    executor_config=executor_config,
-                ))
+                elif not old_id:
+                    self._create_pending_mm_replacement(
+                        key=key,
+                        actions=actions,
+                        hours_left=hours_left,
+                    )
 
             # close_order is NOT handled — PositionExecutor manages exit via barriers
 
@@ -460,7 +472,8 @@ class BinaryOptionsController(ControllerBase):
                         for fa in fill_actions.actions:
                             if fa.action == "cancel":
                                 opp_key = f"{fa.coin}:{fa.side}"
-                                opp_id = self._mm_executor_map.pop(opp_key, None)
+                                self._mm_pending_replacements.pop(opp_key, None)
+                                opp_id = self._mm_executor_map.get(opp_key)
                                 if opp_id:
                                     actions.append(StopExecutorAction(
                                         controller_id=self.config.id,
@@ -468,23 +481,79 @@ class BinaryOptionsController(ControllerBase):
                                     ))
                     break
 
-        # Sync closed executors
-        for ei in self.executors_info:
-            is_closed = ei.is_closed if hasattr(ei, 'is_closed') else False
-            if not is_closed:
-                continue
-            eid = ei.id if hasattr(ei, 'id') else ''
-            if eid:
-                pnl = float(ei.net_pnl_quote) if hasattr(ei, 'net_pnl_quote') else 0.0
-                for key, mapped_id in list(self._mm_executor_map.items()):
-                    if mapped_id == eid:
-                        coin = key.split(":")[0]
-                        self._mm_executor_map.pop(key)
-                        self.quote_manager.on_close_fill(coin)
-                        self.position_tracker.record_close(coin, eid, pnl)
-                        break
+        self._sync_mm_closed_executors(prune_missing=False)
+        for key in list(self._mm_pending_replacements.keys()):
+            if key not in self._mm_executor_map:
+                self._create_pending_mm_replacement(
+                    key=key,
+                    actions=actions,
+                    hours_left=hours_left,
+                )
 
         return actions
+
+    def _create_mm_executor_action(
+        self,
+        actions: List,
+        coin: str,
+        side: str,
+        trading_pair: str,
+        price: float,
+        size: float,
+        hours_left: dict,
+        now_ts: float,
+    ) -> None:
+        executor_config = self._make_mm_executor_config(
+            coin, trading_pair, price, size, hours_left, now_ts, side=side
+        )
+        key = f"{coin}:{side}"
+        self._mm_executor_map[key] = executor_config.id
+        self.quote_manager.set_order_id(coin, side, executor_config.id)
+        actions.append(CreateExecutorAction(
+            controller_id=self.config.id,
+            executor_config=executor_config,
+        ))
+
+    def _create_pending_mm_replacement(self, key: str, actions: List, hours_left: dict) -> None:
+        replacement = self._mm_pending_replacements.pop(key, None)
+        if replacement is None:
+            return
+        self._create_mm_executor_action(
+            actions=actions,
+            coin=replacement["coin"],
+            side=replacement["side"],
+            trading_pair=replacement["trading_pair"],
+            price=replacement["price"],
+            size=replacement["size"],
+            hours_left=hours_left,
+            now_ts=replacement["ts"],
+        )
+
+    def _sync_mm_closed_executors(self, prune_missing: bool) -> None:
+        executor_ids = {
+            getattr(ei, "id", "")
+            for ei in self.executors_info
+            if getattr(ei, "id", "")
+        }
+        for ei in self.executors_info:
+            if not getattr(ei, "is_closed", False):
+                continue
+            eid = getattr(ei, "id", "")
+            if not eid:
+                continue
+            pnl = float(ei.net_pnl_quote) if hasattr(ei, "net_pnl_quote") else 0.0
+            for key, mapped_id in list(self._mm_executor_map.items()):
+                if mapped_id == eid:
+                    coin = key.split(":")[0]
+                    self._mm_executor_map.pop(key, None)
+                    self.quote_manager.on_close_fill(coin)
+                    self.position_tracker.record_close(coin, eid, pnl)
+                    break
+
+        if prune_missing:
+            for key, mapped_id in list(self._mm_executor_map.items()):
+                if mapped_id not in executor_ids:
+                    self._mm_executor_map.pop(key, None)
 
     def _make_mm_executor_config(
         self, coin: str, trading_pair: str, price: float, size: float,

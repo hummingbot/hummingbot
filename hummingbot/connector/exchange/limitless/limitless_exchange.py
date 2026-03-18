@@ -67,6 +67,7 @@ class LimitlessExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs or []
         self._domain = domain
         self._paper_mode = paper_mode
+        self._paper_balance_mode_logged = False
         self._last_trade_history_timestamp = None
 
         # Trading pair <-> market slug mapping
@@ -656,6 +657,20 @@ class LimitlessExchange(ExchangePyBase):
         await self._ensure_inner_connector()
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+
+        if self.paper_mode:
+            synthetic_balance = Decimal("1000000")
+            self._account_available_balances["USDC"] = synthetic_balance
+            self._account_balances["USDC"] = synthetic_balance
+            remote_asset_names.add("USDC")
+            if not self._paper_balance_mode_logged:
+                self.logger().info("Paper balance mode active for LimitlessExchange: using synthetic USDC balance.")
+                self._paper_balance_mode_logged = True
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+            return
 
         try:
             balance_info = await self._inner_connector.get_balance()
