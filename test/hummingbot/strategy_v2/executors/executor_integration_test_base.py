@@ -248,10 +248,12 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
         ]
 
         # Start patches and store mocks
+        # Use addCleanup so patches are stopped even if setUp fails
         self._patches = []
         self._mocks = []
         for p in patches:
             mock = p.start()
+            self.addCleanup(p.stop)
             self._patches.append(p)
             self._mocks.append(mock)
 
