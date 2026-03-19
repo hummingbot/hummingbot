@@ -84,6 +84,7 @@ class BinaryOptionsController(ControllerBase):
         self._mm_executor_map: Dict[str, str] = {}
         self._mm_pending_replacements: Dict[str, dict] = {}
         self._mm_pending_cancels: set = set()  # keys awaiting cancel confirmation
+        self._mm_executor_created_ts: Dict[str, float] = {}  # key → creation timestamp
 
         self._last_log_ts: float = 0.0
 
@@ -524,6 +525,7 @@ class BinaryOptionsController(ControllerBase):
         )
         key = f"{coin}:{side}"
         self._mm_executor_map[key] = executor_config.id
+        self._mm_executor_created_ts[key] = time.time()
         self.quote_manager.set_order_id(coin, side, executor_config.id)
         actions.append(CreateExecutorAction(
             controller_id=self.config.id,
@@ -562,15 +564,22 @@ class BinaryOptionsController(ControllerBase):
                 if mapped_id == eid:
                     coin = key.split(":")[0]
                     self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
                     self._mm_pending_cancels.discard(key)
                     self.quote_manager.on_close_fill(coin)
                     self.position_tracker.record_close(coin, eid, pnl)
                     break
 
         if prune_missing:
+            now = time.time()
             for key, mapped_id in list(self._mm_executor_map.items()):
                 if mapped_id not in executor_ids:
+                    # Grace period: don't prune executors created < 10s ago (hbot hasn't registered yet)
+                    created = self._mm_executor_created_ts.get(key, 0)
+                    if now - created < 10:
+                        continue
                     self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
                     self._mm_pending_cancels.discard(key)
 
     def _make_mm_executor_config(
