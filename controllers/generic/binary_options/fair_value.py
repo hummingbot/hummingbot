@@ -261,7 +261,7 @@ class MispricingProfile:
         current = self.mispricing_history[-1]
         std = self.mispricing_std
 
-        if std <= 0.001:  # too little variance to judge
+        if std <= 0.0001:  # too little variance to judge (dead market)
             return False, current, 0.0
 
         # Gate: absolute mispricing must be large enough to be tradeable
