@@ -83,6 +83,7 @@ class BinaryOptionsController(ControllerBase):
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
         self._mm_pending_replacements: Dict[str, dict] = {}
+        self._mm_pending_cancels: set = set()  # keys awaiting cancel confirmation
 
         self._last_log_ts: float = 0.0
 
@@ -421,7 +422,7 @@ class BinaryOptionsController(ControllerBase):
             key = f"{qa.coin}:{qa.side}"
 
             if qa.action == "place":
-                if key in self._mm_executor_map or key in self._mm_pending_replacements:
+                if key in self._mm_executor_map or key in self._mm_pending_replacements or key in self._mm_pending_cancels:
                     continue
                 self._create_mm_executor_action(
                     actions=actions,
@@ -436,8 +437,9 @@ class BinaryOptionsController(ControllerBase):
 
             elif qa.action == "cancel":
                 self._mm_pending_replacements.pop(key, None)
-                executor_id = self._mm_executor_map.pop(key, None)
+                executor_id = self._mm_executor_map.get(key)
                 if executor_id:
+                    self._mm_pending_cancels.add(key)
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
                         executor_id=executor_id,
@@ -560,6 +562,7 @@ class BinaryOptionsController(ControllerBase):
                 if mapped_id == eid:
                     coin = key.split(":")[0]
                     self._mm_executor_map.pop(key, None)
+                    self._mm_pending_cancels.discard(key)
                     self.quote_manager.on_close_fill(coin)
                     self.position_tracker.record_close(coin, eid, pnl)
                     break
@@ -568,6 +571,7 @@ class BinaryOptionsController(ControllerBase):
             for key, mapped_id in list(self._mm_executor_map.items()):
                 if mapped_id not in executor_ids:
                     self._mm_executor_map.pop(key, None)
+                    self._mm_pending_cancels.discard(key)
 
     def _make_mm_executor_config(
         self, coin: str, trading_pair: str, price: float, size: float,
