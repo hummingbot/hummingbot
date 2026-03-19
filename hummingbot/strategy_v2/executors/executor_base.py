@@ -265,6 +265,18 @@ class ExecutorBase(RunnableBase):
         """
         return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates)
 
+    def lock_order_candidate(self, exchange: str, order_candidate: OrderCandidate) -> OrderCandidate:
+        """
+        Adjusts and locks the order candidate based on the budget checker of the specified exchange.
+        """
+        return self.connectors[exchange].budget_checker.adjust_candidate_and_lock_available_collateral(order_candidate)
+
+    def unlock_order_candidate(self, exchange: str, order_candidate: OrderCandidate) -> OrderCandidate:
+        """
+        Adjusts and locks the order candidate based on the budget checker of the specified exchange.
+        """
+        return self.connectors[exchange].budget_checker.release_locked_collateral(order_candidate)
+
     def place_order(self,
                     connector_name: str,
                     trading_pair: str,
