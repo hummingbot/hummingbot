@@ -446,9 +446,10 @@ class BinaryOptionsController(ControllerBase):
 
             elif qa.action == "cancel":
                 self._mm_pending_replacements.pop(key, None)
-                executor_id = self._mm_executor_map.get(key)
+                executor_id = self._mm_executor_map.pop(key, None)
+                self._mm_executor_created_ts.pop(key, None)
+                self._mm_pending_cancels.discard(key)
                 if executor_id:
-                    self._mm_pending_cancels.add(key)
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
                         executor_id=executor_id,
@@ -464,7 +465,9 @@ class BinaryOptionsController(ControllerBase):
                     "trading_pair": trading_pair,
                     "ts": now_ts,
                 }
-                old_id = self._mm_executor_map.get(key)
+                old_id = self._mm_executor_map.pop(key, None)
+                self._mm_executor_created_ts.pop(key, None)
+                self._mm_pending_cancels.discard(key)
                 already_pending = key in self._mm_pending_replacements
                 self._mm_pending_replacements[key] = replacement
                 if old_id and not already_pending:
