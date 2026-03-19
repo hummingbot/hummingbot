@@ -368,13 +368,32 @@ class LimitlessExchange(ExchangePyBase):
     def get_price_by_type(self, trading_pair: str, price_type) -> Decimal:
         """Override to handle NO-side pairs by flipping YES orderbook prices."""
         if self._is_no_pair(trading_pair):
-            # Look up the YES pair's price and flip it
             yes_tp = self._yes_pair(trading_pair)
             try:
                 yes_price = super().get_price_by_type(yes_tp, price_type)
                 return Decimal("1") - yes_price
             except Exception:
-                return Decimal("0.5")  # safe fallback
+                # Hbot tracker may not have the book yet — use inner connector's WS cache
+                slug = self._slug_map.get(yes_tp)
+                if slug and self._inner_connector:
+                    ob = self._inner_connector._orderbooks.get(slug, {})
+                    bids = ob.get("bids", [])
+                    asks = ob.get("asks", [])
+                    from hummingbot.core.data_type.common import PriceType
+                    if price_type == PriceType.BestBid and bids:
+                        p = Decimal(str(bids[0]["price"]))
+                        logger.info("get_price_by_type(%s) fallback to SDK cache: bid=%.4f → NO=%.4f", trading_pair, p, 1 - p)
+                        return Decimal("1") - p
+                    elif price_type == PriceType.BestAsk and asks:
+                        p = Decimal(str(asks[0]["price"]))
+                        logger.info("get_price_by_type(%s) fallback to SDK cache: ask=%.4f → NO=%.4f", trading_pair, p, 1 - p)
+                        return Decimal("1") - p
+                    elif price_type == PriceType.MidPrice and bids and asks:
+                        mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
+                        logger.info("get_price_by_type(%s) fallback to SDK cache: mid=%.4f → NO=%.4f", trading_pair, mid, 1 - mid)
+                        return Decimal("1") - mid
+                logger.warning("get_price_by_type(%s) no price available from hbot tracker or SDK cache", trading_pair)
+                raise ValueError(f"No price available for {trading_pair}")
         return super().get_price_by_type(trading_pair, price_type)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
