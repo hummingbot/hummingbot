@@ -158,6 +158,12 @@ class ClientOrderTracker:
         for serialized_order in tracking_states.values():
             order = self._restore_order_from_json(serialized_order=serialized_order)
             if order.is_open:
+                if order.exchange_order_id is None and order.current_state == OrderState.PENDING_CREATE:
+                    self.logger().warning(
+                        f"Skipping restoration of order {order.client_order_id} "
+                        f"({order.trading_pair}) — stuck in PENDING_CREATE with no exchange order id."
+                    )
+                    continue
                 self.start_tracking_order(order)
             elif order.is_failure:
                 # If the order is marked as failed but is still in the tracking states, it was a lost order

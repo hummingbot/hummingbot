@@ -861,6 +861,41 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertNotIn("OID3", self.tracker.all_orders)
         self.assertNotIn("OID4", self.tracker.all_orders)
 
+    def test_restore_tracking_states_skips_pending_create_without_exchange_order_id(self):
+        orders = []
+        # Order stuck in PENDING_CREATE with no exchange_order_id — should be skipped
+        orders.append(InFlightOrder(
+            client_order_id="OID_STALE",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.223,
+            price=Decimal("1.0"),
+            initial_state=OrderState.PENDING_CREATE,
+        ))
+        # Normal open order with exchange_order_id — should be tracked
+        orders.append(InFlightOrder(
+            client_order_id="OID_GOOD",
+            exchange_order_id="EOID_GOOD",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.223,
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.tracker.restore_tracking_states(tracking_states)
+
+        self.assertNotIn("OID_STALE", self.tracker.active_orders)
+        self.assertNotIn("OID_STALE", self.tracker.lost_orders)
+        self.assertIn("OID_GOOD", self.tracker.active_orders)
+
     def test_update_to_close_order_is_not_processed_until_order_completelly_filled(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id="someClientOrderId",
