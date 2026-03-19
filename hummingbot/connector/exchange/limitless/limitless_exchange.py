@@ -382,15 +382,15 @@ class LimitlessExchange(ExchangePyBase):
                     from hummingbot.core.data_type.common import PriceType
                     if price_type == PriceType.BestBid and bids:
                         p = Decimal(str(bids[0]["price"]))
-                        logger.info("get_price_by_type(%s) fallback to SDK cache: bid=%.4f → NO=%.4f", trading_pair, p, 1 - p)
+                        logger.debug("get_price_by_type(%s) fallback to SDK cache: bid=%.4f → NO=%.4f", trading_pair, p, 1 - p)
                         return Decimal("1") - p
                     elif price_type == PriceType.BestAsk and asks:
                         p = Decimal(str(asks[0]["price"]))
-                        logger.info("get_price_by_type(%s) fallback to SDK cache: ask=%.4f → NO=%.4f", trading_pair, p, 1 - p)
+                        logger.debug("get_price_by_type(%s) fallback to SDK cache: ask=%.4f → NO=%.4f", trading_pair, p, 1 - p)
                         return Decimal("1") - p
                     elif price_type == PriceType.MidPrice and bids and asks:
                         mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
-                        logger.info("get_price_by_type(%s) fallback to SDK cache: mid=%.4f → NO=%.4f", trading_pair, mid, 1 - mid)
+                        logger.debug("get_price_by_type(%s) fallback to SDK cache: mid=%.4f → NO=%.4f", trading_pair, mid, 1 - mid)
                         return Decimal("1") - mid
                 logger.warning("get_price_by_type(%s) no price available from hbot tracker or SDK cache", trading_pair)
                 raise ValueError(f"No price available for {trading_pair}")
@@ -406,15 +406,15 @@ class LimitlessExchange(ExchangePyBase):
                 from hummingbot.core.data_type.common import PriceType
                 if price_type == PriceType.BestBid and bids:
                     p = Decimal(str(bids[0]["price"]))
-                    logger.info("get_price_by_type(%s) fallback to SDK cache: bid=%.4f", trading_pair, p)
+                    logger.debug("get_price_by_type(%s) fallback to SDK cache: bid=%.4f", trading_pair, p)
                     return p
                 elif price_type == PriceType.BestAsk and asks:
                     p = Decimal(str(asks[0]["price"]))
-                    logger.info("get_price_by_type(%s) fallback to SDK cache: ask=%.4f", trading_pair, p)
+                    logger.debug("get_price_by_type(%s) fallback to SDK cache: ask=%.4f", trading_pair, p)
                     return p
                 elif price_type == PriceType.MidPrice and bids and asks:
                     mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
-                    logger.info("get_price_by_type(%s) fallback to SDK cache: mid=%.4f", trading_pair, mid)
+                    logger.debug("get_price_by_type(%s) fallback to SDK cache: mid=%.4f", trading_pair, mid)
                     return mid
             raise
 
