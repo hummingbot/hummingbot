@@ -394,7 +394,29 @@ class LimitlessExchange(ExchangePyBase):
                         return Decimal("1") - mid
                 logger.warning("get_price_by_type(%s) no price available from hbot tracker or SDK cache", trading_pair)
                 raise ValueError(f"No price available for {trading_pair}")
-        return super().get_price_by_type(trading_pair, price_type)
+        # YES pair — same fallback to SDK cache if hbot tracker fails
+        try:
+            return super().get_price_by_type(trading_pair, price_type)
+        except Exception:
+            slug = self._slug_map.get(trading_pair)
+            if slug and self._inner_connector:
+                ob = self._inner_connector._orderbooks.get(slug, {})
+                bids = ob.get("bids", [])
+                asks = ob.get("asks", [])
+                from hummingbot.core.data_type.common import PriceType
+                if price_type == PriceType.BestBid and bids:
+                    p = Decimal(str(bids[0]["price"]))
+                    logger.info("get_price_by_type(%s) fallback to SDK cache: bid=%.4f", trading_pair, p)
+                    return p
+                elif price_type == PriceType.BestAsk and asks:
+                    p = Decimal(str(asks[0]["price"]))
+                    logger.info("get_price_by_type(%s) fallback to SDK cache: ask=%.4f", trading_pair, p)
+                    return p
+                elif price_type == PriceType.MidPrice and bids and asks:
+                    mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
+                    logger.info("get_price_by_type(%s) fallback to SDK cache: mid=%.4f", trading_pair, mid)
+                    return mid
+            raise
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if self._is_no_pair(trading_pair):
