@@ -861,11 +861,11 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertNotIn("OID3", self.tracker.all_orders)
         self.assertNotIn("OID4", self.tracker.all_orders)
 
-    def test_restore_tracking_states_skips_pending_create_without_exchange_order_id(self):
+    def test_restore_tracking_states_skips_orders_without_exchange_order_id(self):
         orders = []
-        # Order stuck in PENDING_CREATE with no exchange_order_id — should be skipped
+        # PENDING_CREATE with no exchange_order_id — should be skipped
         orders.append(InFlightOrder(
-            client_order_id="OID_STALE",
+            client_order_id="OID_PENDING",
             exchange_order_id=None,
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -874,6 +874,18 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             creation_timestamp=1640001112.223,
             price=Decimal("1.0"),
             initial_state=OrderState.PENDING_CREATE,
+        ))
+        # OPEN with no exchange_order_id — should also be skipped
+        orders.append(InFlightOrder(
+            client_order_id="OID_OPEN_STALE",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            creation_timestamp=1640001112.223,
+            price=Decimal("1.0"),
+            initial_state=OrderState.OPEN,
         ))
         # Normal open order with exchange_order_id — should be tracked
         orders.append(InFlightOrder(
@@ -892,8 +904,10 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
         self.tracker.restore_tracking_states(tracking_states)
 
-        self.assertNotIn("OID_STALE", self.tracker.active_orders)
-        self.assertNotIn("OID_STALE", self.tracker.lost_orders)
+        self.assertNotIn("OID_PENDING", self.tracker.active_orders)
+        self.assertNotIn("OID_PENDING", self.tracker.lost_orders)
+        self.assertNotIn("OID_OPEN_STALE", self.tracker.active_orders)
+        self.assertNotIn("OID_OPEN_STALE", self.tracker.lost_orders)
         self.assertIn("OID_GOOD", self.tracker.active_orders)
 
     def test_update_to_close_order_is_not_processed_until_order_completelly_filled(self):
