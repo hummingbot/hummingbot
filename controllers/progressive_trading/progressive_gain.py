@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import List
 
-import pandas as pd
 import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -129,19 +128,88 @@ class ProgressiveGainController(ProgressiveTradingController):
         super().__init__(config, *args, **kwargs)
 
         self._volatility: float = 0.0
+        # pandas_ta bbands(std=X) produces columns like BBB_{length}_{std}_{std}
+        self._bb_suffix = f"{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"
 
     def get_candles_config(self):
         return self.config.candles_config
 
     async def update_processed_data(self):
-        # no-op: signal=0, no TA processing (profiling moved to standalone background task)
-        self.processed_data["signal"] = 0
-        self.processed_data["features"] = pd.DataFrame()
+        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
+                                                      trading_pair=self.config.candles_trading_pair,
+                                                      interval=self.config.interval,
+                                                      max_records=self.max_records)
+        # Add indicators
+        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
+        df.ta.natr(length=self.config.bb_length)
+        df.ta.macd(fast=self.config.macd_fast, slow=self.config.macd_slow,
+                   signal=self.config.macd_signal, append=True)
+        df.ta.adx(length=self.config.bb_length, append=True)
+        df.ta.aroon(length=self.config.macd_fast // 2, append=True)
+        df.ta.aroon(length=self.config.macd_fast, append=True)
+        df.ta.aroon(length=self.config.macd_fast * 2, append=True)
+        df.ta.aroon(length=self.config.macd_fast * 4, append=True)
+
+        macd_col = f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"
+        macds_col = f"MACDs_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"
+        aroon_0 = df[f"AROONOSC_{self.config.macd_fast // 2}"]
+        aroon_1 = df[f"AROONOSC_{self.config.macd_fast}"]
+        aroon_2 = df[f"AROONOSC_{self.config.macd_fast * 2}"]
+
+        df["MACD>S"] = 0
+        df.loc[df[macd_col] > df[macds_col], "MACD>S"] = 1
+        df["MACD_cross"] = df["MACD>S"].diff()
+
+        long_condition = (
+            (df["MACD>S"] == 1) &
+            (aroon_0 > 0) &
+            (aroon_1 > 0) &
+            (aroon_2 > 0)
+        )
+        short_condition = (
+            (df["MACD>S"] == 0) &
+            (aroon_0 < 0) &
+            (aroon_1 < 0) &
+            (aroon_2 < 0)
+        )
+
+        df["signal"] = 0
+        df.loc[long_condition, "signal"] = -1
+        df.loc[short_condition, "signal"] = 1
+
+        df["volatility"] = df[f"BBB_{self._bb_suffix}"] / self.config.bb_std / 100
+        if df["volatility"].iloc[-1] != 0:
+            volatility_update = (
+                abs((df["volatility"].iloc[-1] - self._volatility) / df["volatility"].iloc[-1]) > 0.01
+            )
+            self._volatility = df["volatility"].iloc[-1]
+        else:
+            volatility_update = False
+
+        self.processed_data["signal"] = df["signal"].iloc[-1]
+        self.processed_data["volatility_update"] = volatility_update
+        self.processed_data["volatility"] = df["volatility"].iloc[-1]
+
+        if self.processed_data['volatility_update']:
+            self.logger().info(f"Progressive Gain Volatility: {self.processed_data['volatility']:.4g}")
+
+        self.processed_data["features"] = df[
+            [
+                "timestamp", "open", "high", "low", "close", "volume",
+                f"BBP_{self._bb_suffix}",
+                f"BBB_{self._bb_suffix}",
+                "MACD>S",
+                f"AROONOSC_{self.config.macd_fast // 2}",
+                f"AROONOSC_{self.config.macd_fast}",
+                f"AROONOSC_{self.config.macd_fast * 2}",
+                "signal",
+            ]
+        ]
 
     def get_spread_multiplier(self) -> Decimal:
         if self.config.dynamic_order_spread:
             df = self.processed_data["features"]
-            bb_width = df[f"BBB_{self.config.bb_length}_{self.config.bb_std}"].iloc[-1]
+            bb_width = df[f"BBB_{self._bb_suffix}"].iloc[-1]
             return Decimal(bb_width / 200)
         else:
             return Decimal("1.0")
