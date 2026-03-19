@@ -150,12 +150,9 @@ class MarketManager:
         Returns:
             {coin: market_dict} of selected markets
         """
-        # Trigger conditions: no locked markets, hourly boundary, or force
+        # Re-evaluate every 120s or on hourly boundary
         if not force and self._locked_markets:
-            # Check hourly boundary: different hour than last discover
-            last_hour = int(self._last_discover_ts // 3600)
-            cur_hour = int(now_ts // 3600)
-            if last_hour == cur_hour:
+            if now_ts - self._last_discover_ts < 120:
                 return dict(self._locked_markets)
 
         self._last_discover_ts = now_ts
