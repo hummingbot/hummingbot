@@ -83,7 +83,7 @@ class BinaryOptionsController(ControllerBase):
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
         self._mm_pending_replacements: Dict[str, dict] = {}
-        self._mm_pending_cancels: Dict[str, float] = {}  # key → cancel timestamp
+        self._mm_pending_cancels: Dict[str, str] = {}  # key → executor_id awaiting cancel confirm
         self._mm_executor_created_ts: Dict[str, float] = {}  # key → creation timestamp
 
         self._last_log_ts: float = 0.0
@@ -449,7 +449,7 @@ class BinaryOptionsController(ControllerBase):
                 executor_id = self._mm_executor_map.pop(key, None)
                 self._mm_executor_created_ts.pop(key, None)
                 if executor_id:
-                    self._mm_pending_cancels[key] = time.time()
+                    self._mm_pending_cancels[key] = executor_id
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
                         executor_id=executor_id,
@@ -585,13 +585,18 @@ class BinaryOptionsController(ControllerBase):
                     self.position_tracker.record_close(coin, eid, pnl)
                     break
 
-        # Expire stale pending_cancels (safety valve — 5s max)
-        now = time.time()
-        for key in list(self._mm_pending_cancels):
-            if now - self._mm_pending_cancels[key] > 5:
+        # Clear pending_cancels when executor is confirmed closed or gone
+        closed_ids = {
+            getattr(ei, "id", "")
+            for ei in self.executors_info
+            if getattr(ei, "is_closed", False)
+        }
+        for key, eid in list(self._mm_pending_cancels.items()):
+            if eid in closed_ids or eid not in executor_ids:
                 self._mm_pending_cancels.pop(key, None)
 
         if prune_missing:
+            now = time.time()
             for key, mapped_id in list(self._mm_executor_map.items()):
                 if mapped_id not in executor_ids:
                     # Grace period: don't prune executors created < 10s ago (hbot hasn't registered yet)
