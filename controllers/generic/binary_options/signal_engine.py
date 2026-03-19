@@ -10,10 +10,13 @@ Only stdlib + .fair_value + .config imports.
 from __future__ import annotations
 
 import copy
+import logging
 import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from .config import RuntimeBridge
 from .fair_value import (
@@ -140,6 +143,7 @@ class CoinProfile:
 
     mispricing: Optional[MispricingProfile] = None
     btc_implied: Optional[BtcImpliedProfile] = None
+    last_slug: str = ""  # track market slug for reset on switch
 
     @property
     def total_events(self) -> int:
@@ -597,6 +601,22 @@ class SignalEngine:
                 prof.mispricing = MispricingProfile()
             if prof.btc_implied is None and coin != "BTC":
                 prof.btc_implied = BtcImpliedProfile()
+
+            # Reset mispricing profile on market switch (different strike = different distribution)
+            current_slug = mdata.get("slug", "")
+            if current_slug and prof.last_slug and current_slug != prof.last_slug:
+                logger.info("Market switch %s: %s -> %s — resetting mispricing profile",
+                            coin, prof.last_slug[:30], current_slug[:30])
+                old_vol_tick = prof.mispricing.vol_tick_count if prof.mispricing else 0
+                old_delta_ema = prof.mispricing.delta_ema if prof.mispricing else 0.0
+                old_delta_var = prof.mispricing.delta_var_ema if prof.mispricing else 0.0
+                prof.mispricing = MispricingProfile()
+                # Carry over spot volatility stats (market-independent)
+                if old_vol_tick > 0:
+                    prof.mispricing.vol_tick_count = old_vol_tick
+                    prof.mispricing.delta_ema = old_delta_ema
+                    prof.mispricing.delta_var_ema = old_delta_var
+            prof.last_slug = current_slug
 
             # Vol computation
             mp = prof.mispricing
