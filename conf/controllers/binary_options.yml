@@ -44,6 +44,7 @@ routing:
   hold_to_settlement: true
   settlement_hold_threshold: 0.70
   max_positions_per_coin: 1
+  max_positions_per_side: 1
   max_total_positions: 5
   position_size_mode: fixed
   fixed_position_size: 0.1

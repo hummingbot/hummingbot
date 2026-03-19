@@ -85,12 +85,23 @@ class BinaryOptionsController(ControllerBase):
         self._mm_pending_replacements: Dict[str, dict] = {}
         self._mm_pending_cancels: Dict[str, str] = {}  # key → executor_id awaiting cancel confirm
         self._mm_executor_created_ts: Dict[str, float] = {}  # key → creation timestamp
+        # Filled positions: "COIN:SIDE" -> list of executor_ids with live positions
+        self._mm_filled_positions: Dict[str, List[str]] = {}  # key → [executor_ids]
 
         self._last_log_ts: float = 0.0
 
     async def on_start(self):
         """Called by subclasses or manually — not by ControllerBase."""
         pass
+
+    def _executor_is_filled(self, executor_id: str) -> bool:
+        """Check if an executor has a filled position (should not be killed)."""
+        for ei in self.executors_info:
+            eid = getattr(ei, "id", "")
+            if eid == executor_id:
+                filled = getattr(ei, "filled_amount_quote", None)
+                return filled is not None and float(filled) > 0
+        return False
 
     def _coin_has_exposure(self, coin: str) -> bool:
         """True when the coin has filled inventory or an open position."""
@@ -426,11 +437,14 @@ class BinaryOptionsController(ControllerBase):
                 in_map = key in self._mm_executor_map
                 in_repl = key in self._mm_pending_replacements
                 in_cancel = key in self._mm_pending_cancels
-                if in_map or in_repl or in_cancel:
+                max_per_side = getattr(self.config.entry, 'max_positions_per_side', 1)
+                filled_count = len(self._mm_filled_positions.get(key, []))
+                in_filled = filled_count >= max_per_side
+                if in_map or in_repl or in_cancel or in_filled:
                     logger.info(
-                        "BLOCKED place %s: map=%s repl=%s cancel=%s mid=%s",
+                        "BLOCKED place %s: map=%s repl=%s cancel=%s filled=%d/%d",
                         key, in_map, in_repl, in_cancel,
-                        self._mm_executor_map.get(key, "n/a"),
+                        filled_count, max_per_side,
                     )
                     continue
                 self._create_mm_executor_action(
@@ -446,9 +460,16 @@ class BinaryOptionsController(ControllerBase):
 
             elif qa.action == "cancel":
                 self._mm_pending_replacements.pop(key, None)
-                executor_id = self._mm_executor_map.pop(key, None)
-                self._mm_executor_created_ts.pop(key, None)
-                if executor_id:
+                executor_id = self._mm_executor_map.get(key)
+                if executor_id and self._executor_is_filled(executor_id):
+                    # Filled executor has a live position — move to filled tracking
+                    self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
+                    self._mm_filled_positions.setdefault(key, []).append(executor_id)
+                    logger.info("FILLED_PROTECT %s: eid=%s — letting TP/SL manage", key, executor_id[:12])
+                elif executor_id:
+                    self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
                     self._mm_pending_cancels[key] = executor_id
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
@@ -457,29 +478,51 @@ class BinaryOptionsController(ControllerBase):
                 self.quote_manager.clear_order(qa.coin, qa.side)
 
             elif qa.action == "update":
-                replacement = {
-                    "coin": qa.coin,
-                    "side": qa.side,
-                    "price": qa.price,
-                    "size": qa.size,
-                    "trading_pair": trading_pair,
-                    "ts": now_ts,
-                }
-                old_id = self._mm_executor_map.pop(key, None)
-                self._mm_executor_created_ts.pop(key, None)
-                already_pending = key in self._mm_pending_replacements
-                self._mm_pending_replacements[key] = replacement
-                if old_id and not already_pending:
-                    actions.append(StopExecutorAction(
-                        controller_id=self.config.id,
-                        executor_id=old_id,
-                    ))
-                elif not old_id:
-                    self._create_pending_mm_replacement(
-                        key=key,
-                        actions=actions,
-                        hours_left=hours_left,
-                    )
+                old_id = self._mm_executor_map.get(key)
+                if old_id and self._executor_is_filled(old_id):
+                    # Filled executor — move to filled tracking, place fresh order
+                    self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
+                    self._mm_filled_positions.setdefault(key, []).append(old_id)
+                    logger.info("FILLED_PROTECT %s: eid=%s — update becomes fresh place", key, old_id[:12])
+                    # Check if we can still place (position cap)
+                    max_per_side = getattr(self.config.entry, 'max_positions_per_side', 1)
+                    if len(self._mm_filled_positions.get(key, [])) < max_per_side:
+                        self._create_mm_executor_action(
+                            actions=actions,
+                            key=key,
+                            coin=qa.coin,
+                            side=qa.side,
+                            trading_pair=trading_pair,
+                            price=qa.price,
+                            size=qa.size,
+                            hours_left=hours_left,
+                            now_ts=now_ts,
+                        )
+                else:
+                    replacement = {
+                        "coin": qa.coin,
+                        "side": qa.side,
+                        "price": qa.price,
+                        "size": qa.size,
+                        "trading_pair": trading_pair,
+                        "ts": now_ts,
+                    }
+                    self._mm_executor_map.pop(key, None)
+                    self._mm_executor_created_ts.pop(key, None)
+                    already_pending = key in self._mm_pending_replacements
+                    self._mm_pending_replacements[key] = replacement
+                    if old_id and not already_pending:
+                        actions.append(StopExecutorAction(
+                            controller_id=self.config.id,
+                            executor_id=old_id,
+                        ))
+                    elif not old_id:
+                        self._create_pending_mm_replacement(
+                            key=key,
+                            actions=actions,
+                            hours_left=hours_left,
+                        )
 
             # close_order is NOT handled — PositionExecutor manages exit via barriers
 
@@ -598,6 +641,26 @@ class BinaryOptionsController(ControllerBase):
         for key, eid in list(self._mm_pending_cancels.items()):
             if eid in done_ids or eid not in executor_ids:
                 self._mm_pending_cancels.pop(key, None)
+
+        # Clean up filled positions when executor closes (TP/SL/expiry)
+        for key, eid_list in list(self._mm_filled_positions.items()):
+            remaining = []
+            for eid in eid_list:
+                if eid in done_ids or eid not in executor_ids:
+                    coin = key.split(":")[0]
+                    pnl = 0.0
+                    for ei in self.executors_info:
+                        if getattr(ei, "id", "") == eid:
+                            pnl = float(ei.net_pnl_quote) if hasattr(ei, "net_pnl_quote") else 0.0
+                            break
+                    logger.info("FILLED_CLOSE %s: eid=%s pnl=%.4f", key, eid[:12], pnl)
+                    self.position_tracker.record_close(coin, eid, pnl)
+                else:
+                    remaining.append(eid)
+            if remaining:
+                self._mm_filled_positions[key] = remaining
+            else:
+                self._mm_filled_positions.pop(key, None)
 
         if prune_missing:
             now = time.time()

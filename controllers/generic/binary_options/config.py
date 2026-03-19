@@ -48,6 +48,7 @@ class ActionRoutingConfig(BaseModel):
 
     # Position management
     max_positions_per_coin: int = Field(default=1)
+    max_positions_per_side: int = Field(default=1, description="Max filled positions per coin:side before blocking new orders")
     max_total_positions: int = Field(default=5)
     position_size_mode: str = Field(default="fixed", description="fixed | edge_scaled | kelly")
     fixed_position_size: float = Field(default=5.0)
