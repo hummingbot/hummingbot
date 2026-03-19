@@ -592,8 +592,14 @@ class BinaryOptionsController(ControllerBase):
             if getattr(ei, "is_closed", False)
         }
         for key, eid in list(self._mm_pending_cancels.items()):
-            if eid in closed_ids or eid not in executor_ids:
+            in_closed = eid in closed_ids
+            gone = eid not in executor_ids
+            if in_closed or gone:
+                logger.info("CANCEL_CLEAR %s: closed=%s gone=%s", key, in_closed, gone)
                 self._mm_pending_cancels.pop(key, None)
+            else:
+                logger.info("CANCEL_STUCK %s: eid=%s executor_ids=%s",
+                            key, eid, list(executor_ids)[:5])
 
         if prune_missing:
             now = time.time()
