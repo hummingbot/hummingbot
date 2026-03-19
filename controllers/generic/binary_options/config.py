@@ -84,7 +84,7 @@ class BinaryOptionsControllerConfig(ControllerConfigBase):
     # Placeholder pair to trigger connector instantiation
     # (actual markets are discovered dynamically via connector.get_active_markets)
     # NOTE: Must be 2-part (BASE-QUOTE) to satisfy Hummingbot's market init
-    trading_pair: str = "BTC-USDC"
+    trading_pair: str = "ETH-USDC"
     paper_mode: bool = Field(
         default=False,
         description="If true, log orders only and avoid real trading",
