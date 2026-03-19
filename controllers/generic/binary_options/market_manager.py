@@ -236,13 +236,13 @@ class MarketManager:
                 yes_price = float(prices[0])
                 no_price = float(prices[1])
             elif isinstance(prices, dict):
-                yes_price = float(prices.get("yes", 0.5))
-                no_price = float(prices.get("no", 0.5))
+                yes_price = float(prices["yes"]) if prices.get("yes") is not None else None
+                no_price = float(prices["no"]) if prices.get("no") is not None else None
             else:
-                yes_price = float(mkt.get("yes_price", 0.5))
-                no_price = float(mkt.get("no_price", 0.5))
+                yes_price = float(mkt["yes_price"]) if mkt.get("yes_price") is not None else None
+                no_price = float(mkt["no_price"]) if mkt.get("no_price") is not None else None
             # Normalize if prices are in cents (>2.0 sum)
-            if yes_price + no_price > 2.0:
+            if yes_price is not None and no_price is not None and yes_price + no_price > 2.0:
                 yes_price /= 100.0
                 no_price /= 100.0
 
@@ -364,12 +364,12 @@ class MarketManager:
                 yes_p = float(prices[0])
                 no_p = float(prices[1])
             elif isinstance(prices, dict):
-                yes_p = float(prices.get("yes", 0.5))
-                no_p = float(prices.get("no", 0.5))
+                yes_p = float(prices["yes"]) if prices.get("yes") is not None else None
+                no_p = float(prices["no"]) if prices.get("no") is not None else None
             else:
-                yes_p = float(mkt.get("yes_price", 0.5))
-                no_p = float(mkt.get("no_price", 0.5))
-            if yes_p + no_p > 2.0:
+                yes_p = float(mkt["yes_price"]) if mkt.get("yes_price") is not None else None
+                no_p = float(mkt["no_price"]) if mkt.get("no_price") is not None else None
+            if yes_p is not None and no_p is not None and yes_p + no_p > 2.0:
                 yes_p /= 100.0
                 no_p /= 100.0
 
@@ -396,26 +396,28 @@ class MarketManager:
             if ob:
                 bids = ob.get("bids", [])
                 asks = ob.get("asks", [])
-                best_bid = float(bids[0]["price"]) if bids else 0.5
-                best_ask = float(asks[0]["price"]) if asks else 0.5
-                if best_bid > 1.0:
+                best_bid = float(bids[0]["price"]) if bids else None
+                best_ask = float(asks[0]["price"]) if asks else None
+                if best_bid is not None and best_bid > 1.0:
                     best_bid /= 100.0
-                if best_ask > 1.0:
+                if best_ask is not None and best_ask > 1.0:
                     best_ask /= 100.0
-                mid = (best_bid + best_ask) / 2.0
-                # Depth within 0.30 of mid
-                for levels in (bids, asks):
-                    for level in levels:
-                        price = float(level.get("price", 0))
-                        if price > 1.0:
-                            price /= 100.0
-                        if abs(price - mid) <= 0.30:
-                            near_depth += float(level.get("size", 0))
+                if best_bid is not None and best_ask is not None:
+                    mid = (best_bid + best_ask) / 2.0
+                    # Depth within 0.30 of mid
+                    for levels in (bids, asks):
+                        for level in levels:
+                            price = float(level.get("price", 0))
+                            if price > 1.0:
+                                price /= 100.0
+                            if abs(price - mid) <= 0.30:
+                                near_depth += float(level.get("size", 0))
                 md["_bid"] = best_bid
             else:
-                md["_bid"] = md.get("yes_price", 0.5)
+                md["_bid"] = md.get("yes_price")
 
-            atm_proximity = 1.0 - abs(md.get("_bid", 0.5) - 0.50)
+            bid_val = md.get("_bid")
+            atm_proximity = (1.0 - abs(bid_val - 0.50)) if bid_val is not None else 0.0
             # Normalized: we use raw values; normalization across candidates
             md["_near_depth"] = near_depth
             md["_atm_proximity"] = atm_proximity
@@ -528,8 +530,8 @@ class MarketManager:
 
                 entry = {
                     "coin": coin,
-                    "yes_price": best_bid if best_bid > 0 else md.get("yes_price", 0.5),
-                    "no_price": 1.0 - best_bid if best_bid > 0 else md.get("no_price", 0.5),
+                    "yes_price": best_bid if best_bid and best_bid > 0 else md.get("yes_price"),
+                    "no_price": (1.0 - best_bid) if best_bid and best_bid > 0 else md.get("no_price"),
                     "bid": best_bid or 0.0,
                     "ask": best_ask or 0.0,
                     "yes_bid": price_surface["yes_bid"],
@@ -573,10 +575,10 @@ class MarketManager:
                 price_surface = _build_price_surface(None, None, None)
                 result[coin] = {
                     "coin": coin,
-                    "yes_price": md.get("yes_price", 0.5),
-                    "no_price": md.get("no_price", 0.5),
-                    "bid": md.get("yes_price", 0.5),
-                    "ask": md.get("yes_price", 0.5),
+                    "yes_price": md.get("yes_price"),
+                    "no_price": md.get("no_price"),
+                    "bid": md.get("yes_price"),
+                    "ask": md.get("yes_price"),
                     "yes_bid": price_surface["yes_bid"],
                     "yes_ask": price_surface["yes_ask"],
                     "yes_mid_local": None,
