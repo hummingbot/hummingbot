@@ -423,7 +423,15 @@ class BinaryOptionsController(ControllerBase):
             key = f"{qa.coin}:{qa.side}"
 
             if qa.action == "place":
-                if key in self._mm_executor_map or key in self._mm_pending_replacements or key in self._mm_pending_cancels:
+                in_map = key in self._mm_executor_map
+                in_repl = key in self._mm_pending_replacements
+                in_cancel = key in self._mm_pending_cancels
+                if in_map or in_repl or in_cancel:
+                    logger.info(
+                        "BLOCKED place %s: map=%s repl=%s cancel=%s mid=%s",
+                        key, in_map, in_repl, in_cancel,
+                        self._mm_executor_map.get(key, "n/a"),
+                    )
                     continue
                 self._create_mm_executor_action(
                     actions=actions,
