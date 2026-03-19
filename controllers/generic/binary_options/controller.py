@@ -163,7 +163,7 @@ class BinaryOptionsController(ControllerBase):
                 if slug:
                     await connector.register_market(slug, f"{coin}-USDC")
         if (now_ts - self._last_log_ts) >= 30.0:
-            logger.info("tick: %d coins tracked, btc=%.2f", len(market_data), btc_spot)
+            logger.info("tick: %d coins tracked (ETH-USDC), btc_ref=%.2f", len(market_data), btc_spot)
             for coin, md in market_data.items():
                 logger.debug(
                     "  %s: yes=%.4f bid=%.4f ask=%.4f strike=%.2f",

@@ -525,7 +525,8 @@ class MarketManager:
                     and best_bid < best_ask
                 )
                 yes_mid_local = ((best_bid + best_ask) / 2.0) if local_mid_valid else None
-                yes_mid = yes_mid_api if yes_mid_api is not None else yes_mid_local
+                # Prefer our local mid over API — API returns 0.5 default on thin/new markets
+                yes_mid = yes_mid_local if yes_mid_local is not None else yes_mid_api
                 price_surface = _build_price_surface(best_bid, best_ask, yes_mid)
 
                 entry = {
