@@ -154,21 +154,16 @@ class ProgressiveExecutor(
 
     @property
     def is_expired(self) -> bool:
-        self.logger().debug(f"Is expired: {self.end_time and (self.end_time <= self.current_timestamp)}")
         return self.end_time and (self.end_time <= self.current_timestamp)
 
     @property
     def is_extended_on_yield(self) -> bool:
-        self.logger().debug(f"Is extended on yield: {self.get_net_pnl_pct()} > {self.get_target_pnl_yield()}")
-        self.logger().debug(f"Is extended on yield: {self.is_expired and (self.get_net_pnl_pct() > self.get_target_pnl_yield())}")
         return self.is_expired and (self.get_net_pnl_pct() > self.get_target_pnl_yield())
 
     @property
     def current_market_price(self) -> Decimal:
         price_type = PriceType.BestAsk if self.config.side == TradeType.BUY else PriceType.BestBid
-        current_price = self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
-        self.logger().debug(f"Current market price: {current_price}")
-        return current_price
+        return self.get_price(self.config.connector_name, self.config.trading_pair, price_type=price_type)
 
     @property
     def current_timestamp(self) -> float:

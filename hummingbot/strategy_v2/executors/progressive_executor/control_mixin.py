@@ -14,9 +14,7 @@ from .protocols import (
 
 class ControlMixin:
     async def control_task(self: ProgressiveControlProtocol):
-        self.logger().debug(f"Control task - Status: {self.status}, PnL: {self.net_pnl_pct}")
         if self.status == RunnableStatus.RUNNING:
-            self.logger().debug(f"Current market price: {self.current_market_price}")
             self.control_failed_orders()
             self.control_open_order()
             self.control_barriers()
@@ -26,11 +24,9 @@ class ControlMixin:
         self.evaluate_max_retries()
 
     def control_barriers(self: ProgressiveControlProtocol):
-        self.logger().debug("Checking barriers")
         self.control_stop_loss()
         self.control_trailing_stop()
         self.control_time_limit()
-        self.logger().debug("Checking barriers: Done")
 
     async def control_shutdown_process(self: ProgressiveOrderControlProtocol):
         if math.isclose(self.open_filled_amount, self.close_filled_amount, rel_tol=1e-2):
@@ -68,8 +64,6 @@ class ControlMixin:
             self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_time_limit(self: ProgressiveOrderExecutionPNLControlProtocol):
-        self.logger().debug(f"Control TimeLimit - Is expired: {self.is_expired}")
-        self.logger().debug(f"Control TimeLimit - Is extended on yield: {self.is_extended_on_yield}")
         if self.is_expired and not self.is_extended_on_yield:
             self.place_close_order_and_cancel_open_orders(close_type=CloseType.TIME_LIMIT)
 
@@ -78,7 +72,6 @@ class ControlMixin:
             return
 
         if self.open_filled_amount > 0:
-            self.logger().debug(f"Control TrailingStop trigger PnL: {self.trailing_stop_manager._pnl_trigger}")
             self.trailing_stop_manager.update(
                 net_pnl_pct=self.get_net_pnl_pct(),
                 current_amount=self.open_filled_amount,

@@ -130,84 +130,13 @@ class ProgressiveGainController(ProgressiveTradingController):
 
         self._volatility: float = 0.0
 
+    def get_candles_config(self):
+        return self.config.candles_config
+
     async def update_processed_data(self):
-        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
-                                                      trading_pair=self.config.candles_trading_pair,
-                                                      interval=self.config.interval,
-                                                      max_records=self.max_records)
-        # Add indicators
-        df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
-        df.ta.natr(length=self.config.bb_length)
-        df.ta.macd(fast=self.config.macd_fast, slow=self.config.macd_slow, signal=self.config.macd_signal, append=True)
-        df.ta.adx(length=self.config.bb_length, append=True)
-        df.ta.aroon(length=self.config.macd_fast // 2, append=True)
-        df.ta.aroon(length=self.config.macd_fast, append=True)
-        df.ta.aroon(length=self.config.macd_fast * 2, append=True)
-        df.ta.aroon(length=self.config.macd_fast * 4, append=True)
-
-        macd = df[f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
-        macds = df[f"MACDs_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
-        aroon_0 = df[f"AROONOSC_{self.config.macd_fast // 2}"]
-        aroon_1 = df[f"AROONOSC_{self.config.macd_fast}"]
-        aroon_2 = df[f"AROONOSC_{self.config.macd_fast * 2}"]
-
-        df["MACD>S"] = 0
-        df.loc[macd > macds, "MACD>S"] = 1
-        df["MACD_cross"] = df["MACD>S"].diff()
-
-        long_condition = (
-            (df["MACD>S"] == 1) &
-            (aroon_0 > 0) &
-            (aroon_1 > 0) &
-            (aroon_2 > 0)
-        )
-        short_condition = (
-            (df["MACD>S"] == 0) &
-            (aroon_0 < 0) &
-            (aroon_1 < 0) &
-            (aroon_2 < 0)
-        )
-
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit='s')
-        df["signal"] = 0
-        df.loc[long_condition, "signal"] = -1
-        df.loc[short_condition, "signal"] = 1
-
-        df["volatility"] = df[f"BBB_{self.config.bb_length}_{self.config.bb_std}"] / self.config.bb_std / 100
-        if df["volatility"].iloc[-1] != 0:
-            volatility_update = (
-                abs((df["volatility"].iloc[-1] - self._volatility) / df["volatility"].iloc[-1]) > 0.01
-            )
-            self._volatility = df["volatility"].iloc[-1]
-        else:
-            volatility_update = False
-
-        def format_to_4g(decimal_value: Decimal) -> Decimal:
-            return Decimal(f"{decimal_value:.4g}")
-
-        for col in df.columns:
-            if df[col].dtype == "float64":
-                df[col] = df[col].apply(format_to_4g)
-
-        self.processed_data["signal"] = df["signal"].iloc[-1]
-        self.processed_data["volatility_update"] = volatility_update
-        self.processed_data["volatility"] = df["volatility"].iloc[-1]
-
-        if self.processed_data['volatility_update']:
-            self.logger().info(f"Progressive Gain Volatility: {self.processed_data['volatility']}")
-            self.logger().info(f"Progressive Gain Volatility update: {self.processed_data['volatility_update']}")
-
-        self.processed_data["features"] = df[
-            [
-                "timestamp", "open", "high", "low", "close", "volume",
-                f"BBP_{self.config.bb_length}_{self.config.bb_std}",
-                "MACD>S",
-                f"AROONOSC_{self.config.macd_fast // 2}",
-                f"AROONOSC_{self.config.macd_fast}",
-                f"AROONOSC_{self.config.macd_fast * 2}",
-                "signal",
-            ]
-        ]
+        # no-op: signal=0, no TA processing (profiling moved to standalone background task)
+        self.processed_data["signal"] = 0
+        self.processed_data["features"] = pd.DataFrame()
 
     def get_spread_multiplier(self) -> Decimal:
         if self.config.dynamic_order_spread:

@@ -17,6 +17,14 @@ from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 
 class ProgressiveTradingControllerConfig(DirectionalTradingControllerConfigBase):
     controller_type: str = "progressive_trading"
+
+    @field_validator("manual_kill_switch", mode="before")
+    @classmethod
+    def coerce_manual_kill_switch(cls, v):
+        if v is None:
+            return False
+        return v
+
     apr_yield: Decimal | None = Field(
         default=Decimal("0.5"), gt=0,
         json_schema_extra={
