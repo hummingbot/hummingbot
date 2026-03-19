@@ -83,7 +83,7 @@ class BinaryOptionsController(ControllerBase):
         # MM executor map: "COIN:SIDE" -> executor_id
         self._mm_executor_map: Dict[str, str] = {}
         self._mm_pending_replacements: Dict[str, dict] = {}
-        self._mm_pending_cancels: set = set()  # keys awaiting cancel confirmation
+        self._mm_pending_cancels: Dict[str, float] = {}  # key → cancel timestamp
         self._mm_executor_created_ts: Dict[str, float] = {}  # key → creation timestamp
 
         self._last_log_ts: float = 0.0
@@ -448,8 +448,8 @@ class BinaryOptionsController(ControllerBase):
                 self._mm_pending_replacements.pop(key, None)
                 executor_id = self._mm_executor_map.pop(key, None)
                 self._mm_executor_created_ts.pop(key, None)
-                self._mm_pending_cancels.discard(key)
                 if executor_id:
+                    self._mm_pending_cancels[key] = time.time()
                     actions.append(StopExecutorAction(
                         controller_id=self.config.id,
                         executor_id=executor_id,
@@ -467,7 +467,6 @@ class BinaryOptionsController(ControllerBase):
                 }
                 old_id = self._mm_executor_map.pop(key, None)
                 self._mm_executor_created_ts.pop(key, None)
-                self._mm_pending_cancels.discard(key)
                 already_pending = key in self._mm_pending_replacements
                 self._mm_pending_replacements[key] = replacement
                 if old_id and not already_pending:
@@ -581,13 +580,18 @@ class BinaryOptionsController(ControllerBase):
                     coin = key.split(":")[0]
                     self._mm_executor_map.pop(key, None)
                     self._mm_executor_created_ts.pop(key, None)
-                    self._mm_pending_cancels.discard(key)
+                    self._mm_pending_cancels.pop(key, None)
                     self.quote_manager.on_close_fill(coin)
                     self.position_tracker.record_close(coin, eid, pnl)
                     break
 
+        # Expire stale pending_cancels (safety valve — 5s max)
+        now = time.time()
+        for key in list(self._mm_pending_cancels):
+            if now - self._mm_pending_cancels[key] > 5:
+                self._mm_pending_cancels.pop(key, None)
+
         if prune_missing:
-            now = time.time()
             for key, mapped_id in list(self._mm_executor_map.items()):
                 if mapped_id not in executor_ids:
                     # Grace period: don't prune executors created < 10s ago (hbot hasn't registered yet)
@@ -596,7 +600,7 @@ class BinaryOptionsController(ControllerBase):
                         continue
                     self._mm_executor_map.pop(key, None)
                     self._mm_executor_created_ts.pop(key, None)
-                    self._mm_pending_cancels.discard(key)
+                    self._mm_pending_cancels.pop(key, None)
 
     def _make_mm_executor_config(
         self, coin: str, trading_pair: str, price: float, size: float,
