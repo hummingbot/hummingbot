@@ -387,24 +387,17 @@ class BinaryOptionsController(ControllerBase):
         hours_left = self.processed_data.get("hours_left", {})
 
         if not self.runtime_bridge.should_trade():
-            logger.info("mm_debug: should_trade=False, skipping")
             return actions
 
         self._sync_mm_closed_executors(prune_missing=True)
 
         # Warmup gate: don't quote until signals are valid (vol needs ~100 ticks)
         coins = list(market_data.keys())
-        logger.info("mm_debug: market_data=%s orderbook_mids=%s", list(market_data.keys()), dict(orderbook_mids))
-        for coin, md in market_data.items():
-            logger.info("mm_debug[%s]: quote_valid=%s yes_mid=%s yes_mid_api=%s bid=%s ask=%s",
-                        coin, md.get("quote_valid"), md.get("yes_mid"),
-                        md.get("yes_mid_api"), md.get("bid"), md.get("ask"))
         warmed = [
             c for c in orderbook_mids.keys()
             if abs(signals.get(c, {}).get("z_score", 0.0)) > 0
             and abs(signals.get(c, {}).get("btc_z_score", 0.0)) > 0
         ]
-        logger.info("mm_debug: warmed=%s", warmed)
         if not warmed:
             return actions
 
