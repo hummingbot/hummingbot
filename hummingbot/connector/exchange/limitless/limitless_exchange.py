@@ -392,8 +392,17 @@ class LimitlessExchange(ExchangePyBase):
                         mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
                         logger.debug("get_price_by_type(%s) fallback to SDK cache: mid=%.4f → NO=%.4f", trading_pair, mid, 1 - mid)
                         return Decimal("1") - mid
-                logger.warning("get_price_by_type(%s) no price available from hbot tracker or SDK cache", trading_pair)
-                raise ValueError(f"No price available for {trading_pair}")
+                # Last resort: use adjustedMidpoint from market data
+                if slug and self._inner_connector:
+                    mkt = self._inner_connector._markets.get(slug)
+                    if mkt:
+                        amid = getattr(mkt, "adjusted_midpoint", None) or getattr(mkt, "adjustedMidpoint", None)
+                        if amid is not None:
+                            p = Decimal(str(float(amid)))
+                            logger.debug("get_price_by_type(%s) using adjustedMidpoint=%.4f → NO=%.4f", trading_pair, p, 1 - p)
+                            return Decimal("1") - p
+                logger.warning("get_price_by_type(%s) no price available — returning entry-passthrough Decimal(1)", trading_pair)
+                return Decimal("1")  # BUY side: min(entry, 1.0) = entry (no cap)
         # YES pair — same fallback to SDK cache if hbot tracker fails
         try:
             return super().get_price_by_type(trading_pair, price_type)
@@ -416,7 +425,18 @@ class LimitlessExchange(ExchangePyBase):
                     mid = (Decimal(str(bids[0]["price"])) + Decimal(str(asks[0]["price"]))) / 2
                     logger.debug("get_price_by_type(%s) fallback to SDK cache: mid=%.4f", trading_pair, mid)
                     return mid
-            raise
+            # Last resort: adjustedMidpoint from market data
+            slug = self._slug_map.get(trading_pair)
+            if slug and self._inner_connector:
+                mkt = self._inner_connector._markets.get(slug)
+                if mkt:
+                    amid = getattr(mkt, "adjusted_midpoint", None) or getattr(mkt, "adjustedMidpoint", None)
+                    if amid is not None:
+                        p = Decimal(str(float(amid)))
+                        logger.debug("get_price_by_type(%s) using adjustedMidpoint=%.4f", trading_pair, p)
+                        return p
+            logger.warning("get_price_by_type(%s) no price available — returning entry-passthrough Decimal(1)", trading_pair)
+            return Decimal("1")  # BUY side: min(entry, 1.0) = entry (no cap)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         if self._is_no_pair(trading_pair):
