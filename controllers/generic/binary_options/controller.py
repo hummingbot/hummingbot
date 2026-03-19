@@ -585,21 +585,19 @@ class BinaryOptionsController(ControllerBase):
                     self.position_tracker.record_close(coin, eid, pnl)
                     break
 
-        # Clear pending_cancels when executor is confirmed closed or gone
-        closed_ids = {
-            getattr(ei, "id", "")
-            for ei in self.executors_info
-            if getattr(ei, "is_closed", False)
-        }
+        # Clear pending_cancels when executor is closed, shutting down, or gone
+        done_ids = set()
+        for ei in self.executors_info:
+            eid = getattr(ei, "id", "")
+            if not eid:
+                continue
+            is_closed = getattr(ei, "is_closed", False)
+            close_type = getattr(ei, "close_type", None)
+            if is_closed or close_type is not None:
+                done_ids.add(eid)
         for key, eid in list(self._mm_pending_cancels.items()):
-            in_closed = eid in closed_ids
-            gone = eid not in executor_ids
-            if in_closed or gone:
-                logger.info("CANCEL_CLEAR %s: closed=%s gone=%s", key, in_closed, gone)
+            if eid in done_ids or eid not in executor_ids:
                 self._mm_pending_cancels.pop(key, None)
-            else:
-                logger.info("CANCEL_STUCK %s: eid=%s executor_ids=%s",
-                            key, eid, list(executor_ids)[:5])
 
         if prune_missing:
             now = time.time()
