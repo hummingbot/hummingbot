@@ -179,6 +179,8 @@ class LimitlessConnector:
                     "bids": [{"price": e.price, "size": e.size} for e in ob.bids],
                     "asks": [{"price": e.price, "size": e.size} for e in ob.asks],
                     "token_id": ob.token_id,
+                    "adjustedMidpoint": getattr(ob, "adjusted_midpoint", None),
+                    "maxSpread": getattr(ob, "max_spread", None),
                 }
             except Exception as sdk_err:
                 # SDK Pydantic model may fail on null fields (e.g. lastTradePrice=None).
@@ -191,6 +193,8 @@ class LimitlessConnector:
                         "bids": [{"price": e.get("price", 0), "size": e.get("size", 0)} for e in data.get("bids", [])],
                         "asks": [{"price": e.get("price", 0), "size": e.get("size", 0)} for e in data.get("asks", [])],
                         "token_id": data.get("tokenId", ""),
+                        "adjustedMidpoint": data.get("adjustedMidpoint"),
+                        "maxSpread": data.get("maxSpread"),
                     }
                 else:
                     raise ConnectorError(f"Unexpected orderbook response for {market_slug}: {type(data)}") from sdk_err
@@ -936,6 +940,8 @@ class LimitlessConnector:
             self._orderbooks[slug] = {
                 "bids": [{"price": b.get("price"), "size": b.get("size")} for b in bids_raw],
                 "asks": [{"price": a.get("price"), "size": a.get("size")} for a in asks_raw],
+                "adjustedMidpoint": ob.get("adjustedMidpoint") or data.get("adjustedMidpoint"),
+                "maxSpread": ob.get("maxSpread") or data.get("maxSpread"),
             }
             self._ob_timestamps[slug] = time.time()
         except Exception as exc:

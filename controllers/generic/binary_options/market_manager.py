@@ -497,7 +497,11 @@ class MarketManager:
 
         for coin, md in self._locked_markets.items():
             slug = md.get("slug", "")
-            ob = await self._connector.get_order_book_data(slug)
+            try:
+                ob = await self._connector.get_order_book_data(slug)
+            except Exception as e:
+                logger.warning("build_market_data[%s]: get_order_book_data failed: %s", coin, e)
+                ob = None
             expiry = md.get("expiry")
             expiry_ts = expiry.timestamp() if isinstance(expiry, datetime) else None
 
