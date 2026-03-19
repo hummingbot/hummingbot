@@ -527,6 +527,11 @@ class BinaryOptionsController(ControllerBase):
         self._mm_executor_map[key] = executor_config.id
         self._mm_executor_created_ts[key] = time.time()
         self.quote_manager.set_order_id(coin, side, executor_config.id)
+        logger.info(
+            "PLACE %s %s @ %.4f size=%.2f pair=%s",
+            coin, side, float(executor_config.entry_price),
+            float(executor_config.amount), executor_config.trading_pair,
+        )
         actions.append(CreateExecutorAction(
             controller_id=self.config.id,
             executor_config=executor_config,
