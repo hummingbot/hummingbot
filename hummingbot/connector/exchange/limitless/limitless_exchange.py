@@ -776,6 +776,8 @@ class LimitlessExchange(ExchangePyBase):
             self._account_available_balances["USDC"] = total_usdc - total_locked
             self._account_balances["USDC"] = total_usdc
             remote_asset_names.add("USDC")
+            self.logger().info("Balance update: total=%.4f locked=%.4f available=%.4f",
+                               float(total_usdc), float(total_locked), float(total_usdc - total_locked))
 
         except Exception as e:
             self.logger().warning(f"Failed to update balances: {e}")
