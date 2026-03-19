@@ -34,6 +34,7 @@ class ProgressiveTradingControllerConfig(DirectionalTradingControllerConfigBase)
         })
     trailing_stop: LadderedTrailingStop | None = Field(
         default="0.015,0.005,0.05:1|0.1:0.91|0.25:0.8|0.5:0.5",
+        validate_default=True,
         json_schema_extra={
             "prompt": "Enter the trailing stop as activation_pnl_pct,trailing_pct,profit_table (e.g., 0.015,0.003,0.05:1|0.1:0.91): ",
             "prompt_on_new": True,
