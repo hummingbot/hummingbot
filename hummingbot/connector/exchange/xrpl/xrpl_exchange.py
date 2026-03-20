@@ -733,38 +733,35 @@ class XrplExchange(ExchangePyBase):
                     elif status == "cancelled":
                         new_order_state = OrderState.CANCELED
                     else:
-                        # Check if the transaction did cross any offers in the order book
-                        taker_gets = offer_change.get("taker_gets")
-                        taker_pays = offer_change.get("taker_pays")
+                        # status == "created": Offer was placed on the order book.
+                        # Check if the transaction ALSO crossed existing offers before
+                        # placing the remainder.  We use balance changes (not offer field
+                        # comparison) to detect actual fills, because XRPL rounds token
+                        # amounts when storing offers on the ledger, which causes false
+                        # differences between submitted and stored values on token-to-token
+                        # pairs (e.g., BBRL-RLUSD).  See GitHub issue #8132.
+                        meta = event_message.get("meta")
+                        if meta is not None:
+                            creation_balance_changes = get_balance_changes(meta)
+                            our_changes = [
+                                x for x in creation_balance_changes
+                                if x.get("account") == self._xrpl_auth.get_account()
+                            ]
+                            has_token_fill = False
+                            for bc in our_changes:
+                                for balance in bc.get("balances", []):
+                                    if balance.get("currency") != "XRP":
+                                        has_token_fill = True
+                                        break
+                                if has_token_fill:
+                                    break
 
-                        tx_taker_gets = transaction.get("TakerGets")
-                        tx_taker_pays = transaction.get("TakerPays")
-
-                        if isinstance(tx_taker_gets, str):
-                            tx_taker_gets = {"currency": "XRP", "value": str(drops_to_xrp(tx_taker_gets))}
-
-                        if isinstance(tx_taker_pays, str):
-                            tx_taker_pays = {"currency": "XRP", "value": str(drops_to_xrp(tx_taker_pays))}
-
-                        # Use a small tolerance for comparing decimal values
-                        tolerance = Decimal("0.00001")  # 0.001% tolerance
-
-                        taker_gets_value = Decimal(taker_gets.get("value", "0") if taker_gets else "0")
-                        tx_taker_gets_value = Decimal(tx_taker_gets.get("value", "0") if tx_taker_gets else "0")
-                        taker_pays_value = Decimal(taker_pays.get("value", "0") if taker_pays else "0")
-                        tx_taker_pays_value = Decimal(tx_taker_pays.get("value", "0") if tx_taker_pays else "0")
-
-                        # Check if values differ by more than the tolerance
-                        gets_diff = abs(
-                            (taker_gets_value - tx_taker_gets_value) / tx_taker_gets_value if tx_taker_gets_value else 0
-                        )
-                        pays_diff = abs(
-                            (taker_pays_value - tx_taker_pays_value) / tx_taker_pays_value if tx_taker_pays_value else 0
-                        )
-
-                        if gets_diff > tolerance or pays_diff > tolerance:
-                            new_order_state = OrderState.PARTIALLY_FILLED
+                            if has_token_fill:
+                                new_order_state = OrderState.PARTIALLY_FILLED
+                            else:
+                                new_order_state = OrderState.OPEN
                         else:
+                            # Fallback: if meta is unavailable, default to OPEN
                             new_order_state = OrderState.OPEN
 
                     # INFO level logging for significant state changes
