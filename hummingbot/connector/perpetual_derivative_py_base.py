@@ -31,13 +31,23 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         super().__init__(balance_asset_limit, rate_limits_share_pct)
         self._last_funding_fee_payment_ts: Dict[str, float] = {}
 
-        self._perpetual_trading = PerpetualTrading(self.trading_pairs)
+        self._perpetual_trading = PerpetualTrading(
+            self.trading_pairs, exchange_name=getattr(self, "name", "")
+        )
         self._funding_info_listener_task: Optional[asyncio.Task] = None
         self._funding_fee_polling_task: Optional[asyncio.Task] = None
         self._funding_fee_poll_notifier = asyncio.Event()
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
+        self._perpetual_trading.set_rest_refresh_callback(
+            self._refresh_funding_info_via_rest
+        )
+
+    async def _refresh_funding_info_via_rest(self, trading_pair: str):
+        """REST API fallback for stale funding info."""
+        funding_info = await self._orderbook_ds.get_funding_info(trading_pair)
+        self._perpetual_trading.initialize_funding_info(funding_info)
 
     @property
     @abstractmethod
