@@ -791,4 +791,52 @@ MARKETS = {
         "base_issuer": "",
         "quote_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
     },
+    "BBRL-RLUSD": {
+        "base": "BBRL",
+        "quote": "RLUSD",
+        "base_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+        "quote_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+    },
+    "RLUSD-BBRL": {
+        "base": "RLUSD",
+        "quote": "BBRL",
+        "base_issuer": "rMxCKbEDwqr76QuheSUMdEGf4B9xJ8m5De",
+        "quote_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+    },
+    "BBRL-XRP": {
+        "base": "BBRL",
+        "quote": "XRP",
+        "base_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+        "quote_issuer": "",
+    },
+    "XRP-BBRL": {
+        "base": "XRP",
+        "quote": "BBRL",
+        "base_issuer": "",
+        "quote_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+    },
+    "BBRL-USDC": {
+        "base": "BBRL",
+        "quote": "USDC",
+        "base_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+    },
+    "USDC-BBRL": {
+        "base": "USDC",
+        "quote": "BBRL",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+        "quote_issuer": "rH5CJsqvNqZGxrMyGaqLEoMWRYcVTAPZMt",
+    },
+    "EUROP-USDC": {
+        "base": "EUROP",
+        "quote": "USDC",
+        "base_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+        "quote_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+    },
+    "USDC-EUROP": {
+        "base": "USDC",
+        "quote": "EUROP",
+        "base_issuer": "rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+        "quote_issuer": "rMkEuRii9w9uBMQDnWV5AA43gvYZR9JxVK",
+    },
 }
