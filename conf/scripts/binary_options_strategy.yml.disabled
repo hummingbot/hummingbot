@@ -1,0 +1,5 @@
+script_file_name: binary_options_strategy.py
+max_global_drawdown_quote: 50.0
+max_controller_drawdown_quote: 25.0
+controllers_config:
+  - binary_options.yml

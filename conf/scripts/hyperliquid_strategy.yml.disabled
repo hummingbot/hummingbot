@@ -1,0 +1,5 @@
+script_file_name: hyperliquid_strategy.py
+max_global_drawdown_quote: 20.0
+max_controller_drawdown_quote: 10.0
+controllers_config:
+  - hyperliquid.yml

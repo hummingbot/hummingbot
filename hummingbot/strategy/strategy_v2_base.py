@@ -303,7 +303,7 @@ class StrategyV2Base(StrategyPyBase):
             self.ready_to_trade = all(ex.ready for ex in self.connectors.values())
             if not self.ready_to_trade:
                 for con in [c for c in self.connectors.values() if not c.ready]:
-                    self.logger().warning(f"{con.name} is not ready. Please wait...")
+                    self.logger().warning(f"{con.name} is not ready. Please wait... status={con.status_dict}")
                 return
         else:
             self.on_tick()

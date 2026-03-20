@@ -1,0 +1,17 @@
+controller_name: hyperliquid
+controller_type: generic
+id: hyperliquid_main
+connector_name: hyperliquid_perpetual_testnet
+trading_pair: SOL-USD
+btc_connector_name: hyperliquid_perpetual_testnet
+btc_trading_pair: BTC-USD
+total_amount_quote: 10
+leverage: 1
+max_executors_per_side: 1
+cooldown_time: 60
+stop_loss: 0.01
+take_profit: 0.02
+time_limit: 3600
+edge_z_threshold: 1.5
+btc_z_threshold: 1.75
+runtime_json_path: ""

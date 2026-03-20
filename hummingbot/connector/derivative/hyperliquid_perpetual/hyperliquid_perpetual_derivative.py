@@ -52,7 +52,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
-            enable_hip3_markets: bool = True,
+            enable_hip3_markets: bool = False,
     ):
         self.hyperliquid_perpetual_address = hyperliquid_perpetual_address
         self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_secret_key
@@ -980,15 +980,20 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     full_symbol = perp_meta.get("name", "")  # e.g., 'xyz:AAPL'
                     if ':' in full_symbol:
                         self._is_hip3_market[full_symbol] = True
-                        deployer, base = full_symbol.split(':')
+                        parts = full_symbol.split(':')
+                        deployer, base = parts[0], ':'.join(parts[1:])
                         quote = CONSTANTS.CURRENCY
                         symbol = f'{deployer.upper()}_{base}'
                         # quote = "USD" if deployer == "xyz" else 'USDH'
                         trading_pair = combine_to_hb_trading_pair(full_symbol, quote)
-                        if trading_pair in mapping.inverse:
+                        tp_upper = trading_pair.upper()
+                        if tp_upper in mapping.inverse:
                             self._resolve_trading_pair_symbols_duplicate(mapping, full_symbol, full_symbol.upper(), quote)
                         else:
-                            mapping[full_symbol] = trading_pair.upper()
+                            try:
+                                mapping[full_symbol] = tp_upper
+                            except Exception:
+                                self.logger().debug(f"Skipping duplicate HIP-3 symbol: {full_symbol} -> {tp_upper}")
 
         self._set_trading_pair_symbol_map(mapping)
 
@@ -1061,6 +1066,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
+        Falls back to spot balance if perps clearinghouse returns 0 (unified margin / testnet).
         """
 
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
@@ -1068,8 +1074,29 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                                                   "user": self.hyperliquid_perpetual_address},
                                             )
         quote = CONSTANTS.CURRENCY
-        self._account_balances[quote] = Decimal(account_info["crossMarginSummary"]["accountValue"])
-        self._account_available_balances[quote] = Decimal(account_info["withdrawable"])
+        perp_balance = Decimal(account_info["crossMarginSummary"]["accountValue"])
+        perp_withdrawable = Decimal(account_info["withdrawable"])
+
+        if perp_balance == Decimal("0"):
+            # Check spot balance (unified margin mode)
+            try:
+                spot_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                                                 data={"type": "spotClearinghouseState",
+                                                       "user": self.hyperliquid_perpetual_address},
+                                                 )
+                for bal in spot_info.get("balances", []):
+                    if bal.get("coin") == "USDC":
+                        spot_total = Decimal(bal.get("total", "0"))
+                        spot_hold = Decimal(bal.get("hold", "0"))
+                        if spot_total > perp_balance:
+                            perp_balance = spot_total
+                            perp_withdrawable = spot_total - spot_hold
+                        break
+            except Exception:
+                pass
+
+        self._account_balances[quote] = perp_balance
+        self._account_available_balances[quote] = perp_withdrawable
 
     async def _update_positions(self):
         all_positions = []
