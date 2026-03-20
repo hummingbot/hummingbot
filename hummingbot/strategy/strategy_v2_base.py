@@ -521,6 +521,14 @@ class StrategyV2Base(StrategyPyBase):
                 else:
                     lines.append("  No executors found.")
 
+                # Active executor detail display (progress bars, trailing stops, etc.)
+                active = self.executor_orchestrator.active_executors.get(controller_id, [])
+                for executor in active:
+                    if hasattr(executor, 'to_format_status') and executor.is_trading:
+                        executor_lines = executor.to_format_status()
+                        if executor_lines:
+                            lines.extend(executor_lines)
+
                 # Positions table
                 positions = self.get_positions_by_controller(controller_id)
                 if positions:
