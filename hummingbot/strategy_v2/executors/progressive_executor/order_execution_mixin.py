@@ -11,7 +11,6 @@ from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 class OrderExecutionMixin:
     def place_open_order(self: ProgressiveOrderProtocol) -> None:
-        self.logger().debug("Attempting to place open order...")
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
@@ -21,10 +20,11 @@ class OrderExecutionMixin:
             side=self.config.side,
             position_action=PositionAction.OPEN,
         )
-        self.logger().debug(f"Open order placed successfully - Order ID: {order_id}")
+        self.logger().info(
+            f"Open order placed | id={order_id} type={self.config.triple_barrier_config.open_order_type.name} "
+            f"price={self.entry_price:.6g} amount={self.config.amount:.6g}")
         self.open_order = TrackedOrder(order_id=order_id)
         self.open_order_timestamp = self.current_timestamp
-        self.logger().debug("Placing open order")
 
     def place_close_order_and_cancel_open_orders(
             self: ProgressiveOrderExecutionProtocol,
@@ -46,7 +46,9 @@ class OrderExecutionMixin:
                     position_action=PositionAction.CLOSE,
                 )
                 self.close_order = TrackedOrder(order_id=order_id)
-                self.logger().debug(f"Placing close order --> Filled amount: {self.open_filled_amount}")
+                self.logger().info(
+                    f"Close order placed | id={order_id} type={close_type.name} "
+                    f"amount={delta_amount_to_close:.6g} filled_open={self.open_filled_amount:.6g}")
             except Exception as e:
                 self.logger().error(f"Failed to place close order: {e}")
 

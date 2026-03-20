@@ -19,7 +19,10 @@ class ControlMixin:
             self.control_open_order()
             self.control_barriers()
         elif self.status == RunnableStatus.SHUTTING_DOWN:
-            self.logger().info("Executor shutting down")
+            self.logger().info(
+                f"Executor shutting down | close_type={self.close_type} "
+                f"open_filled={self.open_filled_amount:.6f} close_filled={self.close_filled_amount:.6f} "
+                f"retries={self.current_retries}/{self.max_retries}")
             await self.control_shutdown_process()
         self.evaluate_max_retries()
 
@@ -54,17 +57,25 @@ class ControlMixin:
 
     def control_open_order(self: ProgressiveOrderControlProtocol):
         if not self.open_order and self._is_within_activation_bounds(self.close_price):
+            self.logger().info(
+                f"Opening {self.config.side.name} | pair={self.config.trading_pair} "
+                f"entry={self.entry_price:.6g} amount={self.config.amount:.6g} "
+                f"SL={self.config.triple_barrier_config.stop_loss} "
+                f"TL={self.config.triple_barrier_config.time_limit}")
             self.place_open_order()
 
     def control_stop_loss(self: ProgressiveOrderExecutionPNLControlProtocol):
-        if (
-                self.config.triple_barrier_config.stop_loss and
-                self.net_pnl_pct <= self.get_target_pnl_yield() - self.config.triple_barrier_config.stop_loss
-        ):
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
+        if self.config.triple_barrier_config.stop_loss:
+            target = self.get_target_pnl_yield() - self.config.triple_barrier_config.stop_loss
+            if self.net_pnl_pct <= target:
+                self.logger().info(
+                    f"STOP LOSS triggered | pnl={self.net_pnl_pct:.4%} threshold={target:.4%}")
+                self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_time_limit(self: ProgressiveOrderExecutionPNLControlProtocol):
         if self.is_expired and not self.is_extended_on_yield:
+            self.logger().info(
+                f"TIME LIMIT triggered | pnl={self.net_pnl_pct:.4%} extended_on_yield={self.is_extended_on_yield}")
             self.place_close_order_and_cancel_open_orders(close_type=CloseType.TIME_LIMIT)
 
     def control_trailing_stop(self: ProgressiveOrderExecutionPNLControlProtocol):
@@ -81,5 +92,7 @@ class ControlMixin:
 
     def evaluate_max_retries(self: ProgressiveOrderControlProtocol):
         if self.current_retries > self.max_retries:
+            self.logger().warning(
+                f"Max retries exceeded ({self.current_retries}/{self.max_retries}) | closing as FAILED")
             self.close_type = CloseType.FAILED
             self.stop()

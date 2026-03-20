@@ -264,7 +264,6 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
             connectors={"mock_paper_exchange": self.connector},
             config=MockStrategyV2Config(
                 markets={"mock_paper_exchange": {self.trading_pair}},
-                candles_config=[],
             ),
         )
         return strategy
