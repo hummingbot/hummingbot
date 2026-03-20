@@ -186,9 +186,7 @@ class ProgressiveExecutor(
     @property
     def close_price(self) -> Decimal:
         if self.close_order and self.close_order.is_done:
-            self.logger().debug(f"Close order average executed price: {self.close_order.average_executed_price}")
             return self.close_order.average_executed_price
-        self.logger().debug(f"Close order Current market price: {self.current_market_price}")
         return self.current_market_price
 
     @property

@@ -186,12 +186,18 @@ class ProgressiveGainController(ProgressiveTradingController):
         else:
             volatility_update = False
 
-        self.processed_data["signal"] = df["signal"].iloc[-1]
+        new_signal = df["signal"].iloc[-1]
+        prev_signal = self.processed_data.get("signal", 0)
+        self.processed_data["signal"] = new_signal
         self.processed_data["volatility_update"] = volatility_update
         self.processed_data["volatility"] = df["volatility"].iloc[-1]
 
+        if new_signal != prev_signal:
+            self.logger().info(
+                f"Signal changed: {prev_signal} -> {new_signal} "
+                f"({'LONG' if new_signal == -1 else 'SHORT' if new_signal == 1 else 'NEUTRAL'})")
         if self.processed_data['volatility_update']:
-            self.logger().info(f"Progressive Gain Volatility: {self.processed_data['volatility']:.4g}")
+            self.logger().info(f"Volatility: {self.processed_data['volatility']:.4g}")
 
         self.processed_data["features"] = df[
             [

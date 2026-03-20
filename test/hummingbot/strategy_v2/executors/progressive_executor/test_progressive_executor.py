@@ -20,7 +20,6 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.progressive_executor.data_types import (
     LadderedTrailingStop,
     ProgressiveExecutorConfig,
-    TripleBarrierConfig,
     YieldTripleBarrierConfig,
 )
 from hummingbot.strategy_v2.executors.progressive_executor.progressive_executor import ProgressiveExecutor
@@ -602,7 +601,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         config = ProgressiveExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
                                            connector_name="binance",
                                            side=TradeType.BUY, amount=Decimal("1"),
-                                           triple_barrier_config=TripleBarrierConfig(
+                                           triple_barrier_config=YieldTripleBarrierConfig(
                                                stop_loss=Decimal("0.05"), apr_yield=Decimal("3.65"), time_limit=60,
                                                take_profit_order_type=OrderType.LIMIT,
                                                stop_loss_order_type=OrderType.MARKET))
@@ -617,7 +616,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
                                            connector_name="binance",
                                            side=TradeType.BUY, amount=Decimal("1"),
                                            entry_price=Decimal("102"),
-                                           triple_barrier_config=TripleBarrierConfig(
+                                           triple_barrier_config=YieldTripleBarrierConfig(
                                                open_order_type=OrderType.LIMIT_MAKER,
                                                stop_loss=Decimal("0.05"), apr_yield=Decimal("3.65"), time_limit=60,
                                                take_profit_order_type=OrderType.LIMIT,
