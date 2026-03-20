@@ -325,6 +325,10 @@ class CandlesBase(NetworkBase):
         """
         while not self.ready:
             await self._ws_candle_available.wait()
+            # WS disconnect can clear _candles without clearing _ws_candle_available; avoid IndexError on [0].
+            if len(self._candles) == 0:
+                self._ws_candle_available.clear()
+                continue
             try:
                 end_time = self._round_timestamp_to_interval_multiple(self._candles[0][0])
                 missing_records = self._candles.maxlen - len(self._candles)
@@ -472,6 +476,7 @@ class CandlesBase(NetworkBase):
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         websocket_assistant and await websocket_assistant.disconnect()
         self._candles.clear()
+        self._ws_candle_available.clear()
 
     def get_seconds_from_interval(self, interval: str) -> int:
         """
