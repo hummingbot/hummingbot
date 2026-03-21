@@ -211,16 +211,17 @@ class TestKuruExchangeNetwork(KuruExchangeTestBase, IsolatedAsyncioTestCase):
         self.assertEqual([], result)
 
     async def test_format_trading_rules_calls_update_and_returns_rules(self):
+        expected_rule = self.expected_trading_rule
         self.connector._update_trading_rules = AsyncMock(
             side_effect=lambda: self.connector._trading_rules.__setitem__(
-                self.trading_pair, self.expected_trading_rule
+                self.trading_pair, expected_rule
             )
         )
 
         result = await self.connector._format_trading_rules({})
 
         self.connector._update_trading_rules.assert_awaited_once()
-        self.assertEqual([self.expected_trading_rule], result)
+        self.assertIs(expected_rule, result[0])
 
     # ------------------------------------------------------------------
     # _get_fee

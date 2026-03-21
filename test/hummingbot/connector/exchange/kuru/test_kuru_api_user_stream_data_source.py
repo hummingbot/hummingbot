@@ -26,13 +26,13 @@ class TestKuruAPIUserStreamDataSource(TestCase):
     def test_connected_websocket_assistant_raises_not_implemented(self):
         coro = self.data_source._connected_websocket_assistant()
         with self.assertRaises(NotImplementedError) as ctx:
-            asyncio.get_event_loop().run_until_complete(coro)
+            asyncio.run(coro)
         self.assertIn("SDK callbacks", str(ctx.exception))
 
     def test_subscribe_channels_raises_not_implemented(self):
         coro = self.data_source._subscribe_channels(websocket_assistant=MagicMock())
         with self.assertRaises(NotImplementedError) as ctx:
-            asyncio.get_event_loop().run_until_complete(coro)
+            asyncio.run(coro)
         self.assertIn("SDK callbacks", str(ctx.exception))
 
 
