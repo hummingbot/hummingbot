@@ -630,7 +630,7 @@ class KuruExchange(ExchangePyBase):
 
         # Extract last traded price from trade events. SDK frontend updates are
         # normalized by default in 0.1.11, so store plain floats for Hummingbot.
-        for event in update.events:
+        for event in update.events or []:
             if event.e == "Trade" and event.p is not None:
                 last_price = float(event.p)
                 for pair in self._trading_pairs_list:

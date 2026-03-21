@@ -1,9 +1,22 @@
+from kuru_sdk_py.config_defaults import (
+    DEFAULT_KURU_API_URL as SDK_DEFAULT_KURU_API_URL,
+    DEFAULT_KURU_WS_URL as SDK_DEFAULT_KURU_WS_URL,
+    DEFAULT_RPC_URL as SDK_DEFAULT_RPC_URL,
+    DEFAULT_RPC_WS_URL as SDK_DEFAULT_RPC_WS_URL,
+)
+
 EXCHANGE_NAME = "kuru"
 DEFAULT_DOMAIN = "kuru"
 
 CLIENT_ORDER_ID_PREFIX = "kuru"
 # Kuru SDK converts cloid to bytes32, so client order IDs must be <= 32 bytes.
 MAX_ORDER_ID_LEN = 32
+
+# Keep the connector defaults aligned with the SDK's built-in public endpoints.
+DEFAULT_RPC_URL = SDK_DEFAULT_RPC_URL
+DEFAULT_RPC_WS_URL = SDK_DEFAULT_RPC_WS_URL
+DEFAULT_KURU_WS_URL = SDK_DEFAULT_KURU_WS_URL
+DEFAULT_KURU_API_URL = SDK_DEFAULT_KURU_API_URL
 
 # No traditional REST API rate limits for on-chain DEX
 RATE_LIMITS = []
