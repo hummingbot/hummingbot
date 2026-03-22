@@ -18,8 +18,14 @@ from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResu
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+
+try:
+    from candles_feed.hb_compat import CandlesConfig, CandlesFactory
+    _HB_CANDLES_FEED = True
+except ImportError:
+    from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+    from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+    _HB_CANDLES_FEED = False
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
@@ -225,11 +231,26 @@ class MarketDataProvider:
                 existing_feed.stop()
 
             # Create a new feed with updated max_records
-            candle_feed = CandlesFactory.get_candle(config)
+            candle_feed = self._create_candle_feed(config)
             self.candles_feeds[key] = candle_feed
             if hasattr(candle_feed, 'start'):
                 candle_feed.start()
             return candle_feed
+
+    @staticmethod
+    def _create_candle_feed(config: CandlesConfig):
+        """
+        Creates a candle feed, trying hb-candles-feed package first and
+        falling back to native hummingbot CandlesFactory for unsupported connectors.
+        """
+        if _HB_CANDLES_FEED:
+            try:
+                return CandlesFactory.get_candle(config)
+            except Exception:
+                # Connector not supported by hb-candles-feed, fall back to native
+                from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory as NativeCandlesFactory
+                return NativeCandlesFactory.get_candle(config)
+        return CandlesFactory.get_candle(config)
 
     @staticmethod
     def _generate_candle_feed_key(config: CandlesConfig) -> str:
@@ -549,7 +570,10 @@ class MarketDataProvider:
         """
         import time
 
-        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+        if _HB_CANDLES_FEED:
+            from candles_feed.hb_compat import HistoricalCandlesConfig
+        else:
+            from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
         # Set default end_time to current time if not provided
         if end_time is None:
@@ -642,14 +666,10 @@ class MarketDataProvider:
                         combined_df = combined_df.iloc[-max_cache_records:]
 
                     # Update the candles feed cache
-                    candles_feed.clear_candles()
-                    for _, row in combined_df.iterrows():
-                        candles_feed.add_candle(row.values)
+                    self._update_candle_cache(candles_feed, combined_df)
                 else:
                     # Update the candles feed cache with new data
-                    candles_feed.clear_candles()
-                    for _, row in new_df.iloc[-max_cache_records:].iterrows():
-                        candles_feed.add_candle(row.values)
+                    self._update_candle_cache(candles_feed, new_df.iloc[-max_cache_records:])
 
                 # Return filtered data for requested range
                 final_df = candles_feed.candles_df
@@ -664,6 +684,20 @@ class MarketDataProvider:
 
         # Fallback to existing method if historical fetch fails
         return self.get_candles_df(connector_name, trading_pair, interval, max_records or 500)
+
+    @staticmethod
+    def _update_candle_cache(candles_feed, df: pd.DataFrame):
+        """
+        Updates the candle feed's internal cache from a DataFrame.
+        Uses reset_with_dataframe() for hb_compat adapters, falls back to
+        clear_candles()/add_candle() for native CandlesBase.
+        """
+        if hasattr(candles_feed, 'reset_with_dataframe'):
+            candles_feed.reset_with_dataframe(df)
+        else:
+            candles_feed.clear_candles()
+            for _, row in df.iterrows():
+                candles_feed.add_candle(row.values)
 
     def get_trading_pairs(self, connector_name: str):
         """
