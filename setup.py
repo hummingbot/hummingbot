@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260126"
+    version = "20260302"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -74,7 +74,7 @@ def main():
         "scipy>=1.11.1",
         "six>=1.16.0",
         "sqlalchemy>=1.4.49",
-        "tabulate>=0.9.0",
+        "tabulate==0.9.0",
         "TA-Lib>=0.6.4",
         "tqdm>=4.67.1",
         "ujson>=5.7.0",
