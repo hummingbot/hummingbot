@@ -642,14 +642,14 @@ class MarketDataProvider:
                         combined_df = combined_df.iloc[-max_cache_records:]
 
                     # Update the candles feed cache
-                    candles_feed._candles.clear()
+                    candles_feed.clear_candles()
                     for _, row in combined_df.iterrows():
-                        candles_feed._candles.append(row.values)
+                        candles_feed.add_candle(row.values)
                 else:
                     # Update the candles feed cache with new data
-                    candles_feed._candles.clear()
+                    candles_feed.clear_candles()
                     for _, row in new_df.iloc[-max_cache_records:].iterrows():
-                        candles_feed._candles.append(row.values)
+                        candles_feed.add_candle(row.values)
 
                 # Return filtered data for requested range
                 final_df = candles_feed.candles_df

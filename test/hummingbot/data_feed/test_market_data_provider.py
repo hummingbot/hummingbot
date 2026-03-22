@@ -557,7 +557,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
                 'taker_buy_quote_volume': [2500000, 5000000, 7500000]
             })
             mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
-            mock_feed._candles = MagicMock()
+            mock_feed.clear_candles = MagicMock()
+            mock_feed.add_candle = MagicMock()
             mock_get_feed.return_value = mock_feed
 
             await self.provider.get_historical_candles_df(
@@ -567,7 +568,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
             # Should call historical fetch and update cache
             mock_feed.get_historical_candles.assert_called_once()
-            mock_feed._candles.clear.assert_called()
+            mock_feed.clear_candles.assert_called()
 
     async def test_get_historical_candles_df_fallback(self):
         # Test fallback to regular method when no time range specified
@@ -625,7 +626,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             type(mock_feed).candles_df = PropertyMock(side_effect=track_candles_df)
 
             mock_feed.get_historical_candles = AsyncMock(return_value=new_data)
-            mock_feed._candles = MagicMock()
+            mock_feed.clear_candles = MagicMock()
+            mock_feed.add_candle = MagicMock()
             mock_get_feed.return_value = mock_feed
 
             # Request range that requires fetching additional data
@@ -643,7 +645,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             self.assertGreaterEqual(call_args.end_time, 1640995380)
 
             # Should update cache
-            mock_feed._candles.clear.assert_called()
+            mock_feed.clear_candles.assert_called()
 
     async def test_get_historical_candles_df_with_max_records(self):
         # Test calculating start_time from max_records
@@ -661,7 +663,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
                 'volume': [1000 + i * 100 for i in range(10)]
             })
             mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
-            mock_feed._candles = MagicMock()
+            mock_feed.clear_candles = MagicMock()
+            mock_feed.add_candle = MagicMock()
             mock_get_feed.return_value = mock_feed
 
             # Call with only max_records (no start_time)
@@ -702,7 +705,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
                 'volume': [1000 + i * 100 for i in range(100)]
             })
             mock_feed.get_historical_candles = AsyncMock(return_value=historical_data)
-            mock_feed._candles = MagicMock()
+            mock_feed.clear_candles = MagicMock()
+            mock_feed.add_candle = MagicMock()
             mock_get_feed.return_value = mock_feed
 
             # Request with very large range that needs limiting
@@ -729,7 +733,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
                 # Simulate error in historical fetch
                 mock_feed.get_historical_candles = AsyncMock(side_effect=Exception("Fetch error"))
-                mock_feed._candles = MagicMock()
+                mock_feed.clear_candles = MagicMock()
+                mock_feed.add_candle = MagicMock()
                 mock_get_feed.return_value = mock_feed
 
                 # Set up fallback return
@@ -775,7 +780,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
                 'volume': [1500 + i * 100 for i in range(60)]
             })
             mock_feed.get_historical_candles = AsyncMock(return_value=new_data)
-            mock_feed._candles = MagicMock()
+            mock_feed.clear_candles = MagicMock()
+            mock_feed.add_candle = MagicMock()
             mock_get_feed.return_value = mock_feed
 
             # Request with cache limit
@@ -787,8 +793,8 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
             # Should merge and limit cache
             mock_feed.get_historical_candles.assert_called_once()
-            mock_feed._candles.clear.assert_called()
+            mock_feed.clear_candles.assert_called()
 
             # Verify cache update was called with limited size
-            append_calls = mock_feed._candles.append.call_count
+            append_calls = mock_feed.add_candle.call_count
             self.assertLessEqual(append_calls, 80)

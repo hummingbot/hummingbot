@@ -55,7 +55,7 @@ class VolatilityScreener(StrategyV2Base):
         for trading_pair, candles in self.candles.items():
             if not candles.ready:
                 self.logger().info(
-                    f"Candles not ready yet for {trading_pair}! Missing {candles._candles.maxlen - len(candles._candles)}")
+                    f"Candles not ready yet for {trading_pair}! Missing {candles.missing_records}")
         if all(candle.ready for candle in self.candles.values()):
             if self.current_timestamp - self.last_time_reported > self.report_interval:
                 self.last_time_reported = self.current_timestamp

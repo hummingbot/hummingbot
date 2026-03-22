@@ -145,6 +145,32 @@ class CandlesBase(NetworkBase):
         """
         return pd.DataFrame(self._candles, columns=self.columns, dtype=float)
 
+    @property
+    def missing_records(self) -> int:
+        """
+        Returns the number of candle records still needed to fill the deque to capacity.
+        """
+        return self._candles.maxlen - len(self._candles)
+
+    def add_candle(self, candle_row):
+        """
+        Appends a single candle row to the end of the candles deque.
+        :param candle_row: array-like with values matching self.columns
+        """
+        self._candles.append(candle_row)
+
+    def get_candles(self) -> deque:
+        """
+        Returns the underlying candles deque (read-only access pattern).
+        """
+        return self._candles
+
+    def clear_candles(self):
+        """
+        Clears all stored candles and resets the deque.
+        """
+        self._candles.clear()
+
     def get_exchange_trading_pair(self, trading_pair):
         raise NotImplementedError
 
