@@ -164,7 +164,7 @@ include = ["hummingbot/**/*.py", "test/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
-ignore = ["E251", "E501", "E702", "W503", "W504"]
+ignore = ["E251", "E501", "E702"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
