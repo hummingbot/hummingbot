@@ -43,6 +43,118 @@ exclude = [
 [tool.setuptools.package-data]
 hummingbot = ["core/cpp/*", "VERSION", "templates/*TEMPLATE.yml"]
 
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+members = ["sub-packages/candles-feed"]
+
+[tool.pixi.dependencies]
+# Build/install
+python = ">=3.10.12"
+cython = ">=3.0.12"
+setuptools = ">=80.8.0"
+pip = ">=23.2.1"
+# Core runtime
+aiohttp = ">=3.8.5"
+aioprocessing = ">=2.0.1"
+aioresponses = ">=0.7.4"
+aiounittest = ">=1.4.2"
+async-timeout = ">=4.0.2,<5"
+asyncssh = ">=2.13.2"
+base58 = ">=2.1.1"
+bidict = ">=0.22.1"
+bip-utils = "*"
+cachetools = ">=5.3.1"
+cryptography = ">=41.0.2"
+eth-account = ">=0.13.0"
+injective-py = ">=1.12"
+libta-lib = ">=0.6.4"
+msgpack-python = "*"
+numba = ">=0.61.2"
+numpy = ">=2.2.6"
+objgraph = "*"
+pandas = ">=2.3.2"
+prompt_toolkit = ">=3.0.39"
+protobuf = ">=4.23.3"
+psutil = ">=5.9.5"
+ptpython = ">=3.0.26"
+pydantic = ">=2"
+pyjwt = ">=2.3.0"
+pyperclip = ">=1.8.2"
+pyyaml = ">=6.0"
+requests = ">=2.31.0"
+ruamel.yaml = ">=0.2.5"
+rust = "*"
+safe-pysha3 = "*"
+scipy = ">=1.11.1"
+six = ">=1.16.0"
+solders = ">=0.19.0"
+sqlalchemy = ">=1.4.49"
+ta-lib = ">=0.6.4"
+tabulate = "==0.9.0"
+tqdm = ">=4.67.1"
+ujson = ">=5.7.0"
+urllib3 = ">=1.26.15,<2.0"
+web3 = "*"
+xrpl-py = "==4.4.0"
+zlib = ">=1.2.13"
+
+[tool.pixi.pypi-dependencies]
+commlib-py = ">=0.11"
+eip712-structs = "*"
+pandas-ta = ">=0.4.71b"
+scalecodec = "*"
+
+[tool.pixi.feature.dev.dependencies]
+pytest = ">=7.4.0"
+pytest-asyncio = ">=0.16.0"
+pytest-cov = "*"
+pytest-mock = "*"
+coverage = ">=7.2.7"
+diff-cover = ">=7.7.0"
+ruff = "*"
+mypy = "*"
+pre-commit = ">=3.3.3"
+cython-lint = "*"
+autopep8 = "*"
+flake8 = ">=6.0.0"
+
+[tool.pixi.feature.ci.dependencies]
+bandit = "*"
+types-setuptools = "*"
+
+[tool.pixi.feature.py310.dependencies]
+python = "3.10.*"
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.environments]
+default = { features = ["dev"], solve-group = "default" }
+ci = { features = ["ci", "dev"], solve-group = "default" }
+py310 = { features = ["py310", "dev"], solve-group = "py310" }
+py311 = { features = ["py311", "dev"], solve-group = "py311" }
+py312 = { features = ["py312", "dev"], solve-group = "py312" }
+
+[tool.pixi.tasks]
+install-dev = "pip install --no-build-isolation -e ."
+build = { cmd = "python setup.py build_ext --inplace", depends-on = ["install-dev"] }
+test = { cmd = "pytest test", depends-on = ["build"] }
+test-unit = { cmd = "pytest test/hummingbot", depends-on = ["build"] }
+lint = "ruff check hummingbot test"
+lint-cython = "cython-lint hummingbot"
+format = "ruff format hummingbot test"
+format-check = "ruff format --check hummingbot test"
+typecheck = "mypy hummingbot"
+security = "bandit -c pyproject.toml -r hummingbot/"
+quality = { depends-on = ["lint", "format-check"] }
+check = { depends-on = ["quality", "test"] }
+hooks-install = "pre-commit install"
+submodule-update = "git submodule update --remote sub-packages/candles-feed"
+
 [tool.isort]
 line_length = 120
 multi_line_output = 3
