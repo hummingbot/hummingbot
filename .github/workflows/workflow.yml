@@ -54,6 +54,7 @@ jobs:
         with:
           environments: ci
           cache: true
+          locked: false
 
       # Build (install + compile Cython extensions)
       - name: Build Hummingbot

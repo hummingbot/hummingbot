@@ -13,6 +13,7 @@ runs:
       with:
         environments: ci
         cache: true
+        locked: false
 
     - name: Build Hummingbot
       shell: bash
