@@ -1,3 +1,14 @@
+[project]
+name = "hummingbot"
+version = "20260302"
+description = "Hummingbot"
+authors = [{name = "Hummingbot Foundation", email = "dev@hummingbot.org"}]
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+
+[project.scripts]
+hummingbot = "bin.hummingbot_quickstart:main"
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 
@@ -22,6 +33,16 @@ exclude = '''
 requires = ["setuptools", "wheel", "numpy>=2.2.6", "cython>=3.0.12"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["hummingbot", "hummingbot.*"]
+exclude = [
+    "hummingbot.connector.gateway.clob_spot.data_sources.injective",
+    "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual",
+]
+
+[tool.setuptools.package-data]
+hummingbot = ["core/cpp/*", "VERSION", "templates/*TEMPLATE.yml"]
+
 [tool.isort]
 line_length = 120
 multi_line_output = 3
@@ -29,6 +50,5 @@ include_trailing_comma = true
 use_parentheses = true
 ensure_newline_before_comments = true
 combine_as_imports = true
-conda_env = "hummingbot"
 filter_files = true
 skip = ["setup.py"]
