@@ -17,16 +17,16 @@ if TYPE_CHECKING:
 
 
 class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'HtxExchange',
-                 api_factory: WebAssistantsFactory,
-                 ):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "HtxExchange",
+        api_factory: WebAssistantsFactory,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._diff_messages_queue_key = CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX
@@ -49,9 +49,7 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         pass
 
-    def snapshot_message_from_exchange(self,
-                                       msg: Dict[str, Any],
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange(self, msg: Dict[str, Any], metadata: Optional[Dict] = None) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -66,14 +64,12 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "trading_pair": msg["trading_pair"],
             "update_id": msg["tick"]["ts"],
             "bids": msg["tick"].get("bids", []),
-            "asks": msg["tick"].get("asks", [])
+            "asks": msg["tick"].get("asks", []),
         }
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, content, timestamp=msg_ts)
 
-    def trade_message_from_exchange(self,
-                                    msg: Dict[str, Any],
-                                    metadata: Dict[str, Any] = None) -> OrderBookMessage:
+    def trade_message_from_exchange(self, msg: Dict[str, Any], metadata: Dict[str, Any] = None) -> OrderBookMessage:
         """
         Creates a trade message with the information from the trade event sent by the exchange
         :param msg: the trade event details sent by the exchange
@@ -90,7 +86,7 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "trade_id": msg["id"],
             "update_id": msg["ts"],
             "amount": msg["amount"],
-            "price": msg["price"]
+            "price": msg["price"],
         }
         return OrderBookMessage(OrderBookMessageType.TRADE, content, timestamp=msg_ts)
 
@@ -121,14 +117,12 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest({
-                    "sub": f"market.{exchange_symbol}.depth.step0",
-                    "id": str(uuid.uuid4())
-                })
-                subscribe_trade_request: WSJSONRequest = WSJSONRequest({
-                    "sub": f"market.{exchange_symbol}.trade.detail",
-                    "id": str(uuid.uuid4())
-                })
+                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(
+                    {"sub": f"market.{exchange_symbol}.depth.step0", "id": str(uuid.uuid4())}
+                )
+                subscribe_trade_request: WSJSONRequest = WSJSONRequest(
+                    {"sub": f"market.{exchange_symbol}.trade.detail", "id": str(uuid.uuid4())}
+                )
                 await ws.send(subscribe_orderbook_request)
                 await ws.send(subscribe_trade_request)
             self.logger().info("Subscribed to public orderbook and trade channels...")
@@ -151,13 +145,11 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return retval
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-
         ex_symbol = raw_message["ch"].split(".")[1]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=ex_symbol)
         for data in raw_message["tick"]["data"]:
             trade_message: OrderBookMessage = self.trade_message_from_exchange(
-                msg=data,
-                metadata={"trading_pair": trading_pair}
+                msg=data, metadata={"trading_pair": trading_pair}
             )
             message_queue.put_nowait(trade_message)
 
@@ -168,7 +160,7 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             msg=raw_message,
             metadata={
                 "trading_pair": await self._connector.trading_pair_associated_to_exchange_symbol(order_book_symbol)
-            }
+            },
         )
         message_queue.put_nowait(snapshot_msg)
 
@@ -188,22 +180,18 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: True if subscription was successful, False otherwise
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket not connected")
             return False
 
         try:
             exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest({
-                "sub": f"market.{exchange_symbol}.depth.step0",
-                "id": str(uuid.uuid4())
-            })
-            subscribe_trade_request: WSJSONRequest = WSJSONRequest({
-                "sub": f"market.{exchange_symbol}.trade.detail",
-                "id": str(uuid.uuid4())
-            })
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(
+                {"sub": f"market.{exchange_symbol}.depth.step0", "id": str(uuid.uuid4())}
+            )
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(
+                {"sub": f"market.{exchange_symbol}.trade.detail", "id": str(uuid.uuid4())}
+            )
 
             await self._ws_assistant.send(subscribe_orderbook_request)
             await self._ws_assistant.send(subscribe_trade_request)
@@ -227,22 +215,18 @@ class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: True if unsubscription was successful, False otherwise
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
             return False
 
         try:
             exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest({
-                "unsub": f"market.{exchange_symbol}.depth.step0",
-                "id": str(uuid.uuid4())
-            })
-            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest({
-                "unsub": f"market.{exchange_symbol}.trade.detail",
-                "id": str(uuid.uuid4())
-            })
+            unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(
+                {"unsub": f"market.{exchange_symbol}.depth.step0", "id": str(uuid.uuid4())}
+            )
+            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(
+                {"unsub": f"market.{exchange_symbol}.trade.detail", "id": str(uuid.uuid4())}
+            )
 
             await self._ws_assistant.send(unsubscribe_orderbook_request)
             await self._ws_assistant.send(unsubscribe_trade_request)

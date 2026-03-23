@@ -18,7 +18,6 @@ from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
 
 
 class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self):
         # Mocking the ProgressiveTradingControllerConfigBase
         self.mock_controller_config = ProgressiveTradingControllerConfig(
@@ -41,7 +40,7 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = ProgressiveTradingController(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
     async def test_update_processed_data(self):
@@ -51,9 +50,15 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
     @patch.object(ProgressiveTradingController, "get_executor_config")
     async def test_determine_executor_actions(self, get_executor_config_mock: MagicMock):
         get_executor_config_mock.return_value = ProgressiveExecutorConfig(
-            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10),
-            type="progressive_executor", triple_barrier_config=YieldTripleBarrierConfig(
+            timestamp=1234,
+            controller_id=self.controller.config.id,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            entry_price=Decimal(100),
+            amount=Decimal(10),
+            type="progressive_executor",
+            triple_barrier_config=YieldTripleBarrierConfig(
                 stop_loss=Decimal("0.03"),
                 take_profit=Decimal("0.02"),
                 time_limit=2700,
@@ -65,10 +70,10 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
                         (Decimal("0.05"), Decimal("1")),
                         (Decimal("0.1"), Decimal("0.91")),
                         (Decimal("0.25"), Decimal("0.8")),
-                        (Decimal("0.5"), Decimal("0.5"))
-                    )
-                )
-            )
+                        (Decimal("0.5"), Decimal("0.5")),
+                    ),
+                ),
+            ),
         )
         await self.controller.update_processed_data()
         self.controller.market_data_provider.time = MagicMock(return_value=1000000)
@@ -96,8 +101,7 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_validate_order_type(self):
         for order_type_name in OrderType.__members__:
             self.assertEqual(
-                ProgressiveTradingControllerConfig.validate_order_type(order_type_name),
-                OrderType[order_type_name]
+                ProgressiveTradingControllerConfig.validate_order_type(order_type_name), OrderType[order_type_name]
             )
 
         with self.assertRaises(ValueError):
@@ -118,7 +122,7 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
                 (Decimal("0.1"), Decimal("0.91")),
                 (Decimal("0.25"), Decimal("0.8")),
                 (Decimal("0.5"), Decimal("0.5")),
-            )
+            ),
         )
 
     def test_update_markets_new_connector(self):
@@ -145,16 +149,22 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         trailing_stop = LadderedTrailingStop(
             activation_pnl_pct=Decimal("2"),
             trailing_pct=Decimal("0.5"),
-            take_profit_table=((Decimal("1"), Decimal("0.5")), (Decimal("2"), Decimal("1")))
+            take_profit_table=((Decimal("1"), Decimal("0.5")), (Decimal("2"), Decimal("1"))),
         )
         self.assertEqual(trailing_stop, self.mock_controller_config.parse_trailing_stop(trailing_stop))
 
     @patch.object(ProgressiveTradingController, "get_executor_config")
     async def test_determine_executor_actions_no_actions(self, get_executor_config_mock: MagicMock):
         get_executor_config_mock.return_value = ProgressiveExecutorConfig(
-            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10),
-            type="progressive_executor", triple_barrier_config=YieldTripleBarrierConfig(
+            timestamp=1234,
+            controller_id=self.controller.config.id,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            entry_price=Decimal(100),
+            amount=Decimal(10),
+            type="progressive_executor",
+            triple_barrier_config=YieldTripleBarrierConfig(
                 stop_loss=Decimal("0.03"),
                 take_profit=Decimal("0.02"),
                 time_limit=2700,
@@ -166,10 +176,10 @@ class TestProgressiveTradingControllerBase(IsolatedAsyncioWrapperTestCase):
                         (Decimal("0.05"), Decimal("1")),
                         (Decimal("0.1"), Decimal("0.91")),
                         (Decimal("0.25"), Decimal("0.8")),
-                        (Decimal("0.5"), Decimal("0.5"))
-                    )
-                )
-            )
+                        (Decimal("0.5"), Decimal("0.5")),
+                    ),
+                ),
+            ),
         )
         await self.controller.update_processed_data()
         self.controller.market_data_provider.time = MagicMock(return_value=1000000)

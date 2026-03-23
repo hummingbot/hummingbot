@@ -8,7 +8,6 @@ from hummingbot.strategy.liquidity_mining.liquidity_mining_config_map import (
 
 
 class LiquidityMiningConfigMapTests(TestCase):
-
     def test_markets_validation(self):
         # Correct markets
         self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT"), None)
@@ -20,23 +19,58 @@ class LiquidityMiningConfigMapTests(TestCase):
         self.assertEqual(liquidity_mining_config_map_module.market_validate("btc-USDT"), None)
 
         # Incorrect markets
-        self.assertEqual(liquidity_mining_config_map_module.market_validate(""), "Invalid market(s). The given entry is empty.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate(""), "Invalid market(s). The given entry is empty."
+        )
 
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,"), "Invalid markets. The given entry contains an empty market.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,,"), "Invalid markets. The given entry contains an empty market.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,,ETH-USDT"), "Invalid markets. The given entry contains an empty market.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,"),
+            "Invalid markets. The given entry contains an empty market.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,,"),
+            "Invalid markets. The given entry contains an empty market.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,,ETH-USDT"),
+            "Invalid markets. The given entry contains an empty market.",
+        )
 
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT-ETH"), "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-USDT-ETH"), "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("btc-usdt-eth"), "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT-ETH"),
+            "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-USDT-ETH"),
+            "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("btc-usdt-eth"),
+            "Invalid market. BTC-USDT-ETH doesn't contain exactly 2 tickers.",
+        )
 
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC- "), "Invalid market. Ticker  has an invalid length.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC- "), "Invalid market. Ticker  has an invalid length.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC- "),
+            "Invalid market. Ticker  has an invalid length.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC- "),
+            "Invalid market. Ticker  has an invalid length.",
+        )
 
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-US#DT"), "Invalid market. Ticker US#DT contains invalid characters.")
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-ETH^"), "Invalid market. Ticker ETH^ contains invalid characters.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-US#DT"),
+            "Invalid market. Ticker US#DT contains invalid characters.",
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-ETH^"),
+            "Invalid market. Ticker ETH^ contains invalid characters.",
+        )
 
-        self.assertEqual(liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-ETH,BTC-USDT"), "Duplicate market BTC-USDT.")
+        self.assertEqual(
+            liquidity_mining_config_map_module.market_validate("BTC-USDT,BTC-ETH,BTC-USDT"),
+            "Duplicate market BTC-USDT.",
+        )
 
     def test_token_validation(self):
         assign_config_default(strategy_cmap)
@@ -72,9 +106,17 @@ class LiquidityMiningConfigMapTests(TestCase):
 
         # Incorrect tokens
         strategy_cmap.get("markets").value = "BTC-USDT"
-        self.assertEqual(liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT")
-        self.assertEqual(liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT")
+        self.assertEqual(
+            liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT"
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT"
+        )
 
         strategy_cmap.get("markets").value = "btc-usdt"
-        self.assertEqual(liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT")
-        self.assertEqual(liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT")
+        self.assertEqual(
+            liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT"
+        )
+        self.assertEqual(
+            liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT"
+        )

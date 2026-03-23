@@ -63,10 +63,9 @@ class PerformanceMetrics:
         return cls._logger
 
     @classmethod
-    async def create(cls,
-                     trading_pair: str,
-                     trades: List[Any],
-                     current_balances: Dict[str, Decimal]) -> 'PerformanceMetrics':
+    async def create(
+        cls, trading_pair: str, trades: List[Any], current_balances: Dict[str, Decimal]
+    ) -> "PerformanceMetrics":
         performance = PerformanceMetrics()
         await performance._initialize_metrics(trading_pair, trades, current_balances)
         return performance
@@ -148,7 +147,7 @@ class PerformanceMetrics:
         if value is None or value.is_nan():
             return value
         if precision is not None:
-            precision = 1 / (10 ** precision)
+            precision = 1 / (10**precision)
             return Decimal(str(value)).quantize(Decimal(str(precision)))
         step = Decimal("1")
         if Decimal("10000") > abs(value) > Decimal("100"):
@@ -176,9 +175,7 @@ class PerformanceMetrics:
 
     def _are_derivatives(self, trades: List[Any]) -> bool:
         return (
-            trades
-            and self._is_trade_fill(trades[0])
-            and PositionAction.NIL.value not in [t.position for t in trades]
+            trades and self._is_trade_fill(trades[0]) and PositionAction.NIL.value not in [t.position for t in trades]
         )
 
     def _preprocess_trades_and_group_by_type(self, trades: List[Any]) -> Tuple[List[Any], List[Any]]:
@@ -201,8 +198,9 @@ class PerformanceMetrics:
 
         self.avg_b_price = self.divide(self.b_vol_quote, self.b_vol_base)
         self.avg_s_price = self.divide(self.s_vol_quote, self.s_vol_base)
-        self.avg_tot_price = self.divide(abs(self.b_vol_quote) + abs(self.s_vol_quote),
-                                         abs(self.b_vol_base) + abs(self.s_vol_base))
+        self.avg_tot_price = self.divide(
+            abs(self.b_vol_quote) + abs(self.s_vol_quote), abs(self.b_vol_base) + abs(self.s_vol_base)
+        )
         self.avg_b_price = abs(self.avg_b_price)
         self.avg_s_price = abs(self.avg_s_price)
 
@@ -234,8 +232,10 @@ class PerformanceMetrics:
                     trade_price = Decimal(str(trade.price))
                     trade_amount = Decimal(str(trade.amount))
                     fee_percent = Decimal(str(trade.trade_fee["percent"]))
-                flat_fees = [TokenAmount(token=flat_fee["token"], amount=Decimal(flat_fee["amount"]))
-                             for flat_fee in trade.trade_fee.get("flat_fees", [])]
+                flat_fees = [
+                    TokenAmount(token=flat_fee["token"], amount=Decimal(flat_fee["amount"]))
+                    for flat_fee in trade.trade_fee.get("flat_fees", [])
+                ]
             else:  # assume this is Trade object
                 if trade.trade_fee.percent is not None:
                     trade_price = Decimal(trade.price)
@@ -284,10 +284,7 @@ class PerformanceMetrics:
 
             self.trade_pnl = Decimal(str(sum(self.derivative_pnl(long, short))))
 
-    async def _initialize_metrics(self,
-                                  trading_pair: str,
-                                  trades: List[Any],
-                                  current_balances: Dict[str, Decimal]):
+    async def _initialize_metrics(self, trading_pair: str, trades: List[Any], current_balances: Dict[str, Decimal]):
         """
         Calculates PnL, fees, Return % and etc...
         :param trading_pair: the trading market to get performance metrics
@@ -311,10 +308,12 @@ class PerformanceMetrics:
         self.cur_price = await RateOracle.get_instance().stored_or_live_rate(trading_pair)
         if self.cur_price is None:
             self.cur_price = Decimal(str(trades[-1].price))
-        self.start_base_ratio_pct = self.divide(self.start_base_bal * self.start_price,
-                                                (self.start_base_bal * self.start_price) + self.start_quote_bal)
-        self.cur_base_ratio_pct = self.divide(self.cur_base_bal * self.cur_price,
-                                              (self.cur_base_bal * self.cur_price) + self.cur_quote_bal)
+        self.start_base_ratio_pct = self.divide(
+            self.start_base_bal * self.start_price, (self.start_base_bal * self.start_price) + self.start_quote_bal
+        )
+        self.cur_base_ratio_pct = self.divide(
+            self.cur_base_bal * self.cur_price, (self.cur_base_bal * self.cur_price) + self.cur_quote_bal
+        )
 
         self.hold_value = (self.start_base_bal * self.cur_price) + self.start_quote_bal
         self.cur_value = (self.cur_base_bal * self.cur_price) + self.cur_quote_bal

@@ -19,6 +19,7 @@ class ConnectionsFactory:
     a separate third-party library. In that case, a factory can be created that returns `RESTConnection`s using
     `aiohttp` and `WSConnection`s using `signalr_aio`.
     """
+
     _instance: ConnectionsFactoryT | None = None
     _ws_independent_session: aiohttp.ClientSession | None = None
     _shared_client: aiohttp.ClientSession | None = None

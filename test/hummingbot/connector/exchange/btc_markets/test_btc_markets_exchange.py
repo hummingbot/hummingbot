@@ -74,7 +74,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             }
         ]
 
@@ -91,7 +91,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "pricePct24h": "0.002",
             "low24h": "0.2621",
             "high24h": "0.2708",
-            "timestamp": "2019-09-01T10:35:04.940000Z"
+            "timestamp": "2019-09-01T10:35:04.940000Z",
         }
 
     @property
@@ -105,7 +105,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             },
             {
                 "marketId": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
@@ -115,17 +115,15 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
-            }
+                "status": "Online",
+            },
         ]
 
         return "INVALID-PAIR", response
 
     @property
     def network_status_request_successful_mock_response(self):
-        return {
-            "timestamp": "2019-09-01T18:34:27.045000Z"
-        }
+        return {"timestamp": "2019-09-01T18:34:27.045000Z"}
 
     @property
     def trading_rules_request_mock_response(self):
@@ -138,7 +136,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             }
         ]
 
@@ -153,7 +151,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 # "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             }
         ]
 
@@ -173,48 +171,31 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "timeInForce": "GTC",
             "type": "LIMIT",
             "side": "Bid",
-            "postOnly": False
+            "postOnly": False,
         }
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return [
-            {
-                "assetName": self.base_asset,
-                "balance": "15",
-                "available": "10",
-                "locked": "0"
-            },
-            {
-                "assetName": self.quote_asset,
-                "balance": "2000",
-                "available": "2000",
-                "locked": "0"
-            }
+            {"assetName": self.base_asset, "balance": "15", "available": "10", "locked": "0"},
+            {"assetName": self.quote_asset, "balance": "2000", "available": "2000", "locked": "0"},
         ]
 
     @property
     def balance_request_mock_response_only_base(self):
-        return [
-            {
-                "assetName": self.base_asset,
-                "balance": "15",
-                "available": "10",
-                "locked": "0"
-            }
-        ]
+        return [{"assetName": self.base_asset, "balance": "15", "available": "10", "locked": "0"}]
 
     @property
     def balance_event_websocket_update(self):
         return {
             "fundtransferId": 276811,
-            "type": 'Deposit',
-            "status": 'Complete',
-            "timestamp": '2019-04-16T01:38:02.931Z',
-            "amount": '5.00',
-            "currency": 'AUD',
-            "fee": '0',
-            "messageType": 'fundChange'
+            "type": "Deposit",
+            "status": "Complete",
+            "timestamp": "2019-04-16T01:38:02.931Z",
+            "amount": "5.00",
+            "currency": "AUD",
+            "fee": "0",
+            "messageType": "fundChange",
         }
 
     @property
@@ -227,20 +208,18 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
 
     @property
     def expected_trading_rule(self):
-        price_decimals = Decimal(str(
-            self.trading_rules_request_mock_response[0]["priceDecimals"]))
+        price_decimals = Decimal(str(self.trading_rules_request_mock_response[0]["priceDecimals"]))
         # E.g. a price decimal of 2 means 0.01 incremental.
         price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
-        amount_decimal = Decimal(str(
-            self.trading_rules_request_mock_response[0]["amountDecimals"]))
+        amount_decimal = Decimal(str(self.trading_rules_request_mock_response[0]["amountDecimals"]))
         amount_step = Decimal("1") / Decimal(str(math.pow(10, amount_decimal)))
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size = Decimal(self.trading_rules_request_mock_response[0]["minOrderAmount"]),
-            max_order_size = Decimal(self.trading_rules_request_mock_response[0]["maxOrderAmount"]),
+            min_order_size=Decimal(self.trading_rules_request_mock_response[0]["minOrderAmount"]),
+            max_order_size=Decimal(self.trading_rules_request_mock_response[0]["maxOrderAmount"]),
             # min_order_value = Decimal(self.trading_rules_request_mock_response[0]["minOrderAmount"]),
-            min_base_amount_increment = amount_step,
-            min_price_increment = price_step,
+            min_base_amount_increment=amount_step,
+            min_price_increment=price_step,
         )
 
     @property
@@ -275,14 +254,14 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
         return 30000
 
-    def private_url_with_param(self, url, param = "", seperator = '?'):
+    def private_url_with_param(self, url, param="", seperator="?"):
         if param != "":
             url = f"{web_utils.private_rest_url(url)}{seperator}{param}"
         else:
@@ -290,7 +269,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
 
         return re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    def public_url_with_param(self, url, param = "", seperator = '?'):
+    def public_url_with_param(self, url, param="", seperator="?"):
         if param != "":
             url = f"{web_utils.public_rest_url(url)}{seperator}{param}"
         else:
@@ -299,9 +278,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage() == message for record in self.log_records
-        )
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return base_token + "-" + quote_token
@@ -322,8 +299,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["marketId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["marketId"])
         self.assertEqual("Limit", request_data["type"])
         self.assertIn(request_data["side"], ["Ask", "Bid"])
         self.assertEqual(Decimal("100"), Decimal(request_data["amount"]))
@@ -343,23 +319,17 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, "/")
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.delete(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, "/")
         response = {
             "code": CONSTANTS.INVALID_ORDERID,
             "message": "In valid Order",
@@ -368,10 +338,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self,
-        successful_order: InFlightOrder,
-        erroneous_order: InFlightOrder,
-        mock_api: aioresponses
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -384,8 +351,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         response = {
             "code": CONSTANTS.ORDER_NOT_FOUND,
@@ -395,8 +361,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return self.order_creation_url
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         response = {
             "code": CONSTANTS.ORDER_NOT_FOUND,
@@ -406,58 +371,45 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return [self.order_creation_url]
 
     def configure_completely_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(self.order_creation_url, body=json.dumps(response), callback=callback)
         return self.order_creation_url
 
     def configure_canceled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, "/")
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_open_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
         """
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, "/")
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         response = []
         mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, "/")
         mock_api.get(url, status=401, callback=callback)
 
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(self.order_creation_url, body=json.dumps(response), callback=callback)
 
@@ -466,11 +418,8 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return self.order_creation_url
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
@@ -479,23 +428,18 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return self.trade_url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         mock_api.get(self.trade_url, status=400, callback=callback)
 
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.client_order_id, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.client_order_id, "/")
         mock_api.get(url, status=400, callback=callback)
 
         return self.trade_url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
@@ -516,7 +460,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "triggerStatus": "",
             "trades": [],
             "timestamp": "2019-04-08T20:41:19.339Z",
-            "messageType": "orderChange"
+            "messageType": "orderChange",
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -531,7 +475,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "triggerStatus": "",
             "trades": [],
             "timestamp": "2019-04-08T20:41:41.857Z",
-            "messageType": "orderChange"
+            "messageType": "orderChange",
         }
 
     # https://docs.btcmarkets.net/v3/#section/Order-Life-Cycle-Events
@@ -552,11 +496,11 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                     "price": str(order.price),
                     "volume": str(order.amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "liquidityType": 'Taker',
-                    "valueInQuoteAsset": Decimal(order.amount) * Decimal(order.price)
+                    "liquidityType": "Taker",
+                    "valueInQuoteAsset": Decimal(order.amount) * Decimal(order.price),
                 }
             ],
-            "messageType": 'orderChange'
+            "messageType": "orderChange",
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -568,35 +512,42 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(order.price),
             "volume": str(order.amount),
             "timestamp": "2019-04-08T20:50:39.658Z",
-            "messageType": 'trade'
+            "messageType": "trade",
         }
 
     def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
-                            'Error: {"code":InvalidTimestamp,"message":"BM-AUTH-TIMESTAMP range. Within a minute"}')
+        exception = IOError(
+            "Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
+            'Error: {"code":InvalidTimestamp,"message":"BM-AUTH-TIMESTAMP range. Within a minute"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
-                            'Error: {"code":InvalidAuthTimestamp,"message":"BM-AUTH-TIMESTAMP invalid format"}')
+        exception = IOError(
+            "Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
+            'Error: {"code":InvalidAuthTimestamp,"message":"BM-AUTH-TIMESTAMP invalid format"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
-                            'Error: {"code":InvalidTimeWindow,"message":"BM-AUTH-TIMESTAMP range. Within a minute"}')
+        exception = IOError(
+            "Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
+            'Error: {"code":InvalidTimeWindow,"message":"BM-AUTH-TIMESTAMP range. Within a minute"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
-                            'Error: {"code":InvalidTimeInForceOption,"message":"Other message"}')
+        exception = IOError(
+            "Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
+            'Error: {"code":InvalidTimeInForceOption,"message":"Other message"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
-                            'Error: {"code":TradeNotFound,"message":"Other message"}')
+        exception = IOError(
+            "Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
+            'Error: {"code":TradeNotFound,"message":"Other message"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "orderId": self.expected_exchange_order_id,
-            "clientOrderId": order.client_order_id
-        }
+        return {"orderId": self.expected_exchange_order_id, "clientOrderId": order.client_order_id}
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
@@ -610,7 +561,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(order.price),
             "amount": str(order.amount),
             "openAmount": "1.034",
-            "status": "Cancelled"
+            "status": "Cancelled",
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -625,7 +576,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(order.price),
             "amount": str(order.amount),
             "openAmount": "1.034",
-            "status": "Fully Matched"
+            "status": "Fully Matched",
         }
 
     # https://docs.btcmarkets.net/v3/#tag/Trade-APIs
@@ -642,7 +593,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                 "orderId": exchange_order_id,
                 "liquidityType": "Taker",
-                "clientOrderId": order.client_order_id
+                "clientOrderId": order.client_order_id,
             }
         ]
 
@@ -658,7 +609,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(order.price),
             "amount": str(order.amount),
             "openAmount": "1.034",
-            "status": "Placed"
+            "status": "Placed",
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -673,7 +624,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(order.price),
             "amount": str(order.amount),
             "openAmount": "1.034",
-            "status": "Partially Matched"
+            "status": "Partially Matched",
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
@@ -689,31 +640,29 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                 "orderId": exchange_order_id,
                 "liquidityType": "Taker",
-                "clientOrderId": order.client_order_id
+                "clientOrderId": order.client_order_id,
             }
         ]
 
     @aioresponses()
     def test_place_cancel(self, mock_api):
         order = InFlightOrder(
-            client_order_id = 123,
-            exchange_order_id = 11223344,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.LIMIT,
-            creation_timestamp = 123456789,
-            price = str(9999.0),
-            amount = str(10.0),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            exchange_order_id=11223344,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            creation_timestamp=123456789,
+            price=str(9999.0),
+            amount=str(10.0),
+            initial_state=OrderState.OPEN,
         )
 
         orderId = "123456789"
 
-        response = {
-            "clientOrderId": "123456789"
-        }
+        response = {"clientOrderId": "123456789"}
 
-        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, 11223344, '/')
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, 11223344, "/")
 
         mock_api.delete(url, body=json.dumps(response))
 
@@ -724,11 +673,15 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     def test_get_fee(self):
         expected_limit_order_fee = AddedToCostTradeFee(percent=self.exchange.estimate_fee_pct(True))
 
-        limit_order_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY, 1, 2)
+        limit_order_fee = self.exchange._get_fee(
+            self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY, 1, 2
+        )
         self.assertEqual(limit_order_fee, expected_limit_order_fee)
 
         expected_market_order_fee = AddedToCostTradeFee(percent=self.exchange.estimate_fee_pct(False))
-        market_order_fee = self.exchange._get_fee(self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY, 1, 2)
+        market_order_fee = self.exchange._get_fee(
+            self.base_asset, self.quote_asset, OrderType.MARKET, TradeType.BUY, 1, 2
+        )
         self.assertEqual(market_order_fee, expected_market_order_fee)
 
     def test_is_request_exception_related_to_time_synchronizer(self):
@@ -747,15 +700,15 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     @aioresponses()
     def test_request_order_fills(self, mock_api):
         order = InFlightOrder(
-            client_order_id = 123,
-            exchange_order_id = 36014819,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.LIMIT,
-            creation_timestamp = 123456789,
-            price = str(9999.0),
-            amount = str(10.0),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            exchange_order_id=36014819,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            creation_timestamp=123456789,
+            price=str(9999.0),
+            amount=str(10.0),
+            initial_state=OrderState.OPEN,
         )
 
         response = [
@@ -770,7 +723,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "orderId": "3648306",
                 "liquidityType": "Taker",
                 "clientOrderId": "48",
-                "valueInQuoteAsset": "0.44508"
+                "valueInQuoteAsset": "0.44508",
             }
         ]
 
@@ -785,14 +738,14 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     @aioresponses()
     def test_place_order(self, mock_api):
         order = InFlightOrder(
-            client_order_id = 123,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.LIMIT,
-            creation_timestamp = 123456789,
-            price = str(9999.0),
-            amount = str(10.0),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            creation_timestamp=123456789,
+            price=str(9999.0),
+            amount=str(10.0),
+            initial_state=OrderState.OPEN,
         )
 
         response = {
@@ -804,13 +757,16 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": "100.12",
             "amount": "1.034",
             "openAmount": "1.034",
-            "status": "Accepted"
+            "status": "Accepted",
         }
 
         mock_api.post(self.order_creation_url, body=json.dumps(response))
 
-        order_response = self.async_run_with_timeout(self.exchange._place_order(
-            order.client_order_id, order.trading_pair, 10.0, order.trade_type, order.order_type, 9999.9))
+        order_response = self.async_run_with_timeout(
+            self.exchange._place_order(
+                order.client_order_id, order.trading_pair, 10.0, order.trade_type, order.order_type, 9999.9
+            )
+        )
 
         self.assertEqual(order_response[0], response["orderId"])
 
@@ -824,7 +780,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             },
             {
                 "marketId": "LTC-AUD",
@@ -834,13 +790,15 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Post Only"
-            }
+                "status": "Post Only",
+            },
         ]
 
         trade_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
 
-        self.assertEqual(trade_rules[0].trading_pair, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        self.assertEqual(
+            trade_rules[0].trading_pair, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        )
         self.assertEqual(trade_rules[0].min_order_size, Decimal(str(0.0001)))
         self.assertEqual(trade_rules[0].max_order_size, Decimal(str(1000000)))
         self.assertEqual(trade_rules[0].min_price_increment, Decimal("1") / Decimal(str(math.pow(10, 2))))
@@ -856,25 +814,24 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "maxOrderAmount": "1000000",
                 "amountDecimals": "8",
                 "priceDecimals": "2",
-                "status": "Online"
+                "status": "Online",
             }
         ]
 
         self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
 
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error parsing the trading pair rule {exchange_info[0]}. Skipping."))
+        self.assertTrue(self._is_logged("ERROR", f"Error parsing the trading pair rule {exchange_info[0]}. Skipping."))
 
     def test_create_order_fill_updates(self):
         inflight_order = InFlightOrder(
-            client_order_id = 123,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.LIMIT,
-            creation_timestamp = 123456789,
-            price = str(9999),
-            amount = str(10),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            creation_timestamp=123456789,
+            price=str(9999),
+            amount=str(10),
+            initial_state=OrderState.OPEN,
         )
 
         order_update = [
@@ -890,25 +847,27 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 "amount": str(10),
                 "openAmount": "1.034",
                 "fee": "77.77",
-                "status": "Fully Matched"
+                "status": "Fully Matched",
             }
         ]
 
         trade_updates = self.exchange._create_order_fill_updates(inflight_order, order_update)
 
         self.assertEqual(trade_updates[0].trade_id, order_update[0]["id"])
-        self.assertEqual(trade_updates[0].trading_pair, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset))
+        self.assertEqual(
+            trade_updates[0].trading_pair, self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        )
 
     def test_create_order_update(self):
         inflight_order = InFlightOrder(
-            client_order_id = 123,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.LIMIT,
-            creation_timestamp = 123456789,
-            price = str(9999),
-            amount = str(10),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            creation_timestamp=123456789,
+            price=str(9999),
+            amount=str(10),
+            initial_state=OrderState.OPEN,
         )
 
         order_update = {
@@ -920,7 +879,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "price": str(9999),
             "amount": str(10),
             "openAmount": "1.034",
-            "status": "Fully Matched"
+            "status": "Fully Matched",
         }
 
         order = self.exchange._create_order_update(inflight_order, order_update)
@@ -930,13 +889,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
 
     @aioresponses()
     def test_update_balances(self, mock_api):
-        response = [
-            {
-                "assetName": self.base_asset,
-                "available": 900,
-                "balance": 1000
-            }
-        ]
+        response = [{"assetName": self.base_asset, "available": 900, "balance": 1000}]
 
         mock_api.get(self.balance_url, body=json.dumps(response))
 
@@ -947,9 +900,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
 
     @aioresponses()
     def test_get_last_traded_price(self, mock_api):
-        response = {
-            "lastPrice": "9999.00"
-        }
+        response = {"lastPrice": "9999.00"}
 
         url = web_utils.public_rest_url(path_url=f"{CONSTANTS.MARKETS_URL}/{self.trading_pair}/ticker")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -970,9 +921,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
                 {
                     "makerFeeRate": "0.002",
                     "takerFeeRate": "0.005",
-                    "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+                    "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 }
-            ]
+            ],
         }
         mocked_api.get(regex_url, body=json.dumps(resp))
 

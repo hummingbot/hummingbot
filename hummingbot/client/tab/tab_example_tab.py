@@ -22,8 +22,9 @@ class TabExampleTab(TabBase):
         return {}
 
     @classmethod
-    async def display(cls,
-                      output_field: CustomTextArea,
-                      hummingbot: "HummingbotApplication",
-                      ):
+    async def display(
+        cls,
+        output_field: CustomTextArea,
+        hummingbot: "HummingbotApplication",
+    ):
         output_field.log("Hello World!")

@@ -31,20 +31,22 @@ class BackpackPerpetualAuth(AuthBase):
         timestamp_ms = int(self.time_provider.time() * 1e3)
         window_ms = self.DEFAULT_WINDOW_MS
 
-        signature = self.generate_signature(params=sign_params,
-                                            timestamp_ms=timestamp_ms, window_ms=window_ms,
-                                            instruction=instruction)
+        signature = self.generate_signature(
+            params=sign_params, timestamp_ms=timestamp_ms, window_ms=window_ms, instruction=instruction
+        )
 
         # Remove instruction from headers if present (it's used in signature, not sent as header)
         headers.pop("instruction", None)
 
-        headers.update({
-            "X-Timestamp": str(timestamp_ms),
-            "X-Window": str(window_ms),
-            "X-API-Key": self.api_key,
-            "X-Signature": signature,
-            "X-BROKER-ID": str(CONSTANTS.BROKER_ID)
-        })
+        headers.update(
+            {
+                "X-Timestamp": str(timestamp_ms),
+                "X-Window": str(window_ms),
+                "X-API-Key": self.api_key,
+                "X-Signature": signature,
+                "X-BROKER-ID": str(CONSTANTS.BROKER_ID),
+            }
+        )
         request.headers = headers
 
         return request
@@ -77,9 +79,7 @@ class BackpackPerpetualAuth(AuthBase):
         window_ms: int,
         instruction: Optional[str] = None,
     ) -> str:
-        params_message = "&".join(
-            f"{k}={params[k]}" for k in sorted(params)
-        )
+        params_message = "&".join(f"{k}={params[k]}" for k in sorted(params))
         params_message = params_message.replace("True", "true").replace("False", "false")
         sign_str = ""
         if instruction:

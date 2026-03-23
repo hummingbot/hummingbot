@@ -79,9 +79,7 @@ class BudgetChecker:
         self._lock_available_collateral(adjusted_candidate)
         return adjusted_candidate
 
-    def adjust_candidate(
-        self, order_candidate: OrderCandidate, all_or_none: bool = True
-    ) -> OrderCandidate:
+    def adjust_candidate(self, order_candidate: OrderCandidate, all_or_none: bool = True) -> OrderCandidate:
         """
         Fills in the collateral and returns fields of the order candidates.
 
@@ -129,19 +127,13 @@ class BudgetChecker:
 
         if order_candidate.order_collateral is not None:
             token, _ = order_candidate.order_collateral
-            available_balances[token] = (
-                balance_fn(token) - self._locked_collateral[token]
-            )
+            available_balances[token] = balance_fn(token) - self._locked_collateral[token]
         if order_candidate.percent_fee_collateral is not None:
             token, _ = order_candidate.percent_fee_collateral
-            available_balances[token] = (
-                balance_fn(token) - self._locked_collateral[token]
-            )
+            available_balances[token] = balance_fn(token) - self._locked_collateral[token]
         for entry in order_candidate.fixed_fee_collaterals:
             token, _ = entry
-            available_balances[token] = (
-                balance_fn(token) - self._locked_collateral[token]
-            )
+            available_balances[token] = balance_fn(token) - self._locked_collateral[token]
 
         return available_balances
 

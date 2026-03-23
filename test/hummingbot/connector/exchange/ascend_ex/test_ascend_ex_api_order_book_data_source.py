@@ -199,8 +199,8 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
         )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
@@ -257,7 +257,9 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -380,9 +382,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: diff, trade
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}..."))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -392,9 +392,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -426,9 +424,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}..."))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -451,9 +447,7 @@ class AscendExAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established"))
 
     async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated during unsubscription."""

@@ -4,7 +4,6 @@ from hummingbot.core.rate_oracle.utils import find_rate
 
 
 class FixedRateSource:
-
     def __init__(self):
         super().__init__()
 

@@ -92,7 +92,6 @@ def _tx_data(
 # Test: _get_fee_for_order
 # ======================================================================
 class TestGetFeeForOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_buy_order_uses_quote_fee(self):
         order = _make_order(self.connector, trade_type=TradeType.BUY)
         fee_rules = {
@@ -154,7 +153,6 @@ class TestGetFeeForOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase)
 # Test: _create_trade_update
 # ======================================================================
 class TestCreateTradeUpdate(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_basic_trade_update(self):
         order = _make_order(self.connector)
         fee = AddedToCostTradeFee(percent=Decimal("0.01"))
@@ -204,14 +202,15 @@ class TestCreateTradeUpdate(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCa
 # Test: _all_trade_updates_for_order
 # ======================================================================
 class TestAllTradeUpdatesForOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
     async def test_returns_trade_fills(self, _):
         order = _make_order(self.connector)
         mock_trade = MagicMock()  # No spec — MagicMock(spec=TradeUpdate) is falsy
 
-        with patch.object(self.connector, "_fetch_account_transactions", new_callable=AsyncMock) as fetch_mock, \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf:
+        with (
+            patch.object(self.connector, "_fetch_account_transactions", new_callable=AsyncMock) as fetch_mock,
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf,
+        ):
             fetch_mock.return_value = [
                 {"tx": {"TransactionType": "OfferCreate", "hash": "H1"}},
                 {"tx": {"TransactionType": "OfferCreate", "hash": "H2"}},
@@ -244,8 +243,10 @@ class TestAllTradeUpdatesForOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
     async def test_skips_non_trade_transactions(self, _):
         order = _make_order(self.connector)
 
-        with patch.object(self.connector, "_fetch_account_transactions", new_callable=AsyncMock) as fetch_mock, \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf:
+        with (
+            patch.object(self.connector, "_fetch_account_transactions", new_callable=AsyncMock) as fetch_mock,
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf,
+        ):
             fetch_mock.return_value = [
                 {"tx": {"TransactionType": "AccountSet", "hash": "H1"}},
                 {"tx": {"TransactionType": "TrustSet", "hash": "H2"}},
@@ -271,7 +272,6 @@ class TestAllTradeUpdatesForOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 # Test: process_trade_fills
 # ======================================================================
 class TestProcessTradeFills(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_data_is_none_raises(self):
         order = _make_order(self.connector)
         with self.assertRaises(ValueError):
@@ -387,7 +387,9 @@ class TestProcessTradeFills(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCa
         data = _tx_data(tx_hash=TX_HASH_MATCHING, tx_sequence=84437895)
 
         mock_trade = MagicMock()
-        with patch.object(self.connector, "_process_taker_fill", new_callable=AsyncMock, return_value=mock_trade) as ptf:
+        with patch.object(
+            self.connector, "_process_taker_fill", new_callable=AsyncMock, return_value=mock_trade
+        ) as ptf:
             result = await self.connector.process_trade_fills(data, order)
             self.assertIs(result, mock_trade)
             ptf.assert_awaited_once()
@@ -399,7 +401,9 @@ class TestProcessTradeFills(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCa
         data = _tx_data(tx_hash=TX_HASH_EXTERNAL, tx_sequence=99999)
 
         mock_trade = MagicMock()
-        with patch.object(self.connector, "_process_maker_fill", new_callable=AsyncMock, return_value=mock_trade) as pmf:
+        with patch.object(
+            self.connector, "_process_maker_fill", new_callable=AsyncMock, return_value=mock_trade
+        ) as pmf:
             result = await self.connector.process_trade_fills(data, order)
             self.assertIs(result, mock_trade)
             pmf.assert_awaited_once()
@@ -430,7 +434,6 @@ class TestProcessTradeFills(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCa
 # Test: _process_taker_fill
 # ======================================================================
 class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     def _fee(self):
         return AddedToCostTradeFee(percent=Decimal("0.01"))
 
@@ -516,14 +519,20 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """Limit order that crossed existing offers — offer_change status = 'filled'."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "filled", "sequence": 84437895,
-                          "taker_gets": {"currency": "SOLO", "value": "-30"},
-                          "taker_pays": {"currency": "XRP", "value": "-15"}},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
-            return_value=(Decimal("30"), Decimal("15")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={
+                    "status": "filled",
+                    "sequence": 84437895,
+                    "taker_gets": {"currency": "SOLO", "value": "-30"},
+                    "taker_pays": {"currency": "XRP", "value": "-15"},
+                },
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
+                return_value=(Decimal("30"), Decimal("15")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -545,14 +554,20 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """Limit order partially filled — offer_change status = 'partially-filled'."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "partially-filled", "sequence": 84437895,
-                          "taker_gets": {"currency": "SOLO", "value": "-10"},
-                          "taker_pays": {"currency": "XRP", "value": "-5"}},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
-            return_value=(Decimal("10"), Decimal("5")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={
+                    "status": "partially-filled",
+                    "sequence": 84437895,
+                    "taker_gets": {"currency": "SOLO", "value": "-10"},
+                    "taker_pays": {"currency": "XRP", "value": "-5"},
+                },
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
+                return_value=(Decimal("10"), Decimal("5")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -574,12 +589,15 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """Offer created (rest on book) but partially filled on creation — uses balance changes."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "created", "sequence": 84437895},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
-            return_value=(Decimal("20"), Decimal("10")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={"status": "created", "sequence": 84437895},
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
+                return_value=(Decimal("20"), Decimal("10")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -624,12 +642,15 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """Offer cancelled after partial fill — uses balance changes."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "cancelled", "sequence": 84437895},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
-            return_value=(Decimal("5"), Decimal("2.5")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={"status": "cancelled", "sequence": 84437895},
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
+                return_value=(Decimal("5"), Decimal("2.5")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -674,12 +695,15 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """No offer change for our sequence, but balance changes show a fill (fully filled, never hit book)."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value=None,
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
-            return_value=(Decimal("100"), Decimal("50")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value=None,
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
+                return_value=(Decimal("100"), Decimal("50")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -701,15 +725,19 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """No matching offer, balance changes return zero → fallback to TakerGets/TakerPays."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value=None,
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
-            return_value=(Decimal("0"), Decimal("0")),
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_transaction",
-            return_value=(Decimal("1"), Decimal("0.5")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value=None,
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
+                return_value=(Decimal("0"), Decimal("0")),
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_transaction",
+                return_value=(Decimal("1"), Decimal("0.5")),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -731,15 +759,19 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
         """No matching offer, no balance changes, no TakerGets/TakerPays → None."""
         order = _make_order(self.connector, order_type=OrderType.LIMIT)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value=None,
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
-            return_value=(Decimal("0"), Decimal("0")),
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_transaction",
-            return_value=(None, None),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value=None,
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_balance_changes",
+                return_value=(Decimal("0"), Decimal("0")),
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_transaction",
+                return_value=(None, None),
+            ),
         ):
             result = await self.connector._process_taker_fill(
                 order=order,
@@ -807,7 +839,6 @@ class TestProcessTakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
 # Test: _process_maker_fill
 # ======================================================================
 class TestProcessMakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     def _fee(self):
         return AddedToCostTradeFee(percent=Decimal("0.01"))
 
@@ -828,12 +859,15 @@ class TestProcessMakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
             }
         ]
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value=offer_changes[0]["offer_changes"][0],
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
-            return_value=(Decimal("25"), Decimal("12.5")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value=offer_changes[0]["offer_changes"][0],
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
+                return_value=(Decimal("25"), Decimal("12.5")),
+            ),
         ):
             result = await self.connector._process_maker_fill(
                 order=order,
@@ -874,12 +908,15 @@ class TestProcessMakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
     async def test_zero_base_amount_returns_none(self, _):
         order = _make_order(self.connector)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "filled", "sequence": 84437895},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
-            return_value=(Decimal("0"), Decimal("5")),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={"status": "filled", "sequence": 84437895},
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
+                return_value=(Decimal("0"), Decimal("5")),
+            ),
         ):
             result = await self.connector._process_maker_fill(
                 order=order,
@@ -897,12 +934,15 @@ class TestProcessMakerFill(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCas
     async def test_none_amounts_returns_none(self, _):
         order = _make_order(self.connector)
 
-        with patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
-            return_value={"status": "filled", "sequence": 84437895},
-        ), patch(
-            "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
-            return_value=(None, None),
+        with (
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.find_offer_change_for_order",
+                return_value={"status": "filled", "sequence": 84437895},
+            ),
+            patch(
+                "hummingbot.connector.exchange.xrpl.xrpl_exchange.extract_fill_amounts_from_offer_change",
+                return_value=(None, None),
+            ),
         ):
             result = await self.connector._process_maker_fill(
                 order=order,

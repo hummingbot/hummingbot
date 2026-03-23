@@ -45,12 +45,13 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             ndax_account_name="",
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain)
+            domain=self.domain,
+        )
         self.data_source = NdaxAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain
+            domain=self.domain,
         )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -78,15 +79,14 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         raise exception_class
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _subscribe_level_2_response(self):
         resp = {
             "m": 1,
             "i": 2,
             "n": "SubscribeLevel2",
-            "o": "[[93617617, 1, 1626788175000, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],[93617617, 1, 1626788175000, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]]"
+            "o": "[[93617617, 1, 1626788175000, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],[93617617, 1, 1626788175000, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]]",
         }
         return resp
 
@@ -95,7 +95,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "m": 3,
             "i": 3,
             "n": "Level2UpdateEvent",
-            "o": "[[93617618, 1, 1626788175001, 0, 37800.0, 1, 37740.0, 1, 0.015, 0]]"
+            "o": "[[93617618, 1, 1626788175001, 0, 37800.0, 1, 37740.0, 1, 0.015, 0]]",
         }
         return resp
 
@@ -107,7 +107,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         resp = [
             # mdUpdateId, accountId, actionDateTime, actionType, lastTradePrice, orderId, price, productPairCode, quantity, side
             [93617617, 1, 1626788175416, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],
-            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]
+            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37751.0, 1, 0.015, 1],
         ]
         return resp
 
@@ -146,24 +146,27 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result_subscribe_diffs = self._subscribe_level_2_response()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(1, len(sent_subscription_messages))
-        expected_diff_subscription = {'m': 0, 'i': 1, 'n': 'SubscribeLevel2', 'o': '{"OMSId":1,"InstrumentId":1,"Depth":200}'}
+        expected_diff_subscription = {
+            "m": 0,
+            "i": 1,
+            "n": "SubscribeLevel2",
+            "o": '{"OMSId":1,"InstrumentId":1,"Depth":200}',
+        }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to public order book and trade channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -185,8 +188,9 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = AsyncMock()
@@ -244,7 +248,8 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -255,7 +260,8 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -272,8 +278,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source"
-           ".NdaxAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
@@ -289,10 +294,14 @@ class NdaxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
+        )
 
     @aioresponses()
-    async def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
+    async def test_listen_for_order_book_snapshots_successful(
+        self,
+        mock_api,
+    ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))

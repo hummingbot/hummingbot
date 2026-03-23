@@ -2,6 +2,7 @@
 Tests for XRPL AMM (Automated Market Maker) functions.
 Tests amm_get_pool_info, amm_add_liquidity, amm_remove_liquidity, amm_get_balance, and related methods.
 """
+
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -37,9 +38,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
         self.xrp = XRP()
         self.usd = IssuedCurrency(currency="USD", issuer="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R")  # noqa: mock
         # LP token uses a valid 3-character currency code or hex format (40 chars for hex)
-        self.lp_token = IssuedCurrency(
-            currency="534F4C4F00000000000000000000000000000000", issuer="rAMMPoolAddress123"
-        )  # noqa: mock
+        self.lp_token = IssuedCurrency(currency="534F4C4F00000000000000000000000000000000", issuer="rAMMPoolAddress123")  # noqa: mock
 
         # Mock authentication
         self.connector._xrpl_auth = MagicMock()
@@ -188,9 +187,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     async def test_amm_add_liquidity(self, mock_xrp_to_drops, mock_convert_string_to_hex):
         # Setup mocks
         mock_xrp_to_drops.return_value = "10000000"
-        mock_convert_string_to_hex.return_value = (
-            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
-        )
+        mock_convert_string_to_hex.return_value = "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
 
         # Mock pool info
         mock_pool_info = PoolInfo(
@@ -370,9 +367,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.connector.exchange.xrpl.xrpl_utils.convert_string_to_hex")
     async def test_amm_remove_liquidity(self, mock_convert_string_to_hex):
         # Setup mocks
-        mock_convert_string_to_hex.return_value = (
-            "68626F742D6C69717569646974792D72656D6F7665642D73756363657373"  # noqa: mock
-        )
+        mock_convert_string_to_hex.return_value = "68626F742D6C69717569646974792D72656D6F7665642D73756363657373"  # noqa: mock
 
         # Mock pool info
         mock_pool_info = PoolInfo(
@@ -635,7 +630,8 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
 
         # Call the method
         result = await self.connector.amm_get_balance(
-            pool_address="rAMMPoolAddress123", wallet_address="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R"  # noqa: mock
+            pool_address="rAMMPoolAddress123",
+            wallet_address="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
         )
 
         # Verify the result
@@ -654,7 +650,8 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
 
         # Call the method
         result = await self.connector.amm_get_balance(
-            pool_address="rAMMPoolAddress123", wallet_address="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R"  # noqa: mock
+            pool_address="rAMMPoolAddress123",
+            wallet_address="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R",  # noqa: mock
         )
 
         # Verify zero balances are returned
@@ -668,9 +665,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     async def test_amm_add_liquidity_none_pool_info(self, mock_xrp_to_drops, mock_convert_string_to_hex):
         # Setup mocks
         mock_xrp_to_drops.return_value = "10000000"
-        mock_convert_string_to_hex.return_value = (
-            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
-        )
+        mock_convert_string_to_hex.return_value = "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
 
         # Mock amm_get_pool_info to return None
         self.connector.amm_get_pool_info = AsyncMock(return_value=None)
@@ -695,9 +690,7 @@ class TestXRPLAMMFunctions(IsolatedAsyncioWrapperTestCase):
     async def test_amm_add_liquidity_none_quote(self, mock_xrp_to_drops, mock_convert_string_to_hex):
         # Setup mocks
         mock_xrp_to_drops.return_value = "10000000"
-        mock_convert_string_to_hex.return_value = (
-            "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
-        )
+        mock_convert_string_to_hex.return_value = "68626F742D6C69717569646974792D61646465642D73756363657373"  # noqa: mock
 
         # Mock pool info
         mock_pool_info = PoolInfo(

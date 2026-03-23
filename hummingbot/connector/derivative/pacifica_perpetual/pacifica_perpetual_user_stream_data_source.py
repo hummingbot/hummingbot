@@ -55,7 +55,7 @@ class PacificaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "params": {
                     "source": CONSTANTS.WS_ACCOUNT_ORDER_UPDATES_CHANNEL,
                     "account": self._auth.user_wallet_public_key,
-                }
+                },
             }
 
             # https://docs.pacifica.fi/api-documentation/api/websocket/subscriptions/account-positions
@@ -64,7 +64,7 @@ class PacificaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "params": {
                     "source": CONSTANTS.WS_ACCOUNT_POSITIONS_CHANNEL,
                     "account": self._auth.user_wallet_public_key,
-                }
+                },
             }
 
             # https://docs.pacifica.fi/api-documentation/api/websocket/subscriptions/account-info
@@ -73,7 +73,7 @@ class PacificaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "params": {
                     "source": CONSTANTS.WS_ACCOUNT_INFO_CHANNEL,
                     "account": self._auth.user_wallet_public_key,
-                }
+                },
             }
 
             # https://docs.pacifica.fi/api-documentation/api/websocket/subscriptions/account-trades
@@ -82,7 +82,7 @@ class PacificaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "params": {
                     "source": CONSTANTS.WS_ACCOUNT_TRADES_CHANNEL,
                     "account": self._auth.user_wallet_public_key,
-                }
+                },
             }
 
             await websocket_assistant.send(WSJSONRequest(account_order_updates_payload))

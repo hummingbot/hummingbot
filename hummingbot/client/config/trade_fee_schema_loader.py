@@ -43,8 +43,7 @@ class TradeFeeSchemaLoader:
             maker_fixed_fees_config.value if maker_fixed_fees_config else None
         ) or trade_fee_schema.maker_fixed_fees
         trade_fee_schema.maker_fixed_fees = [
-            TokenAmount(*maker_fixed_fee)
-            for maker_fixed_fee in trade_fee_schema.maker_fixed_fees
+            TokenAmount(*maker_fixed_fee) for maker_fixed_fee in trade_fee_schema.maker_fixed_fees
         ]
 
         taker_fixed_fees_config = fee_overrides_config_map.get(f"{exchange}_taker_fixed_fees")
@@ -52,8 +51,7 @@ class TradeFeeSchemaLoader:
             taker_fixed_fees_config.value if taker_fixed_fees_config else None
         ) or trade_fee_schema.taker_fixed_fees
         trade_fee_schema.taker_fixed_fees = [
-            TokenAmount(*taker_fixed_fee)
-            for taker_fixed_fee in trade_fee_schema.taker_fixed_fees
+            TokenAmount(*taker_fixed_fee) for taker_fixed_fee in trade_fee_schema.taker_fixed_fees
         ]
         trade_fee_schema.validate_schema()
         return trade_fee_schema

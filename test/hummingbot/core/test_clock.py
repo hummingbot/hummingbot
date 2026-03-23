@@ -9,7 +9,6 @@ from hummingbot.core.time_iterator import TimeIterator
 
 
 class ClockUnitTest(unittest.TestCase):
-
     backtest_start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
     backtest_end_timestamp: float = pd.Timestamp("2021-01-01 01:00:00", tz="UTC").timestamp()
     tick_size: int = 1
@@ -23,8 +22,12 @@ class ClockUnitTest(unittest.TestCase):
         super().setUp()
         self.realtime_start_timestamp = int(time.time())
         self.realtime_end_timestamp = self.realtime_start_timestamp + 2.0  #
-        self.clock_realtime = Clock(ClockMode.REALTIME, self.tick_size, self.realtime_start_timestamp, self.realtime_end_timestamp)
-        self.clock_backtest = Clock(ClockMode.BACKTEST, self.tick_size, self.backtest_start_timestamp, self.backtest_end_timestamp)
+        self.clock_realtime = Clock(
+            ClockMode.REALTIME, self.tick_size, self.realtime_start_timestamp, self.realtime_end_timestamp
+        )
+        self.clock_backtest = Clock(
+            ClockMode.BACKTEST, self.tick_size, self.backtest_start_timestamp, self.backtest_end_timestamp
+        )
 
     def test_clock_mode(self):
         self.assertEqual(ClockMode.REALTIME, self.clock_realtime.clock_mode)
@@ -45,7 +48,9 @@ class ClockUnitTest(unittest.TestCase):
 
     def test_current_timestamp(self):
         self.assertEqual(self.backtest_start_timestamp, self.clock_backtest.current_timestamp)
-        self.assertAlmostEqual((self.realtime_start_timestamp // self.tick_size) * self.tick_size, self.clock_realtime.current_timestamp)
+        self.assertAlmostEqual(
+            (self.realtime_start_timestamp // self.tick_size) * self.tick_size, self.clock_realtime.current_timestamp
+        )
 
         self.clock_backtest.backtest()
         self.clock_realtime.backtest()

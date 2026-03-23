@@ -22,9 +22,7 @@ class BitgetPerpetualWebUtilsTest(unittest.TestCase):
             "code": "00000",
             "msg": "success",
             "requestTime": 1688008631614,
-            "data": {
-                "serverTime": "1688008631614"
-            }
+            "data": {"serverTime": "1688008631614"},
         }
 
     def test_get_rest_url_for_endpoint(self) -> None:
@@ -45,10 +43,6 @@ class BitgetPerpetualWebUtilsTest(unittest.TestCase):
 
         api_mock.get(url=url, status=400, body=json.dumps(data))
 
-        time = asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(
-                web_utils.get_current_server_time(), 1
-            )
-        )
+        time = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(web_utils.get_current_server_time(), 1))
 
         self.assertEqual(data["requestTime"], time)

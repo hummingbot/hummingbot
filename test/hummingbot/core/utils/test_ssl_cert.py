@@ -22,7 +22,6 @@ from hummingbot.core.utils.ssl_cert import (
 
 
 class SslCertTest(unittest.TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())

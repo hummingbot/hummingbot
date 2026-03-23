@@ -13,10 +13,7 @@ from hummingbot.logger import HummingbotLogger
 class DexalotAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: DexalotAuth,
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(self, auth: DexalotAuth, api_factory: WebAssistantsFactory, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
         self._auth: DexalotAuth = auth
         self._domain = domain
@@ -35,7 +32,6 @@ class DexalotAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-
             user_payload = {"type": "tradereventsubscribe"}
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=user_payload, is_auth_required=True)
             await websocket_assistant.send(subscribe_order_change_request)

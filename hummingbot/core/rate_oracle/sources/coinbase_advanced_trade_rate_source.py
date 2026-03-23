@@ -51,9 +51,8 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
             self._coinbase_exchange = self._build_coinbase_connector(domain="com")
 
     async def _get_coinbase_prices(
-            self,
-            exchange: 'CoinbaseAdvancedTradeExchange',
-            quote_token: str = None) -> Dict[str, Decimal]:
+        self, exchange: "CoinbaseAdvancedTradeExchange", quote_token: str = None
+    ) -> Dict[str, Decimal]:
         """
         Fetches coinbase prices
 
@@ -66,7 +65,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         self.logger().debug(f"   {token_price.get('ATOM')} {quote_token} for 1 ATOM")
         return {token: Decimal(1.0) / Decimal(price) for token, price in token_price.items() if Decimal(price) != 0}
 
-    def _build_coinbase_connector(self, domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
+    def _build_coinbase_connector(self, domain: str = DEFAULT_DOMAIN) -> "CoinbaseAdvancedTradeExchange":
         from hummingbot.client.settings import AllConnectorSettings
         from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
             CoinbaseAdvancedTradeExchange,
@@ -77,7 +76,9 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         api_secret = ""
         if self._use_auth_for_public_endpoints:
             api_key = getattr(connector_config, "coinbase_advanced_trade_api_key", SecretStr("")).get_secret_value()
-            api_secret = getattr(connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")).get_secret_value()
+            api_secret = getattr(
+                connector_config, "coinbase_advanced_trade_api_secret", SecretStr("")
+            ).get_secret_value()
 
         return CoinbaseAdvancedTradeExchange(
             coinbase_advanced_trade_api_key=api_key,

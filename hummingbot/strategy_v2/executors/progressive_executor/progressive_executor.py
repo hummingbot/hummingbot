@@ -36,10 +36,17 @@ class ProgressiveExecutor(
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: StrategyV2Base, config: ProgressiveExecutorConfig,
-                 update_interval: float = 1.0, max_retries: int = 10):
-        if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
-                config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
+    def __init__(
+        self,
+        strategy: StrategyV2Base,
+        config: ProgressiveExecutorConfig,
+        update_interval: float = 1.0,
+        max_retries: int = 10,
+    ):
+        if (
+            config.triple_barrier_config.time_limit_order_type != OrderType.MARKET
+            or config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET
+        ):
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
@@ -52,8 +59,9 @@ class ProgressiveExecutor(
         )
         if not config.entry_price:
             open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
-            config.entry_price = self.get_price(config.connector_name, config.trading_pair,
-                                                price_type=open_order_price_type)
+            config.entry_price = self.get_price(
+                config.connector_name, config.trading_pair, price_type=open_order_price_type
+            )
         self.config: ProgressiveExecutorConfig = config
 
         self._open_order_timestamp = None
@@ -243,7 +251,7 @@ class ProgressiveExecutor(
             "current_position_average_price": self.entry_price,
             "side": self.config.side,
             "current_retries": self.current_retries,
-            "max_retries": self.max_retries
+            "max_retries": self.max_retries,
         }
 
     def to_format_status(self, scale=1.0) -> List[str]:
@@ -252,19 +260,27 @@ class ProgressiveExecutor(
         if self.is_trading:
             if self.config.triple_barrier_config.time_limit:
                 time_scale = int(scale * 200)
-                seconds_remaining = (self.end_time - self.current_timestamp)
-                time_progress = (self.config.triple_barrier_config.time_limit - seconds_remaining) / self.config.triple_barrier_config.time_limit
-                time_bar = "".join(['-' if i < time_scale * time_progress else ' ' for i in range(time_scale)])
+                seconds_remaining = self.end_time - self.current_timestamp
+                time_progress = (
+                    self.config.triple_barrier_config.time_limit - seconds_remaining
+                ) / self.config.triple_barrier_config.time_limit
+                time_bar = "".join(["-" if i < time_scale * time_progress else " " for i in range(time_scale)])
                 lines.extend([f"{self.config.trading_pair:>10} - Time limit:    [{time_bar}]"])
 
             progress = 0
             if self.config.triple_barrier_config.stop_loss:
                 price_scale = int(scale * 200)
-                stop_loss_price = self.entry_price * (1 - self.config.triple_barrier_config.stop_loss) if self.config.side == TradeType.BUY \
+                stop_loss_price = (
+                    self.entry_price * (1 - self.config.triple_barrier_config.stop_loss)
+                    if self.config.side == TradeType.BUY
                     else self.entry_price * (1 + self.config.triple_barrier_config.stop_loss)
+                )
                 take_profit_pct: Decimal = Decimal("0.2")
-                take_profit_price = self.entry_price * Decimal(1 + take_profit_pct) if self.config.side == TradeType.BUY \
+                take_profit_price = (
+                    self.entry_price * Decimal(1 + take_profit_pct)
+                    if self.config.side == TradeType.BUY
                     else self.entry_price * Decimal(1 - min(take_profit_pct, Decimal("1")))
+                )
 
                 trailing_stop_price = None
                 if self.config.side == TradeType.BUY:
@@ -272,13 +288,19 @@ class ProgressiveExecutor(
                     progress = (current_price - stop_loss_price) / price_range
                     entry_price = (self.entry_price - stop_loss_price) / price_range
                     if self.trailing_stop_manager.pnl_trigger:
-                        trailing_stop_price = (self.entry_price * (1 + self.trade_pnl_pct - self.trailing_stop_manager.pnl_trigger) - stop_loss_price) / price_range
+                        trailing_stop_price = (
+                            self.entry_price * (1 + self.trade_pnl_pct - self.trailing_stop_manager.pnl_trigger)
+                            - stop_loss_price
+                        ) / price_range
                 elif self.config.side == TradeType.SELL:
                     price_range = stop_loss_price - take_profit_price
                     progress = (stop_loss_price - current_price) / price_range
                     entry_price = (stop_loss_price - self.entry_price) / price_range
                     if self.trailing_stop_manager.pnl_trigger:
-                        trailing_stop_price = (stop_loss_price - self.entry_price * (1 + self.trailing_stop_manager.pnl_trigger - self.trade_pnl_pct)) / price_range
+                        trailing_stop_price = (
+                            stop_loss_price
+                            - self.entry_price * (1 + self.trailing_stop_manager.pnl_trigger - self.trade_pnl_pct)
+                        ) / price_range
                 else:
                     entry_price = 0
                     price_range = 1
@@ -286,48 +308,62 @@ class ProgressiveExecutor(
                 zero = int(price_scale * entry_price)
                 progress_index = int(price_scale * progress)
 
-                progress_bar = ['.' for _ in range(price_scale)]
-                progress_bar[progress_index] = '|'
+                progress_bar = ["." for _ in range(price_scale)]
+                progress_bar[progress_index] = "|"
                 if progress_index < zero:
-                    progress_bar[progress_index + 1:zero] = ['<'] * (abs(zero - progress_index) - 1)
+                    progress_bar[progress_index + 1 : zero] = ["<"] * (abs(zero - progress_index) - 1)
                 if progress_index > zero:
-                    progress_bar[zero + 1:progress_index] = ['>'] * (abs(zero - progress_index) - 1)
+                    progress_bar[zero + 1 : progress_index] = [">"] * (abs(zero - progress_index) - 1)
 
-                price_bar = [' ' for _ in range(price_scale)]
-                trailing_bar = [' ' for _ in range(price_scale)]
+                price_bar = [" " for _ in range(price_scale)]
+                trailing_bar = [" " for _ in range(price_scale)]
                 price_bar.insert(0, f"{' ' * 1}")
                 price_bar.append(f"{' ' * 6}")
                 trailing_bar.append(f"{' ' * 1}")
 
                 if 0 <= zero < len(progress_bar):
-                    progress_bar[zero] = '*'
-                    trailing_bar[zero] = '0'
-                    trailing_bar[zero - 1:zero + 1] = f'{0:3}%'
+                    progress_bar[zero] = "*"
+                    trailing_bar[zero] = "0"
+                    trailing_bar[zero - 1 : zero + 1] = f"{0:3}%"
 
                 if self.config.triple_barrier_config.trailing_stop:
                     for i, (pct, r) in enumerate(self.config.triple_barrier_config.trailing_stop.take_profit_table):
                         if 0 < pct <= take_profit_pct:
                             if self.config.side == TradeType.BUY:
-                                position = int(price_scale * ((1 + pct) * self.entry_price - stop_loss_price) / price_range)
+                                position = int(
+                                    price_scale * ((1 + pct) * self.entry_price - stop_loss_price) / price_range
+                                )
                             else:
-                                position = int(price_scale * (stop_loss_price - (1 - pct) * self.entry_price) / price_range)
+                                position = int(
+                                    price_scale * (stop_loss_price - (1 - pct) * self.entry_price) / price_range
+                                )
 
                             if 0 <= position < len(progress_bar):
-                                progress_bar[position] = '*'
-                                trailing_bar[position:position + 3] = f'{floor(r * Decimal("99.99")):3}%'
+                                progress_bar[position] = "*"
+                                trailing_bar[position : position + 3] = f"{floor(r * Decimal('99.99')):3}%"
 
                 progress_bar[int(price_scale * progress)] = "|"
                 if trailing_stop_price:
                     progress_bar[int(price_scale * trailing_stop_price)] = "%"
                 pnl_pct: Decimal = self.trade_pnl_pct * 100
                 if progress > zero:
-                    price_bar[int(price_scale * progress):int(price_scale * progress) + 7] = f'{pnl_pct:+.1f}% ({current_price:.3g})' if pnl_pct < Decimal("10") else f'{pnl_pct:+.1f}% ({current_price}:.3g)'
+                    price_bar[int(price_scale * progress) : int(price_scale * progress) + 7] = (
+                        f"{pnl_pct:+.1f}% ({current_price:.3g})"
+                        if pnl_pct < Decimal("10")
+                        else f"{pnl_pct:+.1f}% ({current_price}:.3g)"
+                    )
                 else:
-                    price_bar[int(price_scale * progress):int(price_scale * progress) + 7] = f'{pnl_pct:+.1f}% ({current_price:.3g})' if pnl_pct < Decimal("10") else f'{pnl_pct:+.1f}% ({current_price}:.3g)'
+                    price_bar[int(price_scale * progress) : int(price_scale * progress) + 7] = (
+                        f"{pnl_pct:+.1f}% ({current_price:.3g})"
+                        if pnl_pct < Decimal("10")
+                        else f"{pnl_pct:+.1f}% ({current_price}:.3g)"
+                    )
 
                 sl_label: str = f"{' ' * 13}SL: {stop_loss_price:10.2f} ["
                 progress_bar.insert(0, sl_label)
-                progress_bar.append(f"] TP: {take_profit_price:8.2f} ({take_profit_pct * 100}% PnL {'BUY' if self.config.side == TradeType.BUY else 'SELL'})")
+                progress_bar.append(
+                    f"] TP: {take_profit_price:8.2f} ({take_profit_pct * 100}% PnL {'BUY' if self.config.side == TradeType.BUY else 'SELL'})"
+                )
                 price_bar.insert(0, f"{' ' * (len(sl_label) - 1)}")
                 trailing_bar.insert(0, f"{' ' * (len(sl_label) - 1)}")
                 lines.extend([f"{''.join(progress_bar)}"])
@@ -362,5 +398,7 @@ class ProgressiveExecutor(
         adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, [order_candidate])
         if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
-            self.logger().warning(f"Not enough budget to open a position. {self.config.trading_pair}:{self.config.side}:{self.config.amount}")
+            self.logger().warning(
+                f"Not enough budget to open a position. {self.config.trading_pair}:{self.config.side}:{self.config.amount}"
+            )
             self.stop()

@@ -36,8 +36,9 @@ def split_to_base_quote(exchange_trading_pair: str) -> Tuple[Optional[str], Opti
     return base, quote
 
 
-def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_trading_pairs: Optional[Tuple] = None) -> \
-        Optional[str]:
+def convert_from_exchange_trading_pair(
+    exchange_trading_pair: str, available_trading_pairs: Optional[Tuple] = None
+) -> Optional[str]:
     base, quote = "", ""
     if "-" in exchange_trading_pair:
         base, quote = split_to_base_quote(exchange_trading_pair)
@@ -46,18 +47,20 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_tra
     elif len(available_trading_pairs) > 0:
         # If trading pair has no spaces (i.e. ETHUSDT). Then it will have to match with the existing pairs
         # Option 1: Using traditional naming convention
-        connector_trading_pair = {''.join(convert_from_exchange_trading_pair(tp).split('-')): tp for tp in
-                                  available_trading_pairs}.get(
-            exchange_trading_pair)
+        connector_trading_pair = {
+            "".join(convert_from_exchange_trading_pair(tp).split("-")): tp for tp in available_trading_pairs
+        }.get(exchange_trading_pair)
         if not connector_trading_pair:
             # Option 2: Using kraken naming convention ( XXBT for Bitcoin, XXDG for Doge, ZUSD for USD, etc)
-            connector_trading_pair = {''.join(tp.split('-')): tp for tp in available_trading_pairs}.get(
-                exchange_trading_pair)
+            connector_trading_pair = {"".join(tp.split("-")): tp for tp in available_trading_pairs}.get(
+                exchange_trading_pair
+            )
             if not connector_trading_pair:
                 # Option 3: Kraken naming convention but without the initial X and Z
-                connector_trading_pair = {''.join(convert_to_exchange_symbol(convert_from_exchange_symbol(s))
-                                                  for s in tp.split('-')): tp
-                                          for tp in available_trading_pairs}.get(exchange_trading_pair)
+                connector_trading_pair = {
+                    "".join(convert_to_exchange_symbol(convert_from_exchange_symbol(s)) for s in tp.split("-")): tp
+                    for tp in available_trading_pairs
+                }.get(exchange_trading_pair)
         return connector_trading_pair
 
     if not base or not quote:
@@ -91,65 +94,69 @@ def _build_private_rate_limits(tier: KrakenAPITier = KrakenAPITier.STARTER) -> L
     PRIVATE_ENDPOINT_LIMIT, MATCHING_ENGINE_LIMIT = CONSTANTS.KRAKEN_TIER_LIMITS[tier]
 
     # Private REST endpoints
-    private_rate_limits.extend([
-        # Private API Pool
-        RateLimit(
-            limit_id=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        ),
-        # Private endpoints
-        RateLimit(
-            limit_id=CONSTANTS.GET_TOKEN_PATH_URL,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
-        ),
-        RateLimit(
-            limit_id=CONSTANTS.BALANCE_PATH_URL,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-            weight=2,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
-        ),
-        RateLimit(
-            limit_id=CONSTANTS.OPEN_ORDERS_PATH_URL,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-            weight=2,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
-        ),
-        RateLimit(
-            limit_id=CONSTANTS.QUERY_ORDERS_PATH_URL,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-            weight=2,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
-        ),
-        RateLimit(
-            limit_id=CONSTANTS.QUERY_TRADES_PATH_URL,
-            limit=PRIVATE_ENDPOINT_LIMIT,
-            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-            weight=2,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
-        ),
-    ])
+    private_rate_limits.extend(
+        [
+            # Private API Pool
+            RateLimit(
+                limit_id=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            ),
+            # Private endpoints
+            RateLimit(
+                limit_id=CONSTANTS.GET_TOKEN_PATH_URL,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+            ),
+            RateLimit(
+                limit_id=CONSTANTS.BALANCE_PATH_URL,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+                weight=2,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+            ),
+            RateLimit(
+                limit_id=CONSTANTS.OPEN_ORDERS_PATH_URL,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+                weight=2,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+            ),
+            RateLimit(
+                limit_id=CONSTANTS.QUERY_ORDERS_PATH_URL,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+                weight=2,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+            ),
+            RateLimit(
+                limit_id=CONSTANTS.QUERY_TRADES_PATH_URL,
+                limit=PRIVATE_ENDPOINT_LIMIT,
+                time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+                weight=2,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+            ),
+        ]
+    )
 
     # Matching Engine Limits
-    private_rate_limits.extend([
-        RateLimit(
-            limit_id=CONSTANTS.ADD_ORDER_PATH_URL,
-            limit=MATCHING_ENGINE_LIMIT,
-            time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
-        ),
-        RateLimit(
-            limit_id=CONSTANTS.CANCEL_ORDER_PATH_URL,
-            limit=MATCHING_ENGINE_LIMIT,
-            time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
-            linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
-        ),
-    ])
+    private_rate_limits.extend(
+        [
+            RateLimit(
+                limit_id=CONSTANTS.ADD_ORDER_PATH_URL,
+                limit=MATCHING_ENGINE_LIMIT,
+                time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
+            ),
+            RateLimit(
+                limit_id=CONSTANTS.CANCEL_ORDER_PATH_URL,
+                limit=MATCHING_ENGINE_LIMIT,
+                time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
+                linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
+            ),
+        ]
+    )
 
     return private_rate_limits
 
@@ -172,7 +179,7 @@ class KrakenConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kraken_secret_key: SecretStr = Field(
         default=...,
@@ -181,14 +188,14 @@ class KrakenConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kraken_api_tier: str = Field(
         default="Starter",
         json_schema_extra={
             "prompt": "Enter your Kraken API Tier (Starter/Intermediate/Pro)",
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="kraken")
 

@@ -13,13 +13,7 @@ class BitgetAuth(AuthBase):
     Auth class required by Bitget API
     """
 
-    def __init__(
-        self,
-        api_key: str,
-        secret_key: str,
-        passphrase: str,
-        time_provider: TimeSynchronizer
-    ) -> None:
+    def __init__(self, api_key: str, secret_key: str, passphrase: str, time_provider: TimeSynchronizer) -> None:
         self._api_key: str = api_key
         self._secret_key: str = secret_key
         self._passphrase: str = passphrase
@@ -34,9 +28,7 @@ class BitgetAuth(AuthBase):
 
     def _generate_signature(self, request_params: str) -> str:
         digest: bytes = hmac.new(
-            bytes(self._secret_key, encoding="utf8"),
-            bytes(request_params, encoding="utf-8"),
-            digestmod="sha256"
+            bytes(self._secret_key, encoding="utf8"), bytes(request_params, encoding="utf-8"), digestmod="sha256"
         ).digest()
         signature = base64.b64encode(digest).decode().strip()
 
@@ -73,13 +65,6 @@ class BitgetAuth(AuthBase):
         :return: a dictionary of authentication info including the request signature
         """
         timestamp: str = str(int(self._time_provider.time()))
-        signature: str = self._generate_signature(
-            self._union_params(timestamp, "GET", "/user/verify", "")
-        )
+        signature: str = self._generate_signature(self._union_params(timestamp, "GET", "/user/verify", ""))
 
-        return {
-            "apiKey": self._api_key,
-            "passphrase": self._passphrase,
-            "timestamp": timestamp,
-            "sign": signature
-        }
+        return {"apiKey": self._api_key, "passphrase": self._passphrase, "timestamp": timestamp, "sign": signature}

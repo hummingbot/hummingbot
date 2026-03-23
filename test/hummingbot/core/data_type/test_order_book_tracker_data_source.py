@@ -6,6 +6,7 @@ This module tests:
 - add_trading_pair: Adds a trading pair to the internal list
 - remove_trading_pair: Removes a trading pair from the internal list
 """
+
 import unittest
 from typing import Any, Dict, List, Optional
 
@@ -128,6 +129,7 @@ class OrderBookTrackerDataSourceTests(unittest.TestCase):
 
     def test_order_book_create_function_setter(self):
         """Test setting a custom order_book_create_function."""
+
         class CustomOrderBook(OrderBook):
             pass
 

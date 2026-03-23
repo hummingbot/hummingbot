@@ -5,7 +5,6 @@ from hummingbot.core.utils.tracking_nonce import NonceCreator
 
 
 class NonceCreatorTests(TestCase):
-
     @patch("hummingbot.core.utils.tracking_nonce.NonceCreator._time")
     def test_create_seconds_precision_nonce_from_machine_time(self, time_mock):
         time_mock.return_value = 1112223334.445556

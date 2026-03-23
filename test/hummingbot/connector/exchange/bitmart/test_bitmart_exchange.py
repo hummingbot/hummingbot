@@ -17,7 +17,6 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 
 class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
-
     @property
     def all_symbols_url(self):
         return web_utils.public_rest_url(path_url=CONSTANTS.GET_TRADING_RULES_PATH_URL)
@@ -68,10 +67,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "expiration": "NA",
                         "min_buy_amount": "0.00010000",
                         "min_sell_amount": "0.00010000",
-                        "trade_status": "trading"
+                        "trade_status": "trading",
                     },
                 ]
-            }
+            },
         }
 
     @property
@@ -92,8 +91,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "ask_sz": "0.00000",
                 "bid_px": "0.00",
                 "bid_sz": "0.00000",
-                "fluctuation": "-0.9999"
-            }
+                "fluctuation": "-0.9999",
+            },
         }
 
     @property
@@ -116,7 +115,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "expiration": "NA",
                         "min_buy_amount": "0.00010000",
                         "min_sell_amount": "0.00010000",
-                        "trade_status": "trading"
+                        "trade_status": "trading",
                     },
                     {
                         "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
@@ -130,10 +129,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "expiration": "NA",
                         "min_buy_amount": "0.00010000",
                         "min_sell_amount": "0.00010000",
-                        "trade_status": "pre-trade"
+                        "trade_status": "pre-trade",
                     },
                 ]
-            }
+            },
         }
 
         return "INVALID-PAIR", response
@@ -151,17 +150,17 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "service_type": "spot",
                         "status": "2",
                         "start_time": 1527777538000,
-                        "end_time": 1527777538000
+                        "end_time": 1527777538000,
                     },
                     {
                         "title": "Contract API Stop",
                         "service_type": "contract",
                         "status": "2",
                         "start_time": 1527777538000,
-                        "end_time": 1527777538000
-                    }
+                        "end_time": 1527777538000,
+                    },
                 ]
-            }
+            },
         }
 
     @property
@@ -184,10 +183,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "expiration": "NA",
                         "min_buy_amount": "0.00020000",
                         "min_sell_amount": "0.00030000",
-                        "trade_status": "trading"
+                        "trade_status": "trading",
                     },
                 ]
-            }
+            },
         }
 
     @property
@@ -204,10 +203,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "base_currency": self.base_asset,
                         "quote_currency": self.quote_asset,
                         "expiration": "NA",
-                        "trade_status": "trading"
+                        "trade_status": "trading",
                     },
                 ]
-            }
+            },
         }
 
     @property
@@ -216,9 +215,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "886fb6ae-456b-4654-b4e0-d681ac05cea1",
             "message": "OK",
-            "data": {
-                "order_id": self.expected_exchange_order_id
-            }
+            "data": {"order_id": self.expected_exchange_order_id},
         }
 
     @property
@@ -242,7 +239,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "frozen": "0.0",
                     },
                 ]
-            }
+            },
         }
 
     @property
@@ -260,7 +257,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "frozen": "5.000000",
                     },
                 ]
-            }
+            },
         }
 
     @property
@@ -278,15 +275,17 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     @property
     def expected_trading_rule(self):
-        price_decimals = Decimal(str(
-            self.trading_rules_request_mock_response["data"]["symbols"][0]["price_max_precision"]))
+        price_decimals = Decimal(
+            str(self.trading_rules_request_mock_response["data"]["symbols"][0]["price_max_precision"])
+        )
         price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
         return TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=Decimal(self.trading_rules_request_mock_response["data"]["symbols"][0]["base_min_size"]),
             min_order_value=Decimal(self.trading_rules_request_mock_response["data"]["symbols"][0]["min_buy_amount"]),
-            min_base_amount_increment=Decimal(str(
-                self.trading_rules_request_mock_response["data"]["symbols"][0]["base_min_size"])),
+            min_base_amount_increment=Decimal(
+                str(self.trading_rules_request_mock_response["data"]["symbols"][0]["base_min_size"])
+            ),
             min_price_increment=price_step,
         )
 
@@ -318,8 +317,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -346,8 +345,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["symbol"])
         self.assertEqual("limit", request_data["type"])
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(Decimal("100"), Decimal(request_data["size"]))
@@ -366,10 +364,9 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         request_params = dict(json.loads(request_call.kwargs["data"]))
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
-    def configure_successful_cancelation_response(self,
-                                                  order: InFlightOrder,
-                                                  mock_api: aioresponses,
-                                                  callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+    def configure_successful_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
@@ -377,19 +374,16 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=400, callback=callback)
         return url
 
-    def configure_one_successful_one_erroneous_cancel_all_response(self,
-                                                                   successful_order: InFlightOrder,
-                                                                   erroneous_order: InFlightOrder,
-                                                                   mock_api: aioresponses) -> List[str]:
+    def configure_one_successful_one_erroneous_cancel_all_response(
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -401,43 +395,37 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_DETAIL_PATH_URL)
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
-    def configure_canceled_order_status_response(self,
-                                                 order: InFlightOrder,
-                                                 mock_api: aioresponses,
-                                                 callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+    def configure_canceled_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_DETAIL_PATH_URL)
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
-    def configure_open_order_status_response(self,
-                                             order: InFlightOrder,
-                                             mock_api: aioresponses,
-                                             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+    def configure_open_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         """
         :return: the URL configured
         """
@@ -447,49 +435,39 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_DETAIL_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=401, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_DETAIL_PATH_URL)
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL)
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL)
         mock_api.post(url, status=400, callback=callback)
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.GET_TRADE_DETAIL_PATH_URL)
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
@@ -517,10 +495,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "last_fill_count": "0.00000",
                     "exec_type": "M",
                     "detail_id": "",
-                    "client_order_id": order.client_order_id
+                    "client_order_id": order.client_order_id,
                 }
             ],
-            "table": "spot/user/order"
+            "table": "spot/user/order",
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -545,10 +523,10 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "last_fill_count": "0.00000",
                     "exec_type": "M",
                     "detail_id": "",
-                    "client_order_id": order.client_order_id
+                    "client_order_id": order.client_order_id,
                 }
             ],
-            "table": "spot/user/order"
+            "table": "spot/user/order",
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -573,34 +551,44 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "last_fill_count": str(order.amount),
                     "exec_type": "M",
                     "detail_id": self.expected_fill_trade_id,
-                    "client_order_id": order.client_order_id
+                    "client_order_id": order.client_order_id,
                 }
             ],
-            "table": "spot/user/order"
+            "table": "spot/user/order",
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         pass
 
     def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-                            'Error: {"code":30007,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
+        exception = IOError(
+            "Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+            'Error: {"code":30007,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-                            'Error: {"code":30008,"msg":"Header X-BM-TIMESTAMP invalid format"}')
+        exception = IOError(
+            "Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+            'Error: {"code":30008,"msg":"Header X-BM-TIMESTAMP invalid format"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-                            'Error: {"code":30000,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}')
+        exception = IOError(
+            "Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+            'Error: {"code":30000,"msg":"Header X-BM-TIMESTAMP range. Within a minute"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-                            'Error: {"code":30007,"msg":"Other message"}')
+        exception = IOError(
+            "Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+            'Error: {"code":30007,"msg":"Other message"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
-                            'Error: {"code":30008,"msg":"Other message"}')
+        exception = IOError(
+            "Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
+            'Error: {"code":30008,"msg":"Other message"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
@@ -626,9 +614,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
             "code": 1000,
             "trace": "886fb6ae-456b-4654-b4e0-d681ac05cea1",
             "message": "OK",
-            "data": {
-                "result": True
-            }
+            "data": {"result": True},
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -651,8 +637,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_size": "0.00000",
                 "unfilled_volume": "0.02000",
                 "state": "canceled",
-                "clientOrderId": order.client_order_id
-            }
+                "clientOrderId": order.client_order_id,
+            },
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -675,8 +661,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_size": str(order.amount),
                 "unfilled_volume": "0.00000",
                 "state": "filled",
-                "clientOrderId": order.client_order_id
-            }
+                "clientOrderId": order.client_order_id,
+            },
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
@@ -698,9 +684,9 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "price": str(order.price),
                     "size": str(order.amount),
                     "exec_type": "M",
-                    "clientOrderId": order.client_order_id
+                    "clientOrderId": order.client_order_id,
                 },
-            ]
+            ],
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
@@ -723,8 +709,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_size": "0.00000",
                 "unfilled_volume": "0.02000",
                 "state": "new",
-                "clientOrderId": order.client_order_id
-            }
+                "clientOrderId": order.client_order_id,
+            },
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -745,11 +731,13 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "notional": str(order.amount * order.price),
                 "filled_notional": str(self.expected_partial_fill_amount * order.price),
                 "filled_size": str(self.expected_partial_fill_amount),
-                "unfilled_volume": str((order.amount * order.price) -
-                                       (self.expected_partial_fill_amount * self.expected_partial_fill_price)),
+                "unfilled_volume": str(
+                    (order.amount * order.price)
+                    - (self.expected_partial_fill_amount * self.expected_partial_fill_price)
+                ),
                 "state": "partially_filled",
-                "clientOrderId": order.client_order_id
-            }
+                "clientOrderId": order.client_order_id,
+            },
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
@@ -771,9 +759,9 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                     "price": str(self.expected_partial_fill_price),
                     "size": str(self.expected_partial_fill_amount),
                     "exec_type": "M",
-                    "clientOrderId": order.client_order_id
+                    "clientOrderId": order.client_order_id,
                 },
-            ]
+            ],
         }
 
     @aioresponses()
@@ -791,18 +779,14 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         )
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        url = self.configure_http_error_order_status_response(
-            order=order,
-            mock_api=mock_api)
+        url = self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         if url:
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(
-                order=order,
-                request_call=order_status_request)
+            self.validate_order_status_request(order=order, request_call=order_status_request)
 
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)
@@ -812,14 +796,14 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def test_create_market_buy_order_update(self):
         inflight_order = InFlightOrder(
-            client_order_id = 123,
-            trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            trade_type = TradeType.BUY,
-            order_type = OrderType.MARKET,
-            creation_timestamp = 123456789,
-            price = str(9999),
-            amount = str(10),
-            initial_state = OrderState.OPEN
+            client_order_id=123,
+            trading_pair=self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.MARKET,
+            creation_timestamp=123456789,
+            price=str(9999),
+            amount=str(10),
+            initial_state=OrderState.OPEN,
         )
 
         order_update = {
@@ -840,8 +824,8 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 "filled_size": "0.5",
                 "unfilled_volume": "0",
                 "state": "partially_canceled",
-                "clientOrderId": "1234"
-            }
+                "clientOrderId": "1234",
+            },
         }
 
         order = self.exchange._create_order_update(inflight_order, order_update)

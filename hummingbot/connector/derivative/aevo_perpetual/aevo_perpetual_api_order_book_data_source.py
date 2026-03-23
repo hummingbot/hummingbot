@@ -24,11 +24,11 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _mapping_initialization_lock = asyncio.Lock()
 
     def __init__(
-            self,
-            trading_pairs: List[str],
-            connector: 'AevoPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        trading_pairs: List[str],
+        connector: "AevoPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -38,9 +38,7 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -94,12 +92,16 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         timestamp = int(snapshot_response["last_updated"]) * 1e-9
-        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": int(snapshot_response["last_updated"]),
-            "bids": [[float(i[0]), float(i[1])] for i in snapshot_response.get("bids", [])],
-            "asks": [[float(i[0]), float(i[1])] for i in snapshot_response.get("asks", [])],
-        }, timestamp=timestamp)
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": int(snapshot_response["last_updated"]),
+                "bids": [[float(i[0]), float(i[1])] for i in snapshot_response.get("bids", [])],
+                "asks": [[float(i[0]), float(i[1])] for i in snapshot_response.get("asks", [])],
+            },
+            timestamp=timestamp,
+        )
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -157,12 +159,16 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         timestamp = int(data["last_updated"]) * 1e-9
         instrument_name = raw_message["data"]["instrument_name"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument_name)
-        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": trading_pair,
-            "update_id": int(data["last_updated"]),
-            "bids": [[float(i[0]), float(i[1])] for i in data.get("bids", [])],
-            "asks": [[float(i[0]), float(i[1])] for i in data.get("asks", [])],
-        }, timestamp=timestamp)
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            {
+                "trading_pair": trading_pair,
+                "update_id": int(data["last_updated"]),
+                "bids": [[float(i[0]), float(i[1])] for i in data.get("bids", [])],
+                "asks": [[float(i[0]), float(i[1])] for i in data.get("asks", [])],
+            },
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -170,26 +176,33 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         timestamp = int(data["last_updated"]) * 1e-9
         instrument_name = raw_message["data"]["instrument_name"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(instrument_name)
-        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": int(data["last_updated"]),
-            "bids": [[float(i[0]), float(i[1])] for i in data.get("bids", [])],
-            "asks": [[float(i[0]), float(i[1])] for i in data.get("asks", [])],
-        }, timestamp=timestamp)
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": int(data["last_updated"]),
+                "bids": [[float(i[0]), float(i[1])] for i in data.get("bids", [])],
+                "asks": [[float(i[0]), float(i[1])] for i in data.get("asks", [])],
+            },
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         data = raw_message["data"]
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            data["instrument_name"])
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data["instrument_name"])
         timestamp = int(data.get("created_timestamp", "0")) * 1e-9
-        trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": trading_pair,
-            "trade_type": float(TradeType.BUY.value) if data["side"] == "buy" else float(TradeType.SELL.value),
-            "trade_id": str(data["trade_id"]),
-            "price": float(data["price"]),
-            "amount": float(data["amount"]),
-        }, timestamp=timestamp)
+        trade_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": trading_pair,
+                "trade_type": float(TradeType.BUY.value) if data["side"] == "buy" else float(TradeType.SELL.value),
+                "trade_id": str(data["trade_id"]),
+                "price": float(data["price"]),
+                "amount": float(data["amount"]),
+            },
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -197,9 +210,7 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
@@ -228,9 +239,7 @@ class AevoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established.")
             return False
 
         try:

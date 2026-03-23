@@ -13,21 +13,20 @@ from hummingbot.strategy_v2.models.executors import CloseType
 
 
 class TestProgressiveExecutorIntegration(ExecutorIntegrationTestBase):
-
     def create_executor_config(
-            self,
-            side: TradeType,
-            amount: Decimal,
-            stop_loss: Decimal = Decimal("0.05"),
-            take_profit: Decimal = Decimal("0.1"),
-            apr_yield: Decimal = Decimal("0.5"),
-            activation_pnl_pct: Decimal = Decimal("0.015"),
-            trailing_pct: Decimal = Decimal("0.005"),
-            take_profit_table: tuple[tuple[Decimal, Decimal], ...] = (
-                (Decimal("0.05"), Decimal("0.5")),
-                (Decimal("0.1"), Decimal("1")),
-            ),
-            time_limit: int = 0,
+        self,
+        side: TradeType,
+        amount: Decimal,
+        stop_loss: Decimal = Decimal("0.05"),
+        take_profit: Decimal = Decimal("0.1"),
+        apr_yield: Decimal = Decimal("0.5"),
+        activation_pnl_pct: Decimal = Decimal("0.015"),
+        trailing_pct: Decimal = Decimal("0.005"),
+        take_profit_table: tuple[tuple[Decimal, Decimal], ...] = (
+            (Decimal("0.05"), Decimal("0.5")),
+            (Decimal("0.1"), Decimal("1")),
+        ),
+        time_limit: int = 0,
     ) -> ProgressiveExecutorConfig:
         return ProgressiveExecutorConfig(
             type="progressive_executor",
@@ -72,8 +71,9 @@ class TestProgressiveExecutorIntegration(ExecutorIntegrationTestBase):
         self.assertIsNotNone(self.executor.open_order, "Order should have been placed")
         self.assertGreater(self.executor.open_filled_amount, Decimal("0"), "Order should have been filled")
 
-        self.simulate_side_price_change(stop_loss_price * Decimal("0.9"),
-                                        TradeType.BUY)  # Simulate price drop below stop loss
+        self.simulate_side_price_change(
+            stop_loss_price * Decimal("0.9"), TradeType.BUY
+        )  # Simulate price drop below stop loss
         self.advance_clock(5)
         await self.executor.control_task()
         self.advance_clock(5)
@@ -115,7 +115,9 @@ class TestProgressiveExecutorIntegration(ExecutorIntegrationTestBase):
         self.assertEqual(activation_price, self.executor.close_price)
         await self.executor.control_task()
         self.advance_clock()
-        self.assertIsNotNone(self.executor.trailing_stop_manager.pnl_trigger, "Trailing stop trigger price should have been set")
+        self.assertIsNotNone(
+            self.executor.trailing_stop_manager.pnl_trigger, "Trailing stop trigger price should have been set"
+        )
         # The trailing stop trigger PnL is affected by the damping_factor and the gradual increase of risk tolerance
         self.assertGreaterEqual(activation_pnl_pct - trailing_pct, self.executor.trailing_stop_manager.pnl_trigger)
 

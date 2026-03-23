@@ -24,7 +24,6 @@ class MockUserStreamTrackerDataSource(UserStreamTrackerDataSource):
 
 
 class TestUserStreamTrackerDataSource(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self):
         self.data_source = MockUserStreamTrackerDataSource()
 
@@ -45,13 +44,13 @@ class TestUserStreamTrackerDataSource(IsolatedAsyncioWrapperTestCase):
         self.data_source._ws_assistant = mock_ws
         self.assertEqual(self.data_source.last_recv_time, 123.456)
 
-    @patch('asyncio.sleep')
+    @patch("asyncio.sleep")
     async def test_sleep(self, mock_sleep):
         await self.data_source._sleep(1.5)
         mock_sleep.assert_called_once_with(1.5)
 
     def test_time(self):
-        with patch('time.time', return_value=123.456):
+        with patch("time.time", return_value=123.456):
             self.assertEqual(self.data_source._time(), 123.456)
 
     async def test_process_event_message_empty(self):
@@ -151,5 +150,5 @@ class TestUserStreamTrackerDataSource(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(self.data_source._ws_assistant)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

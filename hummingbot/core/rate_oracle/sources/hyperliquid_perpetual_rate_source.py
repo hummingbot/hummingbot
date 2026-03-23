@@ -50,7 +50,7 @@ class HyperliquidPerpetualRateSource(RateSourceBase):
             self._exchange = self._build_hyperliquid_perpetual_connector_without_private_keys()
 
     @staticmethod
-    def _build_hyperliquid_perpetual_connector_without_private_keys() -> 'HyperliquidPerpetualDerivative':
+    def _build_hyperliquid_perpetual_connector_without_private_keys() -> "HyperliquidPerpetualDerivative":
         from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
             HyperliquidPerpetualDerivative,
         )
@@ -59,7 +59,7 @@ class HyperliquidPerpetualRateSource(RateSourceBase):
             hyperliquid_perpetual_secret_key="",
             trading_pairs=[],
             use_vault=False,
-            hyperliquid_perpetual_mode = "arb_wallet",
+            hyperliquid_perpetual_mode="arb_wallet",
             hyperliquid_perpetual_address="",
             trading_required=False,
             enable_hip3_markets=True,

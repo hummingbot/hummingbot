@@ -25,10 +25,10 @@ class TrailingStopManager:
         return cls._logger
 
     def __init__(
-            self,
-            trailing_stop_config: LadderedTrailingStop,
-            pnl_relaxation: Decimal = Decimal("0.9"),
-            max_trailing_pct: Decimal = Decimal("0.05"),
+        self,
+        trailing_stop_config: LadderedTrailingStop,
+        pnl_relaxation: Decimal = Decimal("0.9"),
+        max_trailing_pct: Decimal = Decimal("0.05"),
     ):
         self._config: LadderedTrailingStop = trailing_stop_config
         self._pnl_relaxation: Decimal = pnl_relaxation
@@ -41,11 +41,11 @@ class TrailingStopManager:
         return self._pnl_trigger
 
     def update(
-            self,
-            net_pnl_pct: Decimal,
-            current_amount: Decimal,
-            on_close_position: Callable,
-            on_partial_close: Callable,
+        self,
+        net_pnl_pct: Decimal,
+        current_amount: Decimal,
+        on_close_position: Callable,
+        on_partial_close: Callable,
     ) -> None:
         assert current_amount > 0, f"Current amount must be positive: {current_amount} <= 0"
         self.logger().debug(f"Updating trailing stop with net PnL percentage {net_pnl_pct}")
@@ -69,22 +69,19 @@ class TrailingStopManager:
         base_trailing = self._config.trailing_pct
         extra_trailing = net_pnl_pct * self._pnl_relaxation if net_pnl_pct > base_trailing else Decimal("0")
 
-        return min(
-            base_trailing + extra_trailing,
-            self._max_trailing_pct
-        )
+        return min(base_trailing + extra_trailing, self._max_trailing_pct)
 
     def _handle_stop_trigger(
-            self,
-            net_pnl_pct: Decimal,
-            current_amount: Decimal,
-            on_close_position: Callable,
-            on_partial_close: Callable,
+        self,
+        net_pnl_pct: Decimal,
+        current_amount: Decimal,
+        on_close_position: Callable,
+        on_partial_close: Callable,
     ) -> None:
         closest_take_profit = max(
             filter(lambda x: x[0] <= net_pnl_pct, self._config.take_profit_table),
             key=lambda x: x[0],
-            default=(Decimal("0"), Decimal("1"))
+            default=(Decimal("0"), Decimal("1")),
         )
         close_ratio = closest_take_profit[1]
 
@@ -99,5 +96,5 @@ class TrailingStopManager:
         return max(
             filter(lambda x: x[0] <= net_pnl_pct, self._config.take_profit_table),
             key=lambda x: x[0],
-            default=(Decimal("0"), Decimal("1"))
+            default=(Decimal("0"), Decimal("1")),
         )

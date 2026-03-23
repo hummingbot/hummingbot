@@ -9,18 +9,20 @@ DEFAULT_TIME_IN_FORCE = "GTC"
 
 REST_URLS = {
     "bybit_perpetual_main": "https://api.bybit.com/",
-    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"
+    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/",
 }
 WSS_NON_LINEAR_PUBLIC_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/inverse",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse"}
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse",
+}
 WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
 WSS_LINEAR_PUBLIC_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"}
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear",
+}
 WSS_LINEAR_PRIVATE_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/private",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private"
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private",
 }
 WS_HEARTBEAT_TIME_INTERVAL = 20.0
 
@@ -57,48 +59,28 @@ LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
 
 # Covers: Spot / USDT perpetual / USDC contract / Inverse contract / Option
-LATEST_SYMBOL_INFORMATION_ENDPOINT = {
-    LINEAR_MARKET: "v5/market/tickers",
-    NON_LINEAR_MARKET: "v5/market/tickers"}
+LATEST_SYMBOL_INFORMATION_ENDPOINT = {LINEAR_MARKET: "v5/market/tickers", NON_LINEAR_MARKET: "v5/market/tickers"}
 
-QUERY_SYMBOL_ENDPOINT = {
-    LINEAR_MARKET: "v5/market/instruments-info",
-    NON_LINEAR_MARKET: "v5/market/instruments-info"}
-ORDER_BOOK_ENDPOINT = {
-    LINEAR_MARKET: "v5/market/orderbook",
-    NON_LINEAR_MARKET: "v5/market/orderbook"}
-SERVER_TIME_PATH_URL = {
-    LINEAR_MARKET: "v5/market/time",
-    NON_LINEAR_MARKET: "v5/market/time"
-}
+QUERY_SYMBOL_ENDPOINT = {LINEAR_MARKET: "v5/market/instruments-info", NON_LINEAR_MARKET: "v5/market/instruments-info"}
+ORDER_BOOK_ENDPOINT = {LINEAR_MARKET: "v5/market/orderbook", NON_LINEAR_MARKET: "v5/market/orderbook"}
+SERVER_TIME_PATH_URL = {LINEAR_MARKET: "v5/market/time", NON_LINEAR_MARKET: "v5/market/time"}
 
 # REST API Private Endpoints
-SET_LEVERAGE_PATH_URL = {
-    LINEAR_MARKET: "v5/position/set-leverage",
-    NON_LINEAR_MARKET: "v5/position/set-leverage"}
+SET_LEVERAGE_PATH_URL = {LINEAR_MARKET: "v5/position/set-leverage", NON_LINEAR_MARKET: "v5/position/set-leverage"}
 GET_LAST_FUNDING_RATE_PATH_URL = {
     LINEAR_MARKET: "v5/account/transaction-log",
-    NON_LINEAR_MARKET: "v5/account/contract-transaction-log"}
-GET_POSITIONS_PATH_URL = {
-    LINEAR_MARKET: "v5/position/list",
-    NON_LINEAR_MARKET: "v5/position/list"}
-PLACE_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "v5/order/create",
-    NON_LINEAR_MARKET: "v5/order/create"}
-CANCEL_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "v5/order/cancel",
-    NON_LINEAR_MARKET: "v5/order/cancel"}
-QUERY_ACTIVE_ORDER_PATH_URL = {
-    LINEAR_MARKET: "v5/order/realtime",
-    NON_LINEAR_MARKET: "v5/order/realtime"}
-USER_TRADE_RECORDS_PATH_URL = {
-    LINEAR_MARKET: "v5/execution/list",
-    NON_LINEAR_MARKET: "v5/execution/list"}
+    NON_LINEAR_MARKET: "v5/account/contract-transaction-log",
+}
+GET_POSITIONS_PATH_URL = {LINEAR_MARKET: "v5/position/list", NON_LINEAR_MARKET: "v5/position/list"}
+PLACE_ACTIVE_ORDER_PATH_URL = {LINEAR_MARKET: "v5/order/create", NON_LINEAR_MARKET: "v5/order/create"}
+CANCEL_ACTIVE_ORDER_PATH_URL = {LINEAR_MARKET: "v5/order/cancel", NON_LINEAR_MARKET: "v5/order/cancel"}
+QUERY_ACTIVE_ORDER_PATH_URL = {LINEAR_MARKET: "v5/order/realtime", NON_LINEAR_MARKET: "v5/order/realtime"}
+USER_TRADE_RECORDS_PATH_URL = {LINEAR_MARKET: "v5/execution/list", NON_LINEAR_MARKET: "v5/execution/list"}
 GET_WALLET_BALANCE_PATH_URL = {
     LINEAR_MARKET: "v5/account/wallet-balance",
-    NON_LINEAR_MARKET: "v5/account/wallet-balance"}
-SET_POSITION_MODE_URL = {
-    LINEAR_MARKET: "v5/position/switch-mode"}
+    NON_LINEAR_MARKET: "v5/account/wallet-balance",
+}
+SET_POSITION_MODE_URL = {LINEAR_MARKET: "v5/position/switch-mode"}
 GET_TRANSFERABLE_AMOUNT_PATH_URL = {
     LINEAR_MARKET: "v5/account/withdrawal",
 }

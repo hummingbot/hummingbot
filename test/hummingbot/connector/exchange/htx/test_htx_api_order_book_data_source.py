@@ -38,9 +38,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
         self.data_source = HtxAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair],
-            connector=self.connector,
-            api_factory=build_api_factory()
+            trading_pairs=[self.trading_pair], connector=self.connector, api_factory=build_api_factory()
         )
 
         self.data_source.logger().setLevel(1)
@@ -169,8 +167,8 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -222,7 +220,6 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(1, self.data_source._message_queue[CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX].qsize())
 
     async def test_listen_for_trades_logs_exception(self):
-
         trade_message = {"ch": f"market.{self.ex_trading_pair}.trade.detail", "err": "INCOMPLETE MESSAGE"}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [trade_message, asyncio.CancelledError()]
@@ -239,14 +236,15 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_queue.get.side_effect = [self._trade_update_event(), asyncio.CancelledError()]
         self.data_source._message_queue[CONSTANTS.TRADE_CHANNEL_SUFFIX] = mock_queue
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg = await msg_queue.get()
 
         self.assertEqual(137005445109359286410323766, msg.trade_id)
 
     async def test_listen_for_order_book_diffs_logs_exception(self):
-
         orderbook_message = {"ch": f"market.{self.ex_trading_pair}.depth.step0", "err": "INCOMPLETE MESSAGE"}
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [orderbook_message, asyncio.CancelledError()]
@@ -259,9 +257,8 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         orderbook_message = self._snapshot_response()
@@ -288,9 +285,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(self.trading_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to {self.trading_pair} order book and trade channels")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to {self.trading_pair} order book and trade channels"))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -300,9 +295,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
-        )
+        self.assertTrue(self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -322,9 +315,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error subscribing to {self.trading_pair}")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Error subscribing to {self.trading_pair}"))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -336,9 +327,7 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
-        self.assertTrue(
-            self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels"))
 
     async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
         """Test unsubscription when websocket is not connected."""
@@ -369,6 +358,4 @@ class HtxAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}"))

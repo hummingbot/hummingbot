@@ -95,7 +95,7 @@ ENDPOINTS = {
             ORDER_STATUS_PAATH_URL,
             PING_PATH_URL,
             POSITION_INFORMATION_URL,
-            TICKER_PRICE_CHANGE_PATH_URL
+            TICKER_PRICE_CHANGE_PATH_URL,
         ],
     },
 }
@@ -129,31 +129,31 @@ RATE_LIMITS = [
         limit_id=WSS_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=TICKER_PRICE_CHANGE_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=POSITION_INFORMATION_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=GET_LAST_FUNDING_RATE_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=MINUTE,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=EXCHANGE_CURRENCIES_PATH_URL,
@@ -165,7 +165,7 @@ RATE_LIMITS = [
         limit_id=PING_PATH_URL,
         limit=MARKET_MAKER_NON_MATCHING,
         time_interval=SECOND,
-        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)]
+        linked_limits=[LinkedLimitWeightPair(MARKET_MAKER_ACCOUNTS_TYPE)],
     ),
     RateLimit(
         limit_id=ACCOUNTS_PATH_URL,

@@ -30,11 +30,11 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
     def __init__(
-            self,
-            trading_pairs: List[str],
-            connector: 'HyperliquidPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DOMAIN
+        self,
+        trading_pairs: List[str],
+        connector: "HyperliquidPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -46,9 +46,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         self._funding_info_messages_queue_key = "funding_info"
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -57,11 +55,11 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         # Check if this is a HIP-3 market (contains ":")
         if ":" in ex_trading_pair:
             # HIP-3 markets: Use REST API with dex parameter
-            dex_name = ex_trading_pair.split(':')[0]
+            dex_name = ex_trading_pair.split(":")[0]
             try:
                 response = await self._connector._api_post(
-                    path_url=CONSTANTS.EXCHANGE_INFO_URL,
-                    data={"type": "metaAndAssetCtxs", "dex": dex_name})
+                    path_url=CONSTANTS.EXCHANGE_INFO_URL, data={"type": "metaAndAssetCtxs", "dex": dex_name}
+                )
 
                 universe = response[0]["universe"]
                 asset_ctxs = response[1]
@@ -81,33 +79,33 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
             # If not found, return placeholder
             return FundingInfo(
                 trading_pair=trading_pair,
-                index_price=Decimal('0'),
-                mark_price=Decimal('0'),
+                index_price=Decimal("0"),
+                mark_price=Decimal("0"),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal('0'),
+                rate=Decimal("0"),
             )
         else:
             # Base perpetual market: Use REST API
             response: List = await self._request_complete_funding_info(trading_pair)
 
-            for index, i in enumerate(response[0]['universe']):
-                if i['name'] == ex_trading_pair:
+            for index, i in enumerate(response[0]["universe"]):
+                if i["name"] == ex_trading_pair:
                     funding_info = FundingInfo(
                         trading_pair=trading_pair,
-                        index_price=Decimal(response[1][index]['oraclePx']),
-                        mark_price=Decimal(response[1][index]['markPx']),
+                        index_price=Decimal(response[1][index]["oraclePx"]),
+                        mark_price=Decimal(response[1][index]["markPx"]),
                         next_funding_utc_timestamp=self._next_funding_time(),
-                        rate=Decimal(response[1][index]['funding']),
+                        rate=Decimal(response[1][index]["funding"]),
                     )
                     return funding_info
 
             # Base market not found, return placeholder
             return FundingInfo(
                 trading_pair=trading_pair,
-                index_price=Decimal('0'),
-                mark_price=Decimal('0'),
+                index_price=Decimal("0"),
+                mark_price=Decimal("0"),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal('0'),
+                rate=Decimal("0"),
             )
 
     async def listen_for_funding_info(self, output: asyncio.Queue):
@@ -127,25 +125,24 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        params = {
-            "type": 'l2Book',
-            "coin": ex_trading_pair
-        }
+        params = {"type": "l2Book", "coin": ex_trading_pair}
 
-        data = await self._connector._api_post(
-            path_url=CONSTANTS.SNAPSHOT_REST_URL,
-            data=params)
+        data = await self._connector._api_post(path_url=CONSTANTS.SNAPSHOT_REST_URL, data=params)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_response.update({"trading_pair": trading_pair})
-        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": snapshot_response["trading_pair"],
-            "update_id": int(snapshot_response['time']),
-            "bids": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][0]],
-            "asks": [[float(i['px']), float(i['sz'])] for i in snapshot_response['levels'][1]],
-        }, timestamp=int(snapshot_response['time']))
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": snapshot_response["trading_pair"],
+                "update_id": int(snapshot_response["time"]),
+                "bids": [[float(i["px"]), float(i["sz"])] for i in snapshot_response["levels"][0]],
+                "asks": [[float(i["px"]), float(i["sz"])] for i in snapshot_response["levels"][1]],
+            },
+            timestamp=int(snapshot_response["time"]),
+        )
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -169,7 +166,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "subscription": {
                         "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                         "coin": symbol,
-                    }
+                    },
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -178,7 +175,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "subscription": {
                         "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                         "coin": symbol,
-                    }
+                    },
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
@@ -187,7 +184,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                     "subscription": {
                         "type": CONSTANTS.FUNDING_INFO_ENDPOINT_NAME,
                         "coin": symbol,
-                    }
+                    },
                 }
                 subscribe_funding_info_request: WSJSONRequest = WSJSONRequest(payload=funding_info_payload)
 
@@ -224,45 +221,55 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         exchange_symbol = self.parse_symbol(raw_message)
         timestamp: float = raw_message["data"]["time"] * 1e-3
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            exchange_symbol)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(exchange_symbol)
         data = raw_message["data"]
-        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": trading_pair,
-            "update_id": data["time"],
-            "bids": [[float(i['px']), float(i['sz'])] for i in data["levels"][0]],
-            "asks": [[float(i['px']), float(i['sz'])] for i in data["levels"][1]],
-        }, timestamp=timestamp)
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            {
+                "trading_pair": trading_pair,
+                "update_id": data["time"],
+                "bids": [[float(i["px"]), float(i["sz"])] for i in data["levels"][0]],
+                "asks": [[float(i["px"]), float(i["sz"])] for i in data["levels"][1]],
+            },
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         exchange_symbol = self.parse_symbol(raw_message)
         timestamp: float = raw_message["data"]["time"] * 1e-3
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            exchange_symbol)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(exchange_symbol)
         data = raw_message["data"]
-        order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": data["time"],
-            "bids": [[float(i['px']), float(i['sz'])] for i in data["levels"][0]],
-            "asks": [[float(i['px']), float(i['sz'])] for i in data["levels"][1]],
-        }, timestamp=timestamp)
+        order_book_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": data["time"],
+                "bids": [[float(i["px"]), float(i["sz"])] for i in data["levels"][0]],
+                "asks": [[float(i["px"]), float(i["sz"])] for i in data["levels"][1]],
+            },
+            timestamp=timestamp,
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         exchange_symbol = self.parse_symbol(raw_message)
         data = raw_message["data"]
         for trade_data in data:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                exchange_symbol)
-            trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
-                "trading_pair": trading_pair,
-                "trade_type": float(TradeType.SELL.value) if trade_data["side"] == "A" else float(
-                    TradeType.BUY.value),
-                "trade_id": trade_data["hash"],
-                "price": float(trade_data["px"]),
-                "amount": float(trade_data["sz"])
-            }, timestamp=trade_data["time"] * 1e-3)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(exchange_symbol)
+            trade_message: OrderBookMessage = OrderBookMessage(
+                OrderBookMessageType.TRADE,
+                {
+                    "trading_pair": trading_pair,
+                    "trade_type": float(TradeType.SELL.value)
+                    if trade_data["side"] == "A"
+                    else float(TradeType.BUY.value),
+                    "trade_id": trade_data["hash"],
+                    "price": float(trade_data["px"]),
+                    "amount": float(trade_data["sz"]),
+                },
+                timestamp=trade_data["time"] * 1e-3,
+            )
 
             message_queue.put_nowait(trade_message)
 
@@ -292,9 +299,9 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
             self.logger().debug(f"Error parsing funding info message: {e}")
 
     async def _request_complete_funding_info(self, trading_pair: str):
-
-        data = await self._connector._api_post(path_url=CONSTANTS.EXCHANGE_INFO_URL,
-                                               data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
+        data = await self._connector._api_post(
+            path_url=CONSTANTS.EXCHANGE_INFO_URL, data={"type": CONSTANTS.ASSET_CONTEXT_TYPE}
+        )
         return data
 
     def _next_funding_time(self) -> int:
@@ -318,9 +325,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         :return: True if subscription was successful, False otherwise.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
@@ -332,7 +337,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 "subscription": {
                     "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                     "coin": coin,
-                }
+                },
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -341,7 +346,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 "subscription": {
                     "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                     "coin": coin,
-                }
+                },
             }
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
@@ -366,9 +371,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         :return: True if unsubscription was successful, False otherwise.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
@@ -380,7 +383,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 "subscription": {
                     "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                     "coin": coin,
-                }
+                },
             }
             unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -389,7 +392,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 "subscription": {
                     "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                     "coin": coin,
-                }
+                },
             }
             unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 

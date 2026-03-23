@@ -81,24 +81,32 @@ class TestTrailingStopController(TestCase):
         """Tests how the trigger PNL gets updated in different scenarios."""
         # Initial activation
         net_pnl_pct = Decimal("0.025")  # 2.5%
-        self.controller.update(net_pnl_pct=net_pnl_pct, current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=net_pnl_pct,
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         first_trigger = self.controller.pnl_trigger
-        self.assertEqual(net_pnl_pct - self.controller._calculate_trailing_percentage(Decimal("0.025")),
-                         first_trigger)
+        self.assertEqual(net_pnl_pct - self.controller._calculate_trailing_percentage(Decimal("0.025")), first_trigger)
 
         # Move up - should update trigger
-        self.controller.update(net_pnl_pct=Decimal("0.035"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.035"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         second_trigger = self.controller.pnl_trigger
         self.assertGreater(second_trigger, first_trigger)
 
         # Small drop - should not update trigger
-        self.controller.update(net_pnl_pct=Decimal("0.033"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.033"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         self.assertEqual(self.controller.pnl_trigger, second_trigger)
 
     def test_initial_activation(self):
@@ -123,7 +131,8 @@ class TestTrailingStopController(TestCase):
         )
         self.assertEqual(
             Decimal("0.025") - self.controller._calculate_trailing_percentage(Decimal("0.025")),
-            self.controller.pnl_trigger)  # 2.5% - 1%
+            self.controller.pnl_trigger,
+        )  # 2.5% - 1%
         self.assertFalse(self.on_close_called)
         self.assertEqual(self.partial_close_amount, Decimal("0"))
 
@@ -206,7 +215,7 @@ class TestTrailingStopController(TestCase):
         trailing_pct = self.controller._calculate_trailing_percentage(Decimal("0.1"))
         expected = min(
             Decimal("0.05"),  # max_trailing_pct
-            Decimal("0.1") * Decimal("0.9")  # net_pnl * damping
+            Decimal("0.1") * Decimal("0.9"),  # net_pnl * damping
         )
         self.assertEqual(trailing_pct, expected)
 
@@ -224,40 +233,61 @@ class TestTrailingStopController(TestCase):
 
     def test_trigger_on_exact_threshold(self):
         """Tests behavior when PNL hits exactly the trigger price."""
-        self.controller.update(net_pnl_pct=Decimal("0.05"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.05"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         trigger = self.controller.pnl_trigger
-        self.controller.update(net_pnl_pct=trigger, current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=trigger,
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         self.assertTrue(self.on_close_called)
 
     def test_find_closest_take_profit(self):
         """Tests finding closest take profit level below current PNL."""
         # Between levels
-        self.controller.update(net_pnl_pct=Decimal("0.1"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.1"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         # Drop to trigger
-        self.controller.update(net_pnl_pct=Decimal("0.05"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.05"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         self.assertEqual(self.partial_close_amount, Decimal("0.5"))  # Should use first level
 
     def test_sequential_partial_closes(self):
         """Tests behavior with multiple partial closes."""
         # First move up and trigger first level
-        self.controller.update(net_pnl_pct=Decimal("0.05"), current_amount=Decimal("1"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.05"),
+            current_amount=Decimal("1"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         first_trigger = self.controller.pnl_trigger
-        self.controller.update(net_pnl_pct=Decimal("0.03"), current_amount=Decimal("0.5"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.03"),
+            current_amount=Decimal("0.5"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         # Then move up again to second level
-        self.controller.update(net_pnl_pct=Decimal("0.1"), current_amount=Decimal("0.5"),
-                               on_close_position=self._on_close_position,
-                               on_partial_close=self._on_partial_close)
+        self.controller.update(
+            net_pnl_pct=Decimal("0.1"),
+            current_amount=Decimal("0.5"),
+            on_close_position=self._on_close_position,
+            on_partial_close=self._on_partial_close,
+        )
         second_trigger = self.controller.pnl_trigger
         self.assertGreater(second_trigger, first_trigger)

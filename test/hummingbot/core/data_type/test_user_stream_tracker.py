@@ -33,7 +33,6 @@ class MockUserStreamTrackerDataSource(UserStreamTrackerDataSource):
 
 
 class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
-
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.mock_data_source = MockUserStreamTrackerDataSource()
@@ -66,7 +65,7 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         async def mock_listen(*args):
             return None
 
-        with patch.object(self.tracker._data_source, 'listen_for_user_stream', side_effect=mock_listen):
+        with patch.object(self.tracker._data_source, "listen_for_user_stream", side_effect=mock_listen):
             await self.tracker.start()
 
             self.assertIsNotNone(self.tracker._user_stream_tracking_task)
@@ -85,9 +84,10 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         async def mock_listen(*args):
             return None
 
-        with patch.object(self.tracker._data_source, 'listen_for_user_stream', side_effect=mock_listen), \
-             patch.object(self.tracker, 'stop') as mock_stop:
-
+        with (
+            patch.object(self.tracker._data_source, "listen_for_user_stream", side_effect=mock_listen),
+            patch.object(self.tracker, "stop") as mock_stop,
+        ):
             await self.tracker.start()
 
             mock_stop.assert_called_once()
@@ -104,9 +104,10 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(0.01)  # Let task start
         self.tracker._user_stream_tracking_task = mock_existing_task
 
-        with patch('hummingbot.core.utils.async_utils.safe_ensure_future') as mock_safe_ensure_future, \
-             patch.object(self.tracker, 'stop') as mock_stop:
-
+        with (
+            patch("hummingbot.core.utils.async_utils.safe_ensure_future") as mock_safe_ensure_future,
+            patch.object(self.tracker, "stop") as mock_stop,
+        ):
             await self.tracker.start()
 
             # Should return early without calling stop or creating new task
@@ -118,7 +119,7 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         # Test stop when no task exists
         self.assertIsNone(self.tracker._user_stream_tracking_task)
 
-        with patch.object(self.tracker._data_source, 'stop') as mock_data_source_stop:
+        with patch.object(self.tracker._data_source, "stop") as mock_data_source_stop:
             await self.tracker.stop()
             mock_data_source_stop.assert_called_once()
             self.assertIsNone(self.tracker._user_stream_tracking_task)
@@ -132,7 +133,7 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         await mock_task  # Let it complete
         self.tracker._user_stream_tracking_task = mock_task
 
-        with patch.object(self.tracker._data_source, 'stop') as mock_data_source_stop:
+        with patch.object(self.tracker._data_source, "stop") as mock_data_source_stop:
             await self.tracker.stop()
 
             mock_data_source_stop.assert_called_once()
@@ -148,7 +149,7 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(0.01)  # Let task start
         self.tracker._user_stream_tracking_task = mock_task
 
-        with patch.object(self.tracker._data_source, 'stop') as mock_data_source_stop:
+        with patch.object(self.tracker._data_source, "stop") as mock_data_source_stop:
             await self.tracker.stop()
 
             mock_data_source_stop.assert_called_once()
@@ -163,12 +164,12 @@ class TestUserStreamTracker(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(0.01)  # Let task start
         self.tracker._user_stream_tracking_task = mock_task
 
-        with patch.object(self.tracker._data_source, 'stop') as mock_data_source_stop:
+        with patch.object(self.tracker._data_source, "stop") as mock_data_source_stop:
             await self.tracker.stop()
 
             mock_data_source_stop.assert_called_once()
             self.assertIsNone(self.tracker._user_stream_tracking_task)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

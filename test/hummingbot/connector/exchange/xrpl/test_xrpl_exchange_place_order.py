@@ -26,9 +26,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 # Helpers
 # --------------------------------------------------------------------------- #
 
-_STRATEGY_FACTORY_PATH = (
-    "hummingbot.connector.exchange.xrpl.xrpl_exchange.OrderPlacementStrategyFactory"
-)
+_STRATEGY_FACTORY_PATH = "hummingbot.connector.exchange.xrpl.xrpl_exchange.OrderPlacementStrategyFactory"
 
 
 def _make_inflight_order(
@@ -70,8 +68,11 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
-            exchange_order_id="12345-67890-ABCDEF", tx_hash="HASH1",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="12345-67890-ABCDEF",
+            tx_hash="HASH1",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
 
@@ -98,8 +99,11 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=22222, prelim_result="tesSUCCESS",
-            exchange_order_id="22222-99999-XYZ", tx_hash="HASH2",
+            success=True,
+            sequence=22222,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="22222-99999-XYZ",
+            tx_hash="HASH2",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
 
@@ -123,8 +127,11 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=33333, prelim_result="tesSUCCESS",
-            exchange_order_id="33333-11111-MKT", tx_hash="HASH3",
+            success=True,
+            sequence=33333,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="33333-11111-MKT",
+            tx_hash="HASH3",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
 
@@ -148,8 +155,11 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=44444, prelim_result="tesSUCCESS",
-            exchange_order_id="44444-55555-USD", tx_hash="HASH4",
+            success=True,
+            sequence=44444,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="44444-55555-USD",
+            tx_hash="HASH4",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
 
@@ -178,9 +188,7 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         self._mock_tx_pool(success=True, sequence=12345, prelim_result="tesSUCCESS")
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
 
-        with patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ) as tracker_mock:
+        with patch.object(self.connector._order_tracker, "process_order_update") as tracker_mock:
             await self.connector._place_order(
                 order_id="hbot-pending-1",
                 trading_pair=self.trading_pair,
@@ -356,7 +364,9 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
             exchange_order_id="12345-67890-ABCDEF",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
@@ -371,20 +381,16 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
             new_state=OrderState.OPEN,
         )
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update
-        ), patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ) as tracker_mock:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector._order_tracker, "process_order_update") as tracker_mock,
+        ):
             result = await self.connector._place_order_and_process_update(order)
 
         self.assertEqual(result, "12345-67890-ABCDEF")
         # Should receive two updates: PENDING_CREATE from _place_order + OPEN from process_update
         # But since _place_order's tracker call also goes to the mock, we check for at least one OPEN
-        found_open = any(
-            call[0][0].new_state == OrderState.OPEN
-            for call in tracker_mock.call_args_list
-        )
+        found_open = any(call[0][0].new_state == OrderState.OPEN for call in tracker_mock.call_args_list)
         self.assertTrue(found_open, "Expected OPEN state update to be processed")
 
     @patch(_STRATEGY_FACTORY_PATH)
@@ -395,7 +401,9 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
             exchange_order_id="12345-67890-FILL",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
@@ -413,11 +421,10 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
             new_state=OrderState.FILLED,
         )
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+        ):
             result = await self.connector._place_order_and_process_update(order)
 
         self.assertEqual(result, "12345-67890-FILL")
@@ -434,7 +441,9 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
             exchange_order_id="12345-67890-PART",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
@@ -451,15 +460,14 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
 
         mock_trade_update = MagicMock()
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update
-        ), patch.object(
-            self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update
-        ) as fills_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_trade_update"
-        ) as trade_tracker_mock:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update),
+            patch.object(
+                self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update
+            ) as fills_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(self.connector._order_tracker, "process_trade_update") as trade_tracker_mock,
+        ):
             result = await self.connector._place_order_and_process_update(order)
 
         self.assertEqual(result, "12345-67890-PART")
@@ -474,7 +482,9 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
         factory_mock.create_strategy.return_value = mock_strategy
 
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
             exchange_order_id="12345-67890-NOTR",
         )
         self._mock_verification_pool(verified=True, final_result="tesSUCCESS")
@@ -489,15 +499,12 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
             new_state=OrderState.PARTIALLY_FILLED,
         )
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update
-        ), patch.object(
-            self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None
-        ), patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_trade_update"
-        ) as trade_tracker_mock:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(self.connector._order_tracker, "process_trade_update") as trade_tracker_mock,
+        ):
             result = await self.connector._place_order_and_process_update(order)
 
         self.assertEqual(result, "12345-67890-NOTR")
@@ -508,16 +515,12 @@ class TestXRPLExchangePlaceOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncioT
     async def test_place_order_and_process_update_exception_sets_failed(self, factory_mock):
         """Exception in _place_order → FAILED state, re-raises."""
         mock_strategy = MagicMock()
-        mock_strategy.create_order_transaction = AsyncMock(
-            side_effect=RuntimeError("network error")
-        )
+        mock_strategy.create_order_transaction = AsyncMock(side_effect=RuntimeError("network error"))
         factory_mock.create_strategy.return_value = mock_strategy
 
         order = _make_inflight_order(client_order_id="hbot-fail-proc")
 
-        with patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ) as tracker_mock:
+        with patch.object(self.connector._order_tracker, "process_order_update") as tracker_mock:
             with self.assertRaises(Exception):
                 await self.connector._place_order_and_process_update(order)
 

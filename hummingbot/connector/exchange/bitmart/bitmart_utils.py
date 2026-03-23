@@ -33,7 +33,7 @@ def decompress_ws_message(message):
     decompress = zlib.decompressobj(-zlib.MAX_WBITS)
     inflated = decompress.decompress(message)
     inflated += decompress.flush()
-    return inflated.decode('UTF-8')
+    return inflated.decode("UTF-8")
 
 
 def compress_ws_message(message):
@@ -55,7 +55,7 @@ class BitmartConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     bitmart_secret_key: SecretStr = Field(
         default=...,
@@ -64,7 +64,7 @@ class BitmartConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     bitmart_memo: SecretStr = Field(
         default=...,
@@ -73,7 +73,7 @@ class BitmartConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="bitmart")
 

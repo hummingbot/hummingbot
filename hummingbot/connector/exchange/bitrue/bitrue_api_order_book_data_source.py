@@ -208,8 +208,7 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             params = {
                 "cb_id": symbol.lower(),
-                "channel": f"{CONSTANTS.ORDERBOOK_CHANNEL_PREFIX}"
-                f"{symbol.lower()}{CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX}",
+                "channel": f"{CONSTANTS.ORDERBOOK_CHANNEL_PREFIX}{symbol.lower()}{CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX}",
             }
             payload = {"event": "sub", "params": params}
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
@@ -221,10 +220,7 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to {trading_pair}...", exc_info=True)
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
@@ -242,8 +238,7 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             params = {
                 "cb_id": symbol.lower(),
-                "channel": f"{CONSTANTS.ORDERBOOK_CHANNEL_PREFIX}"
-                f"{symbol.lower()}{CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX}",
+                "channel": f"{CONSTANTS.ORDERBOOK_CHANNEL_PREFIX}{symbol.lower()}{CONSTANTS.ORDERBOOK_CHANNEL_SUFFIX}",
             }
             payload = {"event": "unsub", "params": params}
             unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
@@ -255,8 +250,5 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False

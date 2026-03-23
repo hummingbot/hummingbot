@@ -58,9 +58,7 @@ class RateCommandTests(IsolatedAsyncioWrapperTestCase):
 
         await self.app.show_token_value(self.target_token)
 
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}"))
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
                 msg=f"1 {self.target_token} = {global_token_symbol} {expected_rate} {self.global_token}"
@@ -77,9 +75,5 @@ class RateCommandTests(IsolatedAsyncioWrapperTestCase):
 
         await self.app.show_token_value("SOMETOKEN")
 
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}")
-        )
-        self.assertTrue(
-            self.cli_mock_assistant.check_log_called_with(msg="Rate is not available.")
-        )
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg=f"Source: {dummy_source.name}"))
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="Rate is not available."))

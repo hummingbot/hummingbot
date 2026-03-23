@@ -15,7 +15,7 @@ def generate_unique_id():
     return base58.b58encode(hashed_id).decode()
 
 
-E = TypeVar('E', bound=Enum)
+E = TypeVar("E", bound=Enum)
 
 
 def parse_enum_value(enum_class: Type[E], value, field_name: str = "field") -> E:
@@ -71,7 +71,7 @@ def parse_comma_separated_list(value) -> List[float]:
     if isinstance(value, str):
         if value == "":
             return []
-        return [float(x.strip()) for x in value.split(',')]
+        return [float(x.strip()) for x in value.split(",")]
     if isinstance(value, (int, float)):
         return [float(value)]
     return value

@@ -12,19 +12,16 @@ SIDE_SELL = "SELL"
 
 TIME_IN_FORCE_GTC = "GTC"
 # Base URL
-REST_URLS = {
-    "bybit_main": "https://api.bybit.com",
-    "bybit_testnet": "https://api-testnet.bybit.com"
-}
+REST_URLS = {"bybit_main": "https://api.bybit.com", "bybit_testnet": "https://api-testnet.bybit.com"}
 
 WSS_PUBLIC_URL = {
     "bybit_main": "wss://stream.bybit.com/v5/public/spot",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot"
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot",
 }
 
 WSS_PRIVATE_URL = {
     "bybit_main": "wss://stream.bybit.com/v5/private",
-    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"
+    "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private",
 }
 
 # unit in millisecond and default value is 5,000) to specify how long an HTTP request is valid.
@@ -82,11 +79,7 @@ ORDER_STATE = {
     "Rejected": OrderState.FAILED,
 }
 
-ACCOUNT_TYPE = {
-    "REGULAR": 1,
-    "UNIFIED": 3,
-    "UTA_PRO": 4
-}
+ACCOUNT_TYPE = {"REGULAR": 1, "UNIFIED": 3, "UTA_PRO": 4}
 
 WS_HEARTBEAT_TIME_INTERVAL = 20
 
@@ -130,11 +123,7 @@ SHARED_RATE_LIMIT = 600  # per 5 second
 
 RATE_LIMITS = {
     # General Limits on REST Verbs (GET/POST)
-    RateLimit(
-        limit_id=REQUEST_GET_POST_SHARED,
-        limit=SHARED_RATE_LIMIT,
-        time_interval=FIVE_SECONDS
-    ),
+    RateLimit(limit_id=REQUEST_GET_POST_SHARED, limit=SHARED_RATE_LIMIT, time_interval=FIVE_SECONDS),
     # Linked limits
     RateLimit(
         limit_id=LAST_TRADED_PRICE_PATH,
@@ -142,7 +131,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
@@ -150,7 +139,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
@@ -158,7 +147,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=SERVER_TIME_PATH_URL,
@@ -166,7 +155,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=ORDER_PLACE_PATH_URL,
@@ -174,7 +163,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=ORDER_CANCEL_PATH_URL,
@@ -182,7 +171,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=GET_ORDERS_PATH_URL,
@@ -190,7 +179,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=ACCOUNT_INFO_PATH_URL,
@@ -198,7 +187,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=BALANCE_PATH_URL,
@@ -206,7 +195,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=TRADE_HISTORY_PATH_URL,
@@ -214,7 +203,7 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
     RateLimit(
         limit_id=EXCHANGE_FEE_RATE_PATH_URL,
@@ -222,6 +211,6 @@ RATE_LIMITS = {
         time_interval=ONE_SECOND,
         linked_limits=[
             LinkedLimitWeightPair(REQUEST_GET_POST_SHARED),
-        ]
+        ],
     ),
 }

@@ -18,16 +18,16 @@ if TYPE_CHECKING:
 
 
 class FoxbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: FoxbitAuth,
-                 trading_pairs: List[str],
-                 connector: 'FoxbitExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 ):
+    def __init__(
+        self,
+        auth: FoxbitAuth,
+        trading_pairs: List[str],
+        connector: "FoxbitExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: FoxbitAuth = auth
         self._trading_pairs = trading_pairs
@@ -54,31 +54,31 @@ class FoxbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"],
                 payload=self._auth.get_ws_authenticate_payload(),
             )
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header), is_auth_required=True)
+            subscribe_request: WSJSONRequest = WSJSONRequest(
+                payload=web_utils.format_ws_header(header), is_auth_required=True
+            )
 
             await ws.send(subscribe_request)
 
             ret_value = await ws.receive()
             is_authenticated = False
-            if ret_value.data.get('o'):
-                is_authenticated = utils.ws_data_to_dict(ret_value.data.get('o'))["Authenticated"]
+            if ret_value.data.get("o"):
+                is_authenticated = utils.ws_data_to_dict(ret_value.data.get("o"))["Authenticated"]
 
             if is_authenticated:
                 self.logger().info("Authenticated to Foxbit User Stream Data...")
                 return ws
             else:
-                self.logger().info("Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials.")
+                self.logger().info(
+                    "Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials."
+                )
                 raise
 
         except Exception as ex:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to account events stream...{ex}",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to account events stream...{ex}", exc_info=True)
             raise
 
-    async def _subscribe_channels(self,
-                                  websocket_assistant: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
         All received messages from exchange are listened on FoxbitAPIOrderBookDataSource.listen_for_subscriptions()
@@ -100,25 +100,25 @@ class FoxbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             data = ws_response.data
 
             if data.get("n") == CONSTANTS.WS_SUBSCRIBE_ACCOUNT:
-                is_subscrebed = utils.ws_data_to_dict(data.get('o'))["Subscribed"]
+                is_subscrebed = utils.ws_data_to_dict(data.get("o"))["Subscribed"]
 
                 if is_subscrebed:
                     self._user_stream_data_source_initialized = is_subscrebed
-                    self.logger().info("Subscribed to a private account events, like Position, Orders and Trades events...")
+                    self.logger().info(
+                        "Subscribed to a private account events, like Position, Orders and Trades events..."
+                    )
                 else:
-                    self.logger().info("Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials.")
+                    self.logger().info(
+                        "Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials."
+                    )
                     raise
 
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to account events stream...{ex}",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to account events stream...{ex}", exc_info=True)
             raise
 
-    async def _on_user_stream_interruption(self,
-                                           websocket_assistant: Optional[WSAssistant]):
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
         await self._sleep(5)

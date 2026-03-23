@@ -4,7 +4,6 @@ from hummingbot.model.trade_fill import TradeFill
 
 
 class TradeFillTests(TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.display_name = "test_market"
@@ -34,6 +33,7 @@ class TradeFillTests(TestCase):
             "leverage",
             "trade_fee",
             "trade_fee_in_quote",
-            "position", ]
+            "position",
+        ]
 
         self.assertEqual(expected_attributes, TradeFill.attribute_names_for_file_export())

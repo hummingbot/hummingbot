@@ -3,6 +3,7 @@
 # source: trade.proto
 # Protobuf Python Version: 4.25.2
 """Generated protocol buffer code."""
+
 from google.protobuf import (
     descriptor as _descriptor,
     descriptor_pool as _descriptor_pool,

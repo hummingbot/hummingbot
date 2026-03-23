@@ -23,12 +23,12 @@ class AevoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-            self,
-            auth: AevoPerpetualAuth,
-            trading_pairs: List[str],
-            connector: 'AevoPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        auth: AevoPerpetualAuth,
+        trading_pairs: List[str],
+        connector: "AevoPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__()
         self._domain = domain
@@ -90,10 +90,12 @@ class AevoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
-            raise IOError({
-                "label": "WSS_ERROR",
-                "message": f"Error received via websocket - {err_msg}.",
-            })
+            raise IOError(
+                {
+                    "label": "WSS_ERROR",
+                    "message": f"Error received via websocket - {err_msg}.",
+                }
+            )
         if event_message.get("channel") in [
             CONSTANTS.WS_ORDERS_CHANNEL,
             CONSTANTS.WS_FILLS_CHANNEL,
@@ -115,9 +117,7 @@ class AevoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant,
-                    queue=queue)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"op": "ping", "id": 1})
                 await websocket_assistant.send(ping_request)

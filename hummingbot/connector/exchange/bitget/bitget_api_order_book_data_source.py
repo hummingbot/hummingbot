@@ -18,25 +18,22 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
     """
     Data source for retrieving order book data from the Bitget exchange via REST and WebSocket APIs.
     """
+
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'BitgetExchange',
+        connector: "BitgetExchange",
         api_factory: WebAssistantsFactory,
     ) -> None:
         super().__init__(trading_pairs)
-        self._connector: 'BitgetExchange' = connector
+        self._connector: "BitgetExchange" = connector
         self._api_factory: WebAssistantsFactory = api_factory
         self._ping_task: Optional[asyncio.Task] = None
 
-    async def get_last_traded_prices(
-        self,
-        trading_pairs: List[str],
-        domain: Optional[str] = None
-    ) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _parse_pong_message(self) -> None:
@@ -70,10 +67,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             if response_channel == CONSTANTS.PUBLIC_WS_BOOKS:
                 action: Optional[str] = event_message.get("action")
-                channels = {
-                    "snapshot": self._snapshot_messages_queue_key,
-                    "update": self._diff_messages_queue_key
-                }
+                channels = {"snapshot": self._snapshot_messages_queue_key, "update": self._diff_messages_queue_key}
                 channel = channels.get(action)
             elif response_channel == CONSTANTS.PUBLIC_WS_TRADE:
                 channel = self._trade_messages_queue_key
@@ -105,58 +99,41 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": data["asks"],
         }
 
-        return OrderBookMessage(
-            message_type=message_type,
-            content=order_book_message_content,
-            timestamp=timestamp
-        )
+        return OrderBookMessage(message_type=message_type, content=order_book_message_content, timestamp=timestamp)
 
-    async def _parse_order_book_diff_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
         diffs_data: Dict[str, Any] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
 
         for diff in diffs_data:
             diff_message: OrderBookMessage = await self._parse_any_order_book_message(
-                data=diff,
-                symbol=symbol,
-                message_type=OrderBookMessageType.DIFF
+                data=diff, symbol=symbol, message_type=OrderBookMessageType.DIFF
             )
 
             message_queue.put_nowait(diff_message)
 
     async def _parse_order_book_snapshot_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
+        self, raw_message: Dict[str, Any], message_queue: asyncio.Queue
     ) -> None:
         snapshot_data: Dict[str, Any] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
 
         for snapshot in snapshot_data:
             snapshot_message: OrderBookMessage = await self._parse_any_order_book_message(
-                data=snapshot,
-                symbol=symbol,
-                message_type=OrderBookMessageType.SNAPSHOT
+                data=snapshot, symbol=symbol, message_type=OrderBookMessageType.SNAPSHOT
             )
 
             message_queue.put_nowait(snapshot_message)
 
-    async def _parse_trade_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
         data: List[Dict[str, Any]] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
-            trade_type: float = float(TradeType.BUY.value) \
-                if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+            trade_type: float = (
+                float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+            )
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
                 "trading_pair": trading_pair,
@@ -186,21 +163,17 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             subscription_topics: List[Dict[str, str]] = []
 
             for trading_pair in self._trading_pairs:
-                symbol: str = await self._connector.exchange_symbol_associated_to_pair(
-                    trading_pair
-                )
+                symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
                 for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
-                    subscription_topics.append({
-                        "instType": "SPOT",
-                        "channel": channel,
-                        "instId": symbol
-                    })
+                    subscription_topics.append({"instType": "SPOT", "channel": channel, "instId": symbol})
 
             await ws.send(
-                WSJSONRequest({
-                    "op": "subscribe",
-                    "args": subscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "subscribe",
+                        "args": subscription_topics,
+                    }
+                )
             )
 
             self.logger().info("Subscribed to public channels...")
@@ -239,11 +212,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": snapshot_data["asks"],
         }
 
-        return OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, order_book_message_content, timestamp)
 
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
         ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
@@ -278,13 +247,10 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
-                self.logger().warning(
-                    f"The websocket connection was closed ({connection_exception})"
-                )
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams. "
-                    "Retrying in 5 seconds...",
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
                 )
                 await self._sleep(1.0)
             finally:
@@ -307,9 +273,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: True if subscription was successful, False otherwise
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket not connected")
             return False
 
         try:
@@ -317,17 +281,15 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             subscription_topics = []
             for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
-                subscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": channel,
-                    "instId": symbol
-                })
+                subscription_topics.append({"instType": "SPOT", "channel": channel, "instId": symbol})
 
             await self._ws_assistant.send(
-                WSJSONRequest({
-                    "op": "subscribe",
-                    "args": subscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "subscribe",
+                        "args": subscription_topics,
+                    }
+                )
             )
 
             self.add_trading_pair(trading_pair)
@@ -349,9 +311,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: True if unsubscription was successful, False otherwise
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
             return False
 
         try:
@@ -359,17 +319,15 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             unsubscription_topics = []
             for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
-                unsubscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": channel,
-                    "instId": symbol
-                })
+                unsubscription_topics.append({"instType": "SPOT", "channel": channel, "instId": symbol})
 
             await self._ws_assistant.send(
-                WSJSONRequest({
-                    "op": "unsubscribe",
-                    "args": unsubscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "unsubscribe",
+                        "args": unsubscription_topics,
+                    }
+                )
             )
 
             self.remove_trading_pair(trading_pair)

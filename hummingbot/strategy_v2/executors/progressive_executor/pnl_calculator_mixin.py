@@ -18,9 +18,8 @@ class PNLCalculatorMixin:
     @staticmethod
     def _realized_pnl(pop: ProgressiveOrderProtocol, side: int) -> Decimal:
         return sum(
-            (o.executed_amount_base * side * (o.average_executed_price - pop.entry_price)
-             for o in pop.realized_orders),
-            start=Decimal("0")
+            (o.executed_amount_base * side * (o.average_executed_price - pop.entry_price) for o in pop.realized_orders),
+            start=Decimal("0"),
         )
 
     @staticmethod
@@ -48,8 +47,11 @@ class PNLCalculatorMixin:
         return sum((order.cum_fees_quote for order in orders if order), start=Decimal("0"))
 
     def get_net_pnl_pct(self: ProgressiveOrderPNLProtocol) -> Decimal:
-        return self.get_net_pnl_quote() / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal(
-            "0") else Decimal("0")
+        return (
+            self.get_net_pnl_quote() / self.open_filled_amount_quote
+            if self.open_filled_amount_quote != Decimal("0")
+            else Decimal("0")
+        )
 
     def get_target_pnl_yield(self: ProgressiveOrderPNLProtocol) -> Decimal:
         time_lapsed: Decimal = Decimal(self.current_timestamp - self.config.timestamp)

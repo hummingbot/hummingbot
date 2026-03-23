@@ -25,7 +25,6 @@ ms_logger = None
 
 
 class ExtendedMockPaperExchange(MockPaperExchange):
-
     def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__(client_config_map)
 
@@ -33,20 +32,13 @@ class ExtendedMockPaperExchange(MockPaperExchange):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
-        ]
+        return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
 
     def restored_market_states(self, saved_states: Dict[str, any]):
-        self._in_flight_orders.update({
-            key: value
-            for key, value in saved_states.items()
-        })
+        self._in_flight_orders.update({key: value for key, value in saved_states.items()})
 
 
 class MockStrategy(StrategyBase):
-
     @classmethod
     def logger(cls) -> logging.Logger:
         global ms_logger
@@ -56,7 +48,6 @@ class MockStrategy(StrategyBase):
 
 
 class StrategyBaseUnitTests(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
@@ -71,17 +62,18 @@ class StrategyBaseUnitTests(unittest.TestCase):
         )
 
         self.mid_price = 100
-        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
-                                            mid_price=self.mid_price, min_price=1,
-                                            max_price=200, price_step_size=1, volume_step_size=10)
+        self.market.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=self.mid_price,
+            min_price=1,
+            max_price=200,
+            price_step_size=1,
+            volume_step_size=10,
+        )
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 5000)
         self.market.set_balance("QETH", 500)
-        self.market.set_quantization_param(
-            QuantizationParams(
-                self.trading_pair.split("-")[0], 6, 6, 6, 6
-            )
-        )
+        self.market.set_quantization_param(QuantizationParams(self.trading_pair.split("-")[0], 6, 6, 6, 6))
 
         self.strategy: StrategyBase = MockStrategy()
         self.strategy.add_markets([self.market])
@@ -89,7 +81,6 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
     @staticmethod
     def simulate_order_filled(market_info: MarketTradingPairTuple, order: Union[LimitOrder, MarketOrder]):
-
         market_info.market.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -100,8 +91,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
                 OrderType.LIMIT if isinstance(order, LimitOrder) else OrderType.MARKET,
                 order.price,
                 order.quantity if isinstance(order, LimitOrder) else order.amount,
-                Decimal("1")
-            )
+                Decimal("1"),
+            ),
         )
 
     def test_active_markets(self):
@@ -114,19 +105,20 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.trades))
 
         # Simulate order being placed and filled
-        limit_order = LimitOrder(client_order_id="test",
-                                 trading_pair=self.trading_pair,
-                                 is_buy=False,
-                                 base_currency=self.trading_pair.split("-")[0],
-                                 quote_currency=self.trading_pair.split("-")[1],
-                                 price=Decimal("100"),
-                                 quantity=Decimal("50"))
+        limit_order = LimitOrder(
+            client_order_id="test",
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            base_currency=self.trading_pair.split("-")[0],
+            quote_currency=self.trading_pair.split("-")[1],
+            price=Decimal("100"),
+            quantity=Decimal("50"),
+        )
         self.simulate_order_filled(self.market_info, limit_order)
 
         self.assertEqual(1, len(self.strategy.trades))
 
     def test_add_markets(self):
-
         self.assertEqual(1, len(self.strategy.active_markets))
 
         new_market: MockPaperExchange = MockPaperExchange()
@@ -142,12 +134,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.strategy.active_markets))
 
     def test_cum_flat_fees(self):
-
         fee_asset = self.trading_pair.split("-")[1]
-        trades: List[Tuple[str, Decimal]] = [
-            (fee_asset, Decimal(f"{i}"))
-            for i in range(5)
-        ]
+        trades: List[Tuple[str, Decimal]] = [(fee_asset, Decimal(f"{i}")) for i in range(5)]
 
         expected_total_fees = sum([Decimal(f"{i}") for i in range(5)])
 
@@ -161,7 +149,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_currency=self.trading_pair.split("-")[0],
             quote_currency=self.trading_pair.split("-")[1],
             price=Decimal("100"),
-            quantity=Decimal("50"))
+            quantity=Decimal("50"),
+        )
 
         limit_order_id: str = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -187,17 +176,17 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
             amount=Decimal("100"),
-            timestamp =int(time.time() * 1e3)
+            timestamp=int(time.time() * 1e3),
         )
 
         # Note: order_id generate here is random
         market_order_id: str = self.strategy.buy_with_specific_market(
-            market_trading_pair_tuple=self.market_info,
-            order_type=OrderType.MARKET,
-            amount=market_order.amount
+            market_trading_pair_tuple=self.market_info, order_type=OrderType.MARKET, amount=market_order.amount
         )
 
-        tracked_market_order: MarketOrder = self.strategy.order_tracker.get_market_order(self.market_info, market_order_id)
+        tracked_market_order: MarketOrder = self.strategy.order_tracker.get_market_order(
+            self.market_info, market_order_id
+        )
 
         # Note: order_id generate here is random
         self.assertIsNotNone(market_order_id)
@@ -214,7 +203,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_currency=self.trading_pair.split("-")[0],
             quote_currency=self.trading_pair.split("-")[1],
             price=Decimal("100"),
-            quantity=Decimal("50"))
+            quantity=Decimal("50"),
+        )
 
         limit_order_id: str = self.strategy.sell_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -240,17 +230,17 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
             amount=Decimal("100"),
-            timestamp =int(time.time() * 1e3)
+            timestamp=int(time.time() * 1e3),
         )
 
         # Note: order_id generate here is random
         market_order_id: str = self.strategy.sell_with_specific_market(
-            market_trading_pair_tuple=self.market_info,
-            order_type=OrderType.MARKET,
-            amount=market_order.amount
+            market_trading_pair_tuple=self.market_info, order_type=OrderType.MARKET, amount=market_order.amount
         )
 
-        tracked_market_order: MarketOrder = self.strategy.order_tracker.get_market_order(self.market_info, market_order_id)
+        tracked_market_order: MarketOrder = self.strategy.order_tracker.get_market_order(
+            self.market_info, market_order_id
+        )
 
         # Note: order_id generate here is random
         self.assertIsNotNone(market_order_id)
@@ -269,7 +259,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_currency=self.trading_pair.split("-")[0],
             quote_currency=self.trading_pair.split("-")[1],
             price=Decimal("100"),
-            quantity=Decimal("50"))
+            quantity=Decimal("50"),
+        )
 
         limit_order_id: str = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -291,7 +282,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_currency=self.trading_pair.split("-")[0],
             quote_currency=self.trading_pair.split("-")[1],
             price=Decimal("100"),
-            quantity=Decimal("50"))
+            quantity=Decimal("50"),
+        )
 
         self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -312,7 +304,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_currency=self.trading_pair.split("-")[0],
             quote_currency=self.trading_pair.split("-")[1],
             price=Decimal("100"),
-            quantity=Decimal("50"))
+            quantity=Decimal("50"),
+        )
 
         limit_order_id: str = self.strategy.buy_with_specific_market(
             market_trading_pair_tuple=self.market_info,
@@ -336,14 +329,12 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
             amount=Decimal("100"),
-            timestamp =int(time.time() * 1e3)
+            timestamp=int(time.time() * 1e3),
         )
 
         # Note: order_id generate here is random
         self.strategy.buy_with_specific_market(
-            market_trading_pair_tuple=self.market_info,
-            order_type=OrderType.MARKET,
-            amount=market_order.amount
+            market_trading_pair_tuple=self.market_info, order_type=OrderType.MARKET, amount=market_order.amount
         )
 
         self.assertEqual(1, len(self.strategy.order_tracker.tracked_market_orders))
@@ -358,21 +349,18 @@ class StrategyBaseUnitTests(unittest.TestCase):
             base_asset=self.trading_pair.split("-")[0],
             quote_asset=self.trading_pair.split("-")[1],
             amount=Decimal("100"),
-            timestamp =int(time.time() * 1e3)
+            timestamp=int(time.time() * 1e3),
         )
 
         # Note: order_id generate here is random
         market_order_id: str = self.strategy.buy_with_specific_market(
-            market_trading_pair_tuple=self.market_info,
-            order_type=OrderType.MARKET,
-            amount=market_order.amount
+            market_trading_pair_tuple=self.market_info, order_type=OrderType.MARKET, amount=market_order.amount
         )
         self.strategy.cancel_order(self.market_info, market_order_id)
         # Note: MarketOrder is assumed to be filled once placed.
         self.assertEqual(1, len(self.strategy.order_tracker.tracked_market_orders))
 
     def test_track_restored_order(self):
-
         self.assertEqual(0, len(self.market.limit_orders))
 
         saved_states: Dict[str, Any] = {
@@ -385,7 +373,7 @@ class StrategyBaseUnitTests(unittest.TestCase):
                 price=Decimal(f"{i + 1}"),
                 amount=Decimal(f"{10 * (i + 1)}"),
                 creation_timestamp=1640001112.0,
-                initial_state="OPEN"
+                initial_state="OPEN",
             )
             for i in range(10)
         }
@@ -394,8 +382,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.assertEqual(10, len(self.strategy.track_restored_orders(self.market_info)))
 
-    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
-    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
+    @unittest.mock.patch("hummingbot.client.hummingbot_application.HummingbotApplication.main_application")
+    @unittest.mock.patch("hummingbot.client.hummingbot_application.HummingbotCLI")
     def test_notify_hb_app(self, cli_class_mock, main_application_function_mock):
         cli_logs = []
 
@@ -409,8 +397,8 @@ class StrategyBaseUnitTests(unittest.TestCase):
 
         self.assertIn("Test message", cli_logs)
 
-    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
-    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
+    @unittest.mock.patch("hummingbot.client.hummingbot_application.HummingbotApplication.main_application")
+    @unittest.mock.patch("hummingbot.client.hummingbot_application.HummingbotCLI")
     def test_notify_hb_app_with_timestamp(self, cli_class_mock, main_application_function_mock):
         cli_logs = []
 

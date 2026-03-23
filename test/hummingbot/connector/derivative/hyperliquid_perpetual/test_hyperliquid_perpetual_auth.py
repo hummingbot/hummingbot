@@ -17,9 +17,7 @@ class HyperliquidPerpetualAuthTests(TestCase):
         self.use_vault = False
         self.trading_required = True  # noqa: mock
         self.auth = HyperliquidPerpetualAuth(
-            api_address=self.api_address,
-            api_secret=self.api_secret,
-            use_vault=self.use_vault
+            api_address=self.api_address, api_secret=self.api_secret, use_vault=self.use_vault
         )
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
@@ -30,7 +28,8 @@ class HyperliquidPerpetualAuthTests(TestCase):
         return 1678974447.926
 
     @patch(
-        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth.HyperliquidPerpetualAuth._get_timestamp")
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth.HyperliquidPerpetualAuth._get_timestamp"
+    )
     def test_sign_order_params_post_request(self, ts_mock: MagicMock):
         params = {
             "type": "order",
@@ -43,7 +42,7 @@ class HyperliquidPerpetualAuthTests(TestCase):
                 "reduceOnly": False,
                 "orderType": {"limit": {"tif": "Gtc"}},
                 "cloid": "0x000000000000000000000000000ee056",
-            }
+            },
         }
         request = RESTRequest(
             method=RESTMethod.POST,

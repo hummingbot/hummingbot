@@ -9,7 +9,6 @@ from hummingbot.connector.exchange.injective_v2.injective_query_executor import 
 
 
 class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
-
     def __init__(self):
         self._ping_responses = asyncio.Queue()
         self._spot_markets_responses = asyncio.Queue()
@@ -79,43 +78,43 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         return response
 
     async def get_spot_trades(
-            self,
-            market_ids: List[str],
-            subaccount_id: Optional[str] = None,
-            start_time: Optional[int] = None,
-            skip: Optional[int] = None,
-            limit: Optional[int] = None,
+        self,
+        market_ids: List[str],
+        subaccount_id: Optional[str] = None,
+        start_time: Optional[int] = None,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> Dict[str, Any]:
         response = await self._spot_trades_responses.get()
         return response
 
     async def get_derivative_trades(
-            self,
-            market_ids: List[str],
-            subaccount_id: Optional[str] = None,
-            start_time: Optional[int] = None,
-            skip: Optional[int] = None,
-            limit: Optional[int] = None,
+        self,
+        market_ids: List[str],
+        subaccount_id: Optional[str] = None,
+        start_time: Optional[int] = None,
+        skip: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> Dict[str, Any]:
         response = await self._derivative_trades_responses.get()
         return response
 
     async def get_historical_spot_orders(
-            self,
-            market_ids: List[str],
-            subaccount_id: str,
-            start_time: int,
-            skip: int,
+        self,
+        market_ids: List[str],
+        subaccount_id: str,
+        start_time: int,
+        skip: int,
     ) -> Dict[str, Any]:
         response = await self._historical_spot_orders_responses.get()
         return response
 
     async def get_historical_derivative_orders(
-            self,
-            market_ids: List[str],
-            subaccount_id: str,
-            start_time: int,
-            skip: int,
+        self,
+        market_ids: List[str],
+        subaccount_id: str,
+        start_time: int,
+        skip: int,
     ) -> Dict[str, Any]:
         response = await self._historical_derivative_orders_responses.get()
         return response
@@ -133,11 +132,11 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         return response
 
     async def get_oracle_prices(
-            self,
-            base_symbol: str,
-            quote_symbol: str,
-            oracle_type: str,
-            oracle_scale_factor: int,
+        self,
+        base_symbol: str,
+        quote_symbol: str,
+        oracle_type: str,
+        oracle_scale_factor: int,
     ) -> Dict[str, Any]:
         response = await self._oracle_prices_responses.get()
         return response

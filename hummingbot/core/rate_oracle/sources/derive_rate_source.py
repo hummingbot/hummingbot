@@ -25,7 +25,9 @@ class DeriveRateSource(RateSourceBase):
         results = {}
         for pair_price in pairs_prices:
             try:
-                trading_pair = await self._exchange.trading_pair_associated_to_exchange_symbol(symbol=pair_price["symbol"]["instrument_name"])
+                trading_pair = await self._exchange.trading_pair_associated_to_exchange_symbol(
+                    symbol=pair_price["symbol"]["instrument_name"]
+                )
             except KeyError:
                 continue  # skip pairs that we don't track
             if quote_token is not None:
@@ -46,13 +48,13 @@ class DeriveRateSource(RateSourceBase):
             await self._exchange._make_trading_rules_request()
 
     @staticmethod
-    def _build_derive_connector_without_private_keys() -> 'DeriveExchange':
+    def _build_derive_connector_without_private_keys() -> "DeriveExchange":
         from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 
         return DeriveExchange(
             derive_api_secret="",
             trading_pairs=[],
-            sub_id = "",
+            sub_id="",
             derive_api_key="",
             trading_required=False,
         )

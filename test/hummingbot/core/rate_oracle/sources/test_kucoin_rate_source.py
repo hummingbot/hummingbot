@@ -53,7 +53,7 @@ class KucoinRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "symbolName": self.ignored_trading_pair,
                         "buy": str(expected_rate - Decimal("0.1")),
                         "sell": str(expected_rate + Decimal("0.1")),
-                    }
+                    },
                 ],
             },
         }

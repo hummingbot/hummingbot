@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.mexc import mexc_utils as utils
 
 
 class MexcUtilTestCases(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

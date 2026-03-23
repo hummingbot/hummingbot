@@ -76,9 +76,7 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
 
         await self.ws_connection.send(request)
 
-        json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(
-            ws_connect_mock.return_value
-        )
+        json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         self.assertEqual(1, len(json_msgs))
         self.assertEqual(request.payload, json_msgs[0])
@@ -109,9 +107,7 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         await self.ws_connection.connect(self.ws_url)
         data = {"one": 1}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message=json.dumps(data)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, message=json.dumps(data))
 
         self.assertEqual(0, self.ws_connection.last_recv_time)
 
@@ -176,7 +172,9 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
         ws_connect_mock.return_value.close_code = 1111
         await self.ws_connection.connect(self.ws_url, self.max_msg_size)
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.ERROR,
+            ws_connect_mock.return_value,
+            message="",
+            message_type=aiohttp.WSMsgType.ERROR,
         )
 
         with self.assertRaises(ConnectionError) as e:
@@ -213,9 +211,7 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PING
         )
         data = {"one": 1}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message=json.dumps(data)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, message=json.dumps(data))
 
         response = await self.ws_connection.receive()
 
@@ -259,9 +255,7 @@ class WSConnectionTest(IsolatedAsyncioWrapperTestCase):
             ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PONG
         )
         data = {"one": 1}
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message=json.dumps(data)
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, message=json.dumps(data))
 
         response = await self.ws_connection.receive()
 

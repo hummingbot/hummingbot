@@ -22,29 +22,62 @@ class TestTestLoggerMixin(unittest.TestCase):
 
     def test_handle(self):
         self.logger.log_records = []
-        record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
-                           exc_info=None)
+        record = LogRecord(
+            name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None, exc_info=None
+        )
         self.logger.handle(record)
         self.assertEqual(len(self.logger.log_records), 1)
         self.assertEqual(self.logger.log_records[0].getMessage(), "test message")
 
     def test_is_logged(self):
         self.logger.log_records = []
-        record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
-                           exc_info=None)
+        record = LogRecord(
+            name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None, exc_info=None
+        )
         self.logger.handle(record)
-        self.assertTrue(self.logger.is_logged(LogLevel.INFO, "test message", ))
-        self.assertFalse(self.logger.is_logged(LogLevel.ERROR, "test message", ))
-        self.assertFalse(self.logger.is_logged(LogLevel.INFO, "other message", ))
+        self.assertTrue(
+            self.logger.is_logged(
+                LogLevel.INFO,
+                "test message",
+            )
+        )
+        self.assertFalse(
+            self.logger.is_logged(
+                LogLevel.ERROR,
+                "test message",
+            )
+        )
+        self.assertFalse(
+            self.logger.is_logged(
+                LogLevel.INFO,
+                "other message",
+            )
+        )
 
-        self.assertTrue(self.logger.is_logged("INFO", "test message", ))
-        self.assertFalse(self.logger.is_logged("ERROR", "test message", ))
-        self.assertFalse(self.logger.is_logged("INFO", "other message", ))
+        self.assertTrue(
+            self.logger.is_logged(
+                "INFO",
+                "test message",
+            )
+        )
+        self.assertFalse(
+            self.logger.is_logged(
+                "ERROR",
+                "test message",
+            )
+        )
+        self.assertFalse(
+            self.logger.is_logged(
+                "INFO",
+                "other message",
+            )
+        )
 
     def test_is_partially_logged(self):
         self.logger.log_records = []
-        record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
-                           exc_info=None)
+        record = LogRecord(
+            name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None, exc_info=None
+        )
         self.logger.handle(record)
         self.assertTrue(self.logger.is_partially_logged(LogLevel.INFO, "test"))
         self.assertFalse(self.logger.is_partially_logged(LogLevel.ERROR, "test"))
@@ -95,8 +128,9 @@ class TestTestLoggerMixin(unittest.TestCase):
     def test_wait_for_logged(self):
         async def async_test():
             self.logger.log_records = []
-            record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
-                               exc_info=None)
+            record = LogRecord(
+                name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None, exc_info=None
+            )
             self.logger.handle(record)
 
             # Test a message that has been logged
@@ -112,8 +146,9 @@ class TestTestLoggerMixin(unittest.TestCase):
     def test_wait_for_logged_partial(self):
         async def async_test():
             self.logger.log_records = []
-            record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
-                               exc_info=None)
+            record = LogRecord(
+                name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None, exc_info=None
+            )
             self.logger.handle(record)
 
             # Test a message that has been logged

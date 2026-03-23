@@ -26,19 +26,22 @@ class ProgressiveTradingControllerConfig(DirectionalTradingControllerConfigBase)
         return v
 
     apr_yield: Decimal | None = Field(
-        default=Decimal("0.5"), gt=0,
+        default=Decimal("0.5"),
+        gt=0,
         json_schema_extra={
             "prompt": "Enter the APR yield (as a decimal, e.g., 0.5 for 50%): ",
             "prompt_on_new": True,
             "is_updatable": True,
-        })
+        },
+    )
     trailing_stop: LadderedTrailingStop | None = Field(
         default="0.015,0.005,0.05:1|0.1:0.91|0.25:0.8|0.5:0.5",
         validate_default=True,
         json_schema_extra={
             "prompt": "Enter the trailing stop as activation_pnl_pct,trailing_pct,profit_table (e.g., 0.015,0.003,0.05:1|0.1:0.91): ",
             "prompt_on_new": True,
-        })
+        },
+    )
 
     @field_validator("trailing_stop", mode="before")
     @classmethod
@@ -51,7 +54,7 @@ class ProgressiveTradingControllerConfig(DirectionalTradingControllerConfigBase)
             return LadderedTrailingStop(
                 activation_pnl_pct=Decimal(activation_pnl_pct),
                 trailing_pct=Decimal(trailing_pct),
-                take_profit_table=take_profit_table
+                take_profit_table=take_profit_table,
             )
         return v
 
@@ -73,7 +76,7 @@ class ProgressiveTradingControllerConfig(DirectionalTradingControllerConfigBase)
             open_order_type=OrderType.MARKET,
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=OrderType.MARKET,
-            time_limit_order_type=OrderType.MARKET
+            time_limit_order_type=OrderType.MARKET,
         )
 
 
@@ -103,4 +106,9 @@ class ProgressiveTradingController(DirectionalTradingControllerBase):
         df = self.processed_data.get("features", pd.DataFrame())
         if df.empty:
             return []
-        return [format_df_for_printout(df.tail(1), table_format="psql",)]
+        return [
+            format_df_for_printout(
+                df.tail(1),
+                table_format="psql",
+            )
+        ]

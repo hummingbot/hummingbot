@@ -19,10 +19,7 @@ class NdaxOrderBook(OrderBook):
         return _logger
 
     @classmethod
-    def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None):
+    def snapshot_message_from_exchange(cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None):
         """
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
@@ -33,17 +30,12 @@ class NdaxOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        return NdaxOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=msg,
-            timestamp=timestamp
-        )
+        return NdaxOrderBookMessage(message_type=OrderBookMessageType.SNAPSHOT, content=msg, timestamp=timestamp)
 
     @classmethod
-    def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None):
+    def diff_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ):
         """
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
@@ -54,17 +46,12 @@ class NdaxOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        return NdaxOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=msg,
-            timestamp=timestamp
-        )
+        return NdaxOrderBookMessage(message_type=OrderBookMessageType.DIFF, content=msg, timestamp=timestamp)
 
     @classmethod
-    def trade_message_from_exchange(cls,
-                                    msg: Dict[str, Any],
-                                    timestamp: Optional[float] = None,
-                                    metadata: Optional[Dict] = None):
+    def trade_message_from_exchange(
+        cls, msg: Dict[str, Any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ):
         """
         Convert a trade data into standard OrderBookMessage format
         :param msg: json trade data from live web socket stream
@@ -76,18 +63,16 @@ class NdaxOrderBook(OrderBook):
             msg.update(metadata)
 
         # Data fields are obtained from OrderTradeEvents
-        msg.update({
-            "exchange_order_id": msg.get("TradeId"),
-            "trade_type": msg.get("Side"),
-            "price": msg.get("Price"),
-            "amount": msg.get("Quantity"),
-        })
-
-        return NdaxOrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=msg,
-            timestamp=timestamp
+        msg.update(
+            {
+                "exchange_order_id": msg.get("TradeId"),
+                "trade_type": msg.get("Side"),
+                "price": msg.get("Price"),
+                "amount": msg.get("Quantity"),
+            }
         )
+
+        return NdaxOrderBookMessage(message_type=OrderBookMessageType.TRADE, content=msg, timestamp=timestamp)
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):

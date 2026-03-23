@@ -10,7 +10,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class BitstampAuthTests(TestCase):
-
     def setUp(self) -> None:
         self._api_key = "testApiKey"
         self._secret_key = "testApiKey"
@@ -58,4 +57,7 @@ class BitstampAuthTests(TestCase):
 
         msg = auth._generate_message(RESTMethod.POST, "https://www.test.com/url", content_type, payload, nonce, now)
 
-        self.assertEqual(f"BITSTAMP {self._api_key}POSTwww.test.com/url{content_type}{nonce}{now}{auth.AUTH_VERSION}{urlencode(payload)}", msg)
+        self.assertEqual(
+            f"BITSTAMP {self._api_key}POSTwww.test.com/url{content_type}{nonce}{now}{auth.AUTH_VERSION}{urlencode(payload)}",
+            msg,
+        )

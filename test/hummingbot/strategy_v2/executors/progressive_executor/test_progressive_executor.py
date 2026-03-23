@@ -123,7 +123,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
                 apr_yield=Decimal("3.65"),
                 time_limit=60,
                 stop_loss_order_type=OrderType.MARKET,
-            )
+            ),
         )
 
     @staticmethod
@@ -141,7 +141,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
                 apr_yield=Decimal("3.65"),
                 time_limit=60,
                 stop_loss_order_type=OrderType.MARKET,
-            )
+            ),
         )
 
     @staticmethod
@@ -158,7 +158,8 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
                 stop_loss=Decimal("0.05"),
                 apr_yield=Decimal("3.65"),
                 time_limit=60,
-                stop_loss_order_type=OrderType.MARKET)
+                stop_loss_order_type=OrderType.MARKET,
+            ),
         )
 
     @staticmethod
@@ -171,7 +172,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             side=TradeType.SELL,
             entry_price=Decimal("100"),
             amount=Decimal("1"),
-            triple_barrier_config=YieldTripleBarrierConfig(stop_loss_order_type=OrderType.MARKET)
+            triple_barrier_config=YieldTripleBarrierConfig(stop_loss_order_type=OrderType.MARKET),
         )
 
     def test_properties(self):
@@ -240,13 +241,12 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         await progressive_executor.control_task()
         progressive_executor._strategy.cancel.assert_called_with(
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            order_id="OID-SELL-1")
+            connector_name="binance", trading_pair="ETH-USDT", order_id="OID-SELL-1"
+        )
         self.assertEqual(progressive_executor.trade_pnl_pct, Decimal("0"))
 
     async def test_control_position_order_placed_not_cancel_open_order(self):
@@ -256,8 +256,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         await progressive_executor.control_task()
         progressive_executor._strategy.cancel.assert_not_called()
 
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("101"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("101"),
+    )
     async def test_control_position_active_position_create_take_profit(self, _):
         progressive_config = self.get_progressive_config_market_short()
         progressive_executor = self.get_progressive_executor_running_from_config(progressive_config)
@@ -271,7 +273,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         progressive_executor._open_order.order.update_with_trade_update(
             TradeUpdate(
@@ -290,8 +292,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(progressive_executor.trade_pnl_pct, Decimal("-0.01"))
 
     @patch.object(ProgressiveExecutor, "get_trading_rules")
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("70"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("70"),
+    )
     async def test_control_position_active_position_close_by_stop_loss(self, _, trading_rules_mock):
         progressive_config = self.get_progressive_config_market_long()
         trading_rules = MagicMock(spec=TradingRule)
@@ -308,7 +312,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
 
         progressive_executor._open_order.order.update_with_trade_update(
@@ -330,8 +334,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(progressive_executor.trade_pnl_pct, Decimal("-0.3"))
 
     @patch.object(ProgressiveExecutor, "get_trading_rules")
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("100"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("100"),
+    )
     async def test_control_position_active_position_close_by_time_limit(self, _, trading_rules_mock):
         trading_rules = MagicMock(spec=TradingRule)
         trading_rules.min_order_size = Decimal("0.1")
@@ -349,7 +355,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         progressive_executor._open_order.order.update_with_trade_update(
             TradeUpdate(
@@ -371,8 +377,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(progressive_executor.trade_pnl_pct, Decimal("0.0"))
 
     @patch.object(ProgressiveExecutor, "get_trading_rules")
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("70"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("70"),
+    )
     async def test_control_position_close_placed_stop_loss_failed(self, _, trading_rules_mock):
         trading_rules = MagicMock(spec=TradingRule)
         trading_rules.min_order_size = Decimal("0.1")
@@ -389,7 +397,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         fee: Decimal = Decimal("0.2")
         progressive_executor._open_order.order.update_with_trade_update(
@@ -411,10 +419,9 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
 
         market = MagicMock()
         progressive_executor.process_order_failed_event(
-            "102", market, MarketOrderFailureEvent(
-                order_id="OID-SELL-FAIL",
-                timestamp=1640001112.223,
-                order_type=OrderType.MARKET)
+            "102",
+            market,
+            MarketOrderFailureEvent(order_id="OID-SELL-FAIL", timestamp=1640001112.223, order_type=OrderType.MARKET),
         )
         await progressive_executor.control_task()
         self.assertEqual(progressive_executor._close_order.order_id, "OID-SELL-1")
@@ -432,7 +439,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             base_asset_amount=progressive_config.amount,
             quote_asset_amount=progressive_config.amount * progressive_config.entry_price,
             order_type=progressive_config.triple_barrier_config.open_order_type,
-            exchange_order_id="ED140"
+            exchange_order_id="ED140",
         )
         market = MagicMock()
         progressive_executor.process_order_completed_event("102", market, event)
@@ -450,7 +457,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             base_asset_amount=progressive_config.amount,
             quote_asset_amount=progressive_config.amount * progressive_config.entry_price,
             order_type=progressive_config.triple_barrier_config.open_order_type,
-            exchange_order_id="ED140"
+            exchange_order_id="ED140",
         )
         market = MagicMock()
         progressive_executor.process_order_completed_event("102", market, event)
@@ -469,8 +476,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         progressive_executor.process_order_canceled_event(102, market, event)
         self.assertEqual(progressive_executor._close_order, None)
 
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("101"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("101"),
+    )
     def test_to_format_status(self, price_mock):
         progressive_config = self.get_progressive_config_market_long()
         progressive_executor = self.get_progressive_executor_running_from_config(progressive_config)
@@ -484,7 +493,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         fee: Decimal = Decimal("0.2")
         progressive_executor._open_order.order.update_with_trade_update(
@@ -505,8 +514,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(any("ETH-USDT" in s for s in status))
         # self.assertTrue(any(f"{pnl:.3f}%" in s for s in status))
 
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("101"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("101"),
+    )
     def test_to_format_status_is_closed(self, price_mock):
         progressive_config = self.get_progressive_config_market_long()
         progressive_executor = self.get_progressive_executor_running_from_config(progressive_config)
@@ -520,7 +531,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             amount=progressive_config.amount,
             price=progressive_config.entry_price,
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
         )
         fee: Decimal = Decimal("0.2")
         progressive_executor._open_order.order.update_with_trade_update(
@@ -542,12 +553,16 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         # print(status)
         # self.assertTrue(any(f"{pnl:.3f}%" in s for s in status))
 
-    @patch.object(ProgressiveExecutor, 'get_trading_rules')
-    @patch.object(ProgressiveExecutor, 'adjust_order_candidates')
+    @patch.object(ProgressiveExecutor, "get_trading_rules")
+    @patch.object(ProgressiveExecutor, "adjust_order_candidates")
     async def test_validate_sufficient_balance(self, mock_adjust_order_candidates, mock_get_trading_rules):
         # Mock trading rules
-        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
-                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        trading_rules = TradingRule(
+            trading_pair="ETH-USDT",
+            min_order_size=Decimal("0.1"),
+            min_price_increment=Decimal("0.1"),
+            min_base_amount_increment=Decimal("0.1"),
+        )
         mock_get_trading_rules.return_value = trading_rules
         executor = ProgressiveExecutor(self.strategy, self.get_progressive_config_market_long())
         # Mock order candidate
@@ -557,7 +572,7 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
             amount=Decimal("1"),
-            price=Decimal("100")
+            price=Decimal("100"),
         )
         # Test for sufficient balance
         mock_adjust_order_candidates.return_value = [order_candidate]
@@ -595,32 +610,52 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         progressive_executor.process_order_canceled_event("102", market, event)
         self.assertEqual(progressive_executor.close_type, None)
 
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("101"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("101"),
+    )
     def test_progressive_executor_created_without_entry_price(self, _):
-        config = ProgressiveExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                           connector_name="binance",
-                                           side=TradeType.BUY, amount=Decimal("1"),
-                                           triple_barrier_config=YieldTripleBarrierConfig(
-                                               stop_loss=Decimal("0.05"), apr_yield=Decimal("3.65"), time_limit=60,
-                                               take_profit_order_type=OrderType.LIMIT,
-                                               stop_loss_order_type=OrderType.MARKET))
+        config = ProgressiveExecutorConfig(
+            id="test",
+            timestamp=1234567890,
+            trading_pair="ETH-USDT",
+            connector_name="binance",
+            side=TradeType.BUY,
+            amount=Decimal("1"),
+            triple_barrier_config=YieldTripleBarrierConfig(
+                stop_loss=Decimal("0.05"),
+                apr_yield=Decimal("3.65"),
+                time_limit=60,
+                take_profit_order_type=OrderType.LIMIT,
+                stop_loss_order_type=OrderType.MARKET,
+            ),
+        )
 
         executor = ProgressiveExecutor(self.strategy, config)
         self.assertEqual(executor.entry_price, Decimal("101"))
 
-    @patch("hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
-           return_value=Decimal("101"))
+    @patch(
+        "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.get_price",
+        return_value=Decimal("101"),
+    )
     def test_progressive_executor_entry_price_updated_with_limit_maker(self, _):
-        config = ProgressiveExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                           connector_name="binance",
-                                           side=TradeType.BUY, amount=Decimal("1"),
-                                           entry_price=Decimal("102"),
-                                           triple_barrier_config=YieldTripleBarrierConfig(
-                                               open_order_type=OrderType.LIMIT_MAKER,
-                                               stop_loss=Decimal("0.05"), apr_yield=Decimal("3.65"), time_limit=60,
-                                               take_profit_order_type=OrderType.LIMIT,
-                                               stop_loss_order_type=OrderType.MARKET))
+        config = ProgressiveExecutorConfig(
+            id="test",
+            timestamp=1234567890,
+            trading_pair="ETH-USDT",
+            connector_name="binance",
+            side=TradeType.BUY,
+            amount=Decimal("1"),
+            entry_price=Decimal("102"),
+            triple_barrier_config=YieldTripleBarrierConfig(
+                open_order_type=OrderType.LIMIT_MAKER,
+                stop_loss=Decimal("0.05"),
+                apr_yield=Decimal("3.65"),
+                time_limit=60,
+                take_profit_order_type=OrderType.LIMIT,
+                stop_loss_order_type=OrderType.MARKET,
+            ),
+        )
 
         executor = ProgressiveExecutor(self.strategy, config)
         self.assertEqual(executor.entry_price, Decimal("101"))
@@ -628,7 +663,11 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
     def test_partial_close_order(self):
         """Test both partial and full close scenarios"""
 
-        def mock_get_in_flight_order(amount, connector_name, order_id, ):
+        def mock_get_in_flight_order(
+            amount,
+            connector_name,
+            order_id,
+        ):
             in_flight_order = InFlightOrder(
                 client_order_id=order_id,
                 trading_pair="ETH-USDT",
@@ -682,9 +721,10 @@ class TestProgressiveExecutor(IsolatedAsyncioWrapperTestCase):
         executor.open_order = self._create_filled_order(Decimal("1"), Decimal("100"))
 
         # Test expiry below target yield
-        with patch.object(executor, 'get_net_pnl_pct', return_value=Decimal("0.001")):
+        with patch.object(executor, "get_net_pnl_pct", return_value=Decimal("0.001")):
             with patch(
-                    'hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.is_expired',
-                    new_callable=PropertyMock) as mock_is_expired:
+                "hummingbot.strategy_v2.executors.progressive_executor.progressive_executor.ProgressiveExecutor.is_expired",
+                new_callable=PropertyMock,
+            ) as mock_is_expired:
                 mock_is_expired.return_value = True
                 self.assertTrue(executor.is_extended_on_yield)

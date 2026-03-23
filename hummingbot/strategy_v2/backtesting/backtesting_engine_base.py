@@ -40,28 +40,30 @@ class BacktestingEngineBase:
         self.dca_executor_simulator = DCAExecutorSimulator()
 
     @classmethod
-    def load_controller_config(cls,
-                               config_path: str,
-                               controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH) -> Dict:
+    def load_controller_config(
+        cls, config_path: str, controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH
+    ) -> Dict:
         full_path = os.path.join(controllers_conf_dir_path, config_path)
-        with open(full_path, 'r') as file:
+        with open(full_path, "r") as file:
             config_data = yaml.safe_load(file)
         return config_data
 
     @classmethod
-    def get_controller_config_instance_from_yml(cls,
-                                                config_path: str,
-                                                controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH,
-                                                controllers_module: str = settings.CONTROLLERS_MODULE) -> ControllerConfigBase:
+    def get_controller_config_instance_from_yml(
+        cls,
+        config_path: str,
+        controllers_conf_dir_path: str = settings.CONTROLLERS_CONF_DIR_PATH,
+        controllers_module: str = settings.CONTROLLERS_MODULE,
+    ) -> ControllerConfigBase:
         config_data = cls.load_controller_config(config_path, controllers_conf_dir_path)
         return cls.get_controller_config_instance_from_dict(config_data, controllers_module)
 
     @classmethod
-    def get_controller_config_instance_from_dict(cls,
-                                                 config_data: dict,
-                                                 controllers_module: str = settings.CONTROLLERS_MODULE) -> ControllerConfigBase:
-        controller_type = config_data.get('controller_type')
-        controller_name = config_data.get('controller_name')
+    def get_controller_config_instance_from_dict(
+        cls, config_data: dict, controllers_module: str = settings.CONTROLLERS_MODULE
+    ) -> ControllerConfigBase:
+        controller_type = config_data.get("controller_type")
+        controller_name = config_data.get("controller_name")
 
         if not controller_type or not controller_name:
             raise ValueError("Missing controller_type or controller_name in the configuration.")
@@ -69,33 +71,46 @@ class BacktestingEngineBase:
         module_path = f"{controllers_module}.{controller_type}.{controller_name}"
         module = importlib.import_module(module_path)
 
-        config_class = next((member for member_name, member in inspect.getmembers(module)
-                             if inspect.isclass(member) and member not in [ControllerConfigBase,
-                                                                           MarketMakingControllerConfigBase,
-                                                                           DirectionalTradingControllerConfigBase]
-                             and (issubclass(member, ControllerConfigBase))), None)
+        config_class = next(
+            (
+                member
+                for member_name, member in inspect.getmembers(module)
+                if inspect.isclass(member)
+                and member
+                not in [ControllerConfigBase, MarketMakingControllerConfigBase, DirectionalTradingControllerConfigBase]
+                and (issubclass(member, ControllerConfigBase))
+            ),
+            None,
+        )
         if not config_class:
             raise InvalidController(f"No configuration class found in the module {controller_name}.")
 
         return config_class(**config_data)
 
-    async def run_backtesting(self,
-                              controller_config: ControllerConfigBase,
-                              start: int, end: int,
-                              backtesting_resolution: str = "1m",
-                              trade_cost=0.0006):
+    async def run_backtesting(
+        self,
+        controller_config: ControllerConfigBase,
+        start: int,
+        end: int,
+        backtesting_resolution: str = "1m",
+        trade_cost=0.0006,
+    ):
         # Generate unique ID if not set to avoid race conditions
         if not controller_config.id or controller_config.id.strip() == "":
             from hummingbot.strategy_v2.utils.common import generate_unique_id
+
             controller_config.id = generate_unique_id()
 
-        controller_class = self.__controller_class_cache.get_or_add(controller_config.controller_name, controller_config.get_controller_class)
+        controller_class = self.__controller_class_cache.get_or_add(
+            controller_config.controller_name, controller_config.get_controller_class
+        )
         # controller_class = controller_config.get_controller_class()
         # Load historical candles
         self.backtesting_data_provider.update_backtesting_time(start, end)
         await self.backtesting_data_provider.initialize_trading_rules(controller_config.connector_name)
-        self.controller = controller_class(config=controller_config, market_data_provider=self.backtesting_data_provider,
-                                           actions_queue=None)
+        self.controller = controller_class(
+            config=controller_config, market_data_provider=self.backtesting_data_provider, actions_queue=None
+        )
         self.backtesting_resolution = backtesting_resolution
         await self.initialize_backtesting_data_provider()
         await self.controller.update_processed_data()
@@ -111,7 +126,7 @@ class BacktestingEngineBase:
         backtesting_config = CandlesConfig(
             connector=self.controller.config.connector_name,
             trading_pair=self.controller.config.trading_pair,
-            interval=self.backtesting_resolution
+            interval=self.backtesting_resolution,
         )
         await self.controller.market_data_provider.initialize_candles_feed(backtesting_config)
         for config in self.controller.config.candles_config:
@@ -134,7 +149,9 @@ class BacktestingEngineBase:
             await self.update_state(row)
             for action in self.controller.determine_executor_actions():
                 if isinstance(action, CreateExecutorAction):
-                    executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:], trade_cost)
+                    executor_simulation = self.simulate_executor(
+                        action.executor_config, processed_features.loc[i:], trade_cost
+                    )
                     if executor_simulation is not None and executor_simulation.close_type != CloseType.FAILED:
                         self.manage_active_executors(executor_simulation)
                 elif isinstance(action, StopExecutorAction):
@@ -159,7 +176,9 @@ class BacktestingEngineBase:
                 simulations_to_remove.append(executor.config.id)
             else:
                 active_executors_info.append(executor_info)
-        self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]
+        self.active_executor_simulations = [
+            es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove
+        ]
         self.controller.executors_info = active_executors_info + self.stopped_executors_info
 
     async def update_processed_data(self, row: pd.Series):
@@ -181,7 +200,7 @@ class BacktestingEngineBase:
         backtesting_candles = self.controller.market_data_provider.get_candles_df(
             connector_name=self.controller.config.connector_name,
             trading_pair=self.controller.config.trading_pair,
-            interval=self.backtesting_resolution
+            interval=self.backtesting_resolution,
         ).add_suffix("_bt")
 
         if "features" not in self.controller.processed_data:
@@ -189,9 +208,13 @@ class BacktestingEngineBase:
             backtesting_candles["spread_multiplier"] = 1
             backtesting_candles["signal"] = 0
         else:
-            backtesting_candles = pd.merge_asof(backtesting_candles, self.controller.processed_data["features"],
-                                                left_on="timestamp_bt", right_on="timestamp",
-                                                direction="backward")
+            backtesting_candles = pd.merge_asof(
+                backtesting_candles,
+                self.controller.processed_data["features"],
+                left_on="timestamp_bt",
+                right_on="timestamp",
+                direction="backward",
+            )
 
         backtesting_candles["timestamp"] = backtesting_candles["timestamp_bt"]
         # Set timestamp as index to allow index slicing for performance
@@ -205,8 +228,9 @@ class BacktestingEngineBase:
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
-    def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame,
-                          trade_cost: float) -> Optional[ExecutorSimulation]:
+    def simulate_executor(
+        self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame, trade_cost: float
+    ) -> Optional[ExecutorSimulation]:
         """
         Simulates the execution of a trading strategy given a configuration.
 
@@ -265,8 +289,12 @@ class BacktestingEngineBase:
             total_volume = executors_with_position["filled_amount_quote"].sum()
             total_long = (executors_with_position["side"] == TradeType.BUY).sum()
             total_short = (executors_with_position["side"] == TradeType.SELL).sum()
-            correct_long = ((executors_with_position["side"] == TradeType.BUY) & (executors_with_position["net_pnl_quote"] > 0)).sum()
-            correct_short = ((executors_with_position["side"] == TradeType.SELL) & (executors_with_position["net_pnl_quote"] > 0)).sum()
+            correct_long = (
+                (executors_with_position["side"] == TradeType.BUY) & (executors_with_position["net_pnl_quote"] > 0)
+            ).sum()
+            correct_short = (
+                (executors_with_position["side"] == TradeType.SELL) & (executors_with_position["net_pnl_quote"] > 0)
+            ).sum()
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
             executors_df["close_type_name"] = executors_df["close_type"].apply(lambda x: x.name)
@@ -283,14 +311,15 @@ class BacktestingEngineBase:
             executors_with_position["inventory"] = total_amount_quote + cumulative_returns
 
             peak = np.maximum.accumulate(cumulative_returns)
-            drawdown = (cumulative_returns - peak)
+            drawdown = cumulative_returns - peak
             max_draw_down = np.min(drawdown)
             max_drawdown_pct = max_draw_down / executors_with_position["inventory"].iloc[0]
             returns = pd.to_numeric(
-                executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"])
+                executors_with_position["cumulative_returns"] / executors_with_position["cumulative_volume"]
+            )
             sharpe_ratio = returns.mean() / returns.std() if len(returns) > 1 else 0
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
-            total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
+            total_loss = -loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss if total_loss > 0 else 1
             net_pnl_pct = net_pnl_quote / total_amount_quote
 

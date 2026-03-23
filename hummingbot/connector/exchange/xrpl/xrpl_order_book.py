@@ -29,7 +29,6 @@ class XRPLOrderBook(OrderBook):
         processed_bids = []
 
         for ask in raw_asks:
-
             if "taker_gets_funded" in ask and "taker_pays_funded" in ask:
                 """
                 If the order is partially funded, the taker_gets_funded and taker_pays_funded fields will be present. We skip unfunded offers.

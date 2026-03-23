@@ -88,11 +88,7 @@ RET_CODE_OK = "00000"
 RET_CODE_PARAMS_ERROR = "40007"
 RET_CODE_API_KEY_INVALID = "40006"
 RET_CODE_AUTH_TIMESTAMP_ERROR = "40005"
-RET_CODES_ORDER_NOT_EXISTS = [
-    "40768", "80011", "40819",
-    "43020", "43025", "43001",
-    "45057", "31007", "43033"
-]
+RET_CODES_ORDER_NOT_EXISTS = ["40768", "80011", "40819", "43020", "43025", "43001", "45057", "31007", "43033"]
 RET_CODE_API_KEY_EXPIRED = "40014"
 
 
@@ -105,7 +101,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_OPEN_INTEREST_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_SYMBOL_PRICE_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_FUNDING_TIME_ENDPOINT, limit=20, time_interval=1),
-
     RateLimit(limit_id=SET_LEVERAGE_ENDPOINT, limit=5, time_interval=1),
     RateLimit(limit_id=ALL_POSITIONS_ENDPOINT, limit=5, time_interval=1),
     RateLimit(limit_id=PLACE_ORDER_ENDPOINT, limit=10, time_interval=1),

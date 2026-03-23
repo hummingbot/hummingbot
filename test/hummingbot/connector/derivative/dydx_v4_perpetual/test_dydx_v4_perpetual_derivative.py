@@ -27,9 +27,11 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.dydx_v4_perpetual_secret_phrase = "mirror actor skill push coach wait confirm orchard " \
-                                              "lunch mobile athlete gossip awake miracle matter " \
-                                              "bus reopen team ladder lazy list timber render wait"
+        cls.dydx_v4_perpetual_secret_phrase = (
+            "mirror actor skill push coach wait confirm orchard "
+            "lunch mobile athlete gossip awake miracle matter "
+            "bus reopen team ladder lazy list timber render wait"
+        )
         cls.dydx_v4_perpetual_chain_address = "dydx14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art"
         cls.subaccount_id = 0
         cls.base_asset = "TRX"
@@ -64,7 +66,9 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def balance_url(self):
-        path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self.dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
+        path = (
+            f"{CONSTANTS.PATH_SUBACCOUNT}/{self.dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
+        )
         url = web_utils.private_rest_url(path)
         return url
 
@@ -74,33 +78,52 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def order_creation_request_erroneous_mock_response(self):
-        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
-                "raw_log": "ERROR"}  # noqa: mock
+        return {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "raw_log": "ERROR",
+        }  # noqa: mock
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
-                "raw_log": "[]"}  # noqa: mock
+        return {
+            "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+            "raw_log": "[]",
+        }  # noqa: mock
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "raw_log": "[]"}  # noqa: mock
+        return {
+            "txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+            "raw_log": "[]",
+        }  # noqa: mock
 
     def _order_cancelation_request_erroneous_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
-                "raw_log": "Error"}  # noqa: mock
+        return {
+            "txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+            "raw_log": "Error",
+        }  # noqa: mock
 
     @property
     def all_symbols_request_mock_response(self):
         mock_response = {
             "markets": {
                 self.trading_pair: {
-                    'clobPairId': '0', 'ticker': self.trading_pair, 'status': 'ACTIVE', 'oraclePrice': '62730.24877',
-                    'priceChange24H': '-2721.74538', 'volume24H': '547242504.5571', 'trades24H': 115614,
-                    'nextFundingRate': '0.00000888425925925926', 'initialMarginFraction': '0.05',
-                    'maintenanceMarginFraction': '0.03', 'openInterest': '594.8603', 'atomicResolution': -10,
-                    'quantumConversionExponent': -9, 'tickSize': '1', 'stepSize': '0.0001',
-                    'stepBaseQuantums': 1000000, 'subticksPerTick': 100000
+                    "clobPairId": "0",
+                    "ticker": self.trading_pair,
+                    "status": "ACTIVE",
+                    "oraclePrice": "62730.24877",
+                    "priceChange24H": "-2721.74538",
+                    "volume24H": "547242504.5571",
+                    "trades24H": 115614,
+                    "nextFundingRate": "0.00000888425925925926",
+                    "initialMarginFraction": "0.05",
+                    "maintenanceMarginFraction": "0.03",
+                    "openInterest": "594.8603",
+                    "atomicResolution": -10,
+                    "quantumConversionExponent": -9,
+                    "tickSize": "1",
+                    "stepSize": "0.0001",
+                    "stepBaseQuantums": 1000000,
+                    "subticksPerTick": 100000,
                 }
             }
         }
@@ -111,12 +134,23 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {
             "markets": {
                 self.trading_pair: {
-                    'clobPairId': '0', 'ticker': self.trading_pair, 'status': 'ACTIVE', 'oraclePrice': '62730.24877',
-                    'priceChange24H': '-2721.74538', 'volume24H': '547242504.5571', 'trades24H': 115614,
-                    'nextFundingRate': '0.00000888425925925926', 'initialMarginFraction': '0.05',
-                    'maintenanceMarginFraction': '0.03', 'openInterest': '594.8603', 'atomicResolution': -10,
-                    'quantumConversionExponent': -9, 'tickSize': '1', 'stepSize': '0.0001',
-                    'stepBaseQuantums': 1000000, 'subticksPerTick': 100000
+                    "clobPairId": "0",
+                    "ticker": self.trading_pair,
+                    "status": "ACTIVE",
+                    "oraclePrice": "62730.24877",
+                    "priceChange24H": "-2721.74538",
+                    "volume24H": "547242504.5571",
+                    "trades24H": 115614,
+                    "nextFundingRate": "0.00000888425925925926",
+                    "initialMarginFraction": "0.05",
+                    "maintenanceMarginFraction": "0.03",
+                    "openInterest": "594.8603",
+                    "atomicResolution": -10,
+                    "quantumConversionExponent": -9,
+                    "tickSize": "1",
+                    "stepSize": "0.0001",
+                    "stepBaseQuantums": 1000000,
+                    "subticksPerTick": 100000,
                 }
             }
         }
@@ -127,20 +161,42 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {
             "markets": {
                 self.trading_pair: {
-                    'clobPairId': '0', 'ticker': self.trading_pair, 'status': 'ACTIVE', 'oraclePrice': '62730.24877',
-                    'priceChange24H': '-2721.74538', 'volume24H': '547242504.5571', 'trades24H': 115614,
-                    'nextFundingRate': '0.00000888425925925926', 'initialMarginFraction': '0.05',
-                    'maintenanceMarginFraction': '0.03', 'openInterest': '594.8603', 'atomicResolution': -10,
-                    'quantumConversionExponent': -9, 'tickSize': '1', 'stepSize': '0.0001',
-                    'stepBaseQuantums': 1000000, 'subticksPerTick': 100000
+                    "clobPairId": "0",
+                    "ticker": self.trading_pair,
+                    "status": "ACTIVE",
+                    "oraclePrice": "62730.24877",
+                    "priceChange24H": "-2721.74538",
+                    "volume24H": "547242504.5571",
+                    "trades24H": 115614,
+                    "nextFundingRate": "0.00000888425925925926",
+                    "initialMarginFraction": "0.05",
+                    "maintenanceMarginFraction": "0.03",
+                    "openInterest": "594.8603",
+                    "atomicResolution": -10,
+                    "quantumConversionExponent": -9,
+                    "tickSize": "1",
+                    "stepSize": "0.0001",
+                    "stepBaseQuantums": 1000000,
+                    "subticksPerTick": 100000,
                 },
                 "INVALID-PAIR": {
-                    'clobPairId': '0', 'ticker': "INVALID-PAIR", 'status': 'INVALID', 'oraclePrice': '62730.24877',
-                    'priceChange24H': '-2721.74538', 'volume24H': '547242504.5571', 'trades24H': 115614,
-                    'nextFundingRate': '0.00000888425925925926', 'initialMarginFraction': '0.05',
-                    'maintenanceMarginFraction': '0.03', 'openInterest': '594.8603', 'atomicResolution': -10,
-                    'quantumConversionExponent': -9, 'tickSize': '1', 'stepSize': '0.0001',
-                    'stepBaseQuantums': 1000000, 'subticksPerTick': 100000
+                    "clobPairId": "0",
+                    "ticker": "INVALID-PAIR",
+                    "status": "INVALID",
+                    "oraclePrice": "62730.24877",
+                    "priceChange24H": "-2721.74538",
+                    "volume24H": "547242504.5571",
+                    "trades24H": 115614,
+                    "nextFundingRate": "0.00000888425925925926",
+                    "initialMarginFraction": "0.05",
+                    "maintenanceMarginFraction": "0.03",
+                    "openInterest": "594.8603",
+                    "atomicResolution": -10,
+                    "quantumConversionExponent": -9,
+                    "tickSize": "1",
+                    "stepSize": "0.0001",
+                    "stepBaseQuantums": 1000000,
+                    "subticksPerTick": 100000,
                 },
             }
         }
@@ -159,12 +215,23 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_response = {
             "markets": {
                 self.trading_pair: {
-                    'clobPairId': '0', 'ticker': self.trading_pair, 'status': 'ACTIVE', 'oraclePrice': '62730.24877',
-                    'priceChange24H': '-2721.74538', 'volume24H': '547242504.5571', 'trades24H': 115614,
-                    'nextFundingRate': '0.00000888425925925926', 'initialMarginFraction': '0.05',
-                    'maintenanceMarginFraction': '0.03', 'openInterest': '594.8603', 'atomicResolution': -10,
-                    'quantumConversionExponent': -9, 'tickSize': '1', 'stepSize': '0.0001',
-                    'stepBaseQuantums': 1000000, 'subticksPerTick': 100000
+                    "clobPairId": "0",
+                    "ticker": self.trading_pair,
+                    "status": "ACTIVE",
+                    "oraclePrice": "62730.24877",
+                    "priceChange24H": "-2721.74538",
+                    "volume24H": "547242504.5571",
+                    "trades24H": 115614,
+                    "nextFundingRate": "0.00000888425925925926",
+                    "initialMarginFraction": "0.05",
+                    "maintenanceMarginFraction": "0.03",
+                    "openInterest": "594.8603",
+                    "atomicResolution": -10,
+                    "quantumConversionExponent": -9,
+                    "tickSize": "1",
+                    "stepSize": "0.0001",
+                    "stepBaseQuantums": 1000000,
+                    "subticksPerTick": 100000,
                 }
             }
         }
@@ -193,50 +260,74 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @property
     def balance_request_mock_response_only_quote(self):
         mock_response = {
-            'subaccount':
-                {
-                    'address': 'dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3',  # noqa: mock
-                    'subaccountNumber': 0,
-                    'equity': '10000',
-                    'freeCollateral': '10000',
-                    'openPerpetualPositions': {
-                        self.trading_pair: {
-                            'market': self.trading_pair, 'status': 'OPEN', 'side': 'SHORT', 'size': '-100',
-                            'maxSize': '-100',
-                            'entryPrice': '0.11123', 'exitPrice': None, 'realizedPnl': '-0.000011',
-                            'unrealizedPnl': '-0.14263',
-                            'createdAt': '2024-04-22T13:47:37.066Z', 'createdAtHeight': '13859546',
-                            'closedAt': None,
-                            'sumOpen': '100', 'sumClose': '0', 'netFunding': '-0.000011'
-                        }
-                    },
-                    'assetPositions': {
-                        'USDC': {'size': '92.486499', 'symbol': 'USDC', 'side': 'LONG', 'assetId': '0'}
-                    },
-                    'marginEnabled': True
-                }
+            "subaccount": {
+                "address": "dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3",  # noqa: mock
+                "subaccountNumber": 0,
+                "equity": "10000",
+                "freeCollateral": "10000",
+                "openPerpetualPositions": {
+                    self.trading_pair: {
+                        "market": self.trading_pair,
+                        "status": "OPEN",
+                        "side": "SHORT",
+                        "size": "-100",
+                        "maxSize": "-100",
+                        "entryPrice": "0.11123",
+                        "exitPrice": None,
+                        "realizedPnl": "-0.000011",
+                        "unrealizedPnl": "-0.14263",
+                        "createdAt": "2024-04-22T13:47:37.066Z",
+                        "createdAtHeight": "13859546",
+                        "closedAt": None,
+                        "sumOpen": "100",
+                        "sumClose": "0",
+                        "netFunding": "-0.000011",
+                    }
+                },
+                "assetPositions": {"USDC": {"size": "92.486499", "symbol": "USDC", "side": "LONG", "assetId": "0"}},
+                "marginEnabled": True,
+            }
         }
         return mock_response
 
     @property
     def balance_event_websocket_update(self):
         mock_response = {
-            'type': 'subscribed', 'connection_id': '53f4a7b1-410d-4687-9447-d6a367e30c8a', 'message_id': 1,
-            'channel': 'v4_subaccounts',
-            'id': 'dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3/0', 'contents': {  # noqa: mock
-                'subaccount': {
-                    'address': 'dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3', 'subaccountNumber': 0,  # noqa: mock
-                    'equity': '0', 'freeCollateral': '700', 'openPerpetualPositions': {
-                        'TRX-USD': {'market': 'TRX-USD', 'status': 'OPEN', 'side': 'SHORT', 'size': '-100',
-                                    'maxSize': '-100',
-                                    'entryPrice': '0.11123', 'exitPrice': None, 'realizedPnl': '0.001147',
-                                    'unrealizedPnl': '-0.185044469', 'createdAt': '2024-04-22T13:47:37.066Z',
-                                    'createdAtHeight': '13859546', 'closedAt': None, 'sumOpen': '100', 'sumClose': '0',
-                                    'netFunding': '0.001147'}},
-                    'assetPositions': {
-                        'USDC': {'size': '92.487657', 'symbol': 'USDC', 'side': 'LONG', 'assetId': '0'}},
-                    'marginEnabled': True
-                }, 'orders': []}
+            "type": "subscribed",
+            "connection_id": "53f4a7b1-410d-4687-9447-d6a367e30c8a",
+            "message_id": 1,
+            "channel": "v4_subaccounts",
+            "id": "dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3/0",
+            "contents": {  # noqa: mock
+                "subaccount": {
+                    "address": "dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3",
+                    "subaccountNumber": 0,  # noqa: mock
+                    "equity": "0",
+                    "freeCollateral": "700",
+                    "openPerpetualPositions": {
+                        "TRX-USD": {
+                            "market": "TRX-USD",
+                            "status": "OPEN",
+                            "side": "SHORT",
+                            "size": "-100",
+                            "maxSize": "-100",
+                            "entryPrice": "0.11123",
+                            "exitPrice": None,
+                            "realizedPnl": "0.001147",
+                            "unrealizedPnl": "-0.185044469",
+                            "createdAt": "2024-04-22T13:47:37.066Z",
+                            "createdAtHeight": "13859546",
+                            "closedAt": None,
+                            "sumOpen": "100",
+                            "sumClose": "0",
+                            "netFunding": "0.001147",
+                        }
+                    },
+                    "assetPositions": {"USDC": {"size": "92.487657", "symbol": "USDC", "side": "LONG", "assetId": "0"}},
+                    "marginEnabled": True,
+                },
+                "orders": [],
+            },
         }
         return mock_response
 
@@ -356,11 +447,10 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.assertEqual(CONSTANTS.LAST_FILLS_MAX, request_params["limit"])
 
     def configure_all_symbols_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
-
         url = self.all_symbols_url
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -369,7 +459,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return [url]
 
     def configure_successful_creation_order_status_response(
-            self, callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         creation_response = self.order_creation_request_successful_mock_response
         mock_queue = AsyncMock()
@@ -380,7 +470,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return ""
 
     def configure_erroneous_creation_order_status_response(
-            self, callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         creation_response = self.order_creation_request_erroneous_mock_response
 
@@ -392,8 +482,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return ""
 
     def configure_successful_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -402,8 +491,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return ""
 
     def configure_erroneous_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         response = self._order_cancelation_request_erroneous_mock_response(order=order)
         mock_queue = AsyncMock()
@@ -412,7 +500,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return ""
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         response = self._order_cancelation_request_successful_mock_response(order=successful_order)
         err_response = self._order_cancelation_request_erroneous_mock_response(order=erroneous_order)
@@ -422,23 +510,20 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return []
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -452,8 +537,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return [url_order_status]
 
     def configure_canceled_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -473,8 +557,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return [url_fills, url_order_status]
 
     def configure_open_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -486,8 +569,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return [url]
 
     def configure_http_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -499,22 +581,19 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_partially_filled_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Dydx has no partial fill status
         raise NotImplementedError
 
     def configure_partial_fill_trade_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Dydx has no partial fill status
         raise NotImplementedError
 
     def configure_erroneous_http_fill_trade_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -525,8 +604,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     def configure_full_fill_trade_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -701,7 +779,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "createdAt": "2020-09-22T20:22:26.399Z",
                     }
                 ]
-            }
+            },
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -730,7 +808,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "createdAt": "2020-09-22T20:22:26.398Z",
                     }
                 ]
-            }
+            },
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -759,7 +837,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "createdAt": "2020-09-22T20:22:26.399Z",
                     }
                 ]
-            }
+            },
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -786,7 +864,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "createdAt": "2020-09-22T20:25:26.399Z",
                     }
                 ]
-            }
+            },
         }
 
     @property
@@ -854,47 +932,62 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "connection_id": "someConnectionId",
             "message_id": 2,
             "contents": {
-                'perpetualPositions': [{
-                    'address': 'dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3', 'subaccountNumber': 0,  # noqa: mock
-                    'positionId': '5388e4bc-0e4c-5794-8dec-da4ace4b6189',
-                    'market': self.trading_pair,
-                    'side': "LONG" if order.trade_type == TradeType.BUY else "SHORT",
-                    'status': 'CLOSED',
-                    'size': str(order.amount) if order.order_type == TradeType.BUY else str(
-                        -order.amount), 'maxSize': '-100', 'netFunding': '0.001147',
-                    'entryPrice': '10000', 'exitPrice': None, 'sumOpen': '100', 'sumClose': '0',
-                    'realizedPnl': '0.001147', 'unrealizedPnl': str(unrealized_pnl)
-                }],
-                'assetPositions': [
-                    {'address': 'dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3', 'subaccountNumber': 0,  # noqa: mock
-                     'positionId': 'fb5b6131-2871-54c1-86a2-5be9147fe4bc', 'assetId': '0', 'symbol': 'USDC',
-                     'side': 'LONG',
-                     'size': '103.802996'}]}
+                "perpetualPositions": [
+                    {
+                        "address": "dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3",
+                        "subaccountNumber": 0,  # noqa: mock
+                        "positionId": "5388e4bc-0e4c-5794-8dec-da4ace4b6189",
+                        "market": self.trading_pair,
+                        "side": "LONG" if order.trade_type == TradeType.BUY else "SHORT",
+                        "status": "CLOSED",
+                        "size": str(order.amount) if order.order_type == TradeType.BUY else str(-order.amount),
+                        "maxSize": "-100",
+                        "netFunding": "0.001147",
+                        "entryPrice": "10000",
+                        "exitPrice": None,
+                        "sumOpen": "100",
+                        "sumClose": "0",
+                        "realizedPnl": "0.001147",
+                        "unrealizedPnl": str(unrealized_pnl),
+                    }
+                ],
+                "assetPositions": [
+                    {
+                        "address": "dydx1nwtryq2dxy3a3wr5zyyvdsl5t40xx8qgvk6cm3",
+                        "subaccountNumber": 0,  # noqa: mock
+                        "positionId": "fb5b6131-2871-54c1-86a2-5be9147fe4bc",
+                        "assetId": "0",
+                        "symbol": "USDC",
+                        "side": "LONG",
+                        "size": "103.802996",
+                    }
+                ],
+            },
         }
 
     def configure_successful_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         # There's only one way position mode
         pass
 
     def configure_failed_set_position_mode(
-            self,
-            position_mode: PositionMode,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        position_mode: PositionMode,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         # There's only one way position mode, this should never be called
         pass
 
     def configure_failed_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         regex_url = re.compile(f"^{url}")
@@ -906,10 +999,10 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url, "Failed to obtain markets information."
 
     def configure_successful_set_leverage(
-            self,
-            leverage: int,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        self,
+        leverage: int,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         regex_url = re.compile(f"^{url}")
@@ -946,7 +1039,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "initialMarginFraction": "1.23",
                     }
                 }
-            }
+            },
         }
 
     async def test_get_buy_and_sell_collateral_tokens(self):
@@ -963,7 +1056,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         response = self.balance_request_mock_response_only_quote
 
         self._configure_balance_response(response=response, mock_api=mock_api)
-        await (self.exchange._update_balances())
+        await self.exchange._update_balances()
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
@@ -984,7 +1077,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.exchange._user_stream_tracker._user_stream = mock_queue
 
             try:
-                await (self.exchange._user_stream_event_listener())
+                await self.exchange._user_stream_event_listener()
             except asyncio.CancelledError:
                 pass
 
@@ -1044,11 +1137,9 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-        self.configure_canceled_order_status_response(
-            order=order,
-            mock_api=mock_api)
+        self.configure_canceled_order_status_response(order=order, mock_api=mock_api)
 
-        await (self.exchange._update_order_status())
+        await self.exchange._update_order_status()
         await asyncio.sleep(0.1)
 
         cancel_event = self.order_cancelled_logger.event_log[0]
@@ -1056,9 +1147,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.client_order_id, cancel_event.order_id)
         self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(
-            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     @aioresponses()
     async def test_update_order_status_when_filled(self, mock_api):
@@ -1079,24 +1168,21 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         self.configure_completely_filled_order_status_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         if self.is_order_fill_http_update_included_in_status_update:
-            trade_url = self.configure_full_fill_trade_response(
-                order=order,
-                mock_api=mock_api)
+            trade_url = self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
             order.completely_filled_event.set()
-        await (self.exchange._update_order_status())
+        await self.exchange._update_order_status()
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
-        await (order.wait_until_completely_filled())
+        await order.wait_until_completely_filled()
         self.assertTrue(order.is_done)
 
         if self.is_order_fill_http_update_included_in_status_update:
@@ -1105,9 +1191,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                self.validate_trades_request(order=order, request_call=trades_request)
 
             fill_event = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1127,21 +1211,16 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.quote_asset, buy_event.quote_asset)
         self.assertEqual(
             order.amount if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
-            buy_event.base_asset_amount)
+            buy_event.base_asset_amount,
+        )
         self.assertEqual(
-            order.amount * order.price
-            if self.is_order_fill_http_update_included_in_status_update
-            else Decimal(0),
-            buy_event.quote_asset_amount)
+            order.amount * order.price if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
+            buy_event.quote_asset_amount,
+        )
         self.assertEqual(order.order_type, buy_event.order_type)
         self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertTrue(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     @aioresponses()
     async def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
@@ -1160,33 +1239,30 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
-            await (
-                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+            await self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
 
         self.configure_completely_filled_order_status_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         if self.is_order_fill_http_update_included_in_status_update:
             trade_url = self.configure_full_fill_trade_response(
-                order=order,
-                mock_api=mock_api,
-                callback=lambda *args, **kwargs: request_sent_event.set())
+                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+            )
         else:
             # If the fill events will not be requested with the order status, we need to manually set the event
             # to allow the ClientOrderTracker to process the last status update
             order.completely_filled_event.set()
             request_sent_event.set()
 
-        await (self.exchange._update_order_status())
+        await self.exchange._update_order_status()
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
-        await (order.wait_until_completely_filled())
+        await order.wait_until_completely_filled()
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
 
@@ -1194,9 +1270,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             if trade_url:
                 trades_request = self._all_executed_requests(mock_api, trade_url)[0]
                 self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                self.validate_trades_request(order=order, request_call=trades_request)
 
             fill_event = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1221,13 +1295,12 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         # Configure again the response to the order fills request since it is required by lost orders update logic
         self.configure_full_fill_trade_response(
-            order=order,
-            mock_api=mock_api,
-            callback=lambda *args, **kwargs: request_sent_event.set())
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
-        await (self.exchange._update_lost_orders_status())
+        await self.exchange._update_lost_orders_status()
         # Execute one more synchronization to ensure the async task that processes the update is finished
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertTrue(order.is_done)
@@ -1236,12 +1309,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
-        self.assertFalse(
-            self.is_logged(
-                "INFO",
-                f"BUY order {order.client_order_id} completely filled."
-            )
-        )
+        self.assertFalse(self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled."))
 
     @aioresponses()
     async def test_create_buy_limit_order_successfully(self, mock_api):
@@ -1254,7 +1322,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         order_id = self.place_buy_order()
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1286,7 +1354,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         order_id = self.place_sell_order()
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1332,7 +1400,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             price=Decimal("50000"),
             position_action=PositionAction.OPEN,
         )
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1363,7 +1431,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             position_action=PositionAction.OPEN,
         )
 
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
@@ -1378,7 +1446,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         order_id = self.place_buy_order()
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -1411,7 +1479,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         leverage = 5
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         create_event = self.sell_order_created_logger.event_log[0]
@@ -1445,12 +1513,11 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         leverage = 4
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         create_event = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp,
-                         create_event.timestamp)
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("100"), create_event.amount)
@@ -1477,12 +1544,10 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback=lambda *args, **kwargs: request_sent_event.set()
         )
 
-        order_id_for_invalid_order = self.place_buy_order(
-            amount=Decimal("0.0001"), price=Decimal("0.0001")
-        )
+        order_id_for_invalid_order = self.place_buy_order(amount=Decimal("0.0001"), price=Decimal("0.0001"))
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
@@ -1499,7 +1564,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "WARNING",
                 "Buy order amount 0.0001 is lower than the minimum order "
                 "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
+                "amount to be higher than the minimum order size.",
             )
         )
         self.assertTrue(
@@ -1507,7 +1572,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
             )
         )
 
@@ -1534,7 +1599,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
         await asyncio.sleep(0.1)
 
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1543,12 +1608,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
         self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Successfully canceled order {order.client_order_id}."
-            )
-        )
+        self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
 
     @aioresponses()
     async def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
@@ -1573,14 +1633,11 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(
-            any(
-                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                for log in self.log_records
-            )
+            any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}") for log in self.log_records)
         )
 
     @aioresponses()
@@ -1594,7 +1651,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback=lambda *args, **kwargs: request_sent_event.set(),
         )
         self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
-        await (request_sent_event.wait())
+        await request_sent_event.wait()
 
         self.assertTrue(
             self.is_logged(
@@ -1605,13 +1662,12 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     @patch("asyncio.Queue.get")
-    @patch("hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
-           "DydxV4PerpetualAPIOrderBookDataSource._next_funding_time")
+    @patch(
+        "hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_api_order_book_data_source."
+        "DydxV4PerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_listen_for_funding_info_update_initializes_funding_info(
-            self,
-            mock_api,
-            _next_funding_time_mock,
-            mock_queue_get
+        self, mock_api, _next_funding_time_mock, mock_queue_get
     ):
         _next_funding_time_mock.return_value = self.target_funding_info_next_funding_utc_timestamp
         url = self.funding_info_url
@@ -1623,7 +1679,7 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_queue_get.side_effect = event_messages
 
         try:
-            await (self.exchange._listen_for_funding_info())
+            await self.exchange._listen_for_funding_info()
         except asyncio.CancelledError:
             pass
 
@@ -1632,7 +1688,5 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(
-            self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
-        )
+        self.assertEqual(self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)

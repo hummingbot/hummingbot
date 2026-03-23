@@ -69,10 +69,10 @@ def _create_ws_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-        time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None,
+    throttler: Optional[AsyncThrottler] = None,
+    time_synchronizer: Optional[TimeSynchronizer] = None,
+    time_provider: Optional[Callable] = None,
+    auth: Optional[AuthBase] = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
@@ -81,19 +81,14 @@ def build_api_factory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(
-                synchronizer=time_synchronizer,
-                time_provider=time_provider
-            ),
+            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ],
     )
 
     return api_factory
 
 
-def build_api_factory_without_time_synchronizer_pre_processor(
-    throttler: AsyncThrottler
-) -> WebAssistantsFactory:
+def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     """
     Build an API factory without the time synchronizer pre-processor.
 
@@ -117,8 +112,7 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def get_current_server_time(
-    throttler: Optional[AsyncThrottler] = None,
-    domain: str = CONSTANTS.DEFAULT_DOMAIN
+    throttler: Optional[AsyncThrottler] = None, domain: str = CONSTANTS.DEFAULT_DOMAIN
 ) -> float:
     """
     Get the current server time in seconds.

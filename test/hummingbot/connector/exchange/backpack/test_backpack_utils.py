@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.backpack import backpack_utils as utils
 
 
 class BackpackUtilTestCases(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

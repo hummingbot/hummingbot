@@ -56,11 +56,11 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
     model_config = ConfigDict(title="simulated_transaction_fee_calculator")
 
     def create_calculator(
-            self,
-            client: AsyncClient,
-            composer: Composer,
-            gas_price: Optional[int] = None,
-            gas_limit_adjustment_multiplier: Optional[Decimal] = None,
+        self,
+        client: AsyncClient,
+        composer: Composer,
+        gas_price: Optional[int] = None,
+        gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
         return SimulatedTransactionFeeCalculator(
             client=client,
@@ -75,11 +75,11 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
     model_config = ConfigDict(title="message_based_transaction_fee_calculator")
 
     def create_calculator(
-            self,
-            client: AsyncClient,
-            composer: Composer,
-            gas_price: Optional[int] = None,
-            gas_limit_adjustment_multiplier: Optional[Decimal] = None,
+        self,
+        client: AsyncClient,
+        composer: Composer,
+        gas_price: Optional[int] = None,
+        gas_limit_adjustment_multiplier: Optional[Decimal] = None,
     ) -> TransactionFeeCalculator:
         return MessageBasedTransactionFeeCalculator.new_using_gas_heuristics(
             client=client,
@@ -89,8 +89,12 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
 
 
 FEE_CALCULATOR_MODES = {
-    InjectiveSimulatedTransactionFeeCalculatorMode.model_config["title"]: InjectiveSimulatedTransactionFeeCalculatorMode,
-    InjectiveMessageBasedTransactionFeeCalculatorMode.model_config["title"]: InjectiveMessageBasedTransactionFeeCalculatorMode,
+    InjectiveSimulatedTransactionFeeCalculatorMode.model_config[
+        "title"
+    ]: InjectiveSimulatedTransactionFeeCalculatorMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode.model_config[
+        "title"
+    ]: InjectiveMessageBasedTransactionFeeCalculatorMode,
 }
 
 
@@ -115,7 +119,8 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
         default="lb",
         json_schema_extra={
             "prompt": f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})",
-            "prompt_on_new": True}
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="testnet_network")
 
@@ -196,13 +201,12 @@ RE_SEED_PHRASE = re.compile(r"^(?:[a-z]+(?: [a-z]+){11}|[a-z]+(?: [a-z]+){23})$"
 
 
 class InjectiveAccountMode(BaseClientModel, ABC):
-
     @abstractmethod
     def create_data_source(
-            self,
-            network: Network,
-            rate_limits: List[RateLimit],
-            fee_calculator_mode: InjectiveFeeCalculatorMode,
+        self,
+        network: Network,
+        rate_limits: List[RateLimit],
+        fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
         pass
 
@@ -215,14 +219,14 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     subaccount_index: int = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Injective trading account subaccount index",
             "prompt_on_new": True,
-        }
+        },
     )
     granter_address: str = Field(
         default=...,
@@ -230,14 +234,14 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
             "prompt": "Enter the Injective address of the granter account (portfolio account)",
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     granter_subaccount_index: int = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter the Injective granter subaccount index (portfolio subaccount index)",
             "prompt_on_new": True,
-        }
+        },
     )
 
     @field_validator("private_key", mode="before")
@@ -250,13 +254,14 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
                 private_key = PrivateKey.from_mnemonic(v)
                 return private_key.to_hex()
         return v
+
     model_config = ConfigDict(title="delegate_account")
 
     def create_data_source(
-            self,
-            network: Network,
-            rate_limits: List[RateLimit],
-            fee_calculator_mode: InjectiveFeeCalculatorMode,
+        self,
+        network: Network,
+        rate_limits: List[RateLimit],
+        fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
         return InjectiveGranteeDataSource(
             private_key=self.private_key.get_secret_value(),
@@ -273,10 +278,10 @@ class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
     model_config = ConfigDict(title="read_only_account")
 
     def create_data_source(
-            self,
-            network: Network,
-            rate_limits: List[RateLimit],
-            fee_calculator_mode: InjectiveFeeCalculatorMode,
+        self,
+        network: Network,
+        rate_limits: List[RateLimit],
+        fee_calculator_mode: InjectiveFeeCalculatorMode,
     ) -> "InjectiveDataSource":
         return InjectiveReadOnlyDataSource(
             network=network,
@@ -298,20 +303,23 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         default=InjectiveMainnetNetworkMode(),
         json_schema_extra={
             "prompt": f"Select the network ({'/'.join(list(NETWORK_MODES.keys()))})",
-            "prompt_on_new": True},
+            "prompt_on_new": True,
+        },
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
         default=InjectiveReadOnlyAccountMode(),
         json_schema_extra={
             "prompt": f"Select the account type ({'/'.join(list(ACCOUNT_MODES.keys()))})",
-            "prompt_on_new": True},
+            "prompt_on_new": True,
+        },
     )
     fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
         default=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         discriminator="name",
         json_schema_extra={
             "prompt": f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
-            "prompt_on_new": True},
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="injective_v2")
 
@@ -321,9 +329,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(NETWORK_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in NETWORK_MODES:
-            raise ValueError(
-                f"Invalid network, please choose a value from {list(NETWORK_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid network, please choose a value from {list(NETWORK_MODES.keys())}.")
         else:
             sub_model = NETWORK_MODES[v].model_construct()
         return sub_model
@@ -334,9 +340,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(ACCOUNT_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in ACCOUNT_MODES:
-            raise ValueError(
-                f"Invalid account type, please choose a value from {list(ACCOUNT_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid account type, please choose a value from {list(ACCOUNT_MODES.keys())}.")
         else:
             sub_model = ACCOUNT_MODES[v].model_construct()
         return sub_model
@@ -347,9 +351,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
             sub_model = v
         elif v not in FEE_CALCULATOR_MODES:
-            raise ValueError(
-                f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
-            )
+            raise ValueError(f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.")
         else:
             sub_model = FEE_CALCULATOR_MODES[v].model_construct()
         return sub_model

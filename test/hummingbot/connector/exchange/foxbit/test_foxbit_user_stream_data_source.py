@@ -16,7 +16,10 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
-@patch("hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.FoxbitAPIUserStreamDataSource._sleep", new_callable=AsyncMock)
+@patch(
+    "hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.FoxbitAPIUserStreamDataSource._sleep",
+    new_callable=AsyncMock,
+)
 class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
@@ -45,7 +48,9 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
         self._api_key = "testApiKey"
         self._secret = "testSecret"
         self._user_id = "testUserId"
-        self.auth = FoxbitAuth(api_key=self._api_key, secret_key=self._secret, user_id=self._user_id, time_provider=self.mock_time_provider)
+        self.auth = FoxbitAuth(
+            api_key=self._api_key, secret_key=self._secret, user_id=self._user_id, time_provider=self.mock_time_provider
+        )
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
@@ -62,7 +67,7 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain
+            domain=self.domain,
         )
 
         self.data_source.logger().setLevel(1)
@@ -80,8 +85,7 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -99,35 +103,26 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
         return ret
 
     def _error_response(self) -> Dict[str, Any]:
-        resp = {
-            "code": "ERROR CODE",
-            "msg": "ERROR MESSAGE"
-        }
+        resp = {"code": "ERROR CODE", "msg": "ERROR MESSAGE"}
 
         return resp
 
     def _user_update_event(self):
         # Balance Update
-        resp = {
-            "e": "balanceUpdate",
-            "E": 1573200697110,
-            "a": "BTC",
-            "d": "100.00000000",
-            "T": 1573200697068
-        }
+        resp = {"e": "balanceUpdate", "E": 1573200697110, "a": "BTC", "d": "100.00000000", "T": 1573200697068}
         return json.dumps(resp)
 
     def _successfully_subscribed_event(self):
-        resp = {
-            "result": None,
-            "id": 1
-        }
+        resp = {"result": None, "id": 1}
         return resp
 
     def test_user_stream_properties(self, mock_sleep):
         self.assertEqual(self.data_source.ready, self.data_source._user_stream_data_source_initialized)
 
-    @patch("hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.web_utils.websocket_url", return_value="wss://test")
+    @patch(
+        "hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.web_utils.websocket_url",
+        return_value="wss://test",
+    )
     @patch("hummingbot.connector.exchange.foxbit.foxbit_api_user_stream_data_source.WSAssistant")
     def test_connected_websocket_assistant_success(self, mock_ws_assistant_cls, mock_websocket_url, mock_sleep):
         # Arrange
@@ -149,7 +144,7 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
             trading_pairs=["COINALPHA-HBOT"],
             connector=MagicMock(),
             api_factory=mock_api_factory,
-            domain="com"
+            domain="com",
         )
 
         # Act

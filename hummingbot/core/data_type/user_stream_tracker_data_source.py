@@ -9,7 +9,6 @@ from hummingbot.logger import HummingbotLogger
 
 
 class UserStreamTrackerDataSource(metaclass=ABCMeta):
-
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self):
@@ -91,7 +90,7 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
         This method should be overridden by subclasses to handle specific cleanup logic.
         """
         # Cancel listen key task if it exists (for exchanges that use listen keys)
-        if hasattr(self, '_manage_listen_key_task') and self._manage_listen_key_task is not None:
+        if hasattr(self, "_manage_listen_key_task") and self._manage_listen_key_task is not None:
             if not self._manage_listen_key_task.done():
                 self._manage_listen_key_task.cancel()
                 try:
@@ -101,9 +100,9 @@ class UserStreamTrackerDataSource(metaclass=ABCMeta):
             self._manage_listen_key_task = None
 
         # Clear listen key state if it exists
-        if hasattr(self, '_current_listen_key'):
+        if hasattr(self, "_current_listen_key"):
             self._current_listen_key = None
-        if hasattr(self, '_listen_key_initialized_event'):
+        if hasattr(self, "_listen_key_initialized_event"):
             self._listen_key_initialized_event.clear()
 
         # Disconnect websocket if connected

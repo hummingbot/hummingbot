@@ -10,7 +10,7 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 
 class HyperliquidPerpetualUtilsTests(TestCase):
     def test_validate_connection_mode_succeed(self):
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
         validations = [validate_wallet_mode(value) for value in allowed]
 
         for index, validation in enumerate(validations):
@@ -18,7 +18,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
 
     def test_validate_connection_mode_fails(self):
         wrong_value = "api_vault"
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
 
         with self.assertRaises(ValueError) as context:
             validate_wallet_mode(wrong_value)
@@ -26,7 +26,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
         self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))
 
     def test_cls_validate_connection_mode_succeed(self):
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
         validations = [HyperliquidPerpetualConfigMap.validate_mode(value) for value in allowed]
 
         for validation in validations:
@@ -46,7 +46,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
 
     def test_cls_validate_connection_mode_fails(self):
         wrong_value = "api_vault"
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
 
         with self.assertRaises(ValueError) as context:
             HyperliquidPerpetualConfigMap.validate_mode(wrong_value)
@@ -54,7 +54,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
         self.assertEqual(f"Invalid wallet mode '{wrong_value}', choose from: {allowed}", str(context.exception))
 
     def test_cls_testnet_validate_bool_succeed(self):
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
         validations = [HyperliquidPerpetualTestnetConfigMap.validate_mode(value) for value in allowed]
 
         for validation in validations:
@@ -62,7 +62,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
 
     def test_cls_testnet_validate_bool_fails(self):
         wrong_value = "api_vault"
-        allowed = ('arb_wallet', 'api_wallet')
+        allowed = ("arb_wallet", "api_wallet")
 
         with self.assertRaises(ValueError) as context:
             HyperliquidPerpetualTestnetConfigMap.validate_mode(wrong_value)

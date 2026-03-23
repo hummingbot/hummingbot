@@ -1,6 +1,7 @@
 """
 Unit tests for XRPLNodePool with persistent connections and health monitoring.
 """
+
 import asyncio
 import unittest
 from collections import deque
@@ -106,7 +107,7 @@ class TestXRPLNodePoolAsync(unittest.IsolatedAsyncioTestCase):
         pool = XRPLNodePool(node_urls=["wss://test.com"])
 
         # Mock connection initialization
-        with patch.object(pool, '_init_connection', new_callable=AsyncMock) as mock_init:
+        with patch.object(pool, "_init_connection", new_callable=AsyncMock) as mock_init:
             mock_init.return_value = True
             await pool.start()
 
@@ -123,7 +124,7 @@ class TestXRPLNodePoolAsync(unittest.IsolatedAsyncioTestCase):
         pool = XRPLNodePool(node_urls=["wss://test.com"])
         pool._running = True
 
-        with patch.object(pool, '_init_connection', new_callable=AsyncMock) as mock_init:
+        with patch.object(pool, "_init_connection", new_callable=AsyncMock) as mock_init:
             await pool.start()
             mock_init.assert_not_called()
 
@@ -203,7 +204,7 @@ class TestXRPLNodePoolHealthMonitor(unittest.IsolatedAsyncioTestCase):
         async def mock_check():
             check_called.set()
 
-        with patch.object(pool, '_check_all_connections', side_effect=mock_check):
+        with patch.object(pool, "_check_all_connections", side_effect=mock_check):
             task = asyncio.create_task(pool._health_monitor_loop())
 
             # Wait for at least one check

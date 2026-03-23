@@ -6,7 +6,6 @@ from hummingbot.core.utils import async_ttl_cache
 
 
 class AsyncTTLCacheUnitTest(unittest.TestCase):
-
     @async_ttl_cache(ttl=3, maxsize=1)
     async def get_timestamp(self):
         return time.time()

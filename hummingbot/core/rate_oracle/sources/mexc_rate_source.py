@@ -43,7 +43,7 @@ class MexcRateSource(RateSourceBase):
             self._mexc_exchange = self._build_mexc_connector_without_private_keys()
 
     @staticmethod
-    async def _get_mexc_prices(exchange: 'MexcExchange', quote_token: str = None) -> Dict[str, Decimal]:
+    async def _get_mexc_prices(exchange: "MexcExchange", quote_token: str = None) -> Dict[str, Decimal]:
         """
         Fetches MEXC prices
 
@@ -70,7 +70,7 @@ class MexcRateSource(RateSourceBase):
         return results
 
     @staticmethod
-    def _build_mexc_connector_without_private_keys() -> 'MexcExchange':
+    def _build_mexc_connector_without_private_keys() -> "MexcExchange":
         from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 
         return MexcExchange(

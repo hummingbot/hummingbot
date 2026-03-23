@@ -13,14 +13,11 @@ from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage_confi
 
 
 class SpotPerpetualArbitrageStartTest(unittest.TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.markets = {
-            "binance": ExchangeBase(),
-            "kucoin": MockPerpConnector()}
+        self.markets = {"binance": ExchangeBase(), "kucoin": MockPerpConnector()}
         self.notifications = []
         self.log_errors = []
         assign_config_default(strategy_cmap)

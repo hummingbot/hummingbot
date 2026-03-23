@@ -302,9 +302,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch(
-        "hummingbot.connector.exchange.bitrue.bitrue_api_order_book_data_source" ".BitrueAPIOrderBookDataSource._sleep"
-    )
+    @patch("hummingbot.connector.exchange.bitrue.bitrue_api_order_book_data_source.BitrueAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
@@ -359,9 +357,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
         self.assertEqual(1, mock_ws.send.call_count)  # 1 channel: orderbook
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to public order book channel of {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to public order book channel of {new_pair}..."))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -371,9 +367,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -405,9 +399,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}..."))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -430,9 +422,7 @@ class BitrueAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established"))
 
     async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated during unsubscription."""

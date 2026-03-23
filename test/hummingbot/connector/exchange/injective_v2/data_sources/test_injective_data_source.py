@@ -101,8 +101,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def is_logged(self, log_level: str, message: Union[str, re.Pattern]) -> bool:
         expression = (
             re.compile(
-                f"^{message}$"
-                .replace(".", r"\.")
+                f"^{message}$".replace(".", r"\.")
                 .replace("?", r"\?")
                 .replace("/", r"\/")
                 .replace("(", r"\(")
@@ -126,9 +125,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         for market in spot_markets_response.values():
             tokens[market.base_token.denom] = market.base_token
             tokens[market.quote_token.denom] = market.quote_token
-        self.query_executor._tokens_responses.put_nowait(
-            {token.symbol: token for token in tokens.values()}
-        )
+        self.query_executor._tokens_responses.put_nowait({token.symbol: token for token in tokens.values()})
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
@@ -159,9 +156,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         for market in spot_markets_response.values():
             tokens[market.base_token.denom] = market.base_token
             tokens[market.quote_token.denom] = market.quote_token
-        self.query_executor._tokens_responses.put_nowait(
-            {token.symbol: token for token in tokens.values()}
-        )
+        self.query_executor._tokens_responses.put_nowait({token.symbol: token for token in tokens.values()})
 
         tx_failure_response = {
             "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
@@ -187,7 +182,8 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.assertIsInstance(results[0].exception, ValueError)
         expected_error_message = (
             f"Error sending the order creation transaction. Code: {tx_failure_response['code']}. "
-            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}"
+        )
         self.assertEqual(expected_error_message, str(results[0].exception))
 
     def test_cancel_orders_fails_if_tx_broadcast_fails(self):
@@ -198,9 +194,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         for market in spot_markets_response.values():
             tokens[market.base_token.denom] = market.base_token
             tokens[market.quote_token.denom] = market.quote_token
-        self.query_executor._tokens_responses.put_nowait(
-            {token.symbol: token for token in tokens.values()}
-        )
+        self.query_executor._tokens_responses.put_nowait({token.symbol: token for token in tokens.values()})
 
         tx_failure_response = {
             "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
@@ -226,7 +220,8 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.assertIsInstance(results[0].exception, ValueError)
         expected_error_message = (
             f"Error sending the order cancel transaction. Code: {tx_failure_response['code']}. "
-            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}"
+        )
         self.assertEqual(expected_error_message, str(results[0].exception))
 
     def test_cancel_all_subaccount_orders_fails_if_tx_broadcast_fails(self):
@@ -237,9 +232,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         for market in spot_markets_response.values():
             tokens[market.base_token.denom] = market.base_token
             tokens[market.quote_token.denom] = market.quote_token
-        self.query_executor._tokens_responses.put_nowait(
-            {token.symbol: token for token in tokens.values()}
-        )
+        self.query_executor._tokens_responses.put_nowait({token.symbol: token for token in tokens.values()})
 
         tx_failure_response = {
             "txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
@@ -249,12 +242,15 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.query_executor._send_transaction_responses.put_nowait(tx_failure_response)
 
         with self.assertRaises(ValueError) as context:
-            self.async_run_with_timeout(self.data_source.cancel_all_subaccount_orders(
-                spot_markets_ids=list(spot_markets_response.keys()),
-            ))
+            self.async_run_with_timeout(
+                self.data_source.cancel_all_subaccount_orders(
+                    spot_markets_ids=list(spot_markets_response.keys()),
+                )
+            )
         expected_error_message = (
             f"Error sending the order cancel transaction. Code: {tx_failure_response['code']}. "
-            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}")
+            f"TXHash: {tx_failure_response['txhash']}. TXLog: {tx_failure_response['rawLog']}"
+        )
         self.assertEqual(expected_error_message, context.exception.args[0])
 
     def _spot_markets_response(self):

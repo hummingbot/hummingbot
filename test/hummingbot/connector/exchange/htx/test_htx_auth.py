@@ -16,7 +16,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class HtxAuthTests(unittest.TestCase):
-
     def setUp(self):
         self._api_key = "testApiKey"
         self._secret = "testSecret"
@@ -40,18 +39,13 @@ class HtxAuthTests(unittest.TestCase):
         request = RESTRequest(method=RESTMethod.GET, url=test_url, params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
-        full_params.update({"Timestamp": now,
-                            "AccessKeyId": self._api_key,
-                            "SignatureMethod": "HmacSHA256",
-                            "SignatureVersion": "2"
-                            })
+        full_params.update(
+            {"Timestamp": now, "AccessKeyId": self._api_key, "SignatureMethod": "HmacSHA256", "SignatureVersion": "2"}
+        )
         full_params = HtxAuth.keysort(full_params)
         encoded_params = urlencode(full_params)
         payload = "\n".join(["GET", "api.huobi.pro", "/v1/order/openOrders", encoded_params])
-        test_digest = hmac.new(
-            self._secret.encode("utf8"),
-            payload.encode("utf8"),
-            hashlib.sha256).digest()
+        test_digest = hmac.new(self._secret.encode("utf8"), payload.encode("utf8"), hashlib.sha256).digest()
         expected_signature = base64.b64encode(test_digest).decode()
         self.assertEqual(now, configured_request.params["Timestamp"])
         self.assertEqual(expected_signature, configured_request.params["Signature"])

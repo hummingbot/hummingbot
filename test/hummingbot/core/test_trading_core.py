@@ -31,6 +31,7 @@ class MockStrategy(StrategyBase):
 
 class MockScriptConfig(StrategyV2ConfigBase):
     """Mock config for testing"""
+
     script_file_name: str = "mock_script.py"
     markets: MarketDict = Field(default={"binance": {"BTC-USDT", "ETH-USDT"}})
 
@@ -151,7 +152,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
     def test_detect_strategy_type(self):
         """Test strategy type detection"""
         # Mock script file existence
-        with patch.object(Path, 'exists') as mock_exists:
+        with patch.object(Path, "exists") as mock_exists:
             # Test script strategy
             mock_exists.return_value = True
             self.assertEqual(self.trading_core.detect_strategy_type("test_script"), StrategyType.V2)
@@ -167,7 +168,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
 
     def test_is_v2_strategy(self):
         """Test V2 strategy detection"""
-        with patch.object(Path, 'exists') as mock_exists:
+        with patch.object(Path, "exists") as mock_exists:
             mock_exists.return_value = True
             self.assertTrue(self.trading_core.is_v2_strategy("test_script"))
 
@@ -195,9 +196,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
 
         # Test with custom db name
         self.trading_core.initialize_markets_recorder("custom_db")
-        mock_sql_manager.get_trade_fills_instance.assert_called_with(
-            self.client_config_adapter, "custom_db"
-        )
+        mock_sql_manager.get_trade_fills_instance.assert_called_with(self.client_config_adapter, "custom_db")
 
     @patch("hummingbot.core.trading_core.importlib")
     @patch("hummingbot.core.trading_core.inspect")
@@ -213,7 +212,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_inspect.getmembers.return_value = [
             ("MockScriptStrategy", MockScriptStrategy),
             ("MockScriptConfig", MockScriptConfig),
-            ("SomeOtherClass", Mock())
+            ("SomeOtherClass", Mock()),
         ]
         mock_inspect.isclass.side_effect = lambda x: isinstance(x, type)
 
@@ -256,8 +255,9 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
     @patch.object(TradingCore, "_initialize_v2_strategy")
     @patch.object(TradingCore, "detect_strategy_type")
     @patch("hummingbot.core.trading_core.RateOracle")
-    async def test_start_strategy(self, mock_rate_oracle, mock_detect, mock_init_script,
-                                  mock_start_exec, mock_start_clock):
+    async def test_start_strategy(
+        self, mock_rate_oracle, mock_detect, mock_init_script, mock_start_exec, mock_start_clock
+    ):
         """Test starting a strategy"""
         # Set up mocks
         mock_detect.return_value = StrategyType.V2
@@ -315,10 +315,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_connector2 = Mock()
         mock_connector2.limit_orders = []
 
-        self.trading_core.connector_manager.connectors = {
-            "binance": mock_connector1,
-            "kucoin": mock_connector2
-        }
+        self.trading_core.connector_manager.connectors = {"binance": mock_connector1, "kucoin": mock_connector2}
 
         # Cancel orders
         result = await self.trading_core.cancel_outstanding_orders()
@@ -331,7 +328,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         # Add connectors
         self.trading_core.connector_manager.connectors = {
             "binance": self.mock_connector,
-            "kucoin": Mock(trading_pairs=["ETH-BTC"])
+            "kucoin": Mock(trading_pairs=["ETH-BTC"]),
         }
 
         # Initialize
@@ -358,16 +355,16 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
             with patch.object(TradingCore, "detect_strategy_type", return_value=StrategyType.V2):
                 # Simply test the status without the problematic kill switch check
                 status = {
-                    'clock_running': self.trading_core._is_running,
-                    'strategy_running': self.trading_core._strategy_running,
-                    'strategy_name': self.trading_core.strategy_name,
-                    'strategy_file_name': self.trading_core._strategy_file_name,
-                    'strategy_type': "v2",  # Mock the strategy type
-                    'start_time': self.trading_core.start_time,
-                    'uptime': (time.time() * 1e3 - self.trading_core.start_time) if self.trading_core.start_time else 0,
-                    'connectors': mock_connector_status,
-                    'kill_switch_enabled': False,  # Mock this to avoid pydantic validation
-                    'markets_recorder_active': self.trading_core.markets_recorder is not None,
+                    "clock_running": self.trading_core._is_running,
+                    "strategy_running": self.trading_core._strategy_running,
+                    "strategy_name": self.trading_core.strategy_name,
+                    "strategy_file_name": self.trading_core._strategy_file_name,
+                    "strategy_type": "v2",  # Mock the strategy type
+                    "start_time": self.trading_core.start_time,
+                    "uptime": (time.time() * 1e3 - self.trading_core.start_time) if self.trading_core.start_time else 0,
+                    "connectors": mock_connector_status,
+                    "kill_switch_enabled": False,  # Mock this to avoid pydantic validation
+                    "markets_recorder_active": self.trading_core.markets_recorder is not None,
                 }
 
         self.assertTrue(status["clock_running"])
@@ -401,10 +398,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
             mock_create.return_value = self.mock_connector
 
             # Initialize markets
-            await self.trading_core.initialize_markets([
-                ("binance", ["BTC-USDT", "ETH-USDT"]),
-                ("kucoin", ["ETH-BTC"])
-            ])
+            await self.trading_core.initialize_markets([("binance", ["BTC-USDT", "ETH-USDT"]), ("kucoin", ["ETH-BTC"])])
 
             # Verify
             self.assertEqual(mock_create.call_count, 2)
@@ -442,14 +436,10 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
             mock_create.return_value = self.mock_connector
 
             # Create connector
-            connector = await self.trading_core.create_connector(
-                "binance", ["BTC-USDT"], True, {"api_key": "test"}
-            )
+            connector = await self.trading_core.create_connector("binance", ["BTC-USDT"], True, {"api_key": "test"})
 
             self.assertEqual(connector, self.mock_connector)
-            mock_create.assert_called_once_with(
-                "binance", ["BTC-USDT"], True, {"api_key": "test"}
-            )
+            mock_create.assert_called_once_with("binance", ["BTC-USDT"], True, {"api_key": "test"})
 
             # Test with clock running
             self.trading_core.clock = Mock()
@@ -520,10 +510,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         """Test get_current_balances when connector is ready"""
         # Set up ready connector with balances
         self.mock_connector.ready = True
-        self.mock_connector.get_all_balances.return_value = {
-            "BTC": Decimal("1.5"),
-            "USDT": Decimal("5000.0")
-        }
+        self.mock_connector.get_all_balances.return_value = {"BTC": Decimal("1.5"), "USDT": Decimal("5000.0")}
         self.trading_core.connector_manager.connectors["binance"] = self.mock_connector
 
         # Get balances
@@ -537,10 +524,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
     async def test_get_current_balances_paper_trade(self):
         """Test get_current_balances for paper trade"""
         # Set up paper trade balances
-        self.client_config.paper_trade.paper_trade_account_balance = {
-            "BTC": Decimal("2.0"),
-            "ETH": Decimal("10.0")
-        }
+        self.client_config.paper_trade.paper_trade_account_balance = {"BTC": Decimal("2.0"), "ETH": Decimal("10.0")}
 
         # Get balances for paper trade
         balances = await self.trading_core.get_current_balances("Paper_Exchange")
@@ -627,9 +611,9 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_perf.return_pct = Decimal("5.0")
 
         with patch.object(self.trading_core, "_get_trades_from_session", return_value=mock_trades):
-            with patch.object(self.trading_core, "calculate_performance_metrics_by_connector_pair",
-                              return_value=[mock_perf]) as mock_calc_perf:
-
+            with patch.object(
+                self.trading_core, "calculate_performance_metrics_by_connector_pair", return_value=[mock_perf]
+            ) as mock_calc_perf:
                 result = await self.trading_core.calculate_profitability()
 
                 # Verify
@@ -656,9 +640,9 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_perf_metrics_class.create = AsyncMock(side_effect=[mock_perf1, mock_perf2])
 
         # Mock get_current_balances
-        with patch.object(self.trading_core, "get_current_balances",
-                          return_value={"BTC": Decimal("1.0"), "USDT": Decimal("1000.0")}):
-
+        with patch.object(
+            self.trading_core, "get_current_balances", return_value={"BTC": Decimal("1.0"), "USDT": Decimal("1000.0")}
+        ):
             # Calculate performance metrics
             result = await self.trading_core.calculate_performance_metrics_by_connector_pair(trades)
 
@@ -707,9 +691,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
 
         # Test without row limit (should default to 5000)
         trades = TradingCore._get_trades_from_session(
-            start_timestamp=1000000,
-            session=mock_session,
-            config_file_path="test_strategy.yml"
+            start_timestamp=1000000, session=mock_session, config_file_path="test_strategy.yml"
         )
 
         # Verify
@@ -737,7 +719,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_get_collector.assert_called_with(
             connector=self.mock_connector,
             rate_provider=mock_oracle_instance,
-            instance_id=self.trading_core.client_config_map.instance_id
+            instance_id=self.trading_core.client_config_map.instance_id,
         )
 
     @patch("hummingbot.client.config.client_config_map.AnonymizedMetricsEnabledMode.get_collector")
@@ -821,10 +803,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         # Add metrics collectors
         mock_collector1 = Mock(spec=MetricsCollector)
         mock_collector2 = Mock(spec=MetricsCollector)
-        self.trading_core._metrics_collectors = {
-            "binance": mock_collector1,
-            "kucoin": mock_collector2
-        }
+        self.trading_core._metrics_collectors = {"binance": mock_collector1, "kucoin": mock_collector2}
 
         # Set up to raise exception on one collector (to test error handling)
         self.trading_core.clock.remove_iterator.side_effect = [Exception("Test error"), None]

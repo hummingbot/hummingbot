@@ -28,7 +28,6 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 
 class ExtendedMockPaperExchange(MockPaperExchange):
-
     def __init__(self, client_config_map: "ClientConfigAdapter"):
         super().__init__(client_config_map)
 
@@ -56,6 +55,7 @@ class MockStrategyV2Config(StrategyV2ConfigBase):
 
     :ivar markets: Dictionary mapping connector names to sets of trading pairs
     """
+
     markets: dict[str, set[str]]
 
     class Config:
@@ -92,12 +92,12 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
     def setUpClass(cls):
         super().setUpClass()
         # Store original class state
-        cls._original_markets = getattr(MockStrategyV2, 'markets', None)
+        cls._original_markets = getattr(MockStrategyV2, "markets", None)
 
     @classmethod
     def tearDownClass(cls):
         # Restore original class state
-        if hasattr(cls, '_original_markets'):
+        if hasattr(cls, "_original_markets"):
             MockStrategyV2.markets = cls._original_markets
         super().tearDownClass()
 
@@ -141,12 +141,12 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
     def tearDown(self) -> None:
         try:
             # Remove clock iterators first to prevent any late callbacks
-            if hasattr(self, 'clock'):
+            if hasattr(self, "clock"):
                 for iterator in self.clock.child_iterators:
                     self.clock.remove_iterator(iterator)
 
             # Stop executor first since it depends on everything else
-            if hasattr(self, 'executor') and self.executor is not None:
+            if hasattr(self, "executor") and self.executor is not None:
                 self.executor.stop()
                 # Clear executor state explicitly
                 self.executor._trailing_stop_pnl_trigger = None
@@ -159,13 +159,13 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
                 self.executor._current_retries = 0
 
             # Remove event listeners
-            if hasattr(self, 'connector') and hasattr(self, '_event_listeners'):
+            if hasattr(self, "connector") and hasattr(self, "_event_listeners"):
                 for event_tag, listener in self._event_listeners:
                     self.connector.remove_listener(event_tag, listener)
                 self._event_listeners.clear()
 
             # Clear order tracker
-            if hasattr(self, 'connector'):
+            if hasattr(self, "connector"):
                 self.connector._order_tracker.active_orders.clear()
                 # Reset order book
                 self.connector.new_empty_order_book(self.trading_pair)
@@ -178,23 +178,23 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
                     volume_step_size=1.0,
                 )
             # Stop strategy and clear mocks
-            if hasattr(self, 'strategy'):
+            if hasattr(self, "strategy"):
                 self.strategy.stop(self.clock)
-                if hasattr(self.strategy, 'executor_orchestrator'):
+                if hasattr(self.strategy, "executor_orchestrator"):
                     self.strategy.executor_orchestrator.reset_mock()
-                if hasattr(self.strategy, 'market_data_provider'):
+                if hasattr(self.strategy, "market_data_provider"):
                     self.strategy.market_data_provider.reset_mock()
 
             # Always reset markets class variable
-            if hasattr(MockStrategyV2, 'markets'):
+            if hasattr(MockStrategyV2, "markets"):
                 MockStrategyV2.markets = {}
 
             # Stop all patches
-            if hasattr(self, '_patches'):
+            if hasattr(self, "_patches"):
                 for p in self._patches:
                     p.stop()
                 self._patches.clear()
-            if hasattr(self, '_mocks'):
+            if hasattr(self, "_mocks"):
                 self._mocks.clear()
 
             for iterator in self.clock.child_iterators:
@@ -228,14 +228,16 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
                 order_size_precision=6,
             ),
         )
-        connector.set_trading_rules({
-            self.trading_pair: TradingRule(
-                trading_pair=self.trading_pair,
-                min_order_size=Decimal("0.01"),
-                min_price_increment=Decimal("0.0001"),
-                min_base_amount_increment=Decimal("0.01"),
-            )
-        })
+        connector.set_trading_rules(
+            {
+                self.trading_pair: TradingRule(
+                    trading_pair=self.trading_pair,
+                    min_order_size=Decimal("0.01"),
+                    min_price_increment=Decimal("0.0001"),
+                    min_base_amount_increment=Decimal("0.01"),
+                )
+            }
+        )
         return connector
 
     def create_strategy(self):
@@ -277,10 +279,12 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
         await self.executor.control_task()
 
         market_info = MarketTradingPairTuple(self.connector, self.trading_pair, self.base_asset, self.quote_asset)
-        self.connector.add_listener(MarketEvent.BuyOrderCreated,
-                                    SourceInfoEventForwarder(self.executor.process_order_created_event))
-        self.connector.add_listener(MarketEvent.OrderFilled,
-                                    SourceInfoEventForwarder(self.executor.process_order_filled_event))
+        self.connector.add_listener(
+            MarketEvent.BuyOrderCreated, SourceInfoEventForwarder(self.executor.process_order_created_event)
+        )
+        self.connector.add_listener(
+            MarketEvent.OrderFilled, SourceInfoEventForwarder(self.executor.process_order_filled_event)
+        )
 
         if active_orders := self.strategy.get_active_orders("mock_paper_exchange"):
             executor_order = [o for o in active_orders if o.client_order_id == self.executor.open_order.order_id][0]
@@ -296,10 +300,12 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
         await self.executor.control_task()
 
         market_info = MarketTradingPairTuple(self.connector, self.trading_pair, self.base_asset, self.quote_asset)
-        self.connector.add_listener(MarketEvent.BuyOrderCreated,
-                                    SourceInfoEventForwarder(self.executor.process_order_created_event))
-        self.connector.add_listener(MarketEvent.OrderFilled,
-                                    SourceInfoEventForwarder(self.executor.process_order_filled_event))
+        self.connector.add_listener(
+            MarketEvent.BuyOrderCreated, SourceInfoEventForwarder(self.executor.process_order_created_event)
+        )
+        self.connector.add_listener(
+            MarketEvent.OrderFilled, SourceInfoEventForwarder(self.executor.process_order_filled_event)
+        )
 
         if active_orders := self.strategy.get_active_orders("mock_paper_exchange"):
             executor_order = [o for o in active_orders if o.client_order_id == self.executor.open_order.order_id][0]
@@ -324,7 +330,7 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
     def simulate_side_price_change(self, new_price: Decimal, taker_side: TradeType) -> None:
         # Set the order book so that the best bid/best ask matches the new price
         price_step = 1
-        mid_price_offset = - price_step if taker_side is TradeType.SELL else price_step
+        mid_price_offset = -price_step if taker_side is TradeType.SELL else price_step
         mid_price = new_price + mid_price_offset / Decimal("2")
 
         self.connector.set_balanced_order_book(
@@ -358,7 +364,7 @@ class ExecutorIntegrationTestBase(IsolatedAsyncioWrapperTestCase, LoggerMixinFor
             amount=order.quantity,
             price=order.price,
             order_id=order.client_order_id,
-            creation_timestamp=time.time()
+            creation_timestamp=time.time(),
         )
         market_info.market.trigger_event(event_tag, event)
 

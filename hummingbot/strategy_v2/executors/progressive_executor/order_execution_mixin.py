@@ -22,14 +22,13 @@ class OrderExecutionMixin:
         )
         self.logger().info(
             f"Open order placed | id={order_id} type={self.config.triple_barrier_config.open_order_type.name} "
-            f"price={self.entry_price:.6g} amount={self.config.amount:.6g}")
+            f"price={self.entry_price:.6g} amount={self.config.amount:.6g}"
+        )
         self.open_order = TrackedOrder(order_id=order_id)
         self.open_order_timestamp = self.current_timestamp
 
     def place_close_order_and_cancel_open_orders(
-            self: ProgressiveOrderExecutionProtocol,
-            close_type: CloseType,
-            price: Decimal = Decimal("NaN")
+        self: ProgressiveOrderExecutionProtocol, close_type: CloseType, price: Decimal = Decimal("NaN")
     ):
         delta_amount_to_close = self.unrealized_filled_amount - self.close_filled_amount
         trading_rules = self.get_trading_rules(self.config.connector_name, self.config.trading_pair)
@@ -48,7 +47,8 @@ class OrderExecutionMixin:
                 self.close_order = TrackedOrder(order_id=order_id)
                 self.logger().info(
                     f"Close order placed | id={order_id} type={close_type.name} "
-                    f"amount={delta_amount_to_close:.6g} filled_open={self.open_filled_amount:.6g}")
+                    f"amount={delta_amount_to_close:.6g} filled_open={self.open_filled_amount:.6g}"
+                )
             except Exception as e:
                 self.logger().error(f"Failed to place close order: {e}")
 
@@ -57,10 +57,10 @@ class OrderExecutionMixin:
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def place_partial_close_order(
-            self: ProgressiveOrderExecutionProtocol,
-            close_type: CloseType,
-            price: Decimal = Decimal("NaN"),
-            amount_to_close: Decimal = Decimal("NaN")
+        self: ProgressiveOrderExecutionProtocol,
+        close_type: CloseType,
+        price: Decimal = Decimal("NaN"),
+        amount_to_close: Decimal = Decimal("NaN"),
     ) -> None:
         if amount_to_close >= self.unrealized_filled_amount:
             self.place_close_order_and_cancel_open_orders(close_type=close_type, price=price)
@@ -87,7 +87,7 @@ class OrderExecutionMixin:
         self.strategy.cancel(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
-            order_id=self.open_order.order_id
+            order_id=self.open_order.order_id,
         )
         self.logger().debug("Removing open order")
 
@@ -95,7 +95,7 @@ class OrderExecutionMixin:
         self.strategy.cancel(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
-            order_id=self.close_order.order_id
+            order_id=self.close_order.order_id,
         )
         self.logger().debug("Removing close order")
 

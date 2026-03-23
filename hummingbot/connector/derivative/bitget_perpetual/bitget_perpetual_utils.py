@@ -37,8 +37,8 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitget Perpetual API key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     bitget_perpetual_secret_key: SecretStr = Field(
         default=...,
@@ -46,8 +46,8 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitget Perpetual secret key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     bitget_perpetual_passphrase: SecretStr = Field(
         default=...,
@@ -55,8 +55,8 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Bitget Perpetual passphrase",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="bitget_perpetual")
 

@@ -3,6 +3,7 @@ Unit tests for XRPL Fill Processor.
 
 Tests the pure utility functions for extracting fill amounts from XRPL transactions.
 """
+
 import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock
@@ -178,9 +179,7 @@ class TestExtractFillFromBalanceChanges(unittest.TestCase):
                 ]
             }
         ]
-        result = extract_fill_from_balance_changes(
-            balance_changes, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_balance_changes(balance_changes, base_currency="XRP", quote_currency="USD")
         self.assertEqual(result.base_amount, Decimal("10.5"))
         self.assertEqual(result.quote_amount, Decimal("105.0"))
         self.assertEqual(result.source, FillSource.BALANCE_CHANGES)
@@ -196,9 +195,7 @@ class TestExtractFillFromBalanceChanges(unittest.TestCase):
                 ]
             }
         ]
-        result = extract_fill_from_balance_changes(
-            balance_changes, base_currency="BTC", quote_currency="USD"
-        )
+        result = extract_fill_from_balance_changes(balance_changes, base_currency="BTC", quote_currency="USD")
         self.assertEqual(result.base_amount, Decimal("0.5"))
         self.assertEqual(result.quote_amount, Decimal("25000.0"))
 
@@ -244,9 +241,7 @@ class TestExtractFillFromBalanceChanges(unittest.TestCase):
 
     def test_empty_balance_changes(self):
         """Test handling of empty balance changes."""
-        result = extract_fill_from_balance_changes(
-            [], base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_balance_changes([], base_currency="XRP", quote_currency="USD")
         self.assertIsNone(result.base_amount)
         self.assertIsNone(result.quote_amount)
         self.assertFalse(result.is_valid)
@@ -254,18 +249,14 @@ class TestExtractFillFromBalanceChanges(unittest.TestCase):
     def test_missing_currency_field(self):
         """Test handling of missing currency field in balance change."""
         balance_changes = [{"balances": [{"value": "10.0"}]}]
-        result = extract_fill_from_balance_changes(
-            balance_changes, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_balance_changes(balance_changes, base_currency="XRP", quote_currency="USD")
         self.assertIsNone(result.base_amount)
         self.assertIsNone(result.quote_amount)
 
     def test_missing_value_field(self):
         """Test handling of missing value field in balance change."""
         balance_changes = [{"balances": [{"currency": "XRP"}]}]
-        result = extract_fill_from_balance_changes(
-            balance_changes, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_balance_changes(balance_changes, base_currency="XRP", quote_currency="USD")
         self.assertIsNone(result.base_amount)
 
 
@@ -320,9 +311,7 @@ class TestFindOfferChangeForOrder(unittest.TestCase):
                 ]
             }
         ]
-        result = find_offer_change_for_order(
-            offer_changes, order_sequence=12345, include_created=True
-        )
+        result = find_offer_change_for_order(offer_changes, order_sequence=12345, include_created=True)
         self.assertIsNotNone(result)
         self.assertEqual(result["status"], OfferStatus.CREATED)
 
@@ -335,9 +324,7 @@ class TestFindOfferChangeForOrder(unittest.TestCase):
                 ]
             }
         ]
-        result = find_offer_change_for_order(
-            offer_changes, order_sequence=12345, include_created=True
-        )
+        result = find_offer_change_for_order(offer_changes, order_sequence=12345, include_created=True)
         self.assertIsNotNone(result)
         self.assertEqual(result["status"], OfferStatus.CANCELLED)
 
@@ -368,9 +355,7 @@ class TestExtractFillFromOfferChange(unittest.TestCase):
             "taker_gets": {"currency": "XRP", "value": "-50.0"},
             "taker_pays": {"currency": "USD", "value": "-500.0"},
         }
-        result = extract_fill_from_offer_change(
-            offer_change, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_offer_change(offer_change, base_currency="XRP", quote_currency="USD")
         self.assertEqual(result.base_amount, Decimal("50.0"))
         self.assertEqual(result.quote_amount, Decimal("500.0"))
         self.assertEqual(result.source, FillSource.OFFER_CHANGE)
@@ -381,9 +366,7 @@ class TestExtractFillFromOfferChange(unittest.TestCase):
             "taker_gets": {"currency": "USD", "value": "-500.0"},
             "taker_pays": {"currency": "XRP", "value": "-50.0"},
         }
-        result = extract_fill_from_offer_change(
-            offer_change, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_offer_change(offer_change, base_currency="XRP", quote_currency="USD")
         self.assertEqual(result.base_amount, Decimal("50.0"))
         self.assertEqual(result.quote_amount, Decimal("500.0"))
 
@@ -393,17 +376,13 @@ class TestExtractFillFromOfferChange(unittest.TestCase):
             "taker_gets": {"currency": "EUR", "value": "-100.0"},
             "taker_pays": {"currency": "GBP", "value": "-85.0"},
         }
-        result = extract_fill_from_offer_change(
-            offer_change, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_offer_change(offer_change, base_currency="XRP", quote_currency="USD")
         self.assertIsNone(result.base_amount)
         self.assertIsNone(result.quote_amount)
 
     def test_empty_offer_change(self):
         """Test handling of empty offer change."""
-        result = extract_fill_from_offer_change(
-            {}, base_currency="XRP", quote_currency="USD"
-        )
+        result = extract_fill_from_offer_change({}, base_currency="XRP", quote_currency="USD")
         self.assertIsNone(result.base_amount)
 
 
@@ -416,9 +395,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": "10000000",  # 10 XRP in drops (selling)
             "TakerPays": {"currency": "USD", "issuer": "rXXX", "value": "100.0"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL)
         self.assertEqual(result.base_amount, Decimal("10"))
         self.assertEqual(result.quote_amount, Decimal("100.0"))
         self.assertEqual(result.source, FillSource.TRANSACTION)
@@ -429,9 +406,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": {"currency": "USD", "issuer": "rXXX", "value": "100.0"},
             "TakerPays": "10000000",  # 10 XRP in drops (buying)
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.BUY
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.BUY)
         self.assertEqual(result.base_amount, Decimal("10"))
         self.assertEqual(result.quote_amount, Decimal("100.0"))
 
@@ -441,9 +416,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": {"currency": "BTC", "issuer": "rXXX", "value": "0.5"},
             "TakerPays": {"currency": "USD", "issuer": "rYYY", "value": "25000.0"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="BTC", quote_currency="USD", trade_type=TradeType.SELL
-        )
+        result = extract_fill_from_transaction(tx, base_currency="BTC", quote_currency="USD", trade_type=TradeType.SELL)
         self.assertEqual(result.base_amount, Decimal("0.5"))
         self.assertEqual(result.quote_amount, Decimal("25000.0"))
 
@@ -453,9 +426,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": {"currency": "USD", "issuer": "rYYY", "value": "25000.0"},
             "TakerPays": {"currency": "BTC", "issuer": "rXXX", "value": "0.5"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="BTC", quote_currency="USD", trade_type=TradeType.BUY
-        )
+        result = extract_fill_from_transaction(tx, base_currency="BTC", quote_currency="USD", trade_type=TradeType.BUY)
         self.assertEqual(result.base_amount, Decimal("0.5"))
         self.assertEqual(result.quote_amount, Decimal("25000.0"))
 
@@ -464,9 +435,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
         tx = {
             "TakerPays": {"currency": "USD", "issuer": "rXXX", "value": "100.0"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL)
         self.assertIsNone(result.base_amount)
         self.assertIsNone(result.quote_amount)
 
@@ -475,9 +444,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
         tx = {
             "TakerGets": "10000000",
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL)
         self.assertIsNone(result.base_amount)
         self.assertIsNone(result.quote_amount)
 
@@ -489,9 +456,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": {"currency": "USD", "issuer": "rXXX", "value": "100.0"},
             "TakerPays": {"currency": "XRP", "value": "10.0"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.SELL)
         # Should fail to match because for SELL, base should be in TakerGets
         self.assertIsNone(result.base_amount)
 
@@ -503,9 +468,7 @@ class TestExtractFillFromTransaction(unittest.TestCase):
             "TakerGets": {"currency": "XRP", "value": "10.0"},
             "TakerPays": {"currency": "USD", "issuer": "rXXX", "value": "100.0"},
         }
-        result = extract_fill_from_transaction(
-            tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.BUY
-        )
+        result = extract_fill_from_transaction(tx, base_currency="XRP", quote_currency="USD", trade_type=TradeType.BUY)
         # Should fail to match because for BUY, base should be in TakerPays
         self.assertIsNone(result.base_amount)
 

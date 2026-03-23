@@ -116,43 +116,17 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "error": [],
             "result": {
                 self.ex_trading_pair: {
-                    "a": [
-                        self.test_ask_price,
-                        self.test_ask_whole_lot_volume,
-                        self.test_ask_lot_volume
-                    ],
-                    "b": [
-                        self.test_bid_price,
-                        self.test_bid_whole_lot_volume,
-                        self.test_bid_lot_volume
-                    ],
-                    "c": [
-                        self.expected_latest_price,
-                        self.test_latest_volume
-                    ],
-                    "v": [
-                        self.test_volume_today,
-                        self.test_volume_24h
-                    ],
-                    "p": [
-                        self.test_vwap_today,
-                        self.test_vwap_24h
-                    ],
-                    "t": [
-                        self.test_trades_today,
-                        self.test_trades_24h
-                    ],
-                    "l": [
-                        self.test_low_today,
-                        self.test_low_24h
-                    ],
-                    "h": [
-                        self.test_high_today,
-                        self.test_high_24h
-                    ],
-                    "o": self.test_opening_price
+                    "a": [self.test_ask_price, self.test_ask_whole_lot_volume, self.test_ask_lot_volume],
+                    "b": [self.test_bid_price, self.test_bid_whole_lot_volume, self.test_bid_lot_volume],
+                    "c": [self.expected_latest_price, self.test_latest_volume],
+                    "v": [self.test_volume_today, self.test_volume_24h],
+                    "p": [self.test_vwap_today, self.test_vwap_24h],
+                    "t": [self.test_trades_today, self.test_trades_24h],
+                    "l": [self.test_low_today, self.test_low_24h],
+                    "h": [self.test_high_today, self.test_high_24h],
+                    "o": self.test_opening_price,
                 }
-            }
+            },
         }
 
     @property
@@ -184,7 +158,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.16],
                     [2500000, 0.14],
                     [5000000, 0.12],
-                    [10000000, 0.1]
+                    [10000000, 0.1],
                 ],
                 "fees_maker": [
                     [0, 0.16],
@@ -195,18 +169,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.06],
                     [2500000, 0.04],
                     [5000000, 0.02],
-                    [10000000, 0]
+                    [10000000, 0],
                 ],
                 "fee_volume_currency": "ZUSD",
                 "margin_call": 80,
                 "margin_stop": 40,
-                "ordermin": "0.0002"
+                "ordermin": "0.0002",
             }
         }
-        result = {
-            "error": [],
-            "result": response
-        }
+        result = {"error": [], "result": response}
         return result
 
     @property
@@ -234,7 +205,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.16],
                     [2500000, 0.14],
                     [5000000, 0.12],
-                    [10000000, 0.1]
+                    [10000000, 0.1],
                 ],
                 "fees_maker": [
                     [0, 0.16],
@@ -245,12 +216,12 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.06],
                     [2500000, 0.04],
                     [5000000, 0.02],
-                    [10000000, 0]
+                    [10000000, 0],
                 ],
                 "fee_volume_currency": "ZUSD",
                 "margin_call": 80,
                 "margin_stop": 40,
-                "ordermin": "0.0002"
+                "ordermin": "0.0002",
             },
             "ETHUSDT.d": {
                 "altname": "ETHUSDT.d",
@@ -274,7 +245,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.16],
                     [2500000, 0.14],
                     [5000000, 0.12],
-                    [10000000, 0.1]
+                    [10000000, 0.1],
                 ],
                 "fees_maker": [
                     [0, 0.16],
@@ -285,13 +256,13 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     [1000000, 0.06],
                     [2500000, 0.04],
                     [5000000, 0.02],
-                    [10000000, 0]
+                    [10000000, 0],
                 ],
                 "fee_volume_currency": "ZUSD",
                 "margin_call": 80,
                 "margin_stop": 40,
-                "ordermin": "0.0002"
-            }
+                "ordermin": "0.0002",
+            },
         }
         return "INVALID-PAIR", response
 
@@ -300,42 +271,16 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return {
             "error": [],
             "result": {
-                "a": [
-                    "30300.10000",
-                    "1",
-                    "1.000"
-                ],
-                "b": [
-                    "30300.00000",
-                    "1",
-                    "1.000"
-                ],
-                "c": [
-                    "30303.20000",
-                    "0.00067643"
-                ],
-                "v": [
-                    "4083.67001100",
-                    "4412.73601799"
-                ],
-                "p": [
-                    "30706.77771",
-                    "30689.13205"
-                ],
-                "t": [
-                    34619,
-                    38907
-                ],
-                "l": [
-                    "29868.30000",
-                    "29868.30000"
-                ],
-                "h": [
-                    "31631.00000",
-                    "31631.00000"
-                ],
-                "o": "30502.80000"
-            }
+                "a": ["30300.10000", "1", "1.000"],
+                "b": ["30300.00000", "1", "1.000"],
+                "c": ["30303.20000", "0.00067643"],
+                "v": ["4083.67001100", "4412.73601799"],
+                "p": ["30706.77771", "30689.13205"],
+                "t": [34619, 38907],
+                "l": ["29868.30000", "29868.30000"],
+                "h": ["31631.00000", "31631.00000"],
+                "o": "30502.80000",
+            },
         }
 
     @property
@@ -365,7 +310,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         [1000000, 0.16],
                         [2500000, 0.14],
                         [5000000, 0.12],
-                        [10000000, 0.1]
+                        [10000000, 0.1],
                     ],
                     "fees_maker": [
                         [0, 0.16],
@@ -376,14 +321,14 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         [1000000, 0.06],
                         [2500000, 0.04],
                         [5000000, 0.02],
-                        [10000000, 0]
+                        [10000000, 0],
                     ],
                     "fee_volume_currency": "ZUSD",
                     "margin_call": 80,
                     "margin_stop": 40,
-                    "ordermin": "0.0002"
+                    "ordermin": "0.0002",
                 }
-            }
+            },
         }
 
     @property
@@ -410,7 +355,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         [1000000, 0.16],
                         [2500000, 0.14],
                         [5000000, 0.12],
-                        [10000000, 0.1]
+                        [10000000, 0.1],
                     ],
                     "fees_maker": [
                         [0, 0.16],
@@ -421,13 +366,13 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         [1000000, 0.06],
                         [2500000, 0.04],
                         [5000000, 0.02],
-                        [10000000, 0]
+                        [10000000, 0],
                     ],
                     "fee_volume_currency": "ZUSD",
                     "margin_call": 80,
                     "margin_stop": 40,
                 }
-            }
+            },
         }
 
     @property
@@ -440,8 +385,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 },
                 "txid": [
                     self.expected_exchange_order_id,
-                ]
-            }
+                ],
+            },
         }
 
     @property
@@ -451,7 +396,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "result": {
                 self.base_asset: str(10),
                 self.quote_asset: str(2000),
-            }
+            },
         }
 
     @property
@@ -471,7 +416,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def expected_trading_rule(self):
         rule = list(self.trading_rules_request_mock_response["result"].values())[0]
-        min_order_size = Decimal(rule.get('ordermin', 0))
+        min_order_size = Decimal(rule.get("ordermin", 0))
         min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
         min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
         return TradingRule(
@@ -509,8 +454,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -528,8 +473,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         self._validate_auth_credentials_taking_parameters_from_argument(
-            request_call_tuple=request_call,
-            params=request_call.kwargs["data"]
+            request_call_tuple=request_call, params=request_call.kwargs["data"]
         )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -553,17 +497,14 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(order.exchange_order_id, str(request_params["txid"]))
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
@@ -571,20 +512,16 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=400, callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses) -> List[str]:
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -596,10 +533,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return all_urls
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -607,10 +542,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_status_request_canceled_mock_response(order=order)
@@ -618,20 +551,16 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=400, callback=callback)
         return url
 
     def configure_open_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         """
         :return: the URL configured
         """
@@ -642,20 +571,16 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(regex_url, status=401, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -663,8 +588,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -673,10 +597,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return [url]
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -684,10 +606,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -709,7 +629,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                             "pair": self.ws_ex_trading_pairs,
                             "price": str(order.price),
                             "price2": "0.00000",
-                            "type": "sell"
+                            "type": "sell",
                         },
                         "expiretm": "0.000000",
                         "fee": "0.00000",
@@ -722,15 +642,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "status": "open",
                         "stopprice": "0.000000",
                         "userref": order.client_order_id,
-                        "vol": str(order.amount, ),
-                        "vol_exec": "0.00000000"
+                        "vol": str(
+                            order.amount,
+                        ),
+                        "vol_exec": "0.00000000",
                     }
                 }
             ],
             "openOrders",
-            {
-                "sequence": 234
-            }
+            {"sequence": 234},
         ]
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -748,7 +668,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                             "pair": "XBT/EUR",
                             "price": "34.50000",
                             "price2": "0.00000",
-                            "type": "sell"
+                            "type": "sell",
                         },
                         "expiretm": "0.000000",
                         "fee": "0.00000",
@@ -762,14 +682,12 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "stopprice": "0.000000",
                         "userref": order.client_order_id,
                         "vol": "10.00345345",
-                        "vol_exec": "0.00000000"
+                        "vol_exec": "0.00000000",
                     }
                 }
             ],
             "openOrders",
-            {
-                "sequence": 234
-            }
+            {"sequence": 234},
         ]
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -787,7 +705,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                             "pair": "XBT/EUR",
                             "price": order.price,
                             "price2": "0.00000",
-                            "type": "sell"
+                            "type": "sell",
                         },
                         "expiretm": "0.000000",
                         "fee": "0.00000",
@@ -801,14 +719,12 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "stopprice": "0.000000",
                         "userref": order.client_order_id,
                         "vol": order.amount,
-                        "vol_exec": "0.00000000"
+                        "vol_exec": "0.00000000",
                     }
                 }
             ],
             "openOrders",
-            {
-                "sequence": 234
-            }
+            {"sequence": 234},
         ]
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -827,14 +743,12 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                         "time": "1560516023.070651",
                         "type": "sell",
                         "userref": order.client_order_id,
-                        "vol": str(order.amount)
+                        "vol": str(order.amount),
                     }
                 }
             ],
             "ownTrades",
-            {
-                "sequence": 2948
-            }
+            {"sequence": 2948},
         ]
 
     @aioresponses()
@@ -881,8 +795,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @aioresponses()
     def test_update_order_status_when_failed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_poll_timestamp = (
+            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
+        )
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -916,14 +831,11 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "limitprice": "0.00000",
                 "misc": "",
                 "oflags": "fciq",
-                "trades": []
+                "trades": [],
             }
         }
 
-        mock_response = {
-            "error": [],
-            "result": order_status
-        }
+        mock_response = {"error": [], "result": order_status}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         self.async_run_with_timeout(self.exchange._update_order_status())
@@ -944,7 +856,8 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}',"
                 f" update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
-                "misc_updates=None)")
+                "misc_updates=None)",
+            )
         )
 
     @patch("hummingbot.connector.exchange.kraken.kraken_exchange.get_new_numeric_client_order_id")
@@ -970,9 +883,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(result, expected_client_order_id)
 
-    def _validate_auth_credentials_taking_parameters_from_argument(self,
-                                                                   request_call_tuple: RequestCall,
-                                                                   params: Dict[str, Any]):
+    def _validate_auth_credentials_taking_parameters_from_argument(
+        self, request_call_tuple: RequestCall, params: Dict[str, Any]
+    ):
         self.assertIn("nonce", params)
         request_headers = request_call_tuple.kwargs["headers"]
         self.assertIn("API-Sign", request_headers)
@@ -1001,35 +914,20 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     3,
                 ],
                 "fees": [
-                    [
-                        0,
-                        0.26
-                    ],
-                    [
-                        50000,
-                        0.24
-                    ],
+                    [0, 0.26],
+                    [50000, 0.24],
                 ],
                 "fees_maker": [
-                    [
-                        0,
-                        0.16
-                    ],
-                    [
-                        50000,
-                        0.14
-                    ],
+                    [0, 0.16],
+                    [50000, 0.14],
                 ],
                 "fee_volume_currency": "ZUSD",
                 "margin_call": 80,
                 "margin_stop": 40,
-                "ordermin": "0.005"
+                "ordermin": "0.005",
             },
         }
-        result = {
-            "error": [],
-            "result": asset_pairs
-        }
+        result = {"error": [], "result": asset_pairs}
         return result
 
     def get_balances_mock(self, base_asset_balance: float, quote_asset_balance: float) -> Dict:
@@ -1037,10 +935,10 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "error": [],
             "result": {
                 self.base_asset: str(base_asset_balance),
-                f'{self.base_asset}.F': "1",
+                f"{self.base_asset}.F": "1",
                 self.quote_asset: str(quote_asset_balance),
                 "USDT": "171288.6158",
-            }
+            },
         }
         return balances
 
@@ -1050,10 +948,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "OQCLML-BW3P3-BUCMWZ": self.get_order_status_mock(quantity, price, order_type, status="open"),
             }
         }
-        result = {
-            "error": [],
-            "result": open_orders
-        }
+        result = {"error": [], "result": open_orders}
         return result
 
     def get_order_status_mock(self, quantity: float, price: float, order_type: str, status: str) -> Dict:
@@ -1072,7 +967,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "price2": "0",
                 "leverage": "none",
                 "order": f"buy {quantity} {self.base_asset}{self.quote_asset} @ limit {price}",
-                "close": ""
+                "close": "",
             },
             "vol": str(quantity),
             "vol_exec": "0",
@@ -1083,9 +978,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "limitprice": "0.00000",
             "misc": "",
             "oflags": "fciq",
-            "trades": [
-                "TCCCTY-WE2O6-P3NB37"
-            ]
+            "trades": ["TCCCTY-WE2O6-P3NB37"],
         }
         return order_status
 
@@ -1111,12 +1004,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(self.exchange.available_balances[self.base_asset], Decimal("11"))
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "error": [],
-            "result": {
-                "count": 1
-            }
-        }
+        return {"error": [], "result": {"count": 1}}
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
@@ -1139,9 +1027,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "limitprice": "0.00000",
                     "misc": "",
                     "oflags": "fciq",
-                    "trades": []
+                    "trades": [],
                 }
-            }
+            },
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1165,9 +1053,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "limitprice": "0.00000",
                     "misc": "",
                     "oflags": "fciq",
-                    "trades": []
+                    "trades": [],
                 }
-            }
+            },
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
@@ -1189,7 +1077,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "limitprice": "0.00000",
                 "misc": "",
                 "oflags": "fciq",
-                "trades": []
+                "trades": [],
             }
         }
 
@@ -1212,7 +1100,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "limitprice": "0.00000",
                 "misc": "",
                 "oflags": "fciq",
-                "trades": []
+                "trades": [],
             }
         }
 
@@ -1232,7 +1120,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "margin": "0.00000",
                 "misc": "",
                 "trade_id": 93748276,
-                "maker": "true"
+                "maker": "true",
             }
         }
 
@@ -1254,9 +1142,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "margin": "0.00000",
                     "misc": "",
                     "trade_id": 93748276,
-                    "maker": "true"
+                    "maker": "true",
                 }
-            }
+            },
         }
 
     def test_is_order_not_found_during_cancelation_error(self):
@@ -1283,7 +1171,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 self.ex_trading_pair: {
                     "c": first_pair_data["c"]  # Only need the 'c' field for last traded price
                 }
-            }
+            },
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
@@ -1323,22 +1211,14 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "result": {
                 exchange_symbols[0]: first_pair_data,
                 # Second pair - only include the 'c' field which is needed for this test
-                exchange_symbols[1]: {
-                    "c": [
-                        str(btc_price),
-                        self.test_latest_volume
-                    ]
-                }
-            }
+                exchange_symbols[1]: {"c": [str(btc_price), self.test_latest_volume]},
+            },
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         prices = await self.exchange.get_last_traded_prices(trading_pairs)
 
-        expected_prices = {
-            trading_pairs[0]: float(self.expected_latest_price),
-            trading_pairs[1]: float(btc_price)
-        }
+        expected_prices = {trading_pairs[0]: float(self.expected_latest_price), trading_pairs[1]: float(btc_price)}
         self.assertEqual(expected_prices, prices)
 
         self.assertEqual(2, mock_exchange_symbol.call_count)
@@ -1361,10 +1241,14 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(self.latest_prices_request_mock_response["result"], ticker_data)
 
         # Get ticker data for specific trading pair
-        with patch("hummingbot.connector.exchange.kraken.kraken_exchange.KrakenExchange.exchange_symbol_associated_to_pair",
-                   return_value=self.ex_trading_pair):
+        with patch(
+            "hummingbot.connector.exchange.kraken.kraken_exchange.KrakenExchange.exchange_symbol_associated_to_pair",
+            return_value=self.ex_trading_pair,
+        ):
             # Use a separate test for this part to avoid URL matching issues
-            mock_api.get(f"{url}?pair={self.ex_trading_pair}", body=json.dumps(self.latest_prices_request_mock_response))
+            mock_api.get(
+                f"{url}?pair={self.ex_trading_pair}", body=json.dumps(self.latest_prices_request_mock_response)
+            )
             ticker_data = await self.exchange._get_ticker_data(trading_pair=self.trading_pair)
 
             # Verify the result

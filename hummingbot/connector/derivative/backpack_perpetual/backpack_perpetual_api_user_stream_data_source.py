@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 
 class BackpackPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 60  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     LISTEN_KEY_RETRY_INTERVAL = 5.0
@@ -25,12 +24,14 @@ class BackpackPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: AuthBase,
-                 trading_pairs: List[str],
-                 connector: 'BackpackPerpetualDerivative',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: AuthBase,
+        trading_pairs: List[str],
+        connector: "BackpackPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: BackpackPerpetualAuth = auth
         self._domain = domain
@@ -67,19 +68,13 @@ class BackpackPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             timestamp_ms = int(self._auth.time_provider.time() * 1e3)
-            signature = self._auth.generate_signature(params={},
-                                                      timestamp_ms=timestamp_ms,
-                                                      window_ms=self._auth.DEFAULT_WINDOW_MS,
-                                                      instruction="subscribe")
+            signature = self._auth.generate_signature(
+                params={}, timestamp_ms=timestamp_ms, window_ms=self._auth.DEFAULT_WINDOW_MS, instruction="subscribe"
+            )
             orders_change_payload = {
                 "method": "SUBSCRIBE",
                 "params": [CONSTANTS.ALL_ORDERS_CHANNEL],
-                "signature": [
-                    self._auth.api_key,
-                    signature,
-                    str(timestamp_ms),
-                    str(self._auth.DEFAULT_WINDOW_MS)
-                ]
+                "signature": [self._auth.api_key, signature, str(timestamp_ms), str(self._auth.DEFAULT_WINDOW_MS)],
             }
 
             suscribe_orders_change_payload: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
@@ -87,12 +82,7 @@ class BackpackPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
             positions_change_payload = {
                 "method": "SUBSCRIBE",
                 "params": [CONSTANTS.ALL_POSITIONS_CHANNEL],
-                "signature": [
-                    self._auth.api_key,
-                    signature,
-                    str(timestamp_ms),
-                    str(self._auth.DEFAULT_WINDOW_MS)
-                ]
+                "signature": [self._auth.api_key, signature, str(timestamp_ms), str(self._auth.DEFAULT_WINDOW_MS)],
             }
 
             suscribe_positions_change_payload: WSJSONRequest = WSJSONRequest(payload=positions_change_payload)

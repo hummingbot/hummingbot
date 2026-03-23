@@ -65,19 +65,22 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_limit_filled(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_limit_filled(self, fetch_tx_mock, network_mock, get_account_mock):
         """Limit order with offer_changes status='filled' → FILLED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "hash1", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "hash1", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = [
                 {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "filled"}]}
             ]
@@ -89,19 +92,22 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_limit_partially_filled(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_limit_partially_filled(self, fetch_tx_mock, network_mock, get_account_mock):
         """Limit order with offer_changes status='partially-filled' → PARTIALLY_FILLED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h2", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h2", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = [
                 {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "partially-filled"}]}
             ]
@@ -113,19 +119,22 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_limit_cancelled(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_limit_cancelled(self, fetch_tx_mock, network_mock, get_account_mock):
         """Limit order with offer_changes status='cancelled' → CANCELED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h3", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h3", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = [
                 {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "cancelled"}]}
             ]
@@ -137,19 +146,22 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_limit_created_no_fill(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_limit_created_no_fill(self, fetch_tx_mock, network_mock, get_account_mock):
         """Limit order with offer_changes status='created' and NO token balance changes → OPEN"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h4", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h4", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = [
                 {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "created"}]}
             ]
@@ -171,18 +183,21 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h_pf", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h_pf", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = [
                 {"maker_account": "rAccount", "offer_changes": [{"sequence": "12345", "status": "created"}]}
             ]
             # Token balance changes indicate a partial fill occurred
-            bc_mock.return_value = [
-                {"account": "rAccount", "balances": [{"currency": "SOLO", "value": "10"}]}
-            ]
+            bc_mock.return_value = [{"account": "rAccount", "balances": [{"currency": "SOLO", "value": "10"}]}]
 
             update = await self.connector._request_order_status(order)
             self.assertEqual(OrderState.PARTIALLY_FILLED, update.new_state)
@@ -198,15 +213,18 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h5", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h5", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = []  # No offer changes
-            bc_mock.return_value = [
-                {"account": "rAccount", "balances": [{"some_balance": "data"}]}
-            ]
+            bc_mock.return_value = [{"account": "rAccount", "balances": [{"some_balance": "data"}]}]
 
             update = await self.connector._request_order_status(order)
             self.assertEqual(OrderState.FILLED, update.new_state)
@@ -214,19 +232,22 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_no_offer_no_balance_change(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_no_offer_no_balance_change(self, fetch_tx_mock, network_mock, get_account_mock):
         """No offer created AND no balance changes → FAILED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order()
-        tx = {"tx": {"Sequence": 12345, "hash": "h6", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h6", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             obc_mock.return_value = []
             bc_mock.return_value = []
 
@@ -240,15 +261,16 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_market_order_success(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_market_order_success(self, fetch_tx_mock, network_mock, get_account_mock):
         """Market order with tesSUCCESS → FILLED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order(order_type=OrderType.MARKET)
-        tx = {"tx": {"Sequence": 12345, "hash": "h_mkt", "ledger_index": 67890}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h_mkt", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx]
 
         update = await self.connector._request_order_status(order)
@@ -257,15 +279,16 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_market_order_failed(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_market_order_failed(self, fetch_tx_mock, network_mock, get_account_mock):
         """Market order with tecFAILED → FAILED"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
 
         order = self._make_order(order_type=OrderType.MARKET)
-        tx = {"tx": {"Sequence": 12345, "hash": "h_mkt_fail", "ledger_index": 67890}, "meta": {"TransactionResult": "tecFAILED"}}
+        tx = {
+            "tx": {"Sequence": 12345, "hash": "h_mkt_fail", "ledger_index": 67890},
+            "meta": {"TransactionResult": "tecFAILED"},
+        }
         fetch_tx_mock.return_value = [tx]
 
         update = await self.connector._request_order_status(order)
@@ -277,9 +300,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
-    async def test_request_order_status_with_creation_tx_resp(
-        self, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_with_creation_tx_resp(self, network_mock, get_account_mock):
         """When creation_tx_resp is provided, _fetch_account_transactions should NOT be called"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
@@ -345,9 +366,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_not_found_open_state_stays(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_not_found_open_state_stays(self, fetch_tx_mock, network_mock, get_account_mock):
         """OPEN order not found in tx history → remains OPEN (not pending so no timeout)"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
@@ -378,9 +397,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._ensure_network_started")
     @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.XrplExchange._fetch_account_transactions")
-    async def test_request_order_status_uses_latest_ledger_index(
-        self, fetch_tx_mock, network_mock, get_account_mock
-    ):
+    async def test_request_order_status_uses_latest_ledger_index(self, fetch_tx_mock, network_mock, get_account_mock):
         """When multiple txs match the sequence, use the one with the highest ledger_index"""
         get_account_mock.return_value = "rAccount"
         network_mock.return_value = None
@@ -388,12 +405,20 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         order = self._make_order()
 
         # Two txs: first shows 'created' at ledger 100, second shows 'filled' at ledger 200
-        tx1 = {"tx": {"Sequence": 12345, "hash": "h1", "ledger_index": 100}, "meta": {"TransactionResult": "tesSUCCESS"}}
-        tx2 = {"tx": {"Sequence": 99999, "hash": "h2", "ledger_index": 200}, "meta": {"TransactionResult": "tesSUCCESS"}}
+        tx1 = {
+            "tx": {"Sequence": 12345, "hash": "h1", "ledger_index": 100},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
+        tx2 = {
+            "tx": {"Sequence": 99999, "hash": "h2", "ledger_index": 200},
+            "meta": {"TransactionResult": "tesSUCCESS"},
+        }
         fetch_tx_mock.return_value = [tx1, tx2]
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock, \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock:
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes") as obc_mock,
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.get_balance_changes") as bc_mock,
+        ):
             # First call (tx1 meta): our order created at ledger 100
             # Second call (tx2 meta): our order filled at ledger 200
             obc_mock.side_effect = [
@@ -416,12 +441,14 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         """Orders already in FILLED state should be skipped"""
         order = self._make_order(initial_state=OrderState.OPEN)
         # Transition to FILLED
-        order.update_with_order_update(OrderUpdate(
-            client_order_id=order.client_order_id,
-            trading_pair=order.trading_pair,
-            update_timestamp=time.time(),
-            new_state=OrderState.FILLED,
-        ))
+        order.update_with_order_update(
+            OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.FILLED,
+            )
+        )
         self.connector._order_tracker.start_tracking_order(order)
 
         error_handler = AsyncMock()
@@ -435,12 +462,14 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     async def test_update_orders_skips_final_state_canceled(self, status_mock, trade_mock):
         """Orders already in CANCELED state should be skipped"""
         order = self._make_order(initial_state=OrderState.OPEN)
-        order.update_with_order_update(OrderUpdate(
-            client_order_id=order.client_order_id,
-            trading_pair=order.trading_pair,
-            update_timestamp=time.time(),
-            new_state=OrderState.CANCELED,
-        ))
+        order.update_with_order_update(
+            OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.CANCELED,
+            )
+        )
         self.connector._order_tracker.start_tracking_order(order)
 
         error_handler = AsyncMock()
@@ -454,12 +483,14 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
     async def test_update_orders_skips_final_state_failed(self, status_mock, trade_mock):
         """Orders already in FAILED state should be skipped"""
         order = self._make_order(initial_state=OrderState.OPEN)
-        order.update_with_order_update(OrderUpdate(
-            client_order_id=order.client_order_id,
-            trading_pair=order.trading_pair,
-            update_timestamp=time.time(),
-            new_state=OrderState.FAILED,
-        ))
+        order.update_with_order_update(
+            OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.FAILED,
+            )
+        )
         self.connector._order_tracker.start_tracking_order(order)
 
         error_handler = AsyncMock()
@@ -547,12 +578,14 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         self.connector._order_tracker.start_tracking_order(active_order)
 
         filled_order = self._make_order(client_order_id="filled_1", exchange_order_id="99999-88888-CCCC")
-        filled_order.update_with_order_update(OrderUpdate(
-            client_order_id=filled_order.client_order_id,
-            trading_pair=filled_order.trading_pair,
-            update_timestamp=time.time(),
-            new_state=OrderState.FILLED,
-        ))
+        filled_order.update_with_order_update(
+            OrderUpdate(
+                client_order_id=filled_order.client_order_id,
+                trading_pair=filled_order.trading_pair,
+                update_timestamp=time.time(),
+                new_state=OrderState.FILLED,
+            )
+        )
         self.connector._order_tracker.start_tracking_order(filled_order)
 
         update = OrderUpdate(
@@ -595,9 +628,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         self.connector._cleanup_order_status_lock = AsyncMock()
         self.connector._all_trade_updates_for_order = AsyncMock(return_value=[trade_update])
 
-        await self.connector._process_final_order_state(
-            order, OrderState.FILLED, time.time(), trade_update
-        )
+        await self.connector._process_final_order_state(order, OrderState.FILLED, time.time(), trade_update)
 
         self.connector._cleanup_order_status_lock.assert_called_once_with(order.client_order_id)
         self.connector._all_trade_updates_for_order.assert_called_once_with(order)
@@ -609,9 +640,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
 
         self.connector._cleanup_order_status_lock = AsyncMock()
 
-        await self.connector._process_final_order_state(
-            order, OrderState.CANCELED, time.time()
-        )
+        await self.connector._process_final_order_state(order, OrderState.CANCELED, time.time())
 
         self.connector._cleanup_order_status_lock.assert_called_once_with(order.client_order_id)
 
@@ -622,9 +651,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
 
         self.connector._cleanup_order_status_lock = AsyncMock()
 
-        await self.connector._process_final_order_state(
-            order, OrderState.FAILED, time.time()
-        )
+        await self.connector._process_final_order_state(order, OrderState.FAILED, time.time())
 
         self.connector._cleanup_order_status_lock.assert_called_once_with(order.client_order_id)
 
@@ -648,9 +675,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
         self.connector._cleanup_order_status_lock = AsyncMock()
         self.connector._all_trade_updates_for_order = AsyncMock(side_effect=Exception("Ledger error"))
 
-        await self.connector._process_final_order_state(
-            order, OrderState.FILLED, time.time(), trade_update
-        )
+        await self.connector._process_final_order_state(order, OrderState.FILLED, time.time(), trade_update)
 
         self.connector._cleanup_order_status_lock.assert_called_once()
 
@@ -673,9 +698,7 @@ class TestXRPLExchangeOrderStatus(XRPLExchangeTestBase, IsolatedAsyncioTestCase)
 
         self.connector._cleanup_order_status_lock = AsyncMock()
 
-        await self.connector._process_final_order_state(
-            order, OrderState.CANCELED, time.time(), trade_update
-        )
+        await self.connector._process_final_order_state(order, OrderState.CANCELED, time.time(), trade_update)
 
         self.connector._cleanup_order_status_lock.assert_called_once()
 

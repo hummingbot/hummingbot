@@ -56,8 +56,9 @@ async def start(self):
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
-    self.market_pair = MakerTakerMarketPair(maker=maker_market_trading_pair_tuple,
-                                            taker=taker_market_trading_pair_tuple)
+    self.market_pair = MakerTakerMarketPair(
+        maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple
+    )
 
     strategy_logging_options = (
         LogOption.CREATE_ORDER,
@@ -65,7 +66,7 @@ async def start(self):
         LogOption.MAKER_ORDER_FILLED,
         LogOption.REMOVING_ORDER,
         LogOption.STATUS_REPORT,
-        LogOption.MAKER_ORDER_HEDGED
+        LogOption.MAKER_ORDER_HEDGED,
     )
     self.strategy = CrossExchangeMarketMakingStrategy()
     self.strategy.init_params(

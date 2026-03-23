@@ -533,8 +533,7 @@ class BitrueExchange(ExchangePyBase):
                 self.logger().network(
                     "Unexpected error while fetching rate limits.",
                     exc_info=True,
-                    app_warning_msg=f"Could not fetch new rate limits from {self.name_cap}"
-                    " Check network connection.",
+                    app_warning_msg=f"Could not fetch new rate limits from {self.name_cap} Check network connection.",
                 )
                 await self._sleep(0.5)
 
@@ -627,7 +626,6 @@ class BitrueExchange(ExchangePyBase):
         limit_id: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
-
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
 

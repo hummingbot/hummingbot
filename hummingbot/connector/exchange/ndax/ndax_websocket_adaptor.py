@@ -18,7 +18,6 @@ class NdaxMessageType(Enum):
 
 
 class NdaxWebSocketAdaptor:
-
     _message_type_field_name = "m"
     _message_number_field_name = "i"
     _endpoint_field_name = "n"

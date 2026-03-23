@@ -10,8 +10,8 @@ class OrderType(Enum):
     LIMIT = 2
     LIMIT_MAKER = 3
     AMM_SWAP = 4
-    AMM_ADD = 5      # Add liquidity to AMM/CLMM pool
-    AMM_REMOVE = 6   # Remove liquidity from AMM/CLMM pool
+    AMM_ADD = 5  # Add liquidity to AMM/CLMM pool
+    AMM_REMOVE = 6  # Remove liquidity from AMM/CLMM pool
 
     def is_limit_type(self):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
@@ -71,8 +71,8 @@ class LPType(Enum):
     COLLECT = 3
 
 
-_KT = TypeVar('_KT')
-_VT = TypeVar('_VT')
+_KT = TypeVar("_KT")
+_VT = TypeVar("_VT")
 
 
 class GroupedSetDict(dict[_KT, Set[_VT]]):
@@ -97,11 +97,7 @@ class GroupedSetDict(dict[_KT, Set[_VT]]):
         _handler: Any,
     ) -> core_schema.CoreSchema:
         return core_schema.no_info_after_validator_function(
-            cls,
-            core_schema.dict_schema(
-                core_schema.any_schema(),
-                core_schema.set_schema(core_schema.any_schema())
-            )
+            cls, core_schema.dict_schema(core_schema.any_schema(), core_schema.set_schema(core_schema.any_schema()))
         )
 
 

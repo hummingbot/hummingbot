@@ -46,11 +46,8 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
         self.connector = MexcExchange(
-            mexc_api_key="",
-            mexc_api_secret="",
-            trading_pairs=[],
-            trading_required=False,
-            domain=self.domain)
+            mexc_api_key="", mexc_api_secret="", trading_pairs=[], trading_required=False, domain=self.domain
+        )
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = MexcAPIUserStreamDataSource(
@@ -58,7 +55,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain
+            domain=self.domain,
         )
 
         self.data_source.logger().setLevel(1)
@@ -76,8 +73,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and message in record.getMessage()
-                   for record in self.log_records)
+        return any(record.levelname == log_level and message in record.getMessage() for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -91,10 +87,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return value
 
     def _error_response(self) -> Dict[str, Any]:
-        resp = {
-            "code": "ERROR CODE",
-            "msg": "ERROR MESSAGE"
-        }
+        resp = {"code": "ERROR CODE", "msg": "ERROR MESSAGE"}
 
         return resp
 
@@ -112,16 +105,13 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                 "frozenAmount": "0",
                 "frozenAmountChange": "0",
                 "type": "CONTRACT_TRANSFER",
-                "time": 1736416910000
-            }
+                "time": 1736416910000,
+            },
         }
         return json.dumps(resp)
 
     def _successfully_subscribed_event(self):
-        resp = {
-            "result": None,
-            "id": 1
-        }
+        resp = {"result": None, "id": 1}
         return resp
 
     @aioresponses()
@@ -140,9 +130,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         result: str = await self.data_source._get_listen_key()
@@ -177,8 +165,9 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._current_listen_key = self.listen_key
         result: bool = await self.data_source._ping_listen_key()
 
-        self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: "
-                                                   f"{self._error_response()}"))
+        self.assertTrue(
+            self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}")
+        )
         self.assertFalse(result)
 
     @aioresponses()
@@ -191,12 +180,15 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result: bool = await self.data_source._ping_listen_key()
         self.assertTrue(result)
 
-    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource"
-           "._ping_listen_key",
-           new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource"
+        "._ping_listen_key",
+        new_callable=AsyncMock,
+    )
     async def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-                                            self._create_return_value_and_unlock_test_with_event(False))
+        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
+            False
+        )
 
         self.data_source._current_listen_key = self.listen_key
 
@@ -211,12 +203,15 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(self.data_source._current_listen_key)
         self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
-    @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource."
-           "_ping_listen_key",
-           new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.MexcAPIUserStreamDataSource."
+        "_ping_listen_key",
+        new_callable=AsyncMock,
+    )
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
-        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-                                            self._create_return_value_and_unlock_test_with_event(True))
+        mock_ping_listen_key.side_effect = lambda *args, **kwargs: self._create_return_value_and_unlock_test_with_event(
+            True
+        )
 
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
         self.data_source._current_listen_key = self.listen_key
@@ -248,9 +243,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -258,9 +251,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._sleep = AsyncMock()
         self.data_source._sleep.side_effect = asyncio.CancelledError()
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         msg = await msg_queue.get()
         self.assertEqual(json.loads(self._user_update_event()), msg)
@@ -271,9 +262,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -282,9 +271,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._sleep = AsyncMock()
         self.data_source._sleep.side_effect = asyncio.CancelledError()
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -296,24 +283,21 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
 
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR."))
+            Exception("TEST ERROR.")
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -321,9 +305,7 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "listenKey": self.listen_key
-        }
+        mock_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(mock_response))
         self.data_source._sleep = AsyncMock()
         self.data_source._sleep.side_effect = asyncio.CancelledError()
@@ -338,14 +320,14 @@ class MexcUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source.safe_ensure_future")
     async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
         # Test when task is already running - should return early (line 58)
         from unittest.mock import MagicMock
+
         mock_task = MagicMock()
         mock_task.done.return_value = False
         self.data_source._manage_listen_key_task = mock_task

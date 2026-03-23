@@ -63,8 +63,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({self.base_asset: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.base_asset: self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
         self.mocking_assistant = NetworkMockingAssistant()
@@ -79,8 +78,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -92,65 +90,159 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
 
     def get_rest_snapshot_msg(self) -> Dict:
         return {
-            "coin": "DYDX", "levels": [
-                [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-                 {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-                [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-                 {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]],
-            "time": 1700687397643
+            "coin": "DYDX",
+            "levels": [
+                [
+                    {"px": "2080.3", "sz": "74.6923", "n": 2},
+                    {"px": "2080.0", "sz": "162.2829", "n": 2},
+                    {"px": "1825.5", "sz": "0.0259", "n": 1},
+                    {"px": "1823.6", "sz": "0.0259", "n": 1},
+                ],
+                [
+                    {"px": "2080.5", "sz": "73.018", "n": 2},
+                    {"px": "2080.6", "sz": "74.6799", "n": 2},
+                    {"px": "2118.9", "sz": "377.495", "n": 1},
+                    {"px": "2122.1", "sz": "348.8644", "n": 1},
+                ],
+            ],
+            "time": 1700687397643,
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397641, 'levels': [
-            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "BTC",
+                "time": 1700687397641,
+                "levels": [
+                    [
+                        {"px": "2080.3", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_ws_diff_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397642, 'levels': [
-            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "BTC",
+                "time": 1700687397642,
+                "levels": [
+                    [
+                        {"px": "2080.3", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_ws_diff_msg_2(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397642, 'levels': [
-            [{'px': '2080.4', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+        return {
+            "channel": "l2Book",
+            "data": {
+                "coin": "BTC",
+                "time": 1700687397642,
+                "levels": [
+                    [
+                        {"px": "2080.4", "sz": "74.6923", "n": 2},
+                        {"px": "2080.0", "sz": "162.2829", "n": 2},
+                        {"px": "1825.5", "sz": "0.0259", "n": 1},
+                        {"px": "1823.6", "sz": "0.0259", "n": 1},
+                    ],
+                    [
+                        {"px": "2080.5", "sz": "73.018", "n": 2},
+                        {"px": "2080.6", "sz": "74.6799", "n": 2},
+                        {"px": "2118.9", "sz": "377.495", "n": 1},
+                        {"px": "2122.1", "sz": "348.8644", "n": 1},
+                    ],
+                ],
+            },
+        }
 
     def get_funding_info_rest_msg(self):
         return [
-            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": self.base_asset, "onlyIsolated": False},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
 
     def get_trading_rule_rest_msg(self):
         return [
-            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
-                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
-                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                 'impactPxs': ['36724.0', '36736.9'],
-                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                 'oraclePx': '36717.0',
-                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                 'markPx': '1923.1',
-                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                 'premium': '0.00067648',
-                 'prevDayPx': '1877.1'}]
+            {
+                "universe": [
+                    {"maxLeverage": 50, "name": self.base_asset, "onlyIsolated": False},
+                    {"maxLeverage": 50, "name": "ETH", "onlyIsolated": False},
+                ]
+            },
+            [
+                {
+                    "dayNtlVlm": "27009889.88843001",
+                    "funding": "0.00001793",
+                    "impactPxs": ["36724.0", "36736.9"],
+                    "markPx": "36733.0",
+                    "midPx": "36730.0",
+                    "openInterest": "34.37756",
+                    "oraclePx": "36717.0",
+                    "premium": "0.00036632",
+                    "prevDayPx": "35242.0",
+                },
+                {
+                    "dayNtlVlm": "8781185.14306",
+                    "funding": "0.00005324",
+                    "impactPxs": ["1922.9", "1923.1"],
+                    "markPx": "1923.1",
+                    "midPx": "1923.05",
+                    "openInterest": "638.8957",
+                    "oraclePx": "1921.7",
+                    "premium": "0.00067648",
+                    "prevDayPx": "1877.1",
+                },
+            ],
         ]
 
     @aioresponses()
@@ -214,9 +306,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         expected_funding_subscription_payload = self.ex_trading_pair.split("-")[0]
         self.assertEqual(expected_funding_subscription_payload, sent_subscription_messages[2]["subscription"]["coin"])
 
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade, and funding info channels...")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book, trade, and funding info channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -238,8 +328,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -257,9 +346,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         with self.assertRaises(Exception):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -285,7 +372,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
+                    "is_block_trade": False,
                 },
                 {
                     "created_at": 1642994704241,
@@ -296,9 +383,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
-                }
-            ]
+                    "is_block_trade": False,
+                },
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -312,17 +399,32 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         await self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
-        trade_event = {'channel': 'trades', 'data': [
-            {'coin': 'BTC', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
-             'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'},  # noqa: mock
-            {'coin': 'BTC', 'side': 'B', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156052596,
-             'hash': '0x0b2e11dc4ac8efee94660408315a690109003301ae47ae3512cded47641a42b1'}]}  # noqa: mock
+        trade_event = {
+            "channel": "trades",
+            "data": [
+                {
+                    "coin": "BTC",
+                    "side": "A",
+                    "px": "2009.0",
+                    "sz": "0.0079",
+                    "time": 1701156061468,
+                    "hash": "0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902",  # noqa: mock
+                },  # noqa: mock
+                {
+                    "coin": "BTC",
+                    "side": "B",
+                    "px": "2009.0",
+                    "sz": "0.0079",
+                    "time": 1701156052596,
+                    "hash": "0x0b2e11dc4ac8efee94660408315a690109003301ae47ae3512cded47641a42b1",  # noqa: mock
+                },
+            ],
+        }  # noqa: mock
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -330,7 +432,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -365,7 +468,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         await self._simulate_trading_rules_initialized()
@@ -476,8 +580,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
     async def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
-        self.connector.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                                        enumerate(mocked_response[0]["universe"])}
+        self.connector.coin_to_asset = {
+            asset_info["name"]: asset for (asset, asset_info) in enumerate(mocked_response[0]["universe"])
+        }
         self.connector._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
@@ -496,8 +601,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                     "oraclePx": "36717.0",
                     "markPx": "36733.0",
                     "openInterest": "34.37756",
-                    "funding": "0.00001793"
-                }
+                    "funding": "0.00001793",
+                },
             }
         }
 
@@ -531,18 +636,20 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         message_queue.put_nowait({"invalid": "message"})
 
         # Mock _parse_funding_info_message to raise an exception
-        with patch.object(self.data_source, '_parse_funding_info_message', side_effect=ValueError("Test error")):
+        with patch.object(self.data_source, "_parse_funding_info_message", side_effect=ValueError("Test error")):
             self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
             # Wait for the exception to be logged
             await asyncio.sleep(0.2)
 
             self.assertTrue(
-                self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+                self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange")
+            )
 
     @patch(
         "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source."
-        "HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+        "HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_listen_for_funding_info_successful(self, next_funding_time_mock):
         next_funding_time_mock.return_value = 1713272400
 
@@ -554,8 +661,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                     "oraclePx": "36717.0",
                     "markPx": "36733.0",
                     "openInterest": "0.00001793",  # This is used as the rate
-                    "funding": "0.00001793"
-                }
+                    "funding": "0.00001793",
+                },
             }
         }
 
@@ -570,17 +677,19 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         msg: FundingInfoUpdate = await asyncio.wait_for(msg_queue.get(), timeout=5.0)
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal('36717.0')
+        expected_index_price = Decimal("36717.0")
         self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal('36733.0')
+        expected_mark_price = Decimal("36733.0")
         self.assertEqual(expected_mark_price, msg.mark_price)
         expected_funding_time = next_funding_time_mock.return_value
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal('0.00001793')
+        expected_rate = Decimal("0.00001793")
         self.assertEqual(expected_rate, msg.rate)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_get_funding_info_hip3_market_with_data_message(self, mock_api, next_funding_time_mock):
         """Test get_funding_info for HIP-3 market (contains ':') uses REST API."""
         next_funding_time_mock.return_value = 1713272400
@@ -596,9 +705,16 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         resp = [
-            {'universe': [{'maxLeverage': 50, 'name': 'xyz:AAPL', 'onlyIsolated': False, 'szDecimals': 2}]},
-            [{'dayNtlVlm': '100000.0', 'funding': '0.0001',
-              'markPx': '150.7', 'oraclePx': '150.5', 'openInterest': '1000.0'}]
+            {"universe": [{"maxLeverage": 50, "name": "xyz:AAPL", "onlyIsolated": False, "szDecimals": 2}]},
+            [
+                {
+                    "dayNtlVlm": "100000.0",
+                    "funding": "0.0001",
+                    "markPx": "150.7",
+                    "oraclePx": "150.5",
+                    "openInterest": "1000.0",
+                }
+            ],
         ]
         mock_api.post(regex_url, body=json.dumps(resp))
 
@@ -606,9 +722,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         funding_info = await self.data_source.get_funding_info(hip3_pair)
 
         self.assertEqual(hip3_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal('150.5'), funding_info.index_price)
-        self.assertEqual(Decimal('150.7'), funding_info.mark_price)
-        self.assertEqual(Decimal('0.0001'), funding_info.rate)
+        self.assertEqual(Decimal("150.5"), funding_info.index_price)
+        self.assertEqual(Decimal("150.7"), funding_info.mark_price)
+        self.assertEqual(Decimal("0.0001"), funding_info.rate)
         self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     @aioresponses()
@@ -621,9 +737,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                 "time": 1700687397643,
                 "levels": [
                     [{"px": "36000.0", "sz": "1.5", "n": 1}],  # bids
-                    [{"px": "36100.0", "sz": "2.0", "n": 1}]   # asks
-                ]
-            }
+                    [{"px": "36100.0", "sz": "2.0", "n": 1}],  # asks
+                ],
+            },
         }
 
         message_queue = asyncio.Queue()
@@ -647,9 +763,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                     "px": "36500.0",
                     "sz": "0.5",
                     "time": 1700687397643,
-                    "hash": "abc123"
+                    "hash": "abc123",
                 }
-            ]
+            ],
         }
 
         message_queue = asyncio.Queue()
@@ -662,7 +778,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(float("0.5"), message.content["amount"])
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_get_funding_info_hip3_market_with_funding_info_update(self, mock_api, next_funding_time_mock):
         """Test get_funding_info for HIP-3 market returns placeholder when asset not found in response."""
         next_funding_time_mock.return_value = 1713272400
@@ -678,9 +796,16 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         resp = [
-            {'universe': [{'maxLeverage': 50, 'name': 'xyz:GOOG', 'onlyIsolated': False, 'szDecimals': 2}]},
-            [{'dayNtlVlm': '100000.0', 'funding': '0.0002',
-              'markPx': '200.0', 'oraclePx': '199.5', 'openInterest': '500.0'}]
+            {"universe": [{"maxLeverage": 50, "name": "xyz:GOOG", "onlyIsolated": False, "szDecimals": 2}]},
+            [
+                {
+                    "dayNtlVlm": "100000.0",
+                    "funding": "0.0002",
+                    "markPx": "200.0",
+                    "oraclePx": "199.5",
+                    "openInterest": "500.0",
+                }
+            ],
         ]
         mock_api.post(regex_url, body=json.dumps(resp))
 
@@ -688,13 +813,15 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         funding_info = await asyncio.wait_for(self.data_source.get_funding_info(hip3_pair), timeout=5.0)
 
         self.assertEqual(hip3_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal('0'), funding_info.index_price)
-        self.assertEqual(Decimal('0'), funding_info.mark_price)
-        self.assertEqual(Decimal('0'), funding_info.rate)
+        self.assertEqual(Decimal("0"), funding_info.index_price)
+        self.assertEqual(Decimal("0"), funding_info.mark_price)
+        self.assertEqual(Decimal("0"), funding_info.rate)
         self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_get_funding_info_base_market_not_found_returns_placeholder(self, mock_api, next_funding_time_mock):
         """Test get_funding_info for base market returns placeholder when not found (line 119)."""
         next_funding_time_mock.return_value = 1713272400
@@ -710,9 +837,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
 
         # Response with different asset than requested
         resp = [
-            {'universe': [{'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]},
-            [{'dayNtlVlm': '8781185.14306', 'funding': '0.00005324',
-              'markPx': '1923.1', 'oraclePx': '1921.7'}]
+            {"universe": [{"maxLeverage": 50, "name": "ETH", "onlyIsolated": False}]},
+            [{"dayNtlVlm": "8781185.14306", "funding": "0.00005324", "markPx": "1923.1", "oraclePx": "1921.7"}],
         ]
         mock_api.post(regex_url, body=json.dumps(resp))
 
@@ -720,20 +846,14 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
 
         # Should return placeholder values since BTC not in response
         self.assertEqual(base_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal('0'), funding_info.index_price)
-        self.assertEqual(Decimal('0'), funding_info.mark_price)
-        self.assertEqual(Decimal('0'), funding_info.rate)
+        self.assertEqual(Decimal("0"), funding_info.index_price)
+        self.assertEqual(Decimal("0"), funding_info.mark_price)
+        self.assertEqual(Decimal("0"), funding_info.rate)
         self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     async def test_parse_symbol_with_dict_data(self):
         """Test parse_symbol when data is a dict not a list (lines 227-228)."""
-        raw_message = {
-            "data": {
-                "coin": "ETH",
-                "time": 1700687397643,
-                "levels": [[], []]
-            }
-        }
+        raw_message = {"data": {"coin": "ETH", "time": 1700687397643, "levels": [[], []]}}
 
         symbol = self.data_source.parse_symbol(raw_message)
         self.assertEqual("ETH", symbol)
@@ -743,11 +863,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         raw_message = {
             "data": {
                 "coin": "ETH",  # Not in self._trading_pairs
-                "ctx": {
-                    "oraclePx": "36717.0",
-                    "markPx": "36733.0",
-                    "openInterest": "0.00001793"
-                }
+                "ctx": {"oraclePx": "36717.0", "markPx": "36733.0", "openInterest": "0.00001793"},
             }
         }
 
@@ -762,7 +878,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertTrue(message_queue.empty())
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time"
+    )
     async def test_get_funding_info_hip3_market_cancelled_error(self, mock_api, next_funding_time_mock):
         """Test get_funding_info for HIP-3 market returns placeholder on API error."""
         next_funding_time_mock.return_value = 1713272400
@@ -782,9 +900,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         funding_info = await self.data_source.get_funding_info(hip3_pair)
 
         self.assertEqual(hip3_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal('0'), funding_info.index_price)
-        self.assertEqual(Decimal('0'), funding_info.mark_price)
-        self.assertEqual(Decimal('0'), funding_info.rate)
+        self.assertEqual(Decimal("0"), funding_info.index_price)
+        self.assertEqual(Decimal("0"), funding_info.mark_price)
+        self.assertEqual(Decimal("0"), funding_info.rate)
         self.assertEqual(1713272400, funding_info.next_funding_utc_timestamp)
 
     async def test_channel_originating_message_with_result(self):

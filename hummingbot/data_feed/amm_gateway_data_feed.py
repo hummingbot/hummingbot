@@ -60,7 +60,9 @@ class AmmGatewayDataFeed(NetworkBase):
 
         # New format: connector/type (e.g., jupiter/router)
         if "/" not in connector:
-            raise ValueError(f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'")
+            raise ValueError(
+                f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'"
+            )
         self._connector_name = connector
         # We'll get chain and network from gateway during price fetching
         self._chain = None
@@ -116,8 +118,7 @@ class AmmGatewayDataFeed(NetworkBase):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Error getting data from {self.name}"
-                    f"Check network connection. Error: {e}",
+                    f"Error getting data from {self.name}Check network connection. Error: {e}",
                 )
             await self._async_sleep(self._update_interval)
 
@@ -155,12 +156,9 @@ class AmmGatewayDataFeed(NetworkBase):
 
         # Use gateway's quote_swap which handles chain/network internally
         try:
-
             # Get chain and network from connector if not cached
             if not self._chain or not self._network:
-                chain, network, error = await self.gateway_client.get_connector_chain_network(
-                    self.connector
-                )
+                chain, network, error = await self.gateway_client.get_connector_chain_network(self.connector)
                 if not error:
                     self._chain = chain
                     self._network = network
@@ -177,7 +175,7 @@ class AmmGatewayDataFeed(NetworkBase):
                 amount=self.order_amount_in_base,
                 side=trade_type,
                 slippage_pct=None,
-                pool_address=None
+                pool_address=None,
             )
 
             if response and "price" in response:

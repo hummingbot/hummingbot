@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.dexalot import dexalot_utils as utils
 
 
 class DexalotUtilTestCases(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

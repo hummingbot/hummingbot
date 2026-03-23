@@ -17,7 +17,6 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self):
         # Mocking the MarketMakingControllerConfigBase
         self.mock_controller_config = MarketMakingControllerConfigBase(
@@ -44,7 +43,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
     async def test_update_processed_data(self):
@@ -53,11 +52,20 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.controller.processed_data["reference_price"], Decimal("100"))
         self.assertEqual(self.controller.processed_data["spread_multiplier"], Decimal("1"))
 
-    @patch("hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config", new_callable=MagicMock)
+    @patch(
+        "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config",
+        new_callable=MagicMock,
+    )
     async def test_determine_executor_actions(self, executor_config_mock: MagicMock):
         executor_config_mock.return_value = PositionExecutorConfig(
-            timestamp=1234, controller_id=self.controller.config.id, connector_name="binance_perpetual",
-            trading_pair="ETH-USDT", side=TradeType.BUY, entry_price=Decimal(100), amount=Decimal(10))
+            timestamp=1234,
+            controller_id=self.controller.config.id,
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            side=TradeType.BUY,
+            entry_price=Decimal(100),
+            amount=Decimal(10),
+        )
         type(self.mock_market_data_provider).get_price_by_type = MagicMock(return_value=Decimal("100"))
         await self.controller.update_processed_data()
         actions = self.controller.determine_executor_actions()
@@ -74,8 +82,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_validate_order_type(self):
         for order_type_name in OrderType.__members__:
             self.assertEqual(
-                MarketMakingControllerConfigBase.validate_order_type(order_type_name),
-                OrderType[order_type_name]
+                MarketMakingControllerConfigBase.validate_order_type(order_type_name), OrderType[order_type_name]
             )
 
         with self.assertRaises(ValueError):
@@ -92,7 +99,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         for position_mode_name in PositionMode.__members__:
             self.assertEqual(
                 MarketMakingControllerConfigBase.validate_position_mode(position_mode_name),
-                PositionMode[position_mode_name]
+                PositionMode[position_mode_name],
             )
 
         with self.assertRaises(ValueError):
@@ -151,7 +158,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100")}
 
@@ -164,7 +171,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {}  # No reference price
 
@@ -177,7 +184,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100")}
 
@@ -197,7 +204,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100")}
         controller.executors_info = []  # No active executors
@@ -210,7 +217,10 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         mock_position.amount = Decimal("0.99")  # Just slightly below 1.0 required
         controller.positions_held = [mock_position]
 
-        with patch('hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount', return_value=Decimal("1.0")):
+        with patch(
+            "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount",
+            return_value=Decimal("1.0"),
+        ):
             result = controller.check_position_rebalance()
 
         # 0.99 vs 1.0 = 0.01 difference, which is 1% (below 5% threshold)
@@ -223,14 +233,17 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100")}
         controller.executors_info = []  # No active executors
         controller.positions_held = []  # No positions held
 
-        with patch('hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount', return_value=Decimal("10.0")):
-            with patch.object(self.mock_market_data_provider, 'time', return_value=1234567890):
+        with patch(
+            "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount",
+            return_value=Decimal("10.0"),
+        ):
+            with patch.object(self.mock_market_data_provider, "time", return_value=1234567890):
                 result = controller.check_position_rebalance()
 
         # Should create a buy order for 10.0 base asset
@@ -248,7 +261,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100")}
         controller.executors_info = []  # No active executors
@@ -261,8 +274,11 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         mock_position.amount = Decimal("15.0")  # More than required
         controller.positions_held = [mock_position]
 
-        with patch('hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount', return_value=Decimal("10.0")):
-            with patch.object(self.mock_market_data_provider, 'time', return_value=1234567890):
+        with patch(
+            "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerConfigBase.get_required_base_amount",
+            return_value=Decimal("10.0"),
+        ):
+            with patch.object(self.mock_market_data_provider, "time", return_value=1234567890):
                 result = controller.check_position_rebalance()
 
         # Should create a sell order for 5.0 base asset (15.0 - 10.0)
@@ -278,7 +294,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
         # Mock buy position
@@ -297,7 +313,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
         # Mock sell position
@@ -316,7 +332,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
         # Mock multiple positions
@@ -349,7 +365,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.positions_held = []
 
@@ -361,11 +377,11 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("150")}
 
-        with patch.object(self.mock_market_data_provider, 'time', return_value=1234567890):
+        with patch.object(self.mock_market_data_provider, "time", return_value=1234567890):
             result = controller.create_position_rebalance_order(TradeType.BUY, Decimal("2.5"))
 
         self.assertIsInstance(result, CreateExecutorAction)
@@ -386,7 +402,7 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100"), "spread_multiplier": Decimal("1")}
         controller.executors_info = []  # No active executors
@@ -404,14 +420,14 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
                 amount=Decimal("1.0"),
                 price=Decimal("100"),
                 level_id="position_rebalance",
-                controller_id="test"
-            )
+                controller_id="test",
+            ),
         )
 
-        with patch.object(controller, 'check_position_rebalance', return_value=mock_rebalance_action):
-            with patch.object(controller, 'get_levels_to_execute', return_value=[]):
-                with patch.object(controller, 'get_price_and_amount', return_value=(Decimal("100"), Decimal("1"))):
-                    with patch.object(controller, 'get_executor_config', return_value=None):
+        with patch.object(controller, "check_position_rebalance", return_value=mock_rebalance_action):
+            with patch.object(controller, "get_levels_to_execute", return_value=[]):
+                with patch.object(controller, "get_price_and_amount", return_value=(Decimal("100"), Decimal("1"))):
+                    with patch.object(controller, "get_executor_config", return_value=None):
                         actions = controller.create_actions_proposal()
 
         # Should include the rebalance action
@@ -424,14 +440,14 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         controller = MarketMakingControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
         controller.processed_data = {"reference_price": Decimal("100"), "spread_multiplier": Decimal("1")}
         controller.executors_info = []  # No active executors
         controller.positions_held = []  # No positions
 
-        with patch.object(controller, 'check_position_rebalance', return_value=None):
-            with patch.object(controller, 'get_levels_to_execute', return_value=[]):
+        with patch.object(controller, "check_position_rebalance", return_value=None):
+            with patch.object(controller, "get_levels_to_execute", return_value=[]):
                 actions = controller.create_actions_proposal()
 
         # Should not include any rebalance actions

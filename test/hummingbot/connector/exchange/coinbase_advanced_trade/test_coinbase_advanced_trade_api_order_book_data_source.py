@@ -52,11 +52,14 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             coinbase_advanced_trade_api_secret="",
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain)
-        self.data_source = CoinbaseAdvancedTradeAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                                       connector=self.connector,
-                                                                       api_factory=self.connector._web_assistants_factory,
-                                                                       domain=self.domain)
+            domain=self.domain,
+        )
+        self.data_source = CoinbaseAdvancedTradeAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
+            domain=self.domain,
+        )
         self.set_loggers(self.data_source.logger())
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
@@ -112,10 +115,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
                             "size": "0.3",
                             "side": "SELL",
                             "time": "2019-08-14T20:42:27.265Z",
-                        }
-                    ]
+                        },
+                    ],
                 }
-            ]
+            ],
         }
         return resp
 
@@ -134,29 +137,29 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
                             "side": "bid",
                             "event_time": "1970-01-01T00:00:00Z",
                             "price_level": "21921.73",
-                            "new_quantity": "0.06317902"
+                            "new_quantity": "0.06317902",
                         },
                         {
                             "side": "bid",
                             "event_time": "1970-01-01T00:00:00Z",
                             "price_level": "21921.3",
-                            "new_quantity": "0.02"
+                            "new_quantity": "0.02",
                         },
                         {
                             "side": "ask",
                             "event_time": "1970-01-01T00:00:00Z",
                             "price_level": "21921.73",
-                            "new_quantity": "0.06317902"
+                            "new_quantity": "0.06317902",
                         },
                         {
                             "side": "ask",
                             "event_time": "1970-01-01T00:00:00Z",
                             "price_level": "21921.3",
-                            "new_quantity": "0.02"
+                            "new_quantity": "0.02",
                         },
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
         return resp
 
@@ -165,19 +168,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         resp = {
             "pricebook": {
                 "product_id": "BTC-ETH",
-                "bids": [
-                    {
-                        "price": "4",
-                        "size": "431"
-                    }
-                ],
-                "asks": [
-                    {
-                        "price": "4.000002",
-                        "size": "12"
-                    }
-                ],
-                "time": "2023-07-11T22:34:09+02:00"
+                "bids": [{"price": "4", "size": "431"}],
+                "asks": [{"price": "4.000002", "size": "12"}],
+                "time": "2023-07-11T22:34:09+02:00",
             }
         }
         return resp
@@ -191,9 +184,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        order_book: OrderBook = self.async_run_with_timeout(
-            self.data_source.get_new_order_book(self.trading_pair)
-        )
+        order_book: OrderBook = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
         expected_update_id = get_timestamp_from_exchange_time(resp["pricebook"]["time"], "s")
 
@@ -218,9 +209,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(
-                self.data_source.get_new_order_book(self.trading_pair)
-            )
+            self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
@@ -232,16 +221,17 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(3, len(sent_subscription_messages))
 
@@ -254,10 +244,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertTrue(subs["level2"])
         self.assertTrue(subs["heartbeats"])
 
-        self.assertTrue(self.is_logged(
-            "INFO",
-            f"Subscribed to order book channels for: {self.ex_trading_pair.upper()}"
-        ))
+        self.assertTrue(
+            self.is_logged("INFO", f"Subscribed to order book channels for: {self.ex_trading_pair.upper()}")
+        )
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -280,8 +269,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
         self.assertTrue(
             self.is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )
 
     def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -324,7 +314,8 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
@@ -333,7 +324,9 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = (
+            mock_queue
+        )
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -347,16 +340,19 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = mock_queue
+        self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse["order_book_diff"]] = (
+            mock_queue
+        )
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(int(get_timestamp_from_exchange_time(diff_event["timestamp"], 's')), msg.update_id)
+        self.assertEqual(int(get_timestamp_from_exchange_time(diff_event["timestamp"], "s")), msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
@@ -388,9 +384,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
         self.assertTrue(mock_ws.send.call_count >= 1)  # Multiple channels
-        self.assertTrue(
-            self.is_logged("INFO", f"Subscribed to {new_pair} order book and trade channels")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Subscribed to {new_pair} order book and trade channels"))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -400,9 +394,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self.is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
-        )
+        self.assertTrue(self.is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -434,9 +426,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self.is_logged("ERROR", f"Error subscribing to {new_pair}")
-        )
+        self.assertTrue(self.is_logged("ERROR", f"Error subscribing to {new_pair}"))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -448,9 +438,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertTrue(result)
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
         self.assertTrue(mock_ws.send.call_count >= 1)  # Multiple channels
-        self.assertTrue(
-            self.is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels"))
 
     async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
         """Test unsubscription when websocket is not connected."""
@@ -481,6 +469,4 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self.is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}")
-        )
+        self.assertTrue(self.is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}"))

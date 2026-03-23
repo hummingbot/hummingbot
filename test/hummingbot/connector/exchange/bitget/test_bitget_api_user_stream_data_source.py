@@ -47,28 +47,26 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             api_key="test_api_key",
             secret_key="test_secret_key",
             passphrase="test_passphrase",
-            time_provider=self.time_synchronizer
+            time_provider=self.time_synchronizer,
         )
         self.connector = BitgetExchange(
             bitget_api_key="test_api_key",
             bitget_secret_key="test_secret_key",
             bitget_passphrase="test_passphrase",
-            trading_pairs=[self.trading_pair]
+            trading_pairs=[self.trading_pair],
         )
         self.connector._web_assistants_factory._auth = self.auth
         self.data_source = BitgetAPIUserStreamDataSource(
             auth=self.auth,
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory
+            api_factory=self.connector._web_assistants_factory,
         )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({self.exchange_trading_pair: self.trading_pair})
-        )
+        self.connector._set_trading_pair_symbol_map(bidict({self.exchange_trading_pair: self.trading_pair}))
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -94,11 +92,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         :return: Mock login event response data.
         """
-        return {
-            "event": "login",
-            "code": "0",
-            "msg": ""
-        }
+        return {"event": "login", "code": "0", "msg": ""}
 
     def ws_error_event_mock_response(self) -> Dict[str, Any]:
         """
@@ -106,11 +100,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         :return: Mock error event response data.
         """
-        return {
-            "event": "error",
-            "code": "30005",
-            "msg": "Invalid request"
-        }
+        return {"event": "error", "code": "30005", "msg": "Invalid request"}
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder) -> Dict[str, Any]:
         """
@@ -121,11 +111,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         """
         return {
             "action": "snapshot",
-            "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
-            },
+            "arg": {"instType": "SPOT", "channel": CONSTANTS.WS_ORDERS_ENDPOINT, "instId": self.exchange_trading_pair},
             "data": [
                 {
                     "instId": self.exchange_trading_pair,
@@ -150,16 +136,11 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "cTime": "1695797773257",
                     "uTime": "1695797773326",
                     "stpMode": "cancel_taker",
-                    "feeDetail": [
-                        {
-                            "feeCoin": "BTC",
-                            "fee": "-0.00000018"
-                        }
-                    ],
-                    "enterPointSource": "WEB"
+                    "feeDetail": [{"feeCoin": "BTC", "fee": "-0.00000018"}],
+                    "enterPointSource": "WEB",
                 }
             ],
-            "ts": 1695797773370
+            "ts": 1695797773370,
         }
 
     def handle(self, record: Any) -> None:
@@ -178,8 +159,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         :param message: The log message to check for.
         :return: True if the log message exists with the specified level, False otherwise.
         """
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def tearDown(self) -> None:
         if self.listening_task and not self.listening_task.cancel():
@@ -203,20 +183,14 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         result_subscribe_orders: Dict[str, Any] = {
             "event": "subscribe",
-            "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
-            }
+            "arg": {"instType": "SPOT", "channel": CONSTANTS.WS_ORDERS_ENDPOINT, "instId": self.exchange_trading_pair},
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
+            websocket_mock=mock_ws.return_value, message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(result_subscribe_orders)
+            websocket_mock=mock_ws.return_value, message=json.dumps(result_subscribe_orders)
         )
 
         output_queue: asyncio.Queue = asyncio.Queue()
@@ -227,9 +201,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=mock_ws.return_value
-        )
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(websocket_mock=mock_ws.return_value)
         expected_login: Dict[str, Any] = {
             "op": "login",
             "args": [
@@ -237,38 +209,23 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "apiKey": "test_api_key",
                     "passphrase": "test_passphrase",
                     "timestamp": str(int(self.time_synchronizer.time())),
-                    "sign": "xmIN5Kt+K9U1gXlJ4RnlBjav++39oTR1CR97YWmrWtQ="
+                    "sign": "xmIN5Kt+K9U1gXlJ4RnlBjav++39oTR1CR97YWmrWtQ=",
                 }
-            ]
+            ],
         }
         expected_orders_subscription: Dict[str, Any] = {
             "op": "subscribe",
             "args": [
-                {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                    "coin": "default"
-                },
-                {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_FILL_ENDPOINT,
-                    "coin": "default"
-                },
-                {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                    "instId": self.exchange_trading_pair
-                }
-            ]
+                {"instType": "SPOT", "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT, "coin": "default"},
+                {"instType": "SPOT", "channel": CONSTANTS.WS_FILL_ENDPOINT, "coin": "default"},
+                {"instType": "SPOT", "channel": CONSTANTS.WS_ORDERS_ENDPOINT, "instId": self.exchange_trading_pair},
+            ],
         }
 
         self.assertEqual(2, len(sent_messages))
         self.assertEqual(expected_login, sent_messages[0])
         self.assertEqual(expected_orders_subscription, sent_messages[1])
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to private channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to private channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_logs_error_when_login_fails(self, mock_ws: AsyncMock) -> None:
@@ -281,8 +238,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(error_mock_response)
+            websocket_mock=mock_ws.return_value, message=json.dumps(error_mock_response)
         )
 
         output_queue: asyncio.Queue = asyncio.Queue()
@@ -293,14 +249,15 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            f"Error authenticating the private websocket connection. Response message {error_mock_response}"
-        ))
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Error authenticating the private websocket connection. Response message {error_mock_response}",
+            )
+        )
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_does_not_queue_invalid_payload(self, mock_ws: AsyncMock) -> None:
@@ -320,7 +277,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             price=Decimal("1000"),
             amount=Decimal("1"),
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         order: InFlightOrder = self.connector.in_flight_orders[order_id]
         mock_response: Dict[str, Any] = self.order_event_for_new_order_websocket_update(order)
@@ -329,37 +286,23 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
+            websocket_mock=mock_ws.return_value, message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(event_without_data)
+            websocket_mock=mock_ws.return_value, message=json.dumps(event_without_data)
         )
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=invalid_event
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(websocket_mock=mock_ws.return_value, message=invalid_event)
 
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
-        self.assertTrue(self._is_logged(
-            "WARNING",
-            f"Message for unknown channel received: {invalid_event}"
-        ))
+        self.assertTrue(self._is_logged("WARNING", f"Message for unknown channel received: {invalid_event}"))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    async def test_listen_for_user_stream_connection_failed(
-        self,
-        sleep_mock: MagicMock,
-        mock_ws: AsyncMock
-    ) -> None:
+    async def test_listen_for_user_stream_connection_failed(self, sleep_mock: MagicMock, mock_ws: AsyncMock) -> None:
         """
         Test that listen_for_user_stream logs an error when the WebSocket connection fails.
 
@@ -376,16 +319,12 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-            )
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listening_process_canceled_when_cancel_exception_during_initialization(
-        self,
-        mock_ws: AsyncMock
+        self, mock_ws: AsyncMock
     ) -> None:
         """
         Test that listen_for_user_stream raises CancelledError during initialization.
@@ -400,8 +339,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listening_process_canceled_when_cancel_exception_during_authentication(
-        self,
-        mock_ws: AsyncMock
+        self, mock_ws: AsyncMock
     ) -> None:
         """
         Test that listen_for_user_stream raises CancelledError during authentication.
@@ -430,9 +368,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     async def test_listening_process_logs_exception_during_events_subscription(
-        self,
-        sleep_mock: MagicMock,
-        mock_ws: AsyncMock
+        self, sleep_mock: MagicMock, mock_ws: AsyncMock
     ) -> None:
         """
         Test that listen_for_user_stream logs an error during event subscription failure.
@@ -442,12 +378,9 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         """
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
+            websocket_mock=mock_ws.return_value, message=json.dumps(self.ws_login_event_mock_response())
         )
-        self.connector.exchange_symbol_associated_to_pair = AsyncMock(
-            side_effect=ValueError("Invalid trading pair")
-        )
+        self.connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=ValueError("Invalid trading pair"))
         messages: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
 
@@ -456,14 +389,10 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Unexpected error occurred subscribing to private channels..."
-        ))
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-        ))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to private channels..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_processes_order_event(self, mock_ws: AsyncMock) -> None:
@@ -482,27 +411,21 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             price=Decimal("1000"),
             amount=Decimal("1"),
-            initial_state=OrderState.OPEN
+            initial_state=OrderState.OPEN,
         )
         order: InFlightOrder = self.connector.in_flight_orders[order_id]
-        expected_order_event: Dict[str, Any] = self.order_event_for_new_order_websocket_update(
-            order
-        )
+        expected_order_event: Dict[str, Any] = self.order_event_for_new_order_websocket_update(order)
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
+            websocket_mock=mock_ws.return_value, message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(expected_order_event)
+            websocket_mock=mock_ws.return_value, message=json.dumps(expected_order_event)
         )
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -511,10 +434,7 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_order_event, order_event_message)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_logs_details_for_order_event_with_errors(
-        self,
-        mock_ws: AsyncMock
-    ) -> None:
+    async def test_listen_for_user_stream_logs_details_for_order_event_with_errors(self, mock_ws: AsyncMock) -> None:
         """
         Test that listen_for_user_stream logs error details for invalid order events.
 
@@ -524,23 +444,21 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
+            websocket_mock=mock_ws.return_value, message=json.dumps(self.ws_login_event_mock_response())
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(error_mock_response)
+            websocket_mock=mock_ws.return_value, message=json.dumps(error_mock_response)
         )
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            f"Failed to subscribe to private channels: {error_mock_response['msg']} ({error_mock_response['code']})"
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Failed to subscribe to private channels: {error_mock_response['msg']} ({error_mock_response['code']})",
+            )
+        )

@@ -51,7 +51,9 @@ class HummingbotApplication(*commands):
         return s_logger
 
     @classmethod
-    def main_application(cls, client_config_map: Optional[ClientConfigAdapter] = None, headless_mode: bool = False) -> "HummingbotApplication":
+    def main_application(
+        cls, client_config_map: Optional[ClientConfigAdapter] = None, headless_mode: bool = False
+    ) -> "HummingbotApplication":
         if cls._main_app is None:
             cls._main_app = HummingbotApplication(client_config_map=client_config_map, headless_mode=headless_mode)
         return cls._main_app
@@ -101,7 +103,7 @@ class HummingbotApplication(*commands):
             input_handler=self._handle_command,
             bindings=load_key_bindings(self),
             completer=load_completer(self),
-            command_tabs=command_tabs
+            command_tabs=command_tabs,
         )
 
     @property
@@ -163,7 +165,7 @@ class HummingbotApplication(*commands):
 
     def _handle_command(self, raw_command: str):
         # unset to_stop_config flag it triggered before loading any command (UI mode only)
-        if not self.headless_mode and hasattr(self, 'app') and self.app.to_stop_config:
+        if not self.headless_mode and hasattr(self, "app") and self.app.to_stop_config:
             self.app.to_stop_config = False
 
         raw_command = raw_command.strip()
@@ -184,7 +186,7 @@ class HummingbotApplication(*commands):
                     return
 
                 # regular command
-                if self.headless_mode and not hasattr(self, 'parser'):
+                if self.headless_mode and not hasattr(self, "parser"):
                     self.notify("Command parsing not available in headless mode")
                     return
 
@@ -272,11 +274,9 @@ class HummingbotApplication(*commands):
             command_tabs[name] = CommandTab(name, None, None, None, tab_class)
         return command_tabs
 
-    def _get_trades_from_session(self,
-                                 start_timestamp: int,
-                                 session: Session,
-                                 number_of_rows: Optional[int] = None,
-                                 config_file_path: str = None) -> List[TradeFill]:
+    def _get_trades_from_session(
+        self, start_timestamp: int, session: Session, number_of_rows: Optional[int] = None, config_file_path: str = None
+    ) -> List[TradeFill]:
         return self.trading_core._get_trades_from_session(start_timestamp, session, number_of_rows, config_file_path)
 
     def save_client_config(self):

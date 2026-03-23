@@ -21,6 +21,7 @@ class YieldTripleBarrierConfig(TripleBarrierConfig):
     :param trailing_stop: The configuration of the laddered trailing stop.
     :param trailing_stop_order_type: The order type of the trailing stop.
     """
+
     apr_yield: Decimal | None = None
     trailing_stop: LadderedTrailingStop | None = None
     trailing_stop_order_type: OrderType = OrderType.LIMIT
@@ -31,7 +32,7 @@ class YieldTripleBarrierConfig(TripleBarrierConfig):
             new_trailing_stop = LadderedTrailingStop(
                 activation_pnl_pct=self.trailing_stop.activation_pnl_pct * Decimal(volatility_factor),
                 trailing_pct=self.trailing_stop.trailing_pct * Decimal(volatility_factor),
-                take_profit_table=self.trailing_stop.take_profit_table
+                take_profit_table=self.trailing_stop.take_profit_table,
             )
 
         return YieldTripleBarrierConfig(
@@ -42,7 +43,7 @@ class YieldTripleBarrierConfig(TripleBarrierConfig):
             open_order_type=self.open_order_type,
             trailing_stop_order_type=self.trailing_stop_order_type,
             stop_loss_order_type=self.stop_loss_order_type,
-            time_limit_order_type=self.time_limit_order_type
+            time_limit_order_type=self.time_limit_order_type,
         )
 
 

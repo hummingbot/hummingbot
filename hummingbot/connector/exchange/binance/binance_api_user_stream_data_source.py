@@ -14,15 +14,16 @@ if TYPE_CHECKING:
 
 
 class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: BinanceAuth,
-                 trading_pairs: List[str],
-                 connector: 'BinanceExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: BinanceAuth,
+        trading_pairs: List[str],
+        connector: "BinanceExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: BinanceAuth = auth
         self._domain = domain

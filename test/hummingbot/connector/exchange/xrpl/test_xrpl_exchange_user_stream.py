@@ -235,11 +235,16 @@ def _make_created_offer_node(account, sequence, taker_gets, taker_pays):
 # Test: _process_market_order_transaction
 # =====================================================================
 class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     # ---- helpers ----
-    def _make_market_order(self, *, client_order_id="hbot-mkt-1", sequence=84437780,
-                           order_type=OrderType.MARKET, state=OrderState.OPEN,
-                           amount=Decimal("2.239836701211152")):
+    def _make_market_order(
+        self,
+        *,
+        client_order_id="hbot-mkt-1",
+        sequence=84437780,
+        order_type=OrderType.MARKET,
+        state=OrderState.OPEN,
+        amount=Decimal("2.239836701211152"),
+    ):
         order = InFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=f"{sequence}-88954510-86440061",
@@ -264,8 +269,12 @@ class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedA
         event = {"transaction": transaction, "meta": meta}
 
         mock_trade_update = MagicMock()  # No spec — MagicMock(spec=TradeUpdate) is falsy
-        with patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update) as ptf, \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(
+                self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update
+            ) as ptf,
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_market_order_transaction(order, transaction, meta, event)
             ptf.assert_awaited_once()
             pfos.assert_awaited_once()
@@ -294,8 +303,10 @@ class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedA
         transaction = {"Sequence": 84437780}
         event = {"transaction": transaction, "meta": meta}
 
-        with patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf, \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock) as ptf,
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_market_order_transaction(order, transaction, meta, event)
             ptf.assert_not_awaited()
             pfos.assert_not_awaited()
@@ -307,8 +318,10 @@ class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedA
         transaction = {"Sequence": 84437780}
         event = {"transaction": transaction, "meta": meta}
 
-        with patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_market_order_transaction(order, transaction, meta, event)
             pfos.assert_awaited_once()
             self.assertEqual(pfos.call_args[0][1], OrderState.FILLED)
@@ -331,9 +344,11 @@ class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedA
             lock_acquired = True
             return await original_get_lock(client_order_id)
 
-        with patch.object(self.connector, "_get_order_status_lock", side_effect=tracking_get_lock), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_get_order_status_lock", side_effect=tracking_get_lock),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock),
+        ):
             await self.connector._process_market_order_transaction(order, transaction, meta, event)
             self.assertTrue(lock_acquired)
 
@@ -342,10 +357,10 @@ class TestProcessMarketOrderTransaction(XRPLExchangeTestBase, unittest.IsolatedA
 # Test: _process_order_book_changes
 # =====================================================================
 class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     # ---- helpers ----
-    def _make_limit_order(self, *, client_order_id="hbot-limit-1", sequence=84437895,
-                          state=OrderState.OPEN, amount=Decimal("1.47951609")):
+    def _make_limit_order(
+        self, *, client_order_id="hbot-limit-1", sequence=84437895, state=OrderState.OPEN, amount=Decimal("1.47951609")
+    ):
         order = InFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=f"{sequence}-88954510-86440061",
@@ -367,10 +382,12 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             offer_change["taker_gets"] = taker_gets
         if taker_pays is not None:
             offer_change["taker_pays"] = taker_pays
-        return [{
-            "maker_account": account or OUR_ACCOUNT,
-            "offer_changes": [offer_change],
-        }]
+        return [
+            {
+                "maker_account": account or OUR_ACCOUNT,
+                "offer_changes": [offer_change],
+            }
+        ]
 
     # ---- tests: skip / early return ----
 
@@ -405,8 +422,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order(state=OrderState.FILLED)
         obc = self._obc(sequence=84437895, status="filled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_not_awaited()
 
@@ -416,8 +435,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order(state=OrderState.CANCELED)
         obc = self._obc(sequence=84437895, status="cancelled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_not_awaited()
 
@@ -427,8 +448,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order(state=OrderState.FAILED)
         obc = self._obc(sequence=84437895, status="filled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_not_awaited()
 
@@ -440,9 +463,11 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order()
         obc = self._obc(sequence=84437895, status="filled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_awaited_once()
             self.assertEqual(pfos.call_args[0][1], OrderState.FILLED)
@@ -454,10 +479,12 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         obc = self._obc(sequence=84437895, status="partially-filled")
 
         mock_trade_update = MagicMock()  # No spec — MagicMock(spec=TradeUpdate) is falsy
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou, \
-             patch.object(self.connector._order_tracker, "process_trade_update") as ptu:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade_update),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+            patch.object(self.connector._order_tracker, "process_trade_update") as ptu,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             # Should call process_order_update with PARTIALLY_FILLED
             pou.assert_called_once()
@@ -472,8 +499,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order()
         obc = self._obc(sequence=84437895, status="cancelled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_awaited_once()
             self.assertEqual(pfos.call_args[0][1], OrderState.CANCELED)
@@ -520,8 +549,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             },
         }
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, tx, event_message)
             # State is still OPEN → same state → no process_order_update call
             pou.assert_not_called()
@@ -568,8 +599,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             },
         }
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, tx, event_message)
             # Despite XRPL rounding causing value differences, no token fill → OPEN
             pou.assert_not_called()
@@ -649,9 +682,11 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             },
         }
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, tx, event_message)
             pou.assert_called_once()
             order_update_arg = pou.call_args[1]["order_update"]
@@ -674,8 +709,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         # No meta in event_message
         event_message = {"transaction": tx}
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, tx, event_message)
             # No meta → defaults to OPEN → same state → no update
             pou.assert_not_called()
@@ -738,8 +775,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             },
         }
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, tx, event_message)
             # Token changes for OTHER account only → no fill for us → OPEN
             pou.assert_not_called()
@@ -751,9 +790,11 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         obc = self._obc(sequence=84437895, status="filled")
 
         mock_trade = MagicMock()  # No spec — MagicMock(spec=TradeUpdate) is falsy
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_awaited_once()
             self.assertEqual(pfos.call_args[0][1], OrderState.FILLED)
@@ -765,9 +806,11 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_limit_order()
         obc = self._obc(sequence=84437895, status="partially-filled")
 
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pou.assert_called_once()
             self.assertEqual(pou.call_args[1]["order_update"].new_state, OrderState.PARTIALLY_FILLED)
@@ -788,8 +831,10 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
                 return order
             return None
 
-        with patch.object(self.connector, "get_order_by_sequence", side_effect=side_effect), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", side_effect=side_effect),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             pfos.assert_not_awaited()
 
@@ -800,10 +845,12 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         obc = self._obc(sequence=84437895, status="partially-filled")
 
         mock_trade = MagicMock()  # No spec — MagicMock(spec=TradeUpdate) is falsy
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou, \
-             patch.object(self.connector._order_tracker, "process_trade_update") as ptu:
+        with (
+            patch.object(self.connector, "get_order_by_sequence", return_value=order),
+            patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=mock_trade),
+            patch.object(self.connector._order_tracker, "process_order_update") as pou,
+            patch.object(self.connector._order_tracker, "process_trade_update") as ptu,
+        ):
             await self.connector._process_order_book_changes(obc, {}, {})
             # State hasn't changed (PARTIALLY_FILLED → PARTIALLY_FILLED) → no order update
             pou.assert_not_called()
@@ -815,11 +862,16 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 # Test: _user_stream_event_listener
 # =====================================================================
 class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     # ---- helpers ----
-    def _make_order(self, *, client_order_id="hbot-1", sequence=84437780,
-                    order_type=OrderType.MARKET, state=OrderState.OPEN,
-                    amount=Decimal("2.239836701211152")):
+    def _make_order(
+        self,
+        *,
+        client_order_id="hbot-1",
+        sequence=84437780,
+        order_type=OrderType.MARKET,
+        state=OrderState.OPEN,
+        amount=Decimal("2.239836701211152"),
+    ):
         order = InFlightOrder(
             client_order_id=client_order_id,
             exchange_order_id=f"{sequence}-88954510-86440061",
@@ -843,9 +895,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = self._make_order(sequence=84437780)
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_awaited_once()
             self.assertIs(pmot.call_args[0][0], order)
@@ -857,9 +911,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         self._make_order(sequence=84437780, order_type=OrderType.LIMIT)
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc:
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc,
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_not_awaited()
             pobc.assert_awaited_once()
@@ -870,9 +926,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         get_account_mock.return_value = OUR_ACCOUNT
         event = {"meta": {"TransactionResult": "tesSUCCESS"}}  # No 'transaction'
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc:
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc,
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_not_awaited()
             pobc.assert_not_awaited()
@@ -883,9 +941,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         get_account_mock.return_value = OUR_ACCOUNT
         event = {"transaction": {"Sequence": 1, "TransactionType": "OfferCreate"}}
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc:
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc,
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_not_awaited()
             pobc.assert_not_awaited()
@@ -896,9 +956,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         get_account_mock.return_value = OUR_ACCOUNT
         event = _make_event_message(sequence=99999)  # No tracked order with this sequence
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc:
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock) as pobc,
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_not_awaited()
             # _process_order_book_changes is always called
@@ -913,9 +975,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # XRP balance should be updated from the AccountRoot FinalFields
@@ -931,9 +995,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # SOLO balance from RippleState FinalFields: 45.47502732568766
@@ -947,10 +1013,12 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         event = _make_event_message(sequence=84437780)
 
         # Force get_token_symbol_from_all_markets to return None for SOLO
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock), \
-             patch.object(self.connector, "get_token_symbol_from_all_markets", return_value=None):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+            patch.object(self.connector, "get_token_symbol_from_all_markets", return_value=None),
+        ):
             await self.connector._user_stream_event_listener()
 
         # SOLO should NOT be in balances (was skipped)
@@ -974,9 +1042,13 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             if call_count == 1:
                 raise RuntimeError("test error")
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator(events)), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock, side_effect=failing_then_ok), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator(events)),
+            patch.object(
+                self.connector, "_process_order_book_changes", new_callable=AsyncMock, side_effect=failing_then_ok
+            ),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # Both events were processed (loop didn't die on first error)
@@ -989,9 +1061,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         self._make_order(sequence=84437780, order_type=OrderType.MARKET, state=OrderState.FILLED)
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_not_awaited()
 
@@ -1002,9 +1076,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         self._make_order(sequence=84437780, order_type=OrderType.AMM_SWAP)
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot, \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock) as pmot,
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
             pmot.assert_awaited_once()
 
@@ -1017,9 +1093,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # Balances should now be set (not None)
@@ -1050,8 +1128,10 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         ]
         event = _make_event_message(account=OTHER_ACCOUNT, sequence=84437780, affected_nodes=other_only_nodes)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # XRP balance should be unchanged
@@ -1066,9 +1146,11 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         event = _make_event_message(sequence=84437780)
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock),
+        ):
             await self.connector._user_stream_event_listener()
 
         # The SOLO hex code should have been decoded and stored as "SOLO"
@@ -1088,9 +1170,13 @@ class TestUserStreamEventListener(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             nonlocal call_count
             call_count += 1
 
-        with patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event1, event2])), \
-             patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock), \
-             patch.object(self.connector, "_process_order_book_changes", new_callable=AsyncMock, side_effect=count_calls):
+        with (
+            patch.object(self.connector, "_iter_user_event_queue", return_value=_async_generator([event1, event2])),
+            patch.object(self.connector, "_process_market_order_transaction", new_callable=AsyncMock),
+            patch.object(
+                self.connector, "_process_order_book_changes", new_callable=AsyncMock, side_effect=count_calls
+            ),
+        ):
             await self.connector._user_stream_event_listener()
 
         self.assertEqual(call_count, 2)

@@ -33,11 +33,13 @@ class ConnectorManager:
         # Active connectors
         self.connectors: Dict[str, ExchangeBase] = {}
 
-    def create_connector(self,
-                         connector_name: str,
-                         trading_pairs: List[str],
-                         trading_required: bool = True,
-                         api_keys: Optional[Dict[str, str]] = None) -> ExchangeBase:
+    def create_connector(
+        self,
+        connector_name: str,
+        trading_pairs: List[str],
+        trading_required: bool = True,
+        api_keys: Optional[Dict[str, str]] = None,
+    ) -> ExchangeBase:
         """
         Create and initialize a connector.
 
@@ -66,12 +68,8 @@ class ConnectorManager:
 
             # Handle paper trading
             if connector_name.endswith("paper_trade"):
-
                 base_connector = base_connector_name
-                connector = create_paper_trade_market(
-                    base_connector,
-                    trading_pairs
-                )
+                connector = create_paper_trade_market(base_connector, trading_pairs)
 
                 # Set paper trade balances if configured
                 paper_trade_account_balance = self.client_config_map.paper_trade.paper_trade_account_balance
@@ -82,8 +80,10 @@ class ConnectorManager:
                 # Create live connector
                 keys = api_keys or Security.api_keys(connector_name)
                 if not keys and not conn_setting.uses_gateway_generic_connector():
-                    raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
-                                     f"Either provide API keys or use a paper trade connector.")
+                    raise ValueError(
+                        f"API keys required for live trading connector '{connector_name}'. "
+                        f"Either provide API keys or use a paper trade connector."
+                    )
 
                 init_params = conn_setting.conn_init_parameters(
                     trading_pairs=trading_pairs,
@@ -207,9 +207,9 @@ class ConnectorManager:
         status = {}
         for name, connector in self.connectors.items():
             status[name] = {
-                'ready': connector.ready,
-                'trading_pairs': connector.trading_pairs,
-                'orders_count': len(connector.limit_orders),
-                'balances': connector.get_all_balances() if connector.ready else {}
+                "ready": connector.ready,
+                "trading_pairs": connector.trading_pairs,
+                "orders_count": len(connector.limit_orders),
+                "balances": connector.get_all_balances() if connector.ready else {},
             }
         return status

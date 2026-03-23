@@ -28,8 +28,8 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
 
         self.connector = DydxV4PerpetualDerivative(
             dydx_v4_perpetual_secret_phrase="mirror actor skill push coach wait confirm orchard "
-                                            "lunch mobile athlete gossip awake miracle matter "
-                                            "bus reopen team ladder lazy list timber render wait",
+            "lunch mobile athlete gossip awake miracle matter "
+            "bus reopen team ladder lazy list timber render wait",
             dydx_v4_perpetual_chain_address="dydx14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art",
             trading_pairs=[self.trading_pair],
             trading_required=False,
@@ -67,7 +67,7 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            await (self.data_source.listen_for_user_stream(asyncio.Queue()))
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
@@ -75,7 +75,7 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
         "DydxV4PerpetualUserStreamDataSource._sleep"
     )
     async def test_listen_for_user_stream_raises_logs_exception(self, mock_sleep, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (asyncio.get_running_loop().run_until_complete(asyncio.sleep(0.5)))
+        mock_sleep.side_effect = lambda: asyncio.get_running_loop().run_until_complete(asyncio.sleep(0.5))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
@@ -91,9 +91,8 @@ class DydxV4PerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCas
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_ws_authentication_successful(self, ws_connect_mock):
-
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        await (self.data_source._connected_websocket_assistant())
+        await self.data_source._connected_websocket_assistant()
 
         json_msgs = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 

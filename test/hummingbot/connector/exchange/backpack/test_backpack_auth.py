@@ -11,7 +11,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class BackpackAuthTests(IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
         # --- generate deterministic test keypair ---
         # NOTE: testSecret / testKey are VARIABLE NAMES, not literal values
@@ -83,11 +82,7 @@ class BackpackAuthTests(IsolatedAsyncioTestCase):
             "quantity": "10",
             "price": "100.5",
         }
-        request = RESTRequest(
-            method=RESTMethod.POST,
-            data=json.dumps(body_data),
-            is_auth_required=True
-        )
+        request = RESTRequest(method=RESTMethod.POST, data=json.dumps(body_data), is_auth_required=True)
         configured_request = await self._auth.rest_authenticate(request)
 
         # Verify headers are set correctly
@@ -97,9 +92,11 @@ class BackpackAuthTests(IsolatedAsyncioTestCase):
         self.assertIn("X-Signature", configured_request.headers)
 
         # Verify signature (signs body params in sorted order)
-        sign_str = (f"orderType={body_data['orderType']}&price={body_data['price']}&quantity={body_data['quantity']}&"
-                    f"side={body_data['side']}&symbol={body_data['symbol']}&timestamp={int(self.now * 1e3)}&"
-                    f"window={self._auth.DEFAULT_WINDOW_MS}")
+        sign_str = (
+            f"orderType={body_data['orderType']}&price={body_data['price']}&quantity={body_data['quantity']}&"
+            f"side={body_data['side']}&symbol={body_data['symbol']}&timestamp={int(self.now * 1e3)}&"
+            f"window={self._auth.DEFAULT_WINDOW_MS}"
+        )
         expected_signature_bytes = self._private_key.sign(sign_str.encode("utf-8"))
         expected_signature = base64.b64encode(expected_signature_bytes).decode("utf-8")
 
@@ -118,7 +115,7 @@ class BackpackAuthTests(IsolatedAsyncioTestCase):
             method=RESTMethod.POST,
             data=json.dumps(body_data),
             headers={"instruction": "orderQueryAll"},
-            is_auth_required=True
+            is_auth_required=True,
         )
         configured_request = await self._auth.rest_authenticate(request)
 
@@ -126,8 +123,10 @@ class BackpackAuthTests(IsolatedAsyncioTestCase):
         self.assertNotIn("instruction", configured_request.headers)
 
         # Verify signature includes instruction
-        sign_str = (f"instruction=orderQueryAll&side={body_data['side']}&symbol={body_data['symbol']}&"
-                    f"timestamp={int(self.now * 1e3)}&window={self._auth.DEFAULT_WINDOW_MS}")
+        sign_str = (
+            f"instruction=orderQueryAll&side={body_data['side']}&symbol={body_data['symbol']}&"
+            f"timestamp={int(self.now * 1e3)}&window={self._auth.DEFAULT_WINDOW_MS}"
+        )
         expected_signature_bytes = self._private_key.sign(sign_str.encode("utf-8"))
         expected_signature = base64.b64encode(expected_signature_bytes).decode("utf-8")
 

@@ -7,7 +7,6 @@ from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestPositionExecutorDataTypes(TestCase):
-
     def test_position_executor_close_types_enum(self):
         self.assertEqual(CloseType.TIME_LIMIT.name, "TIME_LIMIT")
         self.assertEqual(CloseType.TIME_LIMIT.value, 1)
@@ -38,7 +37,8 @@ class TestPositionExecutorDataTypes(TestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("100"),
             creation_timestamp=12341451532,
-            price=Decimal("1"))
+            price=Decimal("1"),
+        )
         order = TrackedOrder()
         order.order = in_flight_order
         self.assertEqual(order.order, in_flight_order)

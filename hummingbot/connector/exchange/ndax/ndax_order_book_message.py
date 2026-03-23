@@ -6,12 +6,17 @@ from typing import Dict, List, Optional
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
-NdaxOrderBookEntry = namedtuple("NdaxOrderBookEntry", "mdUpdateId accountId actionDateTime actionType lastTradePrice orderId price productPairCode quantity side")
-NdaxTradeEntry = namedtuple("NdaxTradeEntry", "tradeId productPairCode quantity price order1 order2 tradeTime direction takerSide blockTrade orderClientId")
+NdaxOrderBookEntry = namedtuple(
+    "NdaxOrderBookEntry",
+    "mdUpdateId accountId actionDateTime actionType lastTradePrice orderId price productPairCode quantity side",
+)
+NdaxTradeEntry = namedtuple(
+    "NdaxTradeEntry",
+    "tradeId productPairCode quantity price order1 order2 tradeTime direction takerSide blockTrade orderClientId",
+)
 
 
 class NdaxOrderBookMessage(OrderBookMessage):
-
     _DELETE_ACTION_TYPE = 2
     _BUY_SIDE = 0
     _SELL_SIDE = 1
@@ -82,7 +87,9 @@ class NdaxOrderBookMessage(OrderBookMessage):
 
     def __lt__(self, other) -> bool:
         # If timestamp is the same, the ordering is snapshot < diff < trade
-        return (self.timestamp < other.timestamp or (self.timestamp == other.timestamp and self.type.value < other.type.value))
+        return self.timestamp < other.timestamp or (
+            self.timestamp == other.timestamp and self.type.value < other.type.value
+        )
 
     def __hash__(self) -> int:
         return hash((self.type, self.timestamp))

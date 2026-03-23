@@ -56,8 +56,7 @@ class EndpointRESTRequest(RESTRequest, ABC):
 
     @property
     @abstractmethod
-    def base_url(self) -> str:
-        ...
+    def base_url(self) -> str: ...
 
     def _ensure_url(self):
         if self.url is None and self.endpoint is None:
@@ -78,7 +77,9 @@ class EndpointRESTRequest(RESTRequest, ABC):
             if self.data is not None:
                 self.data = ujson.dumps(self.data)
         elif self.data is not None:
-            raise ValueError("The `data` field should be used only for POST, PUT, or PATCH requests. Use `params` instead.")
+            raise ValueError(
+                "The `data` field should be used only for POST, PUT, or PATCH requests. Use `params` instead."
+            )
 
 
 @dataclass(init=False)
@@ -118,7 +119,7 @@ class RESTResponse:
             # https://docs.aiohttp.org/en/stable/client_reference.html#aiohttp.ClientResponse.json
             byte_string = await self._aiohttp_response.read()
             if isinstance(byte_string, bytes):
-                decoded_string = byte_string.decode('utf-8')
+                decoded_string = byte_string.decode("utf-8")
                 try:
                     json_ = json.loads(decoded_string)
                 except JSONDecodeError:

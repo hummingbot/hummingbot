@@ -69,8 +69,11 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
     async def test_place_cancel_success(self):
         """Successful cancel: tx_pool returns success."""
         self._mock_tx_pool(
-            success=True, sequence=12345, prelim_result="tesSUCCESS",
-            exchange_order_id="12345-67890-ABCDEF", tx_hash="CANCEL_HASH",
+            success=True,
+            sequence=12345,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="12345-67890-ABCDEF",
+            tx_hash="CANCEL_HASH",
         )
 
         order = _make_inflight_order()
@@ -172,12 +175,10 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         mock_verify_pool.submit_verification = AsyncMock(return_value=verify_result)
         self.connector._verification_pool = mock_verify_pool
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
         ):
             # Mock get_order_book_changes to return empty (means cancelled)
             with patch(
@@ -205,14 +206,13 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         mock_trade = MagicMock()
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update
-        ), patch.object(
-            self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -232,12 +232,10 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             new_state=OrderState.CANCELED,
         )
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=canceled_update
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=canceled_update),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -250,9 +248,7 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = _make_inflight_order(state=OrderState.CANCELED)
 
         # Order is NOT in active_orders
-        with patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ) as tracker_mock:
+        with patch.object(self.connector._order_tracker, "process_order_update") as tracker_mock:
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
         self.assertTrue(result)  # CANCELED state returns True
@@ -264,9 +260,7 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         """Order in FILLED final state and not tracked → returns False."""
         order = _make_inflight_order(state=OrderState.FILLED)
 
-        with patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ):
+        with patch.object(self.connector._order_tracker, "process_order_update"):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
         self.assertFalse(result)  # FILLED state returns False for cancellation
@@ -285,14 +279,13 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 
         self._mock_tx_pool(success=False, prelim_result="tecUNFUNDED")
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update
-        ), patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
-        ) as not_found_mock, patch.object(
-            self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(
+                self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
+            ) as not_found_mock,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -304,14 +297,13 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         order = _make_inflight_order(exchange_order_id=None, state=OrderState.PENDING_CREATE)
 
         # Mock get_exchange_order_id to timeout
-        with patch.object(
-            order, "get_exchange_order_id", new_callable=AsyncMock, side_effect=asyncio.TimeoutError()
-        ), patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
-        ) as not_found_mock, patch.object(
-            self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock
+        with (
+            patch.object(order, "get_exchange_order_id", new_callable=AsyncMock, side_effect=asyncio.TimeoutError()),
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(
+                self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
+            ) as not_found_mock,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -364,12 +356,12 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
                 return open_update  # First call: pre-cancel check
             return canceled_update  # Second call: post temBAD_SEQUENCE check
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_side_effect
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
+        with (
+            patch.object(
+                self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_side_effect
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -392,14 +384,13 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         self._mock_tx_pool(success=True, sequence=12345, prelim_result="tesSUCCESS")
         self._mock_verification_pool(verified=False, final_result="tecKILLED")
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update
-        ), patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
-        ) as not_found_mock, patch.object(
-            self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(
+                self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock
+            ) as not_found_mock,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
         ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
 
@@ -437,16 +428,14 @@ class TestXRPLExchangeCancelOrder(XRPLExchangeTestBase, unittest.IsolatedAsyncio
         mock_verify_pool.submit_verification = AsyncMock(return_value=verify_result)
         self.connector._verification_pool = mock_verify_pool
 
-        with patch.object(
-            self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update
-        ), patch.object(
-            self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
-        ), patch.object(
-            self.connector, "_process_final_order_state", new_callable=AsyncMock
-        ) as final_mock, patch.object(
-            self.connector._order_tracker, "process_order_update"
-        ), patch.object(
-            self.connector._order_tracker, "process_trade_update"
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as final_mock,
+            patch.object(self.connector._order_tracker, "process_order_update"),
+            patch.object(self.connector._order_tracker, "process_trade_update"),
         ):
             with patch(
                 "hummingbot.connector.exchange.xrpl.xrpl_exchange.get_order_book_changes",

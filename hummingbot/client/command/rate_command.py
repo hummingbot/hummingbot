@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 
 
 class RateCommand:
-    def rate(self,  # type: HummingbotApplication
-             pair: str,
-             token: str
-             ):
+    def rate(
+        self,  # type: HummingbotApplication
+        pair: str,
+        token: str,
+    ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.trades)
             return
@@ -27,9 +28,10 @@ class RateCommand:
         elif token:
             safe_ensure_future(self.show_token_value(token))
 
-    async def show_rate(self,  # type: HummingbotApplication
-                        pair: str,
-                        ):
+    async def show_rate(
+        self,  # type: HummingbotApplication
+        pair: str,
+    ):
         if not validate_trading_pair(pair):
             self.notify(f"Invalid trading pair {pair}")
         else:
@@ -39,21 +41,24 @@ class RateCommand:
                 msg = "Rate is not available."
             self.notify(msg)
 
-    async def oracle_rate_msg(self,  # type: HummingbotApplication
-                              pair: str):
+    async def oracle_rate_msg(
+        self,  # type: HummingbotApplication
+        pair: str,
+    ):
         if not validate_trading_pair(pair):
             self.notify(f"Invalid trading pair {pair}")
         else:
-            pair = pair.upper().strip('\"').strip("'")
+            pair = pair.upper().strip('"').strip("'")
             rate = await RateOracle.get_instance().rate_async(pair)
             if rate is None:
                 raise OracleRateUnavailable
             base, quote = split_hb_trading_pair(pair)
             return f"Source: {RateOracle.get_instance().source.name}\n1 {base} = {rate} {quote}"
 
-    async def show_token_value(self,  # type: HummingbotApplication
-                               token: str
-                               ):
+    async def show_token_value(
+        self,  # type: HummingbotApplication
+        token: str,
+    ):
         if "-" in token:
             self.notify(f"Expected a single token but got a pair {token}")
         else:

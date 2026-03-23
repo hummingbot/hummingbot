@@ -8,13 +8,14 @@ class FundingInfo:
     Data object that details the funding information of a perpetual market.
     """
 
-    def __init__(self,
-                 trading_pair: str,
-                 index_price: Decimal,
-                 mark_price: Decimal,
-                 next_funding_utc_timestamp: int,
-                 rate: Decimal,
-                 ):
+    def __init__(
+        self,
+        trading_pair: str,
+        index_price: Decimal,
+        mark_price: Decimal,
+        next_funding_utc_timestamp: int,
+        rate: Decimal,
+    ):
         self._trading_pair = trading_pair
         self._index_price = index_price
         self._mark_price = mark_price

@@ -40,13 +40,13 @@ class PacificaPerpetualPriceRecord(NamedTuple):
     :param index_price: the index price
     :param mark_price: the mark price
     """
+
     timestamp: float
     index_price: Decimal
     mark_price: Decimal
 
 
 class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
-
     web_utils = web_utils
 
     TRADING_FEES_INTERVAL = DAY
@@ -102,9 +102,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         tier2_limit = CONSTANTS.FEE_TIER_LIMITS.get(self._fee_tier, CONSTANTS.PACIFICA_TIER_2_LIMIT)
 
         global_limit = RateLimit(
-            limit_id=CONSTANTS.PACIFICA_LIMIT_ID,
-            limit=tier2_limit,
-            time_interval=CONSTANTS.PACIFICA_LIMIT_INTERVAL
+            limit_id=CONSTANTS.PACIFICA_LIMIT_ID, limit=tier2_limit, time_interval=CONSTANTS.PACIFICA_LIMIT_INTERVAL
         )
 
         return [global_limit] + CONSTANTS.RATE_LIMITS_TIER_2[1:]
@@ -120,9 +118,8 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         return_err: bool = False,
         limit_id: Optional[str] = None,
         headers: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
-
         if self.api_config_key:
             pf_headers = {"PF-API-KEY": self.api_config_key}
             if headers:
@@ -140,7 +137,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             return_err=return_err,
             limit_id=limit_id,
             headers=headers,
-            **kwargs
+            **kwargs,
         )
 
     async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
@@ -169,7 +166,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 "type": "list_api_keys",
             },
             is_auth_required=True,
-            limit_id=CONSTANTS.PACIFICA_LIMIT_ID
+            limit_id=CONSTANTS.PACIFICA_LIMIT_ID,
         )
 
         if response.get("success") is True and response.get("data"):
@@ -189,7 +186,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 "type": "create_api_key",
             },
             is_auth_required=True,
-            limit_id=CONSTANTS.PACIFICA_LIMIT_ID
+            limit_id=CONSTANTS.PACIFICA_LIMIT_ID,
         )
 
         if response.get("success") is True and response.get("data"):
@@ -425,11 +422,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
             "type": "cancel_order",
         }
-        await self._api_post(
-            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-            data=data,
-            is_auth_required=True
-        )
+        await self._api_post(path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, data=data, is_auth_required=True)
 
         return True
 
@@ -465,13 +458,13 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         account = self.user_wallet_public_key
 
         response = await self._api_get(
-            path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
-            params={"account": account},
-            return_err=True
+            path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL, params={"account": account}, return_err=True
         )
 
         if not response.get("success"):
-            self.logger().error(f"[_update_balances] Failed to update balances (api responded with failure): {response}")
+            self.logger().error(
+                f"[_update_balances] Failed to update balances (api responded with failure): {response}"
+            )
             return
 
         data = response.get("data")
@@ -549,15 +542,20 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             return_err=True,
         )
 
-        if not response.get("success") is True:
-            self.logger().error(f"[_update_positions] Failed to update positions (api responded with failure): {response}")
+        if response.get("success") is not True:
+            self.logger().error(
+                f"[_update_positions] Failed to update positions (api responded with failure): {response}"
+            )
             return
 
         position_symbols = [position_entry["symbol"] for position_entry in response.get("data", [])]
         position_trading_pairs = [
-            await self.trading_pair_associated_to_exchange_symbol(position_symbol) for position_symbol in position_symbols
+            await self.trading_pair_associated_to_exchange_symbol(position_symbol)
+            for position_symbol in position_symbols
         ]
-        if any([self.get_pacifica_price(position_trading_pair) is None for position_trading_pair in position_trading_pairs]):
+        if any(
+            [self.get_pacifica_price(position_trading_pair) is None for position_trading_pair in position_trading_pairs]
+        ):
             self.logger().info("[_update_positions] Prices cache is empty. Going to fetch prices via HTTP.")
             # we should update the cache
             # in future we could also consider to add some cache invalidation rules (e.g. timestamp too old)
@@ -565,7 +563,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=CONSTANTS.GET_PRICES_PATH_URL,
                 return_err=True,
             )
-            if not prices_response.get("success") is True:
+            if prices_response.get("success") is not True:
                 self.logger().error(f"[_update_positions] Failed to update prices cache using HTTP API: {response}")
                 return
             for price_entry in prices_response.get("data", []):
@@ -605,7 +603,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 unrealized_pnl=unrealized_pnl,
                 entry_price=entry_price,
                 amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
-                leverage=Decimal(self.get_leverage(hb_trading_pair))
+                leverage=Decimal(self.get_leverage(hb_trading_pair)),
             )
             self._perpetual_trading.set_position(position_key, position)
 
@@ -690,32 +688,39 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 fee_amount = Decimal(trade_message["fee"])
                 fee_asset = order.quote_asset
 
-                position_action = PositionAction.OPEN if trade_message["side"] in ("open_long", "open_short", ) else PositionAction.CLOSE
+                position_action = (
+                    PositionAction.OPEN
+                    if trade_message["side"]
+                    in (
+                        "open_long",
+                        "open_short",
+                    )
+                    else PositionAction.CLOSE
+                )
 
                 fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=self.trade_fee_schema(),
                     position_action=position_action,
                     percent_token=fee_asset,
-                    flat_fees=[TokenAmount(
-                        amount=fee_amount,
-                        token=fee_asset
-                    )]
+                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
                 )
 
                 is_taker = trade_message["event_type"] == "fulfill_taker"
 
-                trade_updates.append(TradeUpdate(
-                    trade_id=trade_id,
-                    client_order_id=order.client_order_id,
-                    exchange_order_id=order.exchange_order_id,
-                    trading_pair=order.trading_pair,
-                    fill_timestamp=fill_timestamp,
-                    fill_price=fill_price,
-                    fill_base_amount=fill_base_amount,
-                    fill_quote_amount=fill_price * fill_base_amount,
-                    fee=fee,
-                    is_taker=is_taker,
-                ))
+                trade_updates.append(
+                    TradeUpdate(
+                        trade_id=trade_id,
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order.exchange_order_id,
+                        trading_pair=order.trading_pair,
+                        fill_timestamp=fill_timestamp,
+                        fill_price=fill_price,
+                        fill_base_amount=fill_base_amount,
+                        fill_quote_amount=fill_price * fill_base_amount,
+                        fee=fee,
+                        is_taker=is_taker,
+                    )
+                )
 
             if response.get("has_more") and response.get("next_cursor"):
                 params["cursor"] = response["next_cursor"]
@@ -867,13 +872,15 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         response = await self._api_get(
             path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
             params={"account": self.user_wallet_public_key},
-            return_err=True
+            return_err=True,
         )
 
         # comparison with True is needed, bc we might expect a string to be there
         # while the only indicator of success here is True boolean value
-        if not response.get("success") is True:
-            self.logger().error(f"[_update_trading_fees] Failed to update trading fees (api responded with failure): {response}")
+        if response.get("success") is not True:
+            self.logger().error(
+                f"[_update_trading_fees] Failed to update trading fees (api responded with failure): {response}"
+            )
             return
 
         data = response.get("data")
@@ -922,10 +929,10 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 "account": self.user_wallet_public_key,
                 "limit": 100,
             },
-            return_err=True
+            return_err=True,
         )
 
-        if not response.get("success") is True:
+        if response.get("success") is not True:
             self.logger().error(f"Failed to fetch last fee payment (api responded with failure): {response}")
             return 0, Decimal("-1"), Decimal("-1")
 
@@ -937,7 +944,11 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         # check if the first page has the trading pair we need
         for funding_history_item in data:
             if funding_history_item["symbol"] == symbol:
-                return funding_history_item["created_at"], Decimal(funding_history_item["rate"]), Decimal(funding_history_item["payout"])
+                return (
+                    funding_history_item["created_at"],
+                    Decimal(funding_history_item["rate"]),
+                    Decimal(funding_history_item["payout"]),
+                )
 
         # so it's not presented on the first page
         # we should check other pages, but no more than 1 hour back
@@ -967,10 +978,10 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                     "limit": 100,
                     "cursor": cursor,
                 },
-                return_err=True
+                return_err=True,
             )
 
-            if not response.get("success") is True:
+            if response.get("success") is not True:
                 self.logger().error(f"Failed to fetch last fee payment (api responded with failure): {response}")
                 return 0, Decimal("-1"), Decimal("-1")
 
@@ -986,7 +997,11 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
 
             for funding_history_item in data:
                 if funding_history_item["symbol"] == symbol:
-                    return funding_history_item["created_at"], Decimal(funding_history_item["rate"]), Decimal(funding_history_item["payout"])
+                    return (
+                        funding_history_item["created_at"],
+                        Decimal(funding_history_item["rate"]),
+                        Decimal(funding_history_item["payout"]),
+                    )
 
             has_more = response.get("has_more", False)
             cursor = response.get("next_cursor")
@@ -1011,9 +1026,11 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         success = response.get("success") is True
         msg = ""
         if not success:
-            msg = (f"Error when setting leverage: "
-                   f"msg={response.get('error', 'error')}, "
-                   f"code={response.get('code', 'code')}")
+            msg = (
+                f"Error when setting leverage: "
+                f"msg={response.get('error', 'error')}, "
+                f"code={response.get('code', 'code')}"
+            )
 
         return success, msg
 
@@ -1031,15 +1048,17 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
 
         self._set_trading_pair_symbol_map(mapping)
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 position_action: PositionAction,
-                 amount: Decimal,
-                 price: Decimal = Decimal("nan"),
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        position_action: PositionAction,
+        amount: Decimal,
+        price: Decimal = Decimal("nan"),
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = is_maker or False
         fee = build_trade_fee(
             self.name,
@@ -1204,7 +1223,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
                 unrealized_pnl=unrealized_pnl,
                 entry_price=entry_price,
                 amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
-                leverage=Decimal(self.get_leverage(hb_trading_pair))
+                leverage=Decimal(self.get_leverage(hb_trading_pair)),
             )
             self._perpetual_trading.set_position(position_key, position)
 
@@ -1287,12 +1306,15 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
 
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
-                position_action=PositionAction.OPEN if trade_message["ts"] in ("open_long", "open_short", ) else PositionAction.CLOSE,
+                position_action=PositionAction.OPEN
+                if trade_message["ts"]
+                in (
+                    "open_long",
+                    "open_short",
+                )
+                else PositionAction.CLOSE,
                 percent_token=fee_asset,
-                flat_fees=[TokenAmount(
-                    amount=Decimal(trade_message["f"]),
-                    token=fee_asset
-                )]
+                flat_fees=[TokenAmount(amount=Decimal(trade_message["f"]), token=fee_asset)],
             )
 
             trade_update = TradeUpdate(
@@ -1321,9 +1343,7 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         existing = self._prices.get(trading_pair)
         if existing is None or timestamp >= existing.timestamp:
             self._prices[trading_pair] = PacificaPerpetualPriceRecord(
-                timestamp=timestamp,
-                index_price=index_price,
-                mark_price=mark_price
+                timestamp=timestamp, index_price=index_price, mark_price=mark_price
             )
 
     def get_pacifica_price(self, trading_pair: str) -> Optional[PacificaPerpetualPriceRecord]:
@@ -1336,7 +1356,9 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         """
         return self._prices.get(trading_pair)
 
-    def get_pacifica_finance_trade_id(self, order_id: int, timestamp: float, fill_base_amount: Decimal, fill_price: Decimal) -> str:
+    def get_pacifica_finance_trade_id(
+        self, order_id: int, timestamp: float, fill_base_amount: Decimal, fill_price: Decimal
+    ) -> str:
         """
         Generate a trade ID for the given order ID, timestamp, base amount, and price
 
@@ -1425,15 +1447,17 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             return_err=True,
         )
 
-        if not response.get("success") is True:
+        if response.get("success") is not True:
             self.logger().error(f"[get_all_pairs_prices] Failed to fetch all pairs prices: {response}")
             return []
 
         results = []
         for price_data in response.get("data", []):
-            results.append({
-                "trading_pair": await self.trading_pair_associated_to_exchange_symbol(symbol=price_data["symbol"]),
-                "price": price_data["mark"]
-            })
+            results.append(
+                {
+                    "trading_pair": await self.trading_pair_associated_to_exchange_symbol(symbol=price_data["symbol"]),
+                    "price": price_data["mark"],
+                }
+            )
 
         return results

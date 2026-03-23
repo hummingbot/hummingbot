@@ -21,12 +21,7 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(
-        self,
-        api_address: str,
-        api_secret: str,
-        use_vault: bool
-    ):
+    def __init__(self, api_address: str, api_secret: str, use_vault: bool):
         # can be as Arbitrum wallet address or Vault address
         self._api_address: str = api_address
         # can be as Arbitrum wallet private key or Hyperliquid API wallet private key
@@ -72,12 +67,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         return {"source": "a" if is_mainnet else "b", "connectionId": hash_iterable}
 
     def sign_l1_action(
-        self,
-        wallet,
-        action: dict[str, Any],
-        active_pool,
-        nonce: int,
-        is_mainnet: bool
+        self, wallet, action: dict[str, Any], active_pool, nonce: int, is_mainnet: bool
     ) -> dict[str, Any]:
         """
         Signs a L1 action.

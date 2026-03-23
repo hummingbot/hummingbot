@@ -46,21 +46,27 @@ class BitstampAuth(AuthBase):
         """
         return request  # pass-through
 
-    def _generate_headers_for_authentication(self, method: RESTMethod, request_url: str, content_type: str, payload) -> Dict[str, str]:
+    def _generate_headers_for_authentication(
+        self, method: RESTMethod, request_url: str, content_type: str, payload
+    ) -> Dict[str, str]:
         nonce = str(uuid.uuid4())
         timestamp_str = str(int(self.time_provider.time() * 1e3))
 
         headers = {
-            'X-Auth': 'BITSTAMP ' + self.api_key,
-            'X-Auth-Signature': self._generate_signature(self._generate_message(method, request_url, content_type, payload, nonce, timestamp_str)),
-            'X-Auth-Nonce': nonce,
-            'X-Auth-Timestamp': timestamp_str,
-            'X-Auth-Version': self.AUTH_VERSION
+            "X-Auth": "BITSTAMP " + self.api_key,
+            "X-Auth-Signature": self._generate_signature(
+                self._generate_message(method, request_url, content_type, payload, nonce, timestamp_str)
+            ),
+            "X-Auth-Nonce": nonce,
+            "X-Auth-Timestamp": timestamp_str,
+            "X-Auth-Version": self.AUTH_VERSION,
         }
 
         return headers
 
-    def _generate_message(self, method: RESTMethod, request_url: str, content_type: str, payload, nonce: str, timestamp_str: str) -> str:
+    def _generate_message(
+        self, method: RESTMethod, request_url: str, content_type: str, payload, nonce: str, timestamp_str: str
+    ) -> str:
         content_type = content_type or ""
         payload_str = urlencode(payload) if payload else ""
         url = urlparse(request_url)

@@ -12,7 +12,7 @@ EXAMPLE_PAIR = "SOL-USDC"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0005"),
-    buy_percent_fee_deducted_from_returns=False
+    buy_percent_fee_deducted_from_returns=False,
 )
 
 
@@ -39,7 +39,7 @@ class BackpackConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     backpack_api_secret: SecretStr = Field(
         default=...,
@@ -48,7 +48,7 @@ class BackpackConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="backpack_perpetual")
 

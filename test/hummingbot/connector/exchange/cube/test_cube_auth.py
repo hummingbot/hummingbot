@@ -8,7 +8,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class CubeAuthTests(TestCase):
-
     def setUp(self) -> None:
         self._api_key = "1111111111-11111-11111-11111-1111111111"
         self._secret = "111111111111111111111111111111"

@@ -10,7 +10,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class BybitPerpetualAuth(AuthBase):
-
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key
@@ -36,9 +35,7 @@ class BybitPerpetualAuth(AuthBase):
         Generates referral headers
         :return: a dictionary of auth headers
         """
-        headers = {
-            "referer": CONSTANTS.HBOT_BROKER_ID
-        }
+        headers = {"referer": CONSTANTS.HBOT_BROKER_ID}
         return headers
 
     def add_auth_headers(self, method: str, request: Optional[Dict[str, Any]]):
@@ -50,18 +47,16 @@ class BybitPerpetualAuth(AuthBase):
 
         :return: request object updated with xauth headers
         """
-        ts = str(int(time.time() * 10 ** 3))
+        ts = str(int(time.time() * 10**3))
 
         headers = {}
         headers["X-BAPI-TIMESTAMP"] = str(ts)
         headers["X-BAPI-API-KEY"] = self.api_key
 
         if method.value == "POST":
-            signature = self._generate_rest_signature(
-                timestamp=ts, method=method, payload=request.data)
+            signature = self._generate_rest_signature(timestamp=ts, method=method, payload=request.data)
         else:
-            signature = self._generate_rest_signature(
-                timestamp=ts, method=method, payload=request.params)
+            signature = self._generate_rest_signature(timestamp=ts, method=method, payload=request.params)
 
         headers["X-BAPI-SIGN"] = signature
         headers["X-BAPI-SIGN-TYPE"] = str(CONSTANTS.X_API_SIGN_TYPE)
@@ -77,19 +72,15 @@ class BybitPerpetualAuth(AuthBase):
             param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
         elif method == RESTMethod.POST:
             param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + f"{payload}"
-        signature = hmac.new(
-            bytes(self.secret_key, "utf-8"),
-            param_str.encode("utf-8"),
-            digestmod="sha256"
-        ).hexdigest()
+        signature = hmac.new(bytes(self.secret_key, "utf-8"), param_str.encode("utf-8"), digestmod="sha256").hexdigest()
         return signature
 
     def _generate_ws_signature(self, expires: int):
-        signature = str(hmac.new(
-            bytes(self.secret_key, "utf-8"),
-            bytes(f"GET/realtime{expires}", "utf-8"),
-            digestmod="sha256"
-        ).hexdigest())
+        signature = str(
+            hmac.new(
+                bytes(self.secret_key, "utf-8"), bytes(f"GET/realtime{expires}", "utf-8"), digestmod="sha256"
+            ).hexdigest()
+        )
         return signature
 
     def generate_ws_auth_message(self):
@@ -99,10 +90,7 @@ class BybitPerpetualAuth(AuthBase):
         """
         expires = int((self._time() + 10000) * 1000)
         signature = self._generate_ws_signature(expires)
-        auth_message = {
-            "op": "auth",
-            "args": [self.api_key, expires, signature]
-        }
+        auth_message = {"op": "auth", "args": [self.api_key, expires, signature]}
         return auth_message
 
     def _time(self):

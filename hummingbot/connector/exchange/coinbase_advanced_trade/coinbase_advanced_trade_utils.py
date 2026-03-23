@@ -14,7 +14,7 @@ EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.004"),
     taker_percent_fee_decimal=Decimal("0.006"),
-    buy_percent_fee_deducted_from_returns=False
+    buy_percent_fee_deducted_from_returns=False,
 )
 
 
@@ -40,8 +40,8 @@ class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
         json_schema_extra={
             "prompt": "Would you like to use authentication for public endpoints? (Yes/No) (only affects rate limiting)",
             "prompt_on_new": True,
-            "is_connect_key": True
-        }
+            "is_connect_key": True,
+        },
     )
     coinbase_advanced_trade_api_key: SecretStr = Field(
         default=...,
@@ -50,7 +50,7 @@ class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     coinbase_advanced_trade_api_secret: SecretStr = Field(
         default=...,
@@ -59,7 +59,7 @@ class CoinbaseAdvancedTradeConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="coinbase_advanced_trade")
 

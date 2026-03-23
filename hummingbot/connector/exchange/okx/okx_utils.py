@@ -25,7 +25,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_secret_key: SecretStr = Field(
         default=...,
@@ -34,7 +34,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_passphrase: SecretStr = Field(
         default=...,
@@ -43,7 +43,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_registration_sub_domain: Literal["www", "app", "my"] = Field(
         default="www",
@@ -51,7 +51,7 @@ class OKXConfigMap(BaseConnectorConfigMap):
             "prompt": "Which OKX subdomain did you register the key at? (www/app/my) - Generally www for most users, app for US users, my for EEA users.",
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
 
@@ -66,5 +66,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
-    return (exchange_info.get("instType", None) == "SPOT" and exchange_info.get("baseCcy") != ""
-            and exchange_info.get("quoteCcy") != "")
+    return (
+        exchange_info.get("instType", None) == "SPOT"
+        and exchange_info.get("baseCcy") != ""
+        and exchange_info.get("quoteCcy") != ""
+    )

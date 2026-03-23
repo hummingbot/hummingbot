@@ -18,10 +18,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.client_config_adapter = ClientConfigAdapter(self.client_config)
 
         # Set up paper trade config
-        self.client_config.paper_trade.paper_trade_account_balance = {
-            "BTC": Decimal("1.0"),
-            "USDT": Decimal("10000.0")
-        }
+        self.client_config.paper_trade.paper_trade_account_balance = {"BTC": Decimal("1.0"), "USDT": Decimal("10000.0")}
 
         # Create connector manager instance
         self.connector_manager = ConnectorManager(self.client_config_adapter)
@@ -33,10 +30,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.mock_connector.trading_pairs = ["BTC-USDT", "ETH-USDT"]
         self.mock_connector.limit_orders = []
         self.mock_connector.get_balance.return_value = Decimal("1.0")
-        self.mock_connector.get_all_balances.return_value = {
-            "BTC": Decimal("1.0"),
-            "USDT": Decimal("10000.0")
-        }
+        self.mock_connector.get_all_balances.return_value = {"BTC": Decimal("1.0"), "USDT": Decimal("10000.0")}
         self.mock_connector.get_order_book.return_value = MagicMock()
         # Mock async method cancel_all
         self.mock_connector.cancel_all = AsyncMock(return_value=None)
@@ -59,9 +53,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
 
         # Create paper trade connector
         connector = self.connector_manager.create_connector(
-            "binance_paper_trade",
-            ["BTC-USDT", "ETH-USDT"],
-            trading_required=True
+            "binance_paper_trade", ["BTC-USDT", "ETH-USDT"], trading_required=True
         )
 
         # Verify connector was created correctly
@@ -70,10 +62,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.connector_manager.connectors["binance_paper_trade"], self.mock_connector)
 
         # Verify paper trade market was called with correct params
-        mock_create_paper_trade.assert_called_once_with(
-            "binance",
-            ["BTC-USDT", "ETH-USDT"]
-        )
+        mock_create_paper_trade.assert_called_once_with("binance", ["BTC-USDT", "ETH-USDT"])
 
         # Verify balances were set
         self.mock_connector.set_balance.assert_any_call("BTC", Decimal("1.0"))
@@ -93,7 +82,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
             "api_key": "test_key",
             "api_secret": "test_secret",
             "trading_pairs": ["BTC-USDT"],
-            "trading_required": True
+            "trading_required": True,
         }
         mock_settings.get_connector_settings.return_value = {"binance": mock_conn_setting}
 
@@ -101,11 +90,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         mock_get_class.return_value = mock_connector_class
 
         # Create live connector
-        connector = self.connector_manager.create_connector(
-            "binance",
-            ["BTC-USDT"],
-            trading_required=True
-        )
+        connector = self.connector_manager.create_connector("binance", ["BTC-USDT"], trading_required=True)
 
         # Verify connector was created correctly
         self.assertEqual(connector, self.mock_connector)
@@ -122,11 +107,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         mock_security.api_keys.return_value = None
 
         with self.assertRaises(ValueError) as context:
-            self.connector_manager.create_connector(
-                "binance",
-                ["BTC-USDT"],
-                trading_required=True
-            )
+            self.connector_manager.create_connector("binance", ["BTC-USDT"], trading_required=True)
 
         self.assertIn("API keys required", str(context.exception))
 
@@ -136,11 +117,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.connector_manager.connectors["binance"] = self.mock_connector
 
         # Try to create again
-        connector = self.connector_manager.create_connector(
-            "binance",
-            ["BTC-USDT"],
-            trading_required=True
-        )
+        connector = self.connector_manager.create_connector("binance", ["BTC-USDT"], trading_required=True)
 
         # Should return existing connector
         self.assertEqual(connector, self.mock_connector)
@@ -173,10 +150,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         self.connector_manager.connectors["binance"] = self.mock_connector
 
         # Add trading pairs
-        result = await self.connector_manager.add_trading_pairs(
-            "binance",
-            ["XRP-USDT", "ADA-USDT"]
-        )
+        result = await self.connector_manager.add_trading_pairs("binance", ["XRP-USDT", "ADA-USDT"])
 
         # Verify
         self.assertTrue(result)
@@ -191,10 +165,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_add_trading_pairs_nonexistent_connector(self):
         """Test adding trading pairs to nonexistent connector"""
-        result = await self.connector_manager.add_trading_pairs(
-            "nonexistent",
-            ["BTC-USDT"]
-        )
+        result = await self.connector_manager.add_trading_pairs("nonexistent", ["BTC-USDT"])
 
         self.assertFalse(result)
 
@@ -308,11 +279,7 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         mock_settings.get_connector_settings.side_effect = Exception("Settings error")
 
         with self.assertRaises(Exception) as context:
-            self.connector_manager.create_connector(
-                "binance",
-                ["BTC-USDT"],
-                trading_required=True
-            )
+            self.connector_manager.create_connector("binance", ["BTC-USDT"], trading_required=True)
 
         self.assertIn("Settings error", str(context.exception))
         # Connector should not be added

@@ -13,50 +13,43 @@ class ExecutorProtocol(Protocol):
     """
     Protocol defining the methods required by executor mixins.
     """
+
     close_type: CloseType
     _status: RunnableStatus
 
     @property
-    def status(self) -> RunnableStatus:
-        ...
+    def status(self) -> RunnableStatus: ...
 
     @property
-    def is_closed(self):
-        ...
+    def is_closed(self): ...
 
     @property
-    def net_pnl_quote(self) -> Decimal:
-        ...
+    def net_pnl_quote(self) -> Decimal: ...
 
     @property
-    def net_pnl_pct(self) -> Decimal:
-        ...
+    def net_pnl_pct(self) -> Decimal: ...
 
     @property
-    def cum_fees_quote(self) -> Decimal:
-        ...
+    def cum_fees_quote(self) -> Decimal: ...
 
-    def stop(self) -> None:
-        ...
+    def stop(self) -> None: ...
 
-    def get_in_flight_order(self, connector_name: str, order_id: str) -> InFlightOrder:
-        ...
+    def get_in_flight_order(self, connector_name: str, order_id: str) -> InFlightOrder: ...
 
     def place_order(
-            self,
-            connector_name: str,
-            trading_pair: str,
-            order_type: OrderType,
-            side: TradeType,
-            amount: Decimal,
-            position_action: PositionAction = PositionAction.NIL,
-            price=Decimal("NaN"),
-            **kwargs,
-    ) -> str:
-        ...
+        self,
+        connector_name: str,
+        trading_pair: str,
+        order_type: OrderType,
+        side: TradeType,
+        amount: Decimal,
+        position_action: PositionAction = PositionAction.NIL,
+        price=Decimal("NaN"),
+        **kwargs,
+    ) -> str: ...
 
-    def get_trading_rules(self, connector_name: str, trading_pair: str) -> TradingRule:
-        ...
+    def get_trading_rules(self, connector_name: str, trading_pair: str) -> TradingRule: ...
 
-    def adjust_order_candidates(self, exchange: str, order_candidates: list[OrderCandidate]) -> list[OrderCandidate]:
-        ...
+    def adjust_order_candidates(
+        self, exchange: str, order_candidates: list[OrderCandidate]
+    ) -> list[OrderCandidate]: ...

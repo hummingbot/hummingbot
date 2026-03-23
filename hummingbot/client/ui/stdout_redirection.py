@@ -8,8 +8,8 @@ from asyncio import get_event_loop
 from contextlib import contextmanager
 
 __all__ = [
-    'patch_stdout',
-    'StdoutProxy',
+    "patch_stdout",
+    "StdoutProxy",
 ]
 
 
@@ -68,20 +68,20 @@ class StdoutProxy(object):
         self._ev_loop.call_soon_threadsafe(schedule_write_and_flush)
 
     def _write(self, data):
-        if '\n' in data:
+        if "\n" in data:
             # When there is a newline in the data, write everything before the newline, including the newline itself.
-            before, after = data.rsplit('\n', 1)
-            to_write = self._buffer + [before, '\n']
+            before, after = data.rsplit("\n", 1)
+            to_write = self._buffer + [before, "\n"]
             self._buffer = [after]
 
-            text = ''.join(to_write)
+            text = "".join(to_write)
             self._write_and_flush(text)
         else:
             # Otherwise, cache in buffer.
             self._buffer.append(data)
 
     def _flush(self):
-        text = ''.join(self._buffer)
+        text = "".join(self._buffer)
         self._buffer = []
         self._write_and_flush(text)
 

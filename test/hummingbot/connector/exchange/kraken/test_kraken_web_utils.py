@@ -5,7 +5,6 @@ from hummingbot.connector.exchange.kraken import kraken_web_utils as web_utils
 
 
 class KrakenUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         expected_url = CONSTANTS.BASE_URL + path_url

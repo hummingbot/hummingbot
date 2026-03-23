@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 
 class BitrueUserStreamDataSource(UserStreamTrackerDataSource):
-
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
 
@@ -169,7 +168,9 @@ class BitrueUserStreamDataSource(UserStreamTrackerDataSource):
                             self.logger().info(f"Successfully refreshed listen key {self._current_listen_key}")
                             self._last_listen_key_ping_ts = now
                         else:
-                            self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
+                            self.logger().error(
+                                f"Failed to refresh listen key {self._current_listen_key}. Getting new key..."
+                            )
                             # Reset state to force new key acquisition on next iteration
                             self._current_listen_key = None
                             self._listen_key_initialized_event.clear()
@@ -245,6 +246,4 @@ class BitrueUserStreamDataSource(UserStreamTrackerDataSource):
             if event_message.get("status") != "ok":
                 raise ValueError(f"Error subscribing to topic: {event_message.get('channel')} ({event_message})")
         else:
-            await super()._process_event_message(
-                event_message=event_message, queue=queue
-            )
+            await super()._process_event_message(event_message=event_message, queue=queue)

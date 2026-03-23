@@ -30,12 +30,7 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
 
     def setup_coinbase_responses(self, mock_api, expected_rate: Decimal):
         time_url = web_utils.private_rest_url(path_url=CONSTANTS.SERVER_TIME_EP)
-        mock_api.get(time_url, body=json.dumps({
-            "data": {
-                "iso": "2015-06-23T18:02:51Z",
-                "epoch": 1435082571
-            }
-        }))
+        mock_api.get(time_url, body=json.dumps({"data": {"iso": "2015-06-23T18:02:51Z", "epoch": 1435082571}}))
 
         product_url = web_utils.private_rest_url(path_url=CONSTANTS.ALL_PAIRS_EP)
         products_response = {
@@ -56,29 +51,28 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "quote_min_size": "0.010000000000000000",
                     "price": "1",
                     "supports_limit_orders": True,
-                    "supports_market_orders": True
+                    "supports_market_orders": True,
                 }
             ],
             "num_products": 1,
         }
         mock_api.get(product_url, body=json.dumps(products_response))
 
-        pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_RATES_QUOTE_EP.format(quote_token='USD'))
+        pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_RATES_QUOTE_EP.format(quote_token="USD"))
         symbols_response = {  # truncated
-            "data":
-                {"currency": "USD",
-                 "rates":
-                     {"AED": "3.6720916666666667",
-                      "AFN": "88.0120479999997356",
-                      "ALL": "101.75",
-                      "AMD": "386.8585",
-                      "ANG": "1.7968655",
-                      "AOA": "509.99999999999745",
-                      "ARS": "228.661430047360453",
-                      "COINALPHA": "0.1",
-                      }
-                 }
-
+            "data": {
+                "currency": "USD",
+                "rates": {
+                    "AED": "3.6720916666666667",
+                    "AFN": "88.0120479999997356",
+                    "ALL": "101.75",
+                    "AMD": "386.8585",
+                    "ANG": "1.7968655",
+                    "AOA": "509.99999999999745",
+                    "ARS": "228.661430047360453",
+                    "COINALPHA": "0.1",
+                },
+            }
         }
         mock_api.get(pairs_url, body=json.dumps(symbols_response))
 

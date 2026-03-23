@@ -7,7 +7,6 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 
 class TestTradeFeeSchemaLoader(unittest.TestCase):
-
     @patch("hummingbot.client.config.trade_fee_schema_loader.AllConnectorSettings")
     @patch("hummingbot.client.config.trade_fee_schema_loader.fee_overrides_config_map")
     def test_configured_schema_with_maker_fee_override(self, mock_fee_overrides, mock_all_connector_settings):
@@ -15,7 +14,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         mock_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.001"),
             taker_percent_fee_decimal=Decimal("0.002"),
-            buy_percent_fee_deducted_from_returns=False
+            buy_percent_fee_deducted_from_returns=False,
         )
         mock_all_connector_settings.get_connector_settings.return_value = {
             "test_exchange": MagicMock(trade_fee_schema=mock_schema)
@@ -24,9 +23,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         # Setup fee override with maker percent fee (covers line 31)
         mock_maker_config = MagicMock()
         mock_maker_config.value = Decimal("0.5")  # 0.5%
-        mock_fee_overrides.get.side_effect = lambda key: {
-            "test_exchange_maker_percent_fee": mock_maker_config
-        }.get(key)
+        mock_fee_overrides.get.side_effect = lambda key: {"test_exchange_maker_percent_fee": mock_maker_config}.get(key)
 
         # Call the method
         result = TradeFeeSchemaLoader.configured_schema_for_exchange("test_exchange")
@@ -42,7 +39,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         mock_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.001"),
             taker_percent_fee_decimal=Decimal("0.002"),
-            buy_percent_fee_deducted_from_returns=False
+            buy_percent_fee_deducted_from_returns=False,
         )
         mock_all_connector_settings.get_connector_settings.return_value = {
             "test_exchange": MagicMock(trade_fee_schema=mock_schema)
@@ -51,9 +48,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         # Setup fee override with taker percent fee (covers line 35)
         mock_taker_config = MagicMock()
         mock_taker_config.value = Decimal("0.75")  # 0.75%
-        mock_fee_overrides.get.side_effect = lambda key: {
-            "test_exchange_taker_percent_fee": mock_taker_config
-        }.get(key)
+        mock_fee_overrides.get.side_effect = lambda key: {"test_exchange_taker_percent_fee": mock_taker_config}.get(key)
 
         # Call the method
         result = TradeFeeSchemaLoader.configured_schema_for_exchange("test_exchange")
@@ -69,7 +64,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         mock_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.001"),
             taker_percent_fee_decimal=Decimal("0.002"),
-            buy_percent_fee_deducted_from_returns=False
+            buy_percent_fee_deducted_from_returns=False,
         )
         mock_all_connector_settings.get_connector_settings.return_value = {
             "test_exchange": MagicMock(trade_fee_schema=mock_schema)
@@ -97,7 +92,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
         mock_schema = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal("0.001"),
             taker_percent_fee_decimal=Decimal("0.002"),
-            buy_percent_fee_deducted_from_returns=False
+            buy_percent_fee_deducted_from_returns=False,
         )
         mock_all_connector_settings.get_connector_settings.return_value = {
             "test_exchange": MagicMock(trade_fee_schema=mock_schema)
@@ -112,7 +107,7 @@ class TestTradeFeeSchemaLoader(unittest.TestCase):
             return {
                 "test_exchange_maker_percent_fee": mock_maker_config,
                 "test_exchange_taker_percent_fee": mock_taker_config,
-                "test_exchange_buy_percent_fee_deducted_from_returns": mock_buy_config
+                "test_exchange_buy_percent_fee_deducted_from_returns": mock_buy_config,
             }.get(key)
 
         mock_fee_overrides.get.side_effect = get_side_effect

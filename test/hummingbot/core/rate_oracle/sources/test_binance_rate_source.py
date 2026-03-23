@@ -29,18 +29,22 @@ class BinanceRateSourceTest(IsolatedAsyncioWrapperTestCase):
                     "status": "TRADING",
                     "baseAsset": self.target_token,
                     "quoteAsset": self.global_token,
-                    "permissionSets": [[
-                        "SPOT",
-                    ]],
+                    "permissionSets": [
+                        [
+                            "SPOT",
+                        ]
+                    ],
                 },
                 {
                     "symbol": self.binance_ignored_pair,
                     "status": "PAUSED",
                     "baseAsset": "SOME",
                     "quoteAsset": "PAIR",
-                    "permissionSets": [[
-                        "SPOT",
-                    ]],
+                    "permissionSets": [
+                        [
+                            "SPOT",
+                        ]
+                    ],
                 },
             ]
         }

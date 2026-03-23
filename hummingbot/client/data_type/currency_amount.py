@@ -1,6 +1,4 @@
-
 class CurrencyAmount:
-
     def __init__(self):
         self._token: str = None
         self._amount: float = None

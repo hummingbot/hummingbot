@@ -9,7 +9,6 @@ from hummingbot.connector.exchange.backpack import backpack_web_utils as web_uti
 
 
 class BackpackUtilTestCases(unittest.IsolatedAsyncioTestCase):
-
     def test_public_rest_url(self):
         path_url = "api/v1/test"
         domain = "exchange"

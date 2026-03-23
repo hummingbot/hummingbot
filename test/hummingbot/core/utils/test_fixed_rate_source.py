@@ -5,7 +5,6 @@ from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 
 
 class FixedRateSourceTests(TestCase):
-
     def test_look_for_unconfigured_pair_rate(self):
         rate_source = FixedRateSource()
         self.assertIsNone(rate_source.get_pair_rate("BTC-USDT"))

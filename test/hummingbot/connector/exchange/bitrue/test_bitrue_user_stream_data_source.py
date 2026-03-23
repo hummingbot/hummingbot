@@ -136,9 +136,7 @@ class BitrueUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result: bool = await self.data_source._ping_listen_key()
 
         self.assertTrue(
-            self._is_logged(
-                "WARNING", f"Failed to refresh the listen key {self.listen_key}: " f"{self._error_response()}"
-            )
+            self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}")
         )
         self.assertFalse(result)
 
@@ -268,8 +266,8 @@ class BitrueUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = (
-            lambda *args, **kwargs: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
+        mock_ws.return_value.receive.side_effect = lambda *args, **kwargs: (
+            self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
         )
         mock_ws.close.return_value = None
 
@@ -291,6 +289,7 @@ class BitrueUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     async def test_ensure_listen_key_task_running_with_running_task(self, mock_safe_ensure_future):
         # Test when task is already running - should return early (line 52)
         from unittest.mock import MagicMock
+
         mock_task = MagicMock()
         mock_task.done.return_value = False
         self.data_source._manage_listen_key_task = mock_task

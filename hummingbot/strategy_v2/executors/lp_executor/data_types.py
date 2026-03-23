@@ -13,12 +13,13 @@ class LPExecutorStates(Enum):
     State machine for LP position lifecycle.
     Price direction (above/below range) is determined from custom_info, not state.
     """
-    NOT_ACTIVE = "NOT_ACTIVE"              # No position, no pending orders
-    OPENING = "OPENING"                    # add_liquidity submitted, waiting
-    IN_RANGE = "IN_RANGE"                  # Position active, price within bounds
-    OUT_OF_RANGE = "OUT_OF_RANGE"          # Position active, price outside bounds
-    CLOSING = "CLOSING"                    # remove_liquidity submitted, waiting
-    COMPLETE = "COMPLETE"                  # Position closed permanently
+
+    NOT_ACTIVE = "NOT_ACTIVE"  # No position, no pending orders
+    OPENING = "OPENING"  # add_liquidity submitted, waiting
+    IN_RANGE = "IN_RANGE"  # Position active, price within bounds
+    OUT_OF_RANGE = "OUT_OF_RANGE"  # Position active, price outside bounds
+    CLOSING = "CLOSING"  # remove_liquidity submitted, waiting
+    COMPLETE = "COMPLETE"  # Position closed permanently
 
 
 class LPExecutorConfig(ExecutorConfigBase):
@@ -30,6 +31,7 @@ class LPExecutorConfig(ExecutorConfigBase):
     - Auto-closes after auto_close_above/below_range_seconds if configured
     - Closes position when executor stops (unless keep_position=True)
     """
+
     type: Literal["lp_executor"] = "lp_executor"
 
     # Market and pool identification (aligned with other executors)
@@ -70,6 +72,7 @@ class LPExecutorConfig(ExecutorConfigBase):
 
 class LPExecutorState(BaseModel):
     """Tracks a single LP position state within executor."""
+
     position_address: Optional[str] = None
     lower_price: Decimal = Decimal("0")
     upper_price: Decimal = Decimal("0")

@@ -22,13 +22,11 @@ def rest_url(path_url: str, domain: str = "kraken"):
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+    throttler: Optional[AsyncThrottler] = None,
+    auth: Optional[AuthBase] = None,
+) -> WebAssistantsFactory:
     throttler = throttler
-    api_factory = WebAssistantsFactory(
-        throttler=throttler,
-        auth=auth
-    )
+    api_factory = WebAssistantsFactory(throttler=throttler, auth=auth)
     return api_factory
 
 
@@ -43,15 +41,12 @@ def is_exchange_information_valid(trading_pair_details) -> bool:
     For more info, please check
     https://support.kraken.com/hc/en-us/articles/360001391906-Introducing-the-Kraken-Dark-Pool
     """
-    if trading_pair_details.get('altname'):
-        return not trading_pair_details.get('altname').endswith('.d')
+    if trading_pair_details.get("altname"):
+        return not trading_pair_details.get("altname").endswith(".d")
     return True
 
 
-async def get_current_server_time(
-        throttler,
-        domain
-) -> float:
+async def get_current_server_time(throttler, domain) -> float:
     return time.time()
 
 
@@ -64,8 +59,8 @@ def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncTh
 
 
 async def get_current_server_time_s(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     """
     Get the current Kraken server time in seconds via the Time API endpoint.
@@ -87,8 +82,8 @@ async def get_current_server_time_s(
 
 
 async def get_current_server_time_ms(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> int:
     server_time_s = await get_current_server_time_s(throttler=throttler, domain=domain)
     return int(server_time_s * 1000)

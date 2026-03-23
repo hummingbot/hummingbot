@@ -8,7 +8,6 @@ from hummingbot.core.network_iterator import NetworkIterator, NetworkStatus
 
 
 class MockNetworkIterator(NetworkIterator):
-
     def __init__(self):
         super().__init__()
         self._start_network_event = asyncio.Event()
@@ -33,7 +32,6 @@ class MockNetworkIterator(NetworkIterator):
 
 
 class NetworkIteratorUnitTest(IsolatedAsyncioWrapperTestCase):
-
     start: pd.Timestamp = pd.Timestamp("2021-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2022-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()

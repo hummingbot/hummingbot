@@ -26,7 +26,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self,
         auth: BitgetPerpetualAuth,
         trading_pairs: List[str],
-        connector: 'BitgetPerpetualDerivative',
+        connector: "BitgetPerpetualDerivative",
         api_factory: WebAssistantsFactory,
     ) -> None:
         super().__init__()
@@ -40,37 +40,25 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Authenticates user to websocket
         """
-        await websocket_assistant.send(
-            WSJSONRequest({
-                "op": "login",
-                "args": [self._auth.get_ws_auth_payload()]
-            })
-        )
+        await websocket_assistant.send(WSJSONRequest({"op": "login", "args": [self._auth.get_ws_auth_payload()]}))
         response: WSResponse = await websocket_assistant.receive()
         message = response.data
 
-        if (message["event"] != "login" and message["code"] != "0"):
-            self.logger().error(
-                f"Error authenticating the private websocket connection. Response message {message}"
-            )
+        if message["event"] != "login" and message["code"] != "0":
+            self.logger().error(f"Error authenticating the private websocket connection. Response message {message}")
             raise IOError("Private websocket connection authentication failed")
 
     async def _parse_pong_message(self) -> None:
         self.logger().debug("PING-PONG message for user stream completed")
 
-    async def _process_message_for_unknown_channel(
-        self,
-        event_message: Dict[str, Any]
-    ) -> None:
+    async def _process_message_for_unknown_channel(self, event_message: Dict[str, Any]) -> None:
         if event_message == CONSTANTS.PUBLIC_WS_PONG_RESPONSE:
             await self._parse_pong_message()
         elif "event" in event_message:
             if event_message["event"] == "error":
                 message = event_message.get("msg", "Unknown error")
                 error_code = event_message.get("code", "Unknown code")
-                self.logger().error(
-                    f"Failed to subscribe to private channels: {message} ({error_code})"
-                )
+                self.logger().error(f"Failed to subscribe to private channels: {message} ({error_code})")
 
             if event_message["event"] == "subscribe":
                 channel: str = event_message["arg"]["channel"]
@@ -78,11 +66,7 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         else:
             self.logger().warning(f"Message for unknown channel received: {event_message}")
 
-    async def _process_event_message(
-        self,
-        event_message: Dict[str, Any],
-        queue: asyncio.Queue
-    ) -> None:
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue) -> None:
         if "arg" in event_message and "action" in event_message:
             queue.put_nowait(event_message)
         else:
@@ -100,47 +84,31 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 for channel in [
                     CONSTANTS.WS_ACCOUNT_ENDPOINT,
                     CONSTANTS.WS_POSITIONS_ENDPOINT,
-                    CONSTANTS.WS_ORDERS_ENDPOINT
+                    CONSTANTS.WS_ORDERS_ENDPOINT,
                 ]:
-                    subscription_topics.append(
-                        {
-                            "instType": product_type,
-                            "channel": channel,
-                            "coin": "default"
-                        }
-                    )
+                    subscription_topics.append({"instType": product_type, "channel": channel, "coin": "default"})
 
-            await websocket_assistant.send(
-                WSJSONRequest({
-                    "op": "subscribe",
-                    "args": subscription_topics
-                })
-            )
+            await websocket_assistant.send(WSJSONRequest({"op": "subscribe", "args": subscription_topics}))
 
             self.logger().info("Subscribed to private channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception(
-                "Unexpected error occurred subscribing to private channels..."
-            )
+            self.logger().exception("Unexpected error occurred subscribing to private channels...")
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
 
         await websocket_assistant.connect(
-            ws_url=web_utils.private_ws_url(),
-            message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
+            ws_url=web_utils.private_ws_url(), message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
         )
         await self._authenticate(websocket_assistant)
 
         return websocket_assistant
 
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
-        await websocket_assistant.send(
-            WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
-        )
+        await websocket_assistant.send(WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST))
 
     async def send_interval_ping(self, websocket_assistant: WSAssistant) -> None:
         """
@@ -164,20 +132,13 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self._ws_assistant = await self._connected_websocket_assistant()
                 await self._subscribe_channels(websocket_assistant=self._ws_assistant)
                 self._ping_task = asyncio.create_task(self.send_interval_ping(self._ws_assistant))
-                await self._process_websocket_messages(
-                    websocket_assistant=self._ws_assistant,
-                    queue=output
-                )
+                await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
-                self.logger().warning(
-                    f"The websocket connection was closed ({connection_exception})"
-                )
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
-                self.logger().exception(
-                    "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-                )
+                self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
                 await self._sleep(1.0)
             finally:
                 if self._ping_task is not None:

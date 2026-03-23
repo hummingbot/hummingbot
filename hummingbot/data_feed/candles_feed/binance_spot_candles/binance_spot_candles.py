@@ -57,40 +57,45 @@ class BinanceSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        await rest_assistant.execute_request(
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+        )
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "")
 
-    def _get_rest_candles_params(self,
-                                 start_time: Optional[int] = None,
-                                 end_time: Optional[int] = None,
-                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
-        params = {
-            "symbol": self._ex_trading_pair,
-            "interval": self.interval,
-            "limit": limit
-        }
+    def _get_rest_candles_params(
+        self,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
+    ) -> dict:
+        params = {"symbol": self._ex_trading_pair, "interval": self.interval, "limit": limit}
         if end_time:
             params["endTime"] = end_time * 1000
         return params
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         return [
-            [self.ensure_timestamp_in_seconds(row[0]), row[1], row[2], row[3], row[4], row[5],
-             row[7], row[8], row[9], row[10]]
+            [
+                self.ensure_timestamp_in_seconds(row[0]),
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+                row[7],
+                row[8],
+                row[9],
+                row[10],
+            ]
             for row in data
         ]
 
     def ws_subscription_payload(self):
         candle_params = [f"{self._ex_trading_pair.lower()}@kline_{self.interval}"]
-        payload = {
-            "method": "SUBSCRIBE",
-            "params": candle_params,
-            "id": 1
-        }
+        payload = {"method": "SUBSCRIBE", "params": candle_params, "id": 1}
         return payload
 
     def _parse_websocket_message(self, data: dict):

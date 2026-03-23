@@ -8,7 +8,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class GateIoPerpetualWebUtilsTest(unittest.TestCase):
-
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.ORDER_BOOK_PATH_URL)
         self.assertEqual("https://api.gateio.ws/api/v4/futures/usdt/order_book", url)

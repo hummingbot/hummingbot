@@ -72,7 +72,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
             order_side=TradeType.BUY,
             amount=Decimal("10"),
             price=Decimal("2"),
-            leverage=Decimal("2")
+            leverage=Decimal("2"),
         )
         populated_candidate = self.budget_checker.populate_collateral_entries(order_candidate)
 

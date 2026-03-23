@@ -32,6 +32,7 @@ class SubscriptionConnection:
     These connections are NOT part of the shared node pool - they are dedicated
     to receiving streaming subscription messages for a specific trading pair.
     """
+
     trading_pair: str
     url: str
     client: Optional[AsyncWebsocketClient] = None
@@ -153,10 +154,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             try:
                 client = AsyncWebsocketClient(url)
-                await asyncio.wait_for(
-                    client.open(),
-                    timeout=CONSTANTS.SUBSCRIPTION_CONNECTION_TIMEOUT
-                )
+                await asyncio.wait_for(client.open(), timeout=CONSTANTS.SUBSCRIPTION_CONNECTION_TIMEOUT)
 
                 # Configure WebSocket settings
                 if client._websocket is not None:
@@ -164,20 +162,14 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     client._websocket.ping_interval = 10
                     client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
 
-                self.logger().debug(
-                    f"[SUBSCRIPTION] Created dedicated connection for {trading_pair} to {url}"
-                )
+                self.logger().debug(f"[SUBSCRIPTION] Created dedicated connection for {trading_pair} to {url}")
                 return client
 
             except asyncio.TimeoutError:
-                self.logger().warning(
-                    f"[SUBSCRIPTION] Connection timeout for {trading_pair} to {url}"
-                )
+                self.logger().warning(f"[SUBSCRIPTION] Connection timeout for {trading_pair} to {url}")
                 self._connector._node_pool.mark_bad_node(url)
             except Exception as e:
-                self.logger().warning(
-                    f"[SUBSCRIPTION] Failed to connect for {trading_pair} to {url}: {e}"
-                )
+                self.logger().warning(f"[SUBSCRIPTION] Failed to connect for {trading_pair} to {url}: {e}")
                 self._connector._node_pool.mark_bad_node(url)
 
         self.logger().error(
@@ -333,8 +325,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 # Create dedicated connection (NOT from shared pool)
                 # Exclude the last failed URL to try a different node
                 client = await self._create_subscription_connection(
-                    trading_pair,
-                    exclude_url=last_url if retry_count > 0 else None
+                    trading_pair, exclude_url=last_url if retry_count > 0 else None
                 )
 
                 if client is None:
@@ -356,9 +347,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().debug(f"[SUBSCRIPTION] Subscribed to {trading_pair} order book via {client.url}")
 
                 # Start health check task
-                health_check_task = asyncio.create_task(
-                    self._subscription_health_check(trading_pair)
-                )
+                health_check_task = asyncio.create_task(self._subscription_health_check(trading_pair))
 
                 # Reset retry count on successful connection
                 retry_count = 0
@@ -436,12 +425,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception as e:
                 self.logger().debug(f"[SUBSCRIPTION] Health check error for {trading_pair}: {e}")
 
-    async def _on_message_with_health_tracking(
-        self,
-        client: AsyncWebsocketClient,
-        trading_pair: str,
-        base_currency
-    ):
+    async def _on_message_with_health_tracking(self, client: AsyncWebsocketClient, trading_pair: str, base_currency):
         """
         Process incoming WebSocket messages and update health tracking.
         """
@@ -514,9 +498,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         f"The websocket connection to {trading_pair} was closed ({connection_exception})"
                     )
                 except TimeoutError:
-                    self.logger().warning(
-                        "Timeout error occurred while listening to order book stream. Retrying..."
-                    )
+                    self.logger().warning("Timeout error occurred while listening to order book stream. Retrying...")
                 except Exception:
                     self.logger().exception(
                         "Unexpected error occurred when listening to order book streams. Retrying...",
@@ -538,14 +520,10 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
         """Dynamic subscription not supported for this connector."""
-        self.logger().warning(
-            f"Dynamic subscription not supported for {self.__class__.__name__}"
-        )
+        self.logger().warning(f"Dynamic subscription not supported for {self.__class__.__name__}")
         return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
         """Dynamic unsubscription not supported for this connector."""
-        self.logger().warning(
-            f"Dynamic unsubscription not supported for {self.__class__.__name__}"
-        )
+        self.logger().warning(f"Dynamic unsubscription not supported for {self.__class__.__name__}")
         return False

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 class PoolListInfo(TypedDict):
     """Pool information structure returned by gateway get_pool endpoint."""
+
     type: str  # "amm" or "clmm"
     network: str
     baseSymbol: str
@@ -25,6 +26,7 @@ def ensure_gateway_online(func):
             self.logger().error("Gateway is offline")
             return
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -32,7 +34,9 @@ class GatewayPoolCommand:
     """Commands for managing gateway pools."""
 
     @ensure_gateway_online
-    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None):
+    def gateway_pool(
+        self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None
+    ):
         """
         View or update pool information.
         Usage:
@@ -47,8 +51,12 @@ class GatewayPoolCommand:
             # Show help when insufficient arguments provided
             self.notify("\nGateway Pool Commands:")
             self.notify("  gateway pool <connector> <trading_pair>                - View pool information")
-            self.notify("  gateway pool <connector> <trading_pair> update         - Add/update pool information (interactive)")
-            self.notify("  gateway pool <connector> <trading_pair> update <address> - Add/update pool information (direct)")
+            self.notify(
+                "  gateway pool <connector> <trading_pair> update         - Add/update pool information (interactive)"
+            )
+            self.notify(
+                "  gateway pool <connector> <trading_pair> update <address> - Add/update pool information (direct)"
+            )
             self.notify("\nExamples:")
             self.notify("  gateway pool uniswap/amm ETH-USDC")
             self.notify("  gateway pool raydium/clmm SOL-USDC update")
@@ -59,26 +67,17 @@ class GatewayPoolCommand:
             if args and len(args) > 0:
                 # Non-interactive mode: gateway pool <connector> <trading_pair> update <address>
                 pool_address = args[0]
-                safe_ensure_future(
-                    self._update_pool_direct(connector, trading_pair, pool_address),
-                    loop=self.ev_loop
-                )
+                safe_ensure_future(self._update_pool_direct(connector, trading_pair, pool_address), loop=self.ev_loop)
             else:
                 # Interactive mode: gateway pool <connector> <trading_pair> update
-                safe_ensure_future(
-                    self._update_pool_interactive(connector, trading_pair),
-                    loop=self.ev_loop
-                )
+                safe_ensure_future(self._update_pool_interactive(connector, trading_pair), loop=self.ev_loop)
         else:
-            safe_ensure_future(
-                self._view_pool(connector, trading_pair),
-                loop=self.ev_loop
-            )
+            safe_ensure_future(self._view_pool(connector, trading_pair), loop=self.ev_loop)
 
     async def _view_pool(
         self,  # type: HummingbotApplication
         connector: str,
-        trading_pair: str
+        trading_pair: str,
     ):
         """View pool information."""
         try:
@@ -100,9 +99,7 @@ class GatewayPoolCommand:
             trading_pair = trading_pair.upper()
 
             # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(connector)
 
             if error:
                 self.notify(error)
@@ -112,10 +109,7 @@ class GatewayPoolCommand:
 
             # Get pool information
             response = await self._get_gateway_instance().get_pool(
-                trading_pair=trading_pair,
-                connector=connector_name,
-                network=network,
-                type=trading_type
+                trading_pair=trading_pair, connector=connector_name, network=network, type=trading_type
             )
 
             if "error" in response:
@@ -138,7 +132,7 @@ class GatewayPoolCommand:
         self,  # type: HummingbotApplication
         connector: str,
         trading_pair: str,
-        pool_address: str
+        pool_address: str,
     ):
         """Direct mode to add a pool with just the address."""
         try:
@@ -160,9 +154,7 @@ class GatewayPoolCommand:
             trading_pair = trading_pair.upper()
 
             # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(connector)
 
             if error:
                 self.notify(error)
@@ -176,9 +168,7 @@ class GatewayPoolCommand:
             self.notify("\nFetching pool information from Gateway...")
             try:
                 pool_info_response = await self._get_gateway_instance().pool_info(
-                    connector=connector,
-                    network=network,
-                    pool_address=pool_address
+                    connector=connector, network=network, pool_address=pool_address
                 )
 
                 if "error" in pool_info_response:
@@ -197,9 +187,7 @@ class GatewayPoolCommand:
                 if not fetched_base_symbol and base_token_address:
                     try:
                         base_token_info = await self._get_gateway_instance().get_token(
-                            symbol_or_address=base_token_address,
-                            chain=chain,
-                            network=network
+                            symbol_or_address=base_token_address, chain=chain, network=network
                         )
                         if "token" in base_token_info and "symbol" in base_token_info["token"]:
                             fetched_base_symbol = base_token_info["token"]["symbol"]
@@ -210,9 +198,7 @@ class GatewayPoolCommand:
                 if not fetched_quote_symbol and quote_token_address:
                     try:
                         quote_token_info = await self._get_gateway_instance().get_token(
-                            symbol_or_address=quote_token_address,
-                            chain=chain,
-                            network=network
+                            symbol_or_address=quote_token_address, chain=chain, network=network
                         )
                         if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
                             fetched_quote_symbol = quote_token_info["token"]["symbol"]
@@ -249,7 +235,7 @@ class GatewayPoolCommand:
                     "address": pool_address,
                     "type": trading_type,
                     "baseTokenAddress": base_token_address,
-                    "quoteTokenAddress": quote_token_address
+                    "quoteTokenAddress": quote_token_address,
                 }
                 # Add optional fields
                 if fetched_base_symbol:
@@ -271,9 +257,7 @@ class GatewayPoolCommand:
             # Add pool
             self.notify("\nAdding pool...")
             result = await self._get_gateway_instance().add_pool(
-                connector=connector_name,
-                network=network,
-                pool_data=pool_data
+                connector=connector_name, network=network, pool_data=pool_data
             )
 
             if "error" in result:
@@ -297,7 +281,7 @@ class GatewayPoolCommand:
     async def _update_pool_interactive(
         self,  # type: HummingbotApplication
         connector: str,
-        trading_pair: str
+        trading_pair: str,
     ):
         """Interactive flow to add a pool."""
         try:
@@ -319,9 +303,7 @@ class GatewayPoolCommand:
             trading_pair = trading_pair.upper()
 
             # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
+            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(connector)
 
             if error:
                 self.notify(error)
@@ -335,10 +317,7 @@ class GatewayPoolCommand:
                 # Check if pool already exists
                 try:
                     existing_pool = await self._get_gateway_instance().get_pool(
-                        trading_pair=trading_pair,
-                        connector=connector_name,
-                        network=network,
-                        type=trading_type
+                        trading_pair=trading_pair, connector=connector_name, network=network, type=trading_type
                     )
                 except Exception:
                     # Pool doesn't exist, which is fine for adding a new pool
@@ -350,9 +329,7 @@ class GatewayPoolCommand:
                     GatewayPoolCommand._display_pool_info(self, existing_pool, connector, trading_pair)
 
                     # Ask if they want to update
-                    response = await self.app.prompt(
-                        prompt="Do you want to update this pool? (Yes/No) >>> "
-                    )
+                    response = await self.app.prompt(prompt="Do you want to update this pool? (Yes/No) >>> ")
 
                     if response.lower() not in ["y", "yes"]:
                         self.notify("Pool update cancelled")
@@ -364,9 +341,7 @@ class GatewayPoolCommand:
                 self.notify("\nEnter pool information:")
 
                 # Pool address
-                pool_address = await self.app.prompt(
-                    prompt="Pool contract address: "
-                )
+                pool_address = await self.app.prompt(prompt="Pool contract address: ")
                 if self.app.to_stop_config or not pool_address:
                     self.notify("Pool addition cancelled")
                     return
@@ -375,9 +350,7 @@ class GatewayPoolCommand:
                 self.notify("\nFetching pool information from Gateway...")
                 try:
                     pool_info_response = await self._get_gateway_instance().pool_info(
-                        connector=connector,
-                        network=network,
-                        pool_address=pool_address
+                        connector=connector, network=network, pool_address=pool_address
                     )
 
                     if "error" in pool_info_response:
@@ -396,9 +369,7 @@ class GatewayPoolCommand:
                     if not fetched_base_symbol and base_token_address:
                         try:
                             base_token_info = await self._get_gateway_instance().get_token(
-                                symbol_or_address=base_token_address,
-                                chain=chain,
-                                network=network
+                                symbol_or_address=base_token_address, chain=chain, network=network
                             )
                             if "token" in base_token_info and "symbol" in base_token_info["token"]:
                                 fetched_base_symbol = base_token_info["token"]["symbol"]
@@ -409,9 +380,7 @@ class GatewayPoolCommand:
                     if not fetched_quote_symbol and quote_token_address:
                         try:
                             quote_token_info = await self._get_gateway_instance().get_token(
-                                symbol_or_address=quote_token_address,
-                                chain=chain,
-                                network=network
+                                symbol_or_address=quote_token_address, chain=chain, network=network
                             )
                             if "token" in quote_token_info and "symbol" in quote_token_info["token"]:
                                 fetched_quote_symbol = quote_token_info["token"]["symbol"]
@@ -448,7 +417,7 @@ class GatewayPoolCommand:
                         "address": pool_address,
                         "type": trading_type,
                         "baseTokenAddress": base_token_address,
-                        "quoteTokenAddress": quote_token_address
+                        "quoteTokenAddress": quote_token_address,
                     }
                     # Add optional fields
                     if fetched_base_symbol:
@@ -463,9 +432,7 @@ class GatewayPoolCommand:
                     self.notify(json.dumps(pool_data, indent=2))
 
                     # Confirm
-                    confirm = await self.app.prompt(
-                        prompt="Add this pool? (Yes/No) >>> "
-                    )
+                    confirm = await self.app.prompt(prompt="Add this pool? (Yes/No) >>> ")
 
                     if confirm.lower() not in ["y", "yes"]:
                         self.notify("Pool addition cancelled")
@@ -479,9 +446,7 @@ class GatewayPoolCommand:
                 # Add pool
                 self.notify("\nAdding pool...")
                 result = await self._get_gateway_instance().add_pool(
-                    connector=connector_name,
-                    network=network,
-                    pool_data=pool_data
+                    connector=connector_name, network=network, pool_data=pool_data
                 )
 
                 if "error" in result:
@@ -494,7 +459,9 @@ class GatewayPoolCommand:
                     try:
                         await self._get_gateway_instance().post_restart()
                         self.notify("✓ Gateway restarted successfully")
-                        self.notify(f"\nPool has been added. You can view it with: gateway pool {connector} {trading_pair}")
+                        self.notify(
+                            f"\nPool has been added. You can view it with: gateway pool {connector} {trading_pair}"
+                        )
                     except Exception as e:
                         self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
                         self.notify("You may need to restart Gateway manually for changes to take effect")
@@ -502,12 +469,7 @@ class GatewayPoolCommand:
         except Exception as e:
             self.notify(f"Error updating pool: {str(e)}")
 
-    def _display_pool_info(
-        self,
-        pool_info: dict,
-        connector: str,
-        trading_pair: str
-    ):
+    def _display_pool_info(self, pool_info: dict, connector: str, trading_pair: str):
         """Display pool information in a formatted way."""
         self.notify("\n=== Pool Information ===")
         self.notify(f"Connector: {connector}")

@@ -62,7 +62,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=PLACE_ORDER_URL, limit=100, time_interval=2),
     RateLimit(limit_id=CANCEL_URL_LIMIT_ID, limit=100, time_interval=2),
     RateLimit(limit_id=BATCH_CANCEL_URL, limit=50, time_interval=2),
-
 ]
 
 # Order States
@@ -74,5 +73,5 @@ ORDER_STATE = {
     "filled": OrderState.FILLED,
     "partial-canceled": OrderState.CANCELED,
     "created": OrderState.PENDING_CREATE,
-    "canceling": OrderState.PENDING_CANCEL
+    "canceling": OrderState.PENDING_CANCEL,
 }

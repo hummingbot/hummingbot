@@ -376,7 +376,7 @@ class BudgetCheckerTest(unittest.TestCase):
             percent_fee_token=fc_token,
             maker_percent_fee_decimal=Decimal("0.01"),
             taker_percent_fee_decimal=Decimal("0.01"),
-            maker_fixed_fees=[TokenAmount(fc_token, Decimal("1"))]
+            maker_fixed_fees=[TokenAmount(fc_token, Decimal("1"))],
         )
         exchange = MockPaperExchange(trade_fee_schema=trade_fee_schema)
         pfc_quote_pair = combine_to_hb_trading_pair(self.quote_asset, fc_token)
@@ -544,9 +544,7 @@ class BudgetCheckerTest(unittest.TestCase):
             amount=Decimal("7"),
             price=Decimal("2"),
         )
-        first_adjusted_candidate, = self.budget_checker.adjust_candidates(
-            [first_order_candidate], all_or_none=False
-        )
+        (first_adjusted_candidate,) = self.budget_checker.adjust_candidates([first_order_candidate], all_or_none=False)
 
         second_order_candidate = OrderCandidate(
             trading_pair=self.trading_pair,

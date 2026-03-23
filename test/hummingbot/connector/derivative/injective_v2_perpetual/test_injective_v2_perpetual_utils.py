@@ -9,7 +9,6 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
 
 
 class InjectiveConfigMapTests(TestCase):
-
     def test_fee_calculator_validator(self):
         config = InjectiveConfigMap()
 
@@ -24,5 +23,5 @@ class InjectiveConfigMapTests(TestCase):
 
         self.assertEqual(
             f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}.",
-            str(ex_context.exception.errors()[0]["ctx"]["error"].args[0])
+            str(ex_context.exception.errors()[0]["ctx"]["error"].args[0]),
         )

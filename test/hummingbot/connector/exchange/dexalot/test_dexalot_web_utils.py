@@ -9,7 +9,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class DexalotUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         expected_url = CONSTANTS.REST_URL + path_url

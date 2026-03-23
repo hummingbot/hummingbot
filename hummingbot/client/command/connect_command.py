@@ -14,20 +14,28 @@ from hummingbot.user.user_balances import UserBalances
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() if cs.name != "probit_kr"}
+OPTIONS = {
+    cs.name
+    for cs in AllConnectorSettings.get_connector_settings().values()
+    if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()
+    if cs.name != "probit_kr"
+}
 
 
 class ConnectCommand:
-    def connect(self,  # type: HummingbotApplication
-                option: str):
+    def connect(
+        self,  # type: HummingbotApplication
+        option: str,
+    ):
         if option is None:
             safe_ensure_future(self.show_connections())
         else:
             safe_ensure_future(self.connect_exchange(option))
 
-    async def connect_exchange(self,  # type: HummingbotApplication
-                               connector_name):
+    async def connect_exchange(
+        self,  # type: HummingbotApplication
+        connector_name,
+    ):
         # instruct users to use gateway connect if connector is a gateway connector
         if AllConnectorSettings.get_connector_settings()[connector_name].uses_gateway_generic_connector():
             self.notify("This is a gateway connector. Use `gateway connect` command instead.")
@@ -44,9 +52,7 @@ class ConnectCommand:
             api_key_config = [value for key, value in Security.api_keys(connector_name).items() if "api_key" in key]
             if api_key_config:
                 api_key = api_key_config[0]
-                prompt = (
-                    f"Would you like to replace your existing {connector_name} API key {api_key} (Yes/No)? >>> "
-                )
+                prompt = f"Would you like to replace your existing {connector_name} API key {api_key} (Yes/No)? >>> "
             else:
                 prompt = f"Would you like to replace your existing {connector_name} key (Yes/No)? >>> "
             answer = await self.app.prompt(prompt=prompt)
@@ -62,20 +68,23 @@ class ConnectCommand:
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
 
-    async def show_connections(self  # type: HummingbotApplication
-                               ):
+    async def show_connections(
+        self,  # type: HummingbotApplication
+    ):
         self.notify("\nTesting connections, please wait...")
         df, failed_msgs = await self.connection_df()
-        lines = ["    " + line for line in format_df_for_printout(
-            df,
-            table_format=self.client_config_map.tables_format).split("\n")]
+        lines = [
+            "    " + line
+            for line in format_df_for_printout(df, table_format=self.client_config_map.tables_format).split("\n")
+        ]
         if failed_msgs:
             lines.append("\nFailed connections:")
             lines.extend(["    " + k + ": " + v for k, v in failed_msgs.items()])
         self.notify("\n".join(lines))
 
-    async def connection_df(self  # type: HummingbotApplication
-                            ):
+    async def connection_df(
+        self,  # type: HummingbotApplication
+    ):
         await Security.wait_til_decryption_done()
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed"]
         data = []
@@ -92,9 +101,7 @@ class ConnectCommand:
             keys_added = "No"
             keys_confirmed = "No"
             api_keys = (
-                Security.api_keys(option).values()
-                if not UserBalances.instance().is_gateway_market(option)
-                else {}
+                Security.api_keys(option).values() if not UserBalances.instance().is_gateway_market(option) else {}
             )
             if len(api_keys) > 0:
                 keys_added = "Yes"
@@ -119,8 +126,7 @@ class ConnectCommand:
                 network_timeout,
             )
         except asyncio.TimeoutError:
-            self.notify(
-                "\nA network error prevented the connection to complete. See logs for more details.")
+            self.notify("\nA network error prevented the connection to complete. See logs for more details.")
             self.placeholder_mode = False
             self.app.hide_input = False
             self.app.change_prompt(prompt=">>> ")
@@ -139,7 +145,11 @@ class ConnectCommand:
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
-            safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
+            safe_ensure_future(
+                TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(
+                    client_config_map=ClientConfigAdapter
+                )
+            )
         else:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:

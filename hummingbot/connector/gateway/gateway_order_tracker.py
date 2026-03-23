@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 
 
 class GatewayOrderTracker(ClientOrderTracker):
-
     def __init__(self, connector: "ConnectorBase", lost_order_count_limit: int = 3) -> None:
         """
         Provides utilities for connectors to update in-flight orders and also handle order errors.

@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 
 class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_exc_id = {}
     _trading_pair_hb_dict = {}
@@ -33,12 +32,13 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'FoxbitExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 ):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "FoxbitExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = "trade"
@@ -80,12 +80,14 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         instrument_id = await self._get_instrument_id_from_trading_pair(trading_pair)
         wait_count = 0
 
-        while (not (instrument_id in self._live_stream_connected) or self._live_stream_connected[instrument_id] is False) and wait_count < 30:
+        while (
+            instrument_id not in self._live_stream_connected or self._live_stream_connected[instrument_id] is False
+        ) and wait_count < 30:
             self.logger().info("Waiting for real time stream before getting a snapshot")
             await asyncio.sleep(self._ORDER_BOOK_INTERVAL)
             wait_count += 1
 
-        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+        symbol = (await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),)
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
@@ -104,15 +106,23 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 # Subscribe OrderBook
-                header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_ORDER_BOOK,
-                                                    msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
-                                                    payload={"OMSId": 1, "InstrumentId": await self._get_instrument_id_from_trading_pair(trading_pair), "Depth": CONSTANTS.ORDER_BOOK_DEPTH},)
+                header = utils.get_ws_message_frame(
+                    endpoint=CONSTANTS.WS_SUBSCRIBE_ORDER_BOOK,
+                    msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                    payload={
+                        "OMSId": 1,
+                        "InstrumentId": await self._get_instrument_id_from_trading_pair(trading_pair),
+                        "Depth": CONSTANTS.ORDER_BOOK_DEPTH,
+                    },
+                )
                 subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
                 await ws.send(subscribe_request)
 
-                header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TRADES,
-                                                    msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
-                                                    payload={"InstrumentId": await self._get_instrument_id_from_trading_pair(trading_pair)},)
+                header = utils.get_ws_message_frame(
+                    endpoint=CONSTANTS.WS_SUBSCRIBE_TRADES,
+                    msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                    payload={"InstrumentId": await self._get_instrument_id_from_trading_pair(trading_pair)},
+                )
                 subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
                 await ws.send(subscribe_request)
 
@@ -121,8 +131,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             raise
 
@@ -135,16 +144,14 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = FoxbitOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
-        self._first_update_id[trading_pair] = snapshot['sequence_id']
+        self._first_update_id[trading_pair] = snapshot["sequence_id"]
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if CONSTANTS.WS_SUBSCRIBE_TRADES or CONSTANTS.WS_TRADE_RESPONSE in raw_message['n']:
-            full_msg = eval(raw_message['o'].replace(",false,", ",False,"))
+        if CONSTANTS.WS_SUBSCRIBE_TRADES or CONSTANTS.WS_TRADE_RESPONSE in raw_message["n"]:
+            full_msg = eval(raw_message["o"].replace(",false,", ",False,"))
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitTradeFields.INSTRUMENTID.value])
                 trading_pair = ""
@@ -161,8 +168,8 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if CONSTANTS.WS_ORDER_BOOK_RESPONSE or CONSTANTS.WS_ORDER_STATE in raw_message['n']:
-            full_msg = eval(raw_message['o'])
+        if CONSTANTS.WS_ORDER_BOOK_RESPONSE or CONSTANTS.WS_ORDER_STATE in raw_message["n"]:
+            full_msg = eval(raw_message["o"])
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitOrderBookFields.PRODUCTPAIRCODE.value])
 
@@ -190,14 +197,14 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return self._diff_messages_queue_key
         return channel
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _load_exchange_instrument_id(self):
         for trading_pair in self._trading_pairs:
-            instrument_id = int(await self._connector.exchange_instrument_id_associated_to_pair(trading_pair=trading_pair))
+            instrument_id = int(
+                await self._connector.exchange_instrument_id_associated_to_pair(trading_pair=trading_pair)
+            )
             self._trading_pair_exc_id[trading_pair] = instrument_id
             self._trading_pair_hb_dict[instrument_id] = trading_pair
 
@@ -232,15 +239,19 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             instrument_id = await self._get_instrument_id_from_trading_pair(trading_pair)
 
             # Subscribe OrderBook
-            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_ORDER_BOOK,
-                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
-                                                payload={"OMSId": 1, "InstrumentId": instrument_id, "Depth": CONSTANTS.ORDER_BOOK_DEPTH})
+            header = utils.get_ws_message_frame(
+                endpoint=CONSTANTS.WS_SUBSCRIBE_ORDER_BOOK,
+                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                payload={"OMSId": 1, "InstrumentId": instrument_id, "Depth": CONSTANTS.ORDER_BOOK_DEPTH},
+            )
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
             await self._ws_assistant.send(subscribe_request)
 
-            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TRADES,
-                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
-                                                payload={"InstrumentId": instrument_id})
+            header = utils.get_ws_message_frame(
+                endpoint=CONSTANTS.WS_SUBSCRIBE_TRADES,
+                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                payload={"InstrumentId": instrument_id},
+            )
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
             await self._ws_assistant.send(subscribe_request)
 
@@ -250,10 +261,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to {trading_pair}...", exc_info=True)
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
@@ -271,15 +279,19 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             instrument_id = await self._get_instrument_id_from_trading_pair(trading_pair)
 
             # Unsubscribe OrderBook
-            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_UNSUBSCRIBE_ORDER_BOOK,
-                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
-                                                payload={"OMSId": 1, "InstrumentId": instrument_id})
+            header = utils.get_ws_message_frame(
+                endpoint=CONSTANTS.WS_UNSUBSCRIBE_ORDER_BOOK,
+                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
+                payload={"OMSId": 1, "InstrumentId": instrument_id},
+            )
             unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
             await self._ws_assistant.send(unsubscribe_request)
 
-            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_UNSUBSCRIBE_TRADES,
-                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
-                                                payload={"InstrumentId": instrument_id})
+            header = utils.get_ws_message_frame(
+                endpoint=CONSTANTS.WS_UNSUBSCRIBE_TRADES,
+                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
+                payload={"InstrumentId": instrument_id},
+            )
             unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
             await self._ws_assistant.send(unsubscribe_request)
 
@@ -289,8 +301,5 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False

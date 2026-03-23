@@ -4,6 +4,7 @@ XRPL API User Stream Data Source
 Polling-based user stream data source that periodically fetches account state
 from the XRPL ledger instead of relying on WebSocket subscriptions.
 """
+
 import asyncio
 import time
 from collections import deque
@@ -36,6 +37,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
     - Deduplicates transactions to avoid processing the same event twice
     - Transforms XRPL transactions into internal event format
     """
+
     _logger: Optional[HummingbotLogger] = None
 
     POLL_INTERVAL = CONSTANTS.POLLING_INTERVAL
@@ -100,20 +102,14 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if response.is_successful():
                         self._last_ledger_index = response.result.get("ledger_index")
                         self._last_recv_time = time.time()
-                        self.logger().debug(
-                            f"[POLL] Initialized polling from ledger index: {self._last_ledger_index}"
-                        )
+                        self.logger().debug(f"[POLL] Initialized polling from ledger index: {self._last_ledger_index}")
                         return
 
-            self.logger().warning(
-                "[POLL] Failed to get current ledger index"
-            )
+            self.logger().warning("[POLL] Failed to get current ledger index")
         except KeyError as e:
             self.logger().warning(f"Request lost during client reconnection: {e}")
         except Exception as e:
-            self.logger().warning(
-                f"[POLL] Error initializing ledger index: {e}, will process from account history"
-            )
+            self.logger().warning(f"[POLL] Error initializing ledger index: {e}, will process from account history")
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
         """
@@ -124,9 +120,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         :param output: the queue to use to store the received messages
         """
-        self.logger().info(
-            f"Starting XRPL polling data source for account {self._auth.get_account()}"
-        )
+        self.logger().info(f"Starting XRPL polling data source for account {self._auth.get_account()}")
 
         while True:
             try:
@@ -150,10 +144,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Polling data source cancelled")
                 raise
             except Exception as e:
-                self.logger().error(
-                    f"Error polling account state: {e}",
-                    exc_info=True
-                )
+                self.logger().error(f"Error polling account state: {e}", exc_info=True)
                 # Wait before retrying
                 await asyncio.sleep(self.POLL_INTERVAL)
 
@@ -260,9 +251,7 @@ class XRPLAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self.logger().debug(f"[POLL_DEBUG] Event created: {tx_hash}, ledger={ledger_index}")
                     events.append(event)
 
-            self.logger().debug(
-                f"Polled {len(transactions)} transactions, {len(events)} new events"
-            )
+            self.logger().debug(f"Polled {len(transactions)} transactions, {len(events)} new events")
 
         except Exception as e:
             self.logger().error(f"Error in _poll_account_state: {e}")

@@ -8,7 +8,6 @@ from hummingbot.connector.exchange.htx import (
 
 
 class HtxUtilsTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = CONSTANTS.SERVER_TIME_URL
         expected_url = CONSTANTS.REST_URL + path_url
@@ -54,11 +53,11 @@ class HtxUtilsTestCases(unittest.TestCase):
                     "rthr": 4,
                     "in": 16.3568,
                     "at": "enabled",
-                    "tags": "etp,nav,holdinglimit,activities"
+                    "tags": "etp,nav,holdinglimit,activities",
                 }
             ],
             "ts": "1641880897191",
-            "full": 1
+            "full": 1,
         }
 
         self.assertFalse(func_utils.is_exchange_information_valid(invalid_info["data"][0]))
@@ -97,10 +96,10 @@ class HtxUtilsTestCases(unittest.TestCase):
                     "rthr": 4,
                     "in": 16.3568,
                     "at": "enabled",
-                    "tags": "etp,nav,holdinglimit,activities"
+                    "tags": "etp,nav,holdinglimit,activities",
                 }
             ],
             "ts": "1641880897191",
-            "full": 1
+            "full": 1,
         }
         self.assertTrue(func_utils.is_exchange_information_valid(valid_info["data"][0]))
