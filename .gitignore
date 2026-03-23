@@ -101,3 +101,6 @@ coverage.xml
 .claude/
 .cursor/
 .agents/
+
+# Pixi
+.pixi/

@@ -1,0 +1,3 @@
+[submodule "sub-packages/candles-feed"]
+	path = sub-packages/candles-feed
+	url = https://github.com/MementoRC/hb-candles-feed.git
