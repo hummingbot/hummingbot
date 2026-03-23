@@ -46,11 +46,9 @@ hummingbot = ["core/cpp/*", "VERSION", "templates/*TEMPLATE.yml"]
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64"]
-members = ["sub-packages/candles-feed"]
-
 [tool.pixi.dependencies]
 # Build/install
-python = ">=3.10.12"
+python = ">=3.10.12,<3.13"
 cython = ">=3.0.12"
 setuptools = ">=80.8.0"
 pip = ">=23.2.1"
@@ -70,7 +68,7 @@ eth-account = ">=0.13.0"
 injective-py = ">=1.12"
 libta-lib = ">=0.6.4"
 msgpack-python = "*"
-numba = ">=0.61.2"
+numba = "==0.61.2"
 numpy = ">=2.2.6"
 objgraph = "*"
 pandas = ">=2.3.2"
@@ -83,12 +81,11 @@ pyjwt = ">=2.3.0"
 pyperclip = ">=1.8.2"
 pyyaml = ">=6.0"
 requests = ">=2.31.0"
-ruamel.yaml = ">=0.2.5"
+"ruamel.yaml" = ">=0.2.5"
 rust = "*"
 safe-pysha3 = "*"
 scipy = ">=1.11.1"
 six = ">=1.16.0"
-solders = ">=0.19.0"
 sqlalchemy = ">=1.4.49"
 ta-lib = ">=0.6.4"
 tabulate = "==0.9.0"
@@ -101,9 +98,12 @@ zlib = ">=1.2.13"
 
 [tool.pixi.pypi-dependencies]
 commlib-py = ">=0.11"
-eip712-structs = "*"
+# eip712-structs excluded: depends on pysha3 which can't build on 3.12+
+# conda safe-pysha3 provides sha3 at runtime; install manually: pip install --no-deps eip712-structs
+hb-candles-feed = { path = "sub-packages/candles-feed", editable = true }
 pandas-ta = ">=0.4.71b"
 scalecodec = "*"
+solders = ">=0.19.0"
 
 [tool.pixi.feature.dev.dependencies]
 pytest = ">=7.4.0"
@@ -123,21 +123,10 @@ flake8 = ">=6.0.0"
 bandit = "*"
 types-setuptools = "*"
 
-[tool.pixi.feature.py310.dependencies]
-python = "3.10.*"
-
-[tool.pixi.feature.py311.dependencies]
-python = "3.11.*"
-
-[tool.pixi.feature.py312.dependencies]
-python = "3.12.*"
-
 [tool.pixi.environments]
 default = { features = ["dev"], solve-group = "default" }
 ci = { features = ["ci", "dev"], solve-group = "default" }
-py310 = { features = ["py310", "dev"], solve-group = "py310" }
-py311 = { features = ["py311", "dev"], solve-group = "py311" }
-py312 = { features = ["py312", "dev"], solve-group = "py312" }
+# py310/py311/py312 removed: pandas-ta/numba version conflicts
 
 [tool.pixi.tasks]
 install-dev = "pip install --no-build-isolation -e ."
