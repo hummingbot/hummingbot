@@ -801,6 +801,8 @@ class MarketDataProvider:
         try:
             last_traded = await connector._get_last_traded_price(trading_pair=trading_pair)
             return Decimal(last_traded)
-        except Exception as e:
-            logging.error(f"Error getting last traded price in connector {connector} for trading pair {trading_pair}: {e}")
+        except Exception:
+            logging.exception(
+                f"Error getting last traded price in connector {connector} for trading pair {trading_pair}."
+            )
             return Decimal(0)
