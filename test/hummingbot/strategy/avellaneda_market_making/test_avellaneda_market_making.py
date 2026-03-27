@@ -720,10 +720,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.035"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.592"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.331"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.739"), self.strategy.optimal_bid, 2)
+        # Values use sigma^2 (variance) per the Avellaneda-Stoikov paper
+        self.assertAlmostEqual(Decimal("100.017"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.538"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.286"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.748"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reservation_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -741,10 +742,63 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
         # Check reservation_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.040"), self.strategy.reservation_price, 2)
-        self.assertAlmostEqual(Decimal("0.594"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("100.337"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("99.743"), self.strategy.optimal_bid, 2)
+        # Values use sigma^2 (variance) per the Avellaneda-Stoikov paper
+        self.assertAlmostEqual(Decimal("100.018"), self.strategy.reservation_price, 2)
+        self.assertAlmostEqual(Decimal("0.526"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("100.281"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("99.755"), self.strategy.optimal_bid, 2)
+
+
+    def test_reservation_price_uses_variance_not_stddev(self):
+        """
+        Test that the reservation price formula uses sigma^2 (variance) as per
+        the Avellaneda-Stoikov paper, not sigma (std dev). Issue #5677.
+
+        Paper formula: r = s - q * gamma * sigma^2 * (T-t)
+        Where sigma is the volatility (std dev) returned by InstantVolatilityIndicator.
+        """
+        from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map_pydantic import (
+            InfiniteModel,
+        )
+        # Setup with infinite timeframe (time_left_fraction = 1)
+        self.config_map.execution_timeframe_mode = InfiniteModel()
+        self.config_map.risk_factor = self.risk_factor_infinite  # gamma = 1
+
+        self.simulate_low_volatility(self.strategy)
+        self.simulate_high_liquidity(self.strategy)
+        self.strategy.measure_order_book_liquidity()
+
+        # Get volatility (sigma) and price
+        vol = self.strategy.get_volatility()  # This is sigma (std dev)
+        price = self.strategy.get_price()
+
+        # Calculate reservation price
+        self.strategy.calculate_reservation_price_and_optimal_spread()
+        reservation_price = self.strategy.reservation_price
+
+        # With gamma=1, time_left_fraction=1: r = s - q * vol^2
+        # The deviation from mid price should be proportional to vol^2, not vol
+        deviation = price - reservation_price
+        gamma = self.config_map.risk_factor
+
+        # Get q (inventory imbalance)
+        inventory = Decimal(str(self.strategy.calculate_inventory()))
+        q_target = Decimal(str(self.strategy.calculate_target_inventory()))
+        base_balance = self.strategy.market_info.market.get_balance(self.strategy.base_asset)
+        q = (base_balance - q_target) / inventory
+
+        # Verify: deviation = q * gamma * vol^2 * time_left_fraction
+        vol_squared = vol ** 2
+        expected_deviation = q * gamma * vol_squared  # time_left_fraction = 1
+        self.assertAlmostEqual(deviation, expected_deviation, 5)
+
+        # Also verify that optimal_spread uses vol^2
+        optimal_spread = self.strategy.optimal_spread
+        kappa = self.strategy.kappa
+        expected_spread_component = gamma * vol_squared  # time_left_fraction = 1
+        expected_log_component = 2 * Decimal(1 + gamma / kappa).ln() / gamma
+        expected_spread = expected_spread_component + expected_log_component
+        self.assertAlmostEqual(optimal_spread, expected_spread, 5)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -821,8 +875,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03471008344015021195989165942'), Decimal('0.07680749440342730936221062482'), Decimal('0.1152112416051409640433159372')]
+        expected_bid_spreads = [Decimal('0E-29'), Decimal('0.03811302845172395566123163194'), Decimal('0.07622605690344791132246326388'), Decimal('0.1143390853551718669836948958')]
+        expected_ask_spreads = [Decimal('0E-29'), Decimal('0.03811302845172395566123163194'), Decimal('0.07622605690344791132246326388'), Decimal('0.1143390853551718669836948958')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -843,8 +897,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reservation_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03909242377646942266258131591'), Decimal('0.07818484755293884532516263182'), Decimal('0.1172772713294082679877439477')]
+        expected_bid_spreads = [Decimal('0E-27'), Decimal('0.276298314500799011786212196'), Decimal('0.552596629001598023572424392'), Decimal('0.828894943502397035358636588')]
+        expected_ask_spreads = [Decimal('0E-27'), Decimal('0.276298314500799011786212196'), Decimal('0.552596629001598023572424392'), Decimal('0.828894943502397035358636588')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 

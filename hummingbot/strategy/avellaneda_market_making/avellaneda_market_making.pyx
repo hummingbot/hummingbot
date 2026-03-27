@@ -745,16 +745,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # a fixed time left
                 time_left_fraction = 1
 
-            # Here seems to be another mistake in the paper
-            # It doesn't make sense to use mid_price_variance because its units would be absolute price units ^2, yet that side of the equation is subtracted
-            # from the actual mid price of the asset in absolute price units
-            # gamma / risk_factor gains a meaning of a fraction (percentage) of the volatility (standard deviation between ticks) to be subtraced from the
-            # current mid price
-            # This leads to normalization of the risk_factor and will guaranetee consistent behavior on all price ranges of the asset, and across assets
+            # Per the Avellaneda-Stoikov paper, the reservation price and optimal spread
+            # formulas use sigma^2 (variance), not sigma (standard deviation).
+            # Formula: r = s - q * gamma * sigma^2 * (T-t)
+            #          delta = gamma * sigma^2 * (T-t) + (2/gamma) * ln(1 + gamma/k)
+            # vol from get_volatility() is sigma (std dev), so we use vol ** 2 for variance.
 
-            self._reservation_price = price - (q * self.gamma * vol * time_left_fraction)
+            vol_squared = vol ** 2
 
-            self._optimal_spread = self.gamma * vol * time_left_fraction
+            self._reservation_price = price - (q * self.gamma * vol_squared * time_left_fraction)
+
+            self._optimal_spread = self.gamma * vol_squared * time_left_fraction
             self._optimal_spread += 2 * Decimal(1 + self.gamma / self._kappa).ln() / self.gamma
 
             min_spread = price / 100 * Decimal(str(self._config_map.min_spread))
