@@ -108,8 +108,10 @@ class BacktestingEngineBase:
         }
 
     async def initialize_backtesting_data_provider(self):
+        # Use candles_connector if available on the controller config, otherwise fall back to connector_name
+        candles_connector = getattr(self.controller.config, "candles_connector", None) or self.controller.config.connector_name
         backtesting_config = CandlesConfig(
-            connector=self.controller.config.connector_name,
+            connector=candles_connector,
             trading_pair=self.controller.config.trading_pair,
             interval=self.backtesting_resolution
         )
