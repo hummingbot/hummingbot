@@ -953,7 +953,7 @@ class AbstractExchangeConnectorTests:
             )
 
             self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-            await (request_sent_event.wait())
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
             self.assertFalse(order.is_done)
             self.assertFalse(order.is_failure)

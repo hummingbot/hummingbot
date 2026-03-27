@@ -323,8 +323,8 @@ class InFlightOrder:
                     token=token,
                     exchange=exchange
                 )
-        except Exception as e:
-            self.logger().error(f"Error calculating fee paid in {token}: {e}")
+        except Exception:
+            self.logger().exception(f"Error calculating fee paid in {token}.")
         return total_fee_in_token
 
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:
