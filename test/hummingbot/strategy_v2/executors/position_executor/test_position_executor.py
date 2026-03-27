@@ -744,3 +744,95 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.early_stop(keep_position=True)
         self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
+
+    def test_place_order_rejects_nan_price_for_limit_order(self):
+        """Test that place_order raises ValueError when price is NaN for LIMIT orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError) as ctx:
+            position_executor.place_order(
+                connector_name="binance",
+                trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT,
+                side=TradeType.BUY,
+                amount=Decimal("1"),
+                price=Decimal("NaN"),
+            )
+        self.assertIn("invalid price", str(ctx.exception))
+
+    def test_place_order_rejects_none_price_for_limit_order(self):
+        """Test that place_order raises ValueError when price is None for LIMIT orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError) as ctx:
+            position_executor.place_order(
+                connector_name="binance",
+                trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT,
+                side=TradeType.BUY,
+                amount=Decimal("1"),
+                price=None,
+            )
+        self.assertIn("price=None", str(ctx.exception))
+
+    def test_place_order_rejects_inf_price_for_limit_order(self):
+        """Test that place_order raises ValueError when price is Inf for LIMIT orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError) as ctx:
+            position_executor.place_order(
+                connector_name="binance",
+                trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT,
+                side=TradeType.BUY,
+                amount=Decimal("1"),
+                price=Decimal("Inf"),
+            )
+        self.assertIn("invalid price", str(ctx.exception))
+
+    def test_place_order_rejects_nan_price_for_limit_maker_order(self):
+        """Test that place_order raises ValueError when price is NaN for LIMIT_MAKER orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError) as ctx:
+            position_executor.place_order(
+                connector_name="binance",
+                trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT_MAKER,
+                side=TradeType.BUY,
+                amount=Decimal("1"),
+                price=Decimal("NaN"),
+            )
+        self.assertIn("invalid price", str(ctx.exception))
+
+    def test_place_order_allows_nan_price_for_market_order(self):
+        """Test that place_order allows NaN price for MARKET orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        self.strategy.buy.side_effect = ["OID-BUY-NaN-1"]
+        # Should NOT raise - NaN is valid for MARKET orders
+        result = position_executor.place_order(
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET,
+            side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("NaN"),
+        )
+        self.assertEqual(result, "OID-BUY-NaN-1")
+
+    def test_place_order_allows_valid_price_for_limit_order(self):
+        """Test that place_order allows a valid finite price for LIMIT orders (Issue #7823)."""
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        self.strategy.buy.side_effect = ["OID-BUY-VALID-1"]
+        result = position_executor.place_order(
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100.50"),
+        )
+        self.assertEqual(result, "OID-BUY-VALID-1")
+

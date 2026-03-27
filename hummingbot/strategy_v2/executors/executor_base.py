@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
@@ -285,7 +286,20 @@ class ExecutorBase(RunnableBase):
         :param position_action: The position action for the order.
         :param price: The price for the order.
         :return: The result of the order placement.
+        :raises ValueError: If the price is NaN/None/Inf for a non-MARKET order type.
         """
+        if order_type != OrderType.MARKET:
+            if price is None:
+                raise ValueError(
+                    f"Cannot place {order_type.name} order with price=None for {trading_pair}. "
+                    f"A valid price is required for non-MARKET orders."
+                )
+            price_float = float(price)
+            if math.isnan(price_float) or math.isinf(price_float):
+                raise ValueError(
+                    f"Cannot place {order_type.name} order with invalid price={price} for {trading_pair}. "
+                    f"A finite numeric price is required for non-MARKET orders."
+                )
         if side == TradeType.BUY:
             return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action)
         else:
