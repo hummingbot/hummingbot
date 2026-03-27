@@ -112,7 +112,7 @@ class RESTResponse:
         return headers_
 
     async def json(self) -> Any:
-        if self._aiohttp_response.content_type == "text/plain" or self._aiohttp_response.content_type == "text/html":
+        if self._aiohttp_response.content_type in ('text/plain', 'text/html'):
             # aiohttp does not support decoding of text/plain or text/html content types
             # so we need to read the response as bytes and decode it manually
             # https://docs.aiohttp.org/en/stable/client_reference.html#aiohttp.ClientResponse.json
@@ -126,7 +126,16 @@ class RESTResponse:
             else:
                 json_ = await self._aiohttp_response.json()
         else:
-            json_ = await self._aiohttp_response.json()
+            try:
+                json_ = await self._aiohttp_response.json()
+            except Exception:
+                # Fallback: read raw bytes and attempt JSON parse, return text on failure
+                byte_string = await self._aiohttp_response.read()
+                decoded_string = byte_string.decode('utf-8') if isinstance(byte_string, bytes) else str(byte_string)
+                try:
+                    json_ = json.loads(decoded_string)
+                except JSONDecodeError:
+                    json_ = decoded_string
         return json_
 
     async def text(self) -> str:
