@@ -37,12 +37,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         if pd.isna(start_timestamp):
             return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
 
-        entry_price = df.loc[start_timestamp, 'close']
+        entry_price = float(config.entry_price) if config.entry_price else df.loc[start_timestamp, 'close']
         side_multiplier = 1 if config.side == TradeType.BUY else -1
 
         returns_df = df_filtered[start_timestamp:]
-        returns = returns_df['close'].pct_change().fillna(0)
-        cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
+        cumulative_returns = ((returns_df['close'] / entry_price - 1) * side_multiplier) - trade_cost
         df_filtered.loc[start_timestamp:, 'net_pnl_pct'] = cumulative_returns
         df_filtered.loc[start_timestamp:, 'filled_amount_quote'] = float(config.amount) * entry_price
         df_filtered['net_pnl_quote'] = df_filtered['net_pnl_pct'] * df_filtered['filled_amount_quote']
