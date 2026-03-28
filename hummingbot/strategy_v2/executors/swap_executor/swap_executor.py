@@ -4,12 +4,13 @@ SwapExecutor - Executes single swaps on Gateway AMM connectors.
 Provides robust retry logic for handling transaction timeouts and failures
 on Gateway connectors (e.g., Jupiter, Raydium).
 """
+import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
@@ -40,6 +41,21 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
+    @staticmethod
+    def parse_network(network: str) -> tuple:
+        """Parse network string into chain and network_name.
+
+        Args:
+            network: Network string like "solana-mainnet-beta" or "ethereum-mainnet"
+
+        Returns:
+            Tuple of (chain, network_name)
+        """
+        parts = network.split("-", 1)
+        if len(parts) == 2:
+            return parts[0], parts[1]
+        return parts[0], "mainnet"
+
     def __init__(
         self,
         strategy: StrategyV2Base,
@@ -56,16 +72,20 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             update_interval: Interval between control_task calls
             max_retries: Maximum retry attempts for failed swaps
         """
-        connectors = [config.connector_name]
-        super().__init__(strategy, connectors, config, update_interval)
+        # Parse network to get chain
+        self._chain, self._network_name = self.parse_network(config.network)
+
+        # No connectors needed - we use gateway directly
+        super().__init__(strategy, [], config, update_interval)
         self.init_retry_state(max_retries)
         self.config: SwapExecutorConfig = config
         self._state = SwapExecutorStates.NOT_STARTED
         self._executed_amount: Decimal = Decimal("0")
         self._executed_price: Decimal = Decimal("0")
         self._tx_fee: Decimal = Decimal("0")
-        self._active_order_id: Optional[str] = None
         self._exchange_order_id: Optional[str] = None  # Transaction hash/signature
+        self._selected_provider: Optional[str] = None  # Provider used for multi-provider comparison
+        self._wallet_address: Optional[str] = None  # Populated on first execution
 
     async def control_task(self):
         """
@@ -83,8 +103,10 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
                 await self._execute_swap()
 
             case SwapExecutorStates.EXECUTING:
-                # Retry if not max retries reached
-                if not self._max_retries_reached:
+                # Check if max retries reached (safety check for edge cases)
+                if self._max_retries_reached:
+                    self._state = SwapExecutorStates.FAILED
+                else:
                     await self._execute_swap()
 
             case SwapExecutorStates.COMPLETED:
@@ -95,47 +117,202 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
                 self.close_type = CloseType.FAILED
                 self.stop()
 
+    async def _fetch_quotes(self, gateway, base: str, quote: str, amount: Decimal, network: str, swap_providers: List[str]) -> List[Dict]:
+        """
+        Fetch quotes from all swap_providers in parallel.
+
+        Args:
+            gateway: Gateway instance
+            base: Base token symbol
+            quote: Quote token symbol
+            amount: Amount to swap
+            network: Network name
+            swap_providers: List of providers to fetch quotes from
+
+        Returns:
+            List of dicts with provider, quote, and pool_address for successful quotes
+        """
+        async def get_quote_for_provider(provider: str) -> Optional[Dict]:
+            try:
+                # Parse provider name: "meteora/clmm" -> connector="meteora", type="clmm"
+                pool_address = None
+                if "/" in provider:
+                    connector_base, connector_type = provider.split("/", 1)
+                else:
+                    connector_base = provider
+                    connector_type = "router"
+
+                # Look up pool address for CLMM/AMM providers
+                if connector_type in ("clmm", "amm"):
+                    pool_info = await gateway.get_pool(
+                        trading_pair=self.config.trading_pair,
+                        connector=connector_base,
+                        network=network,
+                        type=connector_type
+                    )
+                    pool_address = pool_info.get("address")
+                    if not pool_address:
+                        self.logger().debug(f"No pool found for {provider}")
+                        return None
+
+                # Fetch quote
+                quote_result = await gateway.quote_swap(
+                    network=network,
+                    connector=provider,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=self.config.side,
+                    slippage_pct=self.config.slippage_pct,
+                    pool_address=pool_address,
+                    fail_silently=True
+                )
+                if quote_result and "error" not in quote_result:
+                    self.logger().info(
+                        f"Quote from {provider}: price={quote_result.get('price')}, "
+                        f"amountIn={quote_result.get('amountIn')}, amountOut={quote_result.get('amountOut')}"
+                    )
+                    return {"provider": provider, "quote": quote_result, "pool_address": pool_address}
+            except Exception as e:
+                self.logger().debug(f"Quote from {provider} failed: {e}")
+            return None
+
+        # Fetch all quotes in parallel
+        tasks = [get_quote_for_provider(p) for p in swap_providers]
+        results = await asyncio.gather(*tasks)
+        return [r for r in results if r is not None]
+
+    def _select_best_quote(self, quotes: List[Dict]) -> Optional[Dict]:
+        """
+        Select best quote based on trade side.
+
+        For BUY: lower price is better (pay less quote to get base)
+        For SELL: higher price is better (get more quote for base)
+
+        Args:
+            quotes: List of quote dicts from _fetch_quotes
+
+        Returns:
+            Best quote dict or None if no valid quotes
+        """
+        if not quotes:
+            return None
+
+        def get_price(q):
+            return Decimal(str(q["quote"].get("price", 0)))
+
+        if self.config.side == TradeType.BUY:
+            return min(quotes, key=lambda q: get_price(q))
+        else:
+            return max(quotes, key=lambda q: get_price(q))
+
+    async def _get_pool_address_for_provider(self, gateway, provider: str) -> Optional[str]:
+        """
+        Get pool address for CLMM/AMM providers.
+
+        Args:
+            gateway: Gateway HTTP client
+            provider: Provider name (e.g., "meteora/clmm", "jupiter/router")
+
+        Returns:
+            Pool address if provider is CLMM/AMM, None for routers
+        """
+        if "/" in provider:
+            connector_base, connector_type = provider.split("/", 1)
+        else:
+            connector_base = provider
+            connector_type = "router"
+
+        # Only CLMM/AMM providers need pool address lookup
+        if connector_type not in ("clmm", "amm"):
+            return None
+
+        try:
+            pool_info = await gateway.get_pool(
+                trading_pair=self.config.trading_pair,
+                connector=connector_base,
+                network=self._network_name,
+                type=connector_type
+            )
+            return pool_info.get("address")
+        except Exception as e:
+            self.logger().debug(f"Pool lookup failed for {provider}: {e}")
+            return None
+
     async def _execute_swap(self):
         """Execute the swap operation with retry logic."""
-        connector = self.connectors.get(self.config.connector_name)
-        if not connector:
-            self.logger().error(f"Connector {self.config.connector_name} not found")
-            self._state = SwapExecutorStates.FAILED
-            return
+        # Get gateway instance
+        gateway = GatewayHttpClient.get_instance()
 
-        # Generate order_id for tracking
-        order_id = connector.create_market_order_id(self.config.side, self.config.trading_pair)
-        self._active_order_id = order_id
+        # Get wallet address if not already cached
+        if not self._wallet_address:
+            wallet_address, error = await gateway.get_default_wallet(self._chain)
+            if error or not wallet_address:
+                self.logger().error(error or f"No default wallet configured for chain {self._chain}")
+                self._state = SwapExecutorStates.FAILED
+                return
+            self._wallet_address = wallet_address
 
         # Parse trading pair
         base, quote = self.config.trading_pair.split("-")
-        amount = connector.quantize_order_amount(self.config.trading_pair, self.config.amount)
-
-        # Start tracking the order
-        connector.start_tracking_order(
-            order_id=order_id,
-            trading_pair=self.config.trading_pair,
-            trade_type=self.config.side,
-            price=Decimal("0"),
-            amount=amount
-        )
+        amount = self.config.amount
 
         try:
+            # Determine swap providers to use
+            swap_providers = self.config.swap_providers or []
+            if not swap_providers:
+                # Fetch default swapProvider from network config
+                network_config = await gateway.get_configuration(self.config.network)
+                default_provider = network_config.get("swapProvider")
+                if default_provider:
+                    swap_providers = [default_provider]
+                    self.logger().info(f"Using default swapProvider from config: {default_provider}")
+                else:
+                    self.logger().error("No swap_providers specified and no swapProvider in network config")
+                    self._state = SwapExecutorStates.FAILED
+                    return
+
+            # If single provider, execute directly without quoting (faster)
+            # If multiple providers, fetch quotes and select best
+            if len(swap_providers) == 1:
+                selected_provider = swap_providers[0]
+                selected_pool_address = await self._get_pool_address_for_provider(gateway, selected_provider)
+                self._selected_provider = selected_provider
+                self.logger().info(f"Executing directly on {selected_provider} (single provider, no quote)")
+            else:
+                # Fetch quotes from all providers in parallel
+                quotes = await self._fetch_quotes(gateway, base, quote, amount, self._network_name, swap_providers)
+                best = self._select_best_quote(quotes)
+
+                if not best:
+                    self.logger().error("No valid quotes from any swap provider")
+                    self._state = SwapExecutorStates.FAILED
+                    return
+
+                selected_provider = best["provider"]
+                selected_pool_address = best.get("pool_address")
+                self._selected_provider = selected_provider
+                self.logger().info(
+                    f"Selected {selected_provider} with price {best['quote'].get('price')} "
+                    f"(from {len(quotes)} quotes)"
+                )
+
             self.logger().info(
                 f"Executing swap: {self.config.side.name} {amount} {base} "
-                f"on {self.config.connector_name}, order_id={order_id}"
+                f"on {selected_provider}"
             )
 
-            # Execute swap directly via gateway
-            gateway = connector._get_gateway_instance()
+            # Execute swap - use execute_swap for all providers
+            # (quoteId from quote_swap expires too quickly for multi-provider comparison)
             order_result = await gateway.execute_swap(
-                connector=connector.connector_name,
+                connector=selected_provider,
                 base_asset=base,
                 quote_asset=quote,
                 side=self.config.side,
                 amount=amount,
-                network=connector.network,
-                wallet_address=connector.address
+                network=self._network_name,
+                wallet_address=self._wallet_address,
+                pool_address=selected_pool_address
             )
 
             transaction_hash = order_result.get("signature")
@@ -143,9 +320,6 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
                 raise ValueError("No transaction signature in response")
 
             self._exchange_order_id = transaction_hash
-
-            # Update order state in connector's tracker
-            connector.update_order_from_hash(order_id, self.config.trading_pair, transaction_hash, order_result)
 
             # Extract executed amounts from the response
             # Gateway returns amounts in data field as amountIn/amountOut
@@ -170,7 +344,6 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             # Success - transition to completed
             self._state = SwapExecutorStates.COMPLETED
             self.reset_retry_state()
-            self._active_order_id = None
 
             self.logger().info(
                 f"Swap completed: {self.config.side.name} {self._executed_amount} "
@@ -184,23 +357,11 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
                 operation=f"SWAP {self.config.side.name}",
                 trading_pair=self.config.trading_pair,
                 signature=self._exchange_order_id,
-                recoverable_errors=["Price has moved", "Slippage too high"],
             )
 
-            # Update order state to failed in connector's tracker
-            if connector and order_id:
-                order_update = OrderUpdate(
-                    client_order_id=order_id,
-                    trading_pair=self.config.trading_pair,
-                    update_timestamp=self._strategy.current_timestamp,
-                    new_state=OrderState.FAILED
-                )
-                connector._order_tracker.process_order_update(order_update)
-
-            if action == RetryAction.STOP:
+            # Handle non-retryable errors - transition to FAILED immediately
+            if action in (RetryAction.STOP, RetryAction.FAIL_IMMEDIATE):
                 self._state = SwapExecutorStates.FAILED
-
-            self._active_order_id = None
 
     def early_stop(self, keep_position: bool = False):
         """
@@ -209,18 +370,17 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
         For swaps, keep_position is ignored since swaps are atomic -
         they either complete or don't.
         """
-        if self._state == SwapExecutorStates.EXECUTING and not self._active_order_id:
-            # Not actively executing, can stop immediately
+        if self._state in (SwapExecutorStates.NOT_STARTED, SwapExecutorStates.EXECUTING):
             self.close_type = CloseType.EARLY_STOP
             self._state = SwapExecutorStates.FAILED
             self.stop()
-        elif self._state in (SwapExecutorStates.NOT_STARTED,):
-            self.close_type = CloseType.EARLY_STOP
-            self._state = SwapExecutorStates.FAILED
-            self.stop()
-        # If actively executing, let the current operation complete
 
     # Required ExecutorBase methods
+
+    @property
+    def filled_amount_quote(self) -> Decimal:
+        """Returns the filled amount in quote currency."""
+        return self._executed_amount * self._executed_price
 
     def get_net_pnl_quote(self) -> Decimal:
         """
@@ -252,6 +412,7 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
         """Return custom info for reporting."""
         return {
             "state": self._state.value,
+            "network": self.config.network,
             "side": self.config.side.name,
             "amount": float(self.config.amount),
             "executed_amount": float(self._executed_amount),
@@ -261,4 +422,5 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             "exchange_order_id": self._exchange_order_id,
             "current_retries": self._current_retries,
             "max_retries_reached": self._max_retries_reached,
+            "swap_provider": self._selected_provider,
         }

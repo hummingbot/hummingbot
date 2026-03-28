@@ -5,7 +5,7 @@ Defines configuration and state enums for single swap execution on Gateway AMM c
 """
 from decimal import Decimal
 from enum import Enum
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import ConfigDict
 
@@ -30,8 +30,8 @@ class SwapExecutorConfig(ExecutorConfigBase):
     """
     type: Literal["swap_executor"] = "swap_executor"
 
-    # Market identification
-    connector_name: str
+    # Network identification (e.g., "solana-mainnet-beta", "ethereum-mainnet")
+    network: str
     trading_pair: str
 
     # Trade parameters
@@ -40,5 +40,11 @@ class SwapExecutorConfig(ExecutorConfigBase):
 
     # Optional parameters
     slippage_pct: Optional[Decimal] = None  # Override connector default slippage
+
+    # Multi-provider quote comparison
+    # If set, fetches quotes from all providers and executes with best price
+    # Example: ["jupiter/router", "meteora/clmm", "orca/clmm"]
+    # If not set, uses default swap provider for the chain (e.g., jupiter/router for solana)
+    swap_providers: Optional[List[str]] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

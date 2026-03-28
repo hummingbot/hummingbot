@@ -19,6 +19,7 @@ class LPExecutorStates(Enum):
     OUT_OF_RANGE = "OUT_OF_RANGE"          # Position active, price outside bounds
     CLOSING = "CLOSING"                    # remove_liquidity submitted, waiting
     COMPLETE = "COMPLETE"                  # Position closed permanently
+    FAILED = "FAILED"                      # Max retries reached, manual intervention required
 
 
 class LPExecutorConfig(ExecutorConfigBase):
@@ -32,10 +33,17 @@ class LPExecutorConfig(ExecutorConfigBase):
     """
     type: Literal["lp_executor"] = "lp_executor"
 
-    # Market and pool identification (aligned with other executors)
+    # Market and pool identification
     connector_name: str
-    trading_pair: str
     pool_address: str
+
+    # Optional - resolved from pool_address if not provided
+    trading_pair: Optional[str] = None
+
+    # Network specification (e.g., "solana-mainnet-beta", "ethereum-base")
+    # Format: "{chain}-{network}" - same convention as swap_executor
+    # Optional - uses default network from gateway config if not provided
+    network: Optional[str] = None
 
     # Position price bounds
     lower_price: Decimal
@@ -123,9 +131,9 @@ class LPExecutorState(BaseModel):
             current_price: Current market price
             current_time: Current timestamp (for tracking _out_of_range_since)
         """
-        # If already complete, closing, or opening (waiting for retry), preserve state
+        # If already complete, closing, failed, or opening (waiting for retry), preserve state
         # These states are managed explicitly by the executor, don't overwrite them
-        if self.state in (LPExecutorStates.COMPLETE, LPExecutorStates.CLOSING):
+        if self.state in (LPExecutorStates.COMPLETE, LPExecutorStates.CLOSING, LPExecutorStates.FAILED):
             return
 
         # Preserve OPENING state when no position exists (handles max_retries case)

@@ -14,7 +14,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.common_types import TransactionStatus
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeFeeBase, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -309,6 +309,21 @@ class GatewayBase(ConnectorBase):
         base, quote = trading_pair.split("-")
         return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
 
+    def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
+        """
+        Gets price by type for gateway connectors.
+
+        For AMM connectors without order books, returns NaN.
+        Callers should handle NaN by fetching price from gateway or using fallback.
+
+        :param trading_pair: The market trading pair
+        :param price_type: The price type (MidPrice, BestBid, BestAsk, etc.)
+        :returns: The price or NaN if not available
+        """
+        # Gateway AMM connectors don't maintain order books
+        # Return NaN to signal that price should be fetched from gateway
+        return Decimal("nan")
+
     def get_token_info(self, token_symbol: str) -> Optional[Dict[str, Any]]:
         """Get token information for a given symbol."""
         return self._token_data.get(token_symbol)
@@ -468,6 +483,13 @@ class GatewayBase(ConnectorBase):
         This is called by UserBalances.
         """
         await self.update_balances()
+
+    async def _update_order_status(self):
+        """
+        Update status for all in-flight orders.
+        This is the parameterless wrapper matching exchange connector interface.
+        """
+        await self.update_order_status(self.gateway_orders)
 
     async def _initialize_trading_pair_symbol_map(self):
         """

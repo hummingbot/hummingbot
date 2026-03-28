@@ -3,6 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Dict, Optional, Union
 
+from hummingbot.client.settings import GATEWAY_CONNECTORS
 from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, CLMMPoolInfo
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
@@ -57,9 +58,95 @@ class LPExecutor(ExecutorBase, GatewayRetryMixin):
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
         self._last_attempted_signature: Optional[str] = None  # Track for retry logging
 
+    def _validate_and_normalize_connector(self, connector_name: str) -> Optional[str]:
+        """
+        Validate and normalize connector name for LP executor.
+
+        - If connector already has /clmm suffix, validates it exists
+        - If connector is base name only (e.g., "meteora"), auto-appends /clmm
+        - Uses GATEWAY_CONNECTORS list populated at gateway startup
+
+        Args:
+            connector_name: Connector name from config
+
+        Returns:
+            Normalized connector name, or None if validation failed (executor stopped)
+        """
+        # If already has suffix, validate it's /clmm and exists
+        if "/" in connector_name:
+            base, connector_type = connector_name.split("/", 1)
+            if connector_type != "clmm":
+                self.logger().error(
+                    f"LP executor requires /clmm connector type. "
+                    f"'{connector_type}' is not supported for LP positions."
+                )
+                self.close_type = CloseType.FAILED
+                self.stop()
+                return None
+
+            if connector_name not in GATEWAY_CONNECTORS:
+                clmm_connectors = [c for c in GATEWAY_CONNECTORS if '/clmm' in c]
+                self.logger().error(
+                    f"Connector '{connector_name}' not found in Gateway. "
+                    f"Available CLMM connectors: {clmm_connectors}"
+                )
+                self.close_type = CloseType.FAILED
+                self.stop()
+                return None
+
+            return connector_name
+
+        # Base name only - auto-append /clmm
+        clmm_name = f"{connector_name}/clmm"
+
+        if clmm_name in GATEWAY_CONNECTORS:
+            return clmm_name
+        else:
+            # Check if connector exists at all with any type
+            matching = [c for c in GATEWAY_CONNECTORS if c.startswith(f"{connector_name}/")]
+            if matching:
+                self.logger().error(
+                    f"Connector '{connector_name}' doesn't support CLMM. "
+                    f"Available types for {connector_name}: {matching}"
+                )
+            else:
+                clmm_connectors = [c for c in GATEWAY_CONNECTORS if '/clmm' in c]
+                self.logger().error(
+                    f"Connector '{connector_name}' not found in Gateway. "
+                    f"Available CLMM connectors: {clmm_connectors}"
+                )
+            self.close_type = CloseType.FAILED
+            self.stop()
+            return None
+
     async def on_start(self):
         """Start executor - will create position in first control_task"""
         await super().on_start()
+
+        # Validate and normalize connector name (auto-append /clmm if needed)
+        normalized_connector = self._validate_and_normalize_connector(self.config.connector_name)
+        if normalized_connector is None:
+            # Validation failed - executor already stopped
+            return
+
+        if normalized_connector != self.config.connector_name:
+            self.logger().info(f"Normalized connector: {self.config.connector_name} -> {normalized_connector}")
+            object.__setattr__(self.config, 'connector_name', normalized_connector)
+
+        # Resolve trading_pair from pool_address if not provided
+        if not self.config.trading_pair:
+            connector = self.connectors.get(self.config.connector_name)
+            if connector:
+                result = await connector.resolve_trading_pair_from_pool(self.config.pool_address)
+                if result and result.get("trading_pair"):
+                    # Update config with resolved trading pair
+                    object.__setattr__(self.config, 'trading_pair', result["trading_pair"])
+                    self.logger().info(f"Resolved trading pair from pool: {self.config.trading_pair}")
+                else:
+                    self.logger().error(f"Failed to resolve trading pair from pool {self.config.pool_address}")
+                    self.close_type = CloseType.FAILED
+                    self.stop()
+                    return
 
     async def control_task(self):
         """Main control loop - simple state machine with direct await operations"""
@@ -84,15 +171,24 @@ class LPExecutor(ExecutorBase, GatewayRetryMixin):
 
             case LPExecutorStates.OPENING:
                 # Position creation in progress or retrying after failure
-                if not self._max_retries_reached:
+                if self._max_retries_reached:
+                    # Transition to FAILED state - requires manual intervention
+                    self.lp_position_state.state = LPExecutorStates.FAILED
+                else:
                     await self._create_position()
-                # If max retries reached, stay in OPENING state waiting for intervention
 
             case LPExecutorStates.CLOSING:
                 # Position close in progress or retrying after failure
-                if not self._max_retries_reached:
+                if self._max_retries_reached:
+                    # Transition to FAILED state - requires manual intervention
+                    self.lp_position_state.state = LPExecutorStates.FAILED
+                else:
                     await self._close_position()
-                # If max retries reached, stay in CLOSING state waiting for intervention
+
+            case LPExecutorStates.FAILED:
+                # Max retries reached - stop executor with failure
+                self.close_type = CloseType.FAILED
+                self.stop()
 
             case LPExecutorStates.IN_RANGE:
                 # Position active and in range - just monitor
@@ -319,6 +415,8 @@ class LPExecutor(ExecutorBase, GatewayRetryMixin):
 
     async def _handle_create_failure(self, error: Exception, signature: Optional[str] = None):
         """Handle position creation failure with retry logic."""
+        from hummingbot.strategy_v2.executors.gateway_retry import RetryAction
+
         error_str = str(error)
 
         # Check if this is a "price moved" error - position bounds need shifting
@@ -333,15 +431,18 @@ class LPExecutor(ExecutorBase, GatewayRetryMixin):
             return
 
         # Use mixin for standard retry logic
-        self.handle_gateway_failure(
+        action = self.handle_gateway_failure(
             error=error,
             operation="LP OPEN",
             trading_pair=self.config.trading_pair,
             signature=signature,
         )
 
-        # Keep state as OPENING - don't shut down, wait for user intervention or retry
         self.lp_position_state.active_open_order = None
+
+        # Handle non-retryable errors - transition to FAILED immediately
+        if action in (RetryAction.FAIL_IMMEDIATE, RetryAction.STOP):
+            self.lp_position_state.state = LPExecutorStates.FAILED
 
     async def _shift_bounds_for_price_move(self):
         """
@@ -518,16 +619,22 @@ class LPExecutor(ExecutorBase, GatewayRetryMixin):
 
     def _handle_close_failure(self, error: Exception, signature: Optional[str] = None):
         """Handle position close failure with retry logic."""
+        from hummingbot.strategy_v2.executors.gateway_retry import RetryAction
+
         # Use mixin for standard retry logic
-        self.handle_gateway_failure(
+        action = self.handle_gateway_failure(
             error=error,
             operation="LP CLOSE",
             trading_pair=self.config.trading_pair,
             signature=signature,
         )
 
-        # Clear active order - state stays CLOSING for retry in next control_task
+        # Clear active order
         self.lp_position_state.active_close_order = None
+
+        # Handle non-retryable errors - transition to FAILED immediately
+        if action in (RetryAction.FAIL_IMMEDIATE, RetryAction.STOP):
+            self.lp_position_state.state = LPExecutorStates.FAILED
 
     def _emit_already_closed_event(self):
         """

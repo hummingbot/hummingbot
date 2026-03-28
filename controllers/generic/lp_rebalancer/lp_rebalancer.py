@@ -4,13 +4,14 @@ from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
-from hummingbot.core.data_type.common import MarketDict
+from hummingbot.core.data_type.common import MarketDict, TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy_v2.controllers import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorStates
+from hummingbot.strategy_v2.executors.swap_executor.data_types import SwapExecutorConfig, SwapExecutorStates
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
@@ -39,7 +40,7 @@ class LPRebalancerConfig(ControllerConfigBase):
     position_offset_pct: Decimal = Field(
         default=Decimal("0.01"),
         json_schema_extra={"is_updatable": True},
-        description="Offset from current price to ensure single-sided positions start out-of-range (e.g., 0.1 = 0.1%)"
+        description="Offset from current price. Positive = out-of-range (single-sided). Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
     )
 
     # Rebalancing
@@ -60,6 +61,18 @@ class LPRebalancerConfig(ControllerConfigBase):
 
     # Connector-specific params (optional)
     strategy_type: Optional[int] = Field(default=None, json_schema_extra={"is_updatable": True})
+
+    # Auto-swap feature: swap tokens if balance insufficient for position
+    autoswap: bool = Field(
+        default=False,
+        json_schema_extra={"is_updatable": True},
+        description="Automatically swap tokens if balance is insufficient for position"
+    )
+    swap_buffer_pct: Decimal = Field(
+        default=Decimal("0.01"),
+        json_schema_extra={"is_updatable": True},
+        description="Extra % to swap beyond deficit to account for slippage (e.g., 0.01 = 0.01%)"
+    )
 
     @field_validator("sell_price_min", "sell_price_max", "buy_price_min", "buy_price_max", mode="before")
     @classmethod
@@ -145,6 +158,10 @@ class LPRebalancer(ControllerBase):
         # Cached pool price (updated in update_processed_data)
         self._pool_price: Optional[Decimal] = None
 
+        # Swap executor tracking (for autoswap feature)
+        self._swap_executor_id: Optional[str] = None
+        self._pending_swap_side: Optional[int] = None  # LP side to create after swap completes
+
         # Initialize rate sources
         self.market_data_provider.initialize_rate_sources([
             ConnectorPair(
@@ -177,6 +194,125 @@ class LPRebalancer(ControllerBase):
             return True
         return executor.status == RunnableStatus.TERMINATED
 
+    def get_swap_executor(self) -> Optional[ExecutorInfo]:
+        """Get the swap executor we're tracking"""
+        if not self._swap_executor_id:
+            return None
+        for e in self.executors_info:
+            if e.id == self._swap_executor_id:
+                return e
+        return None
+
+    def is_swap_executor_done(self) -> bool:
+        """Check if swap executor has completed (success or failure)"""
+        if not self._swap_executor_id:
+            return True
+        swap_executor = self.get_swap_executor()
+        if swap_executor is None:
+            return True
+        state = swap_executor.custom_info.get("state")
+        return state in (SwapExecutorStates.COMPLETED.value, SwapExecutorStates.FAILED.value)
+
+    def _check_autoswap_needed(self, side: int, current_price: Decimal) -> Optional[SwapExecutorConfig]:
+        """
+        Check if autoswap is needed and return swap config if so.
+
+        Returns SwapExecutorConfig if swap is needed, None otherwise.
+
+        Simply checks balance vs required amounts and swaps deficit + buffer if insufficient.
+        Works for both positive offset (out-of-range) and negative offset (in-range) positions.
+        """
+        if not self.config.autoswap:
+            return None
+
+        # Calculate required amounts (handles negative offset internally)
+        base_amt, quote_amt = self._calculate_amounts(side, current_price)
+
+        # Get current balances
+        try:
+            base_balance = self.market_data_provider.get_balance(
+                self.config.connector_name, self._base_token
+            )
+            quote_balance = self.market_data_provider.get_balance(
+                self.config.connector_name, self._quote_token
+            )
+        except Exception as e:
+            self.logger().warning(f"Could not fetch balances for autoswap check: {e}")
+            return None
+
+        # Calculate deficit from raw amounts (no buffer)
+        base_deficit = base_amt - base_balance
+        quote_deficit = quote_amt - quote_balance
+
+        self.logger().info(
+            f"Autoswap check: need base={base_amt:.6f}, have={base_balance:.6f}, deficit={base_deficit:.6f} | "
+            f"need quote={quote_amt:.6f}, have={quote_balance:.6f}, deficit={quote_deficit:.6f}"
+        )
+
+        # Buffer multiplier only applied to swap amount
+        buffer_multiplier = Decimal("1") + (self.config.swap_buffer_pct / Decimal("100"))
+
+        # If any deficit, swap
+        if base_deficit > 0 and quote_deficit <= 0:
+            # Need more base, have enough quote - BUY base with quote
+            swap_amount = base_deficit * buffer_multiplier
+            # Check if we have enough quote to buy this much base
+            required_quote = swap_amount * current_price * Decimal("1.02")  # 2% extra for price movement
+            if quote_balance >= required_quote:
+                self.logger().info(
+                    f"Autoswap: BUY {swap_amount:.6f} {self._base_token} "
+                    f"(deficit={base_deficit:.6f} + {self.config.swap_buffer_pct}% buffer, "
+                    f"have {quote_balance:.6f} {self._quote_token})"
+                )
+                return SwapExecutorConfig(
+                    timestamp=self.market_data_provider.time(),
+                    network=self.config.network,
+                    trading_pair=self.config.trading_pair,
+                    side=TradeType.BUY,
+                    amount=swap_amount,
+                )
+            else:
+                self.logger().warning(
+                    f"Autoswap: insufficient quote ({quote_balance:.6f}) to buy {swap_amount:.6f} base "
+                    f"(need ~{required_quote:.6f} {self._quote_token})"
+                )
+                return None
+
+        elif quote_deficit > 0 and base_deficit <= 0:
+            # Need more quote, have enough base - SELL base for quote
+            swap_amount = (quote_deficit / current_price) * buffer_multiplier
+            # Check if we have enough base to sell
+            if base_balance >= swap_amount * Decimal("1.02"):  # 2% extra for price movement
+                self.logger().info(
+                    f"Autoswap: SELL {swap_amount:.6f} {self._base_token} for ~{quote_deficit:.6f} {self._quote_token} "
+                    f"(deficit + {self.config.swap_buffer_pct}% buffer, have {base_balance:.6f} {self._base_token})"
+                )
+                return SwapExecutorConfig(
+                    timestamp=self.market_data_provider.time(),
+                    network=self.config.network,
+                    trading_pair=self.config.trading_pair,
+                    side=TradeType.SELL,
+                    amount=swap_amount,
+                )
+            else:
+                self.logger().warning(
+                    f"Autoswap: insufficient base ({base_balance:.6f}) to sell for {quote_deficit:.6f} quote"
+                )
+                return None
+
+        elif base_deficit > 0 and quote_deficit > 0:
+            # Both tokens in deficit - user is underfunded for side=0 (BOTH)
+            total_deficit_quote = base_deficit * current_price + quote_deficit
+            self.logger().warning(
+                f"Autoswap: cannot swap - both tokens in deficit (side=0). "
+                f"Need {base_deficit:.6f} more {self._base_token} AND {quote_deficit:.6f} more {self._quote_token} "
+                f"(total deficit: {total_deficit_quote:.2f} {self._quote_token})"
+            )
+            return None
+
+        # No swap needed
+        return None
+
     def _trigger_balance_update(self):
         """Trigger a balance update on the connector after position changes."""
         try:
@@ -202,6 +338,63 @@ class LPRebalancer(ControllerBase):
                 self.logger().debug(f"Could not capture initial balances: {e}")
 
         actions = []
+
+        # Check if swap executor is running (autoswap in progress)
+        if self._pending_swap_side is not None:
+            # Find and track the swap executor if not already tracked
+            if not self._swap_executor_id:
+                for e in self.executors_info:
+                    if e.config.type == "swap_executor" and e.is_active:
+                        self._swap_executor_id = e.id
+                        self.logger().info(f"Tracking swap executor: {e.id}")
+                        break
+
+            # If swap is pending but executor not found yet, wait for it to appear
+            if not self._swap_executor_id:
+                self.logger().debug("Waiting for swap executor to appear in executors_info")
+                return actions
+
+        if self._swap_executor_id:
+            if not self.is_swap_executor_done():
+                swap_executor = self.get_swap_executor()
+                state = swap_executor.custom_info.get("state") if swap_executor else "unknown"
+                self.logger().debug(f"Waiting for swap executor to complete (state: {state})")
+                return actions
+
+            # Swap executor completed - check result and proceed
+            swap_executor = self.get_swap_executor()
+            swap_state = swap_executor.custom_info.get("state") if swap_executor else "unknown"
+            pending_side = self._pending_swap_side
+
+            # Clear swap tracking
+            self._swap_executor_id = None
+            self._pending_swap_side = None
+
+            if swap_state == SwapExecutorStates.COMPLETED.value:
+                self.logger().info("Autoswap completed successfully, proceeding to LP position")
+                # Trigger balance update after successful swap
+                self._trigger_balance_update()
+
+                # Create LP position with the side that was pending
+                if pending_side is not None:
+                    executor_config = self._create_executor_config(pending_side)
+                    if executor_config:
+                        actions.append(CreateExecutorAction(
+                            controller_id=self.config.id,
+                            executor_config=executor_config
+                        ))
+                        self._pending_balance_update = True
+            else:
+                # Swap failed - log error and skip LP position creation this cycle
+                self.logger().error(
+                    f"Autoswap FAILED (state: {swap_state}). "
+                    f"Will retry autoswap check on next cycle for side={pending_side}"
+                )
+                # Don't create LP position - let the next cycle re-check balances
+                # and potentially retry the swap
+
+            return actions
+
         executor = self.active_executor()
 
         # Track the active executor's ID if we don't have one yet
@@ -213,11 +406,12 @@ class LPRebalancer(ControllerBase):
         if executor is None:
             if not self.is_tracked_executor_terminated():
                 tracked = self.get_tracked_executor()
-                self.logger().debug(
+                self.logger().info(
                     f"Waiting for executor {self._current_executor_id} to terminate "
                     f"(status: {tracked.status if tracked else 'not found'})"
                 )
                 return actions
+            self.logger().info(f"No active executor, autoswap={self.config.autoswap}, pool_price={self._pool_price}")
 
             # Previous executor terminated - capture final amounts for rebalance sizing
             terminated_executor = self.get_tracked_executor()
@@ -242,6 +436,24 @@ class LPRebalancer(ControllerBase):
                 self._pending_rebalance_side = None
             else:
                 side = self.config.side
+
+            # Check if autoswap is needed before creating LP position
+            if self.config.autoswap:
+                if not self._pool_price:
+                    self.logger().info("Autoswap: waiting for pool price")
+                    return actions
+                swap_config = self._check_autoswap_needed(side, self._pool_price)
+                if swap_config:
+                    # Create swap executor and wait for it to complete
+                    self._pending_swap_side = side
+                    actions.append(CreateExecutorAction(
+                        controller_id=self.config.id,
+                        executor_config=swap_config
+                    ))
+                    # Track the swap executor ID on next tick
+                    return actions
+                else:
+                    self.logger().info("Autoswap: no swap needed, balances sufficient")
 
             # Create executor config with calculated bounds
             executor_config = self._create_executor_config(side)
@@ -473,11 +685,27 @@ class LPRebalancer(ControllerBase):
             quote_amt = total / Decimal("2")
             base_amt = quote_amt / current_price
         elif side == 1:  # BUY
-            base_amt = Decimal("0")
-            quote_amt = total
+            # Check if position will be in-range (negative offset)
+            if self.config.position_offset_pct < 0:
+                # In-range: need both tokens, split based on offset
+                in_range_pct = abs(self.config.position_offset_pct) / Decimal("100")
+                base_amt = (total * in_range_pct) / current_price
+                quote_amt = total * (Decimal("1") - in_range_pct)
+            else:
+                # Out-of-range: only need quote
+                base_amt = Decimal("0")
+                quote_amt = total
         else:  # SELL
-            base_amt = total / current_price
-            quote_amt = Decimal("0")
+            # Check if position will be in-range (negative offset)
+            if self.config.position_offset_pct < 0:
+                # In-range: need both tokens, split based on offset
+                in_range_pct = abs(self.config.position_offset_pct) / Decimal("100")
+                quote_amt = total * in_range_pct
+                base_amt = (total * (Decimal("1") - in_range_pct)) / current_price
+            else:
+                # Out-of-range: only need base
+                base_amt = total / current_price
+                quote_amt = Decimal("0")
 
         return base_amt, quote_amt
 

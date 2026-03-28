@@ -121,7 +121,7 @@ controller_type: generic               # Controller category
 total_amount_quote: '50'               # Total value in quote currency
 side: 0                                # Initial side: 0=BOTH, 1=BUY, 2=SELL
 position_width_pct: '0.5'              # Position width as percentage (0.5 = 0.5%)
-position_offset_pct: '0.1'             # Offset to ensure single-sided positions start out-of-range
+position_offset_pct: '0.1'             # Offset from price (positive=out-of-range, negative=in-range)
 
 # Connection
 connector_name: meteora/clmm           # LP connector
@@ -139,6 +139,10 @@ buy_price_min: 85                      # Floor - don't buy below
 rebalance_seconds: 60                  # Seconds out-of-range before rebalancing
 rebalance_threshold_pct: '0.1'         # Price must be this % beyond bounds before timer starts
 
+# Auto-swap feature
+autoswap: false                        # Auto-swap tokens if balance insufficient
+swap_buffer_pct: '0.01'                # Extra % to swap for slippage (0.01 = 0.01%)
+
 # Optional
 strategy_type: 0                       # Connector-specific (Meteora strategy type)
 ```
@@ -151,13 +155,15 @@ strategy_type: 0                       # Connector-specific (Meteora strategy ty
 | `total_amount_quote` | decimal | 50 | Total position value in quote currency |
 | `side` | int | 1 | Initial side: 0=BOTH, 1=BUY, 2=SELL |
 | `position_width_pct` | decimal | 0.5 | Position width as percentage |
-| `position_offset_pct` | decimal | 0.01 | Offset from current price to ensure single-sided positions start out-of-range |
+| `position_offset_pct` | decimal | 0.01 | Offset from price. Positive=out-of-range (single token). Negative=in-range (both tokens, triggers autoswap) |
 | `sell_price_max` | decimal | null | Upper limit for SELL zone |
 | `sell_price_min` | decimal | null | Lower limit for SELL zone (anchor point) |
 | `buy_price_max` | decimal | null | Upper limit for BUY zone (anchor point) |
 | `buy_price_min` | decimal | null | Lower limit for BUY zone |
 | `rebalance_seconds` | int | 60 | Seconds out-of-range before rebalancing |
 | `rebalance_threshold_pct` | decimal | 0.1 | Price must be this % beyond position bounds before rebalance timer starts (0.1 = 0.1%, 2 = 2%) |
+| `autoswap` | bool | false | Automatically swap tokens if balance is insufficient for position |
+| `swap_buffer_pct` | decimal | 0.01 | Extra % to swap beyond deficit to account for slippage (0.01 = 0.01%) |
 
 ### Price Limits Visualization
 
@@ -198,17 +204,34 @@ lower = current_price * (1 - half_width)
 upper = current_price * (1 + half_width)
 ```
 
-**Side=1 (BUY)** - Anchored at buy_price_max:
+**Side=1 (BUY)** - Below current price:
 ```
-upper = min(current_price, buy_price_max)
+upper = min(current_price, buy_price_max) * (1 - offset)
 lower = upper * (1 - position_width_pct)
 ```
 
-**Side=2 (SELL)** - Anchored at sell_price_min:
+**Side=2 (SELL)** - Above current price:
 ```
-lower = max(current_price, sell_price_min)
+lower = max(current_price, sell_price_min) * (1 + offset)
 upper = lower * (1 + position_width_pct)
 ```
+
+### Effect of Position Offset
+
+| Offset | Side=1 (BUY) | Side=2 (SELL) | Tokens Needed |
+|--------|--------------|---------------|---------------|
+| +0.5% | upper below price (out-of-range) | lower above price (out-of-range) | Single |
+| 0% | upper at price (edge of range) | lower at price (edge of range) | Single |
+| -0.5% | upper above price (in-range) | lower below price (in-range) | Both |
+
+**Positive offset** ensures the position starts out-of-range:
+- Only requires one token (quote for BUY, base for SELL)
+- Position waits for price to enter range
+
+**Negative offset** creates an in-range position:
+- Requires both tokens (use autoswap to convert)
+- Position immediately earns fees
+- Useful when you want exposure on both sides
 
 ### Rebalancing Decision Flow
 
@@ -251,6 +274,108 @@ upper = lower * (1 + position_width_pct)
 | Above (BUY) | upper == buy_price_max | **KEEP** |
 | Below (SELL) | lower > sell_price_min | REBALANCE to sell_min |
 | Below (SELL) | lower == sell_price_min | **KEEP** |
+
+---
+
+## Auto-Swap Feature
+
+The autoswap feature automatically swaps tokens when your balance is insufficient to create the LP position. This is useful when you have all your funds in one token but need both tokens for the position.
+
+### Enabling Autoswap
+
+```yaml
+autoswap: true              # Enable automatic token swapping
+swap_buffer_pct: '0.01'     # Swap 0.01% extra for slippage buffer
+```
+
+### When Autoswap Triggers
+
+| Scenario | Side | Has | Needs | Autoswap Action |
+|----------|------|-----|-------|-----------------|
+| Deficit in base | BUY/SELL | Quote | Base | BUY base with quote |
+| Deficit in quote | BUY/SELL | Base | Quote | SELL base for quote |
+| Both in deficit | Any | Partial | Both | Warning (underfunded) |
+
+### Swap Amount Calculation
+
+```
+swap_amount = deficit × (1 + swap_buffer_pct / 100)
+```
+
+Example with `swap_buffer_pct=0.01`:
+- Deficit: 1.0 SOL needed
+- Swap amount: 1.0 × 1.0001 = 1.0001 SOL (includes 0.01% buffer)
+
+### Negative Position Offset (In-Range Positions)
+
+By default, `position_offset_pct` is positive, creating **out-of-range** positions that only require one token:
+- BUY position: below current price → only needs quote (USDC)
+- SELL position: above current price → only needs base (SOL)
+
+With **negative** `position_offset_pct`, positions are created **in-range**, requiring both tokens:
+
+```yaml
+position_offset_pct: '-0.5'  # Negative = in-range position
+autoswap: true               # Required to get both tokens
+swap_buffer_pct: '0.01'      # Extra buffer for slippage
+```
+
+| Offset | Position | Tokens Required |
+|--------|----------|-----------------|
+| +0.5% (positive) | Out-of-range | Single token |
+| -0.5% (negative) | In-range | Both tokens |
+
+### Autoswap Flow
+
+The autoswap logic is simple: check balance vs required amounts, swap deficit + buffer if insufficient.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 determine_executor_actions()             │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  autoswap enabled?    │
+              └───────────┬───────────┘
+                    YES   │
+                          ▼
+              ┌───────────────────────┐
+              │  Calculate required   │
+              │  base & quote amounts │
+              └───────────┬───────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  Check current        │
+              │  balances vs required │
+              └───────────┬───────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  Deficit? Swap        │
+              │  (deficit + buffer)   │
+              └───────────┬───────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  Wait for swap to     │
+              │  complete             │
+              └───────────┬───────────┘
+                          ▼
+              ┌───────────────────────┐
+              │  Create LP position   │
+              └───────────────────────┘
+```
+
+### Swap Executor
+
+Autoswap uses the `SwapExecutor` internally, which:
+- Uses the default swap provider for the chain (e.g., Jupiter for Solana)
+- Handles transaction confirmation and retries
+- Reports completion status back to the controller
+
+If the swap fails, the controller logs an error and retries on the next cycle.
 
 ---
 
