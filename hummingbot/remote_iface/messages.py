@@ -107,6 +107,19 @@ class HistoryCommandMessage(RPCMessage):
         trades: Optional[List[Any]] = []
 
 
+class LPHistoryCommandMessage(RPCMessage):
+    class Request(RPCMessage.Request):
+        days: Optional[float] = 0
+        verbose: Optional[bool] = False
+        precision: Optional[int] = None
+        async_backend: Optional[bool] = True
+
+    class Response(RPCMessage.Response):
+        status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
+        msg: Optional[str] = ''
+        lp_updates: Optional[List[Any]] = []
+
+
 class BalanceLimitCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         exchange: str

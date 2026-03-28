@@ -2,7 +2,7 @@ import threading
 import time
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 
@@ -68,6 +68,44 @@ class LPHistoryCommand:
                 self._list_lp_updates(updates)
 
             safe_ensure_future(self._lp_performance_report(start_time, updates, precision))
+
+    def get_lp_history_json(self,  # type: HummingbotApplication
+                            days: float = 0) -> List[Dict[str, Any]]:
+        """Get LP history as JSON for MQTT/API consumption."""
+        if self.strategy_file_name is None:
+            return []
+        start_time = get_timestamp(days) if days > 0 else self.init_time
+        with self.trading_core.trade_fill_db.get_new_session() as session:
+            updates: List[RangePositionUpdate] = self._get_lp_updates_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name
+            )
+            return [self._lp_update_to_json(u) for u in updates]
+
+    @staticmethod
+    def _lp_update_to_json(update: RangePositionUpdate) -> Dict[str, Any]:
+        """Convert a RangePositionUpdate record to JSON format for API."""
+        return {
+            "id": update.hb_id,
+            "timestamp": update.timestamp,
+            "tx_hash": update.tx_hash,
+            "market": update.market,
+            "trading_pair": update.trading_pair,
+            "order_action": update.order_action,
+            "position_address": update.position_address,
+            "lower_price": update.lower_price,
+            "upper_price": update.upper_price,
+            "mid_price": update.mid_price,
+            "base_amount": update.base_amount,
+            "quote_amount": update.quote_amount,
+            "base_fee": update.base_fee,
+            "quote_fee": update.quote_fee,
+            "trade_fee": update.trade_fee,
+            "trade_fee_in_quote": update.trade_fee_in_quote,
+            "position_rent": update.position_rent,
+            "position_rent_refunded": update.position_rent_refunded,
+        }
 
     def _get_lp_updates_from_session(
         self,  # type: HummingbotApplication
