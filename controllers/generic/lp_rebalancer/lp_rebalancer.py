@@ -73,6 +73,11 @@ class LPRebalancerConfig(ControllerConfigBase):
         json_schema_extra={"is_updatable": True},
         description="Extra % to swap beyond deficit to account for slippage (e.g., 0.01 = 0.01%)"
     )
+    swap_provider: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"is_updatable": False},
+        description="Swap provider for autoswap (e.g., 'jupiter/router'). Required if autoswap=True."
+    )
 
     @field_validator("sell_price_min", "sell_price_max", "buy_price_min", "buy_price_max", mode="before")
     @classmethod
@@ -103,8 +108,12 @@ class LPRebalancerConfig(ControllerConfigBase):
         return self
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
-        """Register the LP connector with trading pair"""
-        return markets.add_or_update(self.connector_name, self.trading_pair)
+        """Register the LP connector and swap provider with trading pair"""
+        markets = markets.add_or_update(self.connector_name, self.trading_pair)
+        # Also register swap provider if autoswap is enabled
+        if self.autoswap and self.swap_provider:
+            markets = markets.add_or_update(self.swap_provider, self.trading_pair)
+        return markets
 
 
 class LPRebalancer(ControllerBase):
@@ -240,9 +249,16 @@ class LPRebalancer(ControllerBase):
             self.logger().warning(f"Could not fetch balances for autoswap check: {e}")
             return None
 
-        # Calculate deficit from raw amounts (no buffer)
+        # Calculate deficit from raw amounts
         base_deficit = base_amt - base_balance
         quote_deficit = quote_amt - quote_balance
+
+        # Add 0.1 SOL buffer for rent and transaction fees when SOL is involved
+        sol_buffer = Decimal("0.1")
+        if self._base_token.upper() == "SOL":
+            base_deficit += sol_buffer
+        if self._quote_token.upper() == "SOL":
+            quote_deficit += sol_buffer
 
         self.logger().info(
             f"Autoswap check: need base={base_amt:.6f}, have={base_balance:.6f}, deficit={base_deficit:.6f} | "
@@ -270,6 +286,7 @@ class LPRebalancer(ControllerBase):
                     trading_pair=self.config.trading_pair,
                     side=TradeType.BUY,
                     amount=swap_amount,
+                    swap_providers=[self.config.swap_provider] if self.config.swap_provider else None,
                 )
             else:
                 self.logger().warning(
@@ -293,6 +310,7 @@ class LPRebalancer(ControllerBase):
                     trading_pair=self.config.trading_pair,
                     side=TradeType.SELL,
                     amount=swap_amount,
+                    swap_providers=[self.config.swap_provider] if self.config.swap_provider else None,
                 )
             else:
                 self.logger().warning(

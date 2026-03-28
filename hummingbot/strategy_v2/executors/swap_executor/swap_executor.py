@@ -3,13 +3,18 @@ SwapExecutor - Executes single swaps on Gateway AMM connectors.
 
 Provides robust retry logic for handling transaction timeouts and failures
 on Gateway connectors (e.g., Jupiter, Raydium).
+
+Uses GatewaySwap connector when available for proper order tracking and TradeFill events.
 """
 import asyncio
 import logging
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
@@ -75,8 +80,9 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
         # Parse network to get chain
         self._chain, self._network_name = self.parse_network(config.network)
 
-        # No connectors needed - we use gateway directly
-        super().__init__(strategy, [], config, update_interval)
+        # Use swap_providers from config if specified
+        connector_names = config.swap_providers or []
+        super().__init__(strategy, connector_names, config, update_interval)
         self.init_retry_state(max_retries)
         self.config: SwapExecutorConfig = config
         self._state = SwapExecutorStates.NOT_STARTED
@@ -116,6 +122,17 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             case SwapExecutorStates.FAILED:
                 self.close_type = CloseType.FAILED
                 self.stop()
+
+    def _get_connector(self, provider: str) -> Optional[GatewaySwap]:
+        """Get connector for provider if available."""
+        # Try exact match first
+        if provider in self.connectors:
+            return self.connectors[provider]
+        # Try matching by connector name pattern (e.g., "jupiter/router_solana_mainnet-beta")
+        for name, conn in self.connectors.items():
+            if name.startswith(provider):
+                return conn
+        return None
 
     async def _fetch_quotes(self, gateway, base: str, quote: str, amount: Decimal, network: str, swap_providers: List[str]) -> List[Dict]:
         """
@@ -262,13 +279,18 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             swap_providers = self.config.swap_providers or []
             if not swap_providers:
                 # Fetch default swapProvider from network config
-                network_config = await gateway.get_configuration(self.config.network)
-                default_provider = network_config.get("swapProvider")
-                if default_provider:
-                    swap_providers = [default_provider]
-                    self.logger().info(f"Using default swapProvider from config: {default_provider}")
-                else:
-                    self.logger().error("No swap_providers specified and no swapProvider in network config")
+                try:
+                    network_config = await gateway.get_configuration(self.config.network)
+                    default_provider = network_config.get("swapProvider")
+                    if default_provider:
+                        swap_providers = [default_provider]
+                        self.logger().info(f"Using default swapProvider from config: {default_provider}")
+                    else:
+                        self.logger().error(f"No swapProvider in network config for {self.config.network}")
+                        self._state = SwapExecutorStates.FAILED
+                        return
+                except Exception as e:
+                    self.logger().error(f"Failed to get network config for {self.config.network}: {e}")
                     self._state = SwapExecutorStates.FAILED
                     return
 
@@ -302,53 +324,8 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
                 f"on {selected_provider}"
             )
 
-            # Execute swap - use execute_swap for all providers
-            # (quoteId from quote_swap expires too quickly for multi-provider comparison)
-            order_result = await gateway.execute_swap(
-                connector=selected_provider,
-                base_asset=base,
-                quote_asset=quote,
-                side=self.config.side,
-                amount=amount,
-                network=self._network_name,
-                wallet_address=self._wallet_address,
-                pool_address=selected_pool_address
-            )
-
-            transaction_hash = order_result.get("signature")
-            if not transaction_hash:
-                raise ValueError("No transaction signature in response")
-
-            self._exchange_order_id = transaction_hash
-
-            # Extract executed amounts from the response
-            # Gateway returns amounts in data field as amountIn/amountOut
-            data = order_result.get("data", {})
-            amount_in = Decimal(str(data.get("amountIn", "0")))
-            amount_out = Decimal(str(data.get("amountOut", "0")))
-
-            # For SELL: amountIn=base sold, amountOut=quote received
-            # For BUY: amountIn=quote paid, amountOut=base received
-            if self.config.side == TradeType.SELL:
-                self._executed_amount = amount_in if amount_in > 0 else amount
-                if amount_in > 0 and amount_out > 0:
-                    self._executed_price = amount_out / amount_in
-            else:  # BUY
-                self._executed_amount = amount_out if amount_out > 0 else amount
-                if amount_in > 0 and amount_out > 0:
-                    self._executed_price = amount_in / amount_out
-
-            # Extract fee
-            self._tx_fee = Decimal(str(data.get("fee", order_result.get("fee", "0"))))
-
-            # Success - transition to completed
-            self._state = SwapExecutorStates.COMPLETED
-            self.reset_retry_state()
-
-            self.logger().info(
-                f"Swap completed: {self.config.side.name} {self._executed_amount} "
-                f"at {self._executed_price}, tx={transaction_hash[:16]}..."
-            )
+            # Execute swap via direct gateway call
+            await self._execute_via_gateway(gateway, selected_provider, base, quote, amount, selected_pool_address)
 
         except Exception as e:
             # Handle failure with retry logic
@@ -362,6 +339,104 @@ class SwapExecutor(ExecutorBase, GatewayRetryMixin):
             # Handle non-retryable errors - transition to FAILED immediately
             if action in (RetryAction.STOP, RetryAction.FAIL_IMMEDIATE):
                 self._state = SwapExecutorStates.FAILED
+
+    async def _execute_via_gateway(self, gateway, provider: str, base: str, quote: str,
+                                   amount: Decimal, pool_address: Optional[str]):
+        """Execute swap via direct gateway call."""
+        order_result = await gateway.execute_swap(
+            connector=provider,
+            base_asset=base,
+            quote_asset=quote,
+            side=self.config.side,
+            amount=amount,
+            network=self._network_name,
+            wallet_address=self._wallet_address,
+            pool_address=pool_address
+        )
+
+        transaction_hash = order_result.get("signature")
+        if not transaction_hash:
+            raise ValueError("No transaction signature in response")
+
+        self._exchange_order_id = transaction_hash
+
+        # Extract executed amounts from the response
+        data = order_result.get("data", {})
+        amount_in = Decimal(str(data.get("amountIn", "0")))
+        amount_out = Decimal(str(data.get("amountOut", "0")))
+
+        # For SELL: amountIn=base sold, amountOut=quote received
+        # For BUY: amountIn=quote paid, amountOut=base received
+        if self.config.side == TradeType.SELL:
+            self._executed_amount = amount_in if amount_in > 0 else amount
+            if amount_in > 0 and amount_out > 0:
+                self._executed_price = amount_out / amount_in
+        else:  # BUY
+            self._executed_amount = amount_out if amount_out > 0 else amount
+            if amount_in > 0 and amount_out > 0:
+                self._executed_price = amount_in / amount_out
+
+        # Extract fee
+        fee_amount = Decimal(str(data.get("fee", order_result.get("fee", "0"))))
+        self._tx_fee = fee_amount
+
+        # Emit OrderFilledEvent so markets_recorder creates TradeFill
+        self._emit_order_filled_event(
+            provider=provider,
+            base=base,
+            quote=quote,
+            transaction_hash=transaction_hash,
+            fee_amount=fee_amount
+        )
+
+        # Success
+        self._state = SwapExecutorStates.COMPLETED
+        self.reset_retry_state()
+        self.logger().info(
+            f"Swap completed: {self.config.side.name} {self._executed_amount} "
+            f"at {self._executed_price}, tx={transaction_hash[:16]}..."
+        )
+
+    def _emit_order_filled_event(self, provider: str, base: str, quote: str,
+                                 transaction_hash: str, fee_amount: Decimal):
+        """Emit OrderFilledEvent so markets_recorder creates TradeFill."""
+        # Get connector to emit event through
+        connector = self._get_connector(provider)
+        if not connector:
+            self.logger().warning(f"No connector for {provider}, TradeFill will not be recorded")
+            return
+
+        # Build trade fee - use connector's native currency (e.g., "SOL" not "SOLANA")
+        fee_token = connector.native_currency or self._chain.upper()
+        trade_fee = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(fee_token, fee_amount)]
+        )
+
+        # Create unique order ID for this swap
+        timestamp = self._strategy.current_timestamp
+        if timestamp is None or timestamp != timestamp:  # NaN check
+            timestamp = 0
+        order_id = f"swap-{base}-{quote}-{int(timestamp * 1000)}"
+
+        # Emit OrderFilledEvent
+        connector.trigger_event(
+            MarketEvent.OrderFilled,
+            OrderFilledEvent(
+                timestamp=timestamp,
+                order_id=order_id,
+                trading_pair=self.config.trading_pair,
+                trade_type=self.config.side,
+                order_type=OrderType.AMM_SWAP,
+                price=self._executed_price,
+                amount=self._executed_amount,
+                trade_fee=trade_fee,
+                exchange_trade_id=transaction_hash,
+                leverage=1,
+                position=PositionAction.NIL.value,
+                exchange_order_id=transaction_hash,
+            ),
+        )
+        self.logger().debug(f"Emitted OrderFilledEvent for swap: {order_id}")
 
     def early_stop(self, keep_position: bool = False):
         """
