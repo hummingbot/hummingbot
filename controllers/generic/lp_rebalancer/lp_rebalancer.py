@@ -105,6 +105,13 @@ class LPRebalancerConfig(ControllerConfigBase):
         if self.sell_price_max is not None and self.sell_price_min is not None:
             if self.sell_price_max < self.sell_price_min:
                 raise ValueError("sell_price_max must be >= sell_price_min")
+        # For negative offset (in-range), offset magnitude must not exceed width
+        if self.position_offset_pct < 0:
+            if abs(self.position_offset_pct) > self.position_width_pct:
+                raise ValueError(
+                    f"For in-range positions, |position_offset_pct| ({abs(self.position_offset_pct)}) "
+                    f"must not exceed position_width_pct ({self.position_width_pct})"
+                )
         return self
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
@@ -705,8 +712,11 @@ class LPRebalancer(ControllerBase):
         elif side == 1:  # BUY
             # Check if position will be in-range (negative offset)
             if self.config.position_offset_pct < 0:
-                # In-range: need both tokens, split based on offset
-                in_range_pct = abs(self.config.position_offset_pct) / Decimal("100")
+                # In-range: need both tokens
+                # in_range_pct = how much of the position overlaps with current price
+                # e.g., offset=-0.1, width=0.3 → 0.1/0.3 = 33% in-range
+                in_range_pct = abs(self.config.position_offset_pct) / self.config.position_width_pct
+                # For BUY: in-range portion needs base, out-of-range portion needs quote
                 base_amt = (total * in_range_pct) / current_price
                 quote_amt = total * (Decimal("1") - in_range_pct)
             else:
@@ -716,8 +726,11 @@ class LPRebalancer(ControllerBase):
         else:  # SELL
             # Check if position will be in-range (negative offset)
             if self.config.position_offset_pct < 0:
-                # In-range: need both tokens, split based on offset
-                in_range_pct = abs(self.config.position_offset_pct) / Decimal("100")
+                # In-range: need both tokens
+                # in_range_pct = how much of the position overlaps with current price
+                # e.g., offset=-0.1, width=0.3 → 0.1/0.3 = 33% in-range
+                in_range_pct = abs(self.config.position_offset_pct) / self.config.position_width_pct
+                # For SELL: in-range portion needs quote, out-of-range portion needs base
                 quote_amt = total * in_range_pct
                 base_amt = (total * (Decimal("1") - in_range_pct)) / current_price
             else:
