@@ -4,9 +4,11 @@ import unittest
 from decimal import Decimal
 from enum import Enum
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if "hummingbot.core.data_type.limit_order" not in sys.modules:
@@ -72,6 +74,176 @@ except ModuleNotFoundError:
 
 @unittest.skipUnless(_LIGHTER_EXCHANGE_AVAILABLE, "Core exchange runtime modules are unavailable in this local environment")
 class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
+    def test_init_and_properties(self):
+        with patch("hummingbot.connector.exchange.lighter.lighter_exchange.ExchangePyBase.__init__", lambda self: None):
+            exchange = LighterExchange(
+                lighter_api_key="7",
+                lighter_api_secret="sec",
+                lighter_account_index="693751",
+                lighter_private_key="pk",
+                trading_pairs=["ETH-USDC"],
+                trading_required=False,
+            )
+
+        self.assertEqual("lighter", exchange.name)
+        self.assertEqual("lighter", exchange.domain)
+        self.assertEqual(["ETH-USDC"], exchange.trading_pairs)
+        self.assertFalse(exchange.is_trading_required)
+        self.assertTrue(exchange.is_cancel_request_in_exchange_synchronous)
+        self.assertEqual("https://mainnet.zklighter.elliot.ai", exchange._api_host_for_signer())
+
+    def test_supported_order_types_and_request_paths(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._domain = "lighter"
+        self.assertEqual([OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET], exchange.supported_order_types())
+        self.assertEqual("/orderBooks", exchange.trading_rules_request_path)
+        self.assertEqual("/orderBooks", exchange.trading_pairs_request_path)
+        self.assertEqual("/", exchange.check_network_request_path)
+
+    async def test_refresh_market_metadata_and_get_market_spec(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._market_id_by_symbol = {}
+        exchange._size_decimals_by_symbol = {}
+        exchange._price_decimals_by_symbol = {}
+        exchange.exchange_symbol_associated_to_pair = AsyncMock(return_value="ETH/USDC")
+        exchange._api_get = AsyncMock(
+            return_value={
+                "order_books": [
+                    {
+                        "symbol": "ETH/USDC",
+                        "market_type": "spot",
+                        "market_id": 2048,
+                        "supported_size_decimals": 4,
+                        "supported_price_decimals": 2,
+                    }
+                ]
+            }
+        )
+
+        await exchange._refresh_market_metadata()
+        spec = await exchange._get_market_spec("ETH-USDC")
+        self.assertEqual((2048, 4, 2, "ETH/USDC"), spec)
+
+    async def test_get_market_spec_raises_when_missing(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._market_id_by_symbol = {}
+        exchange._size_decimals_by_symbol = {}
+        exchange._price_decimals_by_symbol = {}
+        exchange.exchange_symbol_associated_to_pair = AsyncMock(return_value="MISSING")
+        exchange._refresh_market_metadata = AsyncMock()
+
+        with self.assertRaises(ValueError):
+            await exchange._get_market_spec("ETH-USDC")
+
+    async def test_place_order_and_cancel_success(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.current_timestamp = 1700000000
+        exchange._get_market_spec = AsyncMock(return_value=(2048, 2, 2, "ETH/USDC"))
+        exchange._client_order_index_from_order_id = lambda order_id: 999
+        exchange._get_api_key_index = lambda: 7
+
+        signer_client = type(
+            "SignerClient",
+            (),
+            {
+                "ORDER_TYPE_LIMIT": 1,
+                "ORDER_TYPE_MARKET": 2,
+                "ORDER_TIME_IN_FORCE_GOOD_TILL_TIME": 10,
+                "ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL": 11,
+                "ORDER_TIME_IN_FORCE_POST_ONLY": 12,
+                "DEFAULT_28_DAY_ORDER_EXPIRY": 1000,
+                "DEFAULT_IOC_EXPIRY": 1001,
+            },
+        )()
+        signer_client.create_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 200})(), None))
+        signer_client.cancel_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 200})(), None))
+        exchange._get_lighter_signer_client = lambda: signer_client
+
+        exchange_order_id, ts = await exchange._place_order(
+            order_id="HBOT-A",
+            trading_pair="ETH-USDC",
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("10"),
+        )
+        result = await exchange._place_cancel("HBOT-A", type("Tracked", (), {"trading_pair": "ETH-USDC", "exchange_order_id": "42"})())
+
+        self.assertEqual("999", exchange_order_id)
+        self.assertEqual(1700000000, ts)
+        self.assertTrue(result)
+
+    async def test_place_order_and_cancel_errors(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.current_timestamp = 1700000000
+        exchange._get_market_spec = AsyncMock(return_value=(2048, 2, 2, "ETH/USDC"))
+        exchange._client_order_index_from_order_id = lambda order_id: 111
+        exchange._get_api_key_index = lambda: 7
+
+        signer_client = type(
+            "SignerClient",
+            (),
+            {
+                "ORDER_TYPE_LIMIT": 1,
+                "ORDER_TYPE_MARKET": 2,
+                "ORDER_TIME_IN_FORCE_GOOD_TILL_TIME": 10,
+                "ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL": 11,
+                "ORDER_TIME_IN_FORCE_POST_ONLY": 12,
+                "DEFAULT_28_DAY_ORDER_EXPIRY": 1000,
+                "DEFAULT_IOC_EXPIRY": 1001,
+            },
+        )()
+        signer_client.create_order = AsyncMock(return_value=(None, None, "err"))
+        signer_client.cancel_order = AsyncMock(return_value=(None, None, "err"))
+        exchange._get_lighter_signer_client = lambda: signer_client
+
+        with self.assertRaises(IOError):
+            await exchange._place_order(
+                order_id="HBOT-B",
+                trading_pair="ETH-USDC",
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.MARKET,
+                price=Decimal("10"),
+            )
+
+        with self.assertRaises(IOError):
+            await exchange._place_cancel("HBOT-B", type("Tracked", (), {"trading_pair": "ETH-USDC", "exchange_order_id": "42"})())
+
+    async def test_api_request_and_get_last_traded_prices(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._domain = "lighter"
+        exchange._api_key = "k"
+        exchange._web_assistants_factory = type("Factory", (), {"get_rest_assistant": AsyncMock()})()
+        rest = type("Rest", (), {})()
+        rest.execute_request = AsyncMock(return_value={"ok": True})
+        exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=rest)
+
+        response = await exchange._api_request(path_url="/orderBooks", method=RESTMethod.GET, params={"a": 1}, is_auth_required=True)
+        self.assertEqual({"ok": True}, response)
+
+        exchange._api_request = AsyncMock(
+            return_value={
+                "data": [
+                    {"symbol": "ETH/USDC", "index_price": "100.5"},
+                    {"symbol": "BTC/USDC", "index_price": "200.5"},
+                ]
+            }
+        )
+        exchange.trading_pair_associated_to_exchange_symbol = AsyncMock(side_effect=["ETH-USDC", "BTC-USDC"])
+        prices = await exchange.get_last_traded_prices(["ETH-USDC"])
+        self.assertEqual({"ETH-USDC": 100.5}, prices)
+
+    async def test_status_polling_loop_fetch_updates(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._update_balances = AsyncMock()
+        exchange._update_order_status = AsyncMock()
+        exchange._update_lost_orders_status = AsyncMock()
+
+        await exchange._status_polling_loop_fetch_updates()
+        self.assertEqual(1, exchange._update_balances.await_count)
+        self.assertEqual(1, exchange._update_order_status.await_count)
+        self.assertEqual(1, exchange._update_lost_orders_status.await_count)
     def test_hb_pair_from_symbol_variants(self):
         self.assertEqual("ETH-USDC", LighterExchange._hb_pair_from_symbol("ETH/USDC"))
         self.assertEqual("BTC-USDC", LighterExchange._hb_pair_from_symbol("BTC-USDC"))
@@ -356,6 +528,158 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(2, len(fills))
         self.assertEqual("lighter", fills[0].market)
         self.assertEqual("h1", fills[0].exchange_trade_id)
+
+    async def test_request_order_fills_from_trades_api_success_and_failure(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._account_index = "693751"
+        exchange._api_get = AsyncMock(return_value={"success": True, "data": [{"order_id": "1"}]})
+
+        order = type("Order", (), {"exchange_order_id": "1"})()
+        fills = await exchange._request_order_fills_from_trades_api(order)
+        self.assertEqual(1, len(fills))
+
+        exchange._api_get = AsyncMock(return_value={"success": False})
+        fills = await exchange._request_order_fills_from_trades_api(order)
+        self.assertEqual([], fills)
+
+    async def test_request_order_fills_without_exchange_id(self):
+        exchange = object.__new__(LighterExchange)
+        order = type("Order", (), {"exchange_order_id": None})()
+        fills = await exchange._request_order_fills(order)
+        self.assertEqual([], fills)
+
+    async def test_request_order_fills_and_fills_api_delegates(self):
+        exchange = object.__new__(LighterExchange)
+        order = type("Order", (), {"exchange_order_id": "99"})()
+        exchange._request_order_fills_by_exchange_order_id = AsyncMock(return_value=[{"order_id": "99"}])
+        exchange._request_order_fills_from_trades_api = AsyncMock(return_value=[{"order_id": "99"}])
+
+        fills = await exchange._request_order_fills(order)
+        fills2 = await exchange._request_order_fills_from_fills_api(order)
+        self.assertEqual([{"order_id": "99"}], fills)
+        self.assertEqual([{"order_id": "99"}], fills2)
+
+    async def test_request_trade_updates_and_order_update_delegate(self):
+        exchange = object.__new__(LighterExchange)
+        order_1 = type("Order", (), {"id": "1"})()
+        order_2 = type("Order", (), {"id": "2"})()
+        trade_update = object()
+        exchange._all_trade_updates_for_order = AsyncMock(side_effect=[[trade_update], []])
+        exchange._request_order_status = AsyncMock(return_value="ORDER_UPDATE")
+
+        updates = await exchange._request_trade_updates([order_1, order_2])
+        order_update = await exchange._request_order_update(order_1)
+
+        self.assertEqual([trade_update], updates)
+        self.assertEqual("ORDER_UPDATE", order_update)
+
+    async def test_execute_order_cancel_and_get_last_prices(self):
+        exchange = object.__new__(LighterExchange)
+        order = type("Order", (), {"client_order_id": "HBOT-8"})()
+        exchange._place_cancel = AsyncMock(return_value=True)
+        exchange.get_last_traded_prices = AsyncMock(return_value={"ETH-USDC": 1234.5})
+
+        cancelled = await exchange._execute_order_cancel(order)
+        last_price = await exchange._get_last_traded_price("ETH-USDC")
+        last_trade_price = await exchange._get_last_trade_price("ETH-USDC")
+
+        self.assertEqual("HBOT-8", cancelled)
+        self.assertEqual(1234.5, last_price)
+        self.assertEqual(1234.5, last_trade_price)
+
+    async def test_create_order_fill_updates_and_fee_payment(self):
+        exchange = object.__new__(LighterExchange)
+        order = type("Order", (), {"client_order_id": "HBOT-9"})()
+        exchange._all_trade_updates_for_order = AsyncMock(return_value=["a", "b"])
+
+        updates = await exchange._create_order_fill_updates(order=order, exchange_order_id="1", fee=None)
+        last_fee = await exchange._fetch_last_fee_payment("ETH-USDC")
+
+        self.assertEqual(["a", "b"], updates)
+        self.assertEqual((0, Decimal("0"), Decimal("0")), last_fee)
+
+    async def test_get_all_pairs_prices(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._api_get = AsyncMock(return_value={"data": [{"symbol": "ETH/USDC"}]})
+        pairs = await exchange._get_all_pairs_prices()
+        self.assertEqual([{"symbol": "ETH/USDC"}], pairs)
+
+    async def test_create_trade_fill_updates(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.current_timestamp = 1700000000
+        exchange._get_fee = lambda **kwargs: "FEE"
+
+        inflight_order = type(
+            "InFlightOrder",
+            (),
+            {
+                "client_order_id": "HBOT-10",
+                "exchange_order_id": "500",
+                "trading_pair": "ETH-USDC",
+                "base_asset": "ETH",
+                "quote_asset": "USDC",
+                "order_type": "LIMIT",
+                "trade_type": TradeType.BUY,
+                "amount": Decimal("1"),
+                "price": Decimal("100"),
+            },
+        )()
+
+        fills_data = [{"trade_id": "t-1", "price": "100", "amount": "2", "quote_amount": "200", "timestamp": 1700000001}]
+        updates = exchange._create_trade_fill_updates(inflight_order=inflight_order, fills_data=fills_data)
+
+        self.assertEqual(1, len(updates))
+        self.assertEqual("t-1", updates[0].trade_id)
+        self.assertEqual(Decimal("200"), updates[0].fill_quote_amount)
+
+    async def test_update_orders_with_error_handler(self):
+        exchange = object.__new__(LighterExchange)
+        processed = []
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "process_order_update": lambda self, update: processed.append(("order", update)),
+                "process_trade_update": lambda self, update: processed.append(("trade", update)),
+            },
+        )()
+
+        orders = ["o1", "o2", "o3"]
+
+        async def fetch(order):
+            if order == "o1":
+                return "ORDER_UPDATE"
+            if order == "o2":
+                return [type("DummyTradeUpdate", (), {})()]
+            raise RuntimeError("boom")
+
+        handled = []
+
+        async def on_error(order, err):
+            handled.append((order, str(err)))
+
+        await exchange._update_orders_with_error_handler(orders=orders, fetch_updates=fetch, error_handler=on_error)
+
+        self.assertEqual(1, len(handled))
+        self.assertEqual("o3", handled[0][0])
+
+    async def test_update_lost_orders_and_cancel_lost_orders(self):
+        exchange = object.__new__(LighterExchange)
+        lost_orders = {
+            "1": type("Order", (), {"client_order_id": "1"})(),
+            "2": type("Order", (), {"client_order_id": "2"})(),
+        }
+        exchange._order_tracker = type("Tracker", (), {"lost_orders": lost_orders})()
+        exchange._update_orders_with_error_handler = AsyncMock()
+        exchange._request_order_status = AsyncMock()
+        exchange._handle_update_error_for_lost_order = AsyncMock()
+        exchange._execute_order_cancel = AsyncMock(return_value="")
+
+        await exchange._update_lost_orders()
+        await exchange._cancel_lost_orders()
+
+        self.assertEqual(1, exchange._update_orders_with_error_handler.await_count)
+        self.assertEqual(2, exchange._execute_order_cancel.await_count)
 
     async def test_execute_orders_cancel(self):
         exchange = object.__new__(LighterExchange)
