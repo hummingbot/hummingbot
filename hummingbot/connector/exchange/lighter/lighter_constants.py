@@ -12,7 +12,7 @@ TESTNET_DOMAIN = "lighter_testnet"
 TESTNET_REST_URL = "https://testnet.zklighter.elliot.ai/api/v1"
 TESTNET_WSS_URL = "wss://testnet.zklighter.elliot.ai/stream"
 
-PING_PATH_URL = "/"
+PING_PATH_URL = "/orderBooks"
 EXCHANGE_INFO_PATH_URL = "/orderBooks"
 GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL = "/orderbooks"
 GET_ORDER_HISTORY_PATH_URL = "/accountInactiveOrders"

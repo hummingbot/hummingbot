@@ -192,7 +192,7 @@ class LighterExchange(ExchangePyBase):
     @property
     def authenticator(self) -> LighterAuth:
         return LighterAuth(
-            api_key=self._api_key,
+            api_key=self.rest_api_key,
             api_secret=self._api_secret,
             account_identifier=self._account_index,
         )
@@ -239,7 +239,13 @@ class LighterExchange(ExchangePyBase):
 
     @property
     def rest_api_key(self) -> str:
-        return self._api_key
+        api_key = getattr(self, "_api_key", "")
+        api_secret = getattr(self, "_api_secret", "")
+        if self._is_int_string(api_key):
+            return str(api_key)
+        if self._is_int_string(api_secret):
+            return str(api_secret)
+        return api_key
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
@@ -491,6 +497,7 @@ class LighterExchange(ExchangePyBase):
         response = await self._api_get(
             path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
             params=self._account_query_params(),
+            is_auth_required=True,
             return_err=True,
         )
 

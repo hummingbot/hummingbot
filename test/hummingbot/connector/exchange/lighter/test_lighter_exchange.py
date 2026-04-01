@@ -99,7 +99,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual([OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET], exchange.supported_order_types())
         self.assertEqual("/orderBooks", exchange.trading_rules_request_path)
         self.assertEqual("/orderBooks", exchange.trading_pairs_request_path)
-        self.assertEqual("/", exchange.check_network_request_path)
+        self.assertEqual("/orderBooks", exchange.check_network_request_path)
 
     async def test_refresh_market_metadata_and_get_market_spec(self):
         exchange = object.__new__(LighterExchange)
@@ -215,6 +215,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         exchange = object.__new__(LighterExchange)
         exchange._domain = "lighter"
         exchange._api_key = "k"
+        exchange._api_secret = ""
         exchange._web_assistants_factory = type("Factory", (), {"get_rest_assistant": AsyncMock()})()
         rest = type("Rest", (), {})()
         rest.execute_request = AsyncMock(return_value={"ok": True})
@@ -1016,6 +1017,25 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNotNone(exchange.authenticator)
         self.assertEqual(32, exchange.client_order_id_max_length)
         self.assertEqual("HBOT", exchange.client_order_id_prefix)
+
+    def test_rest_api_key_and_authenticator_use_key_index_when_available(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._account_index = "1"
+
+        exchange._api_key = "7"
+        exchange._api_secret = "private"
+        self.assertEqual("7", exchange.rest_api_key)
+        self.assertEqual("7", exchange.authenticator.api_key)
+
+        exchange._api_key = "private"
+        exchange._api_secret = "8"
+        self.assertEqual("8", exchange.rest_api_key)
+        self.assertEqual("8", exchange.authenticator.api_key)
+
+        exchange._api_key = "api-key"
+        exchange._api_secret = "secret"
+        self.assertEqual("api-key", exchange.rest_api_key)
+        self.assertEqual("api-key", exchange.authenticator.api_key)
 
     async def test_more_branch_paths(self):
         exchange = object.__new__(LighterExchange)
