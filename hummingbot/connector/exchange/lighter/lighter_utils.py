@@ -125,3 +125,15 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
 OTHER_DOMAINS_KEYS = {
     "lighter_testnet": LighterTestnetConfigMap.model_construct(),
 }
+
+
+def is_exchange_information_valid(exchange_info: dict) -> bool:
+    market_type = str(exchange_info.get("market_type", "")).lower()
+    if market_type and market_type != "spot":
+        return False
+
+    status = str(exchange_info.get("status", "")).lower()
+    if status in {"inactive", "disabled", "halted", "suspended", "delisted"}:
+        return False
+
+    return bool(exchange_info.get("symbol"))

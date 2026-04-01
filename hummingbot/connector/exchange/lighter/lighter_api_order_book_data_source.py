@@ -2,7 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.lighter import lighter_constants as CONSTANTS, lighter_web_utils as web_utils
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.connector.exchange.lighter.lighter_order_book import LighterOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -59,14 +59,13 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         order_book_snapshot_data = await self._request_order_book_snapshot(trading_pair)
         timestamp = order_book_snapshot_data["t"] / 1000
-        return OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            {
-                "trading_pair": trading_pair,
+        return LighterOrderBook.snapshot_message_from_exchange(
+            msg={
                 "update_id": order_book_snapshot_data.get("li", order_book_snapshot_data["t"]),
                 "bids": [(bids["p"], bids["a"]) for bids in order_book_snapshot_data["l"][0]],
                 "asks": [(asks["p"], asks["a"]) for asks in order_book_snapshot_data["l"][1]],
             },
+            metadata={"trading_pair": trading_pair},
             timestamp=timestamp,
         )
 
@@ -118,15 +117,14 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if update_id == 0:
             update_id = int(raw_message.get("offset") or order_book.get("offset") or raw_message.get("last_updated_at") or 0)
 
-        snapshot_msg = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            {
-                "trading_pair": trading_pair,
+        snapshot_msg = LighterOrderBook.snapshot_message_from_exchange(
+            msg={
                 "update_id": update_id,
                 "bids": [(bid["price"], bid["size"]) for bid in order_book.get("bids", [])],
                 "asks": [(ask["price"], ask["size"]) for ask in order_book.get("asks", [])],
             },
-            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair},
+            timestamp=snapshot_timestamp,
         )
         message_queue.put_nowait(snapshot_msg)
 
@@ -138,18 +136,12 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
 
         for trade_data in raw_message.get("trades", []):
-            is_maker_ask = bool(trade_data.get("is_maker_ask"))
-            message_content = {
-                "trade_id": trade_data.get("trade_id") or trade_data.get("trade_id_str"),
-                "update_id": trade_data.get("nonce") or raw_message.get("nonce") or trade_data.get("trade_id"),
-                "trading_pair": trading_pair,
-                "trade_type": float(TradeType.BUY.value) if is_maker_ask else float(TradeType.SELL.value),
-                "amount": trade_data.get("size", "0"),
-                "price": trade_data.get("price", "0"),
-            }
-            trade_message = OrderBookMessage(
-                message_type=OrderBookMessageType.TRADE,
-                content=message_content,
+            trade_message = LighterOrderBook.trade_message_from_exchange(
+                msg={
+                    **trade_data,
+                    "nonce": trade_data.get("nonce") or raw_message.get("nonce"),
+                },
+                metadata={"trading_pair": trading_pair},
                 timestamp=float(raw_message.get("timestamp") or 0) / 1000,
             )
             message_queue.put_nowait(trade_message)
@@ -166,15 +158,14 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if update_id == 0:
             update_id = int(raw_message.get("offset") or order_book.get("offset") or 0)
 
-        diff_message = OrderBookMessage(
-            OrderBookMessageType.DIFF,
-            {
-                "trading_pair": trading_pair,
+        diff_message = LighterOrderBook.diff_message_from_exchange(
+            msg={
                 "update_id": update_id,
                 "first_update_id": int(order_book.get("begin_nonce") or update_id),
                 "bids": [(bid["price"], bid["size"]) for bid in order_book.get("bids", [])],
                 "asks": [(ask["price"], ask["size"]) for ask in order_book.get("asks", [])],
             },
+            metadata={"trading_pair": trading_pair},
             timestamp=float(raw_message.get("timestamp") or 0) / 1000,
         )
         message_queue.put_nowait(diff_message)
