@@ -1006,6 +1006,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         exchange._account_index = "1"
 
         self.assertFalse(LighterExchange._is_int_string(BadStr()))
+        self.assertFalse(LighterExchange._is_int_string(None))
         self.assertFalse(LighterExchange._is_ok_response({"code": BadInt()}))
         self.assertIsNone(LighterExchange._account_from_response({"data": []}))
         self.assertFalse(exchange._is_request_exception_related_to_time_synchronizer(Exception("x")))
@@ -1092,3 +1093,236 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         agen = exchange._iter_user_event_queue()
         with self.assertRaises(asyncio.CancelledError):
             await agen.__anext__()
+
+    def test_rate_limits_property(self):
+        exchange = object.__new__(LighterExchange)
+        self.assertTrue(len(exchange.rate_limits_rules) > 0)
+
+    async def test_targeted_remaining_branches(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._domain = "lighter"
+        exchange._account_index = "1"
+        exchange.current_timestamp = 1700000000
+
+        exchange._market_id_by_symbol = {}
+        exchange._size_decimals_by_symbol = {}
+        exchange._price_decimals_by_symbol = {}
+        exchange._api_get = AsyncMock(return_value={"data": [{"symbol": "ETH/USDC", "market_type": "perp", "market_id": 1}, {"market_type": "spot", "market_id": 2}]})
+        await exchange._refresh_market_metadata()
+
+        exchange._get_market_spec = AsyncMock(return_value=(1, 2, 2, "ETH/USDC"))
+        exchange._get_api_key_index = lambda: 1
+        signer = type("Signer", (), {
+            "ORDER_TYPE_LIMIT": 1,
+            "ORDER_TYPE_MARKET": 2,
+            "ORDER_TIME_IN_FORCE_GOOD_TILL_TIME": 10,
+            "ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL": 11,
+            "ORDER_TIME_IN_FORCE_POST_ONLY": 12,
+            "DEFAULT_28_DAY_ORDER_EXPIRY": 100,
+            "DEFAULT_IOC_EXPIRY": 101,
+        })()
+        signer.create_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 500})(), None))
+        signer.cancel_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 500})(), None))
+        exchange._get_lighter_signer_client = lambda: signer
+
+        with self.assertRaises(IOError):
+            await exchange._place_order("x", "ETH-USDC", Decimal("1"), TradeType.BUY, OrderType.LIMIT, Decimal("1"))
+        with self.assertRaises(IOError):
+            await exchange._place_cancel("x", type("Order", (), {"trading_pair": "ETH-USDC", "exchange_order_id": "1"})())
+
+        with self.assertRaises(ValueError):
+            await exchange._place_order("x", "ETH-USDC", Decimal("1"), TradeType.BUY, "UNSUPPORTED", Decimal("1"))
+
+        signer.create_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 200})(), None))
+        await exchange._place_order("x", "ETH-USDC", Decimal("1"), TradeType.BUY, OrderType.LIMIT_MAKER, Decimal("1"))
+
+        exchange._order_tracker = type("Tracker", (), {"all_updatable_orders": {}, "all_fillable_orders_by_exchange_order_id": {"7": type("T", (), {"client_order_id": "c", "exchange_order_id": "7", "trading_pair": "ETH-USDC"})()}, "all_fillable_orders": {}})()
+        order_update = exchange._order_update_from_raw_message({"order_id": "7", "updated_at": 1700000000123})
+        self.assertIsNotNone(order_update)
+
+        exchange._order_tracker = type("Tracker", (), {"all_updatable_orders": {}, "all_fillable_orders_by_exchange_order_id": {}, "all_fillable_orders": {}})()
+        self.assertIsNone(exchange._order_update_from_raw_message({"order_id": "unknown"}))
+        self.assertIsNone(exchange._trade_update_from_raw_message({"order_id": "unknown"}))
+
+        rules = await exchange._format_trading_rules({"data": [{"market_type": "spot"}]})
+        self.assertEqual([], rules)
+
+        exchange._account_balances = {}
+        exchange._account_available_balances = {}
+        exchange._account_query_params = lambda: {"by": "index", "value": "1"}
+
+        class Logger:
+            def error(self, *args, **kwargs):
+                return None
+
+        exchange.logger = lambda: Logger()
+        exchange._api_get = AsyncMock(return_value={"success": False})
+        await exchange._update_balances()
+        exchange._api_get = AsyncMock(return_value={"success": True, "data": []})
+        await exchange._update_balances()
+        exchange._api_get = AsyncMock(return_value={"success": True, "data": {"assets": [{"locked_balance": "1", "balance": "1"}]}})
+        await exchange._update_balances()
+
+        exchange._order_history_last_poll_timestamp = {"42": 1700000001}
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        exchange._api_get = AsyncMock(return_value={"success": True, "data": [{"order_id": "42", "history_id": "h", "price": "1", "amount": "1", "created_at": 1000}], "has_more": False})
+        order = type("Order", (), {"exchange_order_id": "42", "creation_timestamp": 1700000000, "quote_asset": "USDC", "trade_type": TradeType.BUY, "client_order_id": "c", "trading_pair": "ETH-USDC"})()
+        updates = await exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(updates))
+
+        exchange._throttler = object()
+        exchange._auth = object()
+        exchange._web_assistants_factory = object()
+        exchange._trading_pairs = ["ETH-USDC"]
+        self.assertIsNotNone(exchange._create_web_assistants_factory())
+        self.assertIsNotNone(exchange._create_order_book_data_source())
+        self.assertIsNotNone(exchange._create_user_stream_data_source())
+
+        captured = {}
+        exchange._set_trading_pair_symbol_map = lambda m: captured.update(m)
+        exchange._initialize_trading_pair_symbols_from_exchange_info({"data": [{"market_type": "spot"}, {"symbol": "A/B", "market_type": "perp"}]})
+        self.assertEqual({}, captured)
+
+        exchange._api_request = AsyncMock(return_value={"data": [{"index_price": "1"}, {"symbol": "ETH/USDC", "index_price": "2"}]})
+        exchange.trading_pair_associated_to_exchange_symbol = AsyncMock(side_effect=KeyError("x"))
+        prices = await exchange.get_last_traded_prices(["ETH-USDC"])
+        self.assertEqual({}, prices)
+
+    async def test_final_branch_closures(self):
+        exchange = object.__new__(LighterExchange)
+
+        class Rest:
+            async def execute_request(self, **kwargs):
+                return {"ok": True, "headers": kwargs.get("headers")}
+
+        exchange._web_assistants_factory = type("F", (), {"get_rest_assistant": AsyncMock(return_value=Rest())})()
+        exchange._domain = "lighter"
+        exchange._api_key = "k"
+
+        # Cover false auth-header branch in _api_request
+        response = await exchange._api_request(path_url="/orderBooks", method=RESTMethod.GET, is_auth_required=False)
+        self.assertEqual({"ok": True, "headers": {}}, response)
+
+        # Cover last_price None branch in get_last_traded_prices and loop back-edge
+        exchange._api_request = AsyncMock(return_value={"data": [{"symbol": "ETH/USDC"}, {"symbol": "ETH/USDC", "index_price": "1"}]})
+        exchange.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="ETH-USDC")
+        prices = await exchange.get_last_traded_prices(["ETH-USDC"])
+        self.assertEqual({"ETH-USDC": 1.0}, prices)
+
+        # Cover order_id not provided branch in _request_order_fills_from_trades_api
+        exchange._account_index = "1"
+        exchange._api_get = AsyncMock(return_value={"success": True, "data": []})
+        await exchange._request_order_fills_from_trades_api(type("O", (), {"exchange_order_id": None})())
+
+        # Cover unmatched exchange_order_id branch in _update_order_fills_from_trades
+        exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL = 1
+        exchange.LONG_POLL_INTERVAL = 120
+        exchange._last_poll_timestamp = 0
+        exchange.current_timestamp = 10
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        tracked = type("Tracked", (), {"exchange_order_id": "7", "trade_type": TradeType.BUY, "quote_asset": "USDC", "client_order_id": "c", "trading_pair": "ETH-USDC"})()
+        captured = []
+        exchange._order_tracker = type("Tracker", (), {"all_fillable_orders": {"c": tracked}, "process_trade_update": lambda self, u: captured.append(u), "active_orders": {"c": tracked}})()
+        exchange._api_get = AsyncMock(return_value={"data": [{"order_id": "x"}, {"order_id": "7", "h": "t", "a": "1", "q": "1", "p": "1", "t": 1000}]})
+        await exchange._update_order_fills_from_trades()
+        self.assertEqual(1, len(captured))
+
+        # Cover process_balance missing symbol continue path
+        exchange._account_balances = {}
+        exchange._account_available_balances = {}
+        exchange._process_balance_message_from_account({"assets": [{"balance": "1", "locked_balance": "0"}]})
+
+        # Cover user stream non-dict continue and inner CancelledError raise path
+        exchange._trade_update_from_raw_message = lambda _: (_ for _ in ()).throw(asyncio.CancelledError())
+        exchange._order_update_from_raw_message = lambda _: None
+        exchange._process_balance_message_from_account = lambda _: None
+        exchange._order_tracker = type("Tracker", (), {"process_trade_update": lambda self, u: None, "process_order_update": lambda self, u: None})()
+
+        async def events():
+            yield "invalid"
+            yield {"trades": [{"trade_id": "t"}]}
+
+        exchange._iter_user_event_queue = events
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._user_stream_event_listener()
+
+    async def test_trade_update_seconds_timestamp_path_and_user_stream_loop_back_edges(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        exchange.current_timestamp = 1700000000
+
+        tracked_order = type(
+            "TrackedOrder",
+            (),
+            {
+                "client_order_id": "HBOT-17",
+                "exchange_order_id": "88",
+                "trading_pair": "ETH-USDC",
+                "quote_asset": "USDC",
+                "trade_type": TradeType.BUY,
+            },
+        )()
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "all_fillable_orders": {"HBOT-17": tracked_order},
+                "all_fillable_orders_by_exchange_order_id": {"88": tracked_order},
+                "process_trade_update": lambda self, _: None,
+                "process_order_update": lambda self, _: None,
+            },
+        )()
+
+        # keep created_at in seconds so the if fill_timestamp > 1e12 branch is false
+        update = exchange._trade_update_from_raw_message(
+            {
+                "client_order_id": "HBOT-17",
+                "order_id": "88",
+                "trade_id": "t-seconds",
+                "price": "1",
+                "amount": "2",
+                "created_at": 1000,
+            }
+        )
+        self.assertEqual(1000.0, update.fill_timestamp)
+
+        exchange._process_balance_message_from_account = lambda _: None
+        exchange._trade_update_from_raw_message = lambda _: "TRADE_UPDATE"
+        exchange._order_update_from_raw_message = lambda _: "ORDER_UPDATE"
+
+        async def events():
+            yield {
+                "trades": [{"trade_id": "t1"}, {"trade_id": "t2"}],
+                "orders": [{"order_id": "o1"}, {"order_id": "o2"}],
+            }
+            raise asyncio.CancelledError
+
+        exchange._iter_user_event_queue = events
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._user_stream_event_listener()
+
+    async def test_user_stream_none_update_branches(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._process_balance_message_from_account = lambda _: None
+        exchange._trade_update_from_raw_message = lambda _: None
+        exchange._order_update_from_raw_message = lambda _: None
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "process_trade_update": lambda self, _: None,
+                "process_order_update": lambda self, _: None,
+            },
+        )()
+        exchange._sleep = AsyncMock()
+
+        async def events():
+            yield {
+                "trades": [{"trade_id": "t1"}, {"trade_id": "t2"}],
+                "orders": [{"order_id": "o1"}, {"order_id": "o2"}],
+            }
+            raise asyncio.CancelledError
+
+        exchange._iter_user_event_queue = events
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._user_stream_event_listener()
