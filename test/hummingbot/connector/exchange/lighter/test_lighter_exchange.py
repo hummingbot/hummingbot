@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import types
 import unittest
@@ -66,7 +67,7 @@ if "hummingbot.core.network_iterator" not in sys.modules:
 
 try:
     from hummingbot.connector.exchange.lighter.lighter_exchange import LighterExchange
-    from hummingbot.core.data_type.in_flight_order import OrderState
+    from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
     _LIGHTER_EXCHANGE_AVAILABLE = True
 except ModuleNotFoundError:
     _LIGHTER_EXCHANGE_AVAILABLE = False
@@ -244,6 +245,276 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(1, exchange._update_balances.await_count)
         self.assertEqual(1, exchange._update_order_status.await_count)
         self.assertEqual(1, exchange._update_lost_orders_status.await_count)
+
+    def test_get_lighter_signer_client_builds_once(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._lighter_signer_client = None
+        exchange._api_host_for_signer = lambda: "https://mainnet.zklighter.elliot.ai"
+        exchange._get_account_index = lambda: 693751
+        exchange._get_api_key_index = lambda: 7
+        exchange._get_signer_private_key = lambda: "0xabc"
+
+        fake_lighter = types.ModuleType("lighter")
+
+        class SignerClient:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        fake_lighter.signer_client = type("SignerModule", (), {"SignerClient": SignerClient})
+        sys.modules["lighter"] = fake_lighter
+
+        client_1 = exchange._get_lighter_signer_client()
+        client_2 = exchange._get_lighter_signer_client()
+
+        self.assertIs(client_1, client_2)
+        self.assertEqual(693751, client_1.kwargs["account_index"])
+        self.assertEqual({7: "0xabc"}, client_1.kwargs["api_private_keys"])
+
+    async def test_update_trading_fees_noop(self):
+        exchange = object.__new__(LighterExchange)
+        self.assertIsNone(await exchange._update_trading_fees())
+
+    async def test_user_stream_event_listener_processes_messages(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._process_balance_message_from_account = lambda _: None
+        exchange._trade_update_from_raw_message = lambda _: "TRADE_UPDATE"
+        exchange._order_update_from_raw_message = lambda _: "ORDER_UPDATE"
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "process_trade_update": lambda self, _: None,
+                "process_order_update": lambda self, _: None,
+            },
+        )()
+        exchange._sleep = AsyncMock()
+
+        async def events():
+            yield {
+                "data": {"assets": []},
+                "trades": [{"trade_id": "t1"}],
+                "orders": [{"order_id": "o1"}],
+            }
+            raise asyncio.CancelledError
+
+        exchange._iter_user_event_queue = events
+
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._user_stream_event_listener()
+
+    async def test_user_stream_event_listener_handles_exception(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._process_balance_message_from_account = lambda _: None
+
+        def failing_trade(_):
+            raise RuntimeError("boom")
+
+        exchange._trade_update_from_raw_message = failing_trade
+        exchange._order_update_from_raw_message = lambda _: None
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "process_trade_update": lambda self, _: None,
+                "process_order_update": lambda self, _: None,
+            },
+        )()
+        exchange._sleep = AsyncMock()
+
+        class Logger:
+            def error(self, *args, **kwargs):
+                return None
+
+        exchange.logger = lambda: Logger()
+
+        async def events():
+            yield {"trades": [{"trade_id": "t1"}]}
+            raise asyncio.CancelledError
+
+        exchange._iter_user_event_queue = events
+
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._user_stream_event_listener()
+
+        self.assertEqual(1, exchange._sleep.await_count)
+
+    async def test_all_trade_updates_for_order_handles_pagination(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._account_index = "693751"
+        exchange.current_timestamp = 1700001000
+        exchange._order_history_last_poll_timestamp = {}
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        exchange._api_get = AsyncMock(
+            side_effect=[
+                {
+                    "success": True,
+                    "data": [
+                        {"order_id": "x", "history_id": "h0", "price": "1", "amount": "1", "created_at": 1000},
+                        {
+                            "order_id": "42",
+                            "history_id": "h1",
+                            "price": "2",
+                            "amount": "3",
+                            "fee": "0.1",
+                            "created_at": 2000,
+                            "event_type": "fulfill_taker",
+                        },
+                    ],
+                    "has_more": True,
+                    "next_cursor": "cur1",
+                },
+                {"success": True, "data": [], "has_more": False},
+            ]
+        )
+
+        order = type(
+            "Order",
+            (),
+            {
+                "exchange_order_id": "42",
+                "creation_timestamp": 1700000000,
+                "quote_asset": "USDC",
+                "trade_type": TradeType.BUY,
+                "client_order_id": "HBOT-11",
+                "trading_pair": "ETH-USDC",
+            },
+        )()
+
+        updates = await exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(updates))
+        self.assertEqual("h1", updates[0].trade_id)
+        self.assertTrue(updates[0].is_taker)
+        self.assertIn("42", exchange._order_history_last_poll_timestamp)
+
+    async def test_request_order_status_raises_on_error(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._api_get = AsyncMock(return_value={"success": False, "code": 500})
+        tracked_order = type(
+            "TrackedOrder",
+            (),
+            {
+                "client_order_id": "HBOT-12",
+                "exchange_order_id": "600",
+                "trading_pair": "ETH-USDC",
+                "current_state": OrderState.OPEN,
+            },
+        )()
+
+        with self.assertRaises(IOError):
+            await exchange._request_order_status(tracked_order)
+
+    def test_get_fee_returns_zero_fee(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        fee = exchange._get_fee(
+            base_currency="ETH",
+            quote_currency="USDC",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+        )
+        self.assertIsNotNone(fee)
+
+    async def test_update_order_fills_from_trades_processes_trade(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL = 1
+        exchange.LONG_POLL_INTERVAL = 120
+        exchange._last_poll_timestamp = 0
+        exchange.current_timestamp = 10
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+
+        tracked_order = type(
+            "TrackedOrder",
+            (),
+            {
+                "exchange_order_id": "77",
+                "trade_type": TradeType.BUY,
+                "quote_asset": "USDC",
+                "client_order_id": "HBOT-13",
+                "trading_pair": "ETH-USDC",
+            },
+        )()
+        captured = []
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "all_fillable_orders": {"HBOT-13": tracked_order},
+                "process_trade_update": lambda self, update: captured.append(update),
+                "active_orders": {"HBOT-13": tracked_order},
+            },
+        )()
+        exchange._api_get = AsyncMock(
+            return_value={
+                "data": [
+                    {"order_id": "77", "h": "t1", "a": "1", "q": "2", "p": "2", "t": 1000},
+                ]
+            }
+        )
+
+        await exchange._update_order_fills_from_trades()
+        self.assertEqual(1, len(captured))
+
+    async def test_update_order_fills_from_trades_no_poll(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL = 1
+        exchange.LONG_POLL_INTERVAL = 120
+        exchange._last_poll_timestamp = 10
+        exchange.current_timestamp = 10
+        exchange._order_tracker = type("Tracker", (), {"all_fillable_orders": {}, "active_orders": {}})()
+        exchange._api_get = AsyncMock(return_value={"data": []})
+
+        await exchange._update_order_fills_from_trades()
+        self.assertEqual(0, exchange._api_get.await_count)
+
+    async def test_update_order_status_delegates(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._order_tracker = type("Tracker", (), {"active_orders": {"k": "v"}})()
+        exchange._update_orders_fills = AsyncMock()
+        exchange._update_orders = AsyncMock()
+
+        await exchange._update_order_status()
+
+        self.assertEqual(1, exchange._update_orders_fills.await_count)
+        self.assertEqual(1, exchange._update_orders.await_count)
+
+    async def test_update_orders_fills_processes_each_trade_update(self):
+        exchange = object.__new__(LighterExchange)
+        order = object()
+        exchange._all_trade_updates_for_order = AsyncMock(return_value=["u1", "u2"])
+        processed = []
+        exchange._order_tracker = type("Tracker", (), {"process_trade_update": lambda self, update: processed.append(update)})()
+
+        await exchange._update_orders_fills([order])
+
+        self.assertEqual(["u1", "u2"], processed)
+
+    async def test_update_orders_processes_order_updates(self):
+        exchange = object.__new__(LighterExchange)
+        tracked_order = object()
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "active_orders": {"o": tracked_order},
+                "process_order_update": lambda self, update: None,
+            },
+        )()
+        exchange._request_order_status = AsyncMock(return_value="ORDER_UPDATE")
+
+        await exchange._update_orders()
+        self.assertEqual(1, exchange._request_order_status.await_count)
+
+    async def test_iter_user_event_queue_yields_message(self):
+        exchange = object.__new__(LighterExchange)
+        q = asyncio.Queue()
+        q.put_nowait({"event": 1})
+        exchange._user_stream_tracker = type("UST", (), {"user_stream": q})()
+
+        agen = exchange._iter_user_event_queue()
+        message = await agen.__anext__()
+        self.assertEqual({"event": 1}, message)
     def test_hb_pair_from_symbol_variants(self):
         self.assertEqual("ETH-USDC", LighterExchange._hb_pair_from_symbol("ETH/USDC"))
         self.assertEqual("BTC-USDC", LighterExchange._hb_pair_from_symbol("BTC-USDC"))
@@ -718,3 +989,106 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(OrderState.CANCELED, exchange._state_from_raw_order_status("canceled"))
         self.assertEqual(OrderState.PARTIALLY_FILLED, exchange._state_from_raw_order_status("partially_filled"))
         self.assertEqual(OrderState.OPEN, exchange._state_from_raw_order_status("unknown"))
+
+    def test_misc_helper_branches(self):
+        class BadStr:
+            def __str__(self):
+                raise RuntimeError("bad")
+
+        class BadInt:
+            def __int__(self):
+                raise RuntimeError("bad")
+
+        exchange = object.__new__(LighterExchange)
+        exchange._domain = "lighter"
+        exchange._api_key = "api"
+        exchange._api_secret = "sec"
+        exchange._account_index = "1"
+
+        self.assertFalse(LighterExchange._is_int_string(BadStr()))
+        self.assertFalse(LighterExchange._is_ok_response({"code": BadInt()}))
+        self.assertIsNone(LighterExchange._account_from_response({"data": []}))
+        self.assertFalse(exchange._is_request_exception_related_to_time_synchronizer(Exception("x")))
+        self.assertFalse(exchange._is_order_not_found_during_status_update_error(Exception("x")))
+        self.assertFalse(exchange._is_order_not_found_during_cancelation_error(Exception("x")))
+        self.assertEqual("ABC", exchange._hb_pair_from_symbol("ABC"))
+        self.assertIsNotNone(exchange.authenticator)
+        self.assertEqual(32, exchange.client_order_id_max_length)
+        self.assertEqual("HBOT", exchange.client_order_id_prefix)
+
+    async def test_more_branch_paths(self):
+        exchange = object.__new__(LighterExchange)
+        exchange.current_timestamp = 1700000000
+        exchange.trade_fee_schema = lambda: TradeFeeSchema()
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "all_updatable_orders": {},
+                "all_fillable_orders_by_exchange_order_id": {},
+                "all_fillable_orders": {},
+                "process_order_update": lambda self, update: None,
+                "process_trade_update": lambda self, update: None,
+                "active_orders": {},
+                "lost_orders": {},
+            },
+        )()
+
+        self.assertIsNone(exchange._order_update_from_raw_message({"order_id": "x"}))
+        self.assertIsNone(exchange._trade_update_from_raw_message({"order_id": "x"}))
+
+        class Logger:
+            def warning(self, *args, **kwargs):
+                return None
+            def error(self, *args, **kwargs):
+                return None
+
+        exchange.logger = lambda: Logger()
+        await exchange._handle_update_error_for_active_order(type("O", (), {"client_order_id": "1"})(), RuntimeError("e"))
+        await exchange._handle_update_error_for_lost_order(type("O", (), {"client_order_id": "1"})(), RuntimeError("e"))
+
+        exchange._place_cancel = AsyncMock(return_value=False)
+        result = await exchange._execute_order_cancel(type("O", (), {"client_order_id": "X"})())
+        self.assertEqual("", result)
+
+    async def test_instance_type_branches_in_update_handler_and_iter_cancel(self):
+        exchange = object.__new__(LighterExchange)
+        processed_orders = []
+        processed_trades = []
+        exchange._order_tracker = type(
+            "Tracker",
+            (),
+            {
+                "process_order_update": lambda self, update: processed_orders.append(update),
+                "process_trade_update": lambda self, update: processed_trades.append(update),
+            },
+        )()
+
+        order_update = OrderUpdate(client_order_id="c", exchange_order_id="e", trading_pair="ETH-USDC", update_timestamp=1, new_state=OrderState.OPEN)
+        trade_update = TradeUpdate(trade_id="t", client_order_id="c", exchange_order_id="e", trading_pair="ETH-USDC", fill_timestamp=1, fill_price=Decimal("1"), fill_base_amount=Decimal("1"), fill_quote_amount=Decimal("1"), fee=None)
+
+        async def fetch_order(_):
+            return order_update
+        async def fetch_trade(_):
+            return [trade_update]
+        async def fetch_cancel(_):
+            raise asyncio.CancelledError
+        async def on_error(_, __):
+            return None
+
+        await exchange._update_orders_with_error_handler(["a"], fetch_order, on_error)
+        await exchange._update_orders_with_error_handler(["b"], fetch_trade, on_error)
+        with self.assertRaises(asyncio.CancelledError):
+            await exchange._update_orders_with_error_handler(["c"], fetch_cancel, on_error)
+
+        self.assertEqual(1, len(processed_orders))
+        self.assertEqual(1, len(processed_trades))
+
+        class BadQueue:
+            async def get(self):
+                raise asyncio.CancelledError
+
+        exchange._user_stream_tracker = type("UST", (), {"user_stream": BadQueue()})()
+        agen = exchange._iter_user_event_queue()
+        with self.assertRaises(asyncio.CancelledError):
+            await agen.__anext__()
