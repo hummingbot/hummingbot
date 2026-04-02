@@ -30,13 +30,14 @@ CONDA_ENV=hummingbot
         "test",
         // "-v",  // optional: verbose output
 
-        // From MakeFile (currently broken tests - KEEP UPDATED)
+        // From Makefile (keep this list aligned with `make test`)
+        "--ignore=test/mock",
         "--ignore=test/hummingbot/connector/derivative/dydx_v4_perpetual/",
-        "--ignore=test/hummingbot/connector/derivative/injective_v2_perpetual/",
-        "--ignore=test/hummingbot/connector/exchange/injective_v2/",
+        "--ignore=test/hummingbot/connector/exchange/ndax/",
         "--ignore=test/hummingbot/remote_iface/",
         "--ignore=test/connector/utilities/oms_connector/",
         "--ignore=test/hummingbot/strategy/amm_arb/",
+        "--ignore=test/hummingbot/strategy/cross_exchange_market_making/",
 
         // Skip prompt tests that modify conf_client.yml
         "--ignore=test/hummingbot/client/command/test_create_command.py",
@@ -109,7 +110,7 @@ CONDA_ENV=hummingbot
 
 **VI. Notes on Ignored Tests:**
 
-* **Broken Tests (Makefile):** The `--ignore` flags in `settings.json` exclude tests that are currently known to be broken (as indicated in the project's `Makefile`). **It is crucial to regularly review and update this list if the status of these tests changes.**
+* **Ignored Tests (Makefile):** The `--ignore` flags in `settings.json` mirror the current exclusions in the project's `Makefile`. **Review and update this list whenever `make test` changes so IDE test discovery stays aligned with the repo's documented test entrypoint.**
 * **`test_create_command.py`:** Tests in `test_create_command.py` are ignored because they modify the `conf_client.yml` file. Running these tests locally can potentially interfere with your Hummingbot configuration. If you make changes that could affect these commands, ensure your Pull Request (PR) will pass the automated tests, as they might be run in the CI environment.
 
 By following these steps, you can effectively use VS Code or Cursor to run and debug Hummingbot tests, leveraging the IDE's features for a more integrated and potentially more efficient testing experience, especially when debugging is required. Remember to keep the ignored tests list up-to-date with the `Makefile` to maintain consistency.
