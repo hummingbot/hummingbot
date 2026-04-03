@@ -526,7 +526,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(idx_1, idx_2)
         self.assertGreaterEqual(idx_1, 0)
-        self.assertLessEqual(idx_1, 0x7FFFFFFFFFFFFFFF)
+        self.assertLessEqual(idx_1, (1 << 48) - 1)
 
     def test_get_signer_private_key_precedence_and_validation(self):
         exchange = object.__new__(LighterExchange)

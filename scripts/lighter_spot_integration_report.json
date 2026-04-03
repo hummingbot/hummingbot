@@ -1,0 +1,29 @@
+{
+  "timestamp": 1775209343,
+  "network": "mainnet",
+  "account_index": 693751,
+  "symbol": "LIT/USDC",
+  "market_id": 2049,
+  "client_order_index": 85043664844421,
+  "checks": {
+    "signer_check": "PASS",
+    "create_code": 200,
+    "cancel_code": 200,
+    "locked_increased_after_create": "True",
+    "locked_restored_after_cancel": "True",
+    "order_count_restored_after_cancel": "True"
+  },
+  "balances": {
+    "quote_asset": "USDC",
+    "before_locked": "0.000000",
+    "during_locked": "0.001000",
+    "after_locked": "0.000000",
+    "before_order_count": 0,
+    "during_order_count": 1,
+    "after_order_count": 0
+  },
+  "tx_hashes": {
+    "create_tx_hash": "ddf4a2e2e452a9fb400ea74e49aebb1a6bbf6bbc3b5ab6ccb7e24372b720234b57e7c3063d6577db",
+    "cancel_tx_hash": "1a5651833e8fd771080a1e316c72a81f1ae754d570b00df17a02b2a84b50197306e2a0fa0f601276"
+  }
+}

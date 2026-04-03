@@ -67,7 +67,8 @@ class LighterExchange(ExchangePyBase):
     @staticmethod
     def _client_order_index_from_order_id(order_id: str) -> int:
         digest = hashlib.sha256(order_id.encode()).digest()
-        return int.from_bytes(digest[:8], byteorder="big", signed=False) & 0x7FFFFFFFFFFFFFFF
+        # Lighter API enforces client_order_index <= 2^48-1 (281474976710655)
+        return int.from_bytes(digest[:8], byteorder="big", signed=False) & ((1 << 48) - 1)
 
     @staticmethod
     def _is_int_string(value: str) -> bool:

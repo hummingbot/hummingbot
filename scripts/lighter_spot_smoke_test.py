@@ -14,6 +14,7 @@ Verification criteria:
 """
 import asyncio
 import hashlib
+import json
 import os
 import sys
 import time
@@ -55,6 +56,7 @@ ACCT_INDEX = int(os.environ["lighter_perpetual_account_index"])
 SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {
     "LIT/USDC": Decimal("0.0010"),
 }
+REPORT_PATH = Path(__file__).with_name("lighter_spot_integration_report.json")
 
 
 def client_order_index_from_order_id(tag: str) -> int:
@@ -133,6 +135,22 @@ def compute_order_amounts(book: Dict, bid_price: Decimal) -> Tuple[int, int]:
     return base_amount, price_scaled
 
 
+def _extract_tx_hash(obj: object) -> str:
+    if obj is None:
+        return ""
+    if isinstance(obj, dict):
+        for key in ("tx_hash", "txHash", "hash"):
+            value = obj.get(key)
+            if value:
+                return str(value)
+        return ""
+    for attr in ("tx_hash", "txHash", "hash"):
+        value = getattr(obj, attr, None)
+        if value:
+            return str(value)
+    return ""
+
+
 async def main():
     timeout = aiohttp.ClientTimeout(total=30)
     connector = aiohttp.TCPConnector(family=2)
@@ -166,7 +184,7 @@ async def main():
         print(f"[3] signer check OK account_index={ACCT_INDEX}")
 
         api_key_index, nonce = signer.nonce_manager.next_nonce()
-        _, create_resp, create_err = await signer.create_order(
+        create_tx, create_resp, create_err = await signer.create_order(
             market_index=market_id,
             client_order_index=client_order_index,
             base_amount=base_amount,
@@ -198,7 +216,7 @@ async def main():
             )
 
         api_key_index, nonce = signer.nonce_manager.next_nonce(api_key_index)
-        _, cancel_resp, cancel_err = await signer.cancel_order(
+        cancel_tx, cancel_resp, cancel_err = await signer.cancel_order(
             market_index=market_id,
             order_index=client_order_index,
             nonce=nonce,
@@ -216,6 +234,38 @@ async def main():
         after_locked = after_balances.get(quote_asset, (Decimal("0"), Decimal("0")))[1]
         after_orders = int(after.get("total_order_count") or 0)
         print(f"[7] after cancel: total_order_count={after_orders} {quote_asset}.locked={after_locked}")
+
+        report = {
+            "timestamp": int(time.time()),
+            "network": "mainnet",
+            "account_index": ACCT_INDEX,
+            "symbol": symbol,
+            "market_id": market_id,
+            "client_order_index": client_order_index,
+            "checks": {
+                "signer_check": "PASS",
+                "create_code": getattr(create_resp, "code", None),
+                "cancel_code": getattr(cancel_resp, "code", None),
+                "locked_increased_after_create": str(during_locked > before_locked),
+                "locked_restored_after_cancel": str(after_locked == before_locked),
+                "order_count_restored_after_cancel": str(after_orders == before_orders),
+            },
+            "balances": {
+                "quote_asset": quote_asset,
+                "before_locked": str(before_locked),
+                "during_locked": str(during_locked),
+                "after_locked": str(after_locked),
+                "before_order_count": before_orders,
+                "during_order_count": during_orders,
+                "after_order_count": after_orders,
+            },
+            "tx_hashes": {
+                "create_tx_hash": _extract_tx_hash(create_tx) or _extract_tx_hash(create_resp),
+                "cancel_tx_hash": _extract_tx_hash(cancel_tx) or _extract_tx_hash(cancel_resp),
+            },
+        }
+        REPORT_PATH.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print(f"[8] report written: {REPORT_PATH}")
 
         await signer.close()
 
