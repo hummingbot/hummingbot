@@ -406,7 +406,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         """
         e.g.
         {"success":false,"data":null,"error":"Failed to cancel order","code":5}
-        https://docs.LIGHTER.fi/api-documentation/api/error-codes
+        https://apidocs.lighter.xyz/docs/data-structures-constants-and-errors
 
         """
         return '"code":5' in str(cancelation_exception)
@@ -435,7 +435,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-market-info
+        https://apidocs.lighter.xyz/reference/orderbooks
 
         {
             "success": true,
@@ -532,8 +532,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/create-market-order
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/create-limit-order
+        https://apidocs.lighter.xyz/reference/sendtx
+        https://apidocs.lighter.xyz/reference/sendtx
         """
 
         if order_type not in self.supported_order_types():
@@ -597,7 +597,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/cancel-order
+        https://apidocs.lighter.xyz/reference/sendtx
         """
         market_id, _, _, _ = await self._get_market_spec(tracked_order.trading_pair)
         signer_client = self._get_lighter_signer_client()
@@ -648,7 +648,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_balances(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-account-info
+        https://apidocs.lighter.xyz/reference/account
         ```
         {
           "success": true,
@@ -707,7 +707,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_positions(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-positions
+        https://apidocs.lighter.xyz/reference/account
         Positions Info
         ```
           {
@@ -731,7 +731,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         }
         ```
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-prices
+        https://apidocs.lighter.xyz/reference/exchangestats
         Prices Info
         ```
          {
@@ -857,7 +857,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         Retrieves trade updates for a specific order using the account trade history endpoint.
         Uses the order's creation timestamp as the start time to filter the trade history.
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-trade-history
+        https://apidocs.lighter.xyz/reference/trades
 
         Example API response:
         ```
@@ -971,7 +971,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/get-order-history-by-id
+        https://apidocs.lighter.xyz/reference/accountinactiveorders
 
         Example API response:
         ```
@@ -1049,7 +1049,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-candle-data
+        https://apidocs.lighter.xyz/reference/candles
 
         Example API response:
         ```
@@ -1110,7 +1110,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_trading_fees(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-account-info
+        https://apidocs.lighter.xyz/reference/account
         ```
         {
           "success": true,
@@ -1172,7 +1172,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-funding-history
+        https://apidocs.lighter.xyz/reference/fundings
 
         Example API response:
             {
@@ -1479,7 +1479,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_order_updates_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-order-updates
+        https://apidocs.lighter.xyz/docs/websocket-reference
         {
             "channel": "account_order_updates",
             "data": [
@@ -1525,7 +1525,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_positions_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-positions
+        https://apidocs.lighter.xyz/docs/websocket-reference
         {
             "channel": "subscribe",
             "data": {
@@ -1625,7 +1625,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_info_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-info
+        https://apidocs.lighter.xyz/docs/websocket-reference
         {
             "channel": "account_info",
             "data": {
@@ -1652,7 +1652,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_trades_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-trades
+        https://apidocs.lighter.xyz/docs/websocket-reference
         {
             "channel": "account_trades",
             "data": [
@@ -1854,7 +1854,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         Retrieves the prices (mark price) for all trading pairs.
         Required for Rate Oracle support.
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-prices
+        https://apidocs.lighter.xyz/reference/exchangestats
         Prices Info
         ```
          {

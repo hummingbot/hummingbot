@@ -50,7 +50,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-orderbook
+        https://apidocs.lighter.xyz/reference/orderbooks
 
         {
             "success": true,
@@ -120,7 +120,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-prices
+        https://apidocs.lighter.xyz/reference/exchangestats
 
         {
             "success": true,
@@ -254,7 +254,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/orderbook
+        https://apidocs.lighter.xyz/docs/websocket-reference
 
         {
             "channel": "book",
@@ -308,7 +308,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/trades
+        https://apidocs.lighter.xyz/docs/websocket-reference
 
         {
             "channel": "trades",
@@ -355,7 +355,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/prices
+        https://apidocs.lighter.xyz/docs/websocket-reference
 
         {
             "channel": "prices",
