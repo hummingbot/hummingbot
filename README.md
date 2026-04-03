@@ -32,7 +32,7 @@ Alternatively, if you are building new connectors/strategies or adding custom co
 
 ### Install Hummingbot with Docker
 
-Install [Docker Compose website](https://docs.docker.com/compose/install/).
+Install [Docker Compose](https://docs.docker.com/compose/install/).
 
 Clone the repo and use the provided `docker-compose.yml` file:
 
