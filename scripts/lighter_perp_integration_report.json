@@ -1,5 +1,5 @@
 {
-  "timestamp": 1775208134,
+  "timestamp": 1775208752,
   "results": [
     {
       "step": "REST /orderBooks",
@@ -22,7 +22,7 @@
     {
       "step": "Market selection",
       "status": "PASS",
-      "details": "AMD mark=219.55",
+      "details": "HYUNDAI mark=487565",
       "tx_hash": ""
     },
     {
@@ -34,14 +34,14 @@
     {
       "step": "Perp place limit order",
       "status": "PASS",
-      "details": "symbol=AMD code=200 error=None",
-      "tx_hash": "165d1d08ad39fc3b51499b288f2a073f856375a2917e0ff1953274a710bbe24be226f49f989c9077"
+      "details": "symbol=HYUNDAI code=200 error=None",
+      "tx_hash": "3ca8e6015795e290a74cb50c358a7f70f61ff867134515cc450c5f3774d83c23db9cdba696a7017a"
     },
     {
       "step": "Perp cancel order",
       "status": "PASS",
-      "details": "order_index=173721163198631 code=200 error=None",
-      "tx_hash": "78e8d841b41a6f93ad83a0a7c4952473fcad4b9c267aab843f0f265d274102c0902d5ce3ac4d9ab6"
+      "details": "order_index=132940077622643 code=200 error=None",
+      "tx_hash": "893c9c198f59792ff2e390e81dd861dbea382a4987d053440d39ce2304173e2be4cacb4deac035d7"
     }
   ]
 }
