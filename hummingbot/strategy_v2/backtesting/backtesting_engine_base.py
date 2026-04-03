@@ -16,6 +16,8 @@ from hummingbot.strategy_v2.backtesting.backtesting_data_provider import Backtes
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation
 from hummingbot.strategy_v2.backtesting.executors_simulator.dca_executor_simulator import DCAExecutorSimulator
 from hummingbot.strategy_v2.backtesting.executors_simulator.position_executor_simulator import PositionExecutorSimulator
+from hummingbot.strategy_v2.backtesting.executors_simulator.grid_executor_simulator import GridExecutorSimulator
+from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
     DirectionalTradingControllerConfigBase,
@@ -38,6 +40,7 @@ class BacktestingEngineBase:
         self.backtesting_data_provider = BacktestingDataProvider(connectors={})
         self.position_executor_simulator = PositionExecutorSimulator()
         self.dca_executor_simulator = DCAExecutorSimulator()
+        self.grid_executor_simulator = GridExecutorSimulator()
 
     @classmethod
     def load_controller_config(cls,
@@ -205,13 +208,13 @@ class BacktestingEngineBase:
         self.controller.processed_data["features"] = backtesting_candles
         return backtesting_candles
 
-    def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig], df: pd.DataFrame,
+    def simulate_executor(self, config: Union[PositionExecutorConfig, DCAExecutorConfig, GridExecutorConfig], df: pd.DataFrame,
                           trade_cost: float) -> Optional[ExecutorSimulation]:
         """
         Simulates the execution of a trading strategy given a configuration.
 
         Args:
-            config (PositionExecutorConfig): The configuration of the executor.
+            config (Union[PositionExecutorConfig, DCAExecutorConfig, GridExecutorConfig]): The configuration of the executor.
             df (pd.DataFrame): DataFrame containing the market data from the start time.
             trade_cost (float): The cost per trade.
 
@@ -222,6 +225,8 @@ class BacktestingEngineBase:
             return self.dca_executor_simulator.simulate(df, config, trade_cost)
         elif isinstance(config, PositionExecutorConfig):
             return self.position_executor_simulator.simulate(df, config, trade_cost)
+        elif isinstance(config, GridExecutorConfig):
+            return self.grid_executor_simulator.simulate(df, config, trade_cost)
         return None
 
     def manage_active_executors(self, simulation: ExecutorSimulation):
