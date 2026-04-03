@@ -112,6 +112,26 @@ class Gateway(GatewayBase):
         # Store LP operation metadata for triggering proper events
         self._lp_orders_metadata: Dict[str, Dict] = {}
 
+    @staticmethod
+    def _parse_dex_name(dex_name: str, default_trading_type: str = "router") -> tuple:
+        """
+        Parse dex_name into (dex, trading_type) tuple.
+
+        Args:
+            dex_name: DEX identifier, can be:
+                - "jupiter" -> ("jupiter", default_trading_type)
+                - "jupiter/router" -> ("jupiter", "router")
+                - "orca/clmm" -> ("orca", "clmm")
+            default_trading_type: Default trading type if not specified
+
+        Returns:
+            Tuple of (dex, trading_type)
+        """
+        if "/" in dex_name:
+            parts = dex_name.split("/", 1)
+            return parts[0], parts[1]
+        return dex_name, default_trading_type
+
     # ==================== SWAP OPERATIONS ====================
 
     @async_ttl_cache(ttl=5, maxsize=10)
@@ -138,10 +158,16 @@ class Gateway(GatewayBase):
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
 
+        if not dex_name:
+            raise ValueError("dex_name is required for swap operations on unified Gateway connector")
+
+        dex, trading_type = self._parse_dex_name(dex_name)
+
         try:
             resp: Dict[str, Any] = await self._get_gateway_instance().quote_swap(
                 network=self.network,
-                connector=dex_name or self.connector_name,
+                dex=dex,
+                trading_type=trading_type,
                 base_asset=base,
                 quote_asset=quote,
                 amount=amount,
@@ -252,17 +278,24 @@ class Gateway(GatewayBase):
         slippage_pct = kwargs.get("slippage_pct")
         max_retries = kwargs.get("max_retries", 10)
 
+        if not dex_name:
+            raise ValueError("dex_name is required for swap operations on unified Gateway connector")
+
+        dex, trading_type = self._parse_dex_name(dex_name)
+
         async def execute_gateway_swap() -> Dict[str, Any]:
             if quote_id:
                 return await self._get_gateway_instance().execute_quote(
-                    connector=dex_name or self.connector_name,
+                    dex=dex,
+                    trading_type=trading_type,
                     quote_id=quote_id,
                     network=self.network,
                     wallet_address=self.address
                 )
             else:
                 return await self._get_gateway_instance().execute_swap(
-                    connector=dex_name or self.connector_name,
+                    dex=dex,
+                    trading_type=trading_type,
                     base_asset=base,
                     quote_asset=quote,
                     side=trade_type,
