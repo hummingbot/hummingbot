@@ -1,10 +1,10 @@
 {
-  "timestamp": 1775209343,
+  "timestamp": 1775229335,
   "network": "mainnet",
   "account_index": 693751,
   "symbol": "LIT/USDC",
   "market_id": 2049,
-  "client_order_index": 85043664844421,
+  "client_order_index": 228004100185094,
   "checks": {
     "signer_check": "PASS",
     "create_code": 200,
@@ -23,7 +23,7 @@
     "after_order_count": 0
   },
   "tx_hashes": {
-    "create_tx_hash": "ddf4a2e2e452a9fb400ea74e49aebb1a6bbf6bbc3b5ab6ccb7e24372b720234b57e7c3063d6577db",
-    "cancel_tx_hash": "1a5651833e8fd771080a1e316c72a81f1ae754d570b00df17a02b2a84b50197306e2a0fa0f601276"
+    "create_tx_hash": "bdd9a39d857fe082ff9c475565603685d67b136a6607d0d375a2c93d1a1f0b99de347030b8dc6c66",
+    "cancel_tx_hash": "9ab938ec281fc90a0a2fe7fe3abcf4e9f3d7701e714726a00e6f85237a234d92d17a101483357e90"
   }
 }
