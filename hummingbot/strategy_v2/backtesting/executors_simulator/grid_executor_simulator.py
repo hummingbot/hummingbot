@@ -1,7 +1,5 @@
 from decimal import Decimal
-from typing import List
-
-import pandas as pd
+from typing import List, Dict, Any
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation, ExecutorSimulatorBase
@@ -95,45 +93,36 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
         
         return grid_levels
 
-    def simulate(self, df: pd.DataFrame, config: GridExecutorConfig, trade_cost: float) -> ExecutorSimulation:
+    def simulate(self, market_data: List[Dict[str, Any]], config: GridExecutorConfig, trade_cost: float) -> ExecutorSimulation:
         """
         Simulate grid execution based on market data and configuration.
         
-        :param df: DataFrame containing market data with columns ['timestamp', 'open', 'high', 'low', 'close']
+        :param market_data: List of market data dictionaries with keys ['timestamp', 'open', 'high', 'low', 'close']
         :param config: GridExecutorConfig configuration
         :param trade_cost: Cost of trading as a percentage
         :return: ExecutorSimulation object containing the simulation results
         """
+        # Sort market data by timestamp to ensure chronological order
+        sorted_market_data = sorted(market_data, key=lambda x: x['timestamp'])
+        
         # Initialize variables
-        last_timestamp = df['timestamp'].max()
+        last_timestamp = sorted_market_data[-1]['timestamp']
         tl = config.triple_barrier_config.time_limit if config.triple_barrier_config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
 
-        # Filter dataframe based on time limit
-        df_filtered = df[:tl_timestamp].copy()
-        
-        # Initialize result columns
-        df_filtered['net_pnl_pct'] = 0.0
-        df_filtered['net_pnl_quote'] = 0.0
-        df_filtered['cum_fees_quote'] = 0.0
-        df_filtered['filled_amount_quote'] = 0.0
-        df_filtered['current_position_average_price'] = 0.0
+        # Filter market data based on time limit
+        df_filtered = [row for row in sorted_market_data if row['timestamp'] <= tl_timestamp]
         
         # Get initial mid price
-        initial_mid_price = float(df_filtered.iloc[0]['close'])
+        initial_mid_price = float(df_filtered[0]['close'])
         
         # Generate grid levels based on configuration
         grid_levels = self._generate_grid_levels(config, initial_mid_price)
         
         # Track filled orders and position metrics
         filled_orders = []
-        position_size_base = Decimal("0")
-        position_size_quote = Decimal("0")
-        position_fees_quote = Decimal("0")
-        position_pnl_quote = Decimal("0")
-        position_pnl_pct = Decimal("0")
         realized_pnl_quote = Decimal("0")
-        realized_pnl_pct = Decimal("0")
+        position_fees_quote = Decimal("0")
         
         # Process each grid level
         for level in grid_levels:
@@ -141,25 +130,47 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
             level_amount_quote = float(level.amount_quote)
             
             # Find timestamps where price hits the level
-            if config.side == TradeType.BUY:
-                condition = df_filtered['close'] <= level_price
-            else:
-                condition = df_filtered['close'] >= level_price
-                
-            level_timestamps = df_filtered[condition]['timestamp']
+            level_timestamps = []
+            for row in df_filtered:
+                if config.side == TradeType.BUY:
+                    if row['close'] <= level_price:
+                        level_timestamps.append(row['timestamp'])
+                else:
+                    if row['close'] >= level_price:
+                        level_timestamps.append(row['timestamp'])
             
             if len(level_timestamps) > 0:
                 # Get first timestamp when level is hit
-                entry_timestamp = level_timestamps.iloc[0]
+                entry_timestamp = level_timestamps[0]
                 
-                # Calculate returns from entry point
-                entry_price = df_filtered.loc[entry_timestamp, 'close']
+                # Find entry price
+                entry_price = None
+                for row in df_filtered:
+                    if row['timestamp'] == entry_timestamp:
+                        entry_price = row['close']
+                        break
+                
                 side_multiplier = 1 if config.side == TradeType.BUY else -1
                 
                 # Get subset of data from entry timestamp
-                returns_df = df_filtered[entry_timestamp:].copy()
-                returns = returns_df['close'].pct_change().fillna(0)
-                cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
+                returns_data = [row for row in df_filtered if row['timestamp'] >= entry_timestamp]
+                
+                # Calculate returns manually (equivalent to pct_change())
+                returns = []
+                for i in range(1, len(returns_data)):
+                    prev_close = returns_data[i-1]['close']
+                    curr_close = returns_data[i]['close']
+                    if prev_close != 0:
+                        returns.append((curr_close - prev_close) / prev_close)
+                    else:
+                        returns.append(0.0)
+                
+                # Calculate cumulative returns manually (equivalent to cumprod())
+                cumulative_returns = []
+                cumulative_product = 1.0
+                for ret in returns:
+                    cumulative_product *= (1 + ret)
+                    cumulative_returns.append(((cumulative_product - 1) * side_multiplier) - trade_cost)
                 
                 # Calculate take profit and stop loss conditions
                 take_profit_price = level_price * (1 + float(level.take_profit)) if config.side == TradeType.BUY else level_price * (1 - float(level.take_profit))
@@ -167,57 +178,97 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
                 if config.triple_barrier_config.stop_loss:
                     stop_loss_price = level_price * (1 - float(config.triple_barrier_config.stop_loss) * side_multiplier)
                 
-                # Check for take profit condition
-                take_profit_condition = (returns_df['close'] >= take_profit_price) if config.side == TradeType.BUY else (returns_df['close'] <= take_profit_price)
-                take_profit_timestamp = returns_df[take_profit_condition]['timestamp'].min() if take_profit_condition.any() else None
-                
-                # Check for stop loss condition
+                # Find take profit and stop loss timestamps
+                take_profit_timestamp = None
                 stop_loss_timestamp = None
-                if stop_loss_price:
-                    stop_loss_condition = (returns_df['low'] <= stop_loss_price) if config.side == TradeType.BUY else (returns_df['high'] >= stop_loss_price)
-                    stop_loss_timestamp = returns_df[stop_loss_condition]['timestamp'].min() if stop_loss_condition.any() else None
+                
+                for row in returns_data:
+                    # Check for take profit condition
+                    if config.side == TradeType.BUY:
+                        if row['close'] >= take_profit_price and take_profit_timestamp is None:
+                            take_profit_timestamp = row['timestamp']
+                        # Check for stop loss condition
+                        if stop_loss_price is not None and row['low'] <= stop_loss_price and stop_loss_timestamp is None:
+                            stop_loss_timestamp = row['timestamp']
+                    else:
+                        if row['close'] <= take_profit_price and take_profit_timestamp is None:
+                            take_profit_timestamp = row['timestamp']
+                        # Check for stop loss condition
+                        if stop_loss_price is not None and row['high'] >= stop_loss_price and stop_loss_timestamp is None:
+                            stop_loss_timestamp = row['timestamp']
                 
                 # Determine exit timestamp
                 exit_timestamp = None
                 close_type = CloseType.TIME_LIMIT  # Default to time limit if no other conditions are met
                 
-                if take_profit_timestamp and (exit_timestamp is None or take_profit_timestamp < exit_timestamp):
+                if take_profit_timestamp is not None and (exit_timestamp is None or take_profit_timestamp < exit_timestamp):
                     exit_timestamp = take_profit_timestamp
                     close_type = CloseType.TAKE_PROFIT
-                if stop_loss_timestamp and (exit_timestamp is None or stop_loss_timestamp < exit_timestamp):
+                if stop_loss_timestamp is not None and (exit_timestamp is None or stop_loss_timestamp < exit_timestamp):
                     exit_timestamp = stop_loss_timestamp
                     close_type = CloseType.STOP_LOSS
                 if exit_timestamp is None:  # If neither TP nor SL triggered, check if we reached time limit
-                    exit_timestamp = tl_timestamp if tl else df_filtered.index.max()
+                    exit_timestamp = tl_timestamp if tl else sorted_market_data[-1]['timestamp']
                     
                 # Update metrics for this level
                 if exit_timestamp:
-                    returns_df_level = df_filtered[entry_timestamp:exit_timestamp].copy()
-                    returns_level = returns_df_level['close'].pct_change().fillna(0)
-                    cumulative_returns_level = (((1 + returns_level).cumprod() - 1) * side_multiplier) - trade_cost
+                    # Calculate returns from entry to exit
+                    returns_df_level = [row for row in df_filtered if entry_timestamp <= row['timestamp'] <= exit_timestamp]
+                    returns_level = []
+                    for i in range(1, len(returns_df_level)):
+                        prev_close = returns_df_level[i-1]['close']
+                        curr_close = returns_df_level[i]['close']
+                        if prev_close != 0:
+                            returns_level.append((curr_close - prev_close) / prev_close)
+                        else:
+                            returns_level.append(0.0)
+                    
+                    # Calculate cumulative returns for this level
+                    cumulative_returns_level = 0.0
+                    if len(returns_level) > 0:
+                        cumulative_product = 1.0
+                        for ret in returns_level:
+                            cumulative_product *= (1 + ret)
+                        cumulative_returns_level = ((cumulative_product - 1) * side_multiplier) - trade_cost
+                    
+                    # Find exit price
+                    exit_price = None
+                    for row in df_filtered:
+                        if row['timestamp'] == exit_timestamp:
+                            exit_price = row['close']
+                            break
                     
                     # Update position metrics
                     filled_orders.append({
                         'entry_timestamp': entry_timestamp,
                         'exit_timestamp': exit_timestamp,
                         'entry_price': entry_price,
-                        'exit_price': df_filtered.loc[exit_timestamp, 'close'],
+                        'exit_price': exit_price,
                         'amount_quote': level_amount_quote,
-                        'pnl_pct': cumulative_returns_level.iloc[-1] if len(cumulative_returns_level) > 0 else 0.0,
+                        'pnl_pct': cumulative_returns_level,
                         'close_type': close_type
                     })
                     
                     # Update overall metrics
-                    realized_pnl_quote += Decimal(str(cumulative_returns_level.iloc[-1] * level_amount_quote if len(cumulative_returns_level) > 0 else 0.0))
-                    realized_pnl_pct += Decimal(str(cumulative_returns_level.iloc[-1] if len(cumulative_returns_level) > 0 else 0.0))
+                    realized_pnl_quote += Decimal(str(cumulative_returns_level * level_amount_quote))
                     position_fees_quote += Decimal(str(trade_cost * level_amount_quote))
 
         # Calculate final metrics
         total_filled_amount = sum([order['amount_quote'] for order in filled_orders])
-        df_filtered['filled_amount_quote'] = total_filled_amount
-        df_filtered['net_pnl_quote'] = float(realized_pnl_quote)
-        df_filtered['cum_fees_quote'] = float(position_fees_quote)
-        df_filtered['net_pnl_pct'] = float(realized_pnl_quote) / total_filled_amount if total_filled_amount > 0 else 0.0
+        net_pnl_quote = float(realized_pnl_quote)
+        net_pnl_pct = float(realized_pnl_quote) / total_filled_amount if total_filled_amount > 0 else 0.0
+        cum_fees_quote = float(position_fees_quote)
+        
+        # Create result data structure
+        result_data = []
+        for row in df_filtered:
+            result_row = row.copy()
+            result_row['net_pnl_pct'] = net_pnl_pct
+            result_row['net_pnl_quote'] = net_pnl_quote
+            result_row['cum_fees_quote'] = cum_fees_quote
+            result_row['filled_amount_quote'] = total_filled_amount
+            result_row['current_position_average_price'] = 0.0  # Placeholder
+            result_data.append(result_row)
         
         # Determine final close type based on the last filled order
         final_close_type = CloseType.TIME_LIMIT
@@ -227,6 +278,6 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
         # Return the simulation results
         return ExecutorSimulation(
             config=config,
-            executor_simulation=df_filtered,
+            executor_simulation=result_data,  # Using list of dicts instead of DataFrame
             close_type=final_close_type
         )
