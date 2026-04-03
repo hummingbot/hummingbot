@@ -51,6 +51,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     TRADING_FEES_INTERVAL = DAY
+    LIQUIDATION_WARNING_THRESHOLD = Decimal("0.05")
 
     def __init__(
         self,
@@ -94,7 +95,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def _client_order_index_from_order_id(order_id: str) -> int:
         digest = hashlib.sha256(order_id.encode()).digest()
-        return int.from_bytes(digest[:8], byteorder="big", signed=False) & 0x7FFFFFFFFFFFFFFF
+        # Lighter API enforces client_order_index <= 2^48-1 (281474976710655)
+        return int.from_bytes(digest[:8], byteorder="big", signed=False) & ((1 << 48) - 1)
 
     @staticmethod
     def _is_int_string(value: str) -> bool:
@@ -613,6 +615,37 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         return True
 
+    async def _modify_order(
+        self,
+        tracked_order: InFlightOrder,
+        new_price: Decimal,
+        new_amount: Decimal,
+    ) -> Tuple[str, float]:
+        """
+        Amend an open order in-place using the Lighter native modify_order transaction.
+        A single signed transaction is submitted; the exchange order index is preserved.
+        """
+        market_id, size_decimals, price_decimals, _ = await self._get_market_spec(tracked_order.trading_pair)
+        signer_client = self._get_lighter_signer_client()
+
+        base_amount_scaled = int((new_amount * Decimal(f"1e{size_decimals}")).to_integral_value())
+        price_scaled = int((new_price * Decimal(f"1e{price_decimals}")).to_integral_value())
+
+        _, tx_response, error = await signer_client.modify_order(
+            market_index=market_id,
+            order_index=int(tracked_order.exchange_order_id),
+            base_amount=base_amount_scaled,
+            price=price_scaled,
+            api_key_index=self._get_api_key_index(),
+        )
+
+        if error is not None:
+            raise IOError(f"Lighter modify_order signing/send failed: {error}")
+        if tx_response is None or getattr(tx_response, "code", None) != 200:
+            raise IOError(f"Lighter modify_order failed: {tx_response}")
+
+        return str(tracked_order.exchange_order_id), self.current_timestamp
+
     async def _update_balances(self):
         """
         https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-account-info
@@ -782,6 +815,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             position_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             amount = Decimal(str(position_entry.get("amount") or position_entry.get("position") or "0"))
             entry_price = Decimal(str(position_entry.get("entry_price") or position_entry.get("avg_entry_price") or "0"))
+            liquidation_price = self._extract_liquidation_price(position_entry)
 
             price_record = self.get_LIGHTER_price(hb_trading_pair)
             if price_record is not None:
@@ -800,6 +834,13 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     unrealized_pnl = (mark_price - entry_price) * amount
                 else:
                     unrealized_pnl = (entry_price - mark_price) * amount
+
+            self._warn_if_position_near_liquidation(
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                mark_price=mark_price,
+                liquidation_price=liquidation_price,
+            )
 
             position = Position(
                 trading_pair=hb_trading_pair,
@@ -1034,6 +1075,22 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         ```
         """
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+
+        prices_response = await self._api_get(
+            path_url=CONSTANTS.GET_PRICES_PATH_URL,
+            return_err=True,
+        )
+
+        if self._is_ok_response(prices_response):
+            price_entries = prices_response.get("data") or prices_response.get("order_book_stats") or []
+            for price_entry in price_entries:
+                if price_entry.get("symbol") != symbol:
+                    continue
+
+                ticker_price = self._extract_ticker_price(price_entry)
+                if ticker_price is not None:
+                    return float(ticker_price)
+
         params = {
             "symbol": symbol,
             "interval": "1m",
@@ -1047,7 +1104,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         candles = response.get("data") or []
         if not candles:
-            self.logger().warning(f"No candle data returned for {trading_pair}, returning 0.0")
+            self.logger().warning(f"No ticker/candle data returned for {trading_pair}, returning 0.0")
             return 0.0
         return float(candles[0]["c"])
 
@@ -1363,6 +1420,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 "a": str(abs(raw_amount)),
                 "p": str(position_entry.get("avg_entry_price") or "0"),
                 "upnl": str(position_entry.get("unrealized_pnl")) if position_entry.get("unrealized_pnl") is not None else None,
+                "l": position_entry.get("liquidation_price"),
             })
 
         return normalized_entries
@@ -1534,18 +1592,26 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             position_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             amount = Decimal(position_entry["a"])
             entry_price = Decimal(position_entry["p"])
+            liquidation_price = self._extract_liquidation_price(position_entry)
+
+            price_record = self.get_LIGHTER_price(hb_trading_pair)
+            mark_price = price_record.mark_price if price_record is not None else entry_price
 
             provided_unrealized_pnl = position_entry.get("upnl")
             if provided_unrealized_pnl is not None:
                 unrealized_pnl = Decimal(str(provided_unrealized_pnl))
             else:
-                price_record = self.get_LIGHTER_price(hb_trading_pair)
-                mark_price = price_record.mark_price if price_record is not None else entry_price
-
                 if position_side == PositionSide.LONG:
                     unrealized_pnl = (mark_price - entry_price) * amount
                 else:
                     unrealized_pnl = (entry_price - mark_price) * amount
+
+            self._warn_if_position_near_liquidation(
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                mark_price=mark_price,
+                liquidation_price=liquidation_price,
+            )
 
             position = Position(
                 trading_pair=hb_trading_pair,
@@ -1695,6 +1761,64 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         """
         return f"{order_id}_{timestamp}_{fill_base_amount}_{fill_price}"
 
+    @staticmethod
+    def _extract_ticker_price(price_entry: Dict[str, Any]) -> Optional[Decimal]:
+        for field in ("last_trade_price", "last", "mid", "mark", "oracle"):
+            value = price_entry.get(field)
+            if value is None:
+                continue
+            try:
+                return Decimal(str(value))
+            except Exception:
+                continue
+        return None
+
+    @staticmethod
+    def _extract_liquidation_price(position_entry: Dict[str, Any]) -> Optional[Decimal]:
+        raw_value = position_entry.get("liquidation_price")
+        if raw_value is None:
+            raw_value = position_entry.get("l")
+        if raw_value in (None, "", "null"):
+            return None
+
+        try:
+            return Decimal(str(raw_value))
+        except Exception:
+            return None
+
+    def _warn_if_position_near_liquidation(
+        self,
+        trading_pair: str,
+        position_side: PositionSide,
+        mark_price: Decimal,
+        liquidation_price: Optional[Decimal],
+    ):
+        if liquidation_price is None or mark_price <= s_decimal_0 or liquidation_price <= s_decimal_0:
+            return
+
+        if position_side == PositionSide.LONG:
+            if mark_price <= liquidation_price:
+                self.logger().warning(
+                    f"{trading_pair} long position reached liquidation level "
+                    f"(mark={mark_price}, liquidation={liquidation_price})"
+                )
+                return
+            distance = (mark_price - liquidation_price) / mark_price
+        else:
+            if mark_price >= liquidation_price:
+                self.logger().warning(
+                    f"{trading_pair} short position reached liquidation level "
+                    f"(mark={mark_price}, liquidation={liquidation_price})"
+                )
+                return
+            distance = (liquidation_price - mark_price) / mark_price
+
+        if distance <= self.LIQUIDATION_WARNING_THRESHOLD:
+            self.logger().warning(
+                f"{trading_pair} {position_side.name.lower()} position is near liquidation "
+                f"(mark={mark_price}, liquidation={liquidation_price}, buffer={distance:.4%})"
+            )
+
     def round_amount(self, trading_pair: str, amount: Decimal) -> Decimal:
         """
         Round the given amount to the lot size defined in the trading rules for the given symbol
@@ -1776,10 +1900,14 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             return []
 
         results = []
-        for price_data in response.get("data", []):
+        price_entries = response.get("data") or response.get("order_book_stats") or []
+        for price_data in price_entries:
+            mark = price_data.get("mark") or price_data.get("mid") or price_data.get("last_trade_price")
+            if mark is None:
+                continue
             results.append({
                 "trading_pair": await self.trading_pair_associated_to_exchange_symbol(symbol=price_data["symbol"]),
-                "price": price_data["mark"]
+                "price": mark
             })
 
         return results

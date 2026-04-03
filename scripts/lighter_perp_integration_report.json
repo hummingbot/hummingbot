@@ -1,0 +1,47 @@
+{
+  "timestamp": 1775208134,
+  "results": [
+    {
+      "step": "REST /orderBooks",
+      "status": "PASS",
+      "details": "status=200",
+      "tx_hash": ""
+    },
+    {
+      "step": "REST /account",
+      "status": "PASS",
+      "details": "status=200",
+      "tx_hash": ""
+    },
+    {
+      "step": "REST /exchangeStats",
+      "status": "PASS",
+      "details": "status=200",
+      "tx_hash": ""
+    },
+    {
+      "step": "Market selection",
+      "status": "PASS",
+      "details": "AMD mark=219.55",
+      "tx_hash": ""
+    },
+    {
+      "step": "Signer init",
+      "status": "PASS",
+      "details": "SignerClient initialized",
+      "tx_hash": ""
+    },
+    {
+      "step": "Perp place limit order",
+      "status": "PASS",
+      "details": "symbol=AMD code=200 error=None",
+      "tx_hash": "165d1d08ad39fc3b51499b288f2a073f856375a2917e0ff1953274a710bbe24be226f49f989c9077"
+    },
+    {
+      "step": "Perp cancel order",
+      "status": "PASS",
+      "details": "order_index=173721163198631 code=200 error=None",
+      "tx_hash": "78e8d841b41a6f93ad83a0a7c4952473fcad4b9c267aab843f0f265d274102c0902d5ce3ac4d9ab6"
+    }
+  ]
+}

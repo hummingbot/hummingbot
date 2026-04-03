@@ -4,7 +4,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-from hummingbot.core.data_type.common import PositionAction
+from hummingbot.core.data_type.common import PositionAction, TradeType
 
 
 def _ensure_limit_order_stub():
@@ -924,17 +924,113 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_last_traded_price_returns_close_price(self):
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC")
-        self.connector._api_get = AsyncMock(return_value={"data": [{"c": "50123.5", "o": "50000"}]})
+        self.connector._api_get = AsyncMock(return_value={
+            "success": True,
+            "data": [{"symbol": "BTC", "mid": "50123.5", "mark": "50000"}],
+        })
 
         result = await self.connector._get_last_traded_price("BTC-USDC")
         self.assertAlmostEqual(50123.5, result)
 
+    async def test_get_last_traded_price_falls_back_to_candles_when_prices_endpoint_has_no_symbol(self):
+        self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC")
+        self.connector._api_get = AsyncMock(side_effect=[
+            {"success": True, "data": [{"symbol": "ETH", "mid": "3000"}]},
+            {"data": [{"c": "50123.5", "o": "50000"}]},
+        ])
+
+        result = await self.connector._get_last_traded_price("BTC-USDC")
+
+        self.assertAlmostEqual(50123.5, result)
+
     async def test_get_last_traded_price_returns_zero_for_empty_candles(self):
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC")
-        self.connector._api_get = AsyncMock(return_value={"data": []})
+        self.connector._api_get = AsyncMock(side_effect=[
+            {"success": True, "data": []},
+            {"data": []},
+        ])
 
         result = await self.connector._get_last_traded_price("BTC-USDC")
         self.assertEqual(0.0, result)
+
+    async def test_modify_order_uses_native_sdk(self):
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "1234"
+        tracked_order.trading_pair = "BTC-USDC"
+        tracked_order.current_timestamp = 1700000000.0
+
+        mock_tx_response = MagicMock()
+        mock_tx_response.code = 200
+
+        mock_signer = MagicMock()
+        mock_signer.modify_order = AsyncMock(return_value=(MagicMock(), mock_tx_response, None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_market_spec = AsyncMock(return_value=(0, 2, 2, None))
+        self.connector._get_api_key_index = MagicMock(return_value=2)
+
+        exchange_id, ts = await self.connector._modify_order(
+            tracked_order=tracked_order,
+            new_price=Decimal("50000"),
+            new_amount=Decimal("0.1"),
+        )
+
+        self.assertEqual("1234", exchange_id)
+        mock_signer.modify_order.assert_awaited_once_with(
+            market_index=0,
+            order_index=1234,
+            base_amount=10,
+            price=5000000,
+            api_key_index=2,
+        )
+
+    async def test_modify_order_raises_when_sdk_returns_error(self):
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "1234"
+        tracked_order.trading_pair = "BTC-USDC"
+
+        mock_signer = MagicMock()
+        mock_signer.modify_order = AsyncMock(return_value=(None, None, "sign error"))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_market_spec = AsyncMock(return_value=(0, 2, 2, None))
+        self.connector._get_api_key_index = MagicMock(return_value=2)
+
+        with self.assertRaises(IOError):
+            await self.connector._modify_order(
+                tracked_order=tracked_order,
+                new_price=Decimal("50000"),
+                new_amount=Decimal("0.1"),
+            )
+
+    def test_extract_ticker_price_prefers_last_trade_then_mid_mark_oracle(self):
+        extractor = self.connector_cls._extract_ticker_price
+
+        self.assertEqual(Decimal("12.3"), extractor({"last_trade_price": "12.3", "mid": "11"}))
+        self.assertEqual(Decimal("11"), extractor({"mid": "11", "mark": "10"}))
+        self.assertEqual(Decimal("10"), extractor({"mark": "10", "oracle": "9"}))
+        self.assertEqual(Decimal("9"), extractor({"oracle": "9"}))
+        self.assertIsNone(extractor({}))
+
+    def test_extract_liquidation_price_reads_rest_and_ws_shapes(self):
+        extractor = self.connector_cls._extract_liquidation_price
+
+        self.assertEqual(Decimal("100"), extractor({"liquidation_price": "100"}))
+        self.assertEqual(Decimal("200"), extractor({"l": "200"}))
+        self.assertIsNone(extractor({"l": ""}))
+        self.assertIsNone(extractor({}))
+
+    def test_warn_if_position_near_liquidation_emits_warning(self):
+        mock_logger = MagicMock()
+        with patch.object(self.connector, "logger", return_value=mock_logger):
+            from hummingbot.core.data_type.common import PositionSide
+
+            self.connector._warn_if_position_near_liquidation(
+                trading_pair="BTC-USDC",
+                position_side=PositionSide.LONG,
+                mark_price=Decimal("100"),
+                liquidation_price=Decimal("96"),
+            )
+
+        mock_logger.warning.assert_called()
 
     async def test_update_trading_fees_updates_maker_and_taker_fee(self):
         self.connector._api_get = AsyncMock(return_value={
