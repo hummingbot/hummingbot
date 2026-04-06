@@ -1,7 +1,6 @@
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-from hummingbot.connector.gateway.common_types import ConnectorType
 from hummingbot.connector.gateway.gateway_lp import (
     AMMPoolInfo,
     AMMPositionInfo,
@@ -15,8 +14,9 @@ from hummingbot.core.data_type.common import TradeType
 class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.client_config_map = MagicMock()
+        # connector_name is now the network identifier
         self.connector = GatewayLp(
-            connector_name="uniswap/amm",
+            connector_name="ethereum-mainnet",
             chain="ethereum",
             network="mainnet",
             address="0xwallet123",
@@ -26,14 +26,8 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
         self.mock_gateway = MagicMock()
         self.connector._get_gateway_instance = MagicMock(return_value=self.mock_gateway)
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_pool_info_amm(self, mock_connector_type):
-        """Test getting AMM pool info"""
-        mock_connector_type.return_value = ConnectorType.AMM
-
-        # Mock get_pool to return pool address
-        self.mock_gateway.get_pool = AsyncMock(return_value={"address": "0xpool123"})
-
+    async def test_get_pool_info_amm(self):
+        """Test getting AMM pool info by address"""
         mock_response = {
             "address": "0xpool123",
             "baseTokenAddress": "0xeth",
@@ -46,21 +40,16 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
 
         self.mock_gateway.pool_info = AsyncMock(return_value=mock_response)
 
-        pool_info = await self.connector.get_pool_info("ETH-USDC")
+        # Use get_pool_info_by_address with dex_name and trading_type
+        pool_info = await self.connector.get_pool_info_by_address("0xpool123", dex_name="uniswap", trading_type="amm")
 
         self.assertIsInstance(pool_info, AMMPoolInfo)
         self.assertEqual(pool_info.address, "0xpool123")
         self.assertEqual(pool_info.price, 1500.0)
         self.assertEqual(pool_info.fee_pct, 0.3)
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_pool_info_clmm(self, mock_connector_type):
-        """Test getting CLMM pool info"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
-        # Mock get_pool to return pool address
-        self.mock_gateway.get_pool = AsyncMock(return_value={"address": "0xpool123"})
-
+    async def test_get_pool_info_clmm(self):
+        """Test getting CLMM pool info by address"""
         mock_response = {
             "address": "0xpool123",
             "baseTokenAddress": "0xeth",
@@ -75,19 +64,17 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
 
         self.mock_gateway.pool_info = AsyncMock(return_value=mock_response)
 
-        pool_info = await self.connector.get_pool_info("ETH-USDC")
+        # Use get_pool_info_by_address with dex_name and trading_type
+        pool_info = await self.connector.get_pool_info_by_address("0xpool123", dex_name="uniswap", trading_type="clmm")
 
         self.assertIsInstance(pool_info, CLMMPoolInfo)
         self.assertEqual(pool_info.bin_step, 10)
         self.assertEqual(pool_info.active_bin_id, 1000)
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_user_positions_amm(self, mock_connector_type):
+    async def test_get_user_positions_amm(self):
         """Test getting user positions for AMM"""
-        mock_connector_type.return_value = ConnectorType.AMM
-
         # Test without pool address - should return empty list
-        positions = await self.connector.get_user_positions()
+        positions = await self.connector.get_user_positions(dex_name="uniswap", trading_type="amm")
         self.assertEqual(len(positions), 0)
 
         # Test with pool address
@@ -116,7 +103,7 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
             "0xusdc": {"symbol": "USDC"}
         }.get(addr))
 
-        positions = await self.connector.get_user_positions(pool_address="0xpool1")
+        positions = await self.connector.get_user_positions(dex_name="uniswap", trading_type="amm", pool_address="0xpool1")
 
         self.assertEqual(len(positions), 1)
         self.assertIsInstance(positions[0], AMMPositionInfo)
@@ -124,11 +111,8 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(positions[0].base_token, "ETH")
         self.assertEqual(positions[0].quote_token, "USDC")
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_user_positions_clmm(self, mock_connector_type):
+    async def test_get_user_positions_clmm(self):
         """Test getting user positions for CLMM"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
         mock_response = {
             "positions": [
                 {
@@ -157,7 +141,7 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
             "0xusdc": {"symbol": "USDC"}
         }.get(addr))
 
-        positions = await self.connector.get_user_positions()
+        positions = await self.connector.get_user_positions(dex_name="uniswap", trading_type="clmm")
 
         self.assertEqual(len(positions), 1)
         self.assertIsInstance(positions[0], CLMMPositionInfo)
@@ -166,74 +150,70 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
 
     def test_add_liquidity_amm(self):
         """Test adding liquidity to AMM pool"""
-        with patch('hummingbot.connector.gateway.gateway_lp.get_connector_type') as mock_connector_type:
-            mock_connector_type.return_value = ConnectorType.AMM
+        from unittest.mock import patch
+        with patch('hummingbot.connector.gateway.gateway.safe_ensure_future') as mock_ensure_future:
+            order_id = self.connector.add_liquidity(
+                trading_pair="ETH-USDC",
+                price=1500.0,
+                dex_name="uniswap",
+                trading_type="amm",
+                base_token_amount=1.0,
+                quote_token_amount=1500.0
+            )
 
-            with patch('hummingbot.connector.gateway.gateway_lp.safe_ensure_future') as mock_ensure_future:
-                order_id = self.connector.add_liquidity(
-                    trading_pair="ETH-USDC",
-                    price=1500.0,
-                    base_token_amount=1.0,
-                    quote_token_amount=1500.0
-                )
-
-                self.assertTrue(order_id.startswith("range-ETH-USDC-"))
-                mock_ensure_future.assert_called_once()
+            self.assertTrue(order_id.startswith("range-ETH-USDC-"))
+            mock_ensure_future.assert_called_once()
 
     def test_add_liquidity_clmm_explicit_prices(self):
         """Test adding liquidity to CLMM pool with explicit price range"""
-        with patch('hummingbot.connector.gateway.gateway_lp.get_connector_type') as mock_connector_type:
-            mock_connector_type.return_value = ConnectorType.CLMM
+        from unittest.mock import patch
+        with patch('hummingbot.connector.gateway.gateway.safe_ensure_future') as mock_ensure_future:
+            order_id = self.connector.add_liquidity(
+                trading_pair="ETH-USDC",
+                price=1500.0,
+                dex_name="uniswap",
+                trading_type="clmm",
+                lower_price=1400.0,
+                upper_price=1600.0,
+                base_token_amount=1.0,
+                quote_token_amount=1500.0
+            )
 
-            with patch('hummingbot.connector.gateway.gateway_lp.safe_ensure_future') as mock_ensure_future:
-                order_id = self.connector.add_liquidity(
-                    trading_pair="ETH-USDC",
-                    price=1500.0,
-                    lower_price=1400.0,
-                    upper_price=1600.0,
-                    base_token_amount=1.0,
-                    quote_token_amount=1500.0
-                )
-
-                self.assertTrue(order_id.startswith("range-ETH-USDC-"))
-                mock_ensure_future.assert_called_once()
+            self.assertTrue(order_id.startswith("range-ETH-USDC-"))
+            mock_ensure_future.assert_called_once()
 
     def test_add_liquidity_clmm_width_percentages(self):
         """Test adding liquidity to CLMM pool with width percentages"""
-        with patch('hummingbot.connector.gateway.gateway_lp.get_connector_type') as mock_connector_type:
-            mock_connector_type.return_value = ConnectorType.CLMM
+        from unittest.mock import patch
+        with patch('hummingbot.connector.gateway.gateway.safe_ensure_future') as mock_ensure_future:
+            order_id = self.connector.add_liquidity(
+                trading_pair="ETH-USDC",
+                price=1500.0,
+                dex_name="uniswap",
+                trading_type="clmm",
+                upper_width_pct=10.0,
+                lower_width_pct=5.0,
+                base_token_amount=1.0,
+                quote_token_amount=1500.0
+            )
 
-            with patch('hummingbot.connector.gateway.gateway_lp.safe_ensure_future') as mock_ensure_future:
-                order_id = self.connector.add_liquidity(
-                    trading_pair="ETH-USDC",
-                    price=1500.0,
-                    upper_width_pct=10.0,
-                    lower_width_pct=5.0,
-                    base_token_amount=1.0,
-                    quote_token_amount=1500.0
-                )
+            self.assertTrue(order_id.startswith("range-ETH-USDC-"))
+            mock_ensure_future.assert_called_once()
 
-                self.assertTrue(order_id.startswith("range-ETH-USDC-"))
-                mock_ensure_future.assert_called_once()
-
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    def test_remove_liquidity_clmm_no_address(self, mock_connector_type):
+    def test_remove_liquidity_clmm_no_address(self):
         """Test removing liquidity from CLMM position without address raises error"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
         with self.assertRaises(ValueError) as context:
             self.connector.remove_liquidity(
                 trading_pair="ETH-USDC",
+                dex_name="uniswap",
+                trading_type="clmm",
                 position_address=None
             )
 
         self.assertIn("position_address is required", str(context.exception))
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_position_info_clmm(self, mock_connector_type):
+    async def test_get_position_info_clmm(self):
         """Test getting specific position info for CLMM"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
         mock_response = {
             "address": "0xpos123",
             "poolAddress": "0xpool1",
@@ -252,16 +232,14 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
 
         self.mock_gateway.clmm_position_info = AsyncMock(return_value=mock_response)
 
-        position_info = await self.connector.get_position_info("ETH-USDC", "0xpos123")
+        # Pass position_address as keyword argument
+        position_info = await self.connector.get_position_info("ETH-USDC", dex_name="uniswap", trading_type="clmm", position_address="0xpos123")
 
         self.assertIsInstance(position_info, CLMMPositionInfo)
         self.assertEqual(position_info.address, "0xpos123")
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_clmm_open_position_execution(self, mock_connector_type):
+    async def test_clmm_open_position_execution(self):
         """Test CLMM open position execution with explicit price range"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
         mock_response = {
             "signature": "0xtx123",
             "fee": 0.001,
@@ -278,6 +256,8 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
             trade_type=TradeType.RANGE,
             order_id="test-order-123",
             trading_pair="ETH-USDC",
+            dex_name="uniswap",
+            trading_type="clmm",
             price=1500.0,
             lower_price=1400.0,
             upper_price=1600.0,
@@ -290,16 +270,13 @@ class GatewayLpTest(unittest.IsolatedAsyncioTestCase):
             "test-order-123", "ETH-USDC", "0xtx123", mock_response
         )
 
-    @patch('hummingbot.connector.gateway.gateway_lp.get_connector_type')
-    async def test_get_user_positions_error_handling(self, mock_connector_type):
+    async def test_get_user_positions_error_handling(self):
         """Test error handling in get_user_positions"""
-        mock_connector_type.return_value = ConnectorType.CLMM
-
         self.mock_gateway.clmm_positions_owned = AsyncMock(
             side_effect=Exception("API Error")
         )
 
-        positions = await self.connector.get_user_positions()
+        positions = await self.connector.get_user_positions(dex_name="uniswap", trading_type="clmm")
 
         self.assertEqual(positions, [])
 

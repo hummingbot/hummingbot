@@ -93,9 +93,9 @@ class SwapExecutor(ExecutorBase):
         self._order_id: Optional[str] = None  # Internal order ID from connector
         self._order: Optional[InFlightOrder] = None  # Order object for to_json() (same pattern as order_executor)
         self._selected_provider: Optional[str] = None  # Provider used for multi-provider comparison
-        # Network info - parsed from config if available, otherwise resolved in on_start from connector
-        if config.network:
-            self._chain, self._network_name = self.parse_network(config.network)
+        # Network info - parsed from connector_name (which is now the network identifier)
+        if config.connector_name:
+            self._chain, self._network_name = self.parse_network(config.connector_name)
         else:
             self._chain = None
             self._network_name = None

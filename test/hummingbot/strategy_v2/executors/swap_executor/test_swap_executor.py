@@ -3,7 +3,7 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+from hummingbot.connector.gateway.gateway import Gateway
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.data_type.trade_fee import TokenAmount
@@ -36,14 +36,14 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="SOL-USDC")
 
-        # Create mock GatewaySwap connector
-        connector = MagicMock(spec=GatewaySwap)
+        # Create mock Gateway connector (network-based)
+        connector = MagicMock(spec=Gateway)
         connector.place_order = MagicMock(return_value="OID-SWAP-1")
         connector.get_order = MagicMock(return_value=None)
         connector.get_quote_price = AsyncMock(return_value=Decimal("100"))
 
         strategy.connectors = {
-            "jupiter/router_solana_mainnet-beta": connector,
+            "solana-mainnet-beta": connector,
         }
         return strategy
 
@@ -52,30 +52,13 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.set_loggers(loggers=[executor.logger()])
         return executor
 
-    def test_parse_network(self):
-        """Test network string parsing."""
-        # Test full network string
-        chain, network = SwapExecutor.parse_network("solana-mainnet-beta")
-        self.assertEqual(chain, "solana")
-        self.assertEqual(network, "mainnet-beta")
-
-        # Test simple network string
-        chain, network = SwapExecutor.parse_network("ethereum-mainnet")
-        self.assertEqual(chain, "ethereum")
-        self.assertEqual(network, "mainnet")
-
-        # Test network without hyphen
-        chain, network = SwapExecutor.parse_network("solana")
-        self.assertEqual(chain, "solana")
-        self.assertEqual(network, "mainnet")
-
     def test_executor_initialization(self):
         """Test executor initialization."""
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -83,8 +66,6 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_swap_executor_from_config(config)
 
         self.assertEqual(executor._state, SwapExecutorStates.NOT_STARTED)
-        self.assertEqual(executor._chain, "solana")
-        self.assertEqual(executor._network_name, "mainnet-beta")
         self.assertEqual(executor._executed_amount, Decimal("0"))
         self.assertEqual(executor._executed_price, Decimal("0"))
         self.assertEqual(executor._tx_fee, Decimal("0"))
@@ -94,8 +75,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -109,8 +90,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="nonexistent/connector",
-            network="solana-mainnet-beta",
+            connector_name="nonexistent-network",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -125,8 +106,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -145,8 +126,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -165,8 +146,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -199,8 +180,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -221,8 +202,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="nonexistent/connector",
-            network="solana-mainnet-beta",
+            connector_name="nonexistent-network",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -240,8 +221,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -255,7 +236,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor._execute_swap()
 
         self.assertEqual(executor._order_id, "OID-SWAP-1")
-        self.assertEqual(executor._selected_provider, "jupiter/router_solana_mainnet-beta")
+        self.assertEqual(executor._selected_provider, "jupiter/router")
 
     @patch("hummingbot.strategy_v2.executors.swap_executor.swap_executor.GatewayHttpClient")
     async def test_execute_swap_with_multiple_providers(self, mock_gateway_client):
@@ -263,12 +244,12 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
-            swap_providers=["jupiter/router", "raydium/clmm"],
+            additional_swap_providers=["raydium/clmm"],
         )
         executor = self.get_swap_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -292,12 +273,12 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
-            swap_providers=["jupiter/router", "raydium/clmm"],
+            additional_swap_providers=["raydium/clmm"],
         )
         executor = self.get_swap_executor_from_config(config)
         executor._status = RunnableStatus.RUNNING
@@ -316,8 +297,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -336,7 +317,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         order.price = Decimal("100")
         order.fee_paid = Decimal("0.001")
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_order.return_value = order
 
         await executor._check_order_status()
@@ -352,8 +333,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -365,7 +346,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         order = MagicMock()
         order.current_state = OrderState.FAILED
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_order.return_value = order
 
         await executor._check_order_status()
@@ -377,8 +358,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -390,7 +371,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         order = MagicMock()
         order.current_state = OrderState.CANCELED
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_order.return_value = order
 
         await executor._check_order_status()
@@ -402,8 +383,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -412,7 +393,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._status = RunnableStatus.RUNNING
         executor._order_id = "OID-123"
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_order.return_value = None
 
         # Should not crash
@@ -423,8 +404,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -448,7 +429,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             exchange_trade_id="TX-123",
         )
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         executor.process_order_filled_event(1, connector, event)
 
         self.assertEqual(executor._exchange_order_id, "TX-123")
@@ -461,8 +442,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -482,7 +463,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             exchange_trade_id="TX-123",
         )
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         executor.process_order_filled_event(1, connector, event)
 
         # Should not update anything
@@ -493,8 +474,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -514,7 +495,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             exchange_order_id="TX-123",
         )
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         executor.process_order_completed_event(1, connector, event)
 
         self.assertEqual(executor._state, SwapExecutorStates.COMPLETED)
@@ -524,8 +505,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.SELL,
             amount=Decimal("1.0"),
@@ -545,7 +526,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             exchange_order_id="TX-123",
         )
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         executor.process_order_completed_event(1, connector, event)
 
         self.assertEqual(executor._state, SwapExecutorStates.COMPLETED)
@@ -555,8 +536,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -571,7 +552,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             order_type=None,
         )
 
-        connector = self.strategy.connectors["jupiter/router_solana_mainnet-beta"]
+        connector = self.strategy.connectors["solana-mainnet-beta"]
         executor.process_order_failed_event(1, connector, event)
 
         self.assertEqual(executor._state, SwapExecutorStates.FAILED)
@@ -581,8 +562,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -603,8 +584,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -624,8 +605,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -641,8 +622,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -656,8 +637,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -671,8 +652,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -687,8 +668,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -703,8 +684,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -721,8 +702,7 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         custom_info = executor.get_custom_info()
 
         self.assertEqual(custom_info["state"], "EXECUTING")
-        self.assertEqual(custom_info["network"], "solana-mainnet-beta")
-        self.assertEqual(custom_info["connector_name"], "jupiter/router_solana_mainnet-beta")
+        self.assertEqual(custom_info["connector_name"], "solana-mainnet-beta")
         self.assertEqual(custom_info["side"], "BUY")
         self.assertEqual(custom_info["amount"], 1.0)
         self.assertEqual(custom_info["executed_amount"], 1.0)
@@ -737,8 +717,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -759,8 +739,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.SELL,
             amount=Decimal("1.0"),
@@ -781,8 +761,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -798,8 +778,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -830,8 +810,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -849,8 +829,8 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router_solana_mainnet-beta",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -865,18 +845,14 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     # Connector validation tests
 
-    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", [
-        "jupiter/router",
-        "uniswap/router",
-        "meteora/clmm",
-    ])
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", {"jupiter/router", "orca/router"})
     async def test_on_start_normalizes_connector_auto_append_router(self):
-        """Test on_start auto-appends /router to base connector name."""
+        """Test on_start auto-appends /router to swap_provider."""
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter",  # No /router suffix
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter",  # No /router suffix
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -885,20 +861,17 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor.on_start()
 
-        # Connector name should be normalized
-        self.assertEqual(executor.config.connector_name, "jupiter/router")
+        # Swap provider should be normalized to include /router
+        self.assertEqual(executor.config.swap_provider, "jupiter/router")
 
-    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", [
-        "jupiter/router",
-        "uniswap/router",
-    ])
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", {"jupiter/router", "orca/router"})
     async def test_on_start_keeps_existing_router_suffix(self):
-        """Test on_start keeps existing /router suffix."""
+        """Test on_start keeps existing /router suffix on swap_provider."""
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="jupiter/router",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="jupiter/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -907,19 +880,16 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor.on_start()
 
-        self.assertEqual(executor.config.connector_name, "jupiter/router")
+        self.assertEqual(executor.config.swap_provider, "jupiter/router")
 
-    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", [
-        "jupiter/router",
-        "meteora/clmm",
-    ])
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", {"meteora/clmm"})
     async def test_on_start_fails_wrong_connector_type(self):
-        """Test on_start fails when connector has wrong type suffix."""
+        """Test on_start fails when swap_provider has CLMM type (not router)."""
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="meteora/clmm",  # CLMM instead of router
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="meteora/clmm",  # CLMM instead of router
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),
@@ -931,16 +901,14 @@ class TestSwapExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.close_type, CloseType.FAILED)
 
-    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", [
-        "jupiter/router",
-    ])
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_CONNECTORS", {"orca/router"})
     async def test_on_start_fails_connector_not_found(self):
-        """Test on_start fails when connector is not found in Gateway."""
+        """Test on_start fails when swap_provider is not found in Gateway."""
         config = SwapExecutorConfig(
             id="test-swap",
             timestamp=123,
-            connector_name="nonexistent/router",
-            network="solana-mainnet-beta",
+            connector_name="solana-mainnet-beta",
+            swap_provider="nonexistent/router",
             trading_pair="SOL-USDC",
             side=TradeType.BUY,
             amount=Decimal("1.0"),

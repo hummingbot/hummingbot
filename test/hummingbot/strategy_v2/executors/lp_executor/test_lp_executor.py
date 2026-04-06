@@ -460,7 +460,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.update_pool_info()
 
         self.assertEqual(executor._pool_info, mock_pool_info)
-        connector.get_pool_info_by_address.assert_called_once_with("pool123")
+        connector.get_pool_info_by_address.assert_called_once_with("pool123", dex_name="meteora", trading_type="clmm")
 
     async def test_update_pool_info_error(self):
         """Test update_pool_info handles errors gracefully"""
