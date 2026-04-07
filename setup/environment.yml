@@ -66,3 +66,4 @@ dependencies:
   - zlib>=1.2.13
   - pip:
     - injective-py==1.13.*
+    - lighter-sdk==1.0.6  # Pin the tested signer package until connector compatibility is revalidated against newer binaries

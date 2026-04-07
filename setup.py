@@ -37,7 +37,8 @@ def main():
         "hummingbot": [
             "core/cpp/*",
             "VERSION",
-            "templates/*TEMPLATE.yml"
+            "templates/*TEMPLATE.yml",
+            "connector/lighter_signers/*",
         ],
     }
     install_requires = [
@@ -54,6 +55,7 @@ def main():
         "cryptography>=41.0.2",
         "eth-account>=0.13.0",
         "injective-py",
+        "lighter-sdk==1.0.6",
         "msgpack-python",
         "numba>=0.61.2",
         "numpy>=2.2.6",
