@@ -61,7 +61,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
-        self._enable_hip3_markets = enable_hip3_markets
+        # Hyperliquid testnet aggressively rate-limits HIP-3 market hydration,
+        # which can block connector startup before base perpetual markets load.
+        self._enable_hip3_markets = enable_hip3_markets and domain != CONSTANTS.TESTNET_DOMAIN
         self._position_mode = None
         self._last_trade_history_timestamp = None
         self.coin_to_asset: Dict[str, int] = {}  # Maps coin name to asset ID for ALL markets
@@ -510,7 +512,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     # === Orders placing ===
 
-    def buy(self,
+    def buy(
+            self,
             trading_pair: str,
             amount: Decimal,
             order_type=OrderType.LIMIT,
@@ -549,7 +552,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs))
         return hex_order_id
 
-    def sell(self,
+    def sell(
              trading_pair: str,
              amount: Decimal,
              order_type: OrderType = OrderType.LIMIT,
@@ -598,26 +601,39 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs,
     ) -> Tuple[str, float]:
 
-        coin = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        asset = self.coin_to_asset[symbol]
+        # Check if this is a HIP-3 market for grouping param
+        is_hip3 = self._is_hip3_market.get(symbol, False)
         param_order_type = {"limit": {"tif": "Gtc"}}
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = {"limit": {"tif": "Alo"}}
         if order_type is OrderType.MARKET:
             param_order_type = {"limit": {"tif": "Ioc"}}
 
+        # Check if reduceOnly is supported (HIP-3 markets don't support it)
+        order_params = {
+            "asset": asset,
+            "isBuy": True if trade_type is TradeType.BUY else False,
+            "limitPx": float(price),
+            "sz": float(amount),
+            "orderType": param_order_type,
+            "cloid": order_id,
+        }
+
+        # Only add reduceOnly for base perpetual markets, not HIP-3
+        if not is_hip3:
+            order_params["reduceOnly"] = position_action == PositionAction.CLOSE
+
         api_params = {
             "type": "order",
-            "grouping": "na",
-            "orders": {
-                "asset": self.coin_to_asset[coin],
-                "isBuy": True if trade_type is TradeType.BUY else False,
-                "limitPx": float(price),
-                "sz": float(amount),
-                "reduceOnly": position_action == PositionAction.CLOSE,
-                "orderType": param_order_type,
-                "cloid": order_id,
-            }
+            # Hyperliquid docs: builder-deployed perps (HIP-3) must use grouping="normalTpsl"
+            # to avoid "Order must have a tp/sl for normalTpsl" API errors.
+            # Base perps continue to use legacy grouping="na".
+            "grouping": "normalTpsl" if is_hip3 else "na",
+            "orders": order_params,
         }
+        self.logger().debug(f"Placing order for {trading_pair}: symbol={symbol}, asset={asset}, is_hip3={is_hip3}, grouping={api_params['grouping']}")
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
@@ -631,6 +647,39 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
+
+    async def _place_order_and_process_update(
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
+    ) -> str:
+        ex_order_id, update_timestamp = await self._place_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            trade_type=trade_type,
+            order_type=order_type,
+            price=price,
+            position_action=position_action,
+            **kwargs,
+        )
+
+        order_update = OrderUpdate(
+            client_order_id=order_id,
+            exchange_order_id=ex_order_id,
+            trading_pair=trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderType.OPEN,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        return ex_order_id
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -658,9 +707,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_order_id = str(order_fill.get("oid"))
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
-            fee_asset = fillable_order.quote_asset
-
             position_action = PositionAction.OPEN if order_fill["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
+            fee_asset = fillable_order.quote_asset
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
                 position_action=position_action,
@@ -682,58 +730,39 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
             self._order_tracker.process_trade_update(trade_update)
 
-    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        # Use _update_trade_history instead
-        pass
-
-    async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
-        try:
-            raise error
-        except (asyncio.TimeoutError, KeyError):
-            self.logger().debug(
-                f"Tracked order {order.client_order_id} does not have an exchange id. "
-                f"Attempting fetch in next polling interval."
-            )
-            await self._order_tracker.process_order_not_found(order.client_order_id)
-        except asyncio.CancelledError:
-            raise
-        except Exception as request_error:
-            self.logger().warning(
-                f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
-            )
-            self.logger().debug(
-                f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
-            await self._order_tracker.process_order_not_found(order.client_order_id)
-
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        client_order_id = tracked_order.client_order_id
-        try:
-            if tracked_order.exchange_order_id:
-                exchange_order_id = tracked_order.exchange_order_id
-            else:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-        except asyncio.TimeoutError:
-            exchange_order_id = None
-        order_update = await self._api_post(
+        update = await self._api_post(
             path_url=CONSTANTS.ORDER_URL,
             data={
                 "type": CONSTANTS.ORDER_STATUS_TYPE,
                 "user": self.hyperliquid_perpetual_address,
-                "oid": int(exchange_order_id) if exchange_order_id else client_order_id
-            })
-        current_state = order_update["order"]["status"]
-        _exchange_order_id = str(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else str(
-            order_update["order"]["order"]["oid"])
-        _order_update: OrderUpdate = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
-            exchange_order_id=_exchange_order_id,
+                "oid": int(tracked_order.exchange_order_id)
+                if tracked_order.exchange_order_id is not None and tracked_order.exchange_order_id.isdigit()
+                else tracked_order.client_order_id,
+            },
         )
-        return _order_update
 
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        order_data = update.get("order") or {}
+        current_state = order_data.get("status")
+        nested_order = order_data.get("order", {})
+        if not current_state or not nested_order:
+            raise IOError(f"Error fetching order status for {tracked_order.client_order_id}: {update}")
+
+        exchange_order_id = nested_order.get("oid") or tracked_order.exchange_order_id
+        client_order_id = nested_order.get("cloid") or tracked_order.client_order_id
+        timestamp = nested_order.get("timestamp")
+        if timestamp is None:
+            timestamp = self.current_timestamp * 1e3
+
+        return OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=timestamp * 1e-3,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
+            client_order_id=client_order_id,
+            exchange_order_id=str(exchange_order_id),
+        )
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
             try:
                 yield await self._user_stream_tracker.user_stream.get()
