@@ -555,26 +555,19 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         return order_update
 
     async def _update_balances(self):
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-
+        """
+        Calls the REST API to update total and available balances.
+        For perpetual futures with cross-margin, we report the netEquity and netEquityAvailable
+        as the total and available balances in the quote currency (USDC).
+        """
         account_info = await self._api_get(
             path_url=CONSTANTS.BALANCE_PATH_URL,
-            params={"instruction": "balanceQuery"},
+            params={"instruction": "collateralQuery"},
             is_auth_required=True)
 
-        if account_info:
-            for asset_name, balance_entry in account_info.items():
-                free_balance = Decimal(balance_entry["available"])
-                total_balance = Decimal(balance_entry["available"]) + Decimal(balance_entry["locked"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
-
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
+        quote = CONSTANTS.CURRENCY
+        self._account_balances[quote] = Decimal(account_info["netEquity"])
+        self._account_available_balances[quote] = Decimal(account_info["netEquityAvailable"])
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
