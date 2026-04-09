@@ -5,9 +5,16 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from hummingbot.core.data_type.common import PositionAction
+
 
 def _ensure_limit_order_stub():
     module_name = "hummingbot.core.data_type.limit_order"
+    try:
+        __import__(module_name)
+        return
+    except Exception:
+        pass
     if module_name in sys.modules:
         return
     stub_module = types.ModuleType(module_name)
@@ -21,6 +28,11 @@ def _ensure_limit_order_stub():
 
 def _ensure_order_book_stub():
     module_name = "hummingbot.core.data_type.order_book"
+    try:
+        __import__(module_name)
+        return
+    except Exception:
+        pass
     if module_name in sys.modules:
         return
     stub_module = types.ModuleType(module_name)
@@ -65,7 +77,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             "success": True,
             "data": {
                 "collateral": "123.45",
-                "availableCollateral": "120.11",
+                "available_to_spend": "120.11",
                 "fee_level": 2,
             },
         })
@@ -102,6 +114,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_fetch_or_create_api_config_key_resolves_index_from_api_keys(self):
         self.connector.api_key = "abc_public_key"
+        self.connector.api_secret = ""
         self.connector.api_config_key = "abc_public_key"
         self.connector.api_key_index = ""
         self.connector.account_index = "237600"
@@ -144,6 +157,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         tracked_order.exchange_order_id = "123"
         tracked_order.client_order_id = "HBOT-1"
         tracked_order.trading_pair = "BTC-USDC"
+        self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_updatable_orders = {"HBOT-1": tracked_order}
         self.connector._order_tracker.process_order_update = MagicMock()
 
@@ -157,6 +171,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("123", order_update.exchange_order_id)
 
     async def test_process_account_order_updates_ws_event_message_ignores_unknown_order(self):
+        self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_updatable_orders = {}
         self.connector._order_tracker.process_order_update = MagicMock()
 
@@ -267,6 +282,8 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         tracked_order.client_order_id = "HBOT-1"
         tracked_order.trading_pair = "BTC-USDC"
         tracked_order.quote_asset = "USDC"
+        tracked_order.position = PositionAction.OPEN
+        self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_fillable_orders = {"HBOT-1": tracked_order}
         self.connector._order_tracker.process_trade_update = MagicMock()
 
@@ -289,6 +306,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("0.2"), trade_update.fill_base_amount)
 
     async def test_process_account_trades_ws_event_message_ignores_unknown_trade(self):
+        self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_fillable_orders = {}
         self.connector._order_tracker.process_trade_update = MagicMock()
 
@@ -306,6 +324,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         tracked_order.quote_asset = "USDC"
         tracked_order.position = PositionAction.OPEN
         self.connector.account_index = "361816"
+        self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_fillable_orders = {"HBOT-1": tracked_order}
         self.connector._order_tracker.process_trade_update = MagicMock()
 

@@ -16,8 +16,6 @@ import asyncio
 import hashlib
 import json
 import os
-import platform
-import shutil
 import sys
 import time
 from decimal import ROUND_UP, Decimal
@@ -80,34 +78,6 @@ SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {
 }
 REPORT_PATH = Path(__file__).with_name("lighter_spot_integration_report.json")
 
-
-def ensure_connector_signer_binary_for_runtime(lighter_module) -> None:
-    signer_file_by_platform = {
-        ("Windows", "x86_64"): "lighter-signer-windows-amd64.dll",
-        ("Windows", "amd64"): "lighter-signer-windows-amd64.dll",
-        ("Linux", "x86_64"): "lighter-signer-linux-amd64.so",
-        ("Linux", "amd64"): "lighter-signer-linux-amd64.so",
-        ("Linux", "aarch64"): "lighter-signer-linux-arm64.so",
-        ("Linux", "arm64"): "lighter-signer-linux-arm64.so",
-        ("Darwin", "arm64"): "lighter-signer-darwin-arm64.dylib",
-    }
-
-    platform_key = (platform.system(), platform.machine().lower())
-    signer_filename = signer_file_by_platform.get(platform_key)
-    if signer_filename is None:
-        raise RuntimeError(f"Unsupported platform for signer binary override: {platform_key[0]}/{platform_key[1]}")
-
-    connector_signers_dir = Path(__file__).parents[1] / "hummingbot" / "connector" / "lighter_signers"
-    source_signer = connector_signers_dir / signer_filename
-    if not source_signer.exists():
-        raise RuntimeError(f"Shared signer binary not found: {source_signer}")
-
-    runtime_signers_dir = Path(lighter_module.__file__).resolve().parent / "signers"
-    runtime_signers_dir.mkdir(parents=True, exist_ok=True)
-    runtime_signer = runtime_signers_dir / signer_filename
-    shutil.copy2(source_signer, runtime_signer)
-
-
 def client_order_index_from_order_id(tag: str) -> int:
     digest = hashlib.sha256(tag.encode()).digest()
     return int.from_bytes(digest[:6], byteorder="big", signed=False) & 0xFFFFFFFFFFFF
@@ -144,11 +114,6 @@ def asset_balances(account: Dict) -> Dict[str, Tuple[Decimal, Decimal]]:
             Decimal(str(asset.get("balance") or "0")),
             Decimal(str(asset.get("locked_balance") or "0")),
         )
-    if not balances:
-        # Some authenticated account payloads expose spendable balance only at the account level.
-        available_balance = Decimal(str(account.get("available_balance") or account.get("collateral") or "0"))
-        if available_balance > 0:
-            balances["USDC"] = (available_balance, Decimal("0"))
     return balances
 
 
@@ -167,7 +132,11 @@ def select_market(account: Dict, books: List[Dict]) -> Tuple[Dict, Decimal]:
 
     if not candidates:
         balances_text = ", ".join(f"{k}={v[0]}" for k, v in balances.items()) or "none"
-        raise RuntimeError(f"No viable funded spot market found. Balances: {balances_text}")
+        account_equity = account.get("account_equity") or account.get("equity") or account.get("collateral") or "0"
+        raise RuntimeError(
+            "No viable funded spot market found using spot asset balances. "
+            f"Spot assets: {balances_text}. Account collateral/equity (not treated as spot balance): {account_equity}"
+        )
 
     _, symbol, book, price = min(candidates, key=lambda row: row[0])
     return book, price
@@ -228,7 +197,6 @@ async def main():
         print(f"[1] selected market={symbol} market_id={market_id} bid_price={bid_price}")
         print(f"[2] before: total_order_count={before_orders} {quote_asset}.locked={before_locked}")
 
-        ensure_connector_signer_binary_for_runtime(lighter)
         try:
             signer = lighter.SignerClient(
                 url=BASE_URL,

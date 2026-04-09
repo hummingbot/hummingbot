@@ -5,7 +5,7 @@ import unittest
 from decimal import Decimal
 from enum import Enum
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.common import OrderType
@@ -245,6 +245,46 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(IOError):
             await exchange._place_modify(tracked_order, Decimal("1.234"), Decimal("12345"))
 
+    async def test_api_request_uses_sdk_for_authenticated_requests(self):
+        exchange = object.__new__(LighterExchange)
+        exchange._domain = "lighter"
+        exchange._api_key = "k"
+        exchange._api_secret = ""
+
+        class DummyContext:
+            async def __aenter__(self):
+                return None
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        exchange._throttler = type("Throttler", (), {"execute_task": lambda self, limit_id: DummyContext()})()
+
+        fake_response = type(
+            "Response",
+            (),
+            {
+                "status": 200,
+                "data": b'{"success": true, "data": {"assets": []}}',
+                "read": AsyncMock(),
+            },
+        )()
+        fake_client = type(
+            "ApiClient",
+            (),
+            {
+                "param_serialize": MagicMock(return_value=("GET", "https://mainnet.zklighter.elliot.ai/api/v1/account", {"X-Api-Key": "k"}, None, [])),
+                "call_api": AsyncMock(return_value=fake_response),
+            },
+        )()
+        exchange._get_lighter_api_client = lambda: fake_client
+
+        response = await exchange._api_request(path_url="/account", method=RESTMethod.GET, params={"by": "index", "value": "693751"}, is_auth_required=True, return_err=True)
+
+        self.assertTrue(response["success"])
+        fake_client.param_serialize.assert_called_once()
+        fake_client.call_api.assert_awaited_once()
+
     async def test_api_request_and_get_last_traded_prices(self):
         exchange = object.__new__(LighterExchange)
         exchange._domain = "lighter"
@@ -255,7 +295,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         rest.execute_request = AsyncMock(return_value={"ok": True})
         exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=rest)
 
-        response = await exchange._api_request(path_url="/orderBooks", method=RESTMethod.GET, params={"a": 1}, is_auth_required=True)
+        response = await exchange._api_request(path_url="/orderBooks", method=RESTMethod.GET, params={"a": 1}, is_auth_required=False)
         self.assertEqual({"ok": True}, response)
 
         exchange._api_request = AsyncMock(

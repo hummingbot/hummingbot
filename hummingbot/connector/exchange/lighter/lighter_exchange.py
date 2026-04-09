@@ -1,8 +1,7 @@
 import asyncio
 import hashlib
+import json
 import os
-import platform
-import shutil
 from decimal import Decimal
 from typing import Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
 
@@ -98,7 +97,83 @@ class LighterExchange(ExchangePyBase):
         )
 
     def _api_host_for_signer(self) -> str:
-        return CONSTANTS.REST_URL.split("/api/v1")[0]
+        rest_url = CONSTANTS.REST_URL if self.domain == CONSTANTS.DEFAULT_DOMAIN else CONSTANTS.TESTNET_REST_URL
+        return rest_url.split("/api/v1")[0]
+
+    def _sdk_rest_base_url(self) -> str:
+        return self._api_host_for_signer()
+
+    def _get_lighter_api_client(self):
+        if getattr(self, "_lighter_api_client", None) is None:
+            import lighter
+
+            configuration = lighter.Configuration(host=self._sdk_rest_base_url())
+            self._lighter_api_client = lighter.ApiClient(configuration=configuration)
+
+        return self._lighter_api_client
+
+    async def _close_lighter_api_client(self):
+        api_client = getattr(self, "_lighter_api_client", None)
+        if api_client is not None:
+            await api_client.close()
+            self._lighter_api_client = None
+
+    async def _sdk_api_request(
+        self,
+        path_url: str,
+        method: RESTMethod = RESTMethod.GET,
+        params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        limit_id: Optional[str] = None,
+        headers: Optional[Dict[str, Any]] = None,
+        return_err: bool = False,
+    ) -> Dict[str, Any]:
+        api_client = self._get_lighter_api_client()
+        request_headers = dict(headers or {})
+
+        if data is not None and "Content-Type" not in request_headers:
+            request_headers["Content-Type"] = "application/json"
+
+        serialized_request = api_client.param_serialize(
+            method=method.value,
+            resource_path=f"/api/v1{path_url}",
+            query_params=params,
+            header_params=request_headers,
+            body=data,
+            _host=self._sdk_rest_base_url(),
+        )
+
+        throttler = getattr(self, "_throttler", None)
+        limit_context = throttler.execute_task(limit_id=limit_id or path_url) if throttler is not None else None
+
+        try:
+            if limit_context is None:
+                response = await api_client.call_api(*serialized_request)
+            else:
+                async with limit_context:
+                    response = await api_client.call_api(*serialized_request)
+            await response.read()
+            raw_body = response.data.decode("utf-8") if response.data else ""
+            payload: Any = json.loads(raw_body) if raw_body else {}
+        except Exception as request_exception:
+            if return_err:
+                return {
+                    "success": False,
+                    "error": str(request_exception),
+                    "code": getattr(request_exception, "status", None),
+                }
+            raise IOError(f"Error executing Lighter SDK request {method.value} {path_url}: {request_exception}")
+
+        if not isinstance(payload, dict):
+            payload = {"data": payload}
+
+        payload.setdefault("code", getattr(response, "status", None))
+        payload.setdefault("success", int(payload.get("code") or 0) < 400)
+
+        if int(payload.get("code") or 0) >= 400 and not return_err:
+            raise IOError(f"Lighter SDK request failed for {method.value} {path_url}: {payload}")
+
+        return payload
 
     def _get_api_key_index(self) -> int:
         api_key_index = getattr(self, "_api_key_index", "")
@@ -151,8 +226,6 @@ class LighterExchange(ExchangePyBase):
         if self._lighter_signer_client is None:
             import lighter
 
-            self._ensure_connector_signer_binary(lighter_module=lighter)
-
             self._lighter_signer_client = lighter.signer_client.SignerClient(
                 url=self._api_host_for_signer(),
                 account_index=self._get_account_index(),
@@ -161,45 +234,9 @@ class LighterExchange(ExchangePyBase):
 
         return self._lighter_signer_client
 
-    def _ensure_connector_signer_binary(self, lighter_module):
-        signer_file_by_platform = {
-            ("Windows", "x86_64"): "lighter-signer-windows-amd64.dll",
-            ("Windows", "amd64"): "lighter-signer-windows-amd64.dll",
-            ("Linux", "x86_64"): "lighter-signer-linux-amd64.so",
-            ("Linux", "amd64"): "lighter-signer-linux-amd64.so",
-            ("Linux", "aarch64"): "lighter-signer-linux-arm64.so",
-            ("Linux", "arm64"): "lighter-signer-linux-arm64.so",
-            ("Darwin", "arm64"): "lighter-signer-darwin-arm64.dylib",
-        }
-
-        platform_key = (platform.system(), platform.machine().lower())
-        signer_filename = signer_file_by_platform.get(platform_key)
-        if signer_filename is None:
-            self.logger().warning(
-                f"Unsupported platform for connector signer override: {platform_key[0]}/{platform_key[1]}."
-            )
-            return
-
-        # Shared signer binaries directory used by both lighter spot and perpetual connectors
-        connector_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-        shared_signers_dir = os.path.normpath(os.path.join(connector_root, "lighter_signers"))
-        source_signer = os.path.join(shared_signers_dir, signer_filename)
-        if not os.path.isfile(source_signer):
-            self.logger().warning(
-                f"Shared signer binary not found at {source_signer}. Falling back to lighter package signers."
-            )
-            return
-
-        module_file = getattr(lighter_module, "__file__", None)
-        if module_file is None:
-            # Unit tests may inject a lightweight mocked module without __file__.
-            return
-
-        runtime_signers_dir = os.path.join(os.path.dirname(os.path.abspath(module_file)), "signers")
-        os.makedirs(runtime_signers_dir, exist_ok=True)
-        runtime_signer = os.path.join(runtime_signers_dir, signer_filename)
-
-        shutil.copy2(source_signer, runtime_signer)
+    async def stop_network(self):
+        await super().stop_network()
+        await self._close_lighter_api_client()
 
     async def _refresh_market_metadata(self):
         response = await self._api_get(
@@ -758,18 +795,33 @@ class LighterExchange(ExchangePyBase):
     async def _api_request(
         self,
         path_url: str,
+        overwrite_url: Optional[str] = None,
         method: RESTMethod = RESTMethod.GET,
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         is_auth_required: bool = False,
+        return_err: bool = False,
         limit_id: Optional[str] = None,
+        headers: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
-        headers = {}
+        headers = dict(headers or {})
         if is_auth_required and self.rest_api_key:
             headers["X-Api-Key"] = self.rest_api_key
 
+        if is_auth_required:
+            return await self._sdk_api_request(
+                path_url=path_url,
+                method=method,
+                params=params,
+                data=data,
+                limit_id=limit_id,
+                headers=headers,
+                return_err=return_err,
+            )
+
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        url = web_utils.private_rest_url(path_url=path_url, domain=self.domain)
+        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
 
         return await rest_assistant.execute_request(
             url=url,
@@ -777,7 +829,7 @@ class LighterExchange(ExchangePyBase):
             data=data,
             method=method,
             is_auth_required=is_auth_required,
-            return_err=True,
+            return_err=return_err,
             throttler_limit_id=limit_id or path_url,
             headers=headers,
         )

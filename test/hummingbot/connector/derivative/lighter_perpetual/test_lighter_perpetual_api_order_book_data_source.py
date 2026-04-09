@@ -8,6 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 def _ensure_limit_order_stub():
     module_name = "hummingbot.core.data_type.limit_order"
+    try:
+        __import__(module_name)
+        return
+    except Exception:
+        pass
     if module_name in sys.modules:
         return
     stub_module = types.ModuleType(module_name)
@@ -21,6 +26,11 @@ def _ensure_limit_order_stub():
 
 def _ensure_order_book_stub():
     module_name = "hummingbot.core.data_type.order_book"
+    try:
+        __import__(module_name)
+        return
+    except Exception:
+        pass
     if module_name in sys.modules:
         return
     stub_module = types.ModuleType(module_name)
