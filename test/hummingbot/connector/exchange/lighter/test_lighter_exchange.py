@@ -37,7 +37,17 @@ if "hummingbot.connector.exchange_base" not in sys.modules:
 
     class ExchangeBase:
         def __init__(self, *args, **kwargs):
-            pass
+            _ = args
+            _ = kwargs
+            self._account_balances = {}
+            self._account_available_balances = {}
+            self._trading_fees = {}
+
+        def trade_fee_schema(self):
+            return TradeFeeSchema()
+
+        def _set_order_book_tracker(self, order_book_tracker):
+            self.order_book_tracker = order_book_tracker
 
     fake_exchange_base.ExchangeBase = ExchangeBase
     sys.modules["hummingbot.connector.exchange_base"] = fake_exchange_base
@@ -335,6 +345,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
                 self.kwargs = kwargs
 
         fake_lighter.signer_client = type("SignerModule", (), {"SignerClient": SignerClient})
+        fake_lighter.create_api_key = lambda: ("priv", "pub", None)
         sys.modules["lighter"] = fake_lighter
 
         client_1 = exchange._get_lighter_signer_client()

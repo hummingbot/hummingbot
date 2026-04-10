@@ -43,12 +43,7 @@ def ensure_local_lighter_sdk_importable() -> None:
             return
 
 
-# Lazy-import aiohttp and lighter only when main() is called
-aiohttp = None
-lighter = None
-
-
-# Module-level constants for live test setup (initialized in main())
+# Module-level defaults - will be initialized in _setup_environment() when script runs
 BASE_URL: str = ""
 REST_BASE: str = ""
 REST_API_KEY: str = ""
@@ -58,16 +53,21 @@ ACCT_INDEX: int = 0
 SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {"LIT/USDC": Decimal("0.0010")}
 REPORT_PATH = Path(__file__).with_name("lighter_spot_integration_report.json")
 
+# Lazy imports - only loaded when script runs as __main__
+aiohttp = None
+lighter = None
 
-def _initialize_environment() -> None:
-    """Initialize SDK importability, env vars, and module constants."""
+
+def _setup_environment() -> None:
+    """Initialize environment variables and imports (only when running as main script)."""
     global BASE_URL, REST_BASE, REST_API_KEY, API_KEY_IDX, PRIVATE_KEY, ACCT_INDEX, aiohttp, lighter
 
     ensure_local_lighter_sdk_importable()
-    import aiohttp as aiohttp_module  # noqa: E402
-    import lighter as lighter_module  # noqa: E402
-    aiohttp = aiohttp_module
-    lighter = lighter_module
+
+    import aiohttp as _aiohttp  # noqa: E402
+    import lighter as _lighter  # noqa: E402
+    aiohttp = _aiohttp
+    lighter = _lighter
 
     if sys.platform.startswith("win"):
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -88,10 +88,10 @@ def _initialize_environment() -> None:
 
     BASE_URL = "https://mainnet.zklighter.elliot.ai"
     REST_BASE = f"{BASE_URL}/api/v1"
-    REST_API_KEY = os.environ.get("lighter_api_key", "").strip() or os.environ["lighter_perpetual_api_key"].strip()
-    API_KEY_IDX = int(os.environ.get("lighter_api_key_index", "").strip() or os.environ["lighter_perpetual_api_key_index"])
+    REST_API_KEY = os.environ.get("lighter_api_key", "").strip() or os.environ.get("lighter_perpetual_api_key", "").strip()
+    API_KEY_IDX = int(os.environ.get("lighter_api_key_index", "").strip() or os.environ.get("lighter_perpetual_api_key_index", "0"))
     PRIVATE_KEY = os.environ.get("lighter_private_key", "").strip() or REST_API_KEY
-    ACCT_INDEX = int(os.environ.get("lighter_account_index", "").strip() or os.environ["lighter_perpetual_account_index"])
+    ACCT_INDEX = int(os.environ.get("lighter_account_index", "").strip() or os.environ.get("lighter_perpetual_account_index", "0"))
 
 
 def client_order_index_from_order_id(tag: str) -> int:
@@ -191,7 +191,7 @@ def _extract_tx_hash(obj: object) -> str:
 
 
 async def main():
-    _initialize_environment()
+    _setup_environment()
 
     timeout = aiohttp.ClientTimeout(total=30)
     connector = aiohttp.TCPConnector(family=2)
