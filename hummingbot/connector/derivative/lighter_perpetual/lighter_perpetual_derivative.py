@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import json
-import os
 import time
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -1895,4 +1894,3 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             })
 
         return results
-

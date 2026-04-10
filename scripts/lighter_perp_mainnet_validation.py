@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
 from typing import Any, Dict, Optional
 

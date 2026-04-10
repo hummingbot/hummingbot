@@ -515,4 +515,3 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         except Exception:
             self.logger().exception(f"Error unsubscribing from {trading_pair}")
             return False
-

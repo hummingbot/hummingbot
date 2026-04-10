@@ -1,6 +1,6 @@
-import unittest
 import sys
 import types
+import unittest
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -54,7 +54,9 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         _ensure_limit_order_stub()
         _ensure_order_book_stub()
         try:
-            from hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_derivative import LighterPerpetualDerivative
+            from hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_derivative import (
+                LighterPerpetualDerivative,
+            )
             cls.connector_cls = LighterPerpetualDerivative
         except ModuleNotFoundError:
             cls.connector_cls = None

@@ -37,4 +37,3 @@ async def get_current_server_time(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     return time.time()
-

@@ -7,10 +7,9 @@ from enum import Enum
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.common import OrderType
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 if "hummingbot.core.data_type.limit_order" not in sys.modules:
     fake_limit_order = types.ModuleType("hummingbot.core.data_type.limit_order")
@@ -590,6 +589,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         agen = exchange._iter_user_event_queue()
         message = await agen.__anext__()
         self.assertEqual({"event": 1}, message)
+
     def test_hb_pair_from_symbol_variants(self):
         self.assertEqual("ETH-USDC", LighterExchange._hb_pair_from_symbol("ETH/USDC"))
         self.assertEqual("BTC-USDC", LighterExchange._hb_pair_from_symbol("BTC-USDC"))
@@ -1135,6 +1135,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         class Logger:
             def warning(self, *args, **kwargs):
                 return None
+
             def error(self, *args, **kwargs):
                 return None
 
@@ -1164,10 +1165,13 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
 
         async def fetch_order(_):
             return order_update
+
         async def fetch_trade(_):
             return [trade_update]
+
         async def fetch_cancel(_):
             raise asyncio.CancelledError
+
         async def on_error(_, __):
             return None
 

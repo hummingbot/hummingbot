@@ -45,8 +45,8 @@ def ensure_local_lighter_sdk_importable() -> None:
 
 ensure_local_lighter_sdk_importable()
 
-import aiohttp
-import lighter
+import aiohttp  # noqa: E402
+import lighter  # noqa: E402
 
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -77,6 +77,7 @@ SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {
     "LIT/USDC": Decimal("0.0010"),
 }
 REPORT_PATH = Path(__file__).with_name("lighter_spot_integration_report.json")
+
 
 def client_order_index_from_order_id(tag: str) -> int:
     digest = hashlib.sha256(tag.encode()).digest()
@@ -186,7 +187,6 @@ async def main():
         market_id = int(book["market_id"])
         symbol = str(book["symbol"])
         quote_asset = symbol.split("/")[-1]
-        size_dec = int(book.get("supported_size_decimals") or 0)
         base_amount, price_scaled = compute_order_amounts(book=book, bid_price=bid_price)
         client_order_index = client_order_index_from_order_id(f"live-smoke-{symbol}-{int(time.time())}")
 

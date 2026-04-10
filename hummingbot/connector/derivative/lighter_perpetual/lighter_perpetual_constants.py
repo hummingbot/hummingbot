@@ -158,4 +158,3 @@ RATE_LIMITS_TIER_2 = [
     RateLimit(limit_id=GET_FEES_INFO_PATH_URL, limit=LIGHTER_TIER_2_LIMIT, time_interval=LIGHTER_LIMIT_INTERVAL,
               linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
 ]
-

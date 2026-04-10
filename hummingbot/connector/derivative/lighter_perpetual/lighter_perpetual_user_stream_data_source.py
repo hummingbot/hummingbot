@@ -102,4 +102,3 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception:
                 self.logger().warning("Error sending ping to LIGHTER WebSocket", exc_info=True)
                 await asyncio.sleep(5.0)
-

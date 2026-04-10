@@ -156,4 +156,3 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
 OTHER_DOMAINS_KEYS = {
     "lighter_perpetual_testnet": LighterPerpetualTestnetConfigMap.model_construct()
 }
-
