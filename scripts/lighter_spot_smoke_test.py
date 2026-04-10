@@ -43,40 +43,55 @@ def ensure_local_lighter_sdk_importable() -> None:
             return
 
 
-ensure_local_lighter_sdk_importable()
+# Lazy-import aiohttp and lighter only when main() is called
+aiohttp = None
+lighter = None
 
-import aiohttp  # noqa: E402
-import lighter  # noqa: E402
 
-if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-for env_path in [
-    Path(__file__).parents[1] / ".env",
-    Path(__file__).parents[2] / "hummingbot" / ".env",
-    Path(__file__).parents[2] / ".env",
-    Path(__file__).parent / ".env",
-]:
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            s = line.strip()
-            if s and not s.startswith("#") and "=" in s:
-                k, v = s.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
-        break
-
-BASE_URL = "https://mainnet.zklighter.elliot.ai"
-REST_BASE = f"{BASE_URL}/api/v1"
-REST_API_KEY = os.environ.get("lighter_api_key", "").strip() or os.environ["lighter_perpetual_api_key"].strip()
-API_KEY_IDX = int(os.environ.get("lighter_api_key_index", "").strip() or os.environ["lighter_perpetual_api_key_index"])
-PRIVATE_KEY = os.environ.get("lighter_private_key", "").strip() or REST_API_KEY
-ACCT_INDEX = int(os.environ.get("lighter_account_index", "").strip() or os.environ["lighter_perpetual_account_index"])
-
-# Safe low bids far below market to avoid fills while still satisfying min_quote.
-SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {
-    "LIT/USDC": Decimal("0.0010"),
-}
+# Module-level constants for live test setup (initialized in main())
+BASE_URL: str = ""
+REST_BASE: str = ""
+REST_API_KEY: str = ""
+API_KEY_IDX: int = 0
+PRIVATE_KEY: str = ""
+ACCT_INDEX: int = 0
+SAFE_BID_PRICE_BY_SYMBOL: Dict[str, Decimal] = {"LIT/USDC": Decimal("0.0010")}
 REPORT_PATH = Path(__file__).with_name("lighter_spot_integration_report.json")
+
+
+def _initialize_environment() -> None:
+    """Initialize SDK importability, env vars, and module constants."""
+    global BASE_URL, REST_BASE, REST_API_KEY, API_KEY_IDX, PRIVATE_KEY, ACCT_INDEX, aiohttp, lighter
+
+    ensure_local_lighter_sdk_importable()
+    import aiohttp as aiohttp_module  # noqa: E402
+    import lighter as lighter_module  # noqa: E402
+    aiohttp = aiohttp_module
+    lighter = lighter_module
+
+    if sys.platform.startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    for env_path in [
+        Path(__file__).parents[1] / ".env",
+        Path(__file__).parents[2] / "hummingbot" / ".env",
+        Path(__file__).parents[2] / ".env",
+        Path(__file__).parent / ".env",
+    ]:
+        if env_path.exists():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                s = line.strip()
+                if s and not s.startswith("#") and "=" in s:
+                    k, v = s.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+            break
+
+    BASE_URL = "https://mainnet.zklighter.elliot.ai"
+    REST_BASE = f"{BASE_URL}/api/v1"
+    REST_API_KEY = os.environ.get("lighter_api_key", "").strip() or os.environ["lighter_perpetual_api_key"].strip()
+    API_KEY_IDX = int(os.environ.get("lighter_api_key_index", "").strip() or os.environ["lighter_perpetual_api_key_index"])
+    PRIVATE_KEY = os.environ.get("lighter_private_key", "").strip() or REST_API_KEY
+    ACCT_INDEX = int(os.environ.get("lighter_account_index", "").strip() or os.environ["lighter_perpetual_account_index"])
 
 
 def client_order_index_from_order_id(tag: str) -> int:
@@ -84,7 +99,7 @@ def client_order_index_from_order_id(tag: str) -> int:
     return int.from_bytes(digest[:6], byteorder="big", signed=False) & 0xFFFFFFFFFFFF
 
 
-async def get_account(session: aiohttp.ClientSession) -> Dict:
+async def get_account(session: "aiohttp.ClientSession") -> Dict:
     async with session.get(
         f"{REST_BASE}/account",
         params={"by": "index", "value": str(ACCT_INDEX)},
@@ -97,7 +112,7 @@ async def get_account(session: aiohttp.ClientSession) -> Dict:
     return accounts[0]
 
 
-async def get_spot_books(session: aiohttp.ClientSession) -> List[Dict]:
+async def get_spot_books(session: "aiohttp.ClientSession") -> List[Dict]:
     async with session.get(f"{REST_BASE}/orderBooks") as resp:
         payload = await resp.json()
     return [
@@ -176,6 +191,8 @@ def _extract_tx_hash(obj: object) -> str:
 
 
 async def main():
+    _initialize_environment()
+
     timeout = aiohttp.ClientTimeout(total=30)
     connector = aiohttp.TCPConnector(family=2)
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
