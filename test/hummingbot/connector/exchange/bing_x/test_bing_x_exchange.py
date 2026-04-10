@@ -148,7 +148,7 @@ class TestBingXExchange(unittest.TestCase):
         supported_types = self.exchange.supported_order_types()
         self.assertIn(OrderType.MARKET, supported_types)
         self.assertIn(OrderType.LIMIT, supported_types)
-        # self.assertIn(OrderType.LIMIT_MAKER, supported_types)
+        self.assertIn(OrderType.LIMIT_MAKER, supported_types)
 
     @aioresponses()
     def test_check_network_success(self, mock_api):
