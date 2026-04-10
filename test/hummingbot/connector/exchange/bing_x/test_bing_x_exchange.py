@@ -150,6 +150,11 @@ class TestBingXExchange(unittest.TestCase):
         self.assertIn(OrderType.LIMIT, supported_types)
         self.assertIn(OrderType.LIMIT_MAKER, supported_types)
 
+    def test_bingx_order_type_mapping(self):
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.LIMIT), "LIMIT")
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.MARKET), "MARKET")
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.LIMIT_MAKER), "LIMIT")
+
     @aioresponses()
     def test_check_network_success(self, mock_api):
         url = web_utils.rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL)
