@@ -5,7 +5,8 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import PositionAction
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 
 def _ensure_limit_order_stub():
@@ -137,6 +138,302 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector.api_secret = "secret"
 
         self.assertEqual("0xsigner", self.connector._get_signer_private_key())
+
+    def test_is_int_string_handles_valid_and_invalid_values(self):
+        self.assertTrue(self.connector._is_int_string("12"))
+        self.assertTrue(self.connector._is_int_string(34))
+        self.assertFalse(self.connector._is_int_string("abc"))
+        self.assertFalse(self.connector._is_int_string(None))
+
+    def test_get_rest_api_key_prefers_numeric_api_key_then_secret_then_api_key(self):
+        self.connector.api_key = "7"
+        self.connector.api_secret = "secret"
+        self.assertEqual("7", self.connector._get_rest_api_key())
+
+        self.connector.api_key = "not-numeric"
+        self.assertEqual("secret", self.connector._get_rest_api_key())
+
+        self.connector.api_secret = ""
+        self.assertEqual("not-numeric", self.connector._get_rest_api_key())
+
+    def test_get_signer_private_key_uses_api_key_or_secret_fallbacks(self):
+        self.connector.private_key = ""
+        self.connector.api_key = "0xapi"
+        self.connector.api_secret = "7"
+        self.assertEqual("0xapi", self.connector._get_signer_private_key())
+
+        self.connector.api_key = "5"
+        self.connector.api_secret = "0xsecret"
+        self.assertEqual("0xsecret", self.connector._get_signer_private_key())
+
+    def test_get_signer_private_key_raises_when_missing(self):
+        self.connector.private_key = ""
+        self.connector.api_key = "5"
+        self.connector.api_secret = "6"
+
+        with self.assertRaises(ValueError):
+            self.connector._get_signer_private_key()
+
+    def test_api_host_for_signer_uses_domain(self):
+        self.assertEqual("https://mainnet.zklighter.elliot.ai", self.connector._api_host_for_signer())
+
+        self.connector._domain = "lighter_perpetual_testnet"
+        self.assertEqual("https://testnet.zklighter.elliot.ai", self.connector._api_host_for_signer())
+
+    def test_get_lighter_api_client_builds_once(self):
+        fake_lighter = types.ModuleType("lighter")
+
+        class Configuration:
+            def __init__(self, host):
+                self.host = host
+
+        class ApiClient:
+            def __init__(self, configuration):
+                self.configuration = configuration
+
+        fake_lighter.Configuration = Configuration
+        fake_lighter.ApiClient = ApiClient
+        sys.modules["lighter"] = fake_lighter
+        self.connector._lighter_api_client = None
+
+        client_1 = self.connector._get_lighter_api_client()
+        client_2 = self.connector._get_lighter_api_client()
+
+        self.assertIs(client_1, client_2)
+        self.assertEqual("https://mainnet.zklighter.elliot.ai", client_1.configuration.host)
+
+    async def test_close_lighter_api_client_closes_and_resets(self):
+        api_client = SimpleNamespace(close=AsyncMock())
+        self.connector._lighter_api_client = api_client
+
+        await self.connector._close_lighter_api_client()
+
+        api_client.close.assert_awaited_once()
+        self.assertIsNone(self.connector._lighter_api_client)
+
+    async def test_sdk_api_request_serializes_request_and_returns_dict_payload(self):
+        response = SimpleNamespace(status=200, data=b'{"result": "ok"}', read=AsyncMock())
+        api_client = SimpleNamespace(
+            param_serialize=MagicMock(return_value=("serialized",)),
+            call_api=AsyncMock(return_value=response),
+        )
+        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
+        self.connector._throttler = None
+
+        result = await self.connector._sdk_api_request(
+            path_url="/account",
+            method=RESTMethod.POST,
+            params={"a": 1},
+            data={"b": 2},
+            headers={"X-Test": "1"},
+        )
+
+        self.assertEqual("ok", result["result"])
+        self.assertEqual(200, result["code"])
+        self.assertTrue(result["success"])
+        api_client.param_serialize.assert_called_once()
+        api_client.call_api.assert_awaited_once_with("serialized")
+
+    async def test_sdk_api_request_wraps_non_dict_payload(self):
+        response = SimpleNamespace(status=200, data=b'[1, 2, 3]', read=AsyncMock())
+        api_client = SimpleNamespace(
+            param_serialize=MagicMock(return_value=("serialized",)),
+            call_api=AsyncMock(return_value=response),
+        )
+        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
+        self.connector._throttler = None
+
+        result = await self.connector._sdk_api_request(path_url="/account")
+
+        self.assertEqual([1, 2, 3], result["data"])
+        self.assertEqual(200, result["code"])
+
+    async def test_sdk_api_request_returns_error_payload_when_requested(self):
+        api_client = SimpleNamespace(
+            param_serialize=MagicMock(return_value=("serialized",)),
+            call_api=AsyncMock(side_effect=RuntimeError("boom")),
+        )
+        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
+        self.connector._throttler = None
+
+        result = await self.connector._sdk_api_request(path_url="/account", return_err=True)
+
+        self.assertFalse(result["success"])
+        self.assertIn("boom", result["error"])
+
+    async def test_sdk_api_request_raises_on_error_without_return_err(self):
+        api_client = SimpleNamespace(
+            param_serialize=MagicMock(return_value=("serialized",)),
+            call_api=AsyncMock(side_effect=RuntimeError("boom")),
+        )
+        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
+        self.connector._throttler = None
+
+        with self.assertRaises(IOError):
+            await self.connector._sdk_api_request(path_url="/account")
+
+    async def test_sdk_api_request_uses_throttler_context(self):
+        response = SimpleNamespace(status=200, data=b'{}', read=AsyncMock())
+        api_client = SimpleNamespace(
+            param_serialize=MagicMock(return_value=("serialized",)),
+            call_api=AsyncMock(return_value=response),
+        )
+
+        class LimitContext:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        throttler = SimpleNamespace(execute_task=MagicMock(return_value=LimitContext()))
+        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
+        self.connector._throttler = throttler
+
+        await self.connector._sdk_api_request(path_url="/account", limit_id="custom")
+
+        throttler.execute_task.assert_called_once_with(limit_id="custom")
+
+    def test_get_account_index_and_account_helpers(self):
+        self.assertEqual(237600, self.connector._get_account_index())
+        self.assertEqual({"by": "index", "value": "237600"}, self.connector._account_query_params())
+        self.assertEqual({"id": 1}, self.connector._account_from_response({"data": {"id": 1}}))
+        self.assertEqual({"id": 2}, self.connector._account_from_response({"accounts": [{"id": 2}]}))
+        self.assertIsNone(self.connector._account_from_response({}))
+
+        self.connector.account_index = "bad"
+        with self.assertRaises(ValueError):
+            self.connector._get_account_index()
+
+    def test_is_ok_response_and_signer_client_builds_once(self):
+        self.assertTrue(self.connector._is_ok_response({"success": True}))
+        self.assertTrue(self.connector._is_ok_response({"code": 200}))
+        self.assertFalse(self.connector._is_ok_response({"code": 500}))
+
+        fake_lighter = types.ModuleType("lighter")
+
+        class SignerClient:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        fake_lighter.signer_client = SimpleNamespace(SignerClient=SignerClient)
+        sys.modules["lighter"] = fake_lighter
+        self.connector._lighter_signer_client = None
+
+        client_1 = self.connector._get_lighter_signer_client()
+        client_2 = self.connector._get_lighter_signer_client()
+
+        self.assertIs(client_1, client_2)
+        self.assertEqual(237600, client_1.kwargs["account_index"])
+
+    async def test_refresh_market_metadata_filters_for_perpetual_markets(self):
+        self.connector._api_get = AsyncMock(return_value={
+            "order_books": [
+                {
+                    "symbol": "BTC",
+                    "market_type": "perp",
+                    "market_id": 1,
+                    "supported_size_decimals": 3,
+                    "supported_price_decimals": 2,
+                },
+                {"symbol": "ETH/USDC", "market_type": "spot", "market_id": 2},
+            ]
+        })
+
+        await self.connector._refresh_market_metadata()
+
+        self.assertEqual(1, self.connector._market_id_by_symbol["BTC"])
+        self.assertNotIn("ETH/USDC", self.connector._market_id_by_symbol)
+
+    def test_properties_and_supported_modes(self):
+        self.assertEqual("lighter_perpetual", self.connector.name)
+        self.assertEqual("lighter_perpetual", self.connector.domain)
+        self.assertEqual(32, self.connector.client_order_id_max_length)
+        self.assertEqual("HBOT", self.connector.client_order_id_prefix)
+        self.assertEqual("/orderBooks", self.connector.trading_rules_request_path)
+        self.assertEqual("/orderBooks", self.connector.trading_pairs_request_path)
+        self.assertEqual("/exchangeStats", self.connector.check_network_request_path)
+        self.assertEqual(["BTC-USDC"], self.connector.trading_pairs)
+        self.assertTrue(self.connector.is_cancel_request_in_exchange_synchronous)
+        self.assertFalse(self.connector.is_trading_required)
+        self.assertEqual(120, self.connector.funding_fee_poll_interval)
+        self.assertEqual([OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET], self.connector.supported_order_types())
+        self.assertEqual([PositionMode.ONEWAY], self.connector.supported_position_modes())
+        self.assertEqual("USDC", self.connector.get_buy_collateral_token("BTC-USDC"))
+        self.assertEqual("USDC", self.connector.get_sell_collateral_token("BTC-USDC"))
+
+    async def test_api_request_url_and_rate_limits_rules(self):
+        self.assertEqual(
+            "https://mainnet.zklighter.elliot.ai/api/v1/account",
+            await self.connector._api_request_url("/account"),
+        )
+
+        self.connector.api_key = ""
+        self.assertEqual(self.connector.rate_limits_rules, self.connector.rate_limits_rules)
+
+        self.connector.api_key = "1"
+        self.connector._fee_tier = 2
+        rate_limits = self.connector.rate_limits_rules
+        self.assertGreater(len(rate_limits), 0)
+        self.assertEqual("LIGHTER_LIMIT", rate_limits[0].limit_id)
+
+    async def test_api_request_routes_authenticated_and_public_requests(self):
+        self.connector._sdk_api_request = AsyncMock(return_value={"auth": True})
+
+        auth_result = await self.connector._api_request(path_url="/account", is_auth_required=True)
+        self.assertEqual({"auth": True}, auth_result)
+
+        with patch("hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase._api_request", new=AsyncMock(return_value={"auth": False})) as super_api_request:
+            public_result = await self.connector._api_request(path_url="/account", is_auth_required=False)
+
+        self.assertEqual({"auth": False}, public_result)
+        self.assertTrue(super_api_request.await_count, 1)
+
+    async def test_fetch_or_create_api_config_key_short_circuits_and_warns(self):
+        self.connector.api_config_key = "abc"
+        self.connector.api_key_index = "5"
+        self.connector._api_get = AsyncMock()
+
+        await self.connector._fetch_or_create_api_config_key()
+
+        self.connector._api_get.assert_not_awaited()
+
+        self.connector.api_config_key = ""
+        self.connector.api_key_index = ""
+        self.connector.account_index = ""
+        self.connector.api_key = ""
+        logger = MagicMock()
+        self.connector.logger = MagicMock(return_value=logger)
+
+        await self.connector._fetch_or_create_api_config_key()
+
+        logger.warning.assert_called_once()
+
+    async def test_fetch_or_create_api_config_key_updates_throttler_and_warns_when_missing(self):
+        logger = MagicMock()
+        throttler = MagicMock()
+        self.connector.logger = MagicMock(return_value=logger)
+        self.connector._throttler = throttler
+        self.connector.api_key = "abc_public_key"
+        self.connector.api_secret = ""
+        self.connector.api_key_index = ""
+        self.connector.api_config_key = ""
+        self.connector.account_index = "237600"
+        self.connector._api_get = AsyncMock(return_value={
+            "api_keys": [{"api_key_index": 5, "public_key": "abc_public_key"}]
+        })
+
+        await self.connector._fetch_or_create_api_config_key()
+
+        self.assertEqual("5", self.connector.api_key_index)
+        throttler.set_rate_limits.assert_called_once()
+
+        self.connector.api_key_index = ""
+        self.connector._api_get = AsyncMock(return_value={"api_keys": []})
+
+        await self.connector._fetch_or_create_api_config_key()
+
+        logger.warning.assert_called()
 
     def test_generate_api_key_pair_returns_private_and_public_keys(self):
         with patch("lighter.create_api_key", return_value=("priv", "pub", None)):
