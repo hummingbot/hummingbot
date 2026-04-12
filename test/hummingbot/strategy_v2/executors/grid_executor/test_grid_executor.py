@@ -1068,7 +1068,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor_info = executor.executor_info
         custom_info = executor_info.custom_info
         self.assertEqual(custom_info["levels_by_state"],
-                         {key.name: value for key, value in executor.levels_by_state.items()})
+                         {key.name: len(value) for key, value in executor.levels_by_state.items()})
         self.assertEqual(custom_info["filled_orders"], executor._filled_orders)
         self.assertEqual(custom_info["failed_orders"], executor._failed_orders)
         self.assertEqual(custom_info["canceled_orders"], executor._canceled_orders)

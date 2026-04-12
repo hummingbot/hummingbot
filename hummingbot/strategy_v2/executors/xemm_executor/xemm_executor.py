@@ -207,7 +207,6 @@ class XEMMExecutor(ExecutorBase):
                 price=self._taker_result_price,
                 order_amount=order_amount,
                 token=asset,
-                exchange=connector,
             )
 
     async def get_resulting_price_for_amount(self, connector: str, trading_pair: str, is_buy: bool,
