@@ -1,11 +1,16 @@
 import asyncio
 import logging
+import typing
 from decimal import Decimal
 from typing import Dict, Optional
 
 import hummingbot.client.settings  # noqa
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.network_base import NetworkBase
+
+if typing.TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.sources.aevo_rate_source import AevoRateSource
 from hummingbot.core.rate_oracle.sources.architect_perpetual_rate_source import ArchitectPerpetualRateSource
@@ -76,6 +81,41 @@ class RateOracle(NetworkBase):
         self._fetch_price_task: Optional[asyncio.Task] = None
         self._ready_event = asyncio.Event()
         self._quote_token = quote_token if quote_token is not None else "USD"
+        self._connectors: Dict[str, "ConnectorBase"] = {}
+
+    def register_connector(self, connector: "ConnectorBase") -> None:
+        """
+        Registers a live connector so that its order books can be used as a fallback
+        price source when the configured rate source does not have a given pair.
+        """
+        self._connectors[connector.name] = connector
+
+    def unregister_connector(self, connector_name: str) -> None:
+        """
+        Removes a previously registered connector from the fallback pool.
+        """
+        self._connectors.pop(connector_name, None)
+
+    def _get_rate_from_connectors(self, pair: str) -> Optional[Decimal]:
+        """
+        Iterates over registered connectors (sorted by name for determinism) and returns
+        the first positive mid price found for the requested pair, trying the reverse pair
+        on each connector when the direct one is unavailable.
+        """
+        base, quote = split_hb_trading_pair(pair)
+        reverse_pair = combine_to_hb_trading_pair(base=quote, quote=base)
+        for name in sorted(self._connectors):
+            connector = self._connectors[name]
+            order_books = getattr(connector, "order_books", None) or {}
+            if pair in order_books:
+                rate = connector.get_price_by_type(pair, PriceType.MidPrice)
+                if rate is not None and rate > Decimal("0"):
+                    return rate
+            if reverse_pair in order_books:
+                reverse_rate = connector.get_price_by_type(reverse_pair, PriceType.MidPrice)
+                if reverse_rate is not None and reverse_rate > Decimal("0"):
+                    return Decimal("1") / reverse_rate
+        return None
 
     def __str__(self):
         return f"{self._source.name} rate oracle"
@@ -165,15 +205,29 @@ class RateOracle(NetworkBase):
         pair = combine_to_hb_trading_pair(base=base_token, quote=self._quote_token)
         return find_rate(prices, pair)
 
-    def get_pair_rate(self, pair: str) -> Decimal:
+    def get_pair_rate(self, pair: str) -> Optional[Decimal]:
         """
-        Finds a conversion rate for a given trading pair, this can be direct or indirect prices as
-        long as it can find a route to achieve this.
+        Finds a conversion rate for a given trading pair. The lookup tries, in order:
+          1. the configured rate source cache (direct pair)
+          2. registered connectors' live order books (direct and reverse pair)
+          3. the configured rate source cache (reverse pair, inverted)
+        Returns ``None`` when no rate can be resolved.
 
         :param pair: A trading pair, e.g. BTC-USDT
-        :return A conversion rate
+        :return A conversion rate, or ``None`` if no rate is available
         """
-        return find_rate(self._prices, pair)
+        rate = find_rate(self._prices, pair)
+        if rate is not None and rate > Decimal("0"):
+            return rate
+        connector_rate = self._get_rate_from_connectors(pair)
+        if connector_rate is not None:
+            return connector_rate
+        base, quote = split_hb_trading_pair(pair)
+        reverse_pair = combine_to_hb_trading_pair(base=quote, quote=base)
+        reverse_rate = find_rate(self._prices, reverse_pair)
+        if reverse_rate is not None and reverse_rate > Decimal("0"):
+            return Decimal("1") / reverse_rate
+        return None
 
     async def stored_or_live_rate(self, pair: str) -> Decimal:
         """

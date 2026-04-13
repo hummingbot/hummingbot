@@ -299,7 +299,6 @@ class ArbitrageExecutor(ExecutorBase):
                 price=price,
                 order_amount=order_amount,
                 token=asset,
-                exchange=connector,
             )
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):

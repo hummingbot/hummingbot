@@ -2,10 +2,12 @@ from copy import deepcopy
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Dict, Optional
+from unittest.mock import MagicMock
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
@@ -99,3 +101,66 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         config_map.global_token.global_token_name = "EUR"
 
         self.assertEqual(0, len(rate_oracle.prices))
+
+    @staticmethod
+    def _make_connector(name: str, order_books: Dict[str, Decimal]) -> MagicMock:
+        connector = MagicMock()
+        connector.name = name
+        connector.order_books = {pair: MagicMock() for pair in order_books}
+        connector.get_price_by_type.side_effect = (
+            lambda pair, price_type: order_books.get(pair) if price_type == PriceType.MidPrice else None
+        )
+        return connector
+
+    def test_register_and_unregister_connector(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("2")})
+
+        rate_oracle.register_connector(connector)
+        self.assertIn("binance", rate_oracle._connectors)
+
+        rate_oracle.unregister_connector("binance")
+        self.assertNotIn("binance", rate_oracle._connectors)
+
+    def test_get_pair_rate_falls_back_to_connector_order_book(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("10.5")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("10.5"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_connector_reverse_pair(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"USDT-HBOT": Decimal("0.1")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("1") / Decimal("0.1"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_prefers_configured_source_over_connector(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        rate_oracle._prices = {"HBOT-USDT": Decimal("100")}
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("10")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("100"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_reverse_on_source_after_connector_miss(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        rate_oracle._prices = {"USDT-HBOT": Decimal("0.5")}
+        connector = self._make_connector("binance", {"FOO-BAR": Decimal("1")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("2"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_returns_none_when_no_route(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        self.assertIsNone(rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_connector_iteration_is_deterministic(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector_b = self._make_connector("b_connector", {"HBOT-USDT": Decimal("2")})
+        connector_a = self._make_connector("a_connector", {"HBOT-USDT": Decimal("1")})
+        rate_oracle.register_connector(connector_b)
+        rate_oracle.register_connector(connector_a)
+
+        self.assertEqual(Decimal("1"), rate_oracle.get_pair_rate("HBOT-USDT"))
