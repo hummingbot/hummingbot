@@ -325,7 +325,7 @@ class XEMMExecutor(ExecutorBase):
         if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             self.logger().info(f"Cancelling maker order {self.maker_order.order_id}.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-        self.close_type = CloseType.EARLY_STOP
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self.stop()
 
     def get_cum_fees_quote(self) -> Decimal:

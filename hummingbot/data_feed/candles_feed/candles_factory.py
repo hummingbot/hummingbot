@@ -14,6 +14,7 @@ from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_c
 from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.data_feed.candles_feed.decibel_perpetual_candles import DecibelPerpetualCandles
 from hummingbot.data_feed.candles_feed.dexalot_spot_candles.dexalot_spot_candles import DexalotSpotCandles
 from hummingbot.data_feed.candles_feed.evedex_perpetual_candles import EvedexPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
@@ -75,6 +76,7 @@ class CandlesFactory:
         "bitmart_perpetual": BitmartPerpetualCandles,
         "btc_markets": BtcMarketsSpotCandles,
         "pacifica_perpetual": PacificaPerpetualCandles,
+        "decibel_perpetual": DecibelPerpetualCandles,
     }
 
     @classmethod

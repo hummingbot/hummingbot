@@ -179,7 +179,7 @@ class ArbitrageExecutor(ExecutorBase):
                 self.check_order_status()
 
     def early_stop(self, keep_position: bool = False):
-        self.close_type = CloseType.EARLY_STOP
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self.stop()
 
     def check_order_status(self):

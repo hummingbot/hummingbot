@@ -249,6 +249,8 @@ class PositionExecutor(ExecutorBase):
         :return: The cumulative fees in quote asset.
         """
         orders = [self._open_order, self._close_order]
+        if self._take_profit_limit_order and self._take_profit_limit_order != self._close_order:
+            orders.append(self._take_profit_limit_order)
         return sum([order.cum_fees_quote for order in orders if order])
 
     def get_net_pnl_pct(self) -> Decimal:
@@ -464,8 +466,14 @@ class PositionExecutor(ExecutorBase):
         if self._open_order and self._open_order.is_filled and self.open_filled_amount >= self.trading_rules.min_order_size \
                 and self.open_filled_amount_quote >= self.trading_rules.min_notional_size:
             self.control_stop_loss()
+            if self.status != RunnableStatus.RUNNING:
+                return
             self.control_trailing_stop()
+            if self.status != RunnableStatus.RUNNING:
+                return
             self.control_take_profit()
+            if self.status != RunnableStatus.RUNNING:
+                return
         self.control_time_limit()
 
     def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):

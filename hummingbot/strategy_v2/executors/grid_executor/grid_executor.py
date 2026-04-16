@@ -361,7 +361,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        elif not self.config.keep_position or self.close_type == CloseType.TAKE_PROFIT:
+        elif self.close_type != CloseType.POSITION_HOLD:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
@@ -676,6 +676,17 @@ class GridExecutor(ExecutorBase):
             for order in self._held_position_orders
         ])
 
+        # Grid visualization data (shared structure with backtesting simulator)
+        grid_level_prices = [float(level.price) for level in self.grid_levels]
+        tp_prices = []
+        for level in self.grid_levels:
+            tp = float(level.take_profit)
+            price = float(level.price)
+            if self.config.side == TradeType.BUY:
+                tp_prices.append(price * (1 + tp))
+            else:
+                tp_prices.append(price * (1 - tp))
+
         return {
             "side": self.config.side,
             "levels_by_state": {key.name: len(value) for key, value in self.levels_by_state.items()},
@@ -696,6 +707,12 @@ class GridExecutor(ExecutorBase):
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,
+            # Shared grid viz fields (same keys as backtesting simulator)
+            "grid_level_prices": grid_level_prices,
+            "grid_tp_prices": tp_prices,
+            "grid_side": self.config.side.name,
+            "grid_limit_price": float(self.config.limit_price) if self.config.limit_price else None,
+            "fill_events": self._filled_orders,
         }
 
     async def on_start(self):

@@ -558,18 +558,25 @@ class HyperliquidExchange(ExchangePyBase):
         price_infos: list = exchange_info_dict[1]
 
         for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info_dict[0]["universe"]):
+            if not self._is_valid_spot_entry(exchange_info_dict, spot_info):
+                continue
             self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
             self.name_to_coin[spot_info["name"]] = spot_info["name"]
 
         return_val: list = []
         for coin_info, price_info in zip(coin_infos, price_infos):
-            base, quote = coin_info["tokens"]
             try:
+                if not self._is_valid_spot_entry(exchange_info_dict, coin_info):
+                    continue
+                base, quote = coin_info["tokens"]
                 ex_name = f'{exchange_info_dict[0]["tokens"][base]["name"].replace(" ", "").upper()}/{exchange_info_dict[0]["tokens"][quote]["name"].replace(" ", "").upper()}'
                 if ex_name not in self.name_to_coin:
                     self.name_to_coin[ex_name] = coin_info["name"]
 
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
+                try:
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
+                except KeyError:
+                    continue
                 step_size = Decimal(str(10 ** -exchange_info_dict[0]["tokens"][base].get("szDecimals")))
                 price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
                 return_val.append(
@@ -595,6 +602,8 @@ class HyperliquidExchange(ExchangePyBase):
         self.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in exchange_info[0]["universe"]}
 
         for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info[0]["universe"]):
+            if not self._is_valid_spot_entry(exchange_info, spot_info):
+                continue
             self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
             self.name_to_coin[spot_info["name"]] = spot_info["name"]
             base, quote = spot_info["tokens"]
@@ -630,6 +639,24 @@ class HyperliquidExchange(ExchangePyBase):
             self.logger().error(
                 f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
+
+    @staticmethod
+    def _is_valid_spot_entry(exchange_info: List, spot_info: Dict[str, Any]) -> bool:
+        tokens = exchange_info[0].get("tokens", [])
+        pair_tokens = spot_info.get("tokens", [])
+
+        if len(pair_tokens) != 2:
+            return False
+
+        base, quote = pair_tokens
+        if not isinstance(base, int) or not isinstance(quote, int):
+            return False
+        if base < 0 or quote < 0:
+            return False
+        if base >= len(tokens) or quote >= len(tokens):
+            return False
+
+        return True
 
     async def _update_balances(self):
         """

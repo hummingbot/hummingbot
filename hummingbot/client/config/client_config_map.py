@@ -637,6 +637,37 @@ class EvedexPerpetualRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="evedex_perpetual")
 
 
+class DecibelPerpetualRateSourceMode(ExchangeRateSourceModeBase):
+    # Unlike most rate sources, Decibel requires an API key (from geomi.dev) on
+    # EVERY endpoint - including /api/v1/prices - so the rate source cannot work
+    # with the ``"dummy_api_key"`` fallback that DecibelPerpetualRateSource uses
+    # when constructed with no args.
+    name: str = Field(default="decibel_perpetual")
+    # NOTE: ``api_key`` is stored as a plain ``str`` (not ``SecretStr``) because
+    # ``validate_rate_oracle_source`` rebuilds this model with ``model_construct``,
+    # which bypasses pydantic validators. On reload from yaml, a SecretStr field
+    # would stay a raw ``str`` and later ``.get_secret_value()`` calls would crash.
+    # This mirrors the workaround used by ``CoinGeckoRateSourceMode.api_key``.
+    api_key: str = Field(
+        default="",
+        description=(
+            "Decibel API key from geomi.dev (required: every Decibel endpoint needs auth). "
+            "NOTE: will be stored in plain text due to a bug in the way hummingbot loads the config file."
+        ),
+        json_schema_extra={
+            "prompt": lambda cm: "Enter your Decibel Perpetual API key from geomi.dev (required)",
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+    model_config = ConfigDict(title="decibel_perpetual")
+
+    def build_rate_source(self) -> RateSourceBase:
+        return RATE_ORACLE_SOURCES[self.model_config["title"]](
+            api_key=self.api_key or None,
+        )
+
+
 class CoinbaseAdvancedTradeRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="coinbase_advanced_trade")
     model_config = ConfigDict(title="coinbase_advanced_trade")
@@ -701,6 +732,7 @@ RATE_SOURCE_MODES = {
     CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
     DexalotRateSourceMode.model_config["title"]: DexalotRateSourceMode,
     EvedexPerpetualRateSourceMode.model_config["title"]: EvedexPerpetualRateSourceMode,
+    DecibelPerpetualRateSourceMode.model_config["title"]: DecibelPerpetualRateSourceMode,
     KuCoinRateSourceMode.model_config["title"]: KuCoinRateSourceMode,
     GateIoRateSourceMode.model_config["title"]: GateIoRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.model_config["title"]: CoinbaseAdvancedTradeRateSourceMode,

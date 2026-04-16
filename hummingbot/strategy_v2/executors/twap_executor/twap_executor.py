@@ -214,7 +214,8 @@ class TWAPExecutor(ExecutorBase):
                 self._strategy.cancel(self.config.connector_name, self.config.trading_pair, order.order_id)
 
     def early_stop(self, keep_position: bool = False):
-        self.close_execution_by(CloseType.EARLY_STOP)
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
+        self.close_timestamp = self._strategy.current_timestamp
         self.cancel_open_orders()
         self._status = RunnableStatus.SHUTTING_DOWN
         self.logger().info("Executor stopped early.")
