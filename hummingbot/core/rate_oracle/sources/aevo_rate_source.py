@@ -55,7 +55,7 @@ class AevoRateSource(RateSourceBase):
             self._exchange = self._build_aevo_connector_without_private_keys()
 
     @staticmethod
-    def _build_aevo_connector_without_private_keys() -> 'AevoPerpetualDerivative':
+    def _build_aevo_connector_without_private_keys() -> "AevoPerpetualDerivative":
         from hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_derivative import AevoPerpetualDerivative
 
         return AevoPerpetualDerivative(

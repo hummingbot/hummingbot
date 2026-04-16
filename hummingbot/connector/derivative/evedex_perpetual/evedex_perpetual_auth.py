@@ -51,7 +51,7 @@ def to_eth_number(value: Decimal) -> int:
     Converts a decimal value to an integer using MATCHER_PRECISION.
     Formula: Round(floatValue * 10 ^ 8, HalfUp)
     """
-    multiplier = Decimal(10 ** CONSTANTS.MATCHER_PRECISION)
+    multiplier = Decimal(10**CONSTANTS.MATCHER_PRECISION)
     return int((value * multiplier).quantize(Decimal("1"), rounding="ROUND_HALF_UP"))
 
 

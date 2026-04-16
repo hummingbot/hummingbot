@@ -24,7 +24,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class HtxExchange(ExchangePyBase):
-
     web_utils = web_utils
 
     def __init__(
@@ -49,9 +48,7 @@ class HtxExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return HtxAuth(
-            api_key=self.htx_api_key, secret_key=self.htx_secret_key, time_provider=self._time_synchronizer
-        )
+        return HtxAuth(api_key=self.htx_api_key, secret_key=self.htx_secret_key, time_provider=self._time_synchronizer)
 
     @property
     def rate_limits_rules(self):
@@ -163,7 +160,6 @@ class HtxExchange(ExchangePyBase):
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
-
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         fee = build_trade_fee(
             self.name,
@@ -187,7 +183,6 @@ class HtxExchange(ExchangePyBase):
             raise ValueError(f"Unable to retrieve account id.\n{accounts['err-msg']}")
 
     async def _update_balances(self):
-
         new_available_balances = {}
         new_balances = {}
         if not self._account_id:

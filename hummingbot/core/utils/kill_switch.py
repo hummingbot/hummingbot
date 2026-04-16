@@ -13,12 +13,10 @@ if TYPE_CHECKING:
 
 class KillSwitch(ABC):
     @abstractmethod
-    def start(self):
-        ...
+    def start(self): ...
 
     @abstractmethod
-    def stop(self):
-        ...
+    def stop(self): ...
 
 
 class ActiveKillSwitch(KillSwitch):
@@ -30,9 +28,7 @@ class ActiveKillSwitch(KillSwitch):
             cls.ks_logger = logging.getLogger(__name__)
         return cls.ks_logger
 
-    def __init__(self,
-                 kill_switch_rate: Decimal,
-                 trading_core: "TradingCore"):  # noqa F821
+    def __init__(self, kill_switch_rate: Decimal, trading_core: "TradingCore"):  # noqa F821
         self._trading_core = trading_core
 
         self._kill_switch_rate: Decimal = kill_switch_rate / Decimal(100)
@@ -47,11 +43,14 @@ class ActiveKillSwitch(KillSwitch):
                 self._profitability: Decimal = await self._trading_core.calculate_profitability()
 
                 # Stop the bot if losing too much money, or if gained a certain amount of profit
-                if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or \
-                        (self._profitability >= self._kill_switch_rate > Decimal("0.0")):
+                if (self._profitability <= self._kill_switch_rate < Decimal("0.0")) or (
+                    self._profitability >= self._kill_switch_rate > Decimal("0.0")
+                ):
                     self.logger().info("Kill switch threshold reached. Stopping the bot...")
-                    self._trading_core.notify(f"\n[Kill switch triggered]\nCurrent profitability is "
-                                              f"{self._profitability}. Stopping the bot...")
+                    self._trading_core.notify(
+                        f"\n[Kill switch triggered]\nCurrent profitability is "
+                        f"{self._profitability}. Stopping the bot..."
+                    )
                     await self._trading_core.shutdown()
                     break
 

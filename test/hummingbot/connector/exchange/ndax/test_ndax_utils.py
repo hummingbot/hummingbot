@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.ndax import ndax_utils as utils
 
 
 class NdaxUtilsTests(TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

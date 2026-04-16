@@ -33,7 +33,7 @@ class WSConnection:
         ping_timeout: float = 10,
         message_timeout: Optional[float] = None,
         ws_headers: Optional[Dict] = {},
-        max_msg_size: Optional[int] = None
+        max_msg_size: Optional[int] = None,
     ):
         self._ensure_not_connected()
         self._connection = await self._client_session.ws_connect(

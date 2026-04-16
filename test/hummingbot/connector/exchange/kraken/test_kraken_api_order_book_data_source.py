@@ -38,14 +38,13 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
         self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
         self.connector = KrakenExchange(
-            kraken_api_key="",
-            kraken_secret_key="",
-            trading_pairs=[],
-            trading_required=False)
+            kraken_api_key="", kraken_secret_key="", trading_pairs=[], trading_required=False
+        )
         self.data_source = KrakenAPIOrderBookDataSource(
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            trading_pairs=[self.trading_pair])
+            trading_pairs=[self.trading_pair],
+        )
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -65,8 +64,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -75,18 +73,9 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
     def _trade_update_event(self):
         resp = [
             0,
-            [
-                [
-                    "5541.20000",
-                    "0.15850568",
-                    "1534614057.321597",
-                    "s",
-                    "l",
-                    ""
-                ]
-            ],
+            [["5541.20000", "0.15850568", "1534614057.321597", "s", "l", ""]],
             "trade",
-            f"{self.base_asset}/{self.quote_asset}"
+            f"{self.base_asset}/{self.quote_asset}",
         ]
         return resp
 
@@ -95,21 +84,13 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             1234,
             {
                 "a": [
-                    [
-                        "5541.30000",
-                        "2.50700000",
-                        "1534614248.456738"
-                    ],
-                    [
-                        "5542.50000",
-                        "0.40100000",
-                        "1534614248.456738"
-                    ]
+                    ["5541.30000", "2.50700000", "1534614248.456738"],
+                    ["5542.50000", "0.40100000", "1534614248.456738"],
                 ],
-                "c": "974942666"
+                "c": "974942666",
             },
             "book-10",
-            "XBT/USD"
+            "XBT/USD",
         ]
         return resp
 
@@ -118,32 +99,10 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             "error": [],
             "result": {
                 f"X{self.base_asset}{self.quote_asset}": {
-                    "asks": [
-                        [
-                            "52523.00000",
-                            "1.199",
-                            1616663113
-                        ],
-                        [
-                            "52536.00000",
-                            "0.300",
-                            1616663112
-                        ]
-                    ],
-                    "bids": [
-                        [
-                            "52522.90000",
-                            "0.753",
-                            1616663112
-                        ],
-                        [
-                            "52522.80000",
-                            "0.006",
-                            1616663109
-                        ]
-                    ]
+                    "asks": [["52523.00000", "1.199", 1616663113], ["52536.00000", "0.300", 1616663112]],
+                    "bids": [["52522.90000", "0.753", 1616663112], ["52522.80000", "0.006", 1616663109]],
                 }
-            }
+            },
         }
         return resp
 
@@ -181,47 +140,39 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_trades = {
-            "code": None,
-            "id": 1
-        }
-        result_subscribe_diffs = {
-            "code": None,
-            "id": 2
-        }
+        result_subscribe_trades = {"code": None, "id": 1}
+        result_subscribe_diffs = {"code": None, "id": 2}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             "event": "subscribe",
             "pair": [self.ws_ex_trading_pairs],
-            "subscription": {"name": 'trade'},
+            "subscription": {"name": "trade"},
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "event": "subscribe",
             "pair": [self.ws_ex_trading_pairs],
-            "subscription": {"name": 'book', "depth": 1000},
+            "subscription": {"name": "book", "depth": 1000},
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to public order book and trade channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -243,8 +194,9 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -260,9 +212,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(Exception):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -291,8 +241,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
@@ -302,7 +251,8 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -336,7 +286,8 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -347,7 +298,8 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -364,8 +316,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
 
     @aioresponses()
-    @patch("hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source"
-           ".KrakenAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source.KrakenAPIOrderBookDataSource._sleep")
     async def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
@@ -381,10 +332,14 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
+            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
+        )
 
     @aioresponses()
-    async def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
+    async def test_listen_for_order_book_snapshots_successful(
+        self,
+        mock_api,
+    ):
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL)
         regex_url = re.compile(f"^{url}?pair={self.ex_trading_pair}".replace(".", r"\.").replace("?", r"\?"))
@@ -410,9 +365,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(self.trading_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to {self.trading_pair} order book and trade channels")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to {self.trading_pair} order book and trade channels"))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -422,9 +375,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
-        )
+        self.assertTrue(self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -444,9 +395,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error subscribing to {self.trading_pair}")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Error subscribing to {self.trading_pair}"))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -458,9 +407,7 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
-        self.assertTrue(
-            self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels"))
 
     async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
         """Test unsubscription when websocket is not connected."""
@@ -491,6 +438,4 @@ class KrakenAPIOrderBookDataSourceTest(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}"))

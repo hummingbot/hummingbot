@@ -72,8 +72,7 @@ class BitgetSpotCandles(CandlesBase):
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(
-            url=self.health_check_url,
-            throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
         )
 
         return NetworkStatus.CONNECTED
@@ -85,14 +84,9 @@ class BitgetSpotCandles(CandlesBase):
         self,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
     ) -> dict:
-
-        params = {
-            "symbol": self._ex_trading_pair,
-            "granularity": CONSTANTS.INTERVALS[self.interval],
-            "limit": limit
-        }
+        params = {"symbol": self._ex_trading_pair, "granularity": CONSTANTS.INTERVALS[self.interval], "limit": limit}
 
         if start_time is not None and end_time is not None:
             now = int(time.time())
@@ -108,7 +102,7 @@ class BitgetSpotCandles(CandlesBase):
                         f"the earliest allowed start time is {earliest_allowed} "
                         f"({max_days} days before now), but requested {start_time}."
                     )
-                    raise ValueError('Invalid start time for current interval. See logs for more details.')
+                    raise ValueError("Invalid start time for current interval. See logs for more details.")
 
         if start_time is not None:
             params["startTime"] = start_time * 1000
@@ -144,9 +138,15 @@ class BitgetSpotCandles(CandlesBase):
             return [
                 [
                     self.ensure_timestamp_in_seconds(int(row[0])),
-                    float(row[1]), float(row[2]), float(row[3]),
-                    float(row[4]), float(row[5]), float(row[7]),
-                    0., 0., 0.
+                    float(row[1]),
+                    float(row[2]),
+                    float(row[3]),
+                    float(row[4]),
+                    float(row[5]),
+                    float(row[7]),
+                    0.0,
+                    0.0,
+                    0.0,
                 ]
                 for row in candles
             ]
@@ -158,13 +158,7 @@ class BitgetSpotCandles(CandlesBase):
         channel = f"{CONSTANTS.WS_CANDLES_ENDPOINT}{interval}"
         payload = {
             "op": "subscribe",
-            "args": [
-                {
-                    "instType": "SPOT",
-                    "channel": channel,
-                    "instId": self._ex_trading_pair
-                }
-            ]
+            "args": [{"instType": "SPOT", "channel": channel, "instId": self._ex_trading_pair}],
         }
 
         return payload
@@ -208,9 +202,9 @@ class BitgetSpotCandles(CandlesBase):
             candles_row_dict["close"] = float(candle[4])
             candles_row_dict["volume"] = float(candle[5])
             candles_row_dict["quote_asset_volume"] = float(candle[6])
-            candles_row_dict["n_trades"] = 0.
-            candles_row_dict["taker_buy_base_volume"] = 0.
-            candles_row_dict["taker_buy_quote_volume"] = 0.
+            candles_row_dict["n_trades"] = 0.0
+            candles_row_dict["taker_buy_base_volume"] = 0.0
+            candles_row_dict["taker_buy_quote_volume"] = 0.0
 
             return candles_row_dict
 

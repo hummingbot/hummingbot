@@ -10,7 +10,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class AevoPerpetualRESTPreProcessor(RESTPreProcessorBase):
-
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
             request.headers = {}
@@ -37,21 +36,18 @@ def wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN):
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+    throttler: Optional[AsyncThrottler] = None, auth: Optional[AuthBase] = None
+) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(
-        throttler=throttler,
-        rest_pre_processors=[AevoPerpetualRESTPreProcessor()],
-        auth=auth)
+        throttler=throttler, rest_pre_processors=[AevoPerpetualRESTPreProcessor()], auth=auth
+    )
 
     return api_factory
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(
-        throttler=throttler,
-        rest_pre_processors=[AevoPerpetualRESTPreProcessor()])
+    api_factory = WebAssistantsFactory(throttler=throttler, rest_pre_processors=[AevoPerpetualRESTPreProcessor()])
 
     return api_factory
 
@@ -70,8 +66,8 @@ def decimal_to_int(value: Decimal, decimals: int = 6) -> int:
 
 
 async def get_current_server_time(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)

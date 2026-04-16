@@ -17,6 +17,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
     """
     Coinbase Advanced Trade Order Book class
     """
+
     # Mapping of WS channels to their respective sequence numbers
     _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
 
@@ -30,10 +31,9 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         return cls._logger
 
     @classmethod
-    def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -43,19 +43,21 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
-            "bids": [[d["price"], d["size"]] for d in msg["pricebook"]["bids"]],
-            "asks": [[d["price"], d["size"]] for d in msg["pricebook"]["asks"]]
-        }, timestamp=timestamp)
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": msg["trading_pair"],
+                "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
+                "bids": [[d["price"], d["size"]] for d in msg["pricebook"]["bids"]],
+                "asks": [[d["price"], d["size"]] for d in msg["pricebook"]["asks"]],
+            },
+            timestamp=timestamp,
+        )
 
     @classmethod
     def diff_message_from_exchange(
-            cls,
-            msg: Dict[str, any],
-            timestamp: Optional[float] = None,
-            metadata: Optional[Dict] = None) -> OrderBookMessage:
+        cls, msg: Dict[str, any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Process messages from the order book or trade channel
         https://docs.cdp.coinbase.com/advanced-trade/docs/ws-channels#level2-channel
@@ -104,7 +106,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             "trading_pair": msg["trading_pair"],
             "update_id": int(get_timestamp_from_exchange_time(msg["timestamp"], "s")),
             "bids": [],
-            "asks": []
+            "asks": [],
         }
         for update in event.get("updates", []):
             if update["side"] == "bid":
@@ -112,10 +114,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
             else:
                 obm_content["asks"].append([update["price_level"], update["new_quantity"]])
 
-        return OrderBookMessage(
-            OrderBookMessageType.DIFF,
-            obm_content,
-            timestamp=obm_content['update_id'])
+        return OrderBookMessage(OrderBookMessageType.DIFF, obm_content, timestamp=obm_content["update_id"])
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -161,6 +160,7 @@ class CoinbaseAdvancedTradeOrderBook(OrderBook):
                 "trade_id": int(update["trade_id"]),
                 "update_id": int(ts),
                 "price": update["price"],
-                "amount": update["size"]
+                "amount": update["size"],
             },
-            timestamp=ts)
+            timestamp=ts,
+        )

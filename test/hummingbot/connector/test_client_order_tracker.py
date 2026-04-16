@@ -22,7 +22,6 @@ from hummingbot.core.event.events import (
 
 
 class MockExchange(ExchangeBase):
-
     @property
     def order_books(self) -> Dict[str, OrderBook]:
         return dict()
@@ -72,7 +71,8 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.connector.add_listener(event, logger)
@@ -267,7 +267,6 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertIsNone(fetched_order)
 
     def test_process_order_update_invalid_order_update(self):
-
         order_creation_update: OrderUpdate = OrderUpdate(
             # client_order_id="someClientOrderId",  # client_order_id intentionally omitted
             # exchange_order_id="someExchangeOrderId",  # client_order_id intentionally omitted
@@ -287,7 +286,6 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         )
 
     def test_process_order_update_order_not_found(self):
-
         order_creation_update: OrderUpdate = OrderUpdate(
             client_order_id="someClientOrderId",
             exchange_order_id="someExchangeOrderId",
@@ -594,9 +592,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
             )
         )
         self.assertTrue(
-            self._is_logged(
-                "INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled."
-            )
+            self._is_logged("INFO", f"{order.trade_type.name.upper()} order {order.client_order_id} completely filled.")
         )
 
         self.assertEqual(0, len(self.order_filled_logger.event_log))
@@ -808,49 +804,57 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
     def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(InFlightOrder(
-            client_order_id="OID1",
-            exchange_order_id="EOID1",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.223,
-            price=Decimal("1.0"),
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID2",
-            exchange_order_id="EOID2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            creation_timestamp=1640001112.223,
-            price=Decimal("1.0"),
-            initial_state=OrderState.CANCELED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID3",
-            exchange_order_id="EOID3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID4",
-            exchange_order_id="EOID4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
-        ))
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID1",
+                exchange_order_id="EOID1",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.223,
+                price=Decimal("1.0"),
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID2",
+                exchange_order_id="EOID2",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.223,
+                price=Decimal("1.0"),
+                initial_state=OrderState.CANCELED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID3",
+                exchange_order_id="EOID3",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FILLED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID4",
+                exchange_order_id="EOID4",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FAILED,
+            )
+        )
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -860,6 +864,61 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         self.assertNotIn("OID2", self.tracker.all_orders)
         self.assertNotIn("OID3", self.tracker.all_orders)
         self.assertNotIn("OID4", self.tracker.all_orders)
+
+    def test_restore_tracking_states_skips_orders_without_exchange_order_id(self):
+        orders = []
+        # PENDING_CREATE with no exchange_order_id — should be skipped
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID_PENDING",
+                exchange_order_id=None,
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.223,
+                price=Decimal("1.0"),
+                initial_state=OrderState.PENDING_CREATE,
+            )
+        )
+        # OPEN with no exchange_order_id — should also be skipped
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID_OPEN_STALE",
+                exchange_order_id=None,
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.223,
+                price=Decimal("1.0"),
+                initial_state=OrderState.OPEN,
+            )
+        )
+        # Normal open order with exchange_order_id — should be tracked
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID_GOOD",
+                exchange_order_id="EOID_GOOD",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                creation_timestamp=1640001112.223,
+                price=Decimal("1.0"),
+                initial_state=OrderState.OPEN,
+            )
+        )
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+
+        self.tracker.restore_tracking_states(tracking_states)
+
+        self.assertNotIn("OID_PENDING", self.tracker.active_orders)
+        self.assertNotIn("OID_PENDING", self.tracker.lost_orders)
+        self.assertNotIn("OID_OPEN_STALE", self.tracker.active_orders)
+        self.assertNotIn("OID_OPEN_STALE", self.tracker.lost_orders)
+        self.assertIn("OID_GOOD", self.tracker.active_orders)
 
     def test_update_to_close_order_is_not_processed_until_order_completelly_filled(self):
         order: InFlightOrder = InFlightOrder(

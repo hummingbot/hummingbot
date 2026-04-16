@@ -1,4 +1,5 @@
 """Unit tests for Evedex Perpetual API Order Book Data Source."""
+
 import asyncio
 import time
 import unittest
@@ -56,7 +57,7 @@ class TestEvedexPerpetualAPIOrderBookDataSource(unittest.IsolatedAsyncioTestCase
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.api_factory,
-            domain=CONSTANTS.DEFAULT_DOMAIN
+            domain=CONSTANTS.DEFAULT_DOMAIN,
         )
 
     def tearDown(self):
@@ -72,13 +73,13 @@ class TestEvedexPerpetualAPIOrderBookDataSource(unittest.IsolatedAsyncioTestCase
         return {
             "bids": [
                 {"price": 49900.0, "quantity": 1.5, "orders": 3},
-                {"price": 49800.0, "quantity": 2.0, "orders": 5}
+                {"price": 49800.0, "quantity": 2.0, "orders": 5},
             ],
             "asks": [
                 {"price": 50100.0, "quantity": 1.2, "orders": 2},
-                {"price": 50200.0, "quantity": 2.5, "orders": 4}
+                {"price": 50200.0, "quantity": 2.5, "orders": 4},
             ],
-            "t": int(time.time() * 1000)
+            "t": int(time.time() * 1000),
         }
 
     def _instrument_info_response(self) -> List[Dict]:
@@ -98,7 +99,7 @@ class TestEvedexPerpetualAPIOrderBookDataSource(unittest.IsolatedAsyncioTestCase
                 "maxQuantity": 10000.0,
                 "maxLeverage": 100,
                 "trading": "all",
-                "marketState": "OPEN"
+                "marketState": "OPEN",
             }
         ]
 
@@ -213,11 +214,15 @@ class TestEvedexPerpetualAPIOrderBookDataSource(unittest.IsolatedAsyncioTestCase
         payloads = [call[0][0].payload for call in calls]
 
         # Verify at least one orderbook subscription
-        orderbook_subs = [p for p in payloads if "subscribe" in p and "orderBook" in p.get("subscribe", {}).get("channel", "")]
+        orderbook_subs = [
+            p for p in payloads if "subscribe" in p and "orderBook" in p.get("subscribe", {}).get("channel", "")
+        ]
         self.assertGreater(len(orderbook_subs), 0)
 
         # Verify at least one trade subscription
-        trade_subs = [p for p in payloads if "subscribe" in p and "recent-trade" in p.get("subscribe", {}).get("channel", "")]
+        trade_subs = [
+            p for p in payloads if "subscribe" in p and "recent-trade" in p.get("subscribe", {}).get("channel", "")
+        ]
         self.assertGreater(len(trade_subs), 0)
 
     async def test_subscribe_channels_exception(self):
@@ -310,17 +315,11 @@ class TestEvedexPerpetualOrderBookWebSocket(unittest.IsolatedAsyncioTestCase):
                         "instrument": self.ex_trading_pair,
                         "orderBook": {
                             "t": int(time.time() * 1000),
-                            "bids": [
-                                {"price": 49950.0, "quantity": 1.0},
-                                {"price": 49900.0, "quantity": 1.5}
-                            ],
-                            "asks": [
-                                {"price": 50050.0, "quantity": 0.8},
-                                {"price": 50100.0, "quantity": 1.2}
-                            ]
-                        }
+                            "bids": [{"price": 49950.0, "quantity": 1.0}, {"price": 49900.0, "quantity": 1.5}],
+                            "asks": [{"price": 50050.0, "quantity": 0.8}, {"price": 50100.0, "quantity": 1.2}],
+                        },
                     }
-                }
+                },
             }
         }
 
@@ -335,9 +334,9 @@ class TestEvedexPerpetualOrderBookWebSocket(unittest.IsolatedAsyncioTestCase):
                         "side": "BUY",
                         "fillPrice": 50000.0,
                         "fillQuantity": 0.5,
-                        "executionId": "trade_123456"
+                        "executionId": "trade_123456",
                     }
-                }
+                },
             }
         }
 
@@ -352,17 +351,17 @@ class TestEvedexPerpetualOrderBookWebSocket(unittest.IsolatedAsyncioTestCase):
                             "side": "BUY",
                             "fillPrice": 50000.0,
                             "fillQuantity": 0.5,
-                            "executionId": "trade_1"
+                            "executionId": "trade_1",
                         },
                         {
                             "instrument": self.ex_trading_pair,
                             "side": "SELL",
                             "fillPrice": 50010.0,
                             "fillQuantity": 0.2,
-                            "executionId": "trade_2"
-                        }
+                            "executionId": "trade_2",
+                        },
                     ]
-                }
+                },
             }
         }
 
@@ -462,7 +461,7 @@ class TestEvedexPerpetualFundingInfo(unittest.TestCase):
             index_price=Decimal("50000"),
             mark_price=Decimal("50010"),
             next_funding_utc_timestamp=int(time.time()) + 3600,
-            rate=Decimal("0.0001")
+            rate=Decimal("0.0001"),
         )
 
         self.assertEqual(funding_info.trading_pair, "BTC-USDT")

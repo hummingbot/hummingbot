@@ -25,11 +25,13 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'DeriveExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "DeriveExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._domain = domain
@@ -38,9 +40,7 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
@@ -60,7 +60,7 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "publish_id": cached_snapshot.update_id,
                         "bids": cached_snapshot.bids,
                         "asks": cached_snapshot.asks,
-                        "timestamp": cached_snapshot.timestamp * 1000  # Convert back to milliseconds
+                        "timestamp": cached_snapshot.timestamp * 1000,  # Convert back to milliseconds
                     }
                 }
             }
@@ -90,8 +90,10 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.TimeoutError:
                 continue
 
-        raise RuntimeError(f"Failed to receive orderbook snapshot for {trading_pair} after {max_attempts} attempts. "
-                           f"Make sure the main WebSocket connection is active.")
+        raise RuntimeError(
+            f"Failed to receive orderbook snapshot for {trading_pair} after {max_attempts} attempts. "
+            f"Make sure the main WebSocket connection is active."
+        )
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -106,20 +108,9 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trade_params.append(f"trades.{trading_pair.upper()}")
                 order_book_params.append(f"orderbook.{trading_pair.upper()}.1.100")
 
-            trades_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": trade_params
-                }
-            }
+            trades_payload = {"method": "subscribe", "params": {"channels": trade_params}}
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
-            order_book_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": order_book_params
-                }
-
-            }
+            order_book_payload = {"method": "subscribe", "params": {"channels": order_book_params}}
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
             await ws.send(subscribe_trade_request)
@@ -143,25 +134,34 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_response.update({"trading_pair": trading_pair})
         data = snapshot_response["params"]["data"]
-        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": int(data['publish_id']),
-            "bids": [[i[0], i[1]] for i in data.get('bids', [])],
-            "asks": [[i[0], i[1]] for i in data.get('asks', [])],
-        }, timestamp=snapshot_timestamp)
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": int(data["publish_id"]),
+                "bids": [[i[0], i[1]] for i in data.get("bids", [])],
+                "asks": [[i[0], i[1]] for i in data.get("asks", [])],
+            },
+            timestamp=snapshot_timestamp,
+        )
         return snapshot_msg
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            raw_message["params"]["data"]["instrument_name"])
+            raw_message["params"]["data"]["instrument_name"]
+        )
         data = raw_message["params"]["data"]
         timestamp: float = raw_message["params"]["data"]["timestamp"] * 1e-3
-        trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": int(data['publish_id']),
-            "bids": [[float(i[0]), float(i[1])] for i in data['bids']],
-            "asks": [[float(i[0]), float(i[1])] for i in data['asks']],
-        }, timestamp=timestamp)
+        trade_message: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": int(data["publish_id"]),
+                "bids": [[float(i[0]), float(i[1])] for i in data["bids"]],
+                "asks": [[float(i[0]), float(i[1])] for i in data["asks"]],
+            },
+            timestamp=timestamp,
+        )
         self._snapshot_messages[trading_pair] = trade_message
         message_queue.put_nowait(trade_message)
 
@@ -169,15 +169,21 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         data = raw_message["params"]["data"]
         for trade_data in data:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                trade_data["instrument_name"])
-            trade_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.TRADE, {
-                "trading_pair": trading_pair,
-                "trade_type": float(TradeType.SELL.value) if trade_data["direction"] == "sell" else float(
-                    TradeType.BUY.value),
-                "trade_id": trade_data["trade_id"],
-                "price": float(trade_data["trade_price"]),
-                "amount": float(trade_data["trade_amount"])
-            }, timestamp=trade_data["timestamp"] * 1e-3)
+                trade_data["instrument_name"]
+            )
+            trade_message: OrderBookMessage = OrderBookMessage(
+                OrderBookMessageType.TRADE,
+                {
+                    "trading_pair": trading_pair,
+                    "trade_type": float(TradeType.SELL.value)
+                    if trade_data["direction"] == "sell"
+                    else float(TradeType.BUY.value),
+                    "trade_id": trade_data["trade_id"],
+                    "price": float(trade_data["trade_price"]),
+                    "amount": float(trade_data["trade_amount"]),
+                },
+                timestamp=trade_data["timestamp"] * 1e-3,
+            )
             message_queue.put_nowait(trade_message)
 
     async def listen_for_order_book_diffs(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -215,20 +221,10 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trade_params = [f"trades.{trading_pair.upper()}"]
             order_book_params = [f"orderbook.{trading_pair.upper()}.1.100"]
 
-            trades_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": trade_params
-                }
-            }
+            trades_payload = {"method": "subscribe", "params": {"channels": trade_params}}
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
-            order_book_payload = {
-                "method": "subscribe",
-                "params": {
-                    "channels": order_book_params
-                }
-            }
+            order_book_payload = {"method": "subscribe", "params": {"channels": order_book_params}}
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
             await self._ws_assistant.send(subscribe_trade_request)
@@ -240,10 +236,7 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to {trading_pair}...", exc_info=True)
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
@@ -261,20 +254,10 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trade_params = [f"trades.{trading_pair.upper()}"]
             order_book_params = [f"orderbook.{trading_pair.upper()}.1.100"]
 
-            trades_payload = {
-                "method": "unsubscribe",
-                "params": {
-                    "channels": trade_params
-                }
-            }
+            trades_payload = {"method": "unsubscribe", "params": {"channels": trade_params}}
             unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
-            order_book_payload = {
-                "method": "unsubscribe",
-                "params": {
-                    "channels": order_book_params
-                }
-            }
+            order_book_payload = {"method": "unsubscribe", "params": {"channels": order_book_params}}
             unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
 
             await self._ws_assistant.send(unsubscribe_trade_request)
@@ -286,8 +269,5 @@ class DeriveAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False

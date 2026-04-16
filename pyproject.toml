@@ -116,7 +116,7 @@ pytest-mock = "*"
 pytest-timeout = ">=2.1.0"
 coverage = ">=7.2.7"
 diff-cover = ">=7.7.0"
-ruff = "*"
+ruff = ">=0.15.7"
 mypy = "*"
 pre-commit = ">=3.3.3"
 cython-lint = "*"
@@ -136,10 +136,10 @@ install-dev = "pip install --no-build-isolation -e ."
 build = { cmd = "python setup.py build_ext --inplace", depends-on = ["install-dev"] }
 test = { cmd = "pytest test", depends-on = ["build"] }
 test-unit = { cmd = "pytest test/hummingbot", depends-on = ["build"] }
-lint = "ruff check hummingbot test"
+lint = "ruff check hummingbot test controllers scripts"
 lint-cython = "cython-lint hummingbot"
-format = "ruff format hummingbot test"
-format-check = "ruff format --check hummingbot test"
+format = "ruff format hummingbot test controllers scripts"
+format-check = "ruff format --check hummingbot test controllers scripts"
 type-check = "mypy hummingbot"
 security-scan = "bandit -c pyproject.toml -r hummingbot/"
 dependency-scan = { cmd = "pip-audit --strict --desc on", depends-on = ["install-dev"] }
@@ -152,6 +152,7 @@ compat-import = { cmd = "python ci/check_subpackage_compat.py import", depends-o
 compat-contract = { cmd = "python ci/check_subpackage_compat.py contract", depends-on = ["install-dev"] }
 compat-integration = { cmd = "pytest sub-packages/candles-feed/tests/unit/test_compatibility.py sub-packages/candles-feed/tests/unit/test_hummingbot_integration.py -v --timeout=30", depends-on = ["install-dev"] }
 compat-check = { depends-on = ["compat-import", "compat-contract", "compat-integration"] }
+
 
 [tool.isort]
 line_length = 120
@@ -241,6 +242,8 @@ omit = [
     "hummingbot/connector/exchange/ndax/*",
     "hummingbot/strategy/amm_arb/*",
     "hummingbot/strategy_v2/backtesting/*",
+    "hummingbot/strategy_v2/executors/protocols.py",
+    "hummingbot/strategy_v2/executors/progressive_executor/protocols.py",
 ]
 
 [tool.coverage.report]

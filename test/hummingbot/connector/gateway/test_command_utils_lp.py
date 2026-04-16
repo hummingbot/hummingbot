@@ -17,7 +17,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             price=1500.0,
             feePct=0.3,
             baseTokenAmount=1000.0,
-            quoteTokenAmount=1500000.0
+            quoteTokenAmount=1500000.0,
         )
 
         rows = LPCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
@@ -42,7 +42,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             price=1500.0,
             baseTokenAmount=1000.0,
             quoteTokenAmount=1500000.0,
-            activeBinId=1000
+            activeBinId=1000,
         )
 
         rows = LPCommandUtils.format_pool_info_display(pool_info, "ETH", "USDC")
@@ -64,7 +64,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             lpTokenAmount=100.0,
             baseTokenAmount=10.0,
             quoteTokenAmount=15000.0,
-            price=1500.0
+            price=1500.0,
         )
 
         rows = LPCommandUtils.format_position_info_display(position)
@@ -92,7 +92,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             upperBinId=1100,
             lowerPrice=1400.0,
             upperPrice=1600.0,
-            price=1500.0
+            price=1500.0,
         )
 
         rows = LPCommandUtils.format_position_info_display(position)
@@ -124,7 +124,7 @@ class TestGatewayCommandUtilsLP(unittest.TestCase):
             upperBinId=1100,
             lowerPrice=1400.0,
             upperPrice=1600.0,
-            price=1500.0
+            price=1500.0,
         )
 
         rows = LPCommandUtils.format_position_info_display(position)

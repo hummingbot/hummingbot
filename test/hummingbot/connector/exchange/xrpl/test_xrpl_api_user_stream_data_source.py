@@ -4,6 +4,7 @@ Unit tests for XRPLAPIUserStreamDataSource.
 Tests the polling-based user stream data source that periodically fetches
 account state from the XRPL ledger instead of relying on WebSocket subscriptions.
 """
+
 import asyncio
 import unittest
 from collections import deque
@@ -298,11 +299,9 @@ class TestXRPLAPIUserStreamDataSourceAsync(unittest.IsolatedAsyncioTestCase):
         output_queue = asyncio.Queue()
 
         # Mock _poll_account_state to return empty list
-        with patch.object(source, '_poll_account_state', new=AsyncMock(return_value=[])):
-            with patch.object(source, 'POLL_INTERVAL', 0.05):
-                task = asyncio.create_task(
-                    source.listen_for_user_stream(output_queue)
-                )
+        with patch.object(source, "_poll_account_state", new=AsyncMock(return_value=[])):
+            with patch.object(source, "POLL_INTERVAL", 0.05):
+                task = asyncio.create_task(source.listen_for_user_stream(output_queue))
 
                 # Let it run briefly
                 await asyncio.sleep(0.15)
@@ -341,11 +340,9 @@ class TestXRPLAPIUserStreamDataSourceAsync(unittest.IsolatedAsyncioTestCase):
                 return [{"hash": "TX_123", "type": "test"}]
             return []
 
-        with patch.object(source, '_poll_account_state', side_effect=mock_poll):
-            with patch.object(source, 'POLL_INTERVAL', 0.05):
-                task = asyncio.create_task(
-                    source.listen_for_user_stream(output_queue)
-                )
+        with patch.object(source, "_poll_account_state", side_effect=mock_poll):
+            with patch.object(source, "POLL_INTERVAL", 0.05):
+                task = asyncio.create_task(source.listen_for_user_stream(output_queue))
 
                 # Wait for event
                 try:

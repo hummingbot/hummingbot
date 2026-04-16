@@ -65,9 +65,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.data_source.logger().addHandler(self)
 
         exchange_to_system_pairs = bidict({self.ex_trading_pair: self.trading_pair})
-        ArchitectPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.domain: exchange_to_system_pairs
-        }
+        ArchitectPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: exchange_to_system_pairs}
 
         self.connector._set_trading_pair_symbol_map(exchange_to_system_pairs)
 
@@ -155,9 +153,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
                     "funding_calendar_schedule": (
                         "All days where a valid Underlying Benchmark Price AND Contract Mark Price are published"
                     ),
-                    "trading_schedule": {
-                        ...
-                    },
+                    "trading_schedule": {...},
                 },
             ]
         }
@@ -233,9 +229,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_opens_authenticated_connection_and_subscribes_to_trading_pair_updates(
-        self,
-        mock_api: aioresponses,
-        mock_ws: AsyncMock
+        self, mock_api: aioresponses, mock_ws: AsyncMock
     ):
         expected_token = self.setup_auth_token(mock_api=mock_api)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -245,9 +239,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
             message=json.dumps(result_subscribe_trading_pair),
         )
 
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_subscriptions()
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value, timeout=1)
 
@@ -269,9 +261,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
             {"request_id": 0, "type": "subscribe", "symbol": self.ex_trading_pair, "level": "LEVEL_2"},
             sent_subscription_messages[0],
         )
-        self.assertTrue(
-            self.is_logged("INFO", f"Subscribed to public channels for {self.trading_pair}...")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Subscribed to public channels for {self.trading_pair}..."))
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -297,8 +287,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         self.assertTrue(
             self.is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -341,7 +330,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
             "s": self.ex_trading_pair,
             # "p": "50000.00",
             "q": 100,
-            "d": "B"
+            "d": "B",
         }
 
         mock_queue = AsyncMock()
@@ -355,9 +344,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self.is_logged("ERROR", "Unexpected error when processing public trade updates from exchange")
-        )
+        self.assertTrue(self.is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         self.simulate_trading_rules_initialized()
@@ -369,7 +356,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
             "s": self.ex_trading_pair,
             "p": "50000.00",
             "q": 100,
-            "d": "B"
+            "d": "B",
         }
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
@@ -390,9 +377,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(
-        self,
-        mock_api: aioresponses,
-        mock_ws: AsyncMock
+        self, mock_api: aioresponses, mock_ws: AsyncMock
     ):
         self.setup_auth_token(mock_api=mock_api)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -551,9 +536,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         result = await asyncio.wait_for(self.data_source.subscribe_to_trading_pair(new_pair), timeout=1)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self.is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
-        )
+        self.assertTrue(self.is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly raised during subscription."""
@@ -634,9 +617,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         result = await asyncio.wait_for(self.data_source.subscribe_to_trading_pair(new_pair), timeout=1)
 
         self.assertTrue(result)
-        self.assertTrue(
-            self.is_logged("WARNING", f"{new_pair} already subscribed. Ignoring request.")
-        )
+        self.assertTrue(self.is_logged("WARNING", f"{new_pair} already subscribed. Ignoring request."))
 
     async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
         """Test unsubscription fails when WebSocket is not connected."""
@@ -670,8 +651,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.assertTrue(
             self.is_logged(
                 "ERROR",
-                f"Unexpected error occurred unsubscribing from order book data streams for"
-                f" {self.trading_pair}.",
+                f"Unexpected error occurred unsubscribing from order book data streams for {self.trading_pair}.",
             )
         )
 
@@ -697,9 +677,7 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         # Verify pair was removed from trading pairs
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
 
-        self.assertTrue(
-            self.is_logged("INFO", f"Unsubscribed from public channels for {self.trading_pair}.")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Unsubscribed from public channels for {self.trading_pair}."))
 
     async def test_unsubscribe_from_non_subscribed_trading_pair_ignored(self):
         mock_ws = AsyncMock()
@@ -709,6 +687,4 @@ class ArchitectPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTe
         result = await asyncio.wait_for(self.data_source.unsubscribe_from_trading_pair(self.trading_pair), timeout=1)
 
         self.assertTrue(result)
-        self.assertTrue(
-            self.is_logged("WARNING", f"{self.trading_pair} not subscribed. Ignoring request.")
-        )
+        self.assertTrue(self.is_logged("WARNING", f"{self.trading_pair} not subscribed. Ignoring request."))

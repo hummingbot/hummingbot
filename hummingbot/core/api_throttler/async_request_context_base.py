@@ -27,14 +27,15 @@ class AsyncRequestContextBase(ABC):
             arc_logger = logging.getLogger(__name__)
         return arc_logger
 
-    def __init__(self,
-                 task_logs: List[TaskLog],
-                 rate_limit: RateLimit,
-                 related_limits: List[Tuple[RateLimit, int]],
-                 lock: asyncio.Lock,
-                 safety_margin_pct: float,
-                 retry_interval: float = 0.1,
-                 ):
+    def __init__(
+        self,
+        task_logs: List[TaskLog],
+        rate_limit: RateLimit,
+        related_limits: List[Tuple[RateLimit, int]],
+        lock: asyncio.Lock,
+        safety_margin_pct: float,
+        retry_interval: float = 0.1,
+    ):
         """
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs associated with this API request
@@ -57,8 +58,10 @@ class AsyncRequestContextBase(ABC):
         """
         now: Decimal = Decimal(str(time.time()))
         self._task_logs[:] = [
-            task for task in self._task_logs
-            if now - Decimal(str(task.timestamp)) <= Decimal(str(task.rate_limit.time_interval * (1 + self._safety_margin_pct)))
+            task
+            for task in self._task_logs
+            if now - Decimal(str(task.timestamp))
+            <= Decimal(str(task.rate_limit.time_interval * (1 + self._safety_margin_pct)))
         ]
 
     @abstractmethod
@@ -78,9 +81,7 @@ class AsyncRequestContextBase(ABC):
             # Each related limit is represented as it own individual TaskLog
 
             # Log the acquired rate limit into the tasks log
-            new_logs = [
-                TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight)
-            ] + [
+            new_logs = [TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight)] + [
                 # Log its related limits into the tasks log as individual tasks
                 TaskLog(timestamp=now, rate_limit=limit, weight=weight)
                 for limit, weight in self._related_limits

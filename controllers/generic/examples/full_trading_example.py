@@ -33,27 +33,17 @@ class FullTradingExample(ControllerBase):
 
     async def update_processed_data(self):
         """Update market data for decision making."""
-        mid_price = self.get_current_price(
-            self.config.connector_name,
-            self.config.trading_pair,
-            PriceType.MidPrice
-        )
+        mid_price = self.get_current_price(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
 
-        open_orders = self.open_orders(
-            self.config.connector_name,
-            self.config.trading_pair
-        )
+        open_orders = self.open_orders(self.config.connector_name, self.config.trading_pair)
 
-        open_positions = self.open_positions(
-            self.config.connector_name,
-            self.config.trading_pair
-        )
+        open_positions = self.open_positions(self.config.connector_name, self.config.trading_pair)
 
         self.processed_data = {
             "mid_price": mid_price,
             "open_orders": open_orders,
             "open_positions": open_positions,
-            "n_open_orders": len(open_orders)
+            "n_open_orders": len(open_orders),
         }
 
     def determine_executor_actions(self) -> list[ExecutorAction]:
@@ -68,9 +58,9 @@ class FullTradingExample(ControllerBase):
         if n_open_orders == 0:
             # Create a market buy with triple barrier for risk management
             triple_barrier = TripleBarrierConfig(
-                stop_loss=Decimal("0.02"),      # 2% stop loss
-                take_profit=Decimal("0.03"),    # 3% take profit
-                time_limit=300                  # 5 minutes time limit
+                stop_loss=Decimal("0.02"),  # 2% stop loss
+                take_profit=Decimal("0.03"),  # 3% take profit
+                time_limit=300,  # 5 minutes time limit
             )
 
             executor_id = self.buy(
@@ -79,7 +69,7 @@ class FullTradingExample(ControllerBase):
                 amount=self.config.amount,
                 execution_strategy=ExecutionStrategy.MARKET,
                 triple_barrier_config=triple_barrier,
-                keep_position=True
+                keep_position=True,
             )
 
             self.logger().info(f"Created market buy order with triple barrier: {executor_id}")
@@ -94,7 +84,7 @@ class FullTradingExample(ControllerBase):
                 amount=self.config.amount,
                 price=buy_price,
                 execution_strategy=ExecutionStrategy.LIMIT_MAKER,
-                keep_position=True
+                keep_position=True,
             )
 
             # Place limit sell above market
@@ -105,7 +95,7 @@ class FullTradingExample(ControllerBase):
                 amount=self.config.amount,
                 price=sell_price,
                 execution_strategy=ExecutionStrategy.LIMIT_MAKER,
-                keep_position=True
+                keep_position=True,
             )
 
             self.logger().info(f"Created limit orders - Buy: {buy_executor_id}, Sell: {sell_executor_id}")
@@ -114,8 +104,8 @@ class FullTradingExample(ControllerBase):
         elif n_open_orders < self.config.max_open_orders + 1:
             # Use limit chaser for better fill rates
             chaser_config = LimitChaserConfig(
-                distance=Decimal("0.001"),         # 0.1% from best price
-                refresh_threshold=Decimal("0.002")  # Refresh if price moves 0.2%
+                distance=Decimal("0.001"),  # 0.1% from best price
+                refresh_threshold=Decimal("0.002"),  # Refresh if price moves 0.2%
             )
 
             chaser_executor_id = self.buy(
@@ -124,7 +114,7 @@ class FullTradingExample(ControllerBase):
                 amount=self.config.amount,
                 execution_strategy=ExecutionStrategy.LIMIT_CHASER,
                 chaser_config=chaser_config,
-                keep_position=True
+                keep_position=True,
             )
 
             self.logger().info(f"Created limit chaser order: {chaser_executor_id}")
@@ -138,14 +128,13 @@ class FullTradingExample(ControllerBase):
         # Cancel a specific order by executor ID
         open_orders = self.open_orders()
         if open_orders:
-            executor_id = open_orders[0]['executor_id']
+            executor_id = open_orders[0]["executor_id"]
             success = self.cancel(executor_id)
             self.logger().info(f"Cancelled executor {executor_id}: {success}")
 
         # Cancel all orders for a specific trading pair
         cancelled_ids = self.cancel_all(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair
+            connector_name=self.config.connector_name, trading_pair=self.config.trading_pair
         )
         self.logger().info(f"Cancelled {len(cancelled_ids)} orders: {cancelled_ids}")
 
@@ -167,14 +156,18 @@ class FullTradingExample(ControllerBase):
             if open_orders:
                 lines.append("--- Open Orders ---")
                 for order in open_orders:
-                    lines.append(f"  {order['side']} {order['amount']:.4f} @ {order.get('price', 'MARKET')} "
-                                 f"(Filled: {order['filled_amount']:.4f}) - {order['status']}")
+                    lines.append(
+                        f"  {order['side']} {order['amount']:.4f} @ {order.get('price', 'MARKET')} "
+                        f"(Filled: {order['filled_amount']:.4f}) - {order['status']}"
+                    )
 
             if open_positions:
                 lines.append("--- Held Positions ---")
                 for position in open_positions:
-                    lines.append(f"  {position['side']} {position['amount']:.4f} @ {position['entry_price']:.6f} "
-                                 f"(PnL: {position['pnl_percentage']:.2f}%)")
+                    lines.append(
+                        f"  {position['side']} {position['amount']:.4f} @ {position['entry_price']:.6f} "
+                        f"(PnL: {position['pnl_percentage']:.2f}%)"
+                    )
 
         return lines
 
@@ -185,6 +178,6 @@ class FullTradingExample(ControllerBase):
                 "mid_price": float(self.processed_data["mid_price"]),
                 "n_open_orders": len(self.processed_data["open_orders"]),
                 "n_open_positions": len(self.processed_data["open_positions"]),
-                "total_open_volume": sum(order["amount"] for order in self.processed_data["open_orders"])
+                "total_open_volume": sum(order["amount"] for order in self.processed_data["open_orders"]),
             }
         return {}

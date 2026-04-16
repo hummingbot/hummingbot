@@ -8,7 +8,6 @@ from hummingbot.connector.exchange.foxbit import (
 
 
 class FoxbitUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "TEST_PATH"
         domain = "com.br"
@@ -41,8 +40,7 @@ class FoxbitUtilTestCases(unittest.TestCase):
 
     def test_format_ws_header(self):
         header = utils.get_ws_message_frame(
-            endpoint=CONSTANTS.WS_AUTHENTICATE_USER,
-            msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"]
+            endpoint=CONSTANTS.WS_AUTHENTICATE_USER, msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"]
         )
         retValue = web_utils.format_ws_header(header)
         self.assertEqual(retValue, web_utils.format_ws_header(header))

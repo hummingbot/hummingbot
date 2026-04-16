@@ -15,10 +15,7 @@ if TYPE_CHECKING:
 class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 connector: 'KrakenExchange',
-                 api_factory: Optional[WebAssistantsFactory] = None):
-
+    def __init__(self, connector: "KrakenExchange", api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__()
         self._api_factory = api_factory
         self._connector = connector
@@ -38,8 +35,9 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_auth_token(self) -> str:
         try:
-            response_json = await self._connector._api_post(path_url=CONSTANTS.GET_TOKEN_PATH_URL, params={},
-                                                            is_auth_required=True)
+            response_json = await self._connector._api_post(
+                path_url=CONSTANTS.GET_TOKEN_PATH_URL, params={}, is_auth_required=True
+            )
         except Exception:
             raise
         return response_json["token"]
@@ -51,25 +49,18 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-
             if self._current_auth_token is None:
                 self._current_auth_token = await self.get_auth_token()
 
             orders_change_payload = {
                 "event": "subscribe",
-                "subscription": {
-                    "name": "openOrders",
-                    "token": self._current_auth_token
-                }
+                "subscription": {"name": "openOrders", "token": self._current_auth_token},
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
 
             trades_payload = {
                 "event": "subscribe",
-                "subscription": {
-                    "name": "ownTrades",
-                    "token": self._current_auth_token
-                }
+                "subscription": {"name": "ownTrades", "token": self._current_auth_token},
             }
             subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
@@ -92,7 +83,4 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         else:
             if event_message.get("errorMessage") is not None:
                 err_msg = event_message.get("errorMessage")
-                raise IOError({
-                    "label": "WSS_ERROR",
-                    "message": f"Error received via websocket - {err_msg}."
-                })
+                raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})

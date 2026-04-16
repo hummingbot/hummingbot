@@ -15,10 +15,7 @@ from hummingbot.connector.derivative.architect_perpetual import (
 class ArchitectPerpetualWebUtilsTest(unittest.TestCase):
     @staticmethod
     def rest_time_mock_response() -> Dict[str, Any]:
-        return {
-            "status": "OK",
-            "timestamp": "2026-01-10T10:55:13.151818970Z"
-        }
+        return {"status": "OK", "timestamp": "2026-01-10T10:55:13.151818970Z"}
 
     def test_get_rest_url_for_endpoint(self) -> None:
         endpoint = "/test-endpoint"
@@ -33,9 +30,7 @@ class ArchitectPerpetualWebUtilsTest(unittest.TestCase):
         api_mock.get(url=url, status=200, body=json.dumps(data))
 
         time = asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(
-                web_utils.get_current_server_time(domain=CONSTANTS.SANDBOX_DOMAIN), 1
-            )
+            asyncio.wait_for(web_utils.get_current_server_time(domain=CONSTANTS.SANDBOX_DOMAIN), 1)
         )
 
         self.assertEqual(pd.Timestamp(data["timestamp"]).timestamp(), time)

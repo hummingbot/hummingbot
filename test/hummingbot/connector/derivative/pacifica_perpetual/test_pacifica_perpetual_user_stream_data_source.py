@@ -26,7 +26,9 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.agent_wallet_public_key = "testAgentPublic"
-        cls.agent_wallet_private_key = "2baSsQyyhz6k8p4hFgYy7uQewKSjn3meyW1W5owGYeasVL9Sqg3GgMRWgSpmw86PQmZXWQkCMrTLgLV8qrC6XQR2"
+        cls.agent_wallet_private_key = (
+            "2baSsQyyhz6k8p4hFgYy7uQewKSjn3meyW1W5owGYeasVL9Sqg3GgMRWgSpmw86PQmZXWQkCMrTLgLV8qrC6XQR2"
+        )
         cls.user_wallet_public_key = "testUserPublic"
 
     def setUp(self):
@@ -81,13 +83,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
     @staticmethod
     def _subscription_response(subscribed: bool, channel: str):
-        return {
-            "channel": "subscribe",
-            "data": {
-                "source": channel,
-                "account": "test_user_key"
-            }
-        }
+        return {"channel": "subscribe", "data": {"source": channel, "account": "test_user_key"}}
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -103,16 +99,13 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         # Mock the subscription messages
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self._subscription_response(True, "account_order_updates"))
+            ws_connect_mock.return_value, json.dumps(self._subscription_response(True, "account_order_updates"))
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self._subscription_response(True, "account_positions"))
+            ws_connect_mock.return_value, json.dumps(self._subscription_response(True, "account_positions"))
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self._subscription_response(True, "account_info"))
+            ws_connect_mock.return_value, json.dumps(self._subscription_response(True, "account_info"))
         )
 
         output_queue = asyncio.Queue()
@@ -137,10 +130,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         """Test that WebSocket connection includes API config key in headers"""
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({})
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps({}))
 
         output_queue = asyncio.Queue()
         self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_user_stream(output_queue)))
@@ -158,10 +148,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Send empty message
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({})
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps({}))
 
         output_queue = asyncio.Queue()
         self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_user_stream(output_queue)))
@@ -177,14 +164,10 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         output_queue = asyncio.Queue()
 
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_user_stream(output_queue))
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_user_stream(output_queue)))
         await asyncio.sleep(0.1)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error while listening to user stream")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error while listening to user stream"))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listening_process_canceled_on_cancel_exception(self, ws_connect_mock):
@@ -205,8 +188,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self._subscription_response(True, "account_order_updates"))
+            ws_connect_mock.return_value, json.dumps(self._subscription_response(True, "account_order_updates"))
         )
 
         output_queue = asyncio.Queue()
@@ -215,9 +197,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         # Check for subscription log message
-        self.assertTrue(
-            self._is_logged("INFO", "Subscribed to private account and orders channels")
-        )
+        self.assertTrue(self._is_logged("INFO", "Subscribed to private account and orders channels"))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_ping_sent_periodically(self, ws_connect_mock):
@@ -225,10 +205,7 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         # Keep the connection alive for ping to be sent
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({})
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps({}))
 
         output_queue = asyncio.Queue()
         self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_user_stream(output_queue)))

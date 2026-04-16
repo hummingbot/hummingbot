@@ -44,9 +44,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.log_records.append(record)
 
     def is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage() == message for
-            record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _candles_data_mock(self):
         return deque(self.get_fetch_candles_data_mock()[-4:])
@@ -97,8 +95,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
     @patch("os.path.exists", return_value=True)
     @patch("pandas.read_csv")
     def test_load_candles_from_csv(self, mock_read_csv, _):
-        mock_read_csv.return_value = pd.DataFrame(data=self._candles_data_mock(),
-                                                  columns=self.data_feed.columns)
+        mock_read_csv.return_value = pd.DataFrame(data=self._candles_data_mock(), columns=self.data_feed.columns)
 
         self.data_feed.load_candles_from_csv("/path/to/data")
         self.assertEqual(len(self.data_feed._candles), 4)
@@ -184,9 +181,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
 
-        resp = await self.data_feed.fetch_candles(
-            start_time=int(self.start_time),
-            end_time=int(self.end_time))
+        resp = await self.data_feed.fetch_candles(start_time=int(self.start_time), end_time=int(self.end_time))
 
         self.assertEqual(resp.shape[0], len(self.get_fetch_candles_data_mock()))
         self.assertEqual(resp.shape[1], 10)
@@ -200,8 +195,8 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         result_subscribe_klines = self._success_subscription_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_klines))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_klines)
+        )
 
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
@@ -209,7 +204,8 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         await asyncio.sleep(0.1)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(1, len(sent_subscription_messages))
         expected_kline_subscription = self.data_feed.ws_subscription_payload()
@@ -220,10 +216,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             del sent_subscription_messages[0]["id"]
         self.assertEqual(expected_kline_subscription, sent_subscription_messages[0])
 
-        self.assertTrue(self.is_logged(
-            "INFO",
-            "Subscribed to public klines..."
-        ))
+        self.assertTrue(self.is_logged("INFO", "Subscribed to public klines..."))
 
     @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -237,8 +230,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
-        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
-            asyncio.CancelledError())
+        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
@@ -246,8 +238,9 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
 
         self.assertTrue(
             self.is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to public klines. Retrying in 1 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to public klines. Retrying in 1 seconds..."
+            )
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -263,17 +256,15 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         with self.assertRaises(Exception):
             await self.data_feed._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
-        )
+        self.assertTrue(self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines..."))
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_candles_ws_data_mock_1())
+        )
 
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
@@ -286,18 +277,19 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
 
     @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock,
-                                                                             fill_historical_candles):
+    async def test_process_websocket_messages_duplicated_candle_not_included(
+        self, ws_connect_mock, fill_historical_candles
+    ):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         fill_historical_candles.return_value = None
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_candles_ws_data_mock_1())
+        )
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_candles_ws_data_mock_1())
+        )
 
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
@@ -313,12 +305,12 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_1()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_candles_ws_data_mock_1())
+        )
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(self.get_candles_ws_data_mock_2()))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(self.get_candles_ws_data_mock_2())
+        )
 
         self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
 
@@ -337,10 +329,11 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
         # Mock the specific class's methods instead of base class
-        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
-             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
-             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
-
+        with (
+            patch.object(self.data_feed, "_round_timestamp_to_interval_multiple", side_effect=lambda x: x),
+            patch.object(self.data_feed, "initialize_exchange_data", new_callable=AsyncMock),
+            patch.object(self.data_feed, "fetch_candles", new_callable=AsyncMock) as mock_fetch_candles,
+        ):
             # Mock fetch_candles to return minimal data (covers lines 176-177)
             mock_candles = np.array([[1622505600, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]])
             mock_fetch_candles.return_value = mock_candles
@@ -350,7 +343,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
                 trading_pair="BTC-USDT",
                 interval="1m",
                 start_time=1622505600,
-                end_time=1622505660
+                end_time=1622505660,
             )
 
             result = await self.data_feed.get_historical_candles(config)
@@ -365,17 +358,20 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
         # Mock the specific class's methods instead of base class
-        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
-             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
-             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
-
+        with (
+            patch.object(self.data_feed, "_round_timestamp_to_interval_multiple", side_effect=lambda x: x),
+            patch.object(self.data_feed, "initialize_exchange_data", new_callable=AsyncMock),
+            patch.object(self.data_feed, "fetch_candles", new_callable=AsyncMock) as mock_fetch_candles,
+        ):
             # Mock fetch_candles to return data with timestamps outside the requested range
-            mock_candles = np.array([
-                [1622505500, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0],  # Before start_time
-                [1622505600, 50100, 50200, 49950, 50150, 1000, 0, 0, 0, 0],  # Within range
-                [1622505660, 50150, 50250, 50000, 50200, 1000, 0, 0, 0, 0],  # Within range
-                [1622505720, 50200, 50300, 50050, 50250, 1000, 0, 0, 0, 0],  # After end_time
-            ])
+            mock_candles = np.array(
+                [
+                    [1622505500, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0],  # Before start_time
+                    [1622505600, 50100, 50200, 49950, 50150, 1000, 0, 0, 0, 0],  # Within range
+                    [1622505660, 50150, 50250, 50000, 50200, 1000, 0, 0, 0, 0],  # Within range
+                    [1622505720, 50200, 50300, 50050, 50250, 1000, 0, 0, 0, 0],  # After end_time
+                ]
+            )
             mock_fetch_candles.return_value = mock_candles
 
             config = HistoricalCandlesConfig(
@@ -383,7 +379,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
                 trading_pair="BTC-USDT",
                 interval="1m",
                 start_time=1622505600,
-                end_time=1622505660
+                end_time=1622505660,
             )
 
             result = await self.data_feed.get_historical_candles(config)
@@ -398,10 +394,11 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 
         # Mock the specific class's methods instead of base class
-        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
-             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
-             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
-
+        with (
+            patch.object(self.data_feed, "_round_timestamp_to_interval_multiple", side_effect=lambda x: x),
+            patch.object(self.data_feed, "initialize_exchange_data", new_callable=AsyncMock),
+            patch.object(self.data_feed, "fetch_candles", new_callable=AsyncMock) as mock_fetch_candles,
+        ):
             mock_candles = np.array([[1622505600, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]])
             mock_fetch_candles.return_value = mock_candles
 
@@ -411,7 +408,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
                 trading_pair="BTC-USDT",
                 interval="1m",
                 start_time=1622505600,
-                end_time=1622505600  # Same as start_time
+                end_time=1622505600,  # Same as start_time
             )
             result = await self.data_feed.get_historical_candles(config)
             self.assertIsInstance(result, pd.DataFrame)

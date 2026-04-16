@@ -38,16 +38,21 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.connector_name: str = "mock_paper_exchange"
         self.trading_pair: str = "HBOT-USDT"
         self.strategy_config = StrategyV2ConfigBase()
-        with patch('asyncio.create_task', return_value=MagicMock()):
+        with patch("asyncio.create_task", return_value=MagicMock()):
             # Initialize the strategy with mock components
-            with patch("hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions", return_value=AsyncMock()):
-                with patch('hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator') as MockExecutorOrchestrator:
-                    with patch('hummingbot.strategy.strategy_v2_base.MarketDataProvider') as MockMarketDataProvider:
-                        self.strategy = StrategyV2Base({self.connector_name: self.connector}, config=self.strategy_config)
+            with patch(
+                "hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions",
+                return_value=AsyncMock(),
+            ):
+                with patch("hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator") as MockExecutorOrchestrator:
+                    with patch("hummingbot.strategy.strategy_v2_base.MarketDataProvider") as MockMarketDataProvider:
+                        self.strategy = StrategyV2Base(
+                            {self.connector_name: self.connector}, config=self.strategy_config
+                        )
                         # Set mocks to strategy attributes
                         self.strategy.executor_orchestrator = MockExecutorOrchestrator.return_value
                         self.strategy.market_data_provider = MockMarketDataProvider.return_value
-                        self.strategy.controllers = {'controller_1': MagicMock(), 'controller_2': MagicMock()}
+                        self.strategy.controllers = {"controller_1": MagicMock(), "controller_2": MagicMock()}
         self.strategy.logger().setLevel(1)
 
     async def test_start(self):
@@ -69,16 +74,22 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             type="position_executor",
             status=RunnableStatus.TERMINATED,
             timestamp=10,
-            config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                          connector_name="binance",
-                                          side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1")),
+            config=PositionExecutorConfig(
+                id="test",
+                timestamp=1234567890,
+                trading_pair="ETH-USDT",
+                connector_name="binance",
+                side=TradeType.BUY,
+                entry_price=Decimal("100"),
+                amount=Decimal("1"),
+            ),
             net_pnl_pct=Decimal(0),
             net_pnl_quote=Decimal(0),
             cum_fees_quote=Decimal(0),
             filled_amount_quote=Decimal(0),
             is_active=False,
             is_trading=False,
-            custom_info={}
+            custom_info={},
         )
         executor_2 = ExecutorInfo(
             id="2",
@@ -86,21 +97,27 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             type="position_executor",
             status=RunnableStatus.RUNNING,
             timestamp=20,
-            config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                          connector_name="binance",
-                                          side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1")),
+            config=PositionExecutorConfig(
+                id="test",
+                timestamp=1234567890,
+                trading_pair="ETH-USDT",
+                connector_name="binance",
+                side=TradeType.BUY,
+                entry_price=Decimal("100"),
+                amount=Decimal("1"),
+            ),
             net_pnl_pct=Decimal(0),
             net_pnl_quote=Decimal(0),
             cum_fees_quote=Decimal(0),
             filled_amount_quote=Decimal(0),
             is_active=True,
             is_trading=True,
-            custom_info={}
+            custom_info={},
         )
         # Set up controller_reports with the new structure
         self.strategy.controller_reports = {
             "controller_1": {"executors": [executor_1], "positions": [], "performance": None},
-            "controller_2": {"executors": [executor_2], "positions": [], "performance": None}
+            "controller_2": {"executors": [executor_2], "positions": [], "performance": None},
         }
         self.strategy.closed_executors_buffer = 0
 
@@ -112,7 +129,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Set up controller_reports with the new structure
         self.strategy.controller_reports = {
             "controller_1": {"executors": [MagicMock(), MagicMock()], "positions": [], "performance": None},
-            "controller_2": {"executors": [MagicMock()], "positions": [], "performance": None}
+            "controller_2": {"executors": [MagicMock()], "positions": [], "performance": None},
         }
 
         executors = self.strategy.get_executors_by_controller("controller_1")
@@ -122,7 +139,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Set up controller_reports with the new structure
         self.strategy.controller_reports = {
             "controller_1": {"executors": [MagicMock(), MagicMock()], "positions": [], "performance": None},
-            "controller_2": {"executors": [MagicMock()], "positions": [], "performance": None}
+            "controller_2": {"executors": [MagicMock()], "positions": [], "performance": None},
         }
 
         executors = self.strategy.get_all_executors()
@@ -158,9 +175,16 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
     @patch.object(StrategyV2Base, "update_executors_info")
     @patch("hummingbot.data_feed.market_data_provider.MarketDataProvider.ready", new_callable=PropertyMock)
     @patch("hummingbot.strategy_v2.executors.executor_orchestrator.ExecutorOrchestrator.execute_action")
-    async def test_on_tick(self, mock_execute_action, mock_ready, mock_update_executors_info,
-                           mock_update_controllers_configs,
-                           mock_store_actions_proposal, mock_stop_actions_proposal, mock_create_actions_proposal):
+    async def test_on_tick(
+        self,
+        mock_execute_action,
+        mock_ready,
+        mock_update_executors_info,
+        mock_update_controllers_configs,
+        mock_store_actions_proposal,
+        mock_stop_actions_proposal,
+        mock_create_actions_proposal,
+    ):
         mock_ready.return_value = True
         self.strategy.on_tick()
 
@@ -192,10 +216,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
 
     def test_parse_markets_str_valid(self):
         test_input = "binance.JASMY-USDT,RLC-USDT:kucoin.BTC-USDT"
-        expected_output = {
-            "binance": {"JASMY-USDT", "RLC-USDT"},
-            "kucoin": {"BTC-USDT"}
-        }
+        expected_output = {"binance": {"JASMY-USDT", "RLC-USDT"}, "kucoin": {"BTC-USDT"}}
         result = StrategyV2ConfigBase.parse_markets_str(test_input)
         self.assertEqual(result, expected_output)
 
@@ -231,7 +252,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             side="BUY",
             entry_price=Decimal("100"),
             amount=Decimal("1"),
-            other_required_field=MagicMock()  # Add other fields as required by specific executor config
+            other_required_field=MagicMock(),  # Add other fields as required by specific executor config
         )
 
     def test_executors_info_to_df(self):
@@ -241,16 +262,22 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             type="position_executor",
             status=RunnableStatus.TERMINATED,
             timestamp=10,
-            config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                          connector_name="binance",
-                                          side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1")),
+            config=PositionExecutorConfig(
+                id="test",
+                timestamp=1234567890,
+                trading_pair="ETH-USDT",
+                connector_name="binance",
+                side=TradeType.BUY,
+                entry_price=Decimal("100"),
+                amount=Decimal("1"),
+            ),
             net_pnl_pct=Decimal(0),
             net_pnl_quote=Decimal(0),
             cum_fees_quote=Decimal(0),
             filled_amount_quote=Decimal(0),
             is_active=False,
             is_trading=False,
-            custom_info={}
+            custom_info={},
         )
         executor_2 = ExecutorInfo(
             id="2",
@@ -258,16 +285,22 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
             type="position_executor",
             status=RunnableStatus.RUNNING,
             timestamp=20,
-            config=PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT",
-                                          connector_name="binance",
-                                          side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1")),
+            config=PositionExecutorConfig(
+                id="test",
+                timestamp=1234567890,
+                trading_pair="ETH-USDT",
+                connector_name="binance",
+                side=TradeType.BUY,
+                entry_price=Decimal("100"),
+                amount=Decimal("1"),
+            ),
             net_pnl_pct=Decimal(0),
             net_pnl_quote=Decimal(0),
             cum_fees_quote=Decimal(0),
             filled_amount_quote=Decimal(0),
             is_active=True,
             is_trading=True,
-            custom_info={}
+            custom_info={},
         )
 
         executors_info = [executor_1, executor_2]
@@ -276,38 +309,42 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Assertions to validate the DataFrame structure and content
         self.assertIsInstance(df, pd.DataFrame)
         self.assertEqual(len(df), 2)
-        self.assertEqual(list(df.columns),
-                         ['id',
-                          'timestamp',
-                          'type',
-                          'status',
-                          'config',
-                          'net_pnl_pct',
-                          'net_pnl_quote',
-                          'cum_fees_quote',
-                          'filled_amount_quote',
-                          'is_active',
-                          'is_trading',
-                          'custom_info',
-                          'close_timestamp',
-                          'close_type',
-                          'controller_id',
-                          'side'])
-        self.assertEqual(df.iloc[0]['id'], '2')  # Since the dataframe is sorted by status
-        self.assertEqual(df.iloc[1]['id'], '1')
-        self.assertEqual(df.iloc[0]['status'], RunnableStatus.RUNNING)
-        self.assertEqual(df.iloc[1]['status'], RunnableStatus.TERMINATED)
+        self.assertEqual(
+            list(df.columns),
+            [
+                "id",
+                "timestamp",
+                "type",
+                "status",
+                "config",
+                "net_pnl_pct",
+                "net_pnl_quote",
+                "cum_fees_quote",
+                "filled_amount_quote",
+                "is_active",
+                "is_trading",
+                "custom_info",
+                "close_timestamp",
+                "close_type",
+                "controller_id",
+                "side",
+            ],
+        )
+        self.assertEqual(df.iloc[0]["id"], "2")  # Since the dataframe is sorted by status
+        self.assertEqual(df.iloc[1]["id"], "1")
+        self.assertEqual(df.iloc[0]["status"], RunnableStatus.RUNNING)
+        self.assertEqual(df.iloc[1]["status"], RunnableStatus.TERMINATED)
 
     def create_mock_performance_report(self):
         return PerformanceReport(
-            realized_pnl_quote=Decimal('100'),
-            unrealized_pnl_quote=Decimal('50'),
-            unrealized_pnl_pct=Decimal('5'),
-            realized_pnl_pct=Decimal('10'),
-            global_pnl_quote=Decimal('150'),
-            global_pnl_pct=Decimal('15'),
-            volume_traded=Decimal('1000'),
-            close_type_counts={CloseType.TAKE_PROFIT: 10, CloseType.STOP_LOSS: 5}
+            realized_pnl_quote=Decimal("100"),
+            unrealized_pnl_quote=Decimal("50"),
+            unrealized_pnl_pct=Decimal("5"),
+            realized_pnl_pct=Decimal("10"),
+            global_pnl_quote=Decimal("150"),
+            global_pnl_pct=Decimal("15"),
+            volume_traded=Decimal("1000"),
+            close_type_counts={CloseType.TAKE_PROFIT: 10, CloseType.STOP_LOSS: 5},
         )
 
     def test_format_status(self):
@@ -328,18 +365,24 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
 
         # Mock executor for the table
         mock_executor = ExecutorInfo(
-            id="12312", timestamp=1234567890, status=RunnableStatus.TERMINATED,
-            config=self.get_position_config_market_short(), net_pnl_pct=Decimal(0), net_pnl_quote=Decimal(0),
-            cum_fees_quote=Decimal(0), filled_amount_quote=Decimal(0), is_active=False, is_trading=False,
-            custom_info={}, type="position_executor", controller_id="controller_1")
+            id="12312",
+            timestamp=1234567890,
+            status=RunnableStatus.TERMINATED,
+            config=self.get_position_config_market_short(),
+            net_pnl_pct=Decimal(0),
+            net_pnl_quote=Decimal(0),
+            cum_fees_quote=Decimal(0),
+            filled_amount_quote=Decimal(0),
+            is_active=False,
+            is_trading=False,
+            custom_info={},
+            type="position_executor",
+            controller_id="controller_1",
+        )
 
         # Set up controller_reports with the new structure
         self.strategy.controller_reports = {
-            "controller_1": {
-                "executors": [mock_executor],
-                "positions": [],
-                "performance": mock_report_controller_1
-            }
+            "controller_1": {"executors": [mock_executor], "positions": [], "performance": mock_report_controller_1}
         }
 
         # Call format_status
@@ -355,12 +398,17 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
     async def test_listen_to_executor_actions(self):
         self.strategy.actions_queue = MagicMock()
         # Simulate some actions being returned, followed by an exception to break the loop.
-        self.strategy.actions_queue.get = AsyncMock(side_effect=[
-            [CreateExecutorAction(controller_id="controller_1",
-                                  executor_config=self.get_position_config_market_short())],
-            Exception,
-            asyncio.CancelledError,
-        ])
+        self.strategy.actions_queue.get = AsyncMock(
+            side_effect=[
+                [
+                    CreateExecutorAction(
+                        controller_id="controller_1", executor_config=self.get_position_config_market_short()
+                    )
+                ],
+                Exception,
+                asyncio.CancelledError,
+            ]
+        )
         self.strategy.executor_orchestrator.execute_actions = MagicMock()
         controller_mock = MagicMock()
         self.strategy.controllers = {"controller_1": controller_mock}
@@ -375,22 +423,30 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.strategy.executor_orchestrator.execute_actions.call_count, 1)
 
     def get_position_config_market_short(self):
-        return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT",
-                                      connector_name="binance",
-                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_config=TripleBarrierConfig())
+        return PositionExecutorConfig(
+            id="test-2",
+            timestamp=1234567890,
+            trading_pair="ETH-USDT",
+            connector_name="binance",
+            side=TradeType.SELL,
+            entry_price=Decimal("100"),
+            amount=Decimal("1"),
+            triple_barrier_config=TripleBarrierConfig(),
+        )
 
 
 class StrategyV2BaseBasicTest(unittest.TestCase):
     """Legacy tests for basic StrategyV2Base functionality"""
+
     level = 0
 
     def handle(self, record):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage().startswith(message)
-                   for record in self.log_records)
+        return any(
+            record.levelname == log_level and record.getMessage().startswith(message) for record in self.log_records
+        )
 
     def setUp(self):
         self.log_records = []
@@ -407,25 +463,26 @@ class StrategyV2BaseBasicTest(unittest.TestCase):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.connector: MockPaperExchange = MockPaperExchange()
-        self.connector.set_balanced_order_book(trading_pair=self.trading_pair,
-                                               mid_price=100,
-                                               min_price=50,
-                                               max_price=150,
-                                               price_step_size=1,
-                                               volume_step_size=10)
+        self.connector.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=100,
+            min_price=50,
+            max_price=150,
+            price_step_size=1,
+            volume_step_size=10,
+        )
         self.connector.set_balance(self.base_asset, self.base_balance)
         self.connector.set_balance(self.quote_asset, self.quote_balance)
-        self.connector.set_quantization_param(
-            QuantizationParams(
-                self.trading_pair, 6, 6, 6, 6
-            )
-        )
+        self.connector.set_quantization_param(QuantizationParams(self.trading_pair, 6, 6, 6, 6))
         self.clock.add_iterator(self.connector)
         StrategyV2Base.markets = {self.connector_name: {self.trading_pair}}
-        with patch('asyncio.create_task', return_value=MagicMock()):
-            with patch("hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions", return_value=AsyncMock()):
-                with patch('hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator'):
-                    with patch('hummingbot.strategy.strategy_v2_base.MarketDataProvider'):
+        with patch("asyncio.create_task", return_value=MagicMock()):
+            with patch(
+                "hummingbot.strategy.strategy_v2_base.StrategyV2Base.listen_to_executor_actions",
+                return_value=AsyncMock(),
+            ):
+                with patch("hummingbot.strategy.strategy_v2_base.ExecutorOrchestrator"):
+                    with patch("hummingbot.strategy.strategy_v2_base.MarketDataProvider"):
                         self.strategy = StrategyV2Base({self.connector_name: self.connector})
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
@@ -503,18 +560,12 @@ class StrategyV2BaseBasicTest(unittest.TestCase):
             price=Decimal("1000"),
         )
 
-        self.assertIn(order_id,
-                      [order.client_order_id for order in self.strategy.get_active_orders(self.connector_name)])
-
-        self.strategy.cancel(
-            connector_name=self.connector_name,
-            trading_pair=self.trading_pair,
-            order_id=order_id
+        self.assertIn(
+            order_id, [order.client_order_id for order in self.strategy.get_active_orders(self.connector_name)]
         )
 
+        self.strategy.cancel(connector_name=self.connector_name, trading_pair=self.trading_pair, order_id=order_id)
+
         self.assertTrue(
-            self._is_logged(
-                log_level="INFO",
-                message=f"({self.trading_pair}) Canceling the limit order {order_id}."
-            )
+            self._is_logged(log_level="INFO", message=f"({self.trading_pair}) Canceling the limit order {order_id}.")
         )

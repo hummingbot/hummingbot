@@ -32,8 +32,9 @@ class OrderExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: StrategyV2Base, config: OrderExecutorConfig,
-                 update_interval: float = 1.0, max_retries: int = 10):
+    def __init__(
+        self, strategy: StrategyV2Base, config: OrderExecutorConfig, update_interval: float = 1.0, max_retries: int = 10
+    ):
         """
         Initialize the OrderExecutor instance.
 
@@ -42,8 +43,9 @@ class OrderExecutor(ExecutorBase):
         :param update_interval: The interval at which the OrderExecutor should be updated, defaults to 1.0.
         :param max_retries: The maximum number of retries for the OrderExecutor, defaults to 10.
         """
-        super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
-                         update_interval=update_interval)
+        super().__init__(
+            strategy=strategy, config=config, connectors=[config.connector_name], update_interval=update_interval
+        )
         self.config: OrderExecutorConfig = config
 
         # Order tracking
@@ -216,7 +218,7 @@ class OrderExecutor(ExecutorBase):
             self._strategy.cancel(
                 connector_name=self.config.connector_name,
                 trading_pair=self.config.trading_pair,
-                order_id=self._order.order_id
+                order_id=self._order.order_id,
             )
             self.logger().debug("Cancelling order")
 
@@ -295,11 +297,13 @@ class OrderExecutor(ExecutorBase):
         :param scale: The scale for formatting.
         :return: A list of formatted status lines.
         """
-        lines = [f"""
+        lines = [
+            f"""
 | Trading Pair: {self.config.trading_pair} | Exchange: {self.config.connector_name} | Action: {self.config.position_action}
-| Amount: {self.config.amount} | Price: {self._order.order.price if self._order and self._order.order else 'N/A'}
+| Amount: {self.config.amount} | Price: {self._order.order.price if self._order and self._order.order else "N/A"}
 | Execution Strategy: {self.config.execution_strategy} | Retries: {self._current_retries}/{self._max_retries}
-"""]
+"""
+        ]
         return lines
 
     async def validate_sufficient_balance(self):

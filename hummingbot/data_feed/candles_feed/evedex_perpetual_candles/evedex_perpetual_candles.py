@@ -72,8 +72,9 @@ class EvedexPerpetualCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        await rest_assistant.execute_request(
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+        )
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -94,8 +95,7 @@ class EvedexPerpetualCandles(CandlesBase):
                 throttler_limit_id=CONSTANTS.INSTRUMENTS_ENDPOINT,
             )
         except Exception:
-            self.logger().warning("Failed to resolve Evedex instrument name from exchange info. "
-                                  "Using derived symbol.")
+            self.logger().warning("Failed to resolve Evedex instrument name from exchange info. Using derived symbol.")
             self._instrument_resolved = True
             return
 
@@ -124,10 +124,9 @@ class EvedexPerpetualCandles(CandlesBase):
         dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-    def _get_rest_candles_params(self,
-                                 start_time: Optional[int] = None,
-                                 end_time: Optional[int] = None,
-                                 limit: Optional[int] = None) -> dict:
+    def _get_rest_candles_params(
+        self, start_time: Optional[int] = None, end_time: Optional[int] = None, limit: Optional[int] = None
+    ) -> dict:
         params = {
             "group": CONSTANTS.INTERVALS[self.interval],
         }
@@ -188,9 +187,9 @@ class EvedexPerpetualCandles(CandlesBase):
             close_price,
             volume,
             volume_usd,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
         ]
 
     def _parse_candle_dict(self, data: Dict[str, Any]) -> Optional[List[float]]:
@@ -216,9 +215,9 @@ class EvedexPerpetualCandles(CandlesBase):
             close_price,
             volume,
             quote_volume,
-            0.,
-            0.,
-            0.,
+            0.0,
+            0.0,
+            0.0,
         ]
 
     def _next_message_id(self) -> int:
@@ -268,10 +267,7 @@ class EvedexPerpetualCandles(CandlesBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to public klines...",
-                exc_info=True
-            )
+            self.logger().error("Unexpected error occurred subscribing to public klines...", exc_info=True)
             raise
 
     async def _ping_loop(self, websocket_assistant: WSAssistant):
@@ -300,10 +296,12 @@ class EvedexPerpetualCandles(CandlesBase):
             ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL + CONSTANTS.WS_PING_TIMEOUT,
         )
 
-        connect_request = WSJSONRequest(payload={
-            "connect": {"name": "js"},
-            "id": self._next_message_id(),
-        })
+        connect_request = WSJSONRequest(
+            payload={
+                "connect": {"name": "js"},
+                "id": self._next_message_id(),
+            }
+        )
         await ws.send(connect_request)
 
         # Centrifugo server sends pings; respond with pong in message handler.

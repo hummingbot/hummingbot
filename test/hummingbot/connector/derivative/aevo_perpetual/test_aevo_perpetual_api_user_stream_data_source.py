@@ -105,7 +105,9 @@ class AevoPerpetualAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(sent_request, WSJSONRequest)
         self.assertEqual(self.auth.get_ws_auth_payload(), sent_request.payload)
 
-    @patch("hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_api_user_stream_data_source.safe_ensure_future")
+    @patch(
+        "hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_api_user_stream_data_source.safe_ensure_future"
+    )
     async def test_connected_websocket_assistant_connects_and_starts_ping(self, safe_future_mock):
         ws_mock = AsyncMock(spec=WSAssistant)
         self.data_source._get_ws_assistant = AsyncMock(return_value=ws_mock)

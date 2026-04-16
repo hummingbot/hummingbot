@@ -42,16 +42,17 @@ class FoxbitExchange(ExchangePyBase):
 
     web_utils = web_utils
 
-    def __init__(self,
-                 foxbit_api_key: str,
-                 foxbit_api_secret: str,
-                 foxbit_user_id: str,
-                 balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
-                 rate_limits_share_pct: Decimal = Decimal("100"),
-                 trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
-                 ):
+    def __init__(
+        self,
+        foxbit_api_key: str,
+        foxbit_api_secret: str,
+        foxbit_user_id: str,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         self.api_key = foxbit_api_key
         self.secret_key = foxbit_api_secret
         self.user_id = foxbit_user_id
@@ -70,7 +71,8 @@ class FoxbitExchange(ExchangePyBase):
             api_key=self.api_key,
             secret_key=self.secret_key,
             user_id=self.user_id,
-            time_provider=self._time_synchronizer)
+            time_provider=self._time_synchronizer,
+        )
 
     @property
     def name(self) -> str:
@@ -138,9 +140,9 @@ class FoxbitExchange(ExchangePyBase):
     @staticmethod
     def foxbit_order_type(order_type: OrderType) -> str:
         if order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER:
-            return 'LIMIT'
+            return "LIMIT"
         elif order_type == OrderType.MARKET:
-            return 'MARKET'
+            return "MARKET"
         else:
             raise Exception("Order type not supported by Foxbit.")
 
@@ -176,7 +178,10 @@ class FoxbitExchange(ExchangePyBase):
         symbol_map = await self.trading_pair_instrument_id_map()
         return symbol_map.inverse[trading_pair]
 
-    async def trading_pair_associated_to_exchange_instrument_id(self, instrument_id: str,) -> str:
+    async def trading_pair_associated_to_exchange_instrument_id(
+        self,
+        instrument_id: str,
+    ) -> str:
         """
         Used to translate a trading pair from the exchange notation to the client notation
         :param instrument_id: Instrument_Id in exchange notation
@@ -187,17 +192,16 @@ class FoxbitExchange(ExchangePyBase):
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
-            throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
-            auth=self._auth)
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, domain=self._domain, auth=self._auth
+        )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return FoxbitAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
-            api_factory=self._web_assistants_factory)
+            api_factory=self._web_assistants_factory,
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return FoxbitAPIUserStreamDataSource(
@@ -208,14 +212,16 @@ class FoxbitExchange(ExchangePyBase):
             domain=self.domain,
         )
 
-    def _get_fee(self,
-                 base_currency: str,
-                 quote_currency: str,
-                 order_type: OrderType,
-                 order_side: TradeType,
-                 amount: Decimal,
-                 price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+        self,
+        base_currency: str,
+        quote_currency: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal,
+        price: Decimal = s_decimal_NaN,
+        is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         """
         Calculates the estimated fee an order would pay based on the connector configuration
         :param base_currency: the order base currency
@@ -228,12 +234,9 @@ class FoxbitExchange(ExchangePyBase):
         """
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(False))
 
-    def buy(self,
-            trading_pair: str,
-            amount: Decimal,
-            order_type=OrderType.LIMIT,
-            price: Decimal = s_decimal_NaN,
-            **kwargs) -> str:
+    def buy(
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT, price: Decimal = s_decimal_NaN, **kwargs
+    ) -> str:
         """
         Creates a promise to create a buy order using the parameters
 
@@ -245,21 +248,26 @@ class FoxbitExchange(ExchangePyBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         order_id = foxbit_utils.get_client_order_id(True)
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.BUY,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+            )
+        )
         return order_id
 
-    def sell(self,
-             trading_pair: str,
-             amount: Decimal,
-             order_type: OrderType = OrderType.LIMIT,
-             price: Decimal = s_decimal_NaN,
-             **kwargs) -> str:
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
         """
         Creates a promise to create a sell order using the parameters.
         :param trading_pair: the token pair to operate with
@@ -269,22 +277,27 @@ class FoxbitExchange(ExchangePyBase):
         :return: the id assigned by the connector to the order (the client id)
         """
         order_id = foxbit_utils.get_client_order_id(False)
-        safe_ensure_future(self._create_order(
-            trade_type=TradeType.SELL,
-            order_id=order_id,
-            trading_pair=trading_pair,
-            amount=amount,
-            order_type=order_type,
-            price=price))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+            )
+        )
         return order_id
 
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            order_type: OrderType,
-                            price: Optional[Decimal] = None):
+    async def _create_order(
+        self,
+        trade_type: TradeType,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType,
+        price: Optional[Decimal] = None,
+    ):
         """
         Creates a an order in the exchange using the parameters to configure it
 
@@ -309,7 +322,7 @@ class FoxbitExchange(ExchangePyBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=quantized_amount
+            amount=quantized_amount,
         )
         if not price or price.is_nan() or price == s_decimal_0:
             current_price: Decimal = self.get_price(trading_pair, False)
@@ -323,16 +336,20 @@ class FoxbitExchange(ExchangePyBase):
             return
 
         if quantized_amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
-                                  f"amount to be higher than the minimum order size.")
+            self.logger().warning(
+                f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+                f"size {trading_rule.min_order_size}. The order will not be created, increase the "
+                f"amount to be higher than the minimum order size."
+            )
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
         if notional_size < trading_rule.min_notional_size:
-            self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
-                                  f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
-                                  f"created. Increase the amount or the price to be higher than the minimum notional.")
+            self.logger().warning(
+                f"{trade_type.name.title()} order notional {notional_size} is lower than the "
+                f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
+                f"created. Increase the amount or the price to be higher than the minimum notional."
+            )
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
@@ -343,7 +360,8 @@ class FoxbitExchange(ExchangePyBase):
                 amount=amount,
                 trade_type=trade_type,
                 order_type=order_type,
-                price=price)
+                price=price,
+            )
 
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
@@ -363,42 +381,41 @@ class FoxbitExchange(ExchangePyBase):
                 f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
                 f"{amount.normalize()} {trading_pair} {price.normalize()}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit {trade_type.name.lower()} order to {self.name_cap}. Check API key and network connection."
+                app_warning_msg=f"Failed to submit {trade_type.name.lower()} order to {self.name_cap}. Check API key and network connection.",
             )
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
-    async def _place_order(self,
-                           order_id: str,
-                           trading_pair: str,
-                           amount: Decimal,
-                           trade_type: TradeType,
-                           order_type: OrderType,
-                           price: Decimal,
-                           ) -> Tuple[str, float]:
+    async def _place_order(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+    ) -> Tuple[str, float]:
         order_result = None
-        amount_str = '%.10f' % amount
-        price_str = '%.10f' % price
+        amount_str = "%.10f" % amount
+        price_str = "%.10f" % price
         type_str = FoxbitExchange.foxbit_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"market_symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      "type": type_str,
-                      "client_order_id": order_id
-                      }
+        api_params = {
+            "market_symbol": symbol,
+            "side": side_str,
+            "quantity": amount_str,
+            "type": type_str,
+            "client_order_id": order_id,
+        }
 
         if order_type == OrderType.LIMIT_MAKER:
             api_params["post_only"] = True
         if order_type.is_limit_type():
             api_params["price"] = price_str
 
-        self.logger().info(f'New order sent with these fields: {api_params}')
+        self.logger().info(f"New order sent with these fields: {api_params}")
 
-        order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            data=api_params,
-            is_auth_required=True)
+        order_result = await self._api_post(path_url=CONSTANTS.ORDER_PATH_URL, data=api_params, is_auth_required=True)
         o_id = str(order_result.get("id"))
         transact_time = int(datetime.now(timezone.utc).timestamp() * 1e3)
         return (o_id, transact_time)
@@ -411,9 +428,8 @@ class FoxbitExchange(ExchangePyBase):
 
         try:
             cancel_result = await self._api_put(
-                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-                data=params,
-                is_auth_required=True)
+                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL, data=params, is_auth_required=True
+            )
         except OSError as e:
             if self._is_order_not_found_during_cancelation_error(e):
                 self.logger().info(f"Order not found on _place_cancel order_id: {order_id} Error message: {str(e)}")
@@ -421,7 +437,9 @@ class FoxbitExchange(ExchangePyBase):
             raise e
 
         if "data" in cancel_result and len(cancel_result.get("data")) > 0:
-            if (tracked_order.exchange_order_id is None) or (cancel_result.get("data")[0].get('id') == tracked_order.exchange_order_id):
+            if (tracked_order.exchange_order_id is None) or (
+                cancel_result.get("data")[0].get("id") == tracked_order.exchange_order_id
+            ):
                 return True
 
         self.logger().info(f"Failed to cancel on _place_cancel order_id: {order_id} API response: {cancel_result}")
@@ -464,11 +482,14 @@ class FoxbitExchange(ExchangePyBase):
                 min_notional = foxbit_utils.decimal_val_or_none(rule.get("price_min"))
 
                 retval.append(
-                    TradingRule(trading_pair,
-                                min_order_size=min_order_size,
-                                min_price_increment=foxbit_utils.decimal_val_or_none(tick_size),
-                                min_base_amount_increment=foxbit_utils.decimal_val_or_none(step_size),
-                                min_notional_size=foxbit_utils.decimal_val_or_none(min_notional)))
+                    TradingRule(
+                        trading_pair,
+                        min_order_size=min_order_size,
+                        min_price_increment=foxbit_utils.decimal_val_or_none(tick_size),
+                        min_base_amount_increment=foxbit_utils.decimal_val_or_none(step_size),
+                        min_notional_size=foxbit_utils.decimal_val_or_none(min_notional),
+                    )
+                )
 
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule {rule.get('symbol')}. Skipping.")
@@ -494,7 +515,7 @@ class FoxbitExchange(ExchangePyBase):
             try:
                 # Getting basic data
                 event_type = event_message.get("n")
-                order_data = foxbit_utils.ws_data_to_dict(event_message.get('o'))
+                order_data = foxbit_utils.ws_data_to_dict(event_message.get("o"))
 
                 if event_type == CONSTANTS.WS_ACCOUNT_POSITION:
                     # It is an Account Position Event
@@ -510,19 +531,25 @@ class FoxbitExchange(ExchangePyBase):
                 # Check if this monitor has to tracking this event message
                 ixm_id = foxbit_utils.int_val_or_none(order_data.get(field_name), on_error_return_none=False)
                 if ixm_id == 0:
-                    self.logger().debug(f"Received a message type {event_type} with no instrument. raw message {event_message}.")
+                    self.logger().debug(
+                        f"Received a message type {event_type} with no instrument. raw message {event_message}."
+                    )
                     # When it occours, this instance receibed a message from other instance... Nothing to do...
                     continue
 
                 rec_symbol = await self.trading_pair_associated_to_exchange_instrument_id(instrument_id=ixm_id)
                 if rec_symbol not in self.trading_pairs:
-                    self.logger().debug(f"Received a message type {event_type} with no instrument. raw message {event_message}.")
+                    self.logger().debug(
+                        f"Received a message type {event_type} with no instrument. raw message {event_message}."
+                    )
                     # When it occours, this instance receibed a message from other instance... Nothing to do...
                     continue
 
                 if CONSTANTS.WS_ORDER_STATE or CONSTANTS.WS_ORDER_TRADE in event_type:
                     # Locating tracked order by ClientOrderId
-                    client_order_id = order_data.get("ClientOrderId") is None and '' or str(order_data.get("ClientOrderId"))
+                    client_order_id = (
+                        order_data.get("ClientOrderId") is None and "" or str(order_data.get("ClientOrderId"))
+                    )
                     tracked_order = self.in_flight_orders.get(client_order_id)
 
                     if tracked_order:
@@ -530,21 +557,30 @@ class FoxbitExchange(ExchangePyBase):
                         try:
                             await tracked_order.get_exchange_order_id()
                         except asyncio.TimeoutError:
-                            self.logger().error(f"Failed to get exchange order id for order: {tracked_order.client_order_id}, raw message {event_message}.")
+                            self.logger().error(
+                                f"Failed to get exchange order id for order: {tracked_order.client_order_id}, raw message {event_message}."
+                            )
                             continue
 
                         order_state = ""
                         if event_type == CONSTANTS.WS_ORDER_TRADE:
                             order_state = tracked_order.current_state
                             # It is a Trade Update Event (there is no OrderState)
-                            await self._update_order_fills_from_event_or_create(client_order_id, tracked_order, order_data)
+                            await self._update_order_fills_from_event_or_create(
+                                client_order_id, tracked_order, order_data
+                            )
                         else:
                             # Translate exchange OrderState to HB Client
-                            order_state = foxbit_utils.get_order_state(order_data.get("OrderState"), on_error_return_failed=False)
+                            order_state = foxbit_utils.get_order_state(
+                                order_data.get("OrderState"), on_error_return_failed=False
+                            )
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=foxbit_utils.int_val_or_none(order_data.get("LastUpdatedTime"), on_error_return_none=False) * 1e-3,
+                            update_timestamp=foxbit_utils.int_val_or_none(
+                                order_data.get("LastUpdatedTime"), on_error_return_none=False
+                            )
+                            * 1e-3,
                             new_state=order_state,
                             client_order_id=client_order_id,
                             exchange_order_id=str(order_data.get("OrderId")),
@@ -553,14 +589,18 @@ class FoxbitExchange(ExchangePyBase):
 
                     else:
                         # An unknown order was received log it as an unexpected error
-                        self.logger().warning(f"Received unknown message type {event_type} with ClientOrderId: {client_order_id} raw message: {event_message}.")
+                        self.logger().warning(
+                            f"Received unknown message type {event_type} with ClientOrderId: {client_order_id} raw message: {event_message}."
+                        )
 
                 else:
                     # An unexpected event type was received
                     self.logger().warning(f"Received unknown message type {event_type} raw message: {event_message}.")
 
             except asyncio.CancelledError:
-                self.logger().error(f"An Asyncio.CancelledError occurs when process message: {event_message}.", exc_info=True)
+                self.logger().error(
+                    f"An Asyncio.CancelledError occurs when process message: {event_message}.", exc_info=True
+                )
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
@@ -579,8 +619,9 @@ class FoxbitExchange(ExchangePyBase):
         long_interval_last_tick = self._last_poll_timestamp // self.UPDATE_ORDER_FILLS_LONG_MIN_INTERVAL
         long_interval_current_tick = self.current_timestamp // self.UPDATE_ORDER_FILLS_LONG_MIN_INTERVAL
 
-        if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
+        if long_interval_current_tick > long_interval_last_tick or (
+            self.in_flight_orders and small_interval_current_tick > small_interval_last_tick
+        ):
             order_by_exchange_id_map = {}
             for order in self._order_tracker.all_orders.values():
                 order_by_exchange_id_map[order.exchange_order_id] = order
@@ -588,29 +629,25 @@ class FoxbitExchange(ExchangePyBase):
             tasks = []
             trading_pairs = self.trading_pairs
             for trading_pair in trading_pairs:
-                params = {
-                    "market_symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                }
+                params = {"market_symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
                 if self._last_poll_timestamp > 0:
-                    params["start_time"] = (datetime.utcnow() - timedelta(minutes=self.SHORT_POLL_INTERVAL)).isoformat()[:23] + "Z"
-                tasks.append(self._api_get(
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True))
+                    params["start_time"] = (
+                        datetime.utcnow() - timedelta(minutes=self.SHORT_POLL_INTERVAL)
+                    ).isoformat()[:23] + "Z"
+                tasks.append(self._api_get(path_url=CONSTANTS.MY_TRADES_PATH_URL, params=params, is_auth_required=True))
 
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
 
             for trades, trading_pair in zip(results, trading_pairs):
-
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}.",
                     )
                     continue
 
-                for trade in trades.get('data'):
+                for trade in trades.get("data"):
                     exchange_order_id = str(trade.get("order_id"))
                     if exchange_order_id in order_by_exchange_id_map:
                         # This is a fill for a tracked order
@@ -618,41 +655,58 @@ class FoxbitExchange(ExchangePyBase):
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=tracked_order.trade_type,
-                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
+                            flat_fees=[
+                                TokenAmount(
+                                    amount=foxbit_utils.decimal_val_or_none(trade.get("fee")),
+                                    token=trade.get("fee_currency_symbol").upper(),
+                                )
+                            ],
                         )
 
                         trade_id = str(foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=True))
                         if trade_id is None:
                             trade_id = "0"
-                            self.logger().warning(f'W001: Received trade message with no trade_id :{trade}')
+                            self.logger().warning(f"W001: Received trade message with no trade_id :{trade}")
 
                         trade_update = TradeUpdate(
                             trade_id=trade_id,
                             client_order_id=tracked_order.client_order_id,
                             exchange_order_id=exchange_order_id,
                             trading_pair=trading_pair,
-                            fill_timestamp=foxbit_utils.datetime_val_or_now(trade.get("created_at"), on_error_return_now=True).timestamp(),
+                            fill_timestamp=foxbit_utils.datetime_val_or_now(
+                                trade.get("created_at"), on_error_return_now=True
+                            ).timestamp(),
                             fill_price=foxbit_utils.decimal_val_or_none(trade.get("price")),
                             fill_base_amount=foxbit_utils.decimal_val_or_none(trade.get("quantity")),
                             fill_quote_amount=foxbit_utils.decimal_val_or_none(trade.get("quantity")),
                             fee=fee,
                         )
                         self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade.get("id")), exchange_order_id, trading_pair):
+                    elif self.is_confirmed_new_order_filled_event(
+                        str(trade.get("id")), exchange_order_id, trading_pair
+                    ):
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=TradeType.BUY if trade.get("side") == "BUY" else TradeType.SELL,
-                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
+                            flat_fees=[
+                                TokenAmount(
+                                    amount=foxbit_utils.decimal_val_or_none(trade.get("fee")),
+                                    token=trade.get("fee_currency_symbol").upper(),
+                                )
+                            ],
                         )
                         # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(TradeFillOrderDetails(
-                            market=self.display_name,
-                            exchange_trade_id=str(trade.get("id")),
-                            symbol=trading_pair))
+                        self._current_trade_fills.add(
+                            TradeFillOrderDetails(
+                                market=self.display_name, exchange_trade_id=str(trade.get("id")), symbol=trading_pair
+                            )
+                        )
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
-                                timestamp=foxbit_utils.datetime_val_or_now(trade.get('created_at'), on_error_return_now=True).timestamp(),
+                                timestamp=foxbit_utils.datetime_val_or_now(
+                                    trade.get("created_at"), on_error_return_now=True
+                                ).timestamp(),
                                 order_id=self._exchange_order_ids.get(str(trade.get("order_id")), None),
                                 trading_pair=trading_pair,
                                 trade_type=TradeType.BUY if trade.get("side") == "BUY" else TradeType.SELL,
@@ -660,7 +714,9 @@ class FoxbitExchange(ExchangePyBase):
                                 price=foxbit_utils.decimal_val_or_none(trade.get("price")),
                                 amount=foxbit_utils.decimal_val_or_none(trade.get("quantity")),
                                 trade_fee=fee,
-                                exchange_trade_id=str(foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=False)),
+                                exchange_trade_id=str(
+                                    foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=False)
+                                ),
                             ),
                         )
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
@@ -682,21 +738,23 @@ class FoxbitExchange(ExchangePyBase):
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=self.trade_fee_schema(),
                 trade_type=tracked_order.trade_type,
-                flat_fees=[TokenAmount(amount=fee_paid, token=quote_asset)]
+                flat_fees=[TokenAmount(amount=fee_paid, token=quote_asset)],
             )
         else:
-            fee = self.get_fee(base_currency=base_asset,
-                               quote_currency=quote_asset,
-                               order_type=tracked_order.order_type,
-                               order_side=tracked_order.trade_type,
-                               amount=tracked_order.amount,
-                               price=tracked_order.price,
-                               is_maker=True)
+            fee = self.get_fee(
+                base_currency=base_asset,
+                quote_currency=quote_asset,
+                order_type=tracked_order.order_type,
+                order_side=tracked_order.trade_type,
+                amount=tracked_order.amount,
+                price=tracked_order.price,
+                is_maker=True,
+            )
 
         trade_id = str(foxbit_utils.int_val_or_none(order_data.get("TradeId"), on_error_return_none=True))
         if trade_id is None:
             trade_id = "0"
-            self.logger().warning(f'W002: Received trade message with no trade_id :{order_data}')
+            self.logger().warning(f"W002: Received trade message with no trade_id :{order_data}")
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
@@ -720,10 +778,14 @@ class FoxbitExchange(ExchangePyBase):
 
         tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
         if current_tick > last_tick and len(tracked_orders) > 0:
-
-            tasks = [self._api_get(path_url=CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(o.client_order_id),
-                                   is_auth_required=True,
-                                   limit_id=CONSTANTS.GET_ORDER_BY_CLIENT_ID) for o in tracked_orders]
+            tasks = [
+                self._api_get(
+                    path_url=CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(o.client_order_id),
+                    is_auth_required=True,
+                    limit_id=CONSTANTS.GET_ORDER_BY_CLIENT_ID,
+                )
+                for o in tracked_orders
+            ]
 
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
@@ -737,7 +799,7 @@ class FoxbitExchange(ExchangePyBase):
                 if isinstance(order_update, Exception):
                     self.logger().network(
                         f"Error fetching status update for the order {client_order_id}: {order_update}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}."
+                        app_warning_msg=f"Failed to fetch status update for the order {client_order_id}.",
                     )
                     # Wait until the order not found error have repeated a few times before actually treating
                     # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
@@ -760,9 +822,7 @@ class FoxbitExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True)
+        account_info = await self._api_get(path_url=CONSTANTS.ACCOUNTS_PATH_URL, is_auth_required=True)
 
         balances = account_info.get("data")
 
@@ -787,17 +847,14 @@ class FoxbitExchange(ExchangePyBase):
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "market_symbol": trading_pair,
-                    "order_id": exchange_order_id
-                },
-                is_auth_required=True
+                params={"market_symbol": trading_pair, "order_id": exchange_order_id},
+                is_auth_required=True,
             )
 
             if isinstance(all_fills_response, Exception):
                 self.logger().network(
                     f"Error fetching trades update for the lost order {trading_pair}: {all_fills_response}.",
-                    app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                    app_warning_msg=f"Failed to fetch trade update for {trading_pair}.",
                 )
                 return trade_updates
 
@@ -805,13 +862,18 @@ class FoxbitExchange(ExchangePyBase):
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
+                    flat_fees=[
+                        TokenAmount(
+                            amount=foxbit_utils.decimal_val_or_none(trade.get("fee")),
+                            token=trade.get("fee_currency_symbol").upper(),
+                        )
+                    ],
                 )
 
                 trade_id = str(foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=True))
                 if trade_id is None:
                     trade_id = "0"
-                    self.logger().warning(f'W003: Received trade message with no trade_id :{trade}')
+                    self.logger().warning(f"W003: Received trade message with no trade_id :{trade}")
 
                 trade_update = TradeUpdate(
                     trade_id=trade_id,
@@ -822,7 +884,9 @@ class FoxbitExchange(ExchangePyBase):
                     fill_base_amount=foxbit_utils.decimal_val_or_none(trade.get("quantity")),
                     fill_quote_amount=foxbit_utils.decimal_val_or_none(trade.get("quantity")),
                     fill_price=foxbit_utils.decimal_val_or_none(trade.get("price")),
-                    fill_timestamp=foxbit_utils.datetime_val_or_now(trade.get("created_at"), on_error_return_now=True).timestamp(),
+                    fill_timestamp=foxbit_utils.datetime_val_or_now(
+                        trade.get("created_at"), on_error_return_now=True
+                    ).timestamp(),
                 )
                 trade_updates.append(trade_update)
 
@@ -846,7 +910,7 @@ class FoxbitExchange(ExchangePyBase):
         updated_order_data = await self._api_get(
             path_url=CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(tracked_order.client_order_id),
             is_auth_required=True,
-            limit_id=CONSTANTS.GET_ORDER_BY_CLIENT_ID
+            limit_id=CONSTANTS.GET_ORDER_BY_CLIENT_ID,
         )
 
         new_state = foxbit_utils.get_order_state(updated_order_data.get("state"))
@@ -862,16 +926,16 @@ class FoxbitExchange(ExchangePyBase):
         return order_update
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-
         ixm_id = await self.exchange_instrument_id_associated_to_pair(trading_pair=trading_pair)
 
         ws: WSAssistant = await self._create_web_assistants_factory().get_ws_assistant()
         await ws.connect(ws_url=web_utils.websocket_url(), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
 
-        auth_header = foxbit_utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TOB,
-                                                        msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"],
-                                                        payload={"OMSId": 1, "InstrumentId": ixm_id},
-                                                        )
+        auth_header = foxbit_utils.get_ws_message_frame(
+            endpoint=CONSTANTS.WS_SUBSCRIBE_TOB,
+            msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Request"],
+            payload={"OMSId": 1, "InstrumentId": ixm_id},
+        )
 
         subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(auth_header))
 
@@ -879,7 +943,7 @@ class FoxbitExchange(ExchangePyBase):
         retValue: WSResponse = await ws.receive()
         if isinstance(type(retValue), type(WSResponse)):
             dec = json.JSONDecoder()
-            data = dec.decode(retValue.data['o'])
+            data = dec.decode(retValue.data["o"])
 
             if not (len(data) and "LastTradedPx" in data):
                 raise IOError(f"Error fetching last traded prices for {trading_pair}. Response: {data}.")
@@ -891,8 +955,11 @@ class FoxbitExchange(ExchangePyBase):
     async def _initialize_trading_pair_instrument_id_map(self):
         try:
             rest: RESTAssistant = await self._create_web_assistants_factory().get_rest_assistant()
-            exchange_info = await rest.execute_request(url=web_utils.public_rest_v2_url(CONSTANTS.INSTRUMENTS_PATH_URL),
-                                                       data={"OMSId": 1}, throttler_limit_id=CONSTANTS.INSTRUMENTS_PATH_URL)
+            exchange_info = await rest.execute_request(
+                url=web_utils.public_rest_v2_url(CONSTANTS.INSTRUMENTS_PATH_URL),
+                data={"OMSId": 1},
+                throttler_limit_id=CONSTANTS.INSTRUMENTS_PATH_URL,
+            )
             self.logger().info(f"Initialize Trading Pair Instrument Id Map: {exchange_info}")
             self._initialize_trading_pair_instrument_id_from_exchange_info(exchange_info=exchange_info)
         except Exception as ex:
@@ -907,19 +974,22 @@ class FoxbitExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info["data"]):
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data['base']['symbol'].upper(),
-                                                                        quote=symbol_data['quote']['symbol'].upper())
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(
+                base=symbol_data["base"]["symbol"].upper(), quote=symbol_data["quote"]["symbol"].upper()
+            )
         self._set_trading_pair_symbol_map(mapping)
 
     def _initialize_trading_pair_instrument_id_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(foxbit_utils.is_exchange_information_valid, exchange_info):
-            mapping[symbol_data["InstrumentId"]] = combine_to_hb_trading_pair(symbol_data['Product1Symbol'].upper(),
-                                                                              symbol_data['Product2Symbol'].upper())
+            mapping[symbol_data["InstrumentId"]] = combine_to_hb_trading_pair(
+                symbol_data["Product1Symbol"].upper(), symbol_data["Product2Symbol"].upper()
+            )
         self._set_trading_pair_instrument_id_map(mapping)
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         error_description = str(request_exception)
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for this request" in error_description)
+        is_time_synchronizer_related = (
+            "-1021" in error_description and "Timestamp for this request" in error_description
+        )
         return is_time_synchronizer_related

@@ -5,7 +5,6 @@ from hummingbot.connector.exchange.binance import binance_web_utils as web_utils
 
 
 class BinanceUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         domain = "com"

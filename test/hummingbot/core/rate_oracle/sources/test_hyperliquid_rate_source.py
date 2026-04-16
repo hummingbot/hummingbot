@@ -36,7 +36,7 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0x6d1e7cde53ba9467b783cb7c530ce054",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": "COINALPHA",
@@ -46,7 +46,7 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": "SOME",
@@ -56,42 +56,32 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
-                    }
+                        "fullName": None,
+                    },
                 ],
                 "universe": [
-                    {
-                        "name": "COINALPHA/USDC",
-                        "tokens": [1, 0],
-                        "index": 0,
-                        "isCanonical": True
-                    },
-                    {
-                        "name": self.ignored_trading_pair,
-                        "tokens": [2, 0],
-                        "index": 1,
-                        "isCanonical": True
-                    },
-                ]
+                    {"name": "COINALPHA/USDC", "tokens": [1, 0], "index": 0, "isCanonical": True},
+                    {"name": self.ignored_trading_pair, "tokens": [2, 0], "index": 1, "isCanonical": True},
+                ],
             },
             [
                 {
-                    'prevDayPx': "COINALPHA/USDC",
-                    'dayNtlVlm': '4265022.87833',
-                    'markPx': '10',
-                    'midPx': '10',
-                    'circulatingSupply': '598274922.83822',
-                    'coin': "COINALPHA/USDC",
+                    "prevDayPx": "COINALPHA/USDC",
+                    "dayNtlVlm": "4265022.87833",
+                    "markPx": "10",
+                    "midPx": "10",
+                    "circulatingSupply": "598274922.83822",
+                    "coin": "COINALPHA/USDC",
                 },
                 {
-                    'prevDayPx': '25.236',
-                    'dayNtlVlm': '315299.16652',
-                    'markPx': '25.011',
-                    'midPx': '24.9835',
-                    'circulatingSupply': '997372.88712882',
-                    'coin': self.ignored_trading_pair,
-                }
-            ]
+                    "prevDayPx": "25.236",
+                    "dayNtlVlm": "315299.16652",
+                    "markPx": "25.011",
+                    "midPx": "24.9835",
+                    "circulatingSupply": "997372.88712882",
+                    "coin": self.ignored_trading_pair,
+                },
+            ],
         ]
 
         hyperliquid_prices_global_url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL)
@@ -106,7 +96,7 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0x6d1e7cde53ba9467b783cb7c530ce054",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": "COINALPHA",
@@ -116,7 +106,7 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
+                        "fullName": None,
                     },
                     {
                         "name": "SOME",
@@ -126,42 +116,32 @@ class HyperliquidRateSourceTest(IsolatedAsyncioWrapperTestCase):
                         "tokenId": "0xc1fb593aeffbeb02f85e0308e9956a90",
                         "isCanonical": True,
                         "evmContract": None,
-                        "fullName": None
-                    }
+                        "fullName": None,
+                    },
                 ],
                 "universe": [
-                    {
-                        "name": "COINALPHA/USDC",
-                        "tokens": [1, 0],
-                        "index": 0,
-                        "isCanonical": True
-                    },
-                    {
-                        "name": self.ignored_trading_pair,
-                        "tokens": [2, 0],
-                        "index": 1,
-                        "isCanonical": True
-                    },
-                ]
+                    {"name": "COINALPHA/USDC", "tokens": [1, 0], "index": 0, "isCanonical": True},
+                    {"name": self.ignored_trading_pair, "tokens": [2, 0], "index": 1, "isCanonical": True},
+                ],
             },
             [
                 {
-                    'prevDayPx': '0.22916',
-                    'dayNtlVlm': '4265022.87833',
-                    'markPx': '10',
-                    'midPx': '10',
-                    'circulatingSupply': '598274922.83822',
-                    'coin': "COINALPHA/USDC"
+                    "prevDayPx": "0.22916",
+                    "dayNtlVlm": "4265022.87833",
+                    "markPx": "10",
+                    "midPx": "10",
+                    "circulatingSupply": "598274922.83822",
+                    "coin": "COINALPHA/USDC",
                 },
                 {
-                    'prevDayPx': '25.236',
-                    'dayNtlVlm': '315299.16652',
-                    'markPx': '25.011',
-                    'midPx': '24.9835',
-                    'circulatingSupply': '997372.88712882',
-                    'coin': self.ignored_trading_pair
-                }
-            ]
+                    "prevDayPx": "25.236",
+                    "dayNtlVlm": "315299.16652",
+                    "markPx": "25.011",
+                    "midPx": "24.9835",
+                    "circulatingSupply": "997372.88712882",
+                    "coin": self.ignored_trading_pair,
+                },
+            ],
         ]
         # mock_api.get(pairs_us_url, body=json.dumps(symbols_response))
         mock_api.post(pairs_url, body=json.dumps(symbols_response))

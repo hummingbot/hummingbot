@@ -86,7 +86,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     async def test_on_start(self):
         """Test on_start calls super"""
         executor = self.get_executor()
-        with patch.object(executor.__class__.__bases__[0], 'on_start', new_callable=AsyncMock) as mock_super:
+        with patch.object(executor.__class__.__bases__[0], "on_start", new_callable=AsyncMock) as mock_super:
             await executor.on_start()
             mock_super.assert_called_once()
 
@@ -376,7 +376,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
         connector._clmm_add_liquidity = AsyncMock(side_effect=Exception("Test - prevent actual creation"))
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock):
+        with patch.object(executor, "_create_position", new_callable=AsyncMock):
             await executor.control_task()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.OPENING)
@@ -392,7 +392,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, 'stop') as mock_stop:
+        with patch.object(executor, "stop") as mock_stop:
             await executor.control_task()
             mock_stop.assert_called_once()
 
@@ -548,7 +548,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock) as mock_create:
+        with patch.object(executor, "_create_position", new_callable=AsyncMock) as mock_create:
             await executor.control_task()
             mock_create.assert_called_once()
 
@@ -564,7 +564,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock) as mock_create:
+        with patch.object(executor, "_create_position", new_callable=AsyncMock) as mock_create:
             await executor.control_task()
             mock_create.assert_not_called()
 
@@ -581,7 +581,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_position_info = AsyncMock(return_value=mock_position)
 
-        with patch.object(executor, '_close_position', new_callable=AsyncMock) as mock_close:
+        with patch.object(executor, "_close_position", new_callable=AsyncMock) as mock_close:
             await executor.control_task()
             mock_close.assert_called_once()
 
@@ -598,7 +598,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_position_info = AsyncMock(return_value=mock_position)
 
-        with patch.object(executor, '_close_position', new_callable=AsyncMock) as mock_close:
+        with patch.object(executor, "_close_position", new_callable=AsyncMock) as mock_close:
             await executor.control_task()
             mock_close.assert_not_called()
 
@@ -740,9 +740,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         connector = self.strategy.connectors["meteora/clmm"]
         connector._clmm_add_liquidity = AsyncMock(return_value="sig123")
-        connector._lp_orders_metadata = {
-            "order-123": {"position_address": "pos456", "position_rent": Decimal("0.002")}
-        }
+        connector._lp_orders_metadata = {"order-123": {"position_address": "pos456", "position_rent": Decimal("0.002")}}
         connector.get_position_info = AsyncMock(return_value=None)
         connector._trigger_add_liquidity_event = MagicMock()
 
@@ -816,7 +814,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.01"),
                 "quote_fee": Decimal("1.0"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
         connector._trigger_remove_liquidity_event = MagicMock()
@@ -844,7 +842,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.01"),
                 "quote_fee": Decimal("1.0"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
         connector._trigger_remove_liquidity_event = MagicMock()
@@ -1026,7 +1024,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._current_price = None
 
         # With mock to return non-zero pnl (simulating edge case)
-        with patch.object(executor, 'get_net_pnl_quote', return_value=Decimal("10")):
+        with patch.object(executor, "get_net_pnl_quote", return_value=Decimal("10")):
             pct = executor.get_net_pnl_pct()
             self.assertEqual(pct, Decimal("0"))
 
@@ -1104,7 +1102,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["meteora/clmm"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock):
+        with patch.object(executor, "_create_position", new_callable=AsyncMock):
             await executor.control_task()
 
         connector.get_pool_info_by_address.assert_called_once()

@@ -16,6 +16,7 @@ class CandlesExampleConfig(StrategyV2ConfigBase):
     Configuration for the Candles Example strategy.
     This example demonstrates how to use candles without requiring any trading markets.
     """
+
     script_file_name: str = os.path.basename(__file__)
 
     # Override controllers_config to ensure no controllers are loaded
@@ -31,10 +32,10 @@ class CandlesExampleConfig(StrategyV2ConfigBase):
         json_schema_extra={
             "prompt": "Enter candles configurations (format: connector.pair.interval.max_records, separated by colons): ",
             "prompt_on_new": True,
-        }
+        },
     )
 
-    @field_validator('candles_config', mode="before")
+    @field_validator("candles_config", mode="before")
     @classmethod
     def parse_candles_config(cls, v) -> List[CandlesConfig]:
         # Handle string input (user provided)
@@ -57,23 +58,24 @@ class CandlesExampleConfig(StrategyV2ConfigBase):
     def parse_candles_config_str(v: str) -> List[CandlesConfig]:
         configs = []
         if v.strip():
-            entries = v.split(':')
+            entries = v.split(":")
             for entry in entries:
-                parts = entry.split('.')
+                parts = entry.split(".")
                 if len(parts) != 4:
-                    raise ValueError(f"Invalid candles config format in segment '{entry}'. "
-                                     "Expected format: 'exchange.tradingpair.interval.maxrecords'")
+                    raise ValueError(
+                        f"Invalid candles config format in segment '{entry}'. "
+                        "Expected format: 'exchange.tradingpair.interval.maxrecords'"
+                    )
                 connector, trading_pair, interval, max_records_str = parts
                 try:
                     max_records = int(max_records_str)
                 except ValueError:
-                    raise ValueError(f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
-                                     "max_records should be an integer.")
+                    raise ValueError(
+                        f"Invalid max_records value '{max_records_str}' in segment '{entry}'. "
+                        "max_records should be an integer."
+                    )
                 config = CandlesConfig(
-                    connector=connector,
-                    trading_pair=trading_pair,
-                    interval=interval,
-                    max_records=max_records
+                    connector=connector, trading_pair=trading_pair, interval=interval, max_records=max_records
                 )
                 configs.append(config)
         return configs
@@ -150,7 +152,7 @@ class CandlesExample(StrategyV2Base):
                     connector_name=candle_config.connector,
                     trading_pair=candle_config.trading_pair,
                     interval=candle_config.interval,
-                    max_records=50  # Get enough data for indicators
+                    max_records=50,  # Get enough data for indicators
                 )
 
                 if candles_df is not None and not candles_df.empty:
@@ -166,7 +168,11 @@ class CandlesExample(StrategyV2Base):
                     candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="s")
 
                     # Display candles info
-                    lines.extend([f"\n[{i + 1}] {candle_config.connector.upper()} | {candle_config.trading_pair} | {candle_config.interval}"])
+                    lines.extend(
+                        [
+                            f"\n[{i + 1}] {candle_config.connector.upper()} | {candle_config.trading_pair} | {candle_config.interval}"
+                        ]
+                    )
                     lines.extend(["-" * 80])
 
                     # Show last 5 rows with basic columns (OHLC + volume)
@@ -194,15 +200,19 @@ class CandlesExample(StrategyV2Base):
                     current_price = f"Current Price: ${current['close']:.4f}"
 
                     # Add indicator values if available
-                    if "RSI_14" in candles_df.columns and pd.notna(current.get('RSI_14')):
+                    if "RSI_14" in candles_df.columns and pd.notna(current.get("RSI_14")):
                         current_price += f" | RSI: {current['RSI_14']:.2f}"
 
-                    if "BBP_20_2.0_2.0" in candles_df.columns and pd.notna(current.get('BBP_20_2.0_2.0')):
+                    if "BBP_20_2.0_2.0" in candles_df.columns and pd.notna(current.get("BBP_20_2.0_2.0")):
                         current_price += f" | BB%: {current['BBP_20_2.0_2.0']:.3f}"
 
                     lines.extend([f"    {current_price}"])
                 else:
-                    lines.extend([f"\n[{i + 1}] {candle_config.connector.upper()} | {candle_config.trading_pair} | {candle_config.interval}"])
+                    lines.extend(
+                        [
+                            f"\n[{i + 1}] {candle_config.connector.upper()} | {candle_config.trading_pair} | {candle_config.interval}"
+                        ]
+                    )
                     lines.extend(["    No data available yet..."])
         else:
             lines.extend(["\n⏳ Waiting for candles data to be ready..."])
@@ -210,7 +220,9 @@ class CandlesExample(StrategyV2Base):
                 candles_feed = self.market_data_provider.get_candles_feed(candle_config)
                 ready = candles_feed.ready and not candles_feed.candles_df.empty
                 status = "✅" if ready else "❌"
-                lines.extend([f"    {status} {candle_config.connector}.{candle_config.trading_pair}.{candle_config.interval}"])
+                lines.extend(
+                    [f"    {status} {candle_config.connector}.{candle_config.trading_pair}.{candle_config.interval}"]
+                )
 
         lines.extend(["\n" + "=" * 100 + "\n"])
         return "\n".join(lines)

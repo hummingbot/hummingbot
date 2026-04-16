@@ -70,11 +70,13 @@ class AevoPerpetualAuth(AuthBase):
         ).hexdigest()
 
         headers = request.headers or {}
-        headers.update({
-            "AEVO-TIMESTAMP": timestamp,
-            "AEVO-SIGNATURE": signature,
-            "AEVO-KEY": self._api_key,
-        })
+        headers.update(
+            {
+                "AEVO-TIMESTAMP": timestamp,
+                "AEVO-SIGNATURE": signature,
+                "AEVO-KEY": self._api_key,
+            }
+        )
         request.headers = headers
 
         return request

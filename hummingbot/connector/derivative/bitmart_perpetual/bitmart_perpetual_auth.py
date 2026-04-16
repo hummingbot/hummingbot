@@ -26,7 +26,7 @@ class BitmartPerpetualAuth(AuthBase):
         auth_headers = {
             "X-BM-KEY": self._api_key,
             "X-BM-SIGN": self.generate_signature_from_payload(payload, timestamp),
-            "X-BM-TIMESTAMP": str(timestamp)
+            "X-BM-TIMESTAMP": str(timestamp),
         }
         request.headers.update(auth_headers)
         return request
@@ -51,7 +51,4 @@ class BitmartPerpetualAuth(AuthBase):
         message = raw_message.encode("utf-8")
         sign = hmac.new(secret, message, hashlib.sha256).hexdigest()
 
-        return {
-            "action": "access",
-            "args": [self._api_key, timestamp, sign, "web"]
-        }
+        return {"action": "access", "args": [self._api_key, timestamp, sign, "web"]}

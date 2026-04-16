@@ -19,7 +19,7 @@ class ArchitectPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
         self,
         auth: ArchitectPerpetualAuth,
-        connector: 'ArchitectPerpetualDerivative',
+        connector: "ArchitectPerpetualDerivative",
         api_factory: WebAssistantsFactory,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
@@ -37,7 +37,7 @@ class ArchitectPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         await websocket_assistant.connect(
             ws_url=ws_url,
             message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
-            ws_headers={"Authorization": f"Bearer {await self._api_factory.auth.get_token_for_ws_stream()}"}
+            ws_headers={"Authorization": f"Bearer {await self._api_factory.auth.get_token_for_ws_stream()}"},
         )
         self.logger().info(f"Subscribed to private order channels {ws_url}...")
         return websocket_assistant

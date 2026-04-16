@@ -236,23 +236,11 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
         )
         quote_currency = XRP()
-        self.connector.get_currencies_from_trading_pair = Mock(
-            return_value=(base_currency, quote_currency)
-        )
+        self.connector.get_currencies_from_trading_pair = Mock(return_value=(base_currency, quote_currency))
 
         # Create mock responses for asks and bids
-        asks_response = Response(
-            status=ResponseStatus.SUCCESS,
-            result={"offers": []},
-            id=1,
-            type=ResponseType.RESPONSE
-        )
-        bids_response = Response(
-            status=ResponseStatus.SUCCESS,
-            result={"offers": []},
-            id=2,
-            type=ResponseType.RESPONSE
-        )
+        asks_response = Response(status=ResponseStatus.SUCCESS, result={"offers": []}, id=1, type=ResponseType.RESPONSE)
+        bids_response = Response(status=ResponseStatus.SUCCESS, result={"offers": []}, id=2, type=ResponseType.RESPONSE)
 
         # Create QueryResult objects
         asks_result = QueryResult(success=True, response=asks_response, error=None)
@@ -287,9 +275,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
         )
         quote_currency = XRP()
-        self.connector.get_currencies_from_trading_pair = Mock(
-            return_value=(base_currency, quote_currency)
-        )
+        self.connector.get_currencies_from_trading_pair = Mock(return_value=(base_currency, quote_currency))
 
         # Create error result for asks
         asks_result = QueryResult(success=False, response=None, error="Connection failed")
@@ -314,9 +300,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             issuer="rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
         )
         quote_currency = XRP()
-        self.connector.get_currencies_from_trading_pair = Mock(
-            return_value=(base_currency, quote_currency)
-        )
+        self.connector.get_currencies_from_trading_pair = Mock(return_value=(base_currency, quote_currency))
 
         # Mock query pool submit to raise exception
         self.mock_query_pool.submit = AsyncMock(side_effect=Exception("Network error"))
@@ -387,9 +371,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         # Should not raise
         await self.data_source._close_subscription_connection(mock_client_error)
 
-    @patch(
-        "hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient"
-    )
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient")
     async def test_create_subscription_connection_success(self, mock_ws_class):
         """Test successful creation of subscription connection."""
         # Setup mock node pool
@@ -411,9 +393,7 @@ class XRPLAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result, mock_client)
         mock_client.open.assert_called_once()
 
-    @patch(
-        "hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient"
-    )
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_api_order_book_data_source.AsyncWebsocketClient")
     async def test_create_subscription_connection_timeout(self, mock_ws_class):
         """Test subscription connection timeout handling."""
         # Setup mock node pool

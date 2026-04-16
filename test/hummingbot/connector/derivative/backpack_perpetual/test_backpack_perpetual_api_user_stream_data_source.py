@@ -64,9 +64,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.secret_key = base64.b64encode(seed_bytes).decode("utf-8")
 
         self.auth = BackpackPerpetualAuth(
-            api_key=self.api_key,
-            secret_key=self.secret_key,
-            time_provider=self.mock_time_provider
+            api_key=self.api_key, secret_key=self.secret_key, time_provider=self.mock_time_provider
         )
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
@@ -76,7 +74,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
             backpack_api_secret=self.secret_key,
             trading_pairs=[],
             trading_required=False,
-            domain=self.domain
+            domain=self.domain,
         )
         self.connector._web_assistants_factory._auth = self.auth
 
@@ -85,7 +83,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain
+            domain=self.domain,
         )
 
         self.data_source.logger().setLevel(1)
@@ -103,8 +101,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -134,31 +131,31 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
                 "status": "PartiallyFilled",
                 "timeInForce": "GTC",
                 "postOnly": False,
-                "timestamp": 1234567890000
-            }
+                "timestamp": 1234567890000,
+            },
         }
         return json.dumps(resp)
 
     def _position_update_event(self):
         return {
-            'data': {
-                'B': '128.61',
-                'E': 1769133221470110,
-                'M': '128.59',
-                'P': '-0.0002',
-                'Q': '0.01',
-                'T': 1769133221470109,
-                'b': '128.6744',
-                'f': '0.02',
-                'i': 28375996537,
-                'l': '0',
-                'm': '0.0135',
-                'n': '1.2859',
-                'p': '0',
-                'q': '0.01',
-                's': self.ex_trading_pair
+            "data": {
+                "B": "128.61",
+                "E": 1769133221470110,
+                "M": "128.59",
+                "P": "-0.0002",
+                "Q": "0.01",
+                "T": 1769133221470109,
+                "b": "128.6744",
+                "f": "0.02",
+                "i": 28375996537,
+                "l": "0",
+                "m": "0.0135",
+                "n": "1.2859",
+                "p": "0",
+                "q": "0.01",
+                "s": self.ex_trading_pair,
             },
-            'stream': 'account.positionUpdate'
+            "stream": "account.positionUpdate",
         }
 
     def _balance_update_event(self):
@@ -166,10 +163,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
         return {}
 
     def _successfully_subscribed_event(self):
-        resp = {
-            "result": None,
-            "id": 1
-        }
+        resp = {"result": None, "id": 1}
         return resp
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -187,8 +181,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         ws = await self.data_source._get_ws_assistant()
         await ws.connect(
-            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}",
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}", ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
 
         await self.data_source._subscribe_channels(ws)
@@ -205,30 +198,30 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.assertTrue(self._is_logged("INFO", "Subscribed to private order changes and position updates channels..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep"
+    )
     async def test_listen_for_user_stream_get_ws_assistant_successful_with_order_update_event(self, _, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._order_update_event())
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         msg = await msg_queue.get()
         self.assertEqual(json.loads(self._order_update_event()), msg)
         mock_ws.return_value.ping.assert_called()
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep"
+    )
     async def test_listen_for_user_stream_does_not_queue_empty_payload(self, _, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
@@ -242,9 +235,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         with patch.object(self.data_source, "_sleep", side_effect=asyncio.CancelledError()):
             msg_queue = asyncio.Queue()
-            self.listening_task = self.local_event_loop.create_task(
-                self.data_source.listen_for_user_stream(msg_queue)
-            )
+            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
             await self.resume_test_event.wait()
 
@@ -252,23 +243,20 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
                 await self.listening_task
 
             self.assertTrue(
-                self._is_logged("ERROR",
-                                "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_iter_message_throws_exception(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = (
-            lambda *args, **kwargs: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
+        mock_ws.return_value.receive.side_effect = lambda *args, **kwargs: (
+            self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
         )
         mock_ws.close.return_value = None
 
         with patch.object(self.data_source, "_sleep", side_effect=asyncio.CancelledError()):
-            self.listening_task = self.local_event_loop.create_task(
-                self.data_source.listen_for_user_stream(msg_queue)
-            )
+            self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
             await self.resume_test_event.wait()
 
@@ -276,9 +264,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
                 await self.listening_task
 
             self.assertTrue(
-                self._is_logged(
-                    "ERROR",
-                    "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -287,8 +273,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         ws = await self.data_source._get_ws_assistant()
         await ws.connect(
-            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}",
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}", ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
 
         await self.data_source._on_user_stream_interruption(ws)
@@ -314,14 +299,14 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
         self.assertIsNot(ws1, ws2)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep"
+    )
     async def test_listen_for_user_stream_handles_cancelled_error(self, mock_sleep, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         # Give it a moment to start
         await asyncio.sleep(0.1)
@@ -334,14 +319,15 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
             await self.listening_task
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_api_user_stream_data_source.BackpackPerpetualAPIUserStreamDataSource._sleep"
+    )
     async def test_subscribe_channels_handles_cancelled_error(self, mock_sleep, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         ws = await self.data_source._get_ws_assistant()
         await ws.connect(
-            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}",
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}", ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
 
         # Make send raise CancelledError
@@ -355,8 +341,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         ws = await self.data_source._get_ws_assistant()
         await ws.connect(
-            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}",
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}", ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
 
         # Make send raise exception
@@ -364,9 +349,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
             with self.assertRaises(Exception):
                 await self.data_source._subscribe_channels(ws)
 
-            self.assertTrue(
-                self._is_logged("ERROR", "Unexpected error occurred subscribing to user streams...")
-            )
+            self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to user streams..."))
 
     async def test_last_recv_time_returns_zero_when_no_ws_assistant(self):
         self.assertEqual(0, self.data_source.last_recv_time)
@@ -377,8 +360,7 @@ class BackpackPerpetualAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTe
 
         ws = await self.data_source._get_ws_assistant()
         await ws.connect(
-            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}",
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+            ws_url=f"{CONSTANTS.WSS_URL.format(self.domain)}", ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
         )
 
         # Simulate message received by mocking the property

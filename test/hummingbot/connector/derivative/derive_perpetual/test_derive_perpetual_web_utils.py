@@ -8,7 +8,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 
 class DerivePeretualpWebUtilsTest(unittest.TestCase):
-
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
         self.assertEqual("https://api.lyra.finance/public/get_ticker", url)

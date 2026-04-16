@@ -62,21 +62,14 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                         "maxImpactMultiplier": "1.03",
                         "maxMultiplier": "1.25",
                         "maxPrice": None,
-                        "meanMarkPriceBand": {
-                            "maxMultiplier": "1.03",
-                            "minMultiplier": "0.97"
-                        },
+                        "meanMarkPriceBand": {"maxMultiplier": "1.03", "minMultiplier": "0.97"},
                         "meanPremiumBand": None,
                         "minImpactMultiplier": "0.97",
                         "minMultiplier": "0.75",
                         "minPrice": "0.01",
-                        "tickSize": "0.01"
+                        "tickSize": "0.01",
                     },
-                    "quantity": {
-                        "maxQuantity": None,
-                        "minQuantity": "0.01",
-                        "stepSize": "0.01"
-                    }
+                    "quantity": {"maxQuantity": None, "minQuantity": "0.01", "stepSize": "0.01"},
                 },
                 "fundingInterval": None,
                 "fundingRateLowerBound": None,
@@ -89,7 +82,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "positionLimitWeight": None,
                 "quoteSymbol": self.quote_asset,
                 "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                "visible": True
+                "visible": True,
             }
         ]
 
@@ -105,7 +98,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "quoteVolume": "831.1761",
             "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "trades": "11",
-            "volume": "942"
+            "volume": "942",
         }
 
     @property
@@ -134,59 +127,45 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     @property
     def order_creation_request_successful_mock_response(self):
         return {
-            'clientId': 868620826,
-            'createdAt': 1507725176595,
-            'executedQuantity': '0',
-            'executedQuoteQuantity': '0',
-            'id': self.expected_exchange_order_id,
-            'orderType': 'Limit',
-            'postOnly': False,
-            'price': '140.99',
-            'quantity': '0.01',
-            'reduceOnly': None,
-            'relatedOrderId': None,
-            'selfTradePrevention': 'RejectTaker',
-            'side': 'Ask',
-            'status': 'New',
-            'stopLossLimitPrice': None,
-            'stopLossTriggerBy': None,
-            'stopLossTriggerPrice': None,
-            'strategyId': None,
-            'symbol': self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            'takeProfitLimitPrice': None,
-            'takeProfitTriggerBy': None,
-            'takeProfitTriggerPrice': None,
-            'timeInForce': 'GTC',
-            'triggerBy': None,
-            'triggerPrice': None,
-            'triggerQuantity': None,
-            'triggeredAt': None
+            "clientId": 868620826,
+            "createdAt": 1507725176595,
+            "executedQuantity": "0",
+            "executedQuoteQuantity": "0",
+            "id": self.expected_exchange_order_id,
+            "orderType": "Limit",
+            "postOnly": False,
+            "price": "140.99",
+            "quantity": "0.01",
+            "reduceOnly": None,
+            "relatedOrderId": None,
+            "selfTradePrevention": "RejectTaker",
+            "side": "Ask",
+            "status": "New",
+            "stopLossLimitPrice": None,
+            "stopLossTriggerBy": None,
+            "stopLossTriggerPrice": None,
+            "strategyId": None,
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "takeProfitLimitPrice": None,
+            "takeProfitTriggerBy": None,
+            "takeProfitTriggerPrice": None,
+            "timeInForce": "GTC",
+            "triggerBy": None,
+            "triggerPrice": None,
+            "triggerQuantity": None,
+            "triggeredAt": None,
         }
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            self.base_asset: {
-                'available': '10',
-                'locked': '5',
-                'staked': '0'
-            },
-            self.quote_asset: {
-                'available': '2000',
-                'locked': '0',
-                'staked': '0'
-            }
+            self.base_asset: {"available": "10", "locked": "5", "staked": "0"},
+            self.quote_asset: {"available": "2000", "locked": "0", "staked": "0"},
         }
 
     @property
     def balance_request_mock_response_only_base(self):
-        return {
-            self.base_asset: {
-                'available': '10',
-                'locked': '5',
-                'staked': '0'
-            }
-        }
+        return {self.base_asset: {"available": "10", "locked": "5", "staked": "0"}}
 
     @property
     def balance_event_websocket_update(self):
@@ -215,7 +194,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             min_order_size=Decimal(filters["quantity"]["minQuantity"]),
             min_price_increment=Decimal(filters["price"]["tickSize"]),
             min_base_amount_increment=Decimal(filters["quantity"]["stepSize"]),
-            min_notional_size=Decimal("0")
+            min_notional_size=Decimal("0"),
         )
 
     @property
@@ -246,8 +225,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -265,8 +244,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         self._validate_auth_credentials_taking_parameters_from_argument(
-            request_call_tuple=request_call,
-            params=request_call.kwargs["params"] or request_call.kwargs["data"]
+            request_call_tuple=request_call, params=request_call.kwargs["params"] or request_call.kwargs["data"]
         )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -280,27 +258,22 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["symbol"])
         self.assertEqual(order.client_order_id, str(request_data["clientId"]))
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
         self.assertEqual(order.client_order_id, request_params["clientId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["symbol"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
         self.assertEqual(order.exchange_order_id, str(request_params["orderId"]))
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
@@ -308,10 +281,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.delete(regex_url, status=400, callback=callback)
@@ -327,10 +298,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses) -> List[str]:
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -342,10 +311,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return all_urls
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -353,10 +320,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
@@ -364,20 +329,16 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
 
     def configure_open_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         """
         :return: the URL configured
         """
@@ -388,20 +349,16 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -418,10 +375,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return [url]
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -429,10 +384,8 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -479,7 +432,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "H": 6023471188,
                 "y": True,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -516,9 +469,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         response = 1640000003000
 
-        mock_api.get(regex_url,
-                     body=json.dumps(response),
-                     callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.get(regex_url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
@@ -540,18 +491,18 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_api.get(regex_url,
-                     exception=asyncio.CancelledError)
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
 
         self.assertRaises(
-            asyncio.CancelledError,
-            self.async_run_with_timeout, self.exchange._update_time_synchronizer())
+            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._update_time_synchronizer()
+        )
 
     @aioresponses()
     def test_update_order_status_when_failed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_poll_timestamp = (
+            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
+        )
 
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -620,7 +571,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "H": 6023471188,
                 "y": True,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_queue = AsyncMock()
@@ -681,50 +632,65 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def test_time_synchronizer_related_request_error_detection(self):
         # Test with Backpack's timestamp error format
-        exception = IOError("Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
-                            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'Invalid timestamp: must be within 10 minutes of current time'}")
+        exception = IOError(
+            "Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
+            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'Invalid timestamp: must be within 10 minutes of current time'}"
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         # Test with lowercase timestamp keyword
-        exception = IOError("Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
-                            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'timestamp is outside of the recvWindow'}")
+        exception = IOError(
+            "Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
+            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'timestamp is outside of the recvWindow'}"
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         # Test with different error code (should not match)
-        exception = IOError("Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
-                            "Error: {'code':'INVALID_ORDER','message':'Invalid timestamp: must be within 10 minutes of current time'}")
+        exception = IOError(
+            "Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
+            "Error: {'code':'INVALID_ORDER','message':'Invalid timestamp: must be within 10 minutes of current time'}"
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
         # Test with correct code but no timestamp keyword (should not match)
-        exception = IOError("Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
-                            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'Other error'}")
+        exception = IOError(
+            "Error executing request POST https://api.backpack.exchange/api/v1/order. HTTP status is 400. "
+            "Error: {'code':'INVALID_CLIENT_REQUEST','message':'Other error'}"
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_poll_timestamp = (
+            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
+        )
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response = {"code": "SERVICE_UNAVAILABLE", "message": "Unknown error, please check your request or try again later."}
+        mock_response = {
+            "code": "SERVICE_UNAVAILABLE",
+            "message": "Unknown error, please check your request or try again later.",
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
 
-        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
-            order_id="1001",  # Must be numeric string since Backpack uses int(order_id)
-            trading_pair=self.trading_pair,
-            amount=Decimal("1"),
-            trade_type=TradeType.BUY,
-            order_type=OrderType.LIMIT,
-            price=Decimal("2"),
-        ))
+        o_id, transact_time = self.async_run_with_timeout(
+            self.exchange._place_order(
+                order_id="1001",  # Must be numeric string since Backpack uses int(order_id)
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("2"),
+            )
+        )
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_failure(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_poll_timestamp = (
+            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
+        )
 
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -742,9 +708,13 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ))
+            ),
+        )
 
-        mock_response = {"code": "INTERNAL_ERROR", "message": "Internal error; unable to process your request. Please try again."}
+        mock_response = {
+            "code": "INTERNAL_ERROR",
+            "message": "Internal error; unable to process your request. Please try again.",
+        }
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
 
         self.assertRaises(
@@ -757,16 +727,17 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT,
                 price=Decimal("2"),
-            ))
+            ),
+        )
 
     def test_format_trading_rules_notional_but_no_min_notional_present(self):
         exchange_info = self.all_symbols_request_mock_response
         result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
         self.assertEqual(result[0].min_notional_size, Decimal("0"))
 
-    def _validate_auth_credentials_taking_parameters_from_argument(self,
-                                                                   request_call_tuple: RequestCall,
-                                                                   params: Dict[str, Any]):
+    def _validate_auth_credentials_taking_parameters_from_argument(
+        self, request_call_tuple: RequestCall, params: Dict[str, Any]
+    ):
         # Backpack uses header-based authentication, not param-based
         request_headers = request_call_tuple.kwargs["headers"]
         self.assertIn("X-API-Key", request_headers)
@@ -780,18 +751,18 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         return {
             "clientId": order.client_order_id,
             "createdAt": order.creation_timestamp,
-            "executedQuantity": '0',
-            "executedQuoteQuantity": '0',
-            "id": '26919130763',
+            "executedQuantity": "0",
+            "executedQuoteQuantity": "0",
+            "id": "26919130763",
             "orderType": "Limit" if self._is_maker(order) else "Market",
             "postOnly": order.order_type == OrderType.LIMIT_MAKER,
             "price": str(order.price),
             "quantity": str(order.amount),
             "reduceOnly": None,
             "relatedOrderId": None,
-            "selfTradePrevention": 'RejectTaker',
+            "selfTradePrevention": "RejectTaker",
             "side": self._get_side(order),
-            "status": 'New',
+            "status": "New",
             "stopLossLimitPrice": None,
             "stopLossTriggerBy": None,
             "stopLossTriggerPrice": None,
@@ -800,11 +771,11 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "takeProfitLimitPrice": None,
             "takeProfitTriggerBy": None,
             "takeProfitTriggerPrice": None,
-            "timeInForce": 'GTC',
+            "timeInForce": "GTC",
             "triggerBy": None,
             "triggerPrice": None,
             "triggerQuantity": None,
-            "triggeredAt": None
+            "triggeredAt": None,
         }
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
@@ -840,7 +811,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
             "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
             "systemOrderType": None,
             "timestamp": "2017-07-12T08:05:49.590Z",
-            "tradeId": self.expected_fill_trade_id
+            "tradeId": self.expected_fill_trade_id,
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
@@ -881,7 +852,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 "X": "orderFilled",
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_queue = AsyncMock()
@@ -890,17 +861,12 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         with patch(f"{type(self.exchange).__module__}.{type(self.exchange).__qualname__}._sleep"):
             try:
-                await (self.exchange._user_stream_event_listener())
+                await self.exchange._user_stream_event_listener()
             except asyncio.CancelledError:
                 pass
         await asyncio.sleep(0.1)
 
-        self.assertTrue(
-            self.is_logged(
-                "ERROR",
-                "Unexpected error in user stream listener loop."
-            )
-        )
+        self.assertTrue(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
 
     def test_real_time_balance_update_disabled(self):
         """
@@ -919,12 +885,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.exchange._account_available_balances["OLD_TOKEN"] = Decimal("40")
 
         url = self.balance_url
-        response = {
-            "SOL": {
-                "available": "100.5",
-                "locked": "10.0"
-            }
-        }
+        response = {"SOL": {"available": "100.5", "locked": "10.0"}}
 
         mock_api.get(url, body=json.dumps(response))
 
@@ -1006,7 +967,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "H": 6023471188,
                 "y": True,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_queue = AsyncMock()
@@ -1069,7 +1030,7 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
                 "H": 6023471188,
                 "y": True,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_queue = AsyncMock()

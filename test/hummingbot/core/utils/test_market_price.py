@@ -33,11 +33,7 @@ class MarketPriceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.client.settings.ConnectorSetting.non_trading_connector_instance_with_default_configuration")
     def test_get_last_price(self, mock_api, connector_creator_mock):
-        connector = BinanceExchange(
-            binance_api_key="",
-            binance_api_secret="",
-            trading_pairs=[],
-            trading_required=False)
+        connector = BinanceExchange(binance_api_key="", binance_api_secret="", trading_pairs=[], trading_required=False)
         connector._set_trading_pair_symbol_map(bidict({f"{self.binance_ex_trading_pair}": self.trading_pair}))
         connector_creator_mock.return_value = connector
 
@@ -50,9 +46,11 @@ class MarketPriceUnitTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
-        result = self.async_run_with_timeout(market_price.get_last_price(
-            exchange="binance",
-            trading_pair=self.trading_pair,
-        ))
+        result = self.async_run_with_timeout(
+            market_price.get_last_price(
+                exchange="binance",
+                trading_pair=self.trading_pair,
+            )
+        )
 
         self.assertEqual(result, Decimal("1.0"))

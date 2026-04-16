@@ -39,8 +39,12 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         self.async_tasks = []
 
         self.connector = MagicMock()
-        self.connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=lambda trading_pair: trading_pair.split('-')[0])
-        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(side_effect=lambda symbol: f"{symbol}-USDC")
+        self.connector.exchange_symbol_associated_to_pair = AsyncMock(
+            side_effect=lambda trading_pair: trading_pair.split("-")[0]
+        )
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(
+            side_effect=lambda symbol: f"{symbol}-USDC"
+        )
         self.connector.get_last_traded_prices = AsyncMock(return_value={"BTC-USDC": 100000.0})
         self.connector._trading_pairs = [self.trading_pair]
         self.connector.api_config_key = "test_api_key"
@@ -98,10 +102,10 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
                     [
                         {"p": "105370.00", "a": "1.50"},  # Bid: price, size
                         {"p": "105365.00", "a": "2.00"},
-                    ]
+                    ],
                 ],
-                "t": 1748954160000
-            }
+                "t": 1748954160000,
+            },
         }
 
     def get_ws_snapshot_msg(self):
@@ -117,57 +121,63 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
                     [
                         {"p": "105370.00", "a": "1.50"},
                         {"p": "105365.00", "a": "2.00"},
-                    ]
+                    ],
                 ],
                 "s": self.ex_trading_pair,
                 "t": 1748954160000,
-                "li": 1559885104
-            }
+                "li": 1559885104,
+            },
         }
 
     def get_ws_trade_msg(self):
         """Mock WebSocket trade message"""
         return {
             "channel": "trades",
-            "data": [{
-                "u": "42trU9A5...",
-                "h": 80062522,
-                "s": self.ex_trading_pair,
-                "d": "open_long",
-                "p": "105400.50",
-                "a": "0.15",
-                "t": 1749051930502,
-                "m": False,
-                "li": 80062522
-            }]
+            "data": [
+                {
+                    "u": "42trU9A5...",
+                    "h": 80062522,
+                    "s": self.ex_trading_pair,
+                    "d": "open_long",
+                    "p": "105400.50",
+                    "a": "0.15",
+                    "t": 1749051930502,
+                    "m": False,
+                    "li": 80062522,
+                }
+            ],
         }
 
     def get_funding_info_msg(self):
         """Mock funding info REST response"""
         return {
             "success": True,
-            "data": [{
-                "funding": "0.000105",
-                "mark": "105400.25",
-                "oracle": "105400.00",
-                "symbol": self.ex_trading_pair,
-                "timestamp": 1749051612681,
-                "volume_24h": "63265.87522",
-                "yesterday_price": "105476"
-            }]
+            "data": [
+                {
+                    "funding": "0.000105",
+                    "mark": "105400.25",
+                    "oracle": "105400.00",
+                    "symbol": self.ex_trading_pair,
+                    "timestamp": 1749051612681,
+                    "volume_24h": "63265.87522",
+                    "yesterday_price": "105476",
+                }
+            ],
         }
 
     def get_funding_info_ws_msg(self):
         """Mock funding info WebSocket message"""
         return {
             "channel": "prices",
-            "data": [{
-                "funding": "0.000105",
-                "mark": "105400.25",
-                "oracle": "105400.00",
-                "symbol": self.ex_trading_pair,
-                "timestamp": 1749051612681
-            }]
+            "data": [
+                {
+                    "funding": "0.000105",
+                    "mark": "105400.25",
+                    "oracle": "105400.00",
+                    "symbol": self.ex_trading_pair,
+                    "timestamp": 1749051612681,
+                }
+            ],
         }
 
     @aioresponses()
@@ -223,21 +233,16 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
 
         # Mock subscription confirmations
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({"channel": "subscribe", "data": {"source": "book"}})
+            ws_connect_mock.return_value, json.dumps({"channel": "subscribe", "data": {"source": "book"}})
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({"channel": "subscribe", "data": {"source": "trades"}})
+            ws_connect_mock.return_value, json.dumps({"channel": "subscribe", "data": {"source": "trades"}})
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps({"channel": "subscribe", "data": {"source": "prices"}})
+            ws_connect_mock.return_value, json.dumps({"channel": "subscribe", "data": {"source": "prices"}})
         )
 
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_subscriptions())
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_subscriptions()))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -257,13 +262,10 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self.get_ws_trade_msg())
+            ws_connect_mock.return_value, json.dumps(self.get_ws_trade_msg())
         )
 
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_subscriptions())
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_subscriptions()))
 
         message_queue = asyncio.Queue()
         self.async_tasks.append(
@@ -285,17 +287,16 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self.get_ws_snapshot_msg())
+            ws_connect_mock.return_value, json.dumps(self.get_ws_snapshot_msg())
         )
 
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_subscriptions())
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_subscriptions()))
 
         message_queue = asyncio.Queue()
         self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), message_queue))
+            asyncio.create_task(
+                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), message_queue)
+            )
         )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -312,18 +313,13 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value,
-            json.dumps(self.get_funding_info_ws_msg())
+            ws_connect_mock.return_value, json.dumps(self.get_funding_info_ws_msg())
         )
 
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_subscriptions())
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_subscriptions()))
 
         message_queue = asyncio.Queue()
-        self.async_tasks.append(
-            asyncio.create_task(self.data_source.listen_for_funding_info(message_queue))
-        )
+        self.async_tasks.append(asyncio.create_task(self.data_source.listen_for_funding_info(message_queue)))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -380,9 +376,7 @@ class PacificaPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCas
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
-        )
+        self.assertTrue(self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected"))
 
     async def test_unsubscribe_from_trading_pair_fails_when_not_connected(self):
         """Test unsubscription fails if WebSocket is not connected"""

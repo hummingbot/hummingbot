@@ -26,9 +26,11 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
-    return (exchange_info.get("instType") == "SWAP"
-            and exchange_info.get("ctType") == "linear"
-            and exchange_info.get("state") == "live")
+    return (
+        exchange_info.get("instType") == "SWAP"
+        and exchange_info.get("ctType") == "linear"
+        and exchange_info.get("state") == "live"
+    )
 
 
 def is_linear_perpetual(trading_pair: str) -> bool:
@@ -57,7 +59,7 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_perpetual_secret_key: SecretStr = Field(
         default=...,
@@ -66,7 +68,7 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     okx_perpetual_passphrase: SecretStr = Field(
         default=...,
@@ -75,7 +77,7 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="okx_perpetual")
 

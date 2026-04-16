@@ -122,10 +122,7 @@ class CoinGeckoDataFeed(DataFeedBase):
                 headers[header_key] = self._api_key
 
         return await rest_assistant.execute_request(
-            url=url,
-            throttler_limit_id=REST_CALL_RATE_LIMIT_ID,
-            params=params,
-            headers=headers if headers else None
+            url=url, throttler_limit_id=REST_CALL_RATE_LIMIT_ID, params=params, headers=headers if headers else None
         )
 
     async def _fetch_data_loop(self):
@@ -135,9 +132,11 @@ class CoinGeckoDataFeed(DataFeedBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(f"Error getting data from {self.name}", exc_info=True,
-                                      app_warning_msg="Couldn't fetch newest prices from Coin Gecko. "
-                                                      "Check network connection.")
+                self.logger().network(
+                    f"Error getting data from {self.name}",
+                    exc_info=True,
+                    app_warning_msg="Couldn't fetch newest prices from Coin Gecko. Check network connection.",
+                )
 
             await self._async_sleep(self._update_interval)
 
@@ -151,7 +150,7 @@ class CoinGeckoDataFeed(DataFeedBase):
         for i in range(1, 5):
             try:
                 results = await self.get_prices_by_page(vs_currency="usd", page_no=i)
-                if 'error' in results:
+                if "error" in results:
                     raise Exception(f"{results['error']}")
                 for result in results:
                     symbol = result["symbol"].upper()

@@ -17,20 +17,23 @@ class BollingerV1ControllerConfig(DirectionalTradingControllerConfigBase):
         default=None,
         json_schema_extra={
             "prompt": "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",
-            "prompt_on_new": True})
+            "prompt_on_new": True,
+        },
+    )
     candles_trading_pair: str = Field(
         default=None,
         json_schema_extra={
             "prompt": "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",
-            "prompt_on_new": True})
+            "prompt_on_new": True,
+        },
+    )
     interval: str = Field(
         default="3m",
-        json_schema_extra={
-            "prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ",
-            "prompt_on_new": True})
+        json_schema_extra={"prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ", "prompt_on_new": True},
+    )
     bb_length: int = Field(
-        default=100,
-        json_schema_extra={"prompt": "Enter the Bollinger Bands length: ", "prompt_on_new": True})
+        default=100, json_schema_extra={"prompt": "Enter the Bollinger Bands length: ", "prompt_on_new": True}
+    )
     bb_std: float = Field(default=2.0)
     bb_long_threshold: float = Field(default=0.0)
     bb_short_threshold: float = Field(default=1.0)
@@ -57,20 +60,26 @@ class BollingerV1Controller(DirectionalTradingControllerBase):
         super().__init__(config, *args, **kwargs)
 
     def get_candles_config(self) -> List[CandlesConfig]:
-        return [CandlesConfig(
-            connector=self.config.candles_connector,
-            trading_pair=self.config.candles_trading_pair,
-            interval=self.config.interval,
-            max_records=self.max_records
-        )]
+        return [
+            CandlesConfig(
+                connector=self.config.candles_connector,
+                trading_pair=self.config.candles_trading_pair,
+                interval=self.config.interval,
+                max_records=self.max_records,
+            )
+        ]
 
     async def update_processed_data(self):
-        df = self.market_data_provider.get_candles_df(connector_name=self.config.candles_connector,
-                                                      trading_pair=self.config.candles_trading_pair,
-                                                      interval=self.config.interval,
-                                                      max_records=self.max_records)
+        df = self.market_data_provider.get_candles_df(
+            connector_name=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records,
+        )
         # Add indicators
-        df.ta.bbands(length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True)
+        df.ta.bbands(
+            length=self.config.bb_length, lower_std=self.config.bb_std, upper_std=self.config.bb_std, append=True
+        )
         bbp = df[f"BBP_{self.config.bb_length}_{self.config.bb_std}_{self.config.bb_std}"]
 
         # Generate signal

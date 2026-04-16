@@ -48,7 +48,7 @@ class EvedexPerpetualRateSource(RateSourceBase):
             self._exchange = self._build_evedex_perpetual_connector_without_private_keys()
 
     @staticmethod
-    def _build_evedex_perpetual_connector_without_private_keys() -> 'EvedexPerpetualDerivative':
+    def _build_evedex_perpetual_connector_without_private_keys() -> "EvedexPerpetualDerivative":
         from hummingbot.connector.derivative.evedex_perpetual.evedex_perpetual_derivative import (
             EvedexPerpetualDerivative,
         )

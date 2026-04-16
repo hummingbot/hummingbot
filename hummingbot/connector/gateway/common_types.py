@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional, TypedDict
 
 
 class Chain(Enum):
-    ETHEREUM = ('ethereum', 'ETH')
-    SOLANA = ('solana', 'SOL')
+    ETHEREUM = ("ethereum", "ETH")
+    SOLANA = ("solana", "SOL")
 
     def __init__(self, chain: str, native_currency: str):
         self.chain = chain
@@ -26,6 +26,7 @@ class ConnectorType(Enum):
 
 class TransactionStatus(Enum):
     """Transaction status constants for gateway operations."""
+
     CONFIRMED = 1
     PENDING = 0
     FAILED = -1
@@ -33,6 +34,7 @@ class TransactionStatus(Enum):
 
 class Token(TypedDict):
     """Token information from gateway."""
+
     symbol: str
     address: str
     decimals: int

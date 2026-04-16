@@ -27,10 +27,8 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
             "timestamp": int(self.emulated_time * 1e3),
         }
         self.auth = BitmartPerpetualAuth(
-            api_key=self.api_key,
-            api_secret=self.secret_key,
-            memo=self.memo,
-            time_provider=self)
+            api_key=self.api_key, api_secret=self.secret_key, memo=self.memo, time_provider=self
+        )
 
     def _get_test_payload(self):
         return urlencode(dict(copy.deepcopy(self.test_params)))
@@ -39,7 +37,7 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
         return hmac.new(
             self.secret_key.encode("utf-8"),
             f"{int(self.emulated_time * 1e3)}#{self.memo}#{self._get_test_payload()}".encode("utf-8"),
-            hashlib.sha256
+            hashlib.sha256,
         ).hexdigest()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -66,14 +64,16 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
         # Validate headers are correctly set
         self.assertEqual(authenticated_request.headers["X-BM-KEY"], self.api_key)
         self.assertEqual(authenticated_request.headers["X-BM-TIMESTAMP"], str(int(self.emulated_time * 1e3)))
-        self.assertEqual(
-            authenticated_request.headers["X-BM-SIGN"],
-            self._get_signature_from_test_payload()
-        )
+        self.assertEqual(authenticated_request.headers["X-BM-SIGN"], self._get_signature_from_test_payload())
 
     def test_rest_authenticate_with_previous_headers(self):
         # Create a RESTRequest object
-        request = RESTRequest(method="POST", headers={"SOME_HEADER": "SOME_VALUE"}, url="http://test-url.com", data=self._get_test_payload())
+        request = RESTRequest(
+            method="POST",
+            headers={"SOME_HEADER": "SOME_VALUE"},
+            url="http://test-url.com",
+            data=self._get_test_payload(),
+        )
 
         # Call the authenticate method
         authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -81,10 +81,7 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
         # Validate headers are correctly set
         self.assertEqual(authenticated_request.headers["X-BM-KEY"], self.api_key)
         self.assertEqual(authenticated_request.headers["X-BM-TIMESTAMP"], str(int(self.emulated_time * 1e3)))
-        self.assertEqual(
-            authenticated_request.headers["X-BM-SIGN"],
-            self._get_signature_from_test_payload()
-        )
+        self.assertEqual(authenticated_request.headers["X-BM-SIGN"], self._get_signature_from_test_payload())
         self.assertEqual(authenticated_request.headers["SOME_HEADER"], "SOME_VALUE")
 
     def test_ws_authenticate(self):
@@ -101,9 +98,7 @@ class BitmartPerpetualAuthUnitTests(unittest.TestCase):
         timestamp = str(int(self.emulated_time * 1e3))
         raw_message = f"{timestamp}#{self.memo}#bitmart.WebSocket"
         expected_sign = hmac.new(
-            self.secret_key.encode("utf-8"),
-            raw_message.encode("utf-8"),
-            hashlib.sha256
+            self.secret_key.encode("utf-8"), raw_message.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
         # Call the method

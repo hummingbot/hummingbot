@@ -36,16 +36,24 @@ class PriceMonitorController(ControllerBase):
 
             for connector_name in self.config.exchanges:
                 try:
-                    best_ask = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.BestAsk)
-                    best_bid = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.BestBid)
-                    mid_price = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.MidPrice)
+                    best_ask = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.BestAsk
+                    )
+                    best_bid = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.BestBid
+                    )
+                    mid_price = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.MidPrice
+                    )
 
                     price_info = {
                         "best_ask": best_ask,
                         "best_bid": best_bid,
                         "mid_price": mid_price,
                         "spread": best_ask - best_bid if best_ask and best_bid else None,
-                        "spread_pct": ((best_ask - best_bid) / mid_price * 100) if best_ask and best_bid and mid_price else None
+                        "spread_pct": ((best_ask - best_bid) / mid_price * 100)
+                        if best_ask and best_bid and mid_price
+                        else None,
                     }
 
                     price_data[connector_name] = price_info
@@ -65,7 +73,7 @@ class PriceMonitorController(ControllerBase):
         self.processed_data = {
             "price_data": price_data,
             "last_log_time": self.last_log_time,
-            "trading_pair": self.config.trading_pair
+            "trading_pair": self.config.trading_pair,
         }
 
     def determine_executor_actions(self) -> list[ExecutorAction]:
@@ -77,7 +85,7 @@ class PriceMonitorController(ControllerBase):
         lines.extend(["", f"PRICE MONITOR - {self.config.trading_pair}"])
         lines.extend(["=" * 60])
 
-        if hasattr(self, 'processed_data') and self.processed_data.get("price_data"):
+        if hasattr(self, "processed_data") and self.processed_data.get("price_data"):
             for connector_name, price_info in self.processed_data["price_data"].items():
                 lines.extend([f"\n{connector_name.upper()}:"])
 
@@ -88,15 +96,21 @@ class PriceMonitorController(ControllerBase):
                     lines.extend([f"  Best Bid: {price_info.get('best_bid', 'N/A')}"])
                     lines.extend([f"  Mid Price: {price_info.get('mid_price', 'N/A')}"])
 
-                    if price_info.get('spread') is not None:
+                    if price_info.get("spread") is not None:
                         lines.extend([f"  Spread: {price_info['spread']:.6f} ({price_info['spread_pct']:.3f}%)"])
         else:
             # Get current prices for display
             for connector_name in self.config.exchanges:
                 try:
-                    best_ask = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.BestAsk)
-                    best_bid = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.BestBid)
-                    mid_price = self.market_data_provider.get_price_by_type(connector_name, self.config.trading_pair, PriceType.MidPrice)
+                    best_ask = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.BestAsk
+                    )
+                    best_bid = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.BestBid
+                    )
+                    mid_price = self.market_data_provider.get_price_by_type(
+                        connector_name, self.config.trading_pair, PriceType.MidPrice
+                    )
 
                     lines.extend([f"\n{connector_name.upper()}:"])
                     lines.extend([f"  Best Ask: {best_ask}"])

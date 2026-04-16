@@ -82,7 +82,11 @@ class GrvtPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             for trading_pair in self._trading_pairs:
                 await self.subscribe_to_trading_pair(trading_pair)
                 exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-                await ws.send(self._subscription_request(stream=CONSTANTS.PUBLIC_WS_CHANNEL_TICKER, selector=f"{exchange_symbol}@1000"))
+                await ws.send(
+                    self._subscription_request(
+                        stream=CONSTANTS.PUBLIC_WS_CHANNEL_TICKER, selector=f"{exchange_symbol}@1000"
+                    )
+                )
             self.logger().info("Subscribed to GRVT public order book, trades, and ticker channels...")
         except asyncio.CancelledError:
             raise

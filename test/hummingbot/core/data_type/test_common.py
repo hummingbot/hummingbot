@@ -18,10 +18,12 @@ class GroupedSetDictTests(TestCase):
         self.assertEqual(self.dict["key1"], {"value1", "value2"})
 
     def test_add_or_update_chaining(self):
-        (self.dict.add_or_update("key1", "value1")
+        (
+            self.dict.add_or_update("key1", "value1")
             .add_or_update("key1", "value2")
             .add_or_update("key1", "value2")  # This should be a no-op
-            .add_or_update("key2", "value1"))
+            .add_or_update("key2", "value1")
+        )
         self.assertEqual(self.dict["key1"], {"value1", "value2"})
         self.assertEqual(self.dict["key2"], {"value1"})
 
@@ -46,6 +48,7 @@ class LambdaDictTests(TestCase):
             nonlocal call_count
             call_count += 1
             return 42
+
         value = self.dict.get_or_add("key1", factory)
 
         self.assertEqual(value, 42)
@@ -63,6 +66,7 @@ class LambdaDictTests(TestCase):
 
         def factory():
             return 100
+
         value = self.dict.get_or_add("key1", factory)
         self.assertEqual(value, 42)
         self.assertEqual(self.dict["key1"], 42)
@@ -74,6 +78,7 @@ class LambdaDictTests(TestCase):
             nonlocal call_count
             call_count += 1
             return len(key)
+
         self.dict = LazyDict[str, int](default_value_factory=factory)
         self.assertEqual(self.dict["key1"], 4)
         self.assertEqual(call_count, 1)
@@ -93,5 +98,5 @@ class LambdaDictTests(TestCase):
             _ = self.dict.get("nonexistent")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TestCase.main()

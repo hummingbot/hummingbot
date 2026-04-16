@@ -1,6 +1,7 @@
 """
 Functions for generating keys and certificates
 """
+
 import datetime
 from os import listdir
 from os.path import join
@@ -19,11 +20,11 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 CERT_SUBJECT = [
-    x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),
-    x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
+    x509.NameAttribute(NameOID.ORGANIZATION_NAME, "localhost"),
+    x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
 ]
 # Set alternative DNS
-SAN_DNS = [x509.DNSName('localhost'), x509.DNSName('gateway')]
+SAN_DNS = [x509.DNSName("localhost"), x509.DNSName("gateway")]
 VALIDITY_DURATION = 365
 CONF_DIR_PATH = root_path() / "conf"
 
@@ -33,11 +34,7 @@ def generate_private_key(password, filepath):
     Generate Private Key using PKCS#8 format for OpenSSL 3 compatibility
     """
 
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048, backend=default_backend())
 
     algorithm = serialization.NoEncryption()
     if password:
@@ -93,23 +90,16 @@ def generate_public_key(private_key, filepath):
                 data_encipherment=False,
                 key_agreement=False,
                 encipher_only=False,
-                decipher_only=False
+                decipher_only=False,
             ),
-            critical=True
+            critical=True,
         )
         # Add Subject Key Identifier (required for CA certs)
-        .add_extension(
-            x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()),
-            critical=False
-        )
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()), critical=False)
     )
 
     # Use private key to sign cert
-    public_key = builder.sign(
-        private_key,
-        hashes.SHA256(),
-        default_backend()
-    )
+    public_key = builder.sign(private_key, hashes.SHA256(), default_backend())
 
     # Write key to cert
     # filepath = join(CERT_FILE_PATH, filename)
@@ -125,9 +115,11 @@ def generate_csr(private_key, filepath):
     """
 
     # CSR subject cannot be the same as CERT_SUBJECT
-    subject = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, 'localhost'),
-    ])
+    subject = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+        ]
+    )
 
     builder = (
         x509.CertificateSigningRequestBuilder()
@@ -161,7 +153,10 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
             .serial_number(x509.random_serial_number())
             .not_valid_before(current_datetime)
             .not_valid_after(expiration_datetime)
-            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True,)
+            .add_extension(
+                x509.BasicConstraints(ca=False, path_length=None),
+                critical=True,
+            )
             # Add Key Usage extension for server/client certificates
             .add_extension(
                 x509.KeyUsage(
@@ -173,27 +168,22 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
                     data_encipherment=False,
                     key_agreement=False,
                     encipher_only=False,
-                    decipher_only=False
+                    decipher_only=False,
                 ),
-                critical=True
+                critical=True,
             )
             # Add Extended Key Usage for TLS Server and Client authentication
             .add_extension(
-                x509.ExtendedKeyUsage([
-                    x509.oid.ExtendedKeyUsageOID.SERVER_AUTH,
-                    x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH
-                ]),
-                critical=False
+                x509.ExtendedKeyUsage(
+                    [x509.oid.ExtendedKeyUsageOID.SERVER_AUTH, x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH]
+                ),
+                critical=False,
             )
             # Add Subject Key Identifier
-            .add_extension(
-                x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
-                critical=False
-            )
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(csr.public_key()), critical=False)
             # Add Authority Key Identifier (links to CA cert)
             .add_extension(
-                x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_public_key.public_key()),
-                critical=False
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_public_key.public_key()), critical=False
             )
         )
 
@@ -215,23 +205,28 @@ def sign_csr(csr, ca_public_key, ca_private_key, filepath):
         raise Exception(e.output)
 
 
-ca_key_filename = 'ca_key.pem'
-ca_cert_filename = 'ca_cert.pem'
-server_key_filename = 'server_key.pem'
-server_cert_filename = 'server_cert.pem'
-server_csr_filename = 'server_csr.pem'
-client_key_filename = 'client_key.pem'
-client_cert_filename = 'client_cert.pem'
-client_csr_filename = 'client_csr.pem'
+ca_key_filename = "ca_key.pem"
+ca_cert_filename = "ca_cert.pem"
+server_key_filename = "server_key.pem"
+server_cert_filename = "server_cert.pem"
+server_csr_filename = "server_csr.pem"
+client_key_filename = "client_key.pem"
+client_cert_filename = "client_cert.pem"
+client_csr_filename = "client_csr.pem"
 
 
 def certs_files_exist(client_config_map: "ClientConfigAdapter") -> bool:
     """
     Check if the necessary key and certificate files exist
     """
-    required_certs = [ca_key_filename, ca_cert_filename,
-                      server_key_filename, server_cert_filename,
-                      client_key_filename, client_cert_filename]
+    required_certs = [
+        ca_key_filename,
+        ca_cert_filename,
+        server_key_filename,
+        server_cert_filename,
+        client_key_filename,
+        client_cert_filename,
+    ]
 
     file_list = listdir(get_gateway_paths(client_config_map).local_certs_path.as_posix())
     return all(elem in file_list for elem in required_certs)
@@ -243,50 +238,50 @@ def create_self_sign_certs(pass_phase: str, cert_path: str):
     """
 
     filepath_list = {
-        'ca_key': join(cert_path, ca_key_filename),
-        'ca_cert': join(cert_path, ca_cert_filename),
-        'server_key': join(cert_path, server_key_filename),
-        'server_cert': join(cert_path, server_cert_filename),
-        'server_csr': join(cert_path, server_csr_filename),
-        'client_key': join(cert_path, client_key_filename),
-        'client_cert': join(cert_path, client_cert_filename),
-        'client_csr': join(cert_path, client_csr_filename)
+        "ca_key": join(cert_path, ca_key_filename),
+        "ca_cert": join(cert_path, ca_cert_filename),
+        "server_key": join(cert_path, server_key_filename),
+        "server_cert": join(cert_path, server_cert_filename),
+        "server_csr": join(cert_path, server_csr_filename),
+        "client_key": join(cert_path, client_key_filename),
+        "client_cert": join(cert_path, client_cert_filename),
+        "client_csr": join(cert_path, client_csr_filename),
     }
 
     # Create CA Private & Public Keys for signing
-    ca_private_key = generate_private_key(pass_phase, filepath_list['ca_key'])
-    generate_public_key(ca_private_key, filepath_list['ca_cert'])
+    ca_private_key = generate_private_key(pass_phase, filepath_list["ca_key"])
+    generate_public_key(ca_private_key, filepath_list["ca_cert"])
 
     # Create Server Private & Public Keys for signing
-    server_private_key = generate_private_key(pass_phase, filepath_list['server_key'])
+    server_private_key = generate_private_key(pass_phase, filepath_list["server_key"])
     # Create CSR
-    generate_csr(server_private_key, filepath_list['server_csr'])
+    generate_csr(server_private_key, filepath_list["server_csr"])
     # Load CSR
-    with open(filepath_list['server_csr'], 'rb') as server_csr_file:
+    with open(filepath_list["server_csr"], "rb") as server_csr_file:
         server_csr = x509.load_pem_x509_csr(server_csr_file.read(), default_backend())
 
     # Create Client CSR
     # Client key is encrypted with the same passphrase as CA and server keys
     # The aiohttp/ssl library supports encrypted client keys via the password parameter
-    client_private_key = generate_private_key(pass_phase, filepath_list['client_key'])
+    client_private_key = generate_private_key(pass_phase, filepath_list["client_key"])
     # Create CSR
-    generate_csr(client_private_key, filepath_list['client_csr'])
+    generate_csr(client_private_key, filepath_list["client_csr"])
     # Load CSR
-    with open(filepath_list['client_csr'], 'rb') as client_csr_file:
+    with open(filepath_list["client_csr"], "rb") as client_csr_file:
         client_csr = x509.load_pem_x509_csr(client_csr_file.read(), default_backend())
 
     # Load CA public key
-    with open(filepath_list['ca_cert'], 'rb') as ca_cert_file:
+    with open(filepath_list["ca_cert"], "rb") as ca_cert_file:
         ca_cert = x509.load_pem_x509_certificate(ca_cert_file.read(), default_backend())
     # Load CA private key
-    with open(filepath_list['ca_key'], 'rb') as ca_key_file:
+    with open(filepath_list["ca_key"], "rb") as ca_key_file:
         ca_key = serialization.load_pem_private_key(
             ca_key_file.read(),
-            pass_phase.encode('utf-8'),
+            pass_phase.encode("utf-8"),
             default_backend(),
         )
 
     # Sign Server Cert with CSR
-    sign_csr(server_csr, ca_cert, ca_key, filepath_list['server_cert'])
+    sign_csr(server_csr, ca_cert, ca_key, filepath_list["server_cert"])
     # Sign Client Cert with CSR
-    sign_csr(client_csr, ca_cert, ca_key, filepath_list['client_cert'])
+    sign_csr(client_csr, ca_cert, ca_key, filepath_list["client_cert"])

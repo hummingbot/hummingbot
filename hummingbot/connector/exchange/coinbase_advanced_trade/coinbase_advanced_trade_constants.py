@@ -52,7 +52,9 @@ PAIR_TICKER_24HR_EP = "/brokerage/market/products/{product_id}/ticker"
 PAIR_TICKER_24HR_RATE_LIMIT_ID = "ProductTicker24Hr"
 
 # Private API endpoints
-PRIVATE_PRODUCTS_EP = "/brokerage/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+PRIVATE_PRODUCTS_EP = (
+    "/brokerage/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getproducts
+)
 PRIVATE_PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
 PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID = "PrivatePairTicker24Hr"
 ORDER_EP = "/brokerage/orders"
@@ -158,11 +160,15 @@ _key = {
     "time": ONE_SECOND,
 }
 PRIVATE_REST_RATE_LIMITS = [
-    RateLimit(limit_id=endpoint,
-              limit=_key["limit"],
-              weight=DEFAULT_WEIGHT,
-              time_interval=_key["time"],
-              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
+    RateLimit(
+        limit_id=endpoint,
+        limit=_key["limit"],
+        weight=DEFAULT_WEIGHT,
+        time_interval=_key["time"],
+        linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)],
+    )
+    for endpoint in _key["list"]
+]
 
 _key = {
     "limit": MAX_PUBLIC_REST_REQUESTS_S,
@@ -171,11 +177,15 @@ _key = {
     "time": ONE_SECOND,
 }
 PUBLIC_REST_RATE_LIMITS = [
-    RateLimit(limit_id=endpoint,
-              limit=_key["limit"],
-              weight=DEFAULT_WEIGHT,
-              time_interval=_key["time"],
-              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
+    RateLimit(
+        limit_id=endpoint,
+        limit=_key["limit"],
+        weight=DEFAULT_WEIGHT,
+        time_interval=_key["time"],
+        linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)],
+    )
+    for endpoint in _key["list"]
+]
 
 _key = {
     "limit": MAX_SIGNIN_REQUESTS_H,
@@ -184,11 +194,15 @@ _key = {
     "time": ONE_HOUR,
 }
 SIGNIN_RATE_LIMITS = [
-    RateLimit(limit_id=endpoint,
-              limit=_key["limit"],
-              weight=DEFAULT_WEIGHT,
-              time_interval=_key["time"],
-              linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)]) for endpoint in _key["list"]]
+    RateLimit(
+        limit_id=endpoint,
+        limit=_key["limit"],
+        weight=DEFAULT_WEIGHT,
+        time_interval=_key["time"],
+        linked_limits=[LinkedLimitWeightPair(_key["weight"], 1)],
+    )
+    for endpoint in _key["list"]
+]
 
 RATE_LIMITS = [
     RateLimit(limit_id=PRIVATE_REST_REQUESTS, limit=MAX_PRIVATE_REST_REQUESTS_S, time_interval=ONE_SECOND),

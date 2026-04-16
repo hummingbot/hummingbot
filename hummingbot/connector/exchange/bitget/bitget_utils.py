@@ -37,7 +37,7 @@ class BitgetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     bitget_secret_key: SecretStr = Field(
         default=...,
@@ -46,7 +46,7 @@ class BitgetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     bitget_passphrase: SecretStr = Field(
         default=...,
@@ -55,7 +55,7 @@ class BitgetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="bitget")
 

@@ -14,4 +14,10 @@ class PublicAggreBookTickerV3Api(_message.Message):
     bidQuantity: str
     askPrice: str
     askQuantity: str
-    def __init__(self, bidPrice: _Optional[str] = ..., bidQuantity: _Optional[str] = ..., askPrice: _Optional[str] = ..., askQuantity: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        bidPrice: _Optional[str] = ...,
+        bidQuantity: _Optional[str] = ...,
+        askPrice: _Optional[str] = ...,
+        askQuantity: _Optional[str] = ...,
+    ) -> None: ...

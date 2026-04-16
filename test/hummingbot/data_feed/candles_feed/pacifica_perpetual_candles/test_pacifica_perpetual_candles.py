@@ -51,7 +51,7 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                     "h": "105385.75",
                     "l": "105372.00",
                     "v": "1.25",
-                    "n": 25
+                    "n": 25,
                 },
                 {
                     "t": 1748954220000,
@@ -63,7 +63,7 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                     "h": "105382.00",
                     "l": "105375.00",
                     "v": "0.85",
-                    "n": 18
+                    "n": 18,
                 },
                 {
                     "t": 1748954280000,
@@ -75,7 +75,7 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                     "h": "105395.00",
                     "l": "105378.00",
                     "v": "2.15",
-                    "n": 32
+                    "n": 32,
                 },
                 {
                     "t": 1748954340000,
@@ -87,11 +87,11 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                     "h": "105392.50",
                     "l": "105383.00",
                     "v": "1.45",
-                    "n": 21
-                }
+                    "n": 21,
+                },
             ],
             "error": None,
-            "code": None
+            "code": None,
         }
 
     @staticmethod
@@ -125,8 +125,8 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                 "h": "105415.00",
                 "l": "105398.00",
                 "v": "1.75",
-                "n": 28
-            }
+                "n": 28,
+            },
         }
 
     @staticmethod
@@ -146,8 +146,8 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
                 "h": "105412.00",
                 "l": "105402.00",
                 "v": "1.20",
-                "n": 22
-            }
+                "n": 22,
+            },
         }
 
     @staticmethod
@@ -156,11 +156,4 @@ class TestPacificaPerpetualCandles(TestCandlesBase):
         Mock successful WebSocket subscription response.
         Pacifica sends a subscription confirmation.
         """
-        return {
-            "channel": "subscribe",
-            "data": {
-                "source": "candle",
-                "symbol": "BTC",
-                "interval": "1m"
-            }
-        }
+        return {"channel": "subscribe", "data": {"source": "candle", "symbol": "BTC", "interval": "1m"}}

@@ -63,7 +63,10 @@ class ArchitecturePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperT
         self.time_synchronizer.add_time_offset_ms_sample(0)
         api_factory = web_utils.build_api_factory(auth=self.auth, domain=self.domain)
         self.data_source = ArchitectPerpetualUserStreamDataSource(
-            auth=self.auth, domain=self.domain, api_factory=api_factory, connector=self.connector,
+            auth=self.auth,
+            domain=self.domain,
+            api_factory=api_factory,
+            connector=self.connector,
         )
 
         self.data_source.logger().setLevel(1)
@@ -127,22 +130,14 @@ class ArchitecturePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperT
         url = web_utils.private_ws_url(self.domain)
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps({
-                "t": "h",
-                "ts": 1609459200,
-                "tn": 123456789
-            }),
+            message=json.dumps({"t": "h", "ts": 1609459200, "tn": 123456789}),
         )
 
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(messages)
-        )
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_user_stream(messages))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=1)
 
-        self.assertTrue(
-            self.is_logged("INFO", f"Subscribed to private order channels {url}...")
-        )
+        self.assertTrue(self.is_logged("INFO", f"Subscribed to private order channels {url}..."))
         mock_calls = ws_connect_mock.mock_calls
         self.assertTrue(
             any(
@@ -163,17 +158,12 @@ class ArchitecturePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperT
             websocket_mock=ws_connect_mock.return_value, exception=IOError("test error")
         )
 
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(messages)
-        )
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_user_stream(messages))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(
-            self.is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
-            )
+            self.is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
         )
 
     @aioresponses()

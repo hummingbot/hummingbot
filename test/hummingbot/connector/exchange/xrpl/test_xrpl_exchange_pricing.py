@@ -67,7 +67,6 @@ def _make_order(
 # Test: _get_fee
 # ======================================================================
 class TestGetFee(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_get_fee_returns_added_to_cost_fee(self):
         fee = self.connector._get_fee(
             base_currency="SOLO",
@@ -96,7 +95,6 @@ class TestGetFee(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
 # Test: get_price_from_amm_pool
 # ======================================================================
 class TestGetPriceFromAmmPool(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
     async def test_returns_price_with_xrp_amounts(self, _):
         """When both amounts are XRP (string drops), calculates price correctly."""
@@ -105,18 +103,14 @@ class TestGetPriceFromAmmPool(XRPLExchangeTestBase, unittest.IsolatedAsyncioTest
             result={
                 "amm": {
                     "account": "rAMMaccount123",
-                    "amount": "1000000000",   # 1000 XRP in drops
-                    "amount2": "500000000",    # 500 XRP in drops
+                    "amount": "1000000000",  # 1000 XRP in drops
+                    "amount2": "500000000",  # 500 XRP in drops
                 }
             },
         )
         account_tx_response = Response(
             status=ResponseStatus.SUCCESS,
-            result={
-                "transactions": [
-                    {"tx_json": {"date": 784444800}}
-                ]
-            },
+            result={"transactions": [{"tx_json": {"date": 784444800}}]},
         )
 
         call_count = 0
@@ -149,11 +143,7 @@ class TestGetPriceFromAmmPool(XRPLExchangeTestBase, unittest.IsolatedAsyncioTest
         )
         account_tx_response = Response(
             status=ResponseStatus.SUCCESS,
-            result={
-                "transactions": [
-                    {"tx_json": {"date": 784444800}}
-                ]
-            },
+            result={"transactions": [{"tx_json": {"date": 784444800}}]},
         )
 
         call_count = 0
@@ -290,7 +280,6 @@ class TestGetPriceFromAmmPool(XRPLExchangeTestBase, unittest.IsolatedAsyncioTest
 # Test: _get_last_traded_price
 # ======================================================================
 class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     def _set_order_books(self, ob_dict):
         """Set mock order books by patching the tracker's internal dict."""
         self.connector.order_book_tracker._order_books = ob_dict
@@ -304,8 +293,12 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 100}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(
+                self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)
+            ),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 1.5, places=5)
 
@@ -319,8 +312,12 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 100}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(
+                self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)
+            ),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 1.5, places=5)
 
@@ -334,8 +331,12 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 100}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(
+                self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)
+            ),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertEqual(price, 0.0)
 
@@ -348,8 +349,10 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 100}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.0, 200)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.0, 200)),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 2.0, places=5)
 
@@ -362,8 +365,10 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 300}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.0, 200)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.0, 200)),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 1.5, places=5)
 
@@ -384,8 +389,10 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 100}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.5, 200)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(2.5, 200)),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 2.5, places=5)
 
@@ -399,8 +406,10 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
         mock_data_source = MagicMock()
         mock_data_source.last_parsed_order_book_timestamp = {"SOLO-XRP": 50}
 
-        with patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source), \
-             patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(4.0, 200)):
+        with (
+            patch.object(self.connector.order_book_tracker, "_data_source", mock_data_source),
+            patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(4.0, 200)),
+        ):
             price = await self.connector._get_last_traded_price("SOLO-XRP")
             self.assertAlmostEqual(price, 4.0, places=5)
 
@@ -409,7 +418,6 @@ class TestGetLastTradedPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestC
 # Test: _get_best_price
 # ======================================================================
 class TestGetBestPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     def _set_order_books(self, ob_dict):
         """Set mock order books by patching the tracker's internal dict (Cython-safe)."""
         self.connector.order_book_tracker._order_books = ob_dict
@@ -419,7 +427,9 @@ class TestGetBestPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
         mock_ob.get_price = MagicMock(return_value=1.5)
         self._set_order_books({"SOLO-XRP": mock_ob})
 
-        with patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)):
+        with patch.object(
+            self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)
+        ):
             price = await self.connector._get_best_price("SOLO-XRP", is_buy=True)
             self.assertAlmostEqual(price, 1.5, places=5)
 
@@ -456,7 +466,9 @@ class TestGetBestPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
         mock_ob.get_price = MagicMock(return_value=1.8)
         self._set_order_books({"SOLO-XRP": mock_ob})
 
-        with patch.object(self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)):
+        with patch.object(
+            self.connector, "get_price_from_amm_pool", new_callable=AsyncMock, return_value=(float("nan"), 0)
+        ):
             price = await self.connector._get_best_price("SOLO-XRP", is_buy=True)
             self.assertAlmostEqual(price, 1.8, places=5)
 
@@ -485,7 +497,6 @@ class TestGetBestPrice(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
 # Test: start_network
 # ======================================================================
 class TestStartNetwork(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     def _setup_start_network_mocks(self, healthy_side_effect=None, healthy_return=None):
         """Common setup for start_network tests."""
         mock_node_pool = MagicMock()
@@ -514,15 +525,18 @@ class TestStartNetwork(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
         # healthy_connection_count is accessed multiple times:
         # 1. while check (0 → enter loop), 2. while check (1 → exit loop),
         # 3. if check (1 → else branch), 4. log message (1)
-        mock_node_pool, mock_worker_manager, mock_user_stream_ds = \
-            self._setup_start_network_mocks(healthy_side_effect=[0, 1, 1, 1, 1, 1])
+        mock_node_pool, mock_worker_manager, mock_user_stream_ds = self._setup_start_network_mocks(
+            healthy_side_effect=[0, 1, 1, 1, 1, 1]
+        )
 
         # Patch super() at the module level so super().start_network() is a no-op
         mock_super = MagicMock()
         mock_super.return_value.start_network = AsyncMock()
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.asyncio.sleep", new_callable=AsyncMock), \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.super", mock_super):
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.asyncio.sleep", new_callable=AsyncMock),
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.super", mock_super),
+        ):
             await self.connector.start_network()
 
         mock_node_pool.start.assert_awaited_once()
@@ -532,8 +546,7 @@ class TestStartNetwork(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
 
     async def test_start_network_times_out_waiting_for_connections(self):
         """start_network logs error when no healthy connections after timeout."""
-        mock_node_pool, mock_worker_manager, mock_user_stream_ds = \
-            self._setup_start_network_mocks(healthy_return=0)
+        mock_node_pool, mock_worker_manager, mock_user_stream_ds = self._setup_start_network_mocks(healthy_return=0)
 
         # Patch super() at module level and asyncio.sleep so the wait loop exits quickly
         mock_super = MagicMock()
@@ -547,8 +560,10 @@ class TestStartNetwork(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
             if call_count > 35:
                 raise Exception("safety break")
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.asyncio.sleep", side_effect=fast_sleep), \
-             patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.super", mock_super):
+        with (
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.asyncio.sleep", side_effect=fast_sleep),
+            patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.super", mock_super),
+        ):
             await self.connector.start_network()
 
         # Should still start the worker manager even if no connections
@@ -561,10 +576,11 @@ class TestStartNetwork(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
 # Test: _initialize_trading_pair_symbol_map
 # ======================================================================
 class TestInitTradingPairSymbolMap(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_initializes_symbol_map(self):
-        with patch.object(self.connector, "_make_xrpl_trading_pairs_request", return_value=CONSTANTS.MARKETS), \
-             patch.object(self.connector, "_initialize_trading_pair_symbols_from_exchange_info") as init_mock:
+        with (
+            patch.object(self.connector, "_make_xrpl_trading_pairs_request", return_value=CONSTANTS.MARKETS),
+            patch.object(self.connector, "_initialize_trading_pair_symbols_from_exchange_info") as init_mock,
+        ):
             await self.connector._initialize_trading_pair_symbol_map()
             init_mock.assert_called_once_with(exchange_info=CONSTANTS.MARKETS)
 
@@ -578,7 +594,6 @@ class TestInitTradingPairSymbolMap(XRPLExchangeTestBase, unittest.IsolatedAsynci
 # Test: _make_network_check_request
 # ======================================================================
 class TestMakeNetworkCheckRequest(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     async def test_calls_check_all_connections(self):
         mock_node_pool = MagicMock()
         mock_node_pool._check_all_connections = AsyncMock()
@@ -592,16 +607,17 @@ class TestMakeNetworkCheckRequest(XRPLExchangeTestBase, unittest.IsolatedAsyncio
 # Test: _execute_order_cancel_and_process_update (uncovered branches)
 # ======================================================================
 class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyncioTestCase):
-
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
     async def test_not_ready_sleeps(self, _):
         """When connector is not ready, it sleeps before proceeding."""
         order = _make_order(self.connector)
 
         # Make connector not ready
-        with patch.object(type(self.connector), "ready", new_callable=PropertyMock, return_value=False), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel, \
-             patch.object(self.connector, "_request_order_status", new_callable=AsyncMock) as ros:
+        with (
+            patch.object(type(self.connector), "ready", new_callable=PropertyMock, return_value=False),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel,
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock) as ros,
+        ):
             ros.return_value = OrderUpdate(
                 client_order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
@@ -610,8 +626,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
                 new_state=OrderState.OPEN,
             )
             place_cancel.return_value = TransactionSubmitResult(
-                success=False, signed_tx=None, response=None, prelim_result="tecNO_DST",
-                exchange_order_id=None, tx_hash=None,
+                success=False,
+                signed_tx=None,
+                response=None,
+                prelim_result="tecNO_DST",
+                exchange_order_id=None,
+                tx_hash=None,
             )
             with patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
                 result = await self.connector._execute_order_cancel_and_process_update(order)
@@ -681,9 +701,11 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         )
         self.connector._order_tracker.start_tracking_order(order)
 
-        with patch.object(order, "get_exchange_order_id", new_callable=AsyncMock, side_effect=asyncio.TimeoutError), \
-             patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(order, "get_exchange_order_id", new_callable=AsyncMock, side_effect=asyncio.TimeoutError),
+            patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
             ponf.assert_awaited_once()
@@ -703,9 +725,13 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         mock_trade = MagicMock()
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update), \
-             patch.object(self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=filled_update),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)  # Not a successful cancel — order was filled
             pfos.assert_awaited_once()
@@ -723,8 +749,10 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
             new_state=OrderState.CANCELED,
         )
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=canceled_update), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=canceled_update),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertTrue(result)
             pfos.assert_awaited_once()
@@ -744,13 +772,21 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         mock_trade = MagicMock()
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update), \
-             patch.object(self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=partial_update),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             place_cancel.return_value = TransactionSubmitResult(
-                success=False, signed_tx=None, response=None, prelim_result="tecNO_DST",
-                exchange_order_id=None, tx_hash=None,
+                success=False,
+                signed_tx=None,
+                response=None,
+                prelim_result="tecNO_DST",
+                exchange_order_id=None,
+                tx_hash=None,
             )
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
@@ -760,12 +796,18 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         """When _request_order_status raises, continues with cancellation."""
         order = _make_order(self.connector)
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=Exception("err")), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=Exception("err")),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             place_cancel.return_value = TransactionSubmitResult(
-                success=False, signed_tx=None, response=None, prelim_result="tecNO_DST",
-                exchange_order_id=None, tx_hash=None,
+                success=False,
+                signed_tx=None,
+                response=None,
+                prelim_result="tecNO_DST",
+                exchange_order_id=None,
+                tx_hash=None,
             )
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
@@ -783,13 +825,19 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
             new_state=OrderState.OPEN,
         )
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel, \
-             patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock) as place_cancel,
+            patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             place_cancel.return_value = TransactionSubmitResult(
-                success=False, signed_tx=None, response=None, prelim_result="tecNO_DST",
-                exchange_order_id=None, tx_hash=None,
+                success=False,
+                signed_tx=None,
+                response=None,
+                prelim_result="tecNO_DST",
+                exchange_order_id=None,
+                tx_hash=None,
             )
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
@@ -818,16 +866,22 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="temBAD_SEQUENCE",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="temBAD_SEQUENCE",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         # First call to _request_order_status returns open, second returns canceled
         status_calls = [open_update, canceled_update]
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_calls), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_calls),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertTrue(result)
             pfos.assert_awaited_once()
@@ -855,17 +909,25 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="temBAD_SEQUENCE",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="temBAD_SEQUENCE",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         mock_trade = MagicMock()
         status_calls = [open_update, filled_update]
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_calls), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, side_effect=status_calls),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
             pfos.assert_awaited_once()
@@ -885,15 +947,25 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="temBAD_SEQUENCE",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="temBAD_SEQUENCE",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         # First call returns open, second raises
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock,
-                          side_effect=[open_update, Exception("network error")]), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(
+                self.connector,
+                "_request_order_status",
+                new_callable=AsyncMock,
+                side_effect=[open_update, Exception("network error")],
+            ),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertTrue(result)
             pfos.assert_awaited_once()
@@ -913,8 +985,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         verify_response = Response(
@@ -934,10 +1010,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_vp = MagicMock()
         mock_vp.submit_verification = AsyncMock(return_value=verify_result)
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             # changes_array is empty -> status == "cancelled"
             self.assertTrue(result)
@@ -958,8 +1036,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         # Provide AffectedNodes with a DeletedNode for the offer
@@ -976,7 +1058,11 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
                                     "Account": OUR_ACCOUNT,
                                     "Sequence": 84437895,
                                     "TakerGets": "1000000",
-                                    "TakerPays": {"currency": "534F4C4F00000000000000000000000000000000", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", "value": "100"},
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                                        "value": "100",
+                                    },
                                 },
                             }
                         }
@@ -993,10 +1079,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_vp = MagicMock()
         mock_vp.submit_verification = AsyncMock(return_value=verify_result)
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             # The DeletedNode for our offer should be recognized as "cancelled"
             self.assertTrue(result)
@@ -1017,8 +1105,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         verify_result = TransactionVerifyResult(
@@ -1031,11 +1123,13 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_vp = MagicMock()
         mock_vp.submit_verification = AsyncMock(return_value=verify_result)
 
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp), \
-             patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+            patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
             ponf.assert_awaited_once()
@@ -1063,8 +1157,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         # Verification returns a change but status is NOT "cancelled" (e.g., "filled")
@@ -1082,11 +1180,19 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
                                     "Sequence": 84437895,
                                     "Flags": 0,
                                     "TakerGets": "500000",
-                                    "TakerPays": {"currency": "534F4C4F00000000000000000000000000000000", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", "value": "50"},
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                                        "value": "50",
+                                    },
                                 },
                                 "PreviousFields": {
                                     "TakerGets": "1000000",
-                                    "TakerPays": {"currency": "534F4C4F00000000000000000000000000000000", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", "value": "100"},
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                                        "value": "100",
+                                    },
                                 },
                             }
                         }
@@ -1106,12 +1212,20 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_trade = MagicMock()
 
         # First _request_order_status returns open, second returns filled
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock,
-                          side_effect=[open_update, filled_update]), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp), \
-             patch.object(self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]), \
-             patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos:
+        with (
+            patch.object(
+                self.connector,
+                "_request_order_status",
+                new_callable=AsyncMock,
+                side_effect=[open_update, filled_update],
+            ),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+            patch.object(
+                self.connector, "_all_trade_updates_for_order", new_callable=AsyncMock, return_value=[mock_trade]
+            ),
+            patch.object(self.connector, "_process_final_order_state", new_callable=AsyncMock) as pfos,
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)  # Cancel not successful — order filled
             pfos.assert_awaited_once()
@@ -1131,8 +1245,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         # Empty AffectedNodes but we'll mock get_order_book_changes to return a non-cancelled change
@@ -1150,11 +1268,19 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
                                     "Sequence": 84437895,
                                     "Flags": 0,
                                     "TakerGets": "500000",
-                                    "TakerPays": {"currency": "534F4C4F00000000000000000000000000000000", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", "value": "50"},
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                                        "value": "50",
+                                    },
                                 },
                                 "PreviousFields": {
                                     "TakerGets": "1000000",
-                                    "TakerPays": {"currency": "534F4C4F00000000000000000000000000000000", "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", "value": "100"},
+                                    "TakerPays": {
+                                        "currency": "534F4C4F00000000000000000000000000000000",
+                                        "issuer": "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+                                        "value": "100",
+                                    },
                                 },
                             }
                         }
@@ -1172,12 +1298,18 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_vp.submit_verification = AsyncMock(return_value=verify_result)
 
         # First _request_order_status returns open, second raises exception
-        with patch.object(self.connector, "_request_order_status", new_callable=AsyncMock,
-                          side_effect=[open_update, Exception("network error")]), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp), \
-             patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf, \
-             patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock):
+        with (
+            patch.object(
+                self.connector,
+                "_request_order_status",
+                new_callable=AsyncMock,
+                side_effect=[open_update, Exception("network error")],
+            ),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+            patch.object(self.connector._order_tracker, "process_order_not_found", new_callable=AsyncMock) as ponf,
+            patch.object(self.connector, "_cleanup_order_status_lock", new_callable=AsyncMock),
+        ):
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)
             ponf.assert_awaited_once()
@@ -1208,8 +1340,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
 
         signed_tx = MagicMock()
         submit_result = TransactionSubmitResult(
-            success=True, signed_tx=signed_tx, response=None, prelim_result="tesSUCCESS",
-            exchange_order_id=EXCHANGE_ORDER_ID, tx_hash="ABCDE12345",
+            success=True,
+            signed_tx=signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id=EXCHANGE_ORDER_ID,
+            tx_hash="ABCDE12345",
         )
 
         verify_response = Response(
@@ -1226,10 +1362,12 @@ class TestExecuteOrderCancelBranches(XRPLExchangeTestBase, unittest.IsolatedAsyn
         mock_vp.submit_verification = AsyncMock(return_value=verify_result)
 
         # get_exchange_order_id resolves immediately (returns the exchange_order_id that was set)
-        with patch.object(order, "get_exchange_order_id", new_callable=AsyncMock, return_value=EXCHANGE_ORDER_ID), \
-             patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update), \
-             patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result), \
-             patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp):
+        with (
+            patch.object(order, "get_exchange_order_id", new_callable=AsyncMock, return_value=EXCHANGE_ORDER_ID),
+            patch.object(self.connector, "_request_order_status", new_callable=AsyncMock, return_value=open_update),
+            patch.object(self.connector, "_place_cancel", new_callable=AsyncMock, return_value=submit_result),
+            patch.object(type(self.connector), "verification_pool", new_callable=PropertyMock, return_value=mock_vp),
+        ):
             # exchange_order_id is still None when verification runs -> logs error, returns False
             result = await self.connector._execute_order_cancel_and_process_update(order)
             self.assertFalse(result)

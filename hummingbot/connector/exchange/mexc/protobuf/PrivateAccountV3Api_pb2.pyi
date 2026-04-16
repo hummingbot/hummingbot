@@ -5,7 +5,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class PrivateAccountV3Api(_message.Message):
-    __slots__ = ("vcoinName", "coinId", "balanceAmount", "balanceAmountChange", "frozenAmount", "frozenAmountChange", "type", "time")
+    __slots__ = (
+        "vcoinName",
+        "coinId",
+        "balanceAmount",
+        "balanceAmountChange",
+        "frozenAmount",
+        "frozenAmountChange",
+        "type",
+        "time",
+    )
     VCOINNAME_FIELD_NUMBER: _ClassVar[int]
     COINID_FIELD_NUMBER: _ClassVar[int]
     BALANCEAMOUNT_FIELD_NUMBER: _ClassVar[int]
@@ -22,4 +31,14 @@ class PrivateAccountV3Api(_message.Message):
     frozenAmountChange: str
     type: str
     time: int
-    def __init__(self, vcoinName: _Optional[str] = ..., coinId: _Optional[str] = ..., balanceAmount: _Optional[str] = ..., balanceAmountChange: _Optional[str] = ..., frozenAmount: _Optional[str] = ..., frozenAmountChange: _Optional[str] = ..., type: _Optional[str] = ..., time: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        vcoinName: _Optional[str] = ...,
+        coinId: _Optional[str] = ...,
+        balanceAmount: _Optional[str] = ...,
+        balanceAmountChange: _Optional[str] = ...,
+        frozenAmount: _Optional[str] = ...,
+        frozenAmountChange: _Optional[str] = ...,
+        type: _Optional[str] = ...,
+        time: _Optional[int] = ...,
+    ) -> None: ...

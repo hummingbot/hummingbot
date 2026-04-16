@@ -149,7 +149,9 @@ class TestVertexAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
@@ -178,7 +180,7 @@ class TestVertexAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch(
-        "hummingbot.connector.exchange.vertex.vertex_api_user_stream_data_source.VertexAPIUserStreamDataSource" "._time"
+        "hummingbot.connector.exchange.vertex.vertex_api_user_stream_data_source.VertexAPIUserStreamDataSource._time"
     )
     async def test_listen_for_user_stream_subscribe_message(self, time_mock, ws_connect_mock):
         time_mock.side_effect = [1000, 1100, 1101, 1102]  # Simulate first ping interval is already due
@@ -191,7 +193,9 @@ class TestVertexAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
         output_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 

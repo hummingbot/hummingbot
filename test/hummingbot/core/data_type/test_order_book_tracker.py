@@ -8,6 +8,7 @@ This module tests:
 - OrderBookTrackerMetrics: Aggregate metrics tracking
 - OrderBookTracker: Integration tests for metrics in the tracker
 """
+
 import asyncio
 import time
 import unittest
@@ -47,7 +48,7 @@ class LatencyStatsTests(unittest.TestCase):
 
         self.assertEqual(0, stats.count)
         self.assertEqual(0.0, stats.total_ms)
-        self.assertEqual(float('inf'), stats.min_ms)
+        self.assertEqual(float("inf"), stats.min_ms)
         self.assertEqual(0.0, stats.max_ms)
         self.assertEqual(0.0, stats.avg_ms)
         self.assertEqual(0.0, stats.recent_avg_ms)

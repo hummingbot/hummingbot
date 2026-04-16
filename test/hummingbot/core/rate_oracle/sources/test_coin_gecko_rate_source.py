@@ -12,7 +12,6 @@ from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLO
 
 
 class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -50,7 +49,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z"
+                "last_updated": "2022-07-20T06:30:40.123Z",
             },
         ]
         return data
@@ -83,7 +82,7 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z"
+                "last_updated": "2022-07-20T06:30:40.123Z",
             },
         ]
         return data
@@ -277,15 +276,17 @@ class CoinGeckoRateSourceTest(IsolatedAsyncioWrapperTestCase):
         newer_api_key = "newer_api_key"
         rate_source.api_key = newer_api_key
         self.assertEqual(newer_api_key, rate_source._coin_gecko_data_feed._api_key)
-        self.assertEqual(new_api_tier.value.rate_limits,
-                         rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits)
+        self.assertEqual(
+            new_api_tier.value.rate_limits, rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits
+        )
 
         # Test api_tier setter updates data feed
         newer_api_tier = CoinGeckoAPITier.DEMO
         rate_source.api_tier = newer_api_tier
         self.assertEqual(newer_api_tier, rate_source._coin_gecko_data_feed._api_tier)
-        self.assertEqual(newer_api_tier.value.rate_limits,
-                         rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits)
+        self.assertEqual(
+            newer_api_tier.value.rate_limits, rate_source._coin_gecko_data_feed._api_factory._throttler._rate_limits
+        )
 
     def test_extra_token_ids_setter(self):
         """Test extra_token_ids property setter"""

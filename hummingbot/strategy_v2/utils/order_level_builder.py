@@ -39,7 +39,9 @@ class OrderLevelBuilder:
         """
         self.n_levels = n_levels
 
-    def resolve_input(self, input_data: Union[Decimal | float, List[Decimal | float], Dict[str, Any]]) -> List[Decimal | float | int]:
+    def resolve_input(
+        self, input_data: Union[Decimal | float, List[Decimal | float], Dict[str, Any]]
+    ) -> List[Decimal | float | int]:
         """
         Resolve the provided input data into a list of Decimal values.
 
@@ -64,13 +66,15 @@ class OrderLevelBuilder:
         else:
             raise ValueError(f"Unsupported input data type: {type(input_data)}")
 
-    def build_order_levels(self,
-                           amounts: Union[Decimal, List[Decimal], Dict[str, Any]],
-                           spreads: Union[Decimal, List[Decimal], Dict[str, Any]],
-                           triple_barrier_confs: Union[TripleBarrierConfig, List[TripleBarrierConfig]] = TripleBarrierConfig(),
-                           order_refresh_time: Union[int, List[int], Dict[str, Any]] = 60 * 5,
-                           cooldown_time: Union[int, List[int], Dict[str, Any]] = 0,
-                           sides: Optional[List[TradeType]] = None) -> List[OrderLevel]:
+    def build_order_levels(
+        self,
+        amounts: Union[Decimal, List[Decimal], Dict[str, Any]],
+        spreads: Union[Decimal, List[Decimal], Dict[str, Any]],
+        triple_barrier_confs: Union[TripleBarrierConfig, List[TripleBarrierConfig]] = TripleBarrierConfig(),
+        order_refresh_time: Union[int, List[int], Dict[str, Any]] = 60 * 5,
+        cooldown_time: Union[int, List[int], Dict[str, Any]] = 0,
+        sides: Optional[List[TradeType]] = None,
+    ) -> List[OrderLevel]:
         """
         Build a list of OrderLevels based on the given parameters.
 
@@ -106,7 +110,7 @@ class OrderLevelBuilder:
                     spread_factor=resolved_spreads[i],
                     triple_barrier_conf=triple_barrier_confs[i],
                     order_refresh_time=resolved_order_refresh_time[i],
-                    cooldown_time=resolved_cooldown_time[i]
+                    cooldown_time=resolved_cooldown_time[i],
                 )
                 order_levels.append(order_level)
 

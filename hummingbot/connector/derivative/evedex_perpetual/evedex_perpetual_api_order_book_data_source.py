@@ -23,11 +23,11 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-            self,
-            trading_pairs: List[str],
-            connector: 'EvedexPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        trading_pairs: List[str],
+        connector: "EvedexPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -45,9 +45,7 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._ping_task: Optional[asyncio.Task] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -66,14 +64,10 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Retrieves instrument information including funding rate and mark price
         """
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        params = {
-            "instrument": ex_trading_pair,
-            "fields": "metrics"
-        }
+        params = {"instrument": ex_trading_pair, "fields": "metrics"}
         data = await self._connector._api_get(
-            path_url=CONSTANTS.INSTRUMENTS_PATH_URL,
-            params=params,
-            limit_id=CONSTANTS.INSTRUMENTS_PATH_URL)
+            path_url=CONSTANTS.INSTRUMENTS_PATH_URL, params=params, limit_id=CONSTANTS.INSTRUMENTS_PATH_URL
+        )
         if isinstance(data, list) and len(data) > 0:
             return data[0]
         return data
@@ -89,10 +83,7 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         path_url = CONSTANTS.ORDER_BOOK_PATH_URL.format(instrument=ex_trading_pair)
 
-        data = await self._connector._api_get(
-            path_url=path_url,
-            params={},
-            limit_id=CONSTANTS.ORDER_BOOK_PATH_URL)
+        data = await self._connector._api_get(path_url=path_url, params={}, limit_id=CONSTANTS.ORDER_BOOK_PATH_URL)
         return data
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -102,20 +93,22 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         # Convert Evedex dict format to standard format
         bids = [
-            [str(entry.get("price", 0)), str(entry.get("quantity", 0))]
-            for entry in snapshot_response.get("bids", [])
+            [str(entry.get("price", 0)), str(entry.get("quantity", 0))] for entry in snapshot_response.get("bids", [])
         ]
         asks = [
-            [str(entry.get("price", 0)), str(entry.get("quantity", 0))]
-            for entry in snapshot_response.get("asks", [])
+            [str(entry.get("price", 0)), str(entry.get("quantity", 0))] for entry in snapshot_response.get("asks", [])
         ]
 
-        snapshot_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": trading_pair,
-            "update_id": snapshot_response.get("t", int(time.time() * 1000)),
-            "bids": bids,
-            "asks": asks
-        }, timestamp=snapshot_timestamp)
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": trading_pair,
+                "update_id": snapshot_response.get("t", int(time.time() * 1000)),
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=snapshot_timestamp,
+        )
         return snapshot_msg
 
     _message_id: int = 0
@@ -159,10 +152,7 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL + CONSTANTS.WS_PING_TIMEOUT)
 
         # Send Centrifugo connect message
-        connect_payload = {
-            "connect": {"name": "js"},
-            "id": self._next_message_id()
-        }
+        connect_payload = {"connect": {"name": "js"}, "id": self._next_message_id()}
         connect_request: WSJSONRequest = WSJSONRequest(payload=connect_payload)
         await ws.send(connect_request)
 
@@ -186,22 +176,16 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         try:
             # Subscribe to heartbeat channel (no auth required)
             heartbeat_payload = {
-                "subscribe": {
-                    "channel": "futures-perp:heartbeat",
-                    "flag": 1
-                },
-                "id": self._next_message_id()
+                "subscribe": {"channel": "futures-perp:heartbeat", "flag": 1},
+                "id": self._next_message_id(),
             }
             subscribe_heartbeat_request: WSJSONRequest = WSJSONRequest(payload=heartbeat_payload)
             await ws.send(subscribe_heartbeat_request)
 
             # Subscribe to instruments channel
             instruments_payload = {
-                "subscribe": {
-                    "channel": "futures-perp:instruments",
-                    "flag": 1
-                },
-                "id": self._next_message_id()
+                "subscribe": {"channel": "futures-perp:instruments", "flag": 1},
+                "id": self._next_message_id(),
             }
             subscribe_instruments_request: WSJSONRequest = WSJSONRequest(payload=instruments_payload)
             await ws.send(subscribe_instruments_request)
@@ -216,34 +200,22 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 # Subscribe to order book updates: futures-perp:orderBook-{instrument}-0.1
                 orderbook_channel = f"futures-perp:orderBook-{ws_symbol}-0.1"
                 orderbook_payload = {
-                    "subscribe": {
-                        "channel": orderbook_channel,
-                        "flag": 1
-                    },
-                    "id": self._next_message_id()
+                    "subscribe": {"channel": orderbook_channel, "flag": 1},
+                    "id": self._next_message_id(),
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=orderbook_payload)
                 await ws.send(subscribe_orderbook_request)
 
                 # Subscribe to trade updates: futures-perp:recent-trade-{instrument}
                 trade_channel = f"futures-perp:recent-trade-{ws_symbol}"
-                trades_payload = {
-                    "subscribe": {
-                        "channel": trade_channel,
-                        "flag": 1
-                    },
-                    "id": self._next_message_id()
-                }
+                trades_payload = {"subscribe": {"channel": trade_channel, "flag": 1}, "id": self._next_message_id()}
                 subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
                 await ws.send(subscribe_trades_request)
 
             # Subscribe to funding rate updates: futures-perp:fundingRate (global channel)
             funding_payload = {
-                "subscribe": {
-                    "channel": "futures-perp:position",
-                    "flag": 1
-                },
-                "id": self._next_message_id()
+                "subscribe": {"channel": "futures-perp:position", "flag": 1},
+                "id": self._next_message_id(),
             }
             subscribe_funding_request: WSJSONRequest = WSJSONRequest(payload=funding_payload)
             await ws.send(subscribe_funding_request)
@@ -305,23 +277,11 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             self._ws_symbol_to_trading_pair[ws_symbol] = trading_pair
 
             orderbook_channel = f"futures-perp:orderBook-{ws_symbol}-0.1"
-            orderbook_payload = {
-                "subscribe": {
-                    "channel": orderbook_channel,
-                    "flag": 1
-                },
-                "id": self._next_message_id()
-            }
+            orderbook_payload = {"subscribe": {"channel": orderbook_channel, "flag": 1}, "id": self._next_message_id()}
             await self._ws_assistant.send(WSJSONRequest(payload=orderbook_payload))
 
             trade_channel = f"futures-perp:recent-trade-{ws_symbol}"
-            trades_payload = {
-                "subscribe": {
-                    "channel": trade_channel,
-                    "flag": 1
-                },
-                "id": self._next_message_id()
-            }
+            trades_payload = {"subscribe": {"channel": trade_channel, "flag": 1}, "id": self._next_message_id()}
             await self._ws_assistant.send(WSJSONRequest(payload=trades_payload))
 
             self.add_trading_pair(trading_pair)
@@ -349,20 +309,10 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             orderbook_channel = f"futures-perp:orderBook-{ws_symbol}-0.1"
             trade_channel = f"futures-perp:recent-trade-{ws_symbol}"
 
-            unsubscribe_payload = {
-                "unsubscribe": {
-                    "channel": orderbook_channel
-                },
-                "id": self._next_message_id()
-            }
+            unsubscribe_payload = {"unsubscribe": {"channel": orderbook_channel}, "id": self._next_message_id()}
             await self._ws_assistant.send(WSJSONRequest(payload=unsubscribe_payload))
 
-            unsubscribe_payload = {
-                "unsubscribe": {
-                    "channel": trade_channel
-                },
-                "id": self._next_message_id()
-            }
+            unsubscribe_payload = {"unsubscribe": {"channel": trade_channel}, "id": self._next_message_id()}
             await self._ws_assistant.send(WSJSONRequest(payload=unsubscribe_payload))
 
             self._ws_symbol_to_trading_pair.pop(ws_symbol, None)
@@ -397,21 +347,19 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             orderbook = data.get("orderBook", {})
 
             # Handle Evedex dict format
-            bids = [
-                [str(entry.get("price", 0)), str(entry.get("quantity", 0))]
-                for entry in orderbook.get("bids", [])
-            ]
-            asks = [
-                [str(entry.get("price", 0)), str(entry.get("quantity", 0))]
-                for entry in orderbook.get("asks", [])
-            ]
+            bids = [[str(entry.get("price", 0)), str(entry.get("quantity", 0))] for entry in orderbook.get("bids", [])]
+            asks = [[str(entry.get("price", 0)), str(entry.get("quantity", 0))] for entry in orderbook.get("asks", [])]
 
-            order_book_message: OrderBookMessage = OrderBookMessage(OrderBookMessageType.DIFF, {
-                "trading_pair": trading_pair,
-                "update_id": orderbook.get("t", int(time.time() * 1000)),
-                "bids": bids,
-                "asks": asks
-            }, timestamp=timestamp)
+            order_book_message: OrderBookMessage = OrderBookMessage(
+                OrderBookMessageType.DIFF,
+                {
+                    "trading_pair": trading_pair,
+                    "update_id": orderbook.get("t", int(time.time() * 1000)),
+                    "bids": bids,
+                    "asks": asks,
+                },
+                timestamp=timestamp,
+            )
             message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -439,13 +387,15 @@ class EvedexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     OrderBookMessageType.TRADE,
                     {
                         "trading_pair": trading_pair,
-                        "trade_type": float(TradeType.SELL.value) if trade.get("side") == "SELL" else float(TradeType.BUY.value),
+                        "trade_type": float(TradeType.SELL.value)
+                        if trade.get("side") == "SELL"
+                        else float(TradeType.BUY.value),
                         "trade_id": trade.get("executionId", str(int(time.time() * 1000))),
                         "update_id": trade.get("executionId", str(int(time.time() * 1000))),
                         "price": str(trade.get("fillPrice", 0)),
                         "amount": str(trade.get("fillQuantity", 0)),
                     },
-                    timestamp=time.time()
+                    timestamp=time.time(),
                 )
                 message_queue.put_nowait(trade_message)
 

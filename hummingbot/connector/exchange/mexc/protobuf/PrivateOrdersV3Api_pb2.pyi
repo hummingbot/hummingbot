@@ -5,7 +5,34 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class PrivateOrdersV3Api(_message.Message):
-    __slots__ = ("id", "clientId", "price", "quantity", "amount", "avgPrice", "orderType", "tradeType", "isMaker", "remainAmount", "remainQuantity", "lastDealQuantity", "cumulativeQuantity", "cumulativeAmount", "status", "createTime", "market", "triggerType", "triggerPrice", "state", "ocoId", "routeFactor", "symbolId", "marketId", "marketCurrencyId", "currencyId")
+    __slots__ = (
+        "id",
+        "clientId",
+        "price",
+        "quantity",
+        "amount",
+        "avgPrice",
+        "orderType",
+        "tradeType",
+        "isMaker",
+        "remainAmount",
+        "remainQuantity",
+        "lastDealQuantity",
+        "cumulativeQuantity",
+        "cumulativeAmount",
+        "status",
+        "createTime",
+        "market",
+        "triggerType",
+        "triggerPrice",
+        "state",
+        "ocoId",
+        "routeFactor",
+        "symbolId",
+        "marketId",
+        "marketCurrencyId",
+        "currencyId",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     CLIENTID_FIELD_NUMBER: _ClassVar[int]
     PRICE_FIELD_NUMBER: _ClassVar[int]
@@ -58,4 +85,32 @@ class PrivateOrdersV3Api(_message.Message):
     marketId: str
     marketCurrencyId: str
     currencyId: str
-    def __init__(self, id: _Optional[str] = ..., clientId: _Optional[str] = ..., price: _Optional[str] = ..., quantity: _Optional[str] = ..., amount: _Optional[str] = ..., avgPrice: _Optional[str] = ..., orderType: _Optional[int] = ..., tradeType: _Optional[int] = ..., isMaker: bool = ..., remainAmount: _Optional[str] = ..., remainQuantity: _Optional[str] = ..., lastDealQuantity: _Optional[str] = ..., cumulativeQuantity: _Optional[str] = ..., cumulativeAmount: _Optional[str] = ..., status: _Optional[int] = ..., createTime: _Optional[int] = ..., market: _Optional[str] = ..., triggerType: _Optional[int] = ..., triggerPrice: _Optional[str] = ..., state: _Optional[int] = ..., ocoId: _Optional[str] = ..., routeFactor: _Optional[str] = ..., symbolId: _Optional[str] = ..., marketId: _Optional[str] = ..., marketCurrencyId: _Optional[str] = ..., currencyId: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        clientId: _Optional[str] = ...,
+        price: _Optional[str] = ...,
+        quantity: _Optional[str] = ...,
+        amount: _Optional[str] = ...,
+        avgPrice: _Optional[str] = ...,
+        orderType: _Optional[int] = ...,
+        tradeType: _Optional[int] = ...,
+        isMaker: bool = ...,
+        remainAmount: _Optional[str] = ...,
+        remainQuantity: _Optional[str] = ...,
+        lastDealQuantity: _Optional[str] = ...,
+        cumulativeQuantity: _Optional[str] = ...,
+        cumulativeAmount: _Optional[str] = ...,
+        status: _Optional[int] = ...,
+        createTime: _Optional[int] = ...,
+        market: _Optional[str] = ...,
+        triggerType: _Optional[int] = ...,
+        triggerPrice: _Optional[str] = ...,
+        state: _Optional[int] = ...,
+        ocoId: _Optional[str] = ...,
+        routeFactor: _Optional[str] = ...,
+        symbolId: _Optional[str] = ...,
+        marketId: _Optional[str] = ...,
+        marketCurrencyId: _Optional[str] = ...,
+        currencyId: _Optional[str] = ...,
+    ) -> None: ...

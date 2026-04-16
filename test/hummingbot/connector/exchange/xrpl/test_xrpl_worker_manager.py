@@ -7,6 +7,7 @@ Tests the new pool-based architecture:
 - Lifecycle management (start/stop)
 - Pipeline integration
 """
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -113,7 +114,7 @@ class TestXRPLWorkerPoolManagerPipeline(unittest.TestCase):
 class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
     """Tests for pool factory methods."""
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLQueryWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLQueryWorkerPool")
     def test_get_query_pool_lazy_init(self, mock_pool_class):
         """Test query pool is lazily initialized."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)
@@ -137,7 +138,7 @@ class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
         )
         self.assertEqual(pool, mock_pool)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLQueryWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLQueryWorkerPool")
     def test_get_query_pool_returns_same_instance(self, mock_pool_class):
         """Test get_query_pool returns the same instance."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)
@@ -153,7 +154,7 @@ class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
         # Should only be called once
         mock_pool_class.assert_called_once()
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLVerificationWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLVerificationWorkerPool")
     def test_get_verification_pool_lazy_init(self, mock_pool_class):
         """Test verification pool is lazily initialized."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)
@@ -173,7 +174,7 @@ class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
         )
         self.assertEqual(pool, mock_pool)
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool")
     def test_get_transaction_pool_creates_per_wallet(self, mock_pool_class):
         """Test transaction pool is created per wallet."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)
@@ -192,12 +193,12 @@ class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
 
         mock_pool_class.assert_called_once()
         call_kwargs = mock_pool_class.call_args[1]
-        self.assertEqual(call_kwargs['node_pool'], mock_node_pool)
-        self.assertEqual(call_kwargs['wallet'], mock_wallet)
-        self.assertEqual(call_kwargs['num_workers'], 2)
-        self.assertIsNotNone(call_kwargs['pipeline'])
+        self.assertEqual(call_kwargs["node_pool"], mock_node_pool)
+        self.assertEqual(call_kwargs["wallet"], mock_wallet)
+        self.assertEqual(call_kwargs["num_workers"], 2)
+        self.assertIsNotNone(call_kwargs["pipeline"])
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool")
     def test_get_transaction_pool_reuses_for_same_wallet(self, mock_pool_class):
         """Test transaction pool is reused for the same wallet address."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)
@@ -215,7 +216,7 @@ class TestXRPLWorkerPoolManagerPoolFactories(unittest.TestCase):
         self.assertIs(pool1, pool2)
         mock_pool_class.assert_called_once()
 
-    @patch('hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool')
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_worker_manager.XRPLTransactionWorkerPool")
     def test_get_transaction_pool_custom_pool_id(self, mock_pool_class):
         """Test transaction pool with custom pool_id."""
         mock_node_pool = MagicMock(spec=XRPLNodePool)

@@ -97,7 +97,11 @@ class InjectiveDerivativeMarket:
     native_market: DerivativeMarket
 
     def base_token_symbol(self):
-        ticker_base, _ = self.native_market.ticker.split("/") if "/" in self.native_market.ticker else (self.native_market.ticker, "")
+        ticker_base, _ = (
+            self.native_market.ticker.split("/")
+            if "/" in self.native_market.ticker
+            else (self.native_market.ticker, "")
+        )
         return ticker_base
 
     def trading_pair(self):

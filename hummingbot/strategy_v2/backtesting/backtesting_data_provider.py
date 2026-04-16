@@ -19,11 +19,25 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestingDataProvider(MarketDataProvider):
-    CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
-                       ConnectorType.Derivative]
-    EXCLUDED_CONNECTORS = ["hyperliquid_perpetual", "dydx_perpetual", "cube", "vertex",
-                           "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
-                           "hyperliquid", "injective_v2_perpetual", "injective_v2"]
+    CONNECTOR_TYPES = [
+        ConnectorType.CLOB_SPOT,
+        ConnectorType.CLOB_PERP,
+        ConnectorType.Exchange,
+        ConnectorType.Derivative,
+    ]
+    EXCLUDED_CONNECTORS = [
+        "hyperliquid_perpetual",
+        "dydx_perpetual",
+        "cube",
+        "vertex",
+        "coinbase_advanced_trade",
+        "kraken",
+        "dydx_v4_perpetual",
+        "hitbtc",
+        "hyperliquid",
+        "injective_v2_perpetual",
+        "injective_v2",
+    ]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -34,11 +48,15 @@ class BacktestingDataProvider(MarketDataProvider):
         self.trading_rules = {}
         self.conn_settings = AllConnectorSettings.get_connector_settings()
         self.connectors = LazyDict[str, Optional[ConnectorBase]](
-            lambda name: self.get_connector(name) if (
-                self.conn_settings[name].type in self.CONNECTOR_TYPES and
-                name not in self.EXCLUDED_CONNECTORS and
-                "testnet" not in name
-            ) else None
+            lambda name: (
+                self.get_connector(name)
+                if (
+                    self.conn_settings[name].type in self.CONNECTOR_TYPES
+                    and name not in self.EXCLUDED_CONNECTORS
+                    and "testnet" not in name
+                )
+                else None
+            )
         )
 
     def get_connector(self, connector_name: str):
@@ -100,13 +118,15 @@ class BacktestingDataProvider(MarketDataProvider):
         # Create a new feed or restart the existing one with updated max_records
         candle_feed = CandlesFactory.get_candle(config)
         candles_buffer = config.max_records * CandlesBase.interval_to_seconds[config.interval]
-        candles_df = await candle_feed.get_historical_candles(config=HistoricalCandlesConfig(
-            connector_name=config.connector,
-            trading_pair=config.trading_pair,
-            interval=config.interval,
-            start_time=self.start_time - candles_buffer,
-            end_time=self.end_time,
-        ))
+        candles_df = await candle_feed.get_historical_candles(
+            config=HistoricalCandlesConfig(
+                connector_name=config.connector,
+                trading_pair=config.trading_pair,
+                interval=config.interval,
+                start_time=self.start_time - candles_buffer,
+                end_time=self.end_time,
+            )
+        )
         # TODO: fix pandas-ta improper float index slicing to allow us to use float indexes
         # candles_df = self.ensure_epoch_index(candles_df)
         self.candles_feeds[key] = candles_df
@@ -160,8 +180,12 @@ class BacktestingDataProvider(MarketDataProvider):
 
     # TODO: enable copy-on-write and allow specification of inplace
     @staticmethod
-    def ensure_epoch_index(df: pd.DataFrame, timestamp_column: str = "timestamp",
-                           keep_original: bool = True, index_name: str = "epoch_seconds") -> pd.DataFrame:
+    def ensure_epoch_index(
+        df: pd.DataFrame,
+        timestamp_column: str = "timestamp",
+        keep_original: bool = True,
+        index_name: str = "epoch_seconds",
+    ) -> pd.DataFrame:
         """Ensures DataFrame has numeric monotonic increasing timestamp index in seconds since epoch."""
         # Skip if already numeric index but not RangeIndex as that generally means the index was dropped
         if df.index.name == index_name or df.empty:
@@ -177,7 +201,9 @@ class BacktestingDataProvider(MarketDataProvider):
             if not pd.api.types.is_numeric_dtype(df.index):
                 df.index = pd.to_datetime(df.index).map(pd.Timestamp.timestamp)
         else:
-            raise ValueError(f"Cannot create timestamp index: no '{timestamp_column}' column found and index isn't convertible")
+            raise ValueError(
+                f"Cannot create timestamp index: no '{timestamp_column}' column found and index isn't convertible"
+            )
         df.sort_index(inplace=True)
         df.index.name = index_name
         return df

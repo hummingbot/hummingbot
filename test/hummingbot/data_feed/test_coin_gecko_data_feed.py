@@ -26,9 +26,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.log_records.append(record)
 
     def is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and record.getMessage() == message for
-            record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -62,7 +60,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
                 "atl_change_percentage": 34615.15839,
                 "atl_date": "2013-07-06T00:00:00.000Z",
                 "roi": None,
-                "last_updated": "2022-07-20T06:30:40.123Z"
+                "last_updated": "2022-07-20T06:30:40.123Z",
             },
             {
                 "id": "ethereum",
@@ -89,25 +87,26 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
                 "atl": 0.432979,
                 "atl_change_percentage": 363099.28971,
                 "atl_date": "2015-10-20T00:00:00.000Z",
-                "roi": {
-                    "times": 88.0543596997439,
-                    "currency": "btc",
-                    "percentage": 8805.435969974389
-                },
-                "last_updated": "2022-07-20T06:30:15.395Z"
+                "roi": {"times": 88.0543596997439, "currency": "btc", "percentage": 8805.435969974389},
+                "last_updated": "2022-07-20T06:30:15.395Z",
             },
         ]
         return data
 
-    def _verify_api_auth_headers(self, mock_api: aioresponses, url: str, expected_header: Optional[str] = None,
-                                 expected_key: Optional[str] = None):
+    def _verify_api_auth_headers(
+        self,
+        mock_api: aioresponses,
+        url: str,
+        expected_header: Optional[str] = None,
+        expected_key: Optional[str] = None,
+    ):
         """Helper to verify auth headers in requests"""
         found_request = False
         for req_key, req_data in mock_api.requests.items():
             req_method, req_url = req_key
-            if str(req_url) == url and req_method == 'GET':
+            if str(req_url) == url and req_method == "GET":
                 found_request = True
-                request_headers = req_data[0].kwargs.get('headers', {})
+                request_headers = req_data[0].kwargs.get("headers", {})
                 if expected_header:
                     self.assertIn(expected_header, request_headers)
                     self.assertEqual(expected_key, request_headers[expected_header])
@@ -152,10 +151,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         vs_currency = "USD"
         token_ids = ["ETH", "BTC"]
         token_ids_str = ",".join(map(str.lower, token_ids))
-        url = (
-            f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}"
-            f"?ids={token_ids_str}&vs_currency={vs_currency}"
-        )
+        url = f"{PUBLIC.base_url}{CONSTANTS.PRICES_REST_ENDPOINT}?ids={token_ids_str}&vs_currency={vs_currency}"
         data = self.get_coin_markets_data_mock(btc_price=1, eth_price=2)
         mock_api.get(url=url, body=json.dumps(data))
 
@@ -207,9 +203,9 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         found_request = False
         for req_key, req_data in mock_api.requests.items():
             req_method, req_url = req_key
-            if str(req_url) == url and req_method == 'GET':
+            if str(req_url) == url and req_method == "GET":
                 found_request = True
-                request_headers = req_data[0].kwargs.get('headers', {})
+                request_headers = req_data[0].kwargs.get("headers", {})
                 self.assertNotIn(DEMO.header, request_headers)
                 self.assertNotIn(PRO.header, request_headers)
                 break
@@ -239,9 +235,7 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.assertEqual({}, self.data_feed.price_dict)
         self.data_feed._price_dict["SOMECOIN"] = 10
 
-        mock_api.get(
-            url=regex_url, body=json.dumps(first_page), callback=lambda *_, **__: prices_requested_event.set()
-        )
+        mock_api.get(url=regex_url, body=json.dumps(first_page), callback=lambda *_, **__: prices_requested_event.set())
         self.async_run_with_timeout(self.data_feed.start_network())
         self.async_run_with_timeout(prices_requested_event.wait())
         prices_dict = self.data_feed.price_dict
@@ -253,7 +247,9 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         self.assertFalse(self.data_feed.ready)
 
         prices_requested_event.clear()
-        mock_api.get(url=regex_url, body=json.dumps(second_page), callback=lambda *_, **__: prices_requested_event.set())
+        mock_api.get(
+            url=regex_url, body=json.dumps(second_page), callback=lambda *_, **__: prices_requested_event.set()
+        )
         sleep_continue_event.set()
         sleep_mock.return_value = wait_on_sleep_event()
         self.async_run_with_timeout(prices_requested_event.wait())
@@ -290,9 +286,11 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
     )
     def test_update_asset_prices_error_handling(self, mock_api: aioresponses, sleep_mock: MagicMock):
         """Test error handling in _update_asset_prices method"""
+
         # Configure sleep_mock to return a proper awaitable
         async def mock_sleep(*args, **kwargs):
             return None
+
         sleep_mock.side_effect = mock_sleep
 
         # Set up URLs for testing
@@ -306,8 +304,11 @@ class CoinGeckoDataFeedTest(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             self.async_run_with_timeout(self.data_feed._update_asset_prices())
         self.assertEqual(str(context.exception), "API rate limit exceeded")
-        self.assertTrue(self.is_logged(log_level="WARNING",
-                                       message="Coin Gecko API request failed. Exception: API rate limit exceeded"))
+        self.assertTrue(
+            self.is_logged(
+                log_level="WARNING", message="Coin Gecko API request failed. Exception: API rate limit exceeded"
+            )
+        )
 
         # Reset for second test case
         self.log_records.clear()

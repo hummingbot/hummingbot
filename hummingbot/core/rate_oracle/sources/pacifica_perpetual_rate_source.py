@@ -48,7 +48,7 @@ class PacificaPerpetualRateSource(RateSourceBase):
             self._exchange = self._build_pacifica_connector_without_private_keys()
 
     @staticmethod
-    def _build_pacifica_connector_without_private_keys() -> 'PacificaPerpetualDerivative':
+    def _build_pacifica_connector_without_private_keys() -> "PacificaPerpetualDerivative":
         from hummingbot.connector.derivative.pacifica_perpetual.pacifica_perpetual_derivative import (
             PacificaPerpetualDerivative,
         )

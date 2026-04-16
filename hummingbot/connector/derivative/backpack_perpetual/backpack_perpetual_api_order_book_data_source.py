@@ -23,14 +23,15 @@ if TYPE_CHECKING:
 
 
 class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'BackpackPerpetualDerivative',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        trading_pairs: List[str],
+        connector: "BackpackPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
@@ -39,23 +40,22 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._api_factory = api_factory
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         ex_trading_pair = self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         params = {"symbol": ex_trading_pair}
         data = await self._connector._api_get(
-            path_url=CONSTANTS.MARK_PRICE_PATH_URL,
-            params=params,
-            throttler_limit_id=CONSTANTS.MARK_PRICE_PATH_URL)
-        return FundingInfo(trading_pair=trading_pair,
-                           index_price=Decimal(data[0]["indexPrice"]),
-                           mark_price=Decimal(data[0]["markPrice"]),
-                           next_funding_utc_timestamp=data[0]["nextFundingTimestamp"] * 1e-3,
-                           rate=Decimal(data[0]["fundingRate"]))
+            path_url=CONSTANTS.MARK_PRICE_PATH_URL, params=params, throttler_limit_id=CONSTANTS.MARK_PRICE_PATH_URL
+        )
+        return FundingInfo(
+            trading_pair=trading_pair,
+            index_price=Decimal(data[0]["indexPrice"]),
+            mark_price=Decimal(data[0]["markPrice"]),
+            next_funding_utc_timestamp=data[0]["nextFundingTimestamp"] * 1e-3,
+            rate=Decimal(data[0]["fundingRate"]),
+        )
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
@@ -67,7 +67,7 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         params = {
             "symbol": self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
+            "limit": "1000",
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -81,8 +81,9 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=CONSTANTS.WSS_URL.format(self._domain), ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL
+        )
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -100,16 +101,13 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
             )
             raise
 
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
             return False
 
         trade_params = [f"trade.{trading_pair}"]
@@ -138,9 +136,7 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
             return False
 
         trade_params = [f"trade.{trading_pair}"]
@@ -164,17 +160,12 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False
 
     async def subscribe_funding_info(self, trading_pair: str) -> None:
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket not connected")
             return
 
         funding_info_params = [f"markPrice.{trading_pair}"]
@@ -206,9 +197,7 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = BackpackPerpetualOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
+            snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
 
@@ -216,14 +205,16 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if "data" in raw_message and CONSTANTS.DIFF_EVENT_TYPE in raw_message.get("stream"):
             trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"]["s"])
             order_book_message: OrderBookMessage = BackpackPerpetualOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
+                raw_message, time.time(), {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "data" in raw_message and CONSTANTS.TRADE_EVENT_TYPE in raw_message.get("stream"):
             trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["data"]["s"])
             trade_message = BackpackPerpetualOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
+                raw_message, {"trading_pair": trading_pair}
+            )
             message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
@@ -234,6 +225,6 @@ class BackpackPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             index_price=Decimal(data["i"]),
             mark_price=Decimal(data["p"]),
             next_funding_utc_timestamp=int(int(data["n"]) * 1e-3),
-            rate=Decimal(data["f"])
+            rate=Decimal(data["f"]),
         )
         message_queue.put_nowait(funding_update)

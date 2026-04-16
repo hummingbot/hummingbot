@@ -42,8 +42,7 @@ class BinanceAuth(AuthBase):
         """
         return request  # pass-through
 
-    def add_auth_to_params(self,
-                           params: Dict[str, Any]):
+    def add_auth_to_params(self, params: Dict[str, Any]):
         timestamp = int(self.time_provider.time() * 1e3)
 
         request_params = OrderedDict(params or {})
@@ -82,7 +81,6 @@ class BinanceAuth(AuthBase):
         return params
 
     def _generate_signature(self, params: Dict[str, Any]) -> str:
-
         encoded_params_str = urlencode(params)
         digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
         return digest

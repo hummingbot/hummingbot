@@ -3,6 +3,7 @@ Unit tests for XRPL Transaction Pipeline.
 
 Tests the serialized transaction submission pipeline for XRPL.
 """
+
 import asyncio
 import unittest
 from unittest.mock import AsyncMock
@@ -236,10 +237,7 @@ class TestXRPLTransactionPipelineSerialization(unittest.IsolatedAsyncioTestCase)
             return value
 
         # Submit multiple coroutines
-        tasks = [
-            asyncio.create_task(pipeline.submit(make_coroutine(i), submission_id=f"sub-{i}"))
-            for i in range(5)
-        ]
+        tasks = [asyncio.create_task(pipeline.submit(make_coroutine(i), submission_id=f"sub-{i}")) for i in range(5)]
 
         await asyncio.gather(*tasks)
 

@@ -177,17 +177,19 @@ class GrvtPerpetualDerivativeUnitTests(IsolatedAsyncioTestCase):
         self.exchange._update_positions.assert_awaited_once()
 
     async def test_request_order_status_maps_partially_filled_open_order(self):
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": {
-                "order_id": "exchange-1",
-                "state": {
-                    "status": "OPEN",
-                    "traded_size": ["0.4"],
-                    "book_size": ["0.6"],
-                    "update_time": "1700000000000000000",
-                },
+        self.exchange._api_post = AsyncMock(
+            return_value={
+                "result": {
+                    "order_id": "exchange-1",
+                    "state": {
+                        "status": "OPEN",
+                        "traded_size": ["0.4"],
+                        "book_size": ["0.6"],
+                        "update_time": "1700000000000000000",
+                    },
+                }
             }
-        })
+        )
         tracked_order = InFlightOrder(
             client_order_id="9223372036854775808",
             exchange_order_id="exchange-1",
@@ -231,33 +233,37 @@ class GrvtPerpetualDerivativeUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("5"), rules[0].min_notional_size)
 
     async def test_update_balances(self):
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": {
-                "settle_currency": "USDT",
-                "available_balance": "95",
-                "spot_balances": [
-                    {"currency": "USDT", "balance": "100"},
-                    {"currency": "BTC", "balance": "0.5"},
-                ],
+        self.exchange._api_post = AsyncMock(
+            return_value={
+                "result": {
+                    "settle_currency": "USDT",
+                    "available_balance": "95",
+                    "spot_balances": [
+                        {"currency": "USDT", "balance": "100"},
+                        {"currency": "BTC", "balance": "0.5"},
+                    ],
+                }
             }
-        })
+        )
         await self.exchange._update_balances()
         self.assertEqual(Decimal("100"), self.exchange.available_balances["USDT"] + Decimal("5"))
         self.assertEqual(Decimal("95"), self.exchange.available_balances["USDT"])
         self.assertEqual(Decimal("0.5"), self.exchange.available_balances["BTC"])
 
     async def test_update_positions(self):
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": [
-                {
-                    "instrument": "BTC_USDT_Perp",
-                    "size": "-2",
-                    "entry_price": "62000",
-                    "unrealized_pnl": "10",
-                    "leverage": "5",
-                }
-            ]
-        })
+        self.exchange._api_post = AsyncMock(
+            return_value={
+                "result": [
+                    {
+                        "instrument": "BTC_USDT_Perp",
+                        "size": "-2",
+                        "entry_price": "62000",
+                        "unrealized_pnl": "10",
+                        "leverage": "5",
+                    }
+                ]
+            }
+        )
         await self.exchange._update_positions()
         position_key = self.exchange._perpetual_trading.position_key("BTC-USDT", PositionSide.SHORT)
         position = self.exchange.account_positions[position_key]
@@ -265,31 +271,35 @@ class GrvtPerpetualDerivativeUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("5"), position.leverage)
 
     async def test_fetch_last_fee_payment(self):
-        self.exchange._api_post = AsyncMock(side_effect=[
-            {"result": [{"event_time": "1700000000000000000", "amount": "-12.5", "instrument": "BTC_USDT_Perp"}]},
-            {"result": [{"funding_rate": "0.0001"}]},
-        ])
+        self.exchange._api_post = AsyncMock(
+            side_effect=[
+                {"result": [{"event_time": "1700000000000000000", "amount": "-12.5", "instrument": "BTC_USDT_Perp"}]},
+                {"result": [{"funding_rate": "0.0001"}]},
+            ]
+        )
         timestamp, rate, amount = await self.exchange._fetch_last_fee_payment("BTC-USDT")
         self.assertEqual(1700000000.0, timestamp)
         self.assertEqual(Decimal("0.0001"), rate)
         self.assertEqual(Decimal("-12.5"), amount)
 
     async def test_all_trade_updates_for_order_uses_fee_currency(self):
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": [
-                {
-                    "client_order_id": "9223372036854775808",
-                    "order_id": "exchange-1",
-                    "trade_id": "trade-1",
-                    "event_time": "1700000000000000000",
-                    "size": "0.4",
-                    "price": "62000",
-                    "fee": "1.2",
-                    "fee_currency": "USDC",
-                    "is_taker": True,
-                }
-            ]
-        })
+        self.exchange._api_post = AsyncMock(
+            return_value={
+                "result": [
+                    {
+                        "client_order_id": "9223372036854775808",
+                        "order_id": "exchange-1",
+                        "trade_id": "trade-1",
+                        "event_time": "1700000000000000000",
+                        "size": "0.4",
+                        "price": "62000",
+                        "fee": "1.2",
+                        "fee_currency": "USDC",
+                        "is_taker": True,
+                    }
+                ]
+            }
+        )
         tracked_order = InFlightOrder(
             client_order_id="9223372036854775808",
             exchange_order_id="exchange-1",
@@ -729,7 +739,9 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
-        mock_api.post(self.trading_rules_url, body=json.dumps(self.trading_rules_request_mock_response), callback=callback)
+        mock_api.post(
+            self.trading_rules_url, body=json.dumps(self.trading_rules_request_mock_response), callback=callback
+        )
         return [self.trading_rules_url]
 
     def configure_erroneous_trading_rules_response(
@@ -971,7 +983,9 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
                 "index_price": str(self.target_funding_info_index_price_ws_updated),
                 "mark_price": str(self.target_funding_info_mark_price_ws_updated),
                 "funding_rate_8h_curr": str(self.target_funding_info_rate_ws_updated),
-                "next_funding_time": str(self.target_funding_info_next_funding_utc_timestamp_ws_updated * 1_000_000_000),
+                "next_funding_time": str(
+                    self.target_funding_info_next_funding_utc_timestamp_ws_updated * 1_000_000_000
+                ),
             },
         }
 
@@ -1047,7 +1061,7 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         self.async_run_with_timeout(self.exchange._update_order_status())
         self.async_run_with_timeout(request_sent_event.wait())
 
-        for url in (urls if isinstance(urls, list) else [urls]):
+        for url in urls if isinstance(urls, list) else [urls]:
             order_status_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(order_status_request)
             self.validate_order_status_request(order=order, request_call=order_status_request)
@@ -1192,17 +1206,28 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
 
     @aioresponses()
     def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
-        private_url = re.compile(f"^{web_utils.private_rest_url(CONSTANTS.FUNDING_PAYMENT_HISTORY_PATH_URL)}".replace(".", r"\.") + ".*")
+        private_url = re.compile(
+            f"^{web_utils.private_rest_url(CONSTANTS.FUNDING_PAYMENT_HISTORY_PATH_URL)}".replace(".", r"\.") + ".*"
+        )
         public_url = re.compile(f"^{web_utils.public_rest_url(CONSTANTS.FUNDING_PATH_URL)}".replace(".", r"\.") + ".*")
         request_sent_event = asyncio.Event()
 
         async def run_test():
-            mock_api.post(private_url, body=json.dumps(self.empty_funding_payment_mock_response), callback=lambda *args, **kwargs: request_sent_event.set())
+            mock_api.post(
+                private_url,
+                body=json.dumps(self.empty_funding_payment_mock_response),
+                callback=lambda *args, **kwargs: request_sent_event.set(),
+            )
             task = asyncio.create_task(self.exchange._funding_payment_polling_loop())
             await asyncio.sleep(0.1)
             self.assertEqual(0, len(self.funding_payment_logger.event_log))
 
-            mock_api.post(private_url, body=json.dumps(self.funding_payment_mock_response), callback=lambda *args, **kwargs: request_sent_event.set(), repeat=True)
+            mock_api.post(
+                private_url,
+                body=json.dumps(self.funding_payment_mock_response),
+                callback=lambda *args, **kwargs: request_sent_event.set(),
+                repeat=True,
+            )
             mock_api.post(
                 public_url,
                 body=json.dumps({"result": [{"funding_rate": str(self.target_funding_payment_funding_rate)}]}),
@@ -1231,21 +1256,23 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         self.exchange._symbol_map = bidict({self.exchange_trading_pair: self.trading_pair})
         self.exchange._set_trading_pair_symbol_map(self.exchange._symbol_map)
         self.exchange._instrument_info_by_symbol = {self.exchange_trading_pair: self._instrument_response()}
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": [
-                {
-                    "client_order_id": "1",
-                    "order_id": "0x00",
-                    "trade_id": "trade-1",
-                    "event_time": "1700000000000000000",
-                    "size": "1",
-                    "price": "10000",
-                    "fee": "0.1",
-                    "fee_currency": "USDC",
-                    "is_taker": True,
-                }
-            ]
-        })
+        self.exchange._api_post = AsyncMock(
+            return_value={
+                "result": [
+                    {
+                        "client_order_id": "1",
+                        "order_id": "0x00",
+                        "trade_id": "trade-1",
+                        "event_time": "1700000000000000000",
+                        "size": "1",
+                        "price": "10000",
+                        "fee": "0.1",
+                        "fee_currency": "USDC",
+                        "is_taker": True,
+                    }
+                ]
+            }
+        )
         order = InFlightOrder(
             client_order_id="1",
             exchange_order_id="0x00",

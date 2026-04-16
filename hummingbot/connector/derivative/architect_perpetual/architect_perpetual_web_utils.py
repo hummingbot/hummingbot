@@ -41,10 +41,7 @@ def build_api_factory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(
-                synchronizer=time_synchronizer,
-                time_provider=time_provider
-            ),
+            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ],
     )
 
@@ -52,7 +49,7 @@ def build_api_factory(
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(
-    throttler: Optional[AsyncThrottler] = None
+    throttler: Optional[AsyncThrottler] = None,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(throttler=throttler)

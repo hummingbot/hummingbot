@@ -26,15 +26,14 @@ class FromDateToDateModel(BaseClientModel):
         default=...,
         description="The start date and time for date-to-date execution timeframe.",
         json_schema_extra={
-            "prompt": "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)", "prompt_on_new": True
-        }
+            "prompt": "Please enter the start date and time (YYYY-MM-DD HH:MM:SS)",
+            "prompt_on_new": True,
+        },
     )
     end_datetime: datetime = Field(
         default=...,
         description="The end date and time for date-to-date execution timeframe.",
-        json_schema_extra={
-            "prompt": "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)", "prompt_on_new": True
-        }
+        json_schema_extra={"prompt": "Please enter the end date and time (YYYY-MM-DD HH:MM:SS)", "prompt_on_new": True},
     )
     model_config = ConfigDict(title="from_date_to_date")
 
@@ -95,7 +94,10 @@ class MultiOrderLevelModel(BaseClientModel):
         default=Decimal("0"),
         description="The spread between order levels, expressed in % of optimal spread.",
         ge=0,
-        json_schema_extra={"prompt": "How far apart in % of optimal spread should orders on one side be?", "prompt_on_new": True},
+        json_schema_extra={
+            "prompt": "How far apart in % of optimal spread should orders on one side be?",
+            "prompt_on_new": True,
+        },
     )
     model_config = ConfigDict(title="multi_order_level")
 
@@ -130,7 +132,7 @@ class TrackHangingOrdersModel(BaseClientModel):
         lt=100,
         json_schema_extra={
             "prompt": "At what spread percentage (from mid price) will hanging orders be canceled? (Enter 1 to indicate 1%)",
-        }
+        },
     )
     model_config = ConfigDict(title="track_hanging_orders")
 
@@ -161,7 +163,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         json_schema_extra={
             "prompt": f"Select the execution timeframe ({'/'.join(EXECUTION_TIMEFRAME_MODELS.keys())})",
             "prompt_on_new": True,
-        }
+        },
     )
     order_amount: Decimal = Field(
         default=...,
@@ -170,7 +172,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         json_schema_extra={
             "prompt": lambda mi: AvellanedaMarketMakingConfigMap.order_amount_prompt(mi),
             "prompt_on_new": True,
-        }
+        },
     )
     order_optimization_enabled: bool = Field(
         default=True,
@@ -178,20 +180,20 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
             "Allows the bid and ask order prices to be adjusted based on"
             " the current top bid and ask prices in the market."
         ),
-        json_schema_extra={"prompt": "Do you want to enable order optimization? (Yes/No)"}
+        json_schema_extra={"prompt": "Do you want to enable order optimization? (Yes/No)"},
     )
     risk_factor: Decimal = Field(
         default=Decimal("1"),
-        description="The risk factor (\u03B3).",
+        description="The risk factor (\u03b3).",
         gt=0,
-        json_schema_extra={"prompt": "Enter risk factor (\u03B3)", "prompt_on_new": True},
+        json_schema_extra={"prompt": "Enter risk factor (\u03b3)", "prompt_on_new": True},
     )
     order_amount_shape_factor: Decimal = Field(
         default=Decimal("0"),
         description="The amount shape factor (\u03b7)",
         ge=0,
         le=1,
-        json_schema_extra={"prompt": "Enter order amount shape factor (\u03B7)"},
+        json_schema_extra={"prompt": "Enter order amount shape factor (\u03b7)"},
     )
     min_spread: Decimal = Field(
         default=Decimal("0"),
@@ -202,33 +204,43 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
     order_refresh_time: float = Field(
         default=...,
         description="The frequency at which the orders' spreads will be re-evaluated.",
-        gt=0.,
+        gt=0.0,
         json_schema_extra={"prompt": "How often do you want to refresh orders (in seconds)?", "prompt_on_new": True},
     )
     max_order_age: float = Field(
-        default=1800.,
+        default=1800.0,
         description="A given order's maximum lifetime irrespective of spread.",
-        gt=0.,
-        json_schema_extra={"prompt": "How long do you want to cancel and replace bids and asks with the same price (in seconds)?"}
+        gt=0.0,
+        json_schema_extra={
+            "prompt": "How long do you want to cancel and replace bids and asks with the same price (in seconds)?"
+        },
     )
     order_refresh_tolerance_pct: Decimal = Field(
         default=Decimal("0"),
         description="The range of spreads tolerated on refresh cycles. Orders over that range are cancelled and re-submitted.",
-        ge=-10, le=10,
-        json_schema_extra={"prompt": "Enter the percent change in price needed to refresh orders at each cycle (Enter 1 to indicate 1%)"},
+        ge=-10,
+        le=10,
+        json_schema_extra={
+            "prompt": "Enter the percent change in price needed to refresh orders at each cycle (Enter 1 to indicate 1%)"
+        },
     )
     filled_order_delay: float = Field(
-        default=60.,
+        default=60.0,
         description="The delay before placing a new order after an order fill.",
-        gt=0.,
-        json_schema_extra={"prompt": "How long do you want to wait before placing the next order if your order gets filled (in seconds)"},
+        gt=0.0,
+        json_schema_extra={
+            "prompt": "How long do you want to wait before placing the next order if your order gets filled (in seconds)"
+        },
     )
     inventory_target_base_pct: Decimal = Field(
         default=Decimal("50"),
         description="Defines the inventory target for the base asset.",
         ge=0,
         le=100,
-        json_schema_extra={"prompt": "Enter the inventory target for the base asset (Enter 50 for 50%)", "prompt_on_new": True},
+        json_schema_extra={
+            "prompt": "Enter the inventory target for the base asset (Enter 50 for 50%)",
+            "prompt_on_new": True,
+        },
     )
     add_transaction_costs: bool = Field(
         default=False,
@@ -268,14 +280,14 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         description="If activated, the strategy will await cancellation confirmation from the exchange before placing a new order.",
         json_schema_extra={
             "prompt": "Should the strategy wait to receive a confirmation for orders cancellation before creating a new set of orders? (Yes/No)",
-        }
+        },
     )
     model_config = ConfigDict(title="avellaneda_market_making")
 
     # === prompts ===
 
     @classmethod
-    def order_amount_prompt(cls, model_instance: 'AvellanedaMarketMakingConfigMap') -> str:
+    def order_amount_prompt(cls, model_instance: "AvellanedaMarketMakingConfigMap") -> str:
         trading_pair = model_instance.market
         base_asset, quote_asset = split_hb_trading_pair(trading_pair)
         return f"What is the amount of {base_asset} per order?"
@@ -284,15 +296,11 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
 
     @field_validator("execution_timeframe_mode", mode="before")
     @classmethod
-    def validate_execution_timeframe(
-        cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]
-    ):
+    def validate_execution_timeframe(cls, v: Union[str, InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel]):
         if isinstance(v, (InfiniteModel, FromDateToDateModel, DailyBetweenTimesModel, Dict)):
             sub_model = v
         elif v not in EXECUTION_TIMEFRAME_MODELS:
-            raise ValueError(
-                f"Invalid timeframe, please choose value from {list(EXECUTION_TIMEFRAME_MODELS.keys())}"
-            )
+            raise ValueError(f"Invalid timeframe, please choose value from {list(EXECUTION_TIMEFRAME_MODELS.keys())}")
         else:
             sub_model = EXECUTION_TIMEFRAME_MODELS[v].model_construct()
         return sub_model
@@ -321,9 +329,7 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         if isinstance(v, (SingleOrderLevelModel, MultiOrderLevelModel, Dict)):
             sub_model = v
         elif v not in ORDER_LEVEL_MODELS:
-            raise ValueError(
-                f"Invalid order levels mode, please choose value from {list(ORDER_LEVEL_MODELS.keys())}."
-            )
+            raise ValueError(f"Invalid order levels mode, please choose value from {list(ORDER_LEVEL_MODELS.keys())}.")
         else:
             sub_model = ORDER_LEVEL_MODELS[v].model_construct()
         return sub_model
@@ -344,10 +350,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
     # === generic validations ===
 
     @field_validator(
-        "order_optimization_enabled",
-        "add_transaction_costs",
-        "should_wait_order_cancel_confirmation",
-        mode="before")
+        "order_optimization_enabled", "add_transaction_costs", "should_wait_order_cancel_confirmation", mode="before"
+    )
     @classmethod
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
@@ -367,12 +371,8 @@ class AvellanedaMarketMakingConfigMap(BaseTradingStrategyConfigMap):
         return v
 
     @field_validator(
-        "order_amount",
-        "risk_factor",
-        "order_refresh_time",
-        "max_order_age",
-        "filled_order_delay",
-        mode="before")
+        "order_amount", "risk_factor", "order_refresh_time", "max_order_age", "filled_order_delay", mode="before"
+    )
     @classmethod
     def validate_decimal_above_zero(cls, v: str):
         """Used for client-friendly error output."""

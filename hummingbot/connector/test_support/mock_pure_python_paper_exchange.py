@@ -2,7 +2,6 @@ from hummingbot.connector.test_support.mock_paper_exchange import MockPaperExcha
 
 
 class MockPurePythonPaperExchange(MockPaperExchange):
-
     @property
     def name(self) -> str:
         return "MockPurePythonPaperExchange"

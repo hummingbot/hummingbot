@@ -5,7 +5,6 @@ from hummingbot.client.ui.layout import get_active_strategy, get_strategy_file
 
 
 class LayoutTest(unittest.TestCase):
-
     def test_get_active_strategy(self):
         hb = HummingbotApplication.main_application()
         hb.trading_core.strategy_name = "SomeStrategy"

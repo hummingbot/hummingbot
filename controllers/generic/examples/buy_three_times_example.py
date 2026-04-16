@@ -29,20 +29,23 @@ class BuyThreeTimesExample(ControllerBase):
         self.max_buys = 3
 
     async def update_processed_data(self):
-        mid_price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
+        mid_price = self.market_data_provider.get_price_by_type(
+            self.config.connector_name, self.config.trading_pair, PriceType.MidPrice
+        )
         n_active_executors = len([executor for executor in self.executors_info if executor.is_active])
         self.processed_data = {
             "mid_price": mid_price,
             "n_active_executors": n_active_executors,
             "buy_count": self.buy_count,
-            "max_buys_reached": self.buy_count >= self.max_buys
+            "max_buys_reached": self.buy_count >= self.max_buys,
         }
 
     def determine_executor_actions(self) -> list[ExecutorAction]:
-        if (self.buy_count < self.max_buys and
-                self.processed_data["n_active_executors"] == 0 and
-                self.market_data_provider.time() - self.last_timestamp > self.config.order_frequency):
-
+        if (
+            self.buy_count < self.max_buys
+            and self.processed_data["n_active_executors"] == 0
+            and self.market_data_provider.time() - self.last_timestamp > self.config.order_frequency
+        ):
             self.last_timestamp = self.market_data_provider.time()
             self.buy_count += 1
 
@@ -63,7 +66,7 @@ class BuyThreeTimesExample(ControllerBase):
         lines.append("Buy Three Times Example Status:")
         lines.append(f"  Buys completed: {self.buy_count}/{self.max_buys}")
         lines.append(f"  Max buys reached: {self.buy_count >= self.max_buys}")
-        if hasattr(self, 'processed_data') and self.processed_data:
+        if hasattr(self, "processed_data") and self.processed_data:
             lines.append(f"  Mid price: {self.processed_data.get('mid_price', 'N/A')}")
             lines.append(f"  Active executors: {self.processed_data.get('n_active_executors', 'N/A')}")
         return lines

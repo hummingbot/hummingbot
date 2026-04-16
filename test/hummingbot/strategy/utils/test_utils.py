@@ -7,7 +7,6 @@ from hummingbot.strategy.utils import order_age
 
 
 class StrategyUtilsTests(TestCase):
-
     @patch("hummingbot.strategy.utils._time")
     def test_order_age(self, time_mock):
         time_mock.return_value = 1640001112.223
@@ -19,7 +18,8 @@ class StrategyUtilsTests(TestCase):
             quote_currency="HBOT",
             price=Decimal(1000),
             quantity=Decimal(1),
-            creation_timestamp=1640001110000000)
+            creation_timestamp=1640001110000000,
+        )
 
         age = order_age(order)
         self.assertEqual(int(time_mock.return_value - 1640001110), age)

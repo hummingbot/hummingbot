@@ -10,7 +10,6 @@ NaN = float("nan")
 
 
 class MockPyTimeIterator(PyTimeIterator):
-
     def __init__(self):
         super().__init__()
         self._mock_variable = None
@@ -24,7 +23,6 @@ class MockPyTimeIterator(PyTimeIterator):
 
 
 class PyTimeIteratorUnitTest(unittest.TestCase):
-
     start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
     end_timestamp: float = pd.Timestamp("2022-01-01 01:00:00", tz="UTC").timestamp()
     tick_size: int = 10

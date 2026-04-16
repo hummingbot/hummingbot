@@ -29,7 +29,7 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'ArchitectPerpetualDerivative',
+        connector: "ArchitectPerpetualDerivative",
         api_factory: WebAssistantsFactory,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ) -> None:
@@ -125,7 +125,7 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "trade_type": float(TradeType.SELL.value) if raw_message["d"] == "S" else float(TradeType.BUY.value),
                 "trade_id": int(f"{raw_message['ts']}{raw_message['tn']}"),
                 "price": float(raw_message["p"]),
-                "amount": float(raw_message["q"])
+                "amount": float(raw_message["q"]),
             },
             timestamp=raw_message["ts"],
         )
@@ -136,23 +136,15 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         raise NotImplementedError  # only snapshot events provided
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-            symbol=raw_message["s"]
-        )
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
         update_id = int(f"{raw_message['ts']}{raw_message['tn']}")
         snapshot_message = OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content={
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": [
-                    (float(row["p"]), float(row["q"]))
-                    for row in raw_message["b"]
-                ],
-                "asks": [
-                    (float(row["p"]), float(row["q"]))
-                    for row in raw_message["a"]
-                ],
+                "bids": [(float(row["p"]), float(row["q"])) for row in raw_message["b"]],
+                "asks": [(float(row["p"]), float(row["q"])) for row in raw_message["a"]],
             },
             timestamp=raw_message["ts"],
         )
@@ -174,9 +166,9 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             OrderBookMessageType.SNAPSHOT,
             {
                 "trading_pair": trading_pair,
-                "bids": [[float(i['p']), float(i['q'])] for i in snapshot_response['b']],
-                "asks": [[float(i['p']), float(i['q'])] for i in snapshot_response['a']],
-                "update_id": int(f"{snapshot_response['ts']}{snapshot_response['tn']}")
+                "bids": [[float(i["p"]), float(i["q"])] for i in snapshot_response["b"]],
+                "asks": [[float(i["p"]), float(i["q"])] for i in snapshot_response["a"]],
+                "update_id": int(f"{snapshot_response['ts']}{snapshot_response['tn']}"),
             },
             timestamp=int(snapshot_response["ts"]),
         )
@@ -187,7 +179,7 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         await websocket_assistant.connect(
             ws_url=web_utils.public_ws_url(domain=self._domain),
             message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
-            ws_headers={"Authorization": f"Bearer {await self._api_factory.auth.get_token_for_ws_stream()}"}
+            ws_headers={"Authorization": f"Bearer {await self._api_factory.auth.get_token_for_ws_stream()}"},
         )
         return websocket_assistant
 
@@ -212,7 +204,8 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                             "level": "LEVEL_2",
                         },
                     ),
-                ) for exchange_trading_pair in exchange_pairs
+                )
+                for exchange_trading_pair in exchange_pairs
             ]
             await safe_gather(*sub_operations)
             self.logger().info(f"Subscribed to public channels for {', '.join(trading_pairs)}...")
@@ -220,7 +213,8 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise
         except Exception:
             self.logger().exception(
-                f"Unexpected error occurred subscribing to order book data streams for {', '.join(trading_pairs)}.")
+                f"Unexpected error occurred subscribing to order book data streams for {', '.join(trading_pairs)}."
+            )
             raise
 
     async def _unsubscribe_from_trading_pairs(self, ws: WSAssistant, trading_pairs: list[str]):
@@ -240,7 +234,8 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                             "symbol": exchange_trading_pair,
                         },
                     ),
-                ) for exchange_trading_pair in exchange_pairs
+                )
+                for exchange_trading_pair in exchange_pairs
             ]
             await safe_gather(*sub_operations)
             self.logger().info(f"Unsubscribed from public channels for {', '.join(trading_pairs)}.")
@@ -248,7 +243,8 @@ class ArchitectPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise
         except Exception:
             self.logger().exception(
-                f"Unexpected error occurred unsubscribing from order book data streams for {', '.join(trading_pairs)}.")
+                f"Unexpected error occurred unsubscribing from order book data streams for {', '.join(trading_pairs)}."
+            )
             raise
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:

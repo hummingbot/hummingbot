@@ -15,19 +15,30 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class AMMDataFeedConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter/router", json_schema_extra={
-        "prompt": "DEX connector in format 'name/type' (e.g., jupiter/router, uniswap/amm)", "prompt_on_new": True})
-    order_amount_in_base: Decimal = Field(Decimal("1.0"), json_schema_extra={
-        "prompt": "Order amount in base currency", "prompt_on_new": True})
-    trading_pair_1: str = Field("SOL-USDC", json_schema_extra={
-        "prompt": "First trading pair", "prompt_on_new": True})
-    trading_pair_2: Optional[str] = Field(None, json_schema_extra={
-        "prompt": "Second trading pair (optional)", "prompt_on_new": False})
-    trading_pair_3: Optional[str] = Field(None, json_schema_extra={
-        "prompt": "Third trading pair (optional)", "prompt_on_new": False})
-    file_name: Optional[str] = Field(None, json_schema_extra={
-        "prompt": "Output file name (without extension, defaults to connector_chain_network_timestamp)",
-        "prompt_on_new": False})
+    connector: str = Field(
+        "jupiter/router",
+        json_schema_extra={
+            "prompt": "DEX connector in format 'name/type' (e.g., jupiter/router, uniswap/amm)",
+            "prompt_on_new": True,
+        },
+    )
+    order_amount_in_base: Decimal = Field(
+        Decimal("1.0"), json_schema_extra={"prompt": "Order amount in base currency", "prompt_on_new": True}
+    )
+    trading_pair_1: str = Field("SOL-USDC", json_schema_extra={"prompt": "First trading pair", "prompt_on_new": True})
+    trading_pair_2: Optional[str] = Field(
+        None, json_schema_extra={"prompt": "Second trading pair (optional)", "prompt_on_new": False}
+    )
+    trading_pair_3: Optional[str] = Field(
+        None, json_schema_extra={"prompt": "Third trading pair (optional)", "prompt_on_new": False}
+    )
+    file_name: Optional[str] = Field(
+        None,
+        json_schema_extra={
+            "prompt": "Output file name (without extension, defaults to connector_chain_network_timestamp)",
+            "prompt_on_new": False,
+        },
+    )
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
         # Gateway connectors don't need market initialization
@@ -96,7 +107,7 @@ class AMMDataFeedExample(StrategyV2Base):
                     "trading_pair": trading_pair,
                     "buy_price": float(price_info.buy_price),
                     "sell_price": float(price_info.sell_price),
-                    "mid_price": float((price_info.buy_price + price_info.sell_price) / 2)
+                    "mid_price": float((price_info.buy_price + price_info.sell_price) / 2),
                 }
                 self.price_history.append(data_row)
 
@@ -116,7 +127,7 @@ class AMMDataFeedExample(StrategyV2Base):
         file_exists = os.path.exists(self.file_path)
 
         # Append to existing file or create new one
-        df.to_csv(self.file_path, mode='a', header=not file_exists, index=False)
+        df.to_csv(self.file_path, mode="a", header=not file_exists, index=False)
 
         self.logger().info(f"Saved {len(self.price_history)} price records to {self.file_path}")
 
@@ -141,12 +152,14 @@ class AMMDataFeedExample(StrategyV2Base):
             # Show price data for pairs that have it
             rows = []
             for token, price in self.amm_data_feed.price_dict.items():
-                rows.append({
-                    "trading_pair": token,
-                    "buy_price": float(price.buy_price),
-                    "sell_price": float(price.sell_price),
-                    "mid_price": float((price.buy_price + price.sell_price) / 2)
-                })
+                rows.append(
+                    {
+                        "trading_pair": token,
+                        "buy_price": float(price.buy_price),
+                        "sell_price": float(price.sell_price),
+                        "mid_price": float((price.buy_price + price.sell_price) / 2),
+                    }
+                )
             if rows:
                 df = pd.DataFrame(rows)
                 prices_str = format_df_for_printout(df, table_format="psql")
@@ -161,7 +174,9 @@ class AMMDataFeedExample(StrategyV2Base):
             lines.append(f"  Output file: {self.file_path}")
             lines.append(f"  Records in buffer: {len(self.price_history)}")
             lines.append(f"  Save interval: {self.save_interval} seconds")
-            lines.append(f"  Next save in: {self.save_interval - int((datetime.now() - self.last_save_time).total_seconds())} seconds")
+            lines.append(
+                f"  Next save in: {self.save_interval - int((datetime.now() - self.last_save_time).total_seconds())} seconds"
+            )
         else:
             lines.append("AMM Data Feed is not ready.")
             lines.append(f"Configured pairs: {', '.join(sorted(configured_pairs))}")

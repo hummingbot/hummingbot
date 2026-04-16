@@ -27,6 +27,7 @@ class V2WithControllers(StrategyV2Base):
     specific controller and wait until the active executors finalize their execution. The rest of the executors will
     wait until the main strategy stops them.
     """
+
     performance_report_interval: int = 1
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: V2WithControllersConfig):
@@ -69,12 +70,17 @@ class V2WithControllers(StrategyV2Base):
                         filter_func=lambda x: x.is_active and not x.is_trading,
                     )
                     self.executor_orchestrator.execute_actions(
-                        actions=[StopExecutorAction(controller_id=controller_id, executor_id=executor.id) for executor in executors_order_placed]
+                        actions=[
+                            StopExecutorAction(controller_id=controller_id, executor_id=executor.id)
+                            for executor in executors_order_placed
+                        ]
                     )
                     self.drawdown_exited_controllers.append(controller_id)
 
     def check_max_global_drawdown(self):
-        current_global_pnl = sum([self.get_performance_report(controller_id).global_pnl_quote for controller_id in self.controllers.keys()])
+        current_global_pnl = sum(
+            [self.get_performance_report(controller_id).global_pnl_quote for controller_id in self.controllers.keys()]
+        )
         if current_global_pnl > self.max_global_pnl:
             self.max_global_pnl = current_global_pnl
         else:
@@ -92,12 +98,17 @@ class V2WithControllers(StrategyV2Base):
         performance_report = self.controller_reports.get(controller_id, {}).get("performance")
         return {
             "performance": performance_report.dict() if performance_report else {},
-            "custom_info": self.controllers[controller_id].get_custom_info()
+            "custom_info": self.controllers[controller_id].get_custom_info(),
         }
 
     def send_performance_report(self):
-        if self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval and self._pub:
-            controller_reports = {controller_id: self.get_controller_report(controller_id) for controller_id in self.controllers.keys()}
+        if (
+            self.current_timestamp - self._last_performance_report_timestamp >= self.performance_report_interval
+            and self._pub
+        ):
+            controller_reports = {
+                controller_id: self.get_controller_report(controller_id) for controller_id in self.controllers.keys()
+            }
             self._pub(controller_reports)
             self._last_performance_report_timestamp = self.current_timestamp
 
@@ -108,8 +119,11 @@ class V2WithControllers(StrategyV2Base):
                 controller.stop()
                 executors_to_stop = self.get_executors_by_controller(controller_id)
                 self.executor_orchestrator.execute_actions(
-                    [StopExecutorAction(executor_id=executor.id,
-                                        controller_id=executor.controller_id) for executor in executors_to_stop])
+                    [
+                        StopExecutorAction(executor_id=executor.id, controller_id=executor.controller_id)
+                        for executor in executors_to_stop
+                    ]
+                )
             if not controller.config.manual_kill_switch and controller.status == RunnableStatus.TERMINATED:
                 if controller_id in self.drawdown_exited_controllers:
                     continue
@@ -118,20 +132,21 @@ class V2WithControllers(StrategyV2Base):
 
     def check_executors_status(self):
         active_executors = self.filter_executors(
-            executors=self.get_all_executors(),
-            filter_func=lambda executor: executor.status == RunnableStatus.RUNNING
+            executors=self.get_all_executors(), filter_func=lambda executor: executor.status == RunnableStatus.RUNNING
         )
         if not active_executors:
             self.logger().info("All executors have finalized their execution. Stopping the strategy.")
             HummingbotApplication.main_application().stop()
         else:
             non_trading_executors = self.filter_executors(
-                executors=active_executors,
-                filter_func=lambda executor: not executor.is_trading
+                executors=active_executors, filter_func=lambda executor: not executor.is_trading
             )
             self.executor_orchestrator.execute_actions(
-                [StopExecutorAction(executor_id=executor.id,
-                                    controller_id=executor.controller_id) for executor in non_trading_executors])
+                [
+                    StopExecutorAction(executor_id=executor.id, controller_id=executor.controller_id)
+                    for executor in non_trading_executors
+                ]
+            )
 
     def create_actions_proposal(self) -> List[CreateExecutorAction]:
         return []
@@ -150,8 +165,8 @@ class V2WithControllers(StrategyV2Base):
                         connectors_position_mode[config_dict["connector_name"]] = config_dict["position_mode"]
                     if "leverage" in config_dict and "trading_pair" in config_dict:
                         self.connectors[config_dict["connector_name"]].set_leverage(
-                            leverage=config_dict["leverage"],
-                            trading_pair=config_dict["trading_pair"])
+                            leverage=config_dict["leverage"], trading_pair=config_dict["trading_pair"]
+                        )
         for connector_name, position_mode in connectors_position_mode.items():
             self.connectors[connector_name].set_position_mode(position_mode)
 

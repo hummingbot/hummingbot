@@ -16,7 +16,7 @@ def format_decimal(n):
                 n = ctx.create_decimal(n)
             if isinstance(n, decimal.Decimal):
                 n = round(n, FLOAT_PRINTOUT_PRECISION)
-                return format(n.normalize(), 'f')
+                return format(n.normalize(), "f")
             else:
                 return str(n)
     except Exception as e:

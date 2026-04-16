@@ -10,16 +10,16 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class FoxbitAuth(AuthBase):
-
     def __init__(self, api_key: str, secret_key: str, user_id: str, time_provider: TimeSynchronizer):
         self.api_key = api_key
         self.secret_key = secret_key
         self.user_id = user_id
         self.time_provider = time_provider
 
-    async def rest_authenticate(self,
-                                request: RESTRequest,
-                                ) -> RESTRequest:
+    async def rest_authenticate(
+        self,
+        request: RESTRequest,
+    ) -> RESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
@@ -31,7 +31,7 @@ class FoxbitAuth(AuthBase):
 
         params = request.params if request.params is not None else ""
         if request.method == RESTMethod.GET and request.params is not None:
-            params = ''
+            params = ""
             i = 0
             for p in request.params:
                 k = p
@@ -46,15 +46,9 @@ class FoxbitAuth(AuthBase):
 
         to_payload = params if len(params) > 0 else data
 
-        payload = '{}{}{}{}'.format(timestamp,
-                                    request.method,
-                                    endpoint_url,
-                                    to_payload
-                                    )
+        payload = "{}{}{}{}".format(timestamp, request.method, endpoint_url, to_payload)
 
-        signature = hmac.new(self.secret_key.encode("utf8"),
-                             payload.encode("utf8"),
-                             hashlib.sha256).digest().hex()
+        signature = hmac.new(self.secret_key.encode("utf8"), payload.encode("utf8"), hashlib.sha256).digest().hex()
 
         foxbit_header = {
             "X-FB-ACCESS-KEY": self.api_key,
@@ -70,9 +64,10 @@ class FoxbitAuth(AuthBase):
 
         return request
 
-    async def ws_authenticate(self,
-                              request: WSRequest,
-                              ) -> WSRequest:
+    async def ws_authenticate(
+        self,
+        request: WSRequest,
+    ) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.
         It should be used with empty requests to send an initial login payload.
@@ -82,27 +77,19 @@ class FoxbitAuth(AuthBase):
         request.payload = self.get_ws_authenticate_payload(request)
         return request
 
-    def get_ws_authenticate_payload(self,
-                                    request: WSRequest = None,
-                                    ) -> Dict[str, any]:
+    def get_ws_authenticate_payload(
+        self,
+        request: WSRequest = None,
+    ) -> Dict[str, any]:
         timestamp = int(datetime.now(timezone.utc).timestamp() * 1e3)
 
-        msg = '{}{}{}'.format(timestamp,
-                              self.user_id,
-                              self.api_key)
+        msg = "{}{}{}".format(timestamp, self.user_id, self.api_key)
 
-        signature = hmac.new(self.secret_key.encode("utf8"),
-                             msg.encode("utf8"),
-                             hashlib.sha256).digest().hex()
+        signature = hmac.new(self.secret_key.encode("utf8"), msg.encode("utf8"), hashlib.sha256).digest().hex()
 
-        payload = {
-            "APIKey": self.api_key,
-            "Signature": signature,
-            "UserId": self.user_id,
-            "Nonce": timestamp
-        }
+        payload = {"APIKey": self.api_key, "Signature": signature, "UserId": self.user_id, "Nonce": timestamp}
 
-        if hasattr(request, 'payload'):
+        if hasattr(request, "payload"):
             payload.update(request.payload)
 
         return payload

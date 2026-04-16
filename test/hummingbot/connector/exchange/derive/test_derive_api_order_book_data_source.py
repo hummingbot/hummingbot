@@ -61,7 +61,8 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair}))
+            bidict({f"{self.base_asset}-{self.quote_asset}": self.trading_pair})
+        )
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -72,8 +73,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -83,8 +83,11 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event.set()
         return None
 
-    @patch("hummingbot.connector.exchange.derive.derive_api_order_book_data_source"
-           ".DeriveAPIOrderBookDataSource._request_order_book_snapshot", new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.derive.derive_api_order_book_data_source"
+        ".DeriveAPIOrderBookDataSource._request_order_book_snapshot",
+        new_callable=AsyncMock,
+    )
     async def test_get_new_order_book_successful(self, mock_snapshot):
         # Mock the snapshot response
         mock_snapshot.return_value = {
@@ -94,7 +97,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "publish_id": 12345,
                     "bids": [["100.0", "1.5"], ["99.0", "2.0"]],
                     "asks": [["101.0", "1.5"], ["102.0", "2.0"]],
-                    "timestamp": 1737885894000
+                    "timestamp": 1737885894000,
                 }
             }
         }
@@ -114,71 +117,98 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(1.5, asks[0].amount)
 
     def _trade_update_event(self):
-        resp = {"params": {
-            'channel': f'trades.{self.base_asset}-{self.quote_asset}',
-            'data': [
-                {
-                    'trade_id': '5f249af2-2a84-47b2-946e-2552f886f0a8',  # noqa: mock
-                    'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'timestamp': 1737810932869,
-                    'trade_price': '1.6682', 'trade_amount': '20', 'mark_price': '1.667960602579197952',
-                    'index_price': '1.667960602579197952', 'direction': 'sell', 'quote_id': None
-                }
-            ]
-        }}
+        resp = {
+            "params": {
+                "channel": f"trades.{self.base_asset}-{self.quote_asset}",
+                "data": [
+                    {
+                        "trade_id": "5f249af2-2a84-47b2-946e-2552f886f0a8",  # noqa: mock
+                        "instrument_name": f"{self.base_asset}-{self.quote_asset}",
+                        "timestamp": 1737810932869,
+                        "trade_price": "1.6682",
+                        "trade_amount": "20",
+                        "mark_price": "1.667960602579197952",
+                        "index_price": "1.667960602579197952",
+                        "direction": "sell",
+                        "quote_id": None,
+                    }
+                ],
+            }
+        }
         return resp
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {"params": {
-            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
+        return {
+            "params": {
+                "channel": f"orderbook.{self.base_asset}-{self.quote_asset}.1.100",
+                "data": {
+                    "timestamp": 1700687397643,
+                    "instrument_name": f"{self.base_asset}-{self.quote_asset}",
+                    "publish_id": 2865914,
+                    "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                    "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+                },
             }
-        }}
+        }
 
     def get_ws_diff_msg(self) -> Dict:
-        return {"params": {
-            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
+        return {
+            "params": {
+                "channel": f"orderbook.{self.base_asset}-{self.quote_asset}.1.100",
+                "data": {
+                    "timestamp": 1700687397643,
+                    "instrument_name": f"{self.base_asset}-{self.quote_asset}",
+                    "publish_id": 2865914,
+                    "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                    "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+                },
             }
-        }}
+        }
 
     def get_ws_diff_msg_2(self) -> Dict:
         return {
-            'channel': f'orderbook.{self.base_asset}-{self.quote_asset}.1.100',
-            'data': {
-                'timestamp': 1700687397643, 'instrument_name': f'{self.base_asset}-{self.quote_asset}', 'publish_id': 2865914,
-                'bids': [['1.6679', '2157.37'], ['1.6636', '2876.75'], ['1.51', '1']],
-                'asks': [['1.6693', '2157.56'], ['1.6736', '2876.32'], ['2.65', '8.93'], ['2.75', '8.97']]
-            }
+            "channel": f"orderbook.{self.base_asset}-{self.quote_asset}.1.100",
+            "data": {
+                "timestamp": 1700687397643,
+                "instrument_name": f"{self.base_asset}-{self.quote_asset}",
+                "publish_id": 2865914,
+                "bids": [["1.6679", "2157.37"], ["1.6636", "2876.75"], ["1.51", "1"]],
+                "asks": [["1.6693", "2157.56"], ["1.6736", "2876.32"], ["2.65", "8.93"], ["2.75", "8.97"]],
+            },
         }
 
     def get_trading_rule_rest_msg(self):
         return [
             {
-                'instrument_type': 'erc20',
-                'instrument_name': f'{self.base_asset}-{self.quote_asset}',
-                'scheduled_activation': 1728508925,
-                'scheduled_deactivation': 9223372036854775807,
-                'is_active': True,
-                'tick_size': '0.01',
-                'minimum_amount': '0.1',
-                'maximum_amount': '1000',
-                'amount_step': '0.01',
-                'mark_price_fee_rate_cap': '0',
-                'maker_fee_rate': '0.0015',
-                'taker_fee_rate': '0.0015',
-                'base_fee': '0.1',
-                'base_currency': self.base_asset,
-                'quote_currency': self.quote_asset,
-                'option_details': None,
-                'perp_details': None, 'erc20_details':
-                {'decimals': 18, 'underlying_erc20_address': '0x15CEcd5190A43C7798dD2058308781D0662e678E', 'borrow_index': '1', 'supply_index': '1'},
-                'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
+                "instrument_type": "erc20",
+                "instrument_name": f"{self.base_asset}-{self.quote_asset}",
+                "scheduled_activation": 1728508925,
+                "scheduled_deactivation": 9223372036854775807,
+                "is_active": True,
+                "tick_size": "0.01",
+                "minimum_amount": "0.1",
+                "maximum_amount": "1000",
+                "amount_step": "0.01",
+                "mark_price_fee_rate_cap": "0",
+                "maker_fee_rate": "0.0015",
+                "taker_fee_rate": "0.0015",
+                "base_fee": "0.1",
+                "base_currency": self.base_asset,
+                "quote_currency": self.quote_asset,
+                "option_details": None,
+                "perp_details": None,
+                "erc20_details": {
+                    "decimals": 18,
+                    "underlying_erc20_address": "0x15CEcd5190A43C7798dD2058308781D0662e678E",
+                    "borrow_index": "1",
+                    "supply_index": "1",
+                },
+                "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
+                "base_asset_sub_id": "0",
+                "pro_rata_fraction": "0",
+                "fifo_min_allocation": "0",
+                "pro_rata_amount_step": "1",
+            }
         ]
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -201,8 +231,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
 
@@ -221,9 +250,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(Exception):
             await self.data_source._subscribe_channels(mock_ws)
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams.")
-        )
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error occurred subscribing to order book data streams."))
 
     async def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -249,7 +276,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
+                    "is_block_trade": False,
                 },
                 {
                     "created_at": 1642994704241,
@@ -260,9 +287,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
                     "sigma": "0.00000000",
                     "index_price": "2447.79750000",
                     "underlying_price": "0.00000000",
-                    "is_block_trade": False
-                }
-            ]
+                    "is_block_trade": False,
+                },
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -276,8 +303,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
         self._simulate_trading_rules_initialized()
@@ -289,7 +315,8 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -314,12 +341,16 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     async def test_request_snapshot_with_cached(self):
         """Lines 136-141: Return cached snapshot"""
         self._simulate_trading_rules_initialized()
-        snapshot_msg = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": self.trading_pair,
-            "update_id": 99999,
-            "bids": [["100.0", "1.5"]],
-            "asks": [["101.0", "1.5"]],
-        }, timestamp=1737885894.0)
+        snapshot_msg = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "trading_pair": self.trading_pair,
+                "update_id": 99999,
+                "bids": [["100.0", "1.5"]],
+                "asks": [["101.0", "1.5"]],
+            },
+            timestamp=1737885894.0,
+        )
         self.data_source._snapshot_messages[self.trading_pair] = snapshot_msg
         result = await self.data_source._request_order_book_snapshot(self.trading_pair)
         self.assertEqual(99999, result["params"]["data"]["publish_id"])
@@ -337,9 +368,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: trade, orderbook
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}..."))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -349,9 +378,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -375,9 +402,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}..."))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -400,9 +425,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established"))
 
     async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated during unsubscription."""

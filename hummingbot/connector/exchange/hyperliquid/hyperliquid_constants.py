@@ -76,28 +76,65 @@ UNKNOWN_ORDER_MESSAGE = "Order was never placed, already canceled, or filled"
 
 RATE_LIMITS = [
     RateLimit(ALL_ENDPOINTS_LIMIT, limit=MAX_REQUEST, time_interval=60),
-
     # Weight Limits for individual endpoints
-    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=CREATE_ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=CANCEL_ORDER_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-
-    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-
+    RateLimit(
+        limit_id=SNAPSHOT_REST_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=TICKER_PRICE_CHANGE_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=PING_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CREATE_ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_TRADE_LIST_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=MY_TRADES_PATH_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_INFO_URL,
+        limit=MAX_REQUEST,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
 ]

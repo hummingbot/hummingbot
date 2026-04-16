@@ -58,8 +58,9 @@ class DexalotSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        await rest_assistant.execute_request(
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+        )
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -73,24 +74,26 @@ class DexalotSpotCandles(CandlesBase):
     def _is_last_candle_not_included_in_rest_request(self):
         return False
 
-    def _get_rest_candles_params(self,
-                                 start_time: Optional[int] = None,
-                                 end_time: Optional[int] = None,
-                                 limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST) -> dict:
+    def _get_rest_candles_params(
+        self,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
+    ) -> dict:
         """
         For API documentation, please refer to:
 
         startTime and endTime must be used at the same time.
         """
         _intervalstr = self.interval[-1]
-        if _intervalstr == 'm':
-            intervalstr = 'minute'
-        elif _intervalstr == 'h':
-            intervalstr = 'hour'
-        elif _intervalstr == 'd':
-            intervalstr = 'day'
+        if _intervalstr == "m":
+            intervalstr = "minute"
+        elif _intervalstr == "h":
+            intervalstr = "hour"
+        elif _intervalstr == "d":
+            intervalstr = "day"
         else:
-            intervalstr = ''
+            intervalstr = ""
         params = {
             "pair": self._ex_trading_pair,
             "intervalnum": CONSTANTS.INTERVALS[self.interval][1:],
@@ -107,38 +110,44 @@ class DexalotSpotCandles(CandlesBase):
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
         if data is not None and len(data) > 0:
-            return [[self.ensure_timestamp_in_seconds(datetime.strptime(row["date"], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()),
-                     row["open"] if row["open"] != 'None' else None,
-                     row["high"] if row["high"] != 'None' else None,
-                     row["low"] if row["low"] != 'None' else None,
-                     row["close"] if row["close"] != 'None' else None,
-                     row["volume"] if row["volume"] != 'None' else None,
-                     0., 0., 0., 0.] for row in data]
+            return [
+                [
+                    self.ensure_timestamp_in_seconds(
+                        datetime.strptime(row["date"], "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+                    ),
+                    row["open"] if row["open"] != "None" else None,
+                    row["high"] if row["high"] != "None" else None,
+                    row["low"] if row["low"] != "None" else None,
+                    row["close"] if row["close"] != "None" else None,
+                    row["volume"] if row["volume"] != "None" else None,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]
+                for row in data
+            ]
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
         trading_pair = self.get_exchange_trading_pair(self._trading_pair)
 
-        payload = {
-            "pair": trading_pair,
-            "chart": interval,
-            "type": "chart-v2-subscribe"
-        }
+        payload = {"pair": trading_pair, "chart": interval, "type": "chart-v2-subscribe"}
         return payload
 
     def _parse_websocket_message(self, data):
         candles_row_dict: Dict[str, Any] = {}
-        if data is not None and data.get("type") == 'liveCandle':
+        if data is not None and data.get("type") == "liveCandle":
             candle = data.get("data")[-1]
-            timestamp = datetime.strptime(candle["date"], '%Y-%m-%dT%H:%M:%SZ').timestamp()
+            timestamp = datetime.strptime(candle["date"], "%Y-%m-%dT%H:%M:%SZ").timestamp()
             candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(timestamp)
             candles_row_dict["open"] = candle["open"]
             candles_row_dict["low"] = candle["low"]
             candles_row_dict["high"] = candle["high"]
             candles_row_dict["close"] = candle["close"]
             candles_row_dict["volume"] = candle["volume"]
-            candles_row_dict["quote_asset_volume"] = 0.
-            candles_row_dict["n_trades"] = 0.
-            candles_row_dict["taker_buy_base_volume"] = 0.
-            candles_row_dict["taker_buy_quote_volume"] = 0.
+            candles_row_dict["quote_asset_volume"] = 0.0
+            candles_row_dict["n_trades"] = 0.0
+            candles_row_dict["taker_buy_base_volume"] = 0.0
+            candles_row_dict["taker_buy_quote_volume"] = 0.0
             return candles_row_dict

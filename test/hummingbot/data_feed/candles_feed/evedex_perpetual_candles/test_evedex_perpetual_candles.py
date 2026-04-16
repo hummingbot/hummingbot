@@ -139,8 +139,9 @@ class TestEvedexPerpetualCandles(TestCandlesBase):
             self.data_feed.health_check_url,
         )
         self.assertEqual(CONSTANTS.CANDLES_ENDPOINT, self.data_feed.candles_endpoint)
-        self.assertEqual(CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
-                         self.data_feed.candles_max_result_per_rest_request)
+        self.assertEqual(
+            CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST, self.data_feed.candles_max_result_per_rest_request
+        )
         self.assertEqual(CONSTANTS.RATE_LIMITS, self.data_feed.rate_limits)
         self.assertEqual(CONSTANTS.INTERVALS, self.data_feed.intervals)
         self.assertIn(self.ex_trading_pair, self.data_feed.candles_url)
@@ -204,7 +205,9 @@ class TestEvedexPerpetualCandles(TestCandlesBase):
 
     def test_format_iso_timestamp_handles_seconds_and_ns(self):
         ts_seconds = 1710000000
-        expected_seconds = datetime.fromtimestamp(ts_seconds, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        expected_seconds = (
+            datetime.fromtimestamp(ts_seconds, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        )
         self.assertEqual(expected_seconds, self.data_feed._format_iso_timestamp(ts_seconds))
 
         ts_ns = 171000000000000000
@@ -372,11 +375,7 @@ class TestEvedexPerpetualCandles(TestCandlesBase):
 
         self.assertIsNone(self.data_feed._parse_websocket_message({"push": {"pub": {}}}))
 
-        list_payload = {
-            "push": {
-                "pub": {"data": [1710000000000, "1", "1.1", "1.2", "0.9", "100", "10"]}
-            }
-        }
+        list_payload = {"push": {"pub": {"data": [1710000000000, "1", "1.1", "1.2", "0.9", "100", "10"]}}}
         parsed_list = self.data_feed._parse_websocket_message(list_payload)
         self.assertEqual("1", parsed_list["open"])
 

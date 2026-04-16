@@ -5,7 +5,6 @@ from hummingbot.connector.exchange.cube import cube_web_utils as web_utils
 
 
 class CubeUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         domain = "live"

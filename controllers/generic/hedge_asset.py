@@ -9,6 +9,7 @@ user can manually update the hedge ratio in the config, and the controller will 
 reducing or increasing the short position as needed. This allows safe, controlled management of spot inventory with
 minimal noise and predictable hedge behavior.
 """
+
 from decimal import Decimal
 from typing import List
 
@@ -24,6 +25,7 @@ class HedgeAssetConfig(ControllerConfigBase):
     """
     Configuration required to run the GridStrike strategy for one connector and trading pair.
     """
+
     controller_type: str = "generic"
     controller_name: str = "hedge_asset"
     total_amount_quote: Decimal = Decimal(0)
@@ -63,10 +65,13 @@ class HedgeAssetController(ControllerBase):
 
     @property
     def hedge_position_size(self) -> Decimal:
-        hedge_positions = [position for position in self.positions_held if
-                           position.connector_name == self.config.hedge_connector_name and
-                           position.trading_pair == self.config.hedge_trading_pair and
-                           position.side == TradeType.SELL]
+        hedge_positions = [
+            position
+            for position in self.positions_held
+            if position.connector_name == self.config.hedge_connector_name
+            and position.trading_pair == self.config.hedge_trading_pair
+            and position.side == TradeType.SELL
+        ]
         if len(hedge_positions) > 0:
             hedge_position = hedge_positions[0]
             hedge_position_size = hedge_position.amount
@@ -84,9 +89,15 @@ class HedgeAssetController(ControllerBase):
         """
         Compute current spot balance, hedge position size, current hedge ratio, last hedge time, current hedge gap quote
         """
-        current_price = self.market_data_provider.get_price_by_type(self.config.hedge_connector_name, self.config.hedge_trading_pair)
-        spot_balance = self.market_data_provider.get_balance(self.config.spot_connector_name, self.config.asset_to_hedge)
-        perp_available_balance = self.market_data_provider.get_available_balance(self.config.hedge_connector_name, self.perp_collateral_asset)
+        current_price = self.market_data_provider.get_price_by_type(
+            self.config.hedge_connector_name, self.config.hedge_trading_pair
+        )
+        spot_balance = self.market_data_provider.get_balance(
+            self.config.spot_connector_name, self.config.asset_to_hedge
+        )
+        perp_available_balance = self.market_data_provider.get_available_balance(
+            self.config.hedge_connector_name, self.perp_collateral_asset
+        )
         hedge_position_size = self.hedge_position_size
         hedge_position_gap = spot_balance * self.config.hedge_ratio - hedge_position_size
         hedge_position_gap_quote = hedge_position_gap * current_price
@@ -95,17 +106,19 @@ class HedgeAssetController(ControllerBase):
         # if these conditions are true we are allowed to execute a trade
         cool_down_time_condition = last_hedge_timestamp + self.config.cooldown_time < self.market_data_provider.time()
         min_notional_size_condition = abs(hedge_position_gap_quote) >= self.config.min_notional_size
-        self.processed_data.update({
-            "current_price": current_price,
-            "spot_balance": spot_balance,
-            "perp_available_balance": perp_available_balance,
-            "hedge_position_size": hedge_position_size,
-            "hedge_position_gap": hedge_position_gap,
-            "hedge_position_gap_quote": hedge_position_gap_quote,
-            "last_hedge_timestamp": last_hedge_timestamp,
-            "cool_down_time_condition": cool_down_time_condition,
-            "min_notional_size_condition": min_notional_size_condition,
-        })
+        self.processed_data.update(
+            {
+                "current_price": current_price,
+                "spot_balance": spot_balance,
+                "perp_available_balance": perp_available_balance,
+                "hedge_position_size": hedge_position_size,
+                "hedge_position_gap": hedge_position_gap,
+                "hedge_position_gap_quote": hedge_position_gap_quote,
+                "last_hedge_timestamp": last_hedge_timestamp,
+                "cool_down_time_condition": cool_down_time_condition,
+                "min_notional_size_condition": min_notional_size_condition,
+            }
+        )
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
         if self.processed_data["cool_down_time_condition"] and self.processed_data["min_notional_size_condition"]:
@@ -119,7 +132,7 @@ class HedgeAssetController(ControllerBase):
                 price=self.processed_data["current_price"],
                 leverage=self.config.leverage,
                 position_action=PositionAction.CLOSE if side == TradeType.BUY else PositionAction.OPEN,
-                execution_strategy=ExecutionStrategy.MARKET
+                execution_strategy=ExecutionStrategy.MARKET,
             )
             return [CreateExecutorAction(controller_id=self.config.id, executor_config=order_executor_config)]
         return []
@@ -149,7 +162,9 @@ class HedgeAssetController(ControllerBase):
 
         # Header
         lines.append(f"\n{'=' * 65}")
-        lines.append(f"  HEDGE ASSET CONTROLLER: {self.config.asset_to_hedge} @ {current_price:.4f} {self.perp_collateral_asset}")
+        lines.append(
+            f"  HEDGE ASSET CONTROLLER: {self.config.asset_to_hedge} @ {current_price:.4f} {self.perp_collateral_asset}"
+        )
         lines.append(f"{'=' * 65}")
 
         # Calculation flow
@@ -159,7 +174,9 @@ class HedgeAssetController(ControllerBase):
         lines.append(f"  = Target Hedge:    {theoretical_hedge:>10.4f} {self.config.asset_to_hedge}")
         lines.append(f"  - Current Hedge:   {hedge_position:>10.4f} {self.config.asset_to_hedge}")
         lines.append(f"  {'─' * 61}")
-        lines.append(f"  = Gap:             {gap:>10.4f} {self.config.asset_to_hedge}  ({gap_quote:>8.2f} {self.perp_collateral_asset})")
+        lines.append(
+            f"  = Gap:             {gap:>10.4f} {self.config.asset_to_hedge}  ({gap_quote:>8.2f} {self.perp_collateral_asset})"
+        )
         lines.append("")
         lines.append(f"  Perp Balance:      {perp_balance:>10.2f} {self.perp_collateral_asset}")
         lines.append("")
@@ -167,7 +184,9 @@ class HedgeAssetController(ControllerBase):
         # Trading conditions
         lines.append("  Trading Conditions:")
         lines.append(f"    Cooldown ({self.config.cooldown_time:.0f}s):      {cooldown_status}")
-        lines.append(f"    Min Notional (≥{self.config.min_notional_size:.0f} {self.perp_collateral_asset}): {notional_status}")
+        lines.append(
+            f"    Min Notional (≥{self.config.min_notional_size:.0f} {self.perp_collateral_asset}): {notional_status}"
+        )
 
         lines.append(f"{'=' * 65}\n")
 

@@ -19,15 +19,6 @@ def log_encoder(obj):
     raise TypeError("Object of type '%s' is not JSON serializable" % type(obj).__name__)
 
 
-__all__ = [
-    "DEBUG",
-    "INFO",
-    "WARNING",
-    "ERROR",
-    "CRITICAL",
-    "NETWORK",
-    "HummingbotLogger",
-    "log_encoder"
-]
+__all__ = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NETWORK", "HummingbotLogger", "log_encoder"]
 logging.setLoggerClass(HummingbotLogger)
 logging.addLevelName(NETWORK, "NETWORK")

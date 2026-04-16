@@ -18,20 +18,18 @@ if TYPE_CHECKING:
 
 
 class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
-            self,
-            auth: AuthBase,
-            trading_pairs: List[str],
-            connector: 'HyperliquidExchange',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DOMAIN,
+        self,
+        auth: AuthBase,
+        trading_pairs: List[str],
+        connector: "HyperliquidExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DOMAIN,
     ):
-
         super().__init__()
         self._domain = domain
         self._api_factory = api_factory
@@ -78,22 +76,20 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 "subscription": {
                     "type": "orderUpdates",
                     "user": self._connector.hyperliquid_address,
-                }
+                },
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(
-                payload=orders_change_payload,
-                is_auth_required=True)
+                payload=orders_change_payload, is_auth_required=True
+            )
 
             trades_payload = {
                 "method": "subscribe",
                 "subscription": {
                     "type": "userFills",
                     "user": self._connector.hyperliquid_address,
-                }
+                },
             }
-            subscribe_trades_request: WSJSONRequest = WSJSONRequest(
-                payload=trades_payload,
-                is_auth_required=True)
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload, is_auth_required=True)
             await websocket_assistant.send(subscribe_order_change_request)
             await websocket_assistant.send(subscribe_trades_request)
 
@@ -107,31 +103,29 @@ class HyperliquidAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
-            raise IOError({
-                "label": "WSS_ERROR",
-                "message": f"Error received via websocket - {err_msg}."
-            })
+            raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
         elif event_message.get("channel") in [
             CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             CONSTANTS.USEREVENT_ENDPOINT_NAME,
         ]:
             queue.put_nowait(event_message)
 
-    async def _ping_thread(self, websocket_assistant: WSAssistant,):
+    async def _ping_thread(
+        self,
+        websocket_assistant: WSAssistant,
+    ):
         try:
             while True:
                 ping_request = WSJSONRequest(payload={"method": "ping"})
                 await asyncio.sleep(CONSTANTS.HEARTBEAT_TIME_INTERVAL)
                 await websocket_assistant.send(ping_request)
         except Exception as e:
-            self.logger().debug(f'ping error {e}')
+            self.logger().debug(f"ping error {e}")
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
             try:
-                await super()._process_websocket_messages(
-                    websocket_assistant=websocket_assistant,
-                    queue=queue)
+                await super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue)
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"method": "ping"})
                 await websocket_assistant.send(ping_request)

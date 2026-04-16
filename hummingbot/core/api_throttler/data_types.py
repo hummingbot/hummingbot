@@ -4,9 +4,9 @@ from typing import List, Optional
 DEFAULT_PATH = ""
 DEFAULT_WEIGHT = 1
 
-Limit = int             # Integer representing the no. of requests be time interval
-RequestPath = str       # String representing the request path url
-RequestWeight = int     # Integer representing the request weight of the path url
+Limit = int  # Integer representing the no. of requests be time interval
+RequestPath = str  # String representing the request path url
+RequestWeight = int  # Integer representing the request weight of the path url
 Seconds = float
 
 
@@ -21,13 +21,14 @@ class RateLimit:
     Defines call rate limits typical for API endpoints.
     """
 
-    def __init__(self,
-                 limit_id: str,
-                 limit: int,
-                 time_interval: float,
-                 weight: int = DEFAULT_WEIGHT,
-                 linked_limits: Optional[List[LinkedLimitWeightPair]] = None,
-                 ):
+    def __init__(
+        self,
+        limit_id: str,
+        limit: int,
+        time_interval: float,
+        weight: int = DEFAULT_WEIGHT,
+        linked_limits: Optional[List[LinkedLimitWeightPair]] = None,
+    ):
         """
         :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
         :param limit: A total number of calls * weight permitted within time_interval period
@@ -42,8 +43,10 @@ class RateLimit:
         self.linked_limits = linked_limits or []
 
     def __repr__(self):
-        return f"limit_id: {self.limit_id}, limit: {self.limit}, time interval: {self.time_interval}, " \
-               f"weight: {self.weight}, linked_limits: {self.linked_limits}"
+        return (
+            f"limit_id: {self.limit_id}, limit: {self.limit}, time interval: {self.time_interval}, "
+            f"weight: {self.weight}, linked_limits: {self.linked_limits}"
+        )
 
 
 @dataclass

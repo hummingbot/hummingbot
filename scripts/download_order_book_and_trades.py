@@ -20,7 +20,7 @@ class DownloadTradesAndOrderBookSnapshotsConfig(StrategyV2ConfigBase):
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
         # Convert trading_pairs list to a set for consistency with the new pattern
-        trading_pairs_set = set(self.trading_pairs) if hasattr(self, 'trading_pairs') else set()
+        trading_pairs_set = set(self.trading_pairs) if hasattr(self, "trading_pairs") else set()
         markets[self.exchange] = markets.get(self.exchange, set()) | trading_pairs_set
         return markets
 
@@ -60,21 +60,21 @@ class DownloadTradesAndOrderBookSnapshots(StrategyV2Base):
         snapshot = order_book.snapshot
         return {
             "ts": self.current_timestamp,
-            "bids": snapshot[0].loc[:(depth - 1), ["price", "amount"]].values.tolist(),
-            "asks": snapshot[1].loc[:(depth - 1), ["price", "amount"]].values.tolist(),
+            "bids": snapshot[0].loc[: (depth - 1), ["price", "amount"]].values.tolist(),
+            "asks": snapshot[1].loc[: (depth - 1), ["price", "amount"]].values.tolist(),
         }
 
     def dump_and_clean_temp_storage(self):
         for trading_pair, order_book_info in self.ob_temp_storage.items():
             file = self.ob_file_paths[trading_pair]
             json_strings = [json.dumps(obj) for obj in order_book_info]
-            json_data = '\n'.join(json_strings)
+            json_data = "\n".join(json_strings)
             file.write("\n" + json_data)
             self.ob_temp_storage[trading_pair] = []
         for trading_pair, trades_info in self.trades_temp_storage.items():
             file = self.trades_file_paths[trading_pair]
             json_strings = [json.dumps(obj) for obj in trades_info]
-            json_data = '\n'.join(json_strings)
+            json_data = "\n".join(json_strings)
             file.write("\n" + json_data)
             self.trades_temp_storage[trading_pair] = []
         self.last_dump_timestamp = self.current_timestamp + self.time_between_csv_dumps
@@ -88,10 +88,14 @@ class DownloadTradesAndOrderBookSnapshots(StrategyV2Base):
 
     def create_order_book_and_trade_files(self):
         self.current_date = datetime.now().strftime("%Y-%m-%d")
-        self.ob_file_paths = {trading_pair: self.get_file(self.config.exchange, trading_pair, "order_book_snapshots", self.current_date) for
-                              trading_pair in self.config.trading_pairs}
-        self.trades_file_paths = {trading_pair: self.get_file(self.config.exchange, trading_pair, "trades", self.current_date) for
-                                  trading_pair in self.config.trading_pairs}
+        self.ob_file_paths = {
+            trading_pair: self.get_file(self.config.exchange, trading_pair, "order_book_snapshots", self.current_date)
+            for trading_pair in self.config.trading_pairs
+        }
+        self.trades_file_paths = {
+            trading_pair: self.get_file(self.config.exchange, trading_pair, "trades", self.current_date)
+            for trading_pair in self.config.trading_pairs
+        }
 
     @staticmethod
     def get_file(exchange: str, trading_pair: str, source_type: str, current_date: str):
@@ -99,12 +103,14 @@ class DownloadTradesAndOrderBookSnapshots(StrategyV2Base):
         return open(file_path, "a")
 
     def _process_public_trade(self, event_tag: int, market: ConnectorBase, event: OrderBookTradeEvent):
-        self.trades_temp_storage[event.trading_pair].append({
-            "ts": event.timestamp,
-            "price": event.price,
-            "q_base": event.amount,
-            "side": event.type.name.lower(),
-        })
+        self.trades_temp_storage[event.trading_pair].append(
+            {
+                "ts": event.timestamp,
+                "price": event.price,
+                "q_base": event.amount,
+                "side": event.type.name.lower(),
+            }
+        )
 
     def subscribe_to_order_book_trade_event(self):
         for market in self.connectors.values():

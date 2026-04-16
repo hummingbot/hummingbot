@@ -5,20 +5,11 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class BackpackPerpetualOrderBookTests(TestCase):
-
     def test_snapshot_message_from_exchange(self):
         snapshot_message = BackpackPerpetualOrderBook.snapshot_message_from_exchange(
-            msg={
-                "lastUpdateId": 1,
-                "bids": [
-                    ["4.00000000", "431.00000000"]
-                ],
-                "asks": [
-                    ["4.00000200", "12.00000000"]
-                ]
-            },
+            msg={"lastUpdateId": 1, "bids": [["4.00000000", "431.00000000"]], "asks": [["4.00000200", "12.00000000"]]},
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -45,22 +36,12 @@ class BackpackPerpetualOrderBookTests(TestCase):
                     "s": "COINALPHA_HBOT",
                     "U": 1,
                     "u": 2,
-                    "b": [
-                        [
-                            "0.0024",
-                            "10"
-                        ]
-                    ],
-                    "a": [
-                        [
-                            "0.0026",
-                            "100"
-                        ]
-                    ]
-                }
+                    "b": [["0.0024", "10"]],
+                    "a": [["0.0026", "100"]],
+                },
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -92,13 +73,12 @@ class BackpackPerpetualOrderBookTests(TestCase):
                 "a": 50,
                 "T": 123456785,
                 "m": True,
-                "M": True
-            }
+                "M": True,
+            },
         }
 
         trade_message = BackpackPerpetualOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)
@@ -120,11 +100,11 @@ class BackpackPerpetualOrderBookTests(TestCase):
                     "U": 3396117473,
                     "u": 3396117473,
                     "b": [],
-                    "a": []
-                }
+                    "a": [],
+                },
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "SOL-USDC"}
+            metadata={"trading_pair": "SOL-USDC"},
         )
 
         self.assertEqual("SOL-USDC", diff_msg.trading_pair)
@@ -143,19 +123,12 @@ class BackpackPerpetualOrderBookTests(TestCase):
                     "s": "BTC_USDC",
                     "U": 100,
                     "u": 105,
-                    "b": [
-                        ["50000.00", "1.5"],
-                        ["49999.99", "2.0"],
-                        ["49999.98", "0.5"]
-                    ],
-                    "a": [
-                        ["50001.00", "1.0"],
-                        ["50002.00", "2.5"]
-                    ]
-                }
+                    "b": [["50000.00", "1.5"], ["49999.99", "2.0"], ["49999.98", "0.5"]],
+                    "a": [["50001.00", "1.0"], ["50002.00", "2.5"]],
+                },
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "BTC-USDC"}
+            metadata={"trading_pair": "BTC-USDC"},
         )
 
         self.assertEqual(3, len(diff_msg.bids))
@@ -166,13 +139,9 @@ class BackpackPerpetualOrderBookTests(TestCase):
     def test_snapshot_message_with_empty_order_book(self):
         """Test snapshot message when order book is empty"""
         snapshot_message = BackpackPerpetualOrderBook.snapshot_message_from_exchange(
-            msg={
-                "lastUpdateId": 12345,
-                "bids": [],
-                "asks": []
-            },
+            msg={"lastUpdateId": 12345, "bids": [], "asks": []},
             timestamp=1640000000.0,
-            metadata={"trading_pair": "ETH-USDC"}
+            metadata={"trading_pair": "ETH-USDC"},
         )
 
         self.assertEqual("ETH-USDC", snapshot_message.trading_pair)
@@ -196,13 +165,12 @@ class BackpackPerpetualOrderBookTests(TestCase):
                 "a": 200,
                 "T": 123456785,
                 "m": True,
-                "M": True
-            }
+                "M": True,
+            },
         }
 
         trade_message = BackpackPerpetualOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "SOL-USDC"}
+            msg=trade_update, metadata={"trading_pair": "SOL-USDC"}
         )
 
         self.assertEqual("SOL-USDC", trade_message.trading_pair)
@@ -224,13 +192,12 @@ class BackpackPerpetualOrderBookTests(TestCase):
                 "a": 400,
                 "T": 987654321,
                 "m": False,
-                "M": False
-            }
+                "M": False,
+            },
         }
 
         trade_message = BackpackPerpetualOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "ETH-USDC"}
+            msg=trade_update, metadata={"trading_pair": "ETH-USDC"}
         )
 
         self.assertEqual("ETH-USDC", trade_message.trading_pair)
@@ -242,21 +209,11 @@ class BackpackPerpetualOrderBookTests(TestCase):
         snapshot_message = BackpackPerpetualOrderBook.snapshot_message_from_exchange(
             msg={
                 "lastUpdateId": 999999,
-                "bids": [
-                    ["100.00", "10.0"],
-                    ["99.99", "20.0"],
-                    ["99.98", "30.0"],
-                    ["99.97", "15.0"],
-                    ["99.96", "5.0"]
-                ],
-                "asks": [
-                    ["100.01", "12.0"],
-                    ["100.02", "18.0"],
-                    ["100.03", "25.0"]
-                ]
+                "bids": [["100.00", "10.0"], ["99.99", "20.0"], ["99.98", "30.0"], ["99.97", "15.0"], ["99.96", "5.0"]],
+                "asks": [["100.01", "12.0"], ["100.02", "18.0"], ["100.03", "25.0"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "BTC-USDC"}
+            metadata={"trading_pair": "BTC-USDC"},
         )
 
         self.assertEqual(5, len(snapshot_message.bids))

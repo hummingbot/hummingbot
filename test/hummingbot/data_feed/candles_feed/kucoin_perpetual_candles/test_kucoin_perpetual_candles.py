@@ -43,12 +43,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
 
     @staticmethod
     def get_symbols_dict_mock():
-        return {
-            "XBT-USDT": "XBTUSDTM",
-            "ETH-USDT": "ETHUSDTM",
-            "SOL-USDT": "SOLUSDTM",
-            "WIF-USDT": "WIFUSDTM"
-        }
+        return {"XBT-USDT": "XBTUSDTM", "ETH-USDT": "ETHUSDTM", "SOL-USDT": "SOLUSDTM", "WIF-USDT": "WIFUSDTM"}
 
     @staticmethod
     def get_symbols_response_mock():
@@ -103,15 +98,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lastTradePrice": 64679.9,
                     "nextFundingRateTime": 7466987,
                     "maxLeverage": 125,
-                    "sourceExchanges": [
-                        "okex",
-                        "binance",
-                        "kucoin",
-                        "bybit",
-                        "bitget",
-                        "bitmart",
-                        "gateio"
-                    ],
+                    "sourceExchanges": ["okex", "binance", "kucoin", "bybit", "bitget", "bitmart", "gateio"],
                     "premiumsSymbol1M": ".XBTUSDTMPI",
                     "premiumsSymbol8H": ".XBTUSDTMPI8H",
                     "fundingBaseSymbol1M": ".XBTINT",
@@ -119,7 +106,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lowPrice": 64278,
                     "highPrice": 67277.7,
                     "priceChgPct": -0.0245,
-                    "priceChg": -1629.5
+                    "priceChg": -1629.5,
                 },
                 {
                     "symbol": "ETHUSDTM",
@@ -169,15 +156,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lastTradePrice": 3409.38,
                     "nextFundingRateTime": 7466984,
                     "maxLeverage": 100,
-                    "sourceExchanges": [
-                        "okex",
-                        "binance",
-                        "kucoin",
-                        "gateio",
-                        "bybit",
-                        "bitmart",
-                        "bitget"
-                    ],
+                    "sourceExchanges": ["okex", "binance", "kucoin", "gateio", "bybit", "bitmart", "bitget"],
                     "premiumsSymbol1M": ".ETHUSDTMPI",
                     "premiumsSymbol8H": ".ETHUSDTMPI8H",
                     "fundingBaseSymbol1M": ".ETHINT",
@@ -185,7 +164,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lowPrice": 3350,
                     "highPrice": 3578.04,
                     "priceChgPct": -0.0371,
-                    "priceChg": -131.59
+                    "priceChg": -131.59,
                 },
                 {
                     "symbol": "SOLUSDTM",
@@ -235,13 +214,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lastTradePrice": 133.002,
                     "nextFundingRateTime": 7466981,
                     "maxLeverage": 75,
-                    "sourceExchanges": [
-                        "binance",
-                        "okex",
-                        "gateio",
-                        "bybit",
-                        "kucoin"
-                    ],
+                    "sourceExchanges": ["binance", "okex", "gateio", "bybit", "kucoin"],
                     "premiumsSymbol1M": ".SOLUSDTMPI",
                     "premiumsSymbol8H": ".SOLUSDTMPI8H",
                     "fundingBaseSymbol1M": ".SOLINT",
@@ -249,7 +222,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lowPrice": 125.847,
                     "highPrice": 146.808,
                     "priceChgPct": -0.0783,
-                    "priceChg": -11.303
+                    "priceChg": -11.303,
                 },
                 {
                     "symbol": "WIFUSDTM",
@@ -299,14 +272,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lastTradePrice": 1.9405,
                     "nextFundingRateTime": 7466978,
                     "maxLeverage": 75,
-                    "sourceExchanges": [
-                        "gateio",
-                        "bitmart",
-                        "kucoin",
-                        "mexc",
-                        "bitget",
-                        "binance"
-                    ],
+                    "sourceExchanges": ["gateio", "bitmart", "kucoin", "mexc", "bitget", "binance"],
                     "premiumsSymbol1M": ".WIFUSDTMPI",
                     "premiumsSymbol8H": ".WIFUSDTMPI8H",
                     "fundingBaseSymbol1M": ".WIFINT",
@@ -314,21 +280,61 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "lowPrice": 1.9206,
                     "highPrice": 2.4554,
                     "priceChgPct": -0.1912,
-                    "priceChg": -0.457
-                }
-            ]
+                    "priceChg": -0.457,
+                },
+            ],
         }
 
     def get_fetch_candles_data_mock(self):
         return [
-            [1672981200, '16823.24000000', '16792.12000000', '16810.18000000', '16823.63000000', '6230.44034000', 0.0,
-             0.0, 0.0, 0.0],
-            [1672984800, '16809.74000000', '16779.96000000', '16786.86000000', '16816.45000000', '6529.22759000', 0.0,
-             0.0, 0.0, 0.0],
-            [1672988400, '16786.60000000', '16780.15000000', '16794.06000000', '16802.87000000', '5763.44917000', 0.0,
-             0.0, 0.0, 0.0],
-            [1672992000, '16794.33000000', '16791.47000000', '16802.11000000', '16812.22000000', '5475.13940000', 0.0,
-             0.0, 0.0, 0.0],
+            [
+                1672981200,
+                "16823.24000000",
+                "16792.12000000",
+                "16810.18000000",
+                "16823.63000000",
+                "6230.44034000",
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            [
+                1672984800,
+                "16809.74000000",
+                "16779.96000000",
+                "16786.86000000",
+                "16816.45000000",
+                "6529.22759000",
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            [
+                1672988400,
+                "16786.60000000",
+                "16780.15000000",
+                "16794.06000000",
+                "16802.87000000",
+                "5763.44917000",
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            [
+                1672992000,
+                "16794.33000000",
+                "16791.47000000",
+                "16802.11000000",
+                "16812.22000000",
+                "5475.13940000",
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
         ]
 
     def get_candles_rest_data_mock(self):
@@ -341,30 +347,9 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                 "16810.18000000",
                 "6230.44034000",
             ],
-            [
-                1672984800,
-                "16809.74000000",
-                "16816.45000000",
-                "16779.96000000",
-                "16786.86000000",
-                "6529.22759000"
-            ],
-            [
-                1672988400,
-                "16786.60000000",
-                "16802.87000000",
-                "16780.15000000",
-                "16794.06000000",
-                "5763.44917000"
-            ],
-            [
-                1672992000,
-                "16794.33000000",
-                "16812.22000000",
-                "16791.47000000",
-                "16802.11000000",
-                "5475.13940000"
-            ],
+            [1672984800, "16809.74000000", "16816.45000000", "16779.96000000", "16786.86000000", "6529.22759000"],
+            [1672988400, "16786.60000000", "16802.87000000", "16780.15000000", "16794.06000000", "5763.44917000"],
+            [1672992000, "16794.33000000", "16812.22000000", "16791.47000000", "16802.11000000", "5475.13940000"],
         ]
         return {"code": "200000", "data": data}
 
@@ -382,10 +367,10 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "9806.1",  # high price
                     "9732",  # low price
                     "27.45649579",  # Transaction volume
-                    "268280.09830877"  # Transaction amount
+                    "268280.09830877",  # Transaction amount
                 ],
-                "time": 1589970010253893337  # now（us）
-            }
+                "time": 1589970010253893337,  # now（us）
+            },
         }
         return data
 
@@ -403,20 +388,22 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                     "9806.1",  # high price
                     "9732",  # low price
                     "27.45649579",  # Transaction volume
-                    "268280.09830877"  # Transaction amount
+                    "268280.09830877",  # Transaction amount
                 ],
-                "time": 1589970010253893337  # now（us）
-            }
+                "time": 1589970010253893337,  # now（us）
+            },
         }
         return data
 
     @staticmethod
     def _success_subscription_mock():
-        return {'id': str(get_tracking_nonce()),
-                'privateChannel': False,
-                'response': False,
-                'topic': '/market/candles:XBT-USDT_1hour',
-                'type': 'subscribe'}
+        return {
+            "id": str(get_tracking_nonce()),
+            "privateChannel": False,
+            "response": False,
+            "topic": "/market/candles:XBT-USDT_1hour",
+            "type": "subscribe",
+        }
 
     @staticmethod
     def get_public_token_response_mock():
@@ -430,10 +417,10 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
                         "encrypt": True,
                         "protocol": "websocket",
                         "pingInterval": 18000,
-                        "pingTimeout": 10000
+                        "pingTimeout": 10000,
                     }
-                ]
-            }
+                ],
+            },
         }
 
     @aioresponses()

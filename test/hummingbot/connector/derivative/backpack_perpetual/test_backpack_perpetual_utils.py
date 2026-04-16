@@ -4,7 +4,6 @@ from hummingbot.connector.derivative.backpack_perpetual import backpack_perpetua
 
 
 class BackpackPerpetualUtilTestCases(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

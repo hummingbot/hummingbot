@@ -18,6 +18,7 @@ def ensure_gateway_online(func):
             self.logger().error("Gateway is offline")
             return
         return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -44,24 +45,19 @@ class GatewayTokenCommand:
             return
 
         if action == "update":
-            safe_ensure_future(
-                self._update_token_interactive(symbol_or_address),
-                loop=self.ev_loop
-            )
+            safe_ensure_future(self._update_token_interactive(symbol_or_address), loop=self.ev_loop)
         else:
-            safe_ensure_future(
-                self._view_token(symbol_or_address),
-                loop=self.ev_loop
-            )
+            safe_ensure_future(self._view_token(symbol_or_address), loop=self.ev_loop)
 
     async def _view_token(
         self,  # type: HummingbotApplication
-        symbol_or_address: str
+        symbol_or_address: str,
     ):
         """View token information across all chains."""
         try:
             # Get all available chains from the Chain enum
             from hummingbot.connector.gateway.common_types import Chain
+
             chains_to_check = [chain.chain for chain in Chain]
             found_tokens: List[Dict] = []
 
@@ -78,7 +74,7 @@ class GatewayTokenCommand:
                     symbol_or_address=symbol_or_address,
                     chain=chain,
                     network=default_network,
-                    fail_silently=True  # Don't raise error if token not found
+                    fail_silently=True,  # Don't raise error if token not found
                 )
 
                 if "error" not in response:
@@ -92,7 +88,7 @@ class GatewayTokenCommand:
                         "symbol": token_data.get("symbol", "N/A"),
                         "name": token_data.get("name", "N/A"),
                         "address": token_data.get("address", "N/A"),
-                        "decimals": token_data.get("decimals", "N/A")
+                        "decimals": token_data.get("decimals", "N/A"),
                     }
                     found_tokens.append(token_info)
 
@@ -107,15 +103,13 @@ class GatewayTokenCommand:
 
     async def _update_token_interactive(
         self,  # type: HummingbotApplication
-        symbol: str
+        symbol: str,
     ):
         """Interactive flow to update or add a token."""
         try:
             with begin_placeholder_mode(self):
                 # Ask for chain
-                chain = await self.app.prompt(
-                    prompt="Enter chain (e.g., ethereum, solana): "
-                )
+                chain = await self.app.prompt(prompt="Enter chain (e.g., ethereum, solana): ")
 
                 if self.app.to_stop_config or not chain:
                     self.notify("Token update cancelled")
@@ -132,7 +126,7 @@ class GatewayTokenCommand:
                     symbol_or_address=symbol,
                     chain=chain,
                     network=default_network,
-                    fail_silently=True  # Don't raise error if token not found
+                    fail_silently=True,  # Don't raise error if token not found
                 )
 
                 if "error" not in existing_token:
@@ -143,9 +137,7 @@ class GatewayTokenCommand:
                     self._display_single_token(token_data, chain, default_network)
 
                     # Ask if they want to update
-                    response = await self.app.prompt(
-                        prompt="Do you want to update this token? (Yes/No) >>> "
-                    )
+                    response = await self.app.prompt(prompt="Do you want to update this token? (Yes/No) >>> ")
 
                     if response.lower() not in ["y", "yes"]:
                         self.notify("Token update cancelled")
@@ -157,32 +149,24 @@ class GatewayTokenCommand:
                 self.notify("\nEnter token information:")
 
                 # Symbol (pre-filled)
-                token_symbol = await self.app.prompt(
-                    prompt=f"Symbol [{symbol}]: "
-                )
+                token_symbol = await self.app.prompt(prompt=f"Symbol [{symbol}]: ")
                 if not token_symbol:
                     token_symbol = symbol
 
                 # Name
-                token_name = await self.app.prompt(
-                    prompt="Name: "
-                )
+                token_name = await self.app.prompt(prompt="Name: ")
                 if self.app.to_stop_config or not token_name:
                     self.notify("Token update cancelled")
                     return
 
                 # Address
-                token_address = await self.app.prompt(
-                    prompt="Contract address: "
-                )
+                token_address = await self.app.prompt(prompt="Contract address: ")
                 if self.app.to_stop_config or not token_address:
                     self.notify("Token update cancelled")
                     return
 
                 # Decimals
-                decimals_str = await self.app.prompt(
-                    prompt="Decimals [18]: "
-                )
+                decimals_str = await self.app.prompt(prompt="Decimals [18]: ")
                 try:
                     decimals = int(decimals_str) if decimals_str else 18
                 except ValueError:
@@ -194,7 +178,7 @@ class GatewayTokenCommand:
                     "symbol": token_symbol.upper(),
                     "name": token_name,
                     "address": token_address,
-                    "decimals": decimals
+                    "decimals": decimals,
                 }
 
                 # Display summary
@@ -202,9 +186,7 @@ class GatewayTokenCommand:
                 self.notify(json.dumps(token_data, indent=2))
 
                 # Confirm
-                confirm = await self.app.prompt(
-                    prompt="Add/update this token? (Yes/No) >>> "
-                )
+                confirm = await self.app.prompt(prompt="Add/update this token? (Yes/No) >>> ")
 
                 if confirm.lower() not in ["y", "yes"]:
                     self.notify("Token update cancelled")
@@ -213,9 +195,7 @@ class GatewayTokenCommand:
                 # Add/update token
                 self.notify("\nAdding/updating token...")
                 result = await self._get_gateway_instance().add_token(
-                    chain=chain,
-                    network=default_network,
-                    token_data=token_data
+                    chain=chain, network=default_network, token_data=token_data
                 )
 
                 if "error" in result:
@@ -251,12 +231,7 @@ class GatewayTokenCommand:
         lines = ["    " + line for line in df.to_string(index=False).split("\n")]
         self.notify("\n".join(lines))
 
-    def _display_single_token(
-        self,
-        token_info: dict,
-        chain: str,
-        network: str
-    ):
+    def _display_single_token(self, token_info: dict, chain: str, network: str):
         """Display a single token's information."""
         self.notify(f"\nChain: {chain}")
         self.notify(f"Network: {network}")

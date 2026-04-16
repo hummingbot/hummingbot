@@ -16,7 +16,9 @@ HBOT_ORDER_ID_PREFIX = "HBOT"
 DEFAULT_SUBACCOUNT_INDEX = 0
 TX_GAS_PRICE = pyinjective.constant.GAS_PRICE
 GAS_LIMIT_ADJUSTMENT_MULTIPLIER = None  # Leave as None to use the default value from the SDK. Otherwise, a float value.
-GAS_PRICE_MULTIPLIER = "1.1"  # Multiplier for the gas price, to ensure the price used is valid even if the chain is under a big load.
+GAS_PRICE_MULTIPLIER = (
+    "1.1"  # Multiplier for the gas price, to ensure the price used is valid even if the chain is under a big load.
+)
 
 EXPECTED_BLOCK_TIME = 1.5
 TRANSACTIONS_CHECK_INTERVAL = 3 * EXPECTED_BLOCK_TIME
@@ -53,82 +55,98 @@ ENDPOINTS_RATE_LIMITS = [
         limit_id=SIMULATE_TRANSACTION_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SEND_TRANSACTION,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=GET_TRANSACTION_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SPOT_MARKETS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=DERIVATIVE_MARKETS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SPOT_ORDERBOOK_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=DERIVATIVE_ORDERBOOK_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=PORTFOLIO_BALANCES_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=POSITIONS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SPOT_ORDERS_HISTORY_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=DERIVATIVE_ORDERS_HISTORY_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=SPOT_TRADES_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=DERIVATIVE_TRADES_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=FUNDING_RATES_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=ORACLE_PRICES_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
     RateLimit(
         limit_id=FUNDING_PAYMENTS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)]),
+        linked_limits=[LinkedLimitWeightPair(INDEXER_ENDPOINTS_GROUP_LIMIT_ID)],
+    ),
 ]
 
 PUBLIC_NODE_RATE_LIMITS = [

@@ -38,9 +38,9 @@ class OrderExecutorConfig(ExecutorConfigBase):
     @classmethod
     def validate_execution_strategy(cls, value, validation_info: ValidationInfo):
         if value in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
-            if validation_info.data.get('price') is None:
+            if validation_info.data.get("price") is None:
                 raise ValueError("Price is required for LIMIT and LIMIT_MAKER execution strategies")
         elif value == ExecutionStrategy.LIMIT_CHASER:
-            if validation_info.data.get('chaser_config') is None:
+            if validation_info.data.get("chaser_config") is None:
                 raise ValueError("Chaser config is required for LIMIT_CHASER execution strategy")
         return value

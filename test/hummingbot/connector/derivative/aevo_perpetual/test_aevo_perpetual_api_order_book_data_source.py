@@ -116,11 +116,13 @@ class AevoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
 
     async def test_order_book_snapshot_builds_message(self):
-        self.data_source._request_order_book_snapshot = AsyncMock(return_value={
-            "last_updated": 1000000000,
-            "bids": [["100", "1.5"]],
-            "asks": [["101", "2"]],
-        })
+        self.data_source._request_order_book_snapshot = AsyncMock(
+            return_value={
+                "last_updated": 1000000000,
+                "bids": [["100", "1.5"]],
+                "asks": [["101", "2"]],
+            }
+        )
 
         message = await self.data_source._order_book_snapshot(self.trading_pair)
 
@@ -176,12 +178,16 @@ class AevoPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         trade_message = {"channel": f"{CONSTANTS.WS_TRADE_CHANNEL}:{self.ex_trading_pair}"}
         unknown_message = {"channel": "unknown-channel"}
 
-        self.assertEqual(self.data_source._snapshot_messages_queue_key,
-                         self.data_source._channel_originating_message(snapshot_message))
-        self.assertEqual(self.data_source._diff_messages_queue_key,
-                         self.data_source._channel_originating_message(diff_message))
-        self.assertEqual(self.data_source._trade_messages_queue_key,
-                         self.data_source._channel_originating_message(trade_message))
+        self.assertEqual(
+            self.data_source._snapshot_messages_queue_key,
+            self.data_source._channel_originating_message(snapshot_message),
+        )
+        self.assertEqual(
+            self.data_source._diff_messages_queue_key, self.data_source._channel_originating_message(diff_message)
+        )
+        self.assertEqual(
+            self.data_source._trade_messages_queue_key, self.data_source._channel_originating_message(trade_message)
+        )
         self.assertEqual("", self.data_source._channel_originating_message(unknown_message))
         self.assertTrue(self._is_logged("WARNING", "Unknown WS channel received: unknown-channel"))
 

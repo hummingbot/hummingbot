@@ -5,7 +5,6 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class FoxbitOrderBookTests(TestCase):
-
     def test_snapshot_message_from_exchange(self):
         snapshot_message = FoxbitOrderBook.snapshot_message_from_exchange(
             msg={
@@ -24,7 +23,7 @@ class FoxbitOrderBookTests(TestCase):
                     ["0.0016", "100.18"],
                     ["0.0015", "100.19"],
                     ["0.0014", "100.2"],
-                    ["0.0013", "100.21"]
+                    ["0.0013", "100.21"],
                 ],
                 "asks": [
                     ["0.0026", "100.2"],
@@ -38,11 +37,11 @@ class FoxbitOrderBookTests(TestCase):
                     ["0.0034", "100.28"],
                     ["0.0035", "100.29"],
                     ["0.0036", "100.3"],
-                    ["0.0037", "100.31"]
-                ]
+                    ["0.0037", "100.31"],
+                ],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -69,25 +68,15 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 0,
-                 145901,
-                 0,
-                 0.0025,
-                 1,
-                 10.3,
-                 0
-                 ],
+            msg=[2, 0, 1660844469114, 0, 145901, 0, 0.0025, 1, 10.3, 0],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -108,25 +97,15 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 0,
-                 145901,
-                 0,
-                 0.00255,
-                 1,
-                 23.7,
-                 1
-                 ],
+            msg=[2, 0, 1660844469114, 0, 145901, 0, 0.00255, 1, 23.7, 1],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -147,25 +126,15 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 1,
-                 145901,
-                 0,
-                 0.0025,
-                 1,
-                 54.9,
-                 0
-                 ],
+            msg=[2, 0, 1660844469114, 1, 145901, 0, 0.0025, 1, 54.9, 0],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -186,25 +155,15 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 1,
-                 145901,
-                 0,
-                 0.00255,
-                 1,
-                 4.5,
-                 1
-                 ],
+            msg=[2, 0, 1660844469114, 1, 145901, 0, 0.00255, 1, 4.5, 1],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -225,26 +184,16 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 0,
-                 145901,
-                 0,
-                 0.0025,
-                 1,
-                 10.3,
-                 0
-                 ],
+            msg=[2, 0, 1660844469114, 0, 145901, 0, 0.0025, 1, 10.3, 0],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
@@ -258,19 +207,9 @@ class FoxbitOrderBookTests(TestCase):
         self.assertEqual(10.3, diff_msg.bids[0].amount)
 
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[3,
-                 0,
-                 1660844469114,
-                 2,
-                 145901,
-                 0,
-                 0.0025,
-                 1,
-                 0,
-                 0
-                 ],
+            msg=[3, 0, 1660844469114, 2, 145901, 0, 0.0025, 1, 0, 0],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
@@ -290,26 +229,16 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[2,
-                 0,
-                 1660844469114,
-                 1,
-                 145901,
-                 0,
-                 0.00255,
-                 1,
-                 23.7,
-                 1
-                 ],
+            msg=[2, 0, 1660844469114, 1, 145901, 0, 0.00255, 1, 23.7, 1],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
@@ -323,19 +252,9 @@ class FoxbitOrderBookTests(TestCase):
         self.assertEqual(23.7, diff_msg.asks[0].amount)
 
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
-            msg=[3,
-                 0,
-                 1660844469114,
-                 2,
-                 145901,
-                 0,
-                 0.00255,
-                 1,
-                 23.7,
-                 1
-                 ],
+            msg=[3, 0, 1660844469114, 2, 145901, 0, 0.00255, 1, 23.7, 1],
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
@@ -355,26 +274,15 @@ class FoxbitOrderBookTests(TestCase):
                 "sequence_id": 1,
                 "timestamp": 2,
                 "bids": [["0.0024", "100.1"]],
-                "asks": [["0.0026", "100.2"]]
+                "asks": [["0.0026", "100.2"]],
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
-        trade_update = [194,
-                        4,
-                        "0.1",
-                        "8432.0",
-                        787704,
-                        792085,
-                        1661952966311,
-                        0,
-                        0,
-                        False,
-                        0]
+        trade_update = [194, 4, "0.1", "8432.0", 787704, 792085, 1661952966311, 0, 0, False, 0]
 
         trade_message = FoxbitOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)

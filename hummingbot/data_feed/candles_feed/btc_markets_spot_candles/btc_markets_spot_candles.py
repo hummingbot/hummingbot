@@ -422,10 +422,7 @@ class BtcMarketsSpotCandles(CandlesBase):
 
                     # Wait for either shutdown signal or polling interval
                     try:
-                        await asyncio.wait_for(
-                            self._shutdown_event.wait(),
-                            timeout=CONSTANTS.POLL_INTERVAL
-                        )
+                        await asyncio.wait_for(self._shutdown_event.wait(), timeout=CONSTANTS.POLL_INTERVAL)
                         # If we reach here, shutdown was requested
                         break
                     except asyncio.TimeoutError:
@@ -440,10 +437,7 @@ class BtcMarketsSpotCandles(CandlesBase):
 
                     # Wait before retrying, but also listen for shutdown
                     try:
-                        await asyncio.wait_for(
-                            self._shutdown_event.wait(),
-                            timeout=5.0
-                        )
+                        await asyncio.wait_for(self._shutdown_event.wait(), timeout=5.0)
                         break
                     except asyncio.TimeoutError:
                         continue

@@ -12,15 +12,12 @@ from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_maki
 
 
 class XEMMStartTest(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.client_config_map.strategy_report_interval = 60.
-        self.markets = {
-            "binance": ExchangeBase(),
-            "kucoin": ExchangeBase()}
+        self.client_config_map.strategy_report_interval = 60.0
+        self.markets = {"binance": ExchangeBase(), "kucoin": ExchangeBase()}
         self.notifications = []
         self.log_errors = []
 

@@ -81,10 +81,13 @@ async def test_rest_authenticate_adds_fields_and_signature(monkeypatch):
 
     def fake_sign_message(header, payload, keypair):
         return ("msg", "FAKESIG")
+
     monkeypatch.setattr(auth_mod, "sign_message", fake_sign_message)
     # Use a valid secret key from our DUMMY_KEYPAIR (full 64 bytes)
     valid_secret = base58.b58encode(bytes(DUMMY_KEYPAIR)).decode("ascii")
-    auth = auth_mod.PacificaPerpetualAuth(agent_wallet_public_key="pub", agent_wallet_private_key=valid_secret, user_wallet_public_key="user")
+    auth = auth_mod.PacificaPerpetualAuth(
+        agent_wallet_public_key="pub", agent_wallet_private_key=valid_secret, user_wallet_public_key="user"
+    )
 
     # Run authentication
     await auth.rest_authenticate(request)
@@ -107,10 +110,13 @@ async def test_ws_authenticate_mutates_payload(monkeypatch):
 
     def fake_sign_message(header, payload, keypair):
         return ("msg", "WSIG")
+
     monkeypatch.setattr(auth_mod, "sign_message", fake_sign_message)
 
     valid_secret = base58.b58encode(bytes(DUMMY_KEYPAIR)).decode("ascii")
-    auth = auth_mod.PacificaPerpetualAuth(agent_wallet_public_key="pub", agent_wallet_private_key=valid_secret, user_wallet_public_key="user")
+    auth = auth_mod.PacificaPerpetualAuth(
+        agent_wallet_public_key="pub", agent_wallet_private_key=valid_secret, user_wallet_public_key="user"
+    )
 
     # Run authentication
     # Run authentication

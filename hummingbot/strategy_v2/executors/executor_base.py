@@ -31,7 +31,9 @@ class ExecutorBase(RunnableBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
+    def __init__(
+        self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5
+    ):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
@@ -45,8 +47,11 @@ class ExecutorBase(RunnableBase):
         self.close_timestamp: Optional[float] = None
         self._strategy: StrategyV2Base = strategy
         self._held_position_orders = []  # Keep track of orders that become held positions
-        self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
-                           connector_name in connectors}
+        self.connectors = {
+            connector_name: connector
+            for connector_name, connector in strategy.connectors.items()
+            if connector_name in connectors
+        }
 
         # Event forwarders for different order events
         self._create_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
@@ -108,6 +113,7 @@ class ExecutorBase(RunnableBase):
         """
         Returns the executor info.
         """
+
         def _safe_decimal(value) -> Decimal:
             d = Decimal(str(value))
             return d if d.is_finite() else Decimal("0")
@@ -151,9 +157,7 @@ class ExecutorBase(RunnableBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_amm_connector(exchange: str) -> bool:
-        return exchange in sorted(
-            AllConnectorSettings.get_gateway_amm_connector_names()
-        )
+        return exchange in sorted(AllConnectorSettings.get_gateway_amm_connector_names())
 
     def start(self):
         """
@@ -265,15 +269,28 @@ class ExecutorBase(RunnableBase):
         """
         return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates)
 
-    def place_order(self,
-                    connector_name: str,
-                    trading_pair: str,
-                    order_type: OrderType,
-                    side: TradeType,
-                    amount: Decimal,
-                    position_action: PositionAction = PositionAction.NIL,
-                    price=Decimal("NaN"),
-                    ):
+    def lock_order_candidate(self, exchange: str, order_candidate: OrderCandidate) -> OrderCandidate:
+        """
+        Adjusts and locks the order candidate based on the budget checker of the specified exchange.
+        """
+        return self.connectors[exchange].budget_checker.adjust_candidate_and_lock_available_collateral(order_candidate)
+
+    def unlock_order_candidate(self, exchange: str, order_candidate: OrderCandidate) -> OrderCandidate:
+        """
+        Adjusts and locks the order candidate based on the budget checker of the specified exchange.
+        """
+        return self.connectors[exchange].budget_checker.release_locked_collateral(order_candidate)
+
+    def place_order(
+        self,
+        connector_name: str,
+        trading_pair: str,
+        order_type: OrderType,
+        side: TradeType,
+        amount: Decimal,
+        position_action: PositionAction = PositionAction.NIL,
+        price=Decimal("NaN"),
+    ):
         """
         Places an order with the specified parameters.
 
@@ -351,10 +368,9 @@ class ExecutorBase(RunnableBase):
         """
         return self._strategy.get_active_orders(connector_name)
 
-    def process_order_completed_event(self,
-                                      event_tag: int,
-                                      market: ConnectorBase,
-                                      event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
+    def process_order_completed_event(
+        self, event_tag: int, market: ConnectorBase, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]
+    ):
         """
         Processes the order completed event. This method should be overridden by subclasses.
 
@@ -364,10 +380,9 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def process_order_created_event(self,
-                                    event_tag: int,
-                                    market: ConnectorBase,
-                                    event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+    def process_order_created_event(
+        self, event_tag: int, market: ConnectorBase, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]
+    ):
         """
         Processes the order created event. This method should be overridden by subclasses.
 
@@ -377,10 +392,7 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def process_order_canceled_event(self,
-                                     event_tag: int,
-                                     market: ConnectorBase,
-                                     event: OrderCancelledEvent):
+    def process_order_canceled_event(self, event_tag: int, market: ConnectorBase, event: OrderCancelledEvent):
         """
         Processes the order canceled event. This method should be overridden by subclasses.
 
@@ -390,10 +402,7 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def process_order_filled_event(self,
-                                   event_tag: int,
-                                   market: ConnectorBase,
-                                   event: OrderFilledEvent):
+    def process_order_filled_event(self, event_tag: int, market: ConnectorBase, event: OrderFilledEvent):
         """
         Processes the order filled event. This method should be overridden by subclasses.
 
@@ -403,10 +412,7 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
-    def process_order_failed_event(self,
-                                   event_tag: int,
-                                   market: ConnectorBase,
-                                   event: MarketOrderFailureEvent):
+    def process_order_failed_event(self, event_tag: int, market: ConnectorBase, event: MarketOrderFailureEvent):
         """
         Processes the order failed event. This method should be overridden by subclasses.
 

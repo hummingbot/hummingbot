@@ -132,7 +132,8 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.OrderFailure, self.order_failure_logger),
-            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -156,127 +157,119 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     def _get_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
         positions = [
             {
-                'breakEvenPrice': '126.9307',
-                'cumulativeFundingPayment': '-0.000105',
-                'cumulativeInterest': '0',
-                'entryPrice': '126.93',
-                'estLiquidationPrice': '0',
-                'imf': '0.01',
-                'imfFunction': {
-                    'base': '0.02',
-                    'factor': '0.00006',
-                    'type': 'sqrt'
-                },
-                'markPrice': '121.98',
-                'mmf': '0.0135',
-                'mmfFunction': {
-                    'base': '0.0135',
-                    'factor': '0.000036',
-                    'type': 'sqrt'
-                },
-                'netCost': '-1.2697',
-                'netExposureNotional': '1.2198',
-                'netExposureQuantity': '0.01',
-                'netQuantity': '-0.01',
-                'pnlRealized': '0.051',
-                'pnlUnrealized': '0.0048',
-                'positionId': '28563667732',
-                'subaccountId': None,
-                'symbol': self.symbol,
-                'userId': 1905955}
+                "breakEvenPrice": "126.9307",
+                "cumulativeFundingPayment": "-0.000105",
+                "cumulativeInterest": "0",
+                "entryPrice": "126.93",
+                "estLiquidationPrice": "0",
+                "imf": "0.01",
+                "imfFunction": {"base": "0.02", "factor": "0.00006", "type": "sqrt"},
+                "markPrice": "121.98",
+                "mmf": "0.0135",
+                "mmfFunction": {"base": "0.0135", "factor": "0.000036", "type": "sqrt"},
+                "netCost": "-1.2697",
+                "netExposureNotional": "1.2198",
+                "netExposureQuantity": "0.01",
+                "netQuantity": "-0.01",
+                "pnlRealized": "0.051",
+                "pnlUnrealized": "0.0048",
+                "positionId": "28563667732",
+                "subaccountId": None,
+                "symbol": self.symbol,
+                "userId": 1905955,
+            }
         ]
         return positions
 
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
         account_update = {
-            'data': {
-                'B': '126.97',
-                'E': 1769366599828079,
-                'M': '120.96',
-                'P': '0.0009',
-                'Q': '0.01',
-                'T': 1769366599828078,
-                'b': '126.9307',
-                'f': '0.02',
-                'i': 28563667732,
-                'l': '0',
-                'm': '0.0135',
-                'n': '1.2096',
-                'p': '0.0592',
-                'q': '-0.01',
-                's': self.symbol
+            "data": {
+                "B": "126.97",
+                "E": 1769366599828079,
+                "M": "120.96",
+                "P": "0.0009",
+                "Q": "0.01",
+                "T": 1769366599828078,
+                "b": "126.9307",
+                "f": "0.02",
+                "i": 28563667732,
+                "l": "0",
+                "m": "0.0135",
+                "n": "1.2096",
+                "p": "0.0592",
+                "q": "-0.01",
+                "s": self.symbol,
             },
-            'stream': 'account.positionUpdate'
+            "stream": "account.positionUpdate",
         }
         return account_update
 
     def _get_income_history_dict(self) -> List:
         income_history = [
             {
-                'fundingRate': '-0.0000273',
-                'intervalEndTimestamp': '2026-01-25T18:00:00',
-                'quantity': '-0.000034',
-                'subaccountId': 0,
-                'symbol': self.symbol,
-                'userId': 1905955
+                "fundingRate": "-0.0000273",
+                "intervalEndTimestamp": "2026-01-25T18:00:00",
+                "quantity": "-0.000034",
+                "subaccountId": 0,
+                "symbol": self.symbol,
+                "userId": 1905955,
             }
         ]
         return income_history
 
     def _get_funding_info_dict(self) -> Dict[str, Any]:
-        funding_info = [{
-            "indexPrice": "1000",
-            "markPrice": "1001",
-            "nextFundingTimestamp": int(self.start_timestamp * 1e3) + 8 * 60 * 60 * 1000,
-            "fundingRate": "0.0001"
-        }]
+        funding_info = [
+            {
+                "indexPrice": "1000",
+                "markPrice": "1001",
+                "nextFundingTimestamp": int(self.start_timestamp * 1e3) + 8 * 60 * 60 * 1000,
+                "fundingRate": "0.0001",
+            }
+        ]
         return funding_info
 
     def _get_exchange_info_mock_response(
-            self,
-            min_order_size: float = 0.01,
-            min_price_increment: float = 0.01,
-            min_base_amount_increment: float = 0.01,
+        self,
+        min_order_size: float = 0.01,
+        min_price_increment: float = 0.01,
+        min_base_amount_increment: float = 0.01,
     ) -> List[Dict[str, Any]]:
         mocked_exchange_info = [
             {
-                'baseSymbol': self.base_asset,
-                'createdAt': '2025-01-21T06:34:54.691858',
-                'filters': {
-                    'price': {
-                        'borrowEntryFeeMaxMultiplier': None,
-                        'borrowEntryFeeMinMultiplier': None,
-                        'maxImpactMultiplier': '1.03',
-                        'maxMultiplier': '1.25',
-                        'maxPrice': None,
-                        'meanMarkPriceBand': {
-                            'maxMultiplier': '1.03',
-                            'minMultiplier': '0.97'
-                        },
-                        'meanPremiumBand': None,
-                        'minImpactMultiplier': '0.97',
-                        'minMultiplier': '0.75',
-                        'minPrice': '0.01',
-                        'tickSize': str(min_price_increment)
+                "baseSymbol": self.base_asset,
+                "createdAt": "2025-01-21T06:34:54.691858",
+                "filters": {
+                    "price": {
+                        "borrowEntryFeeMaxMultiplier": None,
+                        "borrowEntryFeeMinMultiplier": None,
+                        "maxImpactMultiplier": "1.03",
+                        "maxMultiplier": "1.25",
+                        "maxPrice": None,
+                        "meanMarkPriceBand": {"maxMultiplier": "1.03", "minMultiplier": "0.97"},
+                        "meanPremiumBand": None,
+                        "minImpactMultiplier": "0.97",
+                        "minMultiplier": "0.75",
+                        "minPrice": "0.01",
+                        "tickSize": str(min_price_increment),
                     },
-                    'quantity': {
-                        'maxQuantity': None,
-                        'minQuantity': str(min_order_size),
-                        'stepSize': str(min_base_amount_increment)
-                    }
+                    "quantity": {
+                        "maxQuantity": None,
+                        "minQuantity": str(min_order_size),
+                        "stepSize": str(min_base_amount_increment),
+                    },
                 },
-                'fundingInterval': None,
-                'fundingRateLowerBound': None,
-                'fundingRateUpperBound': None,
-                'imfFunction': None,
-                'marketType': 'PERP',
-                'mmfFunction': None,
-                'openInterestLimit': '0',
-                'orderBookState': 'Open',
-                'positionLimitWeight': None,
-                'quoteSymbol': self.quote_asset,
-                'symbol': self.symbol,
-                'visible': True
+                "fundingInterval": None,
+                "fundingRateLowerBound": None,
+                "fundingRateUpperBound": None,
+                "imfFunction": None,
+                "marketType": "PERP",
+                "mmfFunction": None,
+                "openInterestLimit": "0",
+                "orderBookState": "Open",
+                "positionLimitWeight": None,
+                "quoteSymbol": self.quote_asset,
+                "symbol": self.symbol,
+                "visible": True,
             }
         ]
         return mocked_exchange_info
@@ -293,8 +286,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         }
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative._initialize_leverage_if_needed")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative._initialize_leverage_if_needed"
+    )
     async def test_existing_account_position_detected_on_positions_update(self, req_mock, mock_leverage):
         self._simulate_trading_rules_initialized()
         mock_leverage.return_value = None
@@ -314,8 +309,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(pos.trading_pair, self.trading_pair)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative._initialize_leverage_if_needed")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative._initialize_leverage_if_needed"
+    )
     async def test_account_position_updated_on_positions_update(self, req_mock, mock_leverage):
         self._simulate_trading_rules_initialized()
         mock_leverage.return_value = None
@@ -342,8 +339,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(pos.amount, Decimal("2.01"))
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative._initialize_leverage_if_needed")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative._initialize_leverage_if_needed"
+    )
     async def test_new_account_position_detected_on_positions_update(self, req_mock, mock_leverage):
         self._simulate_trading_rules_initialized()
         mock_leverage.return_value = None
@@ -366,8 +365,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative._initialize_leverage_if_needed")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative._initialize_leverage_if_needed"
+    )
     async def test_closed_account_position_removed_on_positions_update(self, req_mock, mock_leverage):
         self._simulate_trading_rules_initialized()
         mock_leverage.return_value = None
@@ -410,12 +411,14 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         # Should remain ONEWAY since HEDGE is not supported
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
-        self.assertTrue(self._is_logged(
-            "DEBUG",
-            f"Backpack encountered a problem switching position mode to "
-            f"{PositionMode.HEDGE} for {self.trading_pair}"
-            f" (Backpack only supports the ONEWAY position mode)"
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "DEBUG",
+                f"Backpack encountered a problem switching position mode to "
+                f"{PositionMode.HEDGE} for {self.trading_pair}"
+                f" (Backpack only supports the ONEWAY position mode)",
+            )
+        )
 
     async def test_format_trading_rules(self):
         min_order_size = 0.01
@@ -466,12 +469,13 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 "T": 1694687692980000,
                 "t": "1",
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_user_stream = AsyncMock()
-        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
-                                                             lambda: partial_fill)
+        mock_user_stream.get.side_effect = functools.partial(
+            self._return_calculation_and_set_done_event, lambda: partial_fill
+        )
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
@@ -486,8 +490,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         )
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative.current_timestamp")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative.current_timestamp"
+    )
     async def test_update_order_fills_from_trades_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -505,15 +511,17 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             position_action=PositionAction.OPEN,
         )
 
-        trades = [{
-            "orderId": "8886774",
-            "price": "10000",
-            "quantity": "0.5",
-            "feeSymbol": self.quote_asset,
-            "fee": "5",
-            "tradeId": "698759",
-            "timestamp": "2021-01-01T00:00:01.000Z",
-        }]
+        trades = [
+            {
+                "orderId": "8886774",
+                "price": "10000",
+                "quantity": "0.5",
+                "feeSymbol": self.quote_asset,
+                "fee": "5",
+                "tradeId": "698759",
+                "timestamp": "2021-01-01T00:00:01.000Z",
+            }
+        ]
 
         url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -530,8 +538,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("0.5"), in_flight_orders["2200123"].executed_amount_base)
 
     @aioresponses()
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
-           "BackpackPerpetualDerivative.current_timestamp")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative."
+        "BackpackPerpetualDerivative.current_timestamp"
+    )
     async def test_update_order_status_successful(self, req_mock, mock_timestamp):
         self._simulate_trading_rules_initialized()
         self.exchange._last_poll_timestamp = 0
@@ -588,7 +598,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         success, msg = await self.exchange._set_trading_pair_leverage(trading_pair, leverage)
         self.assertEqual(success, True)
-        self.assertEqual(msg, '')
+        self.assertEqual(msg, "")
 
     @aioresponses()
     async def test_set_leverage_failed(self, req_mock):
@@ -697,11 +707,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        create_response = {
-            "createdAt": int(self.start_timestamp * 1e3),
-            "status": "New",
-            "id": "8886774"
-        }
+        create_response = {"createdAt": int(self.start_timestamp * 1e3), "status": "New", "id": "8886774"}
         req_mock.post(regex_url, body=json.dumps(create_response))
         self._simulate_trading_rules_initialized()
 
@@ -712,21 +718,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             position_action=PositionAction.OPEN,
-            price=Decimal("10000"))
+            price=Decimal("10000"),
+        )
 
         self.assertTrue("2200123" in self.exchange._order_tracker._in_flight_orders)
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.get_current_server_time")
-    async def test_place_order_manage_server_overloaded_error_unknown_order(self, mock_api, mock_seconds_counter: MagicMock):
+    async def test_place_order_manage_server_overloaded_error_unknown_order(
+        self, mock_api, mock_seconds_counter: MagicMock
+    ):
         mock_seconds_counter.return_value = 1640780000
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        self.exchange._last_poll_timestamp = (
+            self.exchange.current_timestamp - self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1
+        )
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {"code": "SERVICE_UNAVAILABLE", "message": "Unknown error, please check your request or try again later."}
+        mock_response = {
+            "code": "SERVICE_UNAVAILABLE",
+            "message": "Unknown error, please check your request or try again later.",
+        }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
         self._simulate_trading_rules_initialized()
@@ -738,7 +751,8 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             position_action=PositionAction.OPEN,
-            price=Decimal("10000"))
+            price=Decimal("10000"),
+        )
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
@@ -757,7 +771,8 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             position_action=PositionAction.OPEN,
-            price=Decimal("10000"))
+            price=Decimal("10000"),
+        )
 
         self.assertEqual(1, len(self.exchange._order_tracker.active_orders))
         order = list(self.exchange._order_tracker.active_orders.values())[0]
@@ -774,17 +789,20 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.001"),  # Below min
             order_type=OrderType.LIMIT,
             position_action=PositionAction.OPEN,
-            price=Decimal("10000"))
+            price=Decimal("10000"),
+        )
 
-        await asyncio.sleep(0.)
+        await asyncio.sleep(0.0)
         self.assertEqual(0, len(self.exchange._order_tracker.active_orders))
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Order 2200123 has failed. Order Update: OrderUpdate(trading_pair='COINALPHA-HBOT', "
-            "update_timestamp=1640780000.0, new_state=<OrderState.FAILED: 6>, client_order_id='2200123', "
-            "exchange_order_id=None, misc_updates={'error_message': 'Order amount 0.001 is lower than minimum order size 0.01 "
-            "for the pair COINALPHA-HBOT. The order will not be created.', 'error_type': 'ValueError'})"
-        ))
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                "Order 2200123 has failed. Order Update: OrderUpdate(trading_pair='COINALPHA-HBOT', "
+                "update_timestamp=1640780000.0, new_state=<OrderState.FAILED: 6>, client_order_id='2200123', "
+                "exchange_order_id=None, misc_updates={'error_message': 'Order amount 0.001 is lower than minimum order size 0.01 "
+                "for the pair COINALPHA-HBOT. The order will not be created.', 'error_type': 'ValueError'})",
+            )
+        )
 
     async def test_create_order_min_notional_size_failure(self):
         # feature disabled
@@ -792,50 +810,58 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_restore_tracking_states_only_registers_open_orders(self):
         orders = []
-        orders.append(InFlightOrder(
-            client_order_id="2200123",
-            exchange_order_id="E2200123",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.OPEN
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID2",
-            exchange_order_id="EOID2",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID3",
-            exchange_order_id="EOID3",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
-        ))
-        orders.append(InFlightOrder(
-            client_order_id="OID4",
-            exchange_order_id="EOID4",
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            amount=Decimal("1000.0"),
-            price=Decimal("1.0"),
-            creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
-        ))
+        orders.append(
+            InFlightOrder(
+                client_order_id="2200123",
+                exchange_order_id="E2200123",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.OPEN,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID2",
+                exchange_order_id="EOID2",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.CANCELED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID3",
+                exchange_order_id="EOID3",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FILLED,
+            )
+        )
+        orders.append(
+            InFlightOrder(
+                client_order_id="OID4",
+                exchange_order_id="EOID4",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                amount=Decimal("1000.0"),
+                price=Decimal("1.0"),
+                creation_timestamp=1640001112.223,
+                initial_state=OrderState.FAILED,
+            )
+        )
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
 
@@ -846,7 +872,9 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
-    @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative.get_new_numeric_client_order_id")
+    @patch(
+        "hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_derivative.get_new_numeric_client_order_id"
+    )
     async def test_client_order_id_on_order(self, mock_id_get):
         mock_id_get.return_value = 123
 
@@ -881,17 +909,9 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "netEquity": "151.0",
             "netEquityAvailable": "100.5",
             "collateral": [
-                {
-                    "symbol": "USDC",
-                    "totalQuantity": "150.0",
-                    "availableQuantity": "100.0"
-                },
-                {
-                    "symbol": "SOL",
-                    "totalQuantity": "0.01",
-                    "availableQuantity": "0.005"
-                }
-            ]
+                {"symbol": "USDC", "totalQuantity": "150.0", "availableQuantity": "100.0"},
+                {"symbol": "SOL", "totalQuantity": "0.01", "availableQuantity": "0.005"},
+            ],
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -909,19 +929,17 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         account_update = self._get_account_update_ws_event_single_position_dict()
         del account_update["data"]["P"]
         mock_user_stream.get.side_effect = functools.partial(
-            self._return_calculation_and_set_done_event,
-            lambda: account_update
+            self._return_calculation_and_set_done_event, lambda: account_update
         )
 
         self.exchange._user_stream_tracker._user_stream = mock_user_stream
 
         # Patch _parse_and_process_order_message to raise an exception
-        with patch.object(self.exchange, '_parse_and_process_position_message', side_effect=Exception("Test Error")):
+        with patch.object(self.exchange, "_parse_and_process_position_message", side_effect=Exception("Test Error")):
             self.test_task = self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
             await self.resume_test_event.wait()
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.backpack_perpetual.backpack_perpetual_web_utils.get_current_server_time")
@@ -930,7 +948,10 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        error_response = {"code": "TIMESTAMP_OUT_OF_RANGE", "message": "Timestamp for this request is outside of the recvWindow."}
+        error_response = {
+            "code": "TIMESTAMP_OUT_OF_RANGE",
+            "message": "Timestamp for this request is outside of the recvWindow.",
+        }
         req_mock.post(regex_url, body=json.dumps(error_response), status=400)
 
         self._simulate_trading_rules_initialized()
@@ -942,7 +963,8 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             order_type=OrderType.LIMIT,
             position_action=PositionAction.OPEN,
-            price=Decimal("10000"))
+            price=Decimal("10000"),
+        )
 
         self.assertEqual(1, len(self.exchange._order_tracker.active_orders))
 
@@ -976,7 +998,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 "z": "0",
                 "T": 1694687692980000,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_user_stream = AsyncMock()
@@ -1032,7 +1054,9 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     async def test_is_order_not_found_during_status_update_error(self):
         """Test detection of order not found error during status update"""
-        error_with_code = Exception(f"Error code: {CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE}, message: {CONSTANTS.ORDER_NOT_EXIST_MESSAGE}")
+        error_with_code = Exception(
+            f"Error code: {CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE}, message: {CONSTANTS.ORDER_NOT_EXIST_MESSAGE}"
+        )
         self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(error_with_code))
 
         # Test with different error
@@ -1046,10 +1070,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        error_response = {
-            "code": "INVALID_ORDER",
-            "message": "Order would immediately match and take liquidity"
-        }
+        error_response = {"code": "INVALID_ORDER", "message": "Order would immediately match and take liquidity"}
         req_mock.post(regex_url, body=json.dumps(error_response), status=400)
 
         with self.assertRaises(ValueError) as context:
@@ -1059,7 +1080,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 amount=Decimal("1"),
                 trade_type=TradeType.BUY,
                 order_type=OrderType.LIMIT_MAKER,
-                price=Decimal("10000")
+                price=Decimal("10000"),
             )
 
         self.assertIn("LIMIT_MAKER order would immediately match", str(context.exception))
@@ -1109,7 +1130,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 "i": "8886774",  # Only exchange order id
                 "T": 1694687692980000,
             },
-            "stream": "account.orderUpdate"
+            "stream": "account.orderUpdate",
         }
 
         mock_user_stream = AsyncMock()
@@ -1133,17 +1154,9 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "netEquity": "250.0",
             "netEquityAvailable": "200.5",
             "collateral": [
-                {
-                    "symbol": "USDC",
-                    "totalQuantity": "200.0",
-                    "availableQuantity": "180.0"
-                },
-                {
-                    "symbol": "SOL",
-                    "totalQuantity": "1.0",
-                    "availableQuantity": "0.5"
-                }
-            ]
+                {"symbol": "USDC", "totalQuantity": "200.0", "availableQuantity": "180.0"},
+                {"symbol": "SOL", "totalQuantity": "1.0", "availableQuantity": "0.5"},
+            ],
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -1158,13 +1171,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         response2 = {
             "netEquity": "150.0",
             "netEquityAvailable": "100.5",
-            "collateral": [
-                {
-                    "symbol": "USDC",
-                    "totalQuantity": "150.0",
-                    "availableQuantity": "100.0"
-                }
-            ]
+            "collateral": [{"symbol": "USDC", "totalQuantity": "150.0", "availableQuantity": "100.0"}],
         }
 
         mock_api.get(regex_url, body=json.dumps(response2))
@@ -1254,10 +1261,7 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        response = {
-            "lastPrice": "10500.50",
-            "symbol": self.symbol
-        }
+        response = {"lastPrice": "10500.50", "symbol": self.symbol}
 
         req_mock.get(regex_url, body=json.dumps(response))
 

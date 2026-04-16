@@ -171,6 +171,7 @@ class TestXRPLExchangeTradingRules(XRPLExchangeTestBase, IsolatedAsyncioTestCase
 
         Uses _query_xrpl mock instead of mock_client.request.
         """
+
         async def _dispatch(request, priority=None, timeout=None):
             if hasattr(request, "method"):
                 if request.method == RequestMethod.ACCOUNT_INFO:
@@ -211,6 +212,7 @@ class TestXRPLExchangeTradingRules(XRPLExchangeTestBase, IsolatedAsyncioTestCase
 
         When an issuer account is not found in the ledger, raises ValueError.
         """
+
         async def _dispatch(request, priority=None, timeout=None):
             if hasattr(request, "method"):
                 if request.method == RequestMethod.ACCOUNT_INFO:
@@ -252,6 +254,7 @@ class TestXRPLExchangeTradingRules(XRPLExchangeTestBase, IsolatedAsyncioTestCase
 
     async def test_make_trading_rules_request_all_retries_exhausted(self):
         """New: after 3 failures the error is raised."""
+
         async def _dispatch(request, priority=None, timeout=None):
             raise ConnectionError("Persistent failure")
 
@@ -277,6 +280,7 @@ class TestXRPLExchangeTradingRules(XRPLExchangeTestBase, IsolatedAsyncioTestCase
 
     async def test_update_trading_rules(self):
         """New: _update_trading_rules fetches, formats, and stores rules + fee rules."""
+
         async def _dispatch(request, priority=None, timeout=None):
             if hasattr(request, "method"):
                 if request.method == RequestMethod.ACCOUNT_INFO:

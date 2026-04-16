@@ -69,8 +69,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             self.domain: bidict({self.ex_trading_pair: self.trading_pair})
         }
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     async def asyncSetUp(self) -> None:
         self.mocking_assistant = NetworkMockingAssistant()
@@ -109,8 +108,8 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "asks": [["23935.4", "65", "65"]],
                 "bids": [["23935.4", "65", "65"]],
                 "timestamp": 1660285421287,
-                "symbol": self.ex_trading_pair
-            }
+                "symbol": self.ex_trading_pair,
+            },
         }
         return resp
 
@@ -125,9 +124,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "expected_rate": "0.000164",
                 "funding_time": 1709971200000,
                 "funding_upper_limit": "0.0375",
-                "funding_lower_limit": "-0.0375"
+                "funding_lower_limit": "-0.0375",
             },
-            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988"
+            "trace": "13f7fda9-9543-4e11-a0ba-cbe117989988",
         }
         return resp
 
@@ -166,10 +165,10 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
+                        "funding_interval_hours": 8,
                     },
                 ]
-            }
+            },
         }
         return resp
 
@@ -208,10 +207,10 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                         "high_24h": "23900",
                         "low_24h": "23100",
                         "change_24h": "0.004",
-                        "funding_interval_hours": 8
+                        "funding_interval_hours": 8,
                     },
                 ]
-            }
+            },
         }
         return resp
 
@@ -219,23 +218,13 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         resp = {
             "data": {
                 "symbol": self.ex_trading_pair,
-                "asks": [
-                    {
-                        "price": "70391.6",
-                        "vol": "3550"
-                    }
-                ],
-                "bids": [
-                    {
-                        "price": "70391.2",
-                        "vol": "1335"
-                    }
-                ],
+                "asks": [{"price": "70391.6", "vol": "3550"}],
+                "bids": [{"price": "70391.2", "vol": "1335"}],
                 "ms_t": 1730400086184,
                 "version": 980361,
-                "type": update_type
+                "type": update_type,
             },
-            "group": "futures/depthIncrease50:BTCUSDT@200ms"
+            "group": "futures/depthIncrease50:BTCUSDT@200ms",
         }
         return resp
 
@@ -249,9 +238,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                     "deal_price": "117387.58",
                     "way": 1,
                     "deal_vol": "1445",
-                    "created_at": "2023-02-24T07:54:11.124940968Z"
+                    "created_at": "2023-02-24T07:54:11.124940968Z",
                 }
-            ]
+            ],
         }
 
         return resp
@@ -266,9 +255,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "nextFundingTime": 1732550400000,
                 "funding_upper_limit": "0.0375",
                 "funding_lower_limit": "-0.0375",
-                "ts": 1732525864601
+                "ts": 1732525864601,
             },
-            "group": "futures/fundingRate:BTCUSDT"
+            "group": "futures/fundingRate:BTCUSDT",
         }
         return resp
 
@@ -285,8 +274,8 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
                 "ask_price": "147.11",
                 "ask_vol": "1",
                 "bid_price": "142.11",
-                "bid_vol": "1"
-            }
+                "bid_vol": "1",
+            },
         }
         return resp
 
@@ -299,8 +288,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         with self.assertRaises(IOError) as context:
             await self.data_source._order_book_snapshot(trading_pair=self.trading_pair)
 
-        self.assertIn("HTTP status is 400. Error: [\"ERROR\"]",
-                      str(context.exception))
+        self.assertIn('HTTP status is 400. Error: ["ERROR"]', str(context.exception))
 
     @aioresponses()
     async def test_get_snapshot_successful(self, mock_api):
@@ -338,7 +326,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(exchange_info_resp["data"]["symbols"][0]["index_price"]), funding_info.index_price)
         self.assertEqual(Decimal(exchange_info_resp["data"]["symbols"][0]["last_price"]), funding_info.mark_price)
-        self.assertEqual(int(float(funding_info_resp["data"]["funding_time"]) * 1e-3), funding_info.next_funding_utc_timestamp)
+        self.assertEqual(
+            int(float(funding_info_resp["data"]["funding_time"]) * 1e-3), funding_info.next_funding_utc_timestamp
+        )
         self.assertEqual(Decimal(funding_info_resp["data"]["expected_rate"]), funding_info.rate)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -361,8 +351,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
             await self.data_source.listen_for_subscriptions()
 
         self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
+            self._is_logged(
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
         )
 
     async def test_subscribe_to_channels_raises_cancel_exception(self):
@@ -415,9 +406,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         self.mocking_assistant.add_websocket_aiohttp_message(
             mock_ws.return_value, json.dumps(self._orderbook_update_event(update_type="update"))
         )
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps(self._trade_event())
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(self._trade_event()))
         self.mocking_assistant.add_websocket_aiohttp_message(
             mock_ws.return_value, json.dumps(self._funding_info_event())
         )
@@ -501,9 +490,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
-        self.assertTrue(
-            self._is_logged("INFO", f"Successfully subscribed to {new_pair}")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Successfully subscribed to {new_pair}"))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription fails when WebSocket is not connected."""
@@ -561,9 +548,7 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         self.assertTrue(result)
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
-        self.assertTrue(
-            self._is_logged("INFO", f"Successfully unsubscribed from {self.trading_pair}")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Successfully unsubscribed from {self.trading_pair}"))
 
     async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
         """Test unsubscription fails when WebSocket is not connected."""
@@ -573,7 +558,9 @@ class BitmartPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         self.assertFalse(result)
         self.assertTrue(
-            self._is_logged("WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket connection not established.")
+            self._is_logged(
+                "WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket connection not established."
+            )
         )
 
     async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):

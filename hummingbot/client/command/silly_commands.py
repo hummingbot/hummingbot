@@ -10,9 +10,10 @@ RESOURCES_PATH = "hummingbot/client/command/silly_resources/"
 
 
 class SillyCommands:
-
-    def be_silly(self,  # type: HummingbotApplication
-                 raw_command: str) -> bool:
+    def be_silly(
+        self,  # type: HummingbotApplication
+        raw_command: str,
+    ) -> bool:
         command = raw_command.split(" ")[0]
         if command == "hummingbot":
             safe_ensure_future(self.silly_hummingbot())
@@ -35,8 +36,9 @@ class SillyCommands:
         else:
             return False
 
-    async def silly_jack(self,  # type: HummingbotApplication
-                         ):
+    async def silly_jack(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         await self.text_n_wait("Hi there,", 1)
@@ -58,8 +60,9 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def silly_hummingbot(self,  # type: HummingbotApplication
-                               ):
+    async def silly_hummingbot(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         for _ in range(0, 3):
@@ -78,8 +81,9 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def silly_roger(self,  # type: HummingbotApplication
-                          ):
+    async def silly_roger(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         for _ in range(0, 3):
@@ -105,8 +109,9 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def silly_victor(self,  # type: HummingbotApplication
-                           ):
+    async def silly_victor(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         hb_with_flower_1 = open(f"{RESOURCES_PATH}money-fly_1.txt").readlines()
@@ -119,8 +124,9 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def silly_rein(self,  # type: HummingbotApplication
-                         ):
+    async def silly_rein(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         for _ in range(0, 2):
@@ -140,8 +146,9 @@ class SillyCommands:
         self.app.log(text)
         await asyncio.sleep(delay)
 
-    async def silly_dennis(self,  # type: HummingbotApplication
-                           ):
+    async def silly_dennis(
+        self,  # type: HummingbotApplication
+    ):
         self.placeholder_mode = True
         self.app.hide_input = True
         dennis_loading_1 = open(f"{RESOURCES_PATH}dennis_loading_1.txt").readlines()

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 
 class BackpackAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 60  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     LISTEN_KEY_RETRY_INTERVAL = 5.0
@@ -23,12 +22,14 @@ class BackpackAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: AuthBase,
-                 trading_pairs: List[str],
-                 connector: 'BackpackExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: AuthBase,
+        trading_pairs: List[str],
+        connector: "BackpackExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: BackpackAuth = auth
         self._domain = domain
@@ -65,19 +66,13 @@ class BackpackAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             timestamp_ms = int(self._auth.time_provider.time() * 1e3)
-            signature = self._auth.generate_signature(params={},
-                                                      timestamp_ms=timestamp_ms,
-                                                      window_ms=self._auth.DEFAULT_WINDOW_MS,
-                                                      instruction="subscribe")
+            signature = self._auth.generate_signature(
+                params={}, timestamp_ms=timestamp_ms, window_ms=self._auth.DEFAULT_WINDOW_MS, instruction="subscribe"
+            )
             orders_change_payload = {
                 "method": "SUBSCRIBE",
                 "params": [CONSTANTS.ALL_ORDERS_CHANNEL],
-                "signature": [
-                    self._auth.api_key,
-                    signature,
-                    str(timestamp_ms),
-                    str(self._auth.DEFAULT_WINDOW_MS)
-                ]
+                "signature": [self._auth.api_key, signature, str(timestamp_ms), str(self._auth.DEFAULT_WINDOW_MS)],
             }
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
 

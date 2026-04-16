@@ -16,22 +16,37 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 class SimpleXEMMConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     controllers_config: List[str] = []
-    maker_connector: str = Field("kucoin_paper_trade", json_schema_extra={
-        "prompt": "Maker connector where the bot will place maker orders", "prompt_on_new": True})
-    maker_trading_pair: str = Field("ETH-USDT", json_schema_extra={
-        "prompt": "Maker trading pair where the bot will place maker orders", "prompt_on_new": True})
-    taker_connector: str = Field("binance_paper_trade", json_schema_extra={
-        "prompt": "Taker connector where the bot will hedge filled orders", "prompt_on_new": True})
-    taker_trading_pair: str = Field("ETH-USDT", json_schema_extra={
-        "prompt": "Taker trading pair where the bot will hedge filled orders", "prompt_on_new": True})
-    order_amount: Decimal = Field(0.1, json_schema_extra={
-        "prompt": "Order amount (denominated in base asset)", "prompt_on_new": True})
-    target_profitability: Decimal = Field(Decimal("0.001"), json_schema_extra={
-        "prompt": "Target profitability (e.g., 0.01 for 1%)", "prompt_on_new": True})
-    min_profitability: Decimal = Field(Decimal("0.0005"), json_schema_extra={
-        "prompt": "Minimum profitability (e.g., 0.005 for 0.5%)", "prompt_on_new": True})
-    max_order_age: int = Field(120, json_schema_extra={
-        "prompt": "Max order age (in seconds)", "prompt_on_new": True})
+    maker_connector: str = Field(
+        "kucoin_paper_trade",
+        json_schema_extra={"prompt": "Maker connector where the bot will place maker orders", "prompt_on_new": True},
+    )
+    maker_trading_pair: str = Field(
+        "ETH-USDT",
+        json_schema_extra={"prompt": "Maker trading pair where the bot will place maker orders", "prompt_on_new": True},
+    )
+    taker_connector: str = Field(
+        "binance_paper_trade",
+        json_schema_extra={"prompt": "Taker connector where the bot will hedge filled orders", "prompt_on_new": True},
+    )
+    taker_trading_pair: str = Field(
+        "ETH-USDT",
+        json_schema_extra={
+            "prompt": "Taker trading pair where the bot will hedge filled orders",
+            "prompt_on_new": True,
+        },
+    )
+    order_amount: Decimal = Field(
+        0.1, json_schema_extra={"prompt": "Order amount (denominated in base asset)", "prompt_on_new": True}
+    )
+    target_profitability: Decimal = Field(
+        Decimal("0.001"),
+        json_schema_extra={"prompt": "Target profitability (e.g., 0.01 for 1%)", "prompt_on_new": True},
+    )
+    min_profitability: Decimal = Field(
+        Decimal("0.0005"),
+        json_schema_extra={"prompt": "Minimum profitability (e.g., 0.005 for 0.5%)", "prompt_on_new": True},
+    )
+    max_order_age: int = Field(120, json_schema_extra={"prompt": "Max order age (in seconds)", "prompt_on_new": True})
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
         markets[self.maker_connector] = markets.get(self.maker_connector, set()) | {self.maker_trading_pair}
@@ -57,10 +72,12 @@ class SimpleXEMM(StrategyV2Base):
         self.active_buy_order_id = None
         self.active_sell_order_id = None
         # Initialize rate sources for market data provider
-        self.market_data_provider.initialize_rate_sources([
-            ConnectorPair(connector_name=config.maker_connector, trading_pair=config.maker_trading_pair),
-            ConnectorPair(connector_name=config.taker_connector, trading_pair=config.taker_trading_pair)
-        ])
+        self.market_data_provider.initialize_rate_sources(
+            [
+                ConnectorPair(connector_name=config.maker_connector, trading_pair=config.maker_trading_pair),
+                ConnectorPair(connector_name=config.taker_connector, trading_pair=config.taker_trading_pair),
+            ]
+        )
 
     def is_our_order_active(self, order_id: str) -> bool:
         """Check if a specific order ID is still active"""
@@ -72,8 +89,12 @@ class SimpleXEMM(StrategyV2Base):
         return False
 
     def on_tick(self):
-        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, False, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, False, self.config.order_amount
+        )
 
         # Check if our tracked orders are still active
         buy_order_active = self.is_our_order_active(self.active_buy_order_id)
@@ -88,12 +109,25 @@ class SimpleXEMM(StrategyV2Base):
             buy_order_amount = min(self.config.order_amount, self.buy_hedging_budget())
 
             if buy_order_amount > 0:
-                buy_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                           order_side=TradeType.BUY, amount=Decimal(buy_order_amount), price=maker_buy_price)
-                buy_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(buy_order, all_or_none=False)
+                buy_order = OrderCandidate(
+                    trading_pair=self.config.maker_trading_pair,
+                    is_maker=True,
+                    order_type=OrderType.LIMIT,
+                    order_side=TradeType.BUY,
+                    amount=Decimal(buy_order_amount),
+                    price=maker_buy_price,
+                )
+                buy_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(
+                    buy_order, all_or_none=False
+                )
                 if buy_order_adjusted.amount > 0:
-                    self.active_buy_order_id = self.buy(self.config.maker_connector, self.config.maker_trading_pair,
-                                                        buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
+                    self.active_buy_order_id = self.buy(
+                        self.config.maker_connector,
+                        self.config.maker_trading_pair,
+                        buy_order_adjusted.amount,
+                        buy_order_adjusted.order_type,
+                        buy_order_adjusted.price,
+                    )
 
         # Place new sell order if we don't have one active
         if not sell_order_active:
@@ -104,12 +138,25 @@ class SimpleXEMM(StrategyV2Base):
             sell_order_amount = min(self.config.order_amount, self.sell_hedging_budget())
 
             if sell_order_amount > 0:
-                sell_order = OrderCandidate(trading_pair=self.config.maker_trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                            order_side=TradeType.SELL, amount=Decimal(sell_order_amount), price=maker_sell_price)
-                sell_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(sell_order, all_or_none=False)
+                sell_order = OrderCandidate(
+                    trading_pair=self.config.maker_trading_pair,
+                    is_maker=True,
+                    order_type=OrderType.LIMIT,
+                    order_side=TradeType.SELL,
+                    amount=Decimal(sell_order_amount),
+                    price=maker_sell_price,
+                )
+                sell_order_adjusted = self.connectors[self.config.maker_connector].budget_checker.adjust_candidate(
+                    sell_order, all_or_none=False
+                )
                 if sell_order_adjusted.amount > 0:
-                    self.active_sell_order_id = self.sell(self.config.maker_connector, self.config.maker_trading_pair,
-                                                          sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+                    self.active_sell_order_id = self.sell(
+                        self.config.maker_connector,
+                        self.config.maker_trading_pair,
+                        sell_order_adjusted.amount,
+                        sell_order_adjusted.order_type,
+                        sell_order_adjusted.price,
+                    )
 
         # Check profitability and age for our active orders
         for order in self.get_active_orders(connector_name=self.config.maker_connector):
@@ -122,14 +169,18 @@ class SimpleXEMM(StrategyV2Base):
                 # Calculate current profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
                 current_profitability = (taker_sell_result.result_price - order.price) / order.price
                 if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
-                    self.logger().info(f"Cancelling buy order: {order.client_order_id} (profitability: {current_profitability:.4f})")
+                    self.logger().info(
+                        f"Cancelling buy order: {order.client_order_id} (profitability: {current_profitability:.4f})"
+                    )
                     self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
                     self.active_buy_order_id = None
             else:
                 # Calculate current profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
                 current_profitability = (order.price - taker_buy_result.result_price) / order.price
                 if current_profitability < self.config.min_profitability or cancel_timestamp < self.current_timestamp:
-                    self.logger().info(f"Cancelling sell order: {order.client_order_id} (profitability: {current_profitability:.4f})")
+                    self.logger().info(
+                        f"Cancelling sell order: {order.client_order_id} (profitability: {current_profitability:.4f})"
+                    )
                     self.cancel(self.config.maker_connector, order.trading_pair, order.client_order_id)
                     self.active_sell_order_id = None
 
@@ -141,7 +192,9 @@ class SimpleXEMM(StrategyV2Base):
     def sell_hedging_budget(self) -> Decimal:
         quote_asset = self.config.taker_trading_pair.split("-")[1]
         balance = self.connectors[self.config.taker_connector].get_available_balance(quote_asset)
-        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, True, self.config.order_amount
+        )
         return balance / taker_buy_result.result_price
 
     def did_fill_order(self, event: OrderFilledEvent):
@@ -161,45 +214,83 @@ class SimpleXEMM(StrategyV2Base):
             self.cancel(self.config.maker_connector, self.config.maker_trading_pair, event.order_id)
             self.active_sell_order_id = None
 
-    def place_buy_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+    def place_buy_order(
+        self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT
+    ):
         buy_result = self.connectors[exchange].get_price_for_volume(trading_pair, True, amount)
-        buy_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.BUY, amount=amount, price=buy_result.result_price)
+        buy_order = OrderCandidate(
+            trading_pair=trading_pair,
+            is_maker=False,
+            order_type=order_type,
+            order_side=TradeType.BUY,
+            amount=amount,
+            price=buy_result.result_price,
+        )
         buy_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
-        self.buy(exchange, trading_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
+        self.buy(
+            exchange, trading_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price
+        )
 
-    def place_sell_order(self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT):
+    def place_sell_order(
+        self, exchange: str, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.LIMIT
+    ):
         sell_result = self.connectors[exchange].get_price_for_volume(trading_pair, False, amount)
-        sell_order = OrderCandidate(trading_pair=trading_pair, is_maker=False, order_type=order_type, order_side=TradeType.SELL, amount=amount, price=sell_result.result_price)
+        sell_order = OrderCandidate(
+            trading_pair=trading_pair,
+            is_maker=False,
+            order_type=order_type,
+            order_side=TradeType.SELL,
+            amount=amount,
+            price=sell_result.result_price,
+        )
         sell_order_adjusted = self.connectors[exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
-        self.sell(exchange, trading_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
+        self.sell(
+            exchange,
+            trading_pair,
+            sell_order_adjusted.amount,
+            sell_order_adjusted.order_type,
+            sell_order_adjusted.price,
+        )
 
     def exchanges_df(self) -> pd.DataFrame:
         """
         Return a custom data frame of prices on maker vs taker exchanges for display purposes
         """
         maker_mid_price = self.connectors[self.config.maker_connector].get_mid_price(self.config.maker_trading_pair)
-        maker_buy_result = self.connectors[self.config.maker_connector].get_price_for_volume(self.config.maker_trading_pair, True, self.config.order_amount)
-        maker_sell_result = self.connectors[self.config.maker_connector].get_price_for_volume(self.config.maker_trading_pair, False, self.config.order_amount)
-        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, False, self.config.order_amount)
+        maker_buy_result = self.connectors[self.config.maker_connector].get_price_for_volume(
+            self.config.maker_trading_pair, True, self.config.order_amount
+        )
+        maker_sell_result = self.connectors[self.config.maker_connector].get_price_for_volume(
+            self.config.maker_trading_pair, False, self.config.order_amount
+        )
+        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, False, self.config.order_amount
+        )
         taker_mid_price = self.connectors[self.config.taker_connector].get_mid_price(self.config.taker_trading_pair)
 
         columns = ["Exchange", "Market", "Mid Price", "Buy Price", "Sell Price"]
         data = []
-        data.append([
-            self.config.maker_connector,
-            self.config.maker_trading_pair,
-            float(maker_mid_price),
-            float(maker_buy_result.result_price),
-            float(maker_sell_result.result_price)
-        ])
-        data.append([
-            self.config.taker_connector,
-            self.config.taker_trading_pair,
-            float(taker_mid_price),
-            float(taker_buy_result.result_price),
-            float(taker_sell_result.result_price)
-        ])
+        data.append(
+            [
+                self.config.maker_connector,
+                self.config.maker_trading_pair,
+                float(maker_mid_price),
+                float(maker_buy_result.result_price),
+                float(maker_sell_result.result_price),
+            ]
+        )
+        data.append(
+            [
+                self.config.taker_connector,
+                self.config.taker_trading_pair,
+                float(taker_mid_price),
+                float(taker_buy_result.result_price),
+                float(taker_sell_result.result_price),
+            ]
+        )
         df = pd.DataFrame(data=data, columns=columns)
         return df
 
@@ -209,11 +300,15 @@ class SimpleXEMM(StrategyV2Base):
         """
         columns = ["Exchange", "Market", "Side", "Price", "Amount", "Current Profit %", "Min Profit %", "Age"]
         data = []
-        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, True, self.config.order_amount)
-        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(self.config.taker_trading_pair, False, self.config.order_amount)
+        taker_buy_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, True, self.config.order_amount
+        )
+        taker_sell_result = self.connectors[self.config.taker_connector].get_price_for_volume(
+            self.config.taker_trading_pair, False, self.config.order_amount
+        )
         # Only show orders from the maker connector
         for order in self.get_active_orders(connector_name=self.config.maker_connector):
-            age_txt = "n/a" if order.age() <= 0. else pd.Timestamp(order.age(), unit='s').strftime('%H:%M:%S')
+            age_txt = "n/a" if order.age() <= 0.0 else pd.Timestamp(order.age(), unit="s").strftime("%H:%M:%S")
             if order.is_buy:
                 # Buy profitability: (taker_sell_price - maker_buy_price) / maker_buy_price
                 current_profitability = (taker_sell_result.result_price - order.price) / order.price * 100
@@ -221,16 +316,18 @@ class SimpleXEMM(StrategyV2Base):
                 # Sell profitability: (maker_sell_price - taker_buy_price) / maker_sell_price
                 current_profitability = (order.price - taker_buy_result.result_price) / order.price * 100
 
-            data.append([
-                self.config.maker_connector,
-                order.trading_pair,
-                "buy" if order.is_buy else "sell",
-                float(order.price),
-                float(order.quantity),
-                f"{float(current_profitability):.3f}",
-                f"{float(self.config.min_profitability * 100):.3f}",
-                age_txt
-            ])
+            data.append(
+                [
+                    self.config.maker_connector,
+                    order.trading_pair,
+                    "buy" if order.is_buy else "sell",
+                    float(order.price),
+                    float(order.quantity),
+                    f"{float(current_profitability):.3f}",
+                    f"{float(self.config.min_profitability * 100):.3f}",
+                    age_txt,
+                ]
+            )
         if not data:
             raise ValueError
         df = pd.DataFrame(data=data, columns=columns)
@@ -254,7 +351,9 @@ class SimpleXEMM(StrategyV2Base):
 
         try:
             orders_df = self.active_orders_df()
-            lines.extend(["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")])
+            lines.extend(
+                ["", "  Active Orders:"] + ["    " + line for line in orders_df.to_string(index=False).split("\n")]
+            )
         except ValueError:
             lines.extend(["", "  No active maker orders."])
 

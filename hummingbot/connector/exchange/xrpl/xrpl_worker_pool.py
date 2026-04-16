@@ -56,9 +56,11 @@ T = TypeVar("T")
 # Result Dataclasses
 # ============================================
 
+
 @dataclass
 class TransactionSubmitResult:
     """Result of a transaction submission."""
+
     success: bool
     signed_tx: Optional[Transaction] = None
     response: Optional[Response] = None
@@ -81,6 +83,7 @@ class TransactionSubmitResult:
 @dataclass
 class TransactionVerifyResult:
     """Result of a transaction verification."""
+
     verified: bool
     response: Optional[Response] = None
     final_result: Optional[str] = None
@@ -90,6 +93,7 @@ class TransactionVerifyResult:
 @dataclass
 class QueryResult:
     """Result of a query operation."""
+
     success: bool
     response: Optional[Response] = None
     error: Optional[str] = None
@@ -99,9 +103,11 @@ class QueryResult:
 # Worker Task Dataclass
 # ============================================
 
+
 @dataclass
 class WorkerTask(Generic[T]):
     """Represents a task submitted to a worker pool."""
+
     task_id: str
     request: Any
     future: asyncio.Future
@@ -123,9 +129,11 @@ class WorkerTask(Generic[T]):
 # Pool Statistics
 # ============================================
 
+
 @dataclass
 class PoolStats:
     """Statistics for a worker pool."""
+
     pool_name: str
     num_workers: int
     tasks_completed: int = 0
@@ -161,6 +169,7 @@ class PoolStats:
 # Base Worker Pool Class
 # ============================================
 
+
 class XRPLWorkerPoolBase(ABC, Generic[T]):
     """
     Abstract base class for XRPL worker pools.
@@ -175,6 +184,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
     Subclasses must implement:
     - _process_task(): Execute the actual work for a task
     """
+
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
@@ -240,9 +250,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
             worker_task = asyncio.create_task(self._worker_loop(worker_id=i))
             self._worker_tasks.append(worker_task)
 
-        self.logger().debug(
-            f"[{self._pool_name}] Started pool with {self._num_workers} workers"
-        )
+        self.logger().debug(f"[{self._pool_name}] Started pool with {self._num_workers} workers")
 
     async def stop(self):
         """Stop the worker pool and cancel pending tasks."""
@@ -272,9 +280,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
             except asyncio.QueueEmpty:
                 break
 
-        self.logger().debug(
-            f"[{self._pool_name}] Pool stopped, cancelled {cancelled_count} pending tasks"
-        )
+        self.logger().debug(f"[{self._pool_name}] Pool stopped, cancelled {cancelled_count} pending tasks")
 
     async def _ensure_started(self):
         """Ensure the pool is started (lazy initialization)."""
@@ -315,9 +321,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                 f"(queue_size={self._task_queue.qsize()}, request_type={type(request).__name__})"
             )
         except asyncio.QueueFull:
-            self.logger().error(
-                f"[{self._pool_name}] Task queue full, rejecting task {task_id}"
-            )
+            self.logger().error(f"[{self._pool_name}] Task queue full, rejecting task {task_id}")
             raise
 
         # Wait for result - no timeout here since queue wait time should not count
@@ -346,10 +350,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
             try:
                 # Get next task with timeout
                 try:
-                    task = await asyncio.wait_for(
-                        self._task_queue.get(),
-                        timeout=1.0
-                    )
+                    task = await asyncio.wait_for(self._task_queue.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
 
@@ -383,8 +384,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                 try:
                     # Apply timeout only to the actual processing
                     result = await asyncio.wait_for(
-                        self._process_task_with_retry(task, worker_id),
-                        timeout=task.timeout
+                        self._process_task_with_retry(task, worker_id), timeout=task.timeout
                     )
                     elapsed_ms = (time.time() - start_time) * 1000
 
@@ -407,9 +407,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                     )
                     if not task.future.done():
                         task.future.set_exception(
-                            asyncio.TimeoutError(
-                                f"Task {task.task_id} timed out after {elapsed_ms:.1f}ms processing"
-                            )
+                            asyncio.TimeoutError(f"Task {task.task_id} timed out after {elapsed_ms:.1f}ms processing")
                         )
                     self._stats.tasks_failed += 1
 
@@ -430,9 +428,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                self.logger().error(
-                    f"[{self._pool_name}] Worker {worker_id} unexpected error: {e}"
-                )
+                self.logger().error(f"[{self._pool_name}] Worker {worker_id} unexpected error: {e}")
 
         self.logger().debug(f"[{self._pool_name}] Worker {worker_id} stopped")
 
@@ -469,9 +465,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                 return await self._process_task(task, client)
 
             except (XRPLConnectionError, XRPLWebsocketException) as e:
-                self.logger().warning(
-                    f"[{self._pool_name}] Worker {worker_id} connection error: {e}"
-                )
+                self.logger().warning(f"[{self._pool_name}] Worker {worker_id} connection error: {e}")
 
                 # Try to reconnect
                 if reconnect_attempts < max_reconnect:
@@ -487,9 +481,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                         # Try to reconnect the existing client
                         if client is not None:
                             await client.open()
-                            self.logger().debug(
-                                f"[{self._pool_name}] Worker {worker_id} reconnected successfully"
-                            )
+                            self.logger().debug(f"[{self._pool_name}] Worker {worker_id} reconnected successfully")
                             continue
                     except Exception as reconnect_error:
                         self.logger().warning(
@@ -502,9 +494,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
 
                 # Max reconnects reached, fail
                 self._stats.client_failures += 1
-                raise XRPLConnectionError(
-                    f"Failed after {max_reconnect} reconnect attempts: {e}"
-                )
+                raise XRPLConnectionError(f"Failed after {max_reconnect} reconnect attempts: {e}")
 
             except Exception:
                 # Non-connection error, don't retry
@@ -531,15 +521,11 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
                 client = await self._node_pool.get_client(use_burst=False)
                 return client
             except Exception as e:
-                self.logger().warning(
-                    f"[{self._pool_name}] Worker {worker_id} failed to get client: {e}"
-                )
+                self.logger().warning(f"[{self._pool_name}] Worker {worker_id} failed to get client: {e}")
                 await asyncio.sleep(0.5)
 
         self._stats.client_failures += 1
-        raise XRPLConnectionError(
-            f"No healthy client available after {timeout}s timeout"
-        )
+        raise XRPLConnectionError(f"No healthy client available after {timeout}s timeout")
 
     @abstractmethod
     async def _process_task(self, task: WorkerTask, client: AsyncWebsocketClient) -> T:
@@ -559,6 +545,7 @@ class XRPLWorkerPoolBase(ABC, Generic[T]):
 # ============================================
 # Query Worker Pool
 # ============================================
+
 
 class XRPLQueryWorkerPool(XRPLWorkerPoolBase[QueryResult]):
     """
@@ -605,9 +592,7 @@ class XRPLQueryWorkerPool(XRPLWorkerPoolBase[QueryResult]):
                 error = response.result.get("error", "Unknown error")
                 error_message = response.result.get("error_message", "")
                 full_error = f"{error}: {error_message}" if error_message else error
-                self.logger().warning(
-                    f"[QueryPool] {request_type} request returned error: {full_error}"
-                )
+                self.logger().warning(f"[QueryPool] {request_type} request returned error: {full_error}")
                 return QueryResult(success=False, response=response, error=full_error)
 
         except XRPLConnectionError:
@@ -628,6 +613,7 @@ class XRPLQueryWorkerPool(XRPLWorkerPoolBase[QueryResult]):
 # ============================================
 # Verification Worker Pool
 # ============================================
+
 
 class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
     """
@@ -692,18 +678,14 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
 
         # Only verify transactions that have a chance of success
         if prelim_result not in ("tesSUCCESS", "terQUEUED"):
-            self.logger().warning(
-                f"[VerifyPool] Transaction prelim_result={prelim_result} indicates failure"
-            )
+            self.logger().warning(f"[VerifyPool] Transaction prelim_result={prelim_result} indicates failure")
             return TransactionVerifyResult(
                 verified=False,
                 error=f"Preliminary result {prelim_result} indicates failure",
             )
 
         tx_hash = signed_tx.get_hash()
-        self.logger().debug(
-            f"[VerifyPool] Starting verification for tx_hash={tx_hash[:16]}..."
-        )
+        self.logger().debug(f"[VerifyPool] Starting verification for tx_hash={tx_hash[:16]}...")
 
         try:
             # Try primary verification method
@@ -713,8 +695,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
 
             # Fallback to direct hash query
             self.logger().warning(
-                f"[VerifyPool] Primary verification failed for {tx_hash[:16]}, "
-                f"trying fallback query..."
+                f"[VerifyPool] Primary verification failed for {tx_hash[:16]}, trying fallback query..."
             )
             return await self._verify_with_hash_query(tx_hash, client)
 
@@ -751,8 +732,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
             final_result = response.result.get("meta", {}).get("TransactionResult", "unknown")
 
             self.logger().debug(
-                f"[VerifyPool] Transaction verified: "
-                f"hash={signed_tx.get_hash()[:16]}, result={final_result}"
+                f"[VerifyPool] Transaction verified: hash={signed_tx.get_hash()[:16]}, result={final_result}"
             )
 
             return TransactionVerifyResult(
@@ -794,9 +774,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
         poll_interval: float = 3.0,
     ) -> TransactionVerifyResult:
         """Fallback verification by querying transaction hash directly."""
-        self.logger().debug(
-            f"[VerifyPool] Fallback query for tx_hash={tx_hash[:16]}..."
-        )
+        self.logger().debug(f"[VerifyPool] Fallback query for tx_hash={tx_hash[:16]}...")
 
         for attempt in range(max_attempts):
             try:
@@ -807,13 +785,10 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
                     error = response.result.get("error", "unknown")
                     if error == "txnNotFound":
                         self.logger().debug(
-                            f"[VerifyPool] tx_hash={tx_hash[:16]} not found, "
-                            f"attempt {attempt + 1}/{max_attempts}"
+                            f"[VerifyPool] tx_hash={tx_hash[:16]} not found, attempt {attempt + 1}/{max_attempts}"
                         )
                     else:
-                        self.logger().warning(
-                            f"[VerifyPool] Error querying tx_hash={tx_hash[:16]}: {error}"
-                        )
+                        self.logger().warning(f"[VerifyPool] Error querying tx_hash={tx_hash[:16]}: {error}")
                 else:
                     result = response.result
                     if result.get("validated", False):
@@ -828,9 +803,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
                             final_result=final_result,
                         )
                     else:
-                        self.logger().debug(
-                            f"[VerifyPool] tx_hash={tx_hash[:16]} found but not validated yet"
-                        )
+                        self.logger().debug(f"[VerifyPool] tx_hash={tx_hash[:16]} found but not validated yet")
 
             except XRPLConnectionError:
                 # Re-raise for retry handling
@@ -844,9 +817,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
                 # Re-raise for retry handling - websocket is not open
                 raise
             except Exception as e:
-                self.logger().warning(
-                    f"[VerifyPool] Exception querying tx_hash={tx_hash[:16]}: {e}"
-                )
+                self.logger().warning(f"[VerifyPool] Exception querying tx_hash={tx_hash[:16]}: {e}")
 
             # Wait before next attempt
             if attempt < max_attempts - 1:
@@ -861,6 +832,7 @@ class XRPLVerificationWorkerPool(XRPLWorkerPoolBase[TransactionVerifyResult]):
 # ============================================
 # Transaction Worker Pool
 # ============================================
+
 
 class XRPLTransactionWorkerPool(XRPLWorkerPoolBase[TransactionSubmitResult]):
     """
@@ -955,9 +927,7 @@ class XRPLTransactionWorkerPool(XRPLWorkerPoolBase[TransactionSubmitResult]):
         while submit_retry < max_retries:
             try:
                 # Submit through pipeline - this serializes all submissions
-                result = await self._submit_through_pipeline(
-                    transaction, fail_hard, submission_id, client
-                )
+                result = await self._submit_through_pipeline(transaction, fail_hard, submission_id, client)
 
                 # Handle successful submission
                 if result.is_accepted:
@@ -994,16 +964,13 @@ class XRPLTransactionWorkerPool(XRPLWorkerPoolBase[TransactionSubmitResult]):
                     continue
 
                 # Other error - don't retry
-                self.logger().error(
-                    f"[{self._pool_name}] {submission_id} failed: prelim_result={result.prelim_result}"
-                )
+                self.logger().error(f"[{self._pool_name}] {submission_id} failed: prelim_result={result.prelim_result}")
                 return result
 
             except XRPLTimeoutError as e:
                 # Timeout - DO NOT retry as transaction may have succeeded
                 self.logger().error(
-                    f"[{self._pool_name}] {submission_id} timed out: {e}. "
-                    f"NOT retrying to avoid duplicate transactions."
+                    f"[{self._pool_name}] {submission_id} timed out: {e}. NOT retrying to avoid duplicate transactions."
                 )
                 return TransactionSubmitResult(
                     success=False,
@@ -1048,6 +1015,7 @@ class XRPLTransactionWorkerPool(XRPLWorkerPoolBase[TransactionSubmitResult]):
         Returns:
             TransactionSubmitResult with outcome
         """
+
         async def _do_submit():
             self.logger().debug(f"[{self._pool_name}] {submission_id}: Autofilling transaction...")
             filled_tx = await autofill(transaction, client)
@@ -1062,9 +1030,7 @@ class XRPLTransactionWorkerPool(XRPLWorkerPoolBase[TransactionSubmitResult]):
             signed_tx = sign(filled_tx, self._wallet)
             tx_hash = signed_tx.get_hash()
 
-            self.logger().debug(
-                f"[{self._pool_name}] {submission_id}: Submitting to XRPL, tx_hash={tx_hash[:8]}..."
-            )
+            self.logger().debug(f"[{self._pool_name}] {submission_id}: Submitting to XRPL, tx_hash={tx_hash[:8]}...")
 
             # Submit
             tx_blob = encode(signed_tx.to_xrpl())

@@ -19,7 +19,6 @@ from hummingbot.core.event.events import BuyOrderCreatedEvent, OrderCancelledEve
 
 
 class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -90,9 +89,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "state": "live",
                     "stk": "",
                     "tickSz": "0.1",
-                    "uly": ""
+                    "uly": "",
                 },
-            ]
+            ],
         }
 
     @property
@@ -121,9 +120,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "state": "live",
                     "stk": "",
                     "tickSz": "0.001",
-                    "uly": ""
+                    "uly": "",
                 },
-            ]
+            ],
         }
 
         return "INVALID-PAIR", response
@@ -150,9 +149,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "vol24h": "2222",
                     "sodUtc0": "2222",
                     "sodUtc8": "2222",
-                    "ts": "1597026383085"
+                    "ts": "1597026383085",
                 }
-            ]
+            ],
         }
 
     @property
@@ -177,7 +176,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "vol24h": "2222",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085"
+                    "ts": "1597026383085",
                 },
                 {
                     "instType": "SPOT",
@@ -195,22 +194,14 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "vol24h": "2222",
                     "sodUtc0": "0.1",
                     "sodUtc8": "0.1",
-                    "ts": "1597026383085"
-                }
-            ]
+                    "ts": "1597026383085",
+                },
+            ],
         }
 
     @property
     def network_status_request_successful_mock_response(self):
-        return {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "ts": "1597026383085"
-                }
-            ]
-        }
+        return {"code": "0", "msg": "", "data": [{"ts": "1597026383085"}]}
 
     @property
     def trading_rules_request_mock_response(self):
@@ -239,9 +230,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "minSz": "1",
                     "ctType": "inverse",
                     "alias": "this_week",
-                    "state": "live"
+                    "state": "live",
                 }
-            ]
+            ],
         }
         return response
 
@@ -259,7 +250,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "baseCcy": self.base_asset,
                     "quoteCcy": self.quote_asset,
                 }
-            ]
+            ],
         }
         return response
 
@@ -269,14 +260,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "code": "0",
             "msg": "",
             "data": [
-                {
-                    "clOrdId": "oktswap6",
-                    "ordId": self.expected_exchange_order_id,
-                    "tag": "",
-                    "sCode": "0",
-                    "sMsg": ""
-                }
-            ]
+                {"clOrdId": "oktswap6", "ordId": self.expected_exchange_order_id, "tag": "", "sCode": "0", "sMsg": ""}
+            ],
         }
 
     @property
@@ -310,7 +295,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "uTime": "1620722938250",
                             "upl": "0",
                             "uplLiab": "0",
-                            "stgyEq": "0"
+                            "stgyEq": "0",
                         },
                         {
                             "availBal": "",
@@ -335,8 +320,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "uTime": "1620722938250",
                             "upl": "0.570822125136023",
                             "uplLiab": "0",
-                            "stgyEq": "0"
-                        }
+                            "stgyEq": "0",
+                        },
                     ],
                     "imr": "3372.2942371050594217",
                     "isoEq": "0",
@@ -345,9 +330,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "notionalUsd": "33722.9423710505978888",
                     "ordFroz": "0",
                     "totalEq": "11172992.1657531589092577",
-                    "uTime": "1623392334718"
+                    "uTime": "1623392334718",
                 }
-            ]
+            ],
         }
 
     @property
@@ -381,7 +366,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "uTime": "1620722938250",
                             "upl": "0",
                             "uplLiab": "0",
-                            "stgyEq": "0"
+                            "stgyEq": "0",
                         },
                     ],
                     "imr": "3372.2942371050594217",
@@ -391,19 +376,16 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "notionalUsd": "33722.9423710505978888",
                     "ordFroz": "0",
                     "totalEq": "11172992.1657531589092577",
-                    "uTime": "1623392334718"
+                    "uTime": "1623392334718",
                 }
             ],
-            "msg": ""
+            "msg": "",
         }
 
     @property
     def balance_event_websocket_update(self):
         return {
-            "arg": {
-                "channel": "account",
-                "ccy": "BTC"
-            },
+            "arg": {"channel": "account", "ccy": "BTC"},
             "data": [
                 {
                     "uTime": "1597026383085",
@@ -439,11 +421,11 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "isoLiab": "0",
                             "coinUsdPrice": "60000",
                             "stgyEq": "0",
-                            "isoUpl": ""
+                            "isoUpl": "",
                         }
-                    ]
+                    ],
                 }
-            ]
+            ],
         }
 
     @property
@@ -483,8 +465,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+            percent_token=self.quote_asset, flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))]
+        )
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -506,7 +488,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             okx_api_key=self.api_key,
             okx_secret_key=self.api_secret_key,
             okx_passphrase=self.api_passphrase,
-            trading_pairs=[self.trading_pair]
+            trading_pairs=[self.trading_pair],
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -520,8 +502,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["instId"])
         self.assertEqual("cash", request_data["tdMode"])
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(order.order_type.name.lower(), request_data["ordType"])
@@ -535,39 +516,35 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["instId"])
         self.assertEqual(order.client_order_id, request_data["clOrdId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["instId"])
         self.assertEqual(order.client_order_id, request_params["clOrdId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertEqual("SPOT", request_params["instType"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["instId"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["instId"])
         self.assertEqual(order.exchange_order_id, request_params["ordId"])
 
     def configure_successful_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            response_scode: int = 0,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        response_scode: int = 0,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
         response = self._order_cancelation_request_successful_mock_response(response_scode=response_scode, order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
         response = {
             "code": "0",
@@ -577,18 +554,16 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyExchangeOrderId",
                     "sCode": "1",
-                    "sMsg": "Error"
+                    "sMsg": "Error",
                 }
-            ]
+            ],
         }
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-            self,
-            successful_order: InFlightOrder,
-            erroneous_order: InFlightOrder,
-            mock_api: aioresponses) -> List[str]:
+        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+    ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
         """
@@ -600,25 +575,21 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return all_urls
 
     def configure_order_not_found_error_cancelation_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
         raise NotImplementedError
 
     def configure_order_not_found_error_order_status_response(
-            self, order: InFlightOrder, mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Implement the expected not found response when enabling
         # test_lost_order_removed_if_not_found_during_order_status_update
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -626,10 +597,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_canceled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_canceled_mock_response(order=order)
@@ -637,10 +606,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_open_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_open_mock_response(order=order)
@@ -648,20 +615,16 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_http_error_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=404, callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -669,10 +632,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_partial_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -680,10 +641,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_full_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -691,10 +650,8 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return url
 
     def configure_erroneous_http_fill_trade_response(
-            self,
-            order: InFlightOrder,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_TRADE_FILLS_PATH)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
@@ -706,7 +663,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SPOT",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
             },
             "data": [
                 {
@@ -746,7 +703,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -755,9 +711,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": ""
+                    "msg": "",
                 }
-            ]
+            ],
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -766,7 +722,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SPOT",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
             },
             "data": [
                 {
@@ -806,7 +762,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -815,9 +770,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": ""
+                    "msg": "",
                 }
-            ]
+            ],
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -826,7 +781,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SPOT",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
             },
             "data": [
                 {
@@ -866,7 +821,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -875,9 +829,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": ""
+                    "msg": "",
                 }
-            ]
+            ],
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -886,7 +840,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "channel": "orders",
                 "uid": "77982378738415879",
                 "instType": "SPOT",
-                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
             },
             "data": [
                 {
@@ -926,7 +880,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -935,9 +888,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "reqId": "",
                     "amendResult": "",
                     "code": "0",
-                    "msg": ""
+                    "msg": "",
                 }
-            ]
+            ],
         }
 
     @patch("hummingbot.connector.utils.get_tracking_nonce")
@@ -975,12 +928,16 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         self.assertEqual(result, expected_client_order_id)
 
     def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError("Error executing request POST https://okx.com/api/v3/order. HTTP status is 401. "
-                            'Error: {"code":"50113","msg":"message"}')
+        exception = IOError(
+            "Error executing request POST https://okx.com/api/v3/order. HTTP status is 401. "
+            'Error: {"code":"50113","msg":"message"}'
+        )
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        exception = IOError("Error executing request POST https://okx.com/api/v3/order. HTTP status is 401. "
-                            'Error: {"code":"50114","msg":"message"}')
+        exception = IOError(
+            "Error executing request POST https://okx.com/api/v3/order. HTTP status is 401. "
+            'Error: {"code":"50114","msg":"message"}'
+        )
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
@@ -1004,9 +961,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyOrdId",
                     "sCode": str(response_scode),
-                    "sMsg": ""
+                    "sMsg": "",
                 }
-            ]
+            ],
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1049,9 +1006,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "tgtCcy": "",
                     "category": "",
                     "uTime": "1597026383085",
-                    "cTime": "1597026383085"
+                    "cTime": "1597026383085",
                 }
-            ]
+            ],
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1094,9 +1051,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "tgtCcy": "",
                     "category": "",
                     "uTime": "1597026383085",
-                    "cTime": "1597026383085"
+                    "cTime": "1597026383085",
                 }
-            ]
+            ],
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
@@ -1139,9 +1096,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "tgtCcy": "",
                     "category": "",
                     "uTime": "1597026383085",
-                    "cTime": "1597026383085"
+                    "cTime": "1597026383085",
                 }
-            ]
+            ],
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1184,9 +1141,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "tgtCcy": "",
                     "category": "",
                     "uTime": "1597026383085",
-                    "cTime": "1597026383085"
+                    "cTime": "1597026383085",
                 }
-            ]
+            ],
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
@@ -1209,9 +1166,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
-                    "ts": "1597026383085"
+                    "ts": "1597026383085",
                 },
-            ]
+            ],
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
@@ -1234,9 +1191,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(-self.expected_fill_fee.flat_fees[0].amount),
-                    "ts": "1597026383085"
+                    "ts": "1597026383085",
                 },
-            ]
+            ],
         }
 
     @aioresponses()
@@ -1282,16 +1239,15 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 order=order,
                 mock_api=mock_api,
                 response_scode=response_scode,
-                callback=lambda *args, **kwargs: request_sent_event.set())
+                callback=lambda *args, **kwargs: request_sent_event.set(),
+            )
 
             self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
             self.async_run_with_timeout(request_sent_event.wait())
 
             cancel_request = self._all_executed_requests(mock_api, url)[0]
             self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            self.validate_order_cancelation_request(order=order, request_call=cancel_request)
 
             if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -1300,12 +1256,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
                 self.assertEqual(order.client_order_id, cancel_event.order_id)
 
-                self.assertTrue(
-                    self.is_logged(
-                        "INFO",
-                        f"Successfully canceled order {order.client_order_id}."
-                    )
-                )
+                self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}."))
             else:
                 self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
                 self.assertTrue(order.is_pending_cancel_confirmation)
@@ -1320,9 +1271,9 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
         creation_response = self.order_creation_request_successful_mock_response
 
-        mock_api.post(url,
-                      body=json.dumps(creation_response),
-                      callback=lambda *args, **kwargs: request_sent_event.set())
+        mock_api.post(
+            url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
+        )
 
         order_id = self.place_buy_order(order_type=OrderType.MARKET)
         self.async_run_with_timeout(request_sent_event.wait())
@@ -1330,9 +1281,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         order_request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(order_request)
         self.assertIn(order_id, self.exchange.in_flight_orders)
-        self.validate_order_creation_request(
-            order=self.exchange.in_flight_orders[order_id],
-            request_call=order_request)
+        self.validate_order_creation_request(order=self.exchange.in_flight_orders[order_id], request_call=order_request)
 
         create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
@@ -1347,6 +1296,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.MARKET.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.000000')} {self.trading_pair} at {Decimal('10000')}.",
             )
         )

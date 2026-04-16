@@ -5,7 +5,6 @@ from hummingbot.strategy_v2.utils.distributions import Distributions
 
 
 class TestDistributions(unittest.TestCase):
-
     def test_linear(self):
         result = Distributions.linear(5, 0, 10)
         expected = [Decimal(x) for x in [0, 2.5, 5, 7.5, 10]]

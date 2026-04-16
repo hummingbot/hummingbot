@@ -123,7 +123,9 @@ class GatewayLp(GatewaySwap):
                     trade_fee=TradeFeeBase.new_spot_fee(
                         fee_schema=self.trade_fee_schema(),
                         trade_type=tracked_order.trade_type,
-                        flat_fees=[TokenAmount(amount=metadata.get("tx_fee", Decimal("0")), token=self._native_currency)]
+                        flat_fees=[
+                            TokenAmount(amount=metadata.get("tx_fee", Decimal("0")), token=self._native_currency)
+                        ],
                     ),
                     # P&L tracking fields from gateway response
                     position_address=metadata.get("position_address", ""),
@@ -141,7 +143,9 @@ class GatewayLp(GatewaySwap):
                     trade_fee=TradeFeeBase.new_spot_fee(
                         fee_schema=self.trade_fee_schema(),
                         trade_type=tracked_order.trade_type,
-                        flat_fees=[TokenAmount(amount=metadata.get("tx_fee", Decimal("0")), token=self._native_currency)]
+                        flat_fees=[
+                            TokenAmount(amount=metadata.get("tx_fee", Decimal("0")), token=self._native_currency)
+                        ],
                     ),
                     # P&L tracking fields from gateway response
                     position_address=metadata.get("position_address", ""),
@@ -164,7 +168,7 @@ class GatewayLp(GatewaySwap):
                     timestamp=self.current_timestamp,
                     order_id=order_id,
                     order_action=LPType.ADD if metadata["operation"] == "add" else LPType.REMOVE,
-                )
+                ),
             )
         elif tracked_order.is_cancelled:
             # Transaction cancelled
@@ -192,7 +196,9 @@ class GatewayLp(GatewaySwap):
                     tx_hash = await tracked_order.get_exchange_order_id()
                     self._trigger_lp_events_if_needed(tracked_order.client_order_id, tx_hash)
                 except Exception as e:
-                    self.logger().warning(f"Error triggering LP event for {tracked_order.client_order_id}: {e}", exc_info=True)
+                    self.logger().warning(
+                        f"Error triggering LP event for {tracked_order.client_order_id}: {e}", exc_info=True
+                    )
 
     # Error code from gateway for transaction confirmation timeout
     TRANSACTION_TIMEOUT_CODE = "TRANSACTION_TIMEOUT"
@@ -223,7 +229,7 @@ class GatewayLp(GatewaySwap):
                     timestamp=self.current_timestamp,
                     order_id=order_id,
                     order_action=LPType.ADD if operation == "add" else LPType.REMOVE,
-                )
+                ),
             )
             # Clean up metadata
             del self._lp_orders_metadata[order_id]
@@ -324,10 +330,7 @@ class GatewayLp(GatewaySwap):
             # Get pool info from gateway using the get_pool method
             connector_name = self.connector_name.split("/")[0]
             pool_info = await self._get_gateway_instance().get_pool(
-                trading_pair=trading_pair,
-                connector=connector_name,
-                network=self.network,
-                type=pool_type
+                trading_pair=trading_pair, connector=connector_name, network=self.network, type=pool_type
             )
 
             pool_address = pool_info.get("address")
@@ -378,7 +381,7 @@ class GatewayLp(GatewaySwap):
             self.logger().network(
                 f"Error fetching pool info for address {pool_address} on {self.connector_name}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=str(e),
             )
             return None
 
@@ -397,9 +400,7 @@ class GatewayLp(GatewaySwap):
         try:
             # Fetch pool info
             pool_info_resp = await self._get_gateway_instance().pool_info(
-                connector=self.connector_name,
-                network=self.network,
-                pool_address=pool_address
+                connector=self.connector_name, network=self.network, pool_address=pool_address
             )
 
             if not pool_info_resp:
@@ -459,7 +460,7 @@ class GatewayLp(GatewaySwap):
             self.logger().network(
                 f"Error fetching pool info for {trading_pair} on {self.connector_name}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=str(e),
             )
             return None
 
@@ -536,12 +537,14 @@ class GatewayLp(GatewaySwap):
         total_amount_in_base = base_amount + quote_amount_in_base
 
         # Start tracking order with calculated amount
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=trade_type,
-                                  price=Decimal(str(price)),
-                                  amount=Decimal(str(total_amount_in_base)),
-                                  order_type=OrderType.AMM_ADD)
+        self.start_tracking_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            trade_type=trade_type,
+            price=Decimal(str(price)),
+            amount=Decimal(str(total_amount_in_base)),
+            order_type=OrderType.AMM_ADD,
+        )
 
         # Determine position price range
         # Priority: explicit prices > width percentages
@@ -555,7 +558,9 @@ class GatewayLp(GatewaySwap):
             lower_price = price * (1 - lower_width_decimal)
             upper_price = price * (1 + upper_width_decimal)
         else:
-            raise ValueError("Must provide either (lower_price and upper_price) or (upper_width_pct and lower_width_pct)")
+            raise ValueError(
+                "Must provide either (lower_price and upper_price) or (upper_width_pct and lower_width_pct)"
+            )
 
         # Get pool address - use explicit if provided, otherwise lookup by trading pair
         if not pool_address:
@@ -584,7 +589,7 @@ class GatewayLp(GatewaySwap):
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct,
-                extra_params=extra_params
+                extra_params=extra_params,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -592,15 +597,17 @@ class GatewayLp(GatewaySwap):
                 # Store response data in metadata for P&L tracking
                 # Gateway returns positive values for token amounts
                 data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "position_address": data.get("positionAddress", ""),
-                    "base_amount": Decimal(str(data.get("baseTokenAmountAdded", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountAdded", 0))),
-                    # SOL rent paid to create position
-                    "position_rent": Decimal(str(data.get("positionRent", 0))),
-                    # SOL transaction fee
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                self._lp_orders_metadata[order_id].update(
+                    {
+                        "position_address": data.get("positionAddress", ""),
+                        "base_amount": Decimal(str(data.get("baseTokenAmountAdded", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountAdded", 0))),
+                        # SOL rent paid to create position
+                        "position_rent": Decimal(str(data.get("positionRent", 0))),
+                        # SOL transaction fee
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    }
+                )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -647,12 +654,14 @@ class GatewayLp(GatewaySwap):
         total_amount_in_base = base_token_amount + quote_amount_in_base
 
         # Start tracking order with calculated amount
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=trade_type,
-                                  price=Decimal(str(price)),
-                                  amount=Decimal(str(total_amount_in_base)),
-                                  order_type=OrderType.AMM_ADD)
+        self.start_tracking_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            trade_type=trade_type,
+            price=Decimal(str(price)),
+            amount=Decimal(str(total_amount_in_base)),
+            order_type=OrderType.AMM_ADD,
+        )
 
         # Get pool address for the trading pair
         pool_address = await self.get_pool_address(trading_pair)
@@ -668,7 +677,7 @@ class GatewayLp(GatewaySwap):
                 pool_address=pool_address,
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
-                slippage_pct=slippage_pct
+                slippage_pct=slippage_pct,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -682,11 +691,7 @@ class GatewayLp(GatewaySwap):
             self._handle_operation_failure(order_id, trading_pair, "opening AMM position", e)
 
     def remove_liquidity(
-        self,
-        trading_pair: str,
-        position_address: Optional[str] = None,
-        percentage: float = 100.0,
-        **request_args
+        self, trading_pair: str, position_address: Optional[str] = None, percentage: float = 100.0, **request_args
     ) -> str:
         """
         Removes liquidity from a position - either concentrated (CLMM) or regular (AMM) based on the connector type.
@@ -708,13 +713,21 @@ class GatewayLp(GatewaySwap):
         if connector_type == ConnectorType.CLMM:
             if percentage == 100.0:
                 # Complete close for CLMM
-                safe_ensure_future(self._clmm_close_position(trade_type, order_id, trading_pair, position_address, **request_args))
+                safe_ensure_future(
+                    self._clmm_close_position(trade_type, order_id, trading_pair, position_address, **request_args)
+                )
             else:
                 # Partial removal for CLMM
-                safe_ensure_future(self._clmm_remove_liquidity(trade_type, order_id, trading_pair, position_address, percentage, **request_args))
+                safe_ensure_future(
+                    self._clmm_remove_liquidity(
+                        trade_type, order_id, trading_pair, position_address, percentage, **request_args
+                    )
+                )
         elif connector_type == ConnectorType.AMM:
             # AMM always uses remove_liquidity
-            safe_ensure_future(self._amm_remove_liquidity(trade_type, order_id, trading_pair, percentage, **request_args))
+            safe_ensure_future(
+                self._amm_remove_liquidity(trade_type, order_id, trading_pair, percentage, **request_args)
+            )
         else:
             raise ValueError(f"Connector type {connector_type} does not support liquidity provision")
 
@@ -742,10 +755,9 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Connector {self.connector_name} is not of type CLMM.")
 
         # Start tracking order
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=trade_type,
-                                  order_type=OrderType.AMM_REMOVE)
+        self.start_tracking_order(
+            order_id=order_id, trading_pair=trading_pair, trade_type=trade_type, order_type=OrderType.AMM_REMOVE
+        )
 
         # Store metadata for event triggering (will be enriched with response data)
         self._lp_orders_metadata[order_id] = {
@@ -759,7 +771,7 @@ class GatewayLp(GatewaySwap):
                 network=self.network,
                 wallet_address=self.address,
                 position_address=position_address,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -767,16 +779,18 @@ class GatewayLp(GatewaySwap):
                 # Store response data in metadata for P&L tracking
                 # Gateway returns positive values for token amounts
                 data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    # SOL rent refunded on close
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
-                    # SOL transaction fee
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                self._lp_orders_metadata[order_id].update(
+                    {
+                        "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                        "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
+                        "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
+                        # SOL rent refunded on close
+                        "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
+                        # SOL transaction fee
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    }
+                )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -810,10 +824,9 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Connector {self.connector_name} is not of type CLMM.")
 
         # Start tracking order
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=trade_type,
-                                  order_type=OrderType.AMM_REMOVE)
+        self.start_tracking_order(
+            order_id=order_id, trading_pair=trading_pair, trade_type=trade_type, order_type=OrderType.AMM_REMOVE
+        )
 
         # Store metadata for event triggering (will be enriched with response data)
         self._lp_orders_metadata[order_id] = {
@@ -828,7 +841,7 @@ class GatewayLp(GatewaySwap):
                 wallet_address=self.address,
                 position_address=position_address,
                 percentage=percentage,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -836,16 +849,18 @@ class GatewayLp(GatewaySwap):
                 # Store response data in metadata for P&L tracking
                 # Gateway returns positive values for token amounts
                 data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    # SOL rent refunded on close
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
-                    # SOL transaction fee
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                self._lp_orders_metadata[order_id].update(
+                    {
+                        "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                        "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
+                        "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
+                        # SOL rent refunded on close
+                        "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
+                        # SOL transaction fee
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    }
+                )
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -881,10 +896,9 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Could not find pool for {trading_pair}")
 
         # Start tracking order
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=trade_type,
-                                  order_type=OrderType.AMM_REMOVE)
+        self.start_tracking_order(
+            order_id=order_id, trading_pair=trading_pair, trade_type=trade_type, order_type=OrderType.AMM_REMOVE
+        )
 
         try:
             transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
@@ -893,7 +907,7 @@ class GatewayLp(GatewaySwap):
                 wallet_address=self.address,
                 pool_address=pool_address,
                 percentage=percentage,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -912,7 +926,7 @@ class GatewayLp(GatewaySwap):
         base_token_amount: float,
         quote_token_amount: float,
         slippage_pct: Optional[float] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
         Adds liquidity to an AMM pool.
@@ -933,9 +947,7 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Could not find pool for {trading_pair}")
 
         order_id: str = self.create_market_order_id(TradeType.RANGE, trading_pair)
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=TradeType.RANGE)
+        self.start_tracking_order(order_id=order_id, trading_pair=trading_pair, trade_type=TradeType.RANGE)
         try:
             transaction_result = await self._get_gateway_instance().amm_add_liquidity(
                 connector=self.connector_name,
@@ -945,7 +957,7 @@ class GatewayLp(GatewaySwap):
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
                 slippage_pct=slippage_pct,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -958,10 +970,7 @@ class GatewayLp(GatewaySwap):
             self._handle_operation_failure(order_id, trading_pair, "adding AMM liquidity", e)
 
     async def amm_remove_liquidity(
-        self,
-        trading_pair: str,
-        percentage: float,
-        fail_silently: bool = False
+        self, trading_pair: str, percentage: float, fail_silently: bool = False
     ) -> Dict[str, Any]:
         """
         Removes liquidity from an AMM pool.
@@ -980,9 +989,7 @@ class GatewayLp(GatewaySwap):
             raise ValueError(f"Could not find pool for {trading_pair}")
 
         order_id: str = self.create_market_order_id(TradeType.RANGE, trading_pair)
-        self.start_tracking_order(order_id=order_id,
-                                  trading_pair=trading_pair,
-                                  trade_type=TradeType.RANGE)
+        self.start_tracking_order(order_id=order_id, trading_pair=trading_pair, trade_type=TradeType.RANGE)
         try:
             transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
                 connector=self.connector_name,
@@ -990,7 +997,7 @@ class GatewayLp(GatewaySwap):
                 wallet_address=self.address,
                 pool_address=pool_address,
                 percentage=percentage,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -1004,9 +1011,7 @@ class GatewayLp(GatewaySwap):
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_position_info(
-        self,
-        trading_pair: str,
-        position_address: Optional[str] = None
+        self, trading_pair: str, position_address: Optional[str] = None
     ) -> Union[AMMPositionInfo, CLMMPositionInfo, None]:
         """
         Retrieves position information for a given liquidity position.
@@ -1057,11 +1062,13 @@ class GatewayLp(GatewaySwap):
             self.logger().network(
                 f"Error fetching position info for {addr_info} on {self.connector_name}.",
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=str(e),
             )
             return None
 
-    async def get_user_positions(self, pool_address: Optional[str] = None) -> List[Union[AMMPositionInfo, CLMMPositionInfo]]:
+    async def get_user_positions(
+        self, pool_address: Optional[str] = None
+    ) -> List[Union[AMMPositionInfo, CLMMPositionInfo]]:
         """
         Fetch all user positions for this connector and wallet.
 
@@ -1080,7 +1087,7 @@ class GatewayLp(GatewaySwap):
                     connector=self.connector_name,
                     network=self.network,
                     wallet_address=self.address,
-                    pool_address=None  # Gateway doesn't support this parameter
+                    pool_address=None,  # Gateway doesn't support this parameter
                 )
             else:
                 # For AMM, we need a pool address
@@ -1091,9 +1098,7 @@ class GatewayLp(GatewaySwap):
                 # For AMM, get position info directly from the pool
                 # We'll need to get pool info first to extract tokens
                 pool_resp = await self._get_gateway_instance().pool_info(
-                    connector=self.connector_name,
-                    network=self.network,
-                    pool_address=pool_address
+                    connector=self.connector_name, network=self.network, pool_address=pool_address
                 )
 
                 if not pool_resp:
@@ -1104,7 +1109,7 @@ class GatewayLp(GatewaySwap):
                     connector=self.connector_name,
                     network=self.network,
                     pool_address=pool_address,
-                    wallet_address=self.address
+                    wallet_address=self.address,
                 )
 
                 if resp:
@@ -1114,8 +1119,16 @@ class GatewayLp(GatewaySwap):
                     quote_token_info = self.get_token_by_address(position.quote_token_address)
 
                     # Use symbol if found, otherwise use address
-                    position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
-                    position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
+                    position.base_token = (
+                        base_token_info.get("symbol", position.base_token_address)
+                        if base_token_info
+                        else position.base_token_address
+                    )
+                    position.quote_token = (
+                        quote_token_info.get("symbol", position.quote_token_address)
+                        if quote_token_info
+                        else position.quote_token_address
+                    )
                     return [position]
                 else:
                     return []
@@ -1133,8 +1146,16 @@ class GatewayLp(GatewaySwap):
                         quote_token_info = self.get_token_by_address(position.quote_token_address)
 
                         # Use symbol if found, otherwise use address
-                        position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
-                        position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
+                        position.base_token = (
+                            base_token_info.get("symbol", position.base_token_address)
+                            if base_token_info
+                            else position.base_token_address
+                        )
+                        position.quote_token = (
+                            quote_token_info.get("symbol", position.quote_token_address)
+                            if quote_token_info
+                            else position.quote_token_address
+                        )
 
                         positions.append(position)
                     else:
@@ -1145,8 +1166,16 @@ class GatewayLp(GatewaySwap):
                         quote_token_info = self.get_token_by_address(position.quote_token_address)
 
                         # Use symbol if found, otherwise use address
-                        position.base_token = base_token_info.get("symbol", position.base_token_address) if base_token_info else position.base_token_address
-                        position.quote_token = quote_token_info.get("symbol", position.quote_token_address) if quote_token_info else position.quote_token_address
+                        position.base_token = (
+                            base_token_info.get("symbol", position.base_token_address)
+                            if base_token_info
+                            else position.base_token_address
+                        )
+                        position.quote_token = (
+                            quote_token_info.get("symbol", position.quote_token_address)
+                            if quote_token_info
+                            else position.quote_token_address
+                        )
 
                         positions.append(position)
 
@@ -1156,7 +1185,7 @@ class GatewayLp(GatewaySwap):
 
             # Filter positions by pool_address if specified (client-side filtering)
             if pool_address and connector_type == ConnectorType.CLMM:
-                positions = [p for p in positions if hasattr(p, 'pool_address') and p.pool_address == pool_address]
+                positions = [p for p in positions if hasattr(p, "pool_address") and p.pool_address == pool_address]
 
         except Exception as e:
             self.logger().error(f"Error fetching positions: {e}", exc_info=True)

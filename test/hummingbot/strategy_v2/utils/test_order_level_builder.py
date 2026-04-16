@@ -6,7 +6,6 @@ from hummingbot.strategy_v2.utils.order_level_builder import OrderLevelBuilder
 
 
 class TestOrderLevelBuilder(unittest.TestCase):
-
     def setUp(self):
         self.builder = OrderLevelBuilder(3)
 

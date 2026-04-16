@@ -222,10 +222,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to {trading_pair}...", exc_info=True)
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
@@ -268,8 +265,5 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False

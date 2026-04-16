@@ -71,90 +71,218 @@ PACIFICA_TIER_2_LIMIT = 3000  # Valid API Config Key (doc: 300)
 PACIFICA_LIMIT_INTERVAL = 60
 
 FEE_TIER_LIMITS = {
-    0: 3000,     # doc: 300
-    1: 6000,     # doc: 600
-    2: 12000,    # doc: 1200
-    3: 24000,    # doc: 2400
-    4: 60000,    # doc: 6000
-    5: 120000,   # doc: 12000
-    6: 240000,   # doc: 24000
-    7: 300000,   # doc: 30000
+    0: 3000,  # doc: 300
+    1: 6000,  # doc: 600
+    2: 12000,  # doc: 1200
+    3: 24000,  # doc: 2400
+    4: 60000,  # doc: 6000
+    5: 120000,  # doc: 12000
+    6: 240000,  # doc: 24000
+    7: 300000,  # doc: 30000
 }
 
 # Costs (x10 of doc values)
-STANDARD_REQUEST_COST = 10       # doc: 1
-ORDER_CANCELLATION_COST = 5      # doc: 0.5
+STANDARD_REQUEST_COST = 10  # doc: 1
+ORDER_CANCELLATION_COST = 5  # doc: 0.5
 HEAVY_GET_REQUEST_COST_TIER_1 = 120  # Unidentified IP (doc: 12)
-HEAVY_GET_REQUEST_COST_TIER_2 = 30   # Valid API Config Key (doc: 3)
+HEAVY_GET_REQUEST_COST_TIER_2 = 30  # Valid API Config Key (doc: 3)
 
 RATE_LIMITS = [
     RateLimit(limit_id=PACIFICA_LIMIT_ID, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL),
-    RateLimit(limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=CREATE_LIMIT_ORDER_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=CREATE_MARKET_ORDER_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=ORDER_CANCELLATION_COST)]),
-    RateLimit(limit_id=SET_LEVERAGE_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_POSITIONS_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_ORDER_HISTORY_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_CANDLES_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_PRICES_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_ACCOUNT_INFO_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_ACCOUNT_API_CONFIG_KEYS, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=CREATE_ACCOUNT_API_CONFIG_KEY, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_TRADE_HISTORY_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
-    RateLimit(limit_id=GET_FEES_INFO_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
+    RateLimit(
+        limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=CREATE_LIMIT_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CREATE_MARKET_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=ORDER_CANCELLATION_COST)],
+    ),
+    RateLimit(
+        limit_id=SET_LEVERAGE_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_FUNDING_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_POSITIONS_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_ORDER_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_CANDLES_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_PRICES_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_INFO_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_API_CONFIG_KEYS,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=CREATE_ACCOUNT_API_CONFIG_KEY,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_TRADE_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_FEES_INFO_PATH_URL,
+        limit=PACIFICA_TIER_1_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
 ]
 
 RATE_LIMITS_TIER_2 = [
     RateLimit(limit_id=PACIFICA_LIMIT_ID, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL),
-    RateLimit(limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=CREATE_LIMIT_ORDER_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=CREATE_MARKET_ORDER_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=ORDER_CANCELLATION_COST)]),
-    RateLimit(limit_id=SET_LEVERAGE_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_POSITIONS_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_ORDER_HISTORY_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_CANDLES_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_PRICES_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_ACCOUNT_INFO_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_ACCOUNT_API_CONFIG_KEYS, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=CREATE_ACCOUNT_API_CONFIG_KEY, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_TRADE_HISTORY_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
-    RateLimit(limit_id=GET_FEES_INFO_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
+    RateLimit(
+        limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=CREATE_LIMIT_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CREATE_MARKET_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=ORDER_CANCELLATION_COST)],
+    ),
+    RateLimit(
+        limit_id=SET_LEVERAGE_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_FUNDING_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_POSITIONS_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_ORDER_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_CANDLES_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_PRICES_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_INFO_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_API_CONFIG_KEYS,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=CREATE_ACCOUNT_API_CONFIG_KEY,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_TRADE_HISTORY_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_FEES_INFO_PATH_URL,
+        limit=PACIFICA_TIER_2_LIMIT,
+        time_interval=PACIFICA_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
 ]

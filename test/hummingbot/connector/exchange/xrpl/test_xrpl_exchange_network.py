@@ -99,9 +99,7 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         expected_resp = self._client_response_account_info()
 
         mock_pool = MagicMock()
-        mock_pool.submit = AsyncMock(
-            return_value=QueryResult(success=True, response=expected_resp, error=None)
-        )
+        mock_pool.submit = AsyncMock(return_value=QueryResult(success=True, response=expected_resp, error=None))
         self.connector._query_pool = mock_pool
         self.connector._worker_manager = MagicMock()
         self.connector._worker_manager.is_running = True
@@ -121,9 +119,7 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         )
 
         mock_pool = MagicMock()
-        mock_pool.submit = AsyncMock(
-            return_value=QueryResult(success=False, response=err_resp, error="actNotFound")
-        )
+        mock_pool.submit = AsyncMock(return_value=QueryResult(success=False, response=err_resp, error="actNotFound"))
         self.connector._query_pool = mock_pool
         self.connector._worker_manager = MagicMock()
         self.connector._worker_manager.is_running = True
@@ -134,9 +130,7 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
     async def test_query_xrpl_failure_no_response_raises(self):
         """Failed query without a response raises Exception."""
         mock_pool = MagicMock()
-        mock_pool.submit = AsyncMock(
-            return_value=QueryResult(success=False, response=None, error="timeout")
-        )
+        mock_pool.submit = AsyncMock(return_value=QueryResult(success=False, response=None, error="timeout"))
         self.connector._query_pool = mock_pool
         self.connector._worker_manager = MagicMock()
         self.connector._worker_manager.is_running = True
@@ -150,9 +144,7 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         expected_resp = self._client_response_account_info()
 
         mock_pool = MagicMock()
-        mock_pool.submit = AsyncMock(
-            return_value=QueryResult(success=True, response=expected_resp, error=None)
-        )
+        mock_pool.submit = AsyncMock(return_value=QueryResult(success=True, response=expected_resp, error=None))
         self.connector._query_pool = mock_pool
 
         self.connector._worker_manager = MagicMock()
@@ -339,8 +331,10 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         )
 
         responses = [
-            ledger_resp, not_found_resp,  # attempt 1
-            ledger_resp, validated_resp,  # attempt 2
+            ledger_resp,
+            not_found_resp,  # attempt 1
+            ledger_resp,
+            validated_resp,  # attempt 2
         ]
         call_idx = 0
 
@@ -470,7 +464,8 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
     def test_get_token_symbol_found(self):
         """Known code+issuer returns the uppercase symbol."""
         result = self.connector.get_token_symbol_from_all_markets(
-            "SOLO", "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz"  # noqa: mock
+            "SOLO",
+            "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",  # noqa: mock
         )
         self.assertEqual(result, "SOLO")
 
@@ -651,7 +646,9 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         self.connector._node_pool.stop = AsyncMock()
 
         # Mock super().stop_network()
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock):
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock
+        ):
             await self.connector.stop_network()
 
         self.connector._worker_manager.stop.assert_not_awaited()
@@ -668,7 +665,9 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         self.connector._node_pool.is_running = True
         self.connector._node_pool.stop = AsyncMock()
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock):
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock
+        ):
             await self.connector.stop_network()
 
         self.connector._worker_manager.stop.assert_awaited_once()
@@ -684,7 +683,9 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         self.connector._node_pool.is_running = False
         self.connector._node_pool.stop = AsyncMock()
 
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock):
+        with patch(
+            "hummingbot.connector.exchange.xrpl.xrpl_exchange.ExchangePyBase.stop_network", new_callable=AsyncMock
+        ):
             await self.connector.stop_network()
 
         self.connector._worker_manager.stop.assert_not_awaited()

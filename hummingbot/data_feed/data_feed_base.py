@@ -54,8 +54,7 @@ class DataFeedBase(NetworkBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error("Unexpected error while waiting for data feed to get ready.",
-                                exc_info=True)
+            self.logger().error("Unexpected error while waiting for data feed to get ready.", exc_info=True)
 
     async def start_network(self):
         raise NotImplementedError

@@ -8,9 +8,8 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Kucoin Futures fees: https://www.kucoin.com/vip/level
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.0002"),
-    taker_percent_fee_decimal=Decimal("0.0006"),
-    percent_fee_token="USDT")
+    maker_percent_fee_decimal=Decimal("0.0002"), taker_percent_fee_decimal=Decimal("0.0006"), percent_fee_token="USDT"
+)
 
 CENTRALIZED = True
 
@@ -39,7 +38,7 @@ class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_perpetual_secret_key: SecretStr = Field(
         default=...,
@@ -48,7 +47,7 @@ class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_perpetual_passphrase: SecretStr = Field(
         default=...,
@@ -57,7 +56,7 @@ class KucoinPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="kucoin_perpetual")
 

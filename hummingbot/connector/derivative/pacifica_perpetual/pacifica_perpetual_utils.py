@@ -27,8 +27,8 @@ class PacificaPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Agent Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_agent_wallet_private_key: SecretStr = Field(
@@ -37,8 +37,8 @@ class PacificaPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Agent Wallet Private Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_user_wallet_public_key: SecretStr = Field(
@@ -47,8 +47,8 @@ class PacificaPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual User Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_api_config_key: SecretStr = Field(
@@ -57,8 +57,8 @@ class PacificaPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual API Config Key (optional)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": False  # Not required for new configs, automatic fallback or creation
-        }
+            "prompt_on_new": False,  # Not required for new configs, automatic fallback or creation
+        },
     )
 
     model_config = ConfigDict(title="pacifica_perpetual")
@@ -81,8 +81,8 @@ class PacificaPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Testnet Agent Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_testnet_agent_wallet_private_key: SecretStr = Field(
@@ -91,8 +91,8 @@ class PacificaPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Testnet Agent Wallet Private Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_testnet_user_wallet_public_key: SecretStr = Field(
@@ -101,8 +101,8 @@ class PacificaPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Testnet User Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     pacifica_perpetual_testnet_api_config_key: SecretStr = Field(
@@ -111,13 +111,11 @@ class PacificaPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Pacifica Perpetual Testnet API Config Key (optional)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": False
-        }
+            "prompt_on_new": False,
+        },
     )
 
     model_config = ConfigDict(title="pacifica_perpetual_testnet")
 
 
-OTHER_DOMAINS_KEYS = {
-    "pacifica_perpetual_testnet": PacificaPerpetualTestnetConfigMap.model_construct()
-}
+OTHER_DOMAINS_KEYS = {"pacifica_perpetual_testnet": PacificaPerpetualTestnetConfigMap.model_construct()}

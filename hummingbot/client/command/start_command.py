@@ -24,8 +24,12 @@ class StartCommand(GatewayChainApiManager):
         with self.trading_core.clock as clock:
             await clock.run()
 
-    async def wait_till_ready(self,  # type: HummingbotApplication
-                              func: Callable, *args, **kwargs):
+    async def wait_till_ready(
+        self,  # type: HummingbotApplication
+        func: Callable,
+        *args,
+        **kwargs,
+    ):
         while True:
             all_ready = all([market.ready for market in self.trading_core.markets.values()])
             if not all_ready:
@@ -35,28 +39,30 @@ class StartCommand(GatewayChainApiManager):
 
     def _strategy_uses_gateway_connector(self, required_exchanges: Set[str]) -> bool:
         exchange_settings: List[settings.ConnectorSetting] = [
-            settings.AllConnectorSettings.get_connector_settings().get(e, None)
-            for e in required_exchanges
+            settings.AllConnectorSettings.get_connector_settings().get(e, None) for e in required_exchanges
         ]
-        return any([s.uses_gateway_generic_connector()
-                    for s in exchange_settings])
+        return any([s.uses_gateway_generic_connector() for s in exchange_settings])
 
-    def start(self,  # type: HummingbotApplication
-              log_level: Optional[str] = None,
-              v2_conf: Optional[str] = None,
-              is_quickstart: Optional[bool] = False):
+    def start(
+        self,  # type: HummingbotApplication
+        log_level: Optional[str] = None,
+        v2_conf: Optional[str] = None,
+        is_quickstart: Optional[bool] = False,
+    ):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.start, log_level, v2_conf)
             return
         safe_ensure_future(self.start_check(log_level, v2_conf, is_quickstart), loop=self.ev_loop)
 
-    async def start_check(self,  # type: HummingbotApplication
-                          log_level: Optional[str] = None,
-                          v2_conf: Optional[str] = None,
-                          is_quickstart: Optional[bool] = False):
-
+    async def start_check(
+        self,  # type: HummingbotApplication
+        log_level: Optional[str] = None,
+        v2_conf: Optional[str] = None,
+        is_quickstart: Optional[bool] = False,
+    ):
         if self._in_start_check or (
-                self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()):
+            self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()
+        ):
             self.notify('The bot is already running - please run "stop" first')
             return
 
@@ -73,11 +79,14 @@ class StartCommand(GatewayChainApiManager):
         if self.strategy_file_name and self.trading_core.strategy_name and is_quickstart:
             if self._strategy_uses_gateway_connector(settings.required_exchanges):
                 try:
-                    await asyncio.wait_for(self.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
+                    await asyncio.wait_for(
+                        self.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT
+                    )
                 except asyncio.TimeoutError:
                     self.notify(
                         f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-                        f"Unable to start strategy {self.trading_core.strategy_name}. ")
+                        f"Unable to start strategy {self.trading_core.strategy_name}. "
+                    )
                     self._in_start_check = False
                     self.trading_core.strategy_name = None
                     self.strategy_file_name = None
@@ -97,14 +106,17 @@ class StartCommand(GatewayChainApiManager):
             self.notify("Status checks failed. Start aborted.")
             self._in_start_check = False
             return
-        init_logging("hummingbot_logs.yml",
-                     self.client_config_map,
-                     override_log_level=log_level.upper() if log_level else None,
-                     strategy_file_path=self.strategy_file_name)
+        init_logging(
+            "hummingbot_logs.yml",
+            self.client_config_map,
+            override_log_level=log_level.upper() if log_level else None,
+            strategy_file_path=self.strategy_file_name,
+        )
 
         # If macOS, disable App Nap.
         if platform.system() == "Darwin":
             import appnope
+
             appnope.nope()
 
         self._initialize_notifiers()
@@ -117,9 +129,7 @@ class StartCommand(GatewayChainApiManager):
                 strategy_config = self.strategy_file_name
 
             success = await self.trading_core.start_strategy(
-                self.trading_core.strategy_name,
-                strategy_config,
-                self.strategy_file_name
+                self.trading_core.strategy_name, strategy_config, self.strategy_file_name
             )
             if not success:
                 self._in_start_check = False
@@ -155,8 +165,9 @@ class StartCommand(GatewayChainApiManager):
         with open(conf_path) as f:
             return yaml.safe_load(f) or {}
 
-    async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
-                                             ) -> bool:
+    async def confirm_oracle_conversion_rate(
+        self,  # type: HummingbotApplication
+    ) -> bool:
         try:
             result = False
             self.app.clear_input()
@@ -165,12 +176,14 @@ class StartCommand(GatewayChainApiManager):
             for pair in settings.rate_oracle_pairs:
                 msg = await self.oracle_rate_msg(pair)
                 self.notify("\nRate Oracle:\n" + msg)
-            config = ConfigVar(key="confirm_oracle_use",
-                               type_str="bool",
-                               prompt="Please confirm to proceed if the above oracle source and rates are correct for "
-                                      "this strategy (Yes/No)  >>> ",
-                               required_if=lambda: True,
-                               validator=lambda v: validate_bool(v))
+            config = ConfigVar(
+                key="confirm_oracle_use",
+                type_str="bool",
+                prompt="Please confirm to proceed if the above oracle source and rates are correct for "
+                "this strategy (Yes/No)  >>> ",
+                required_if=lambda: True,
+                validator=lambda v: validate_bool(v),
+            )
             await self.prompt_a_config_legacy(config)
             if config.value:
                 result = True

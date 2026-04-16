@@ -15,6 +15,7 @@ Pool Types:
 Re-exports:
 - Result dataclasses: QueryResult, TransactionSubmitResult, TransactionVerifyResult
 """
+
 import logging
 from typing import Dict, Optional
 
@@ -42,9 +43,10 @@ class RequestPriority:
     Note: Deprecated. Kept for API compatibility only.
     The new pool-based architecture handles prioritization differently.
     """
-    LOW = 1       # Balance updates, order book queries
-    MEDIUM = 2    # Order status, transaction verification
-    HIGH = 3      # Order submission, cancellation
+
+    LOW = 1  # Balance updates, order book queries
+    MEDIUM = 2  # Order status, transaction verification
+    HIGH = 3  # Order submission, cancellation
     CRITICAL = 4  # Emergency operations
 
 
@@ -78,6 +80,7 @@ class XRPLWorkerPoolManager:
         verify_result = await verify_pool.submit_verification(signed_tx, prelim_result)
         submit_result = await tx_pool.submit_transaction(transaction)
     """
+
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
@@ -154,9 +157,7 @@ class XRPLWorkerPoolManager:
                 node_pool=self._node_pool,
                 num_workers=self._query_pool_size,
             )
-            self.logger().debug(
-                f"Created query pool with {self._query_pool_size} workers"
-            )
+            self.logger().debug(f"Created query pool with {self._query_pool_size} workers")
         return self._query_pool
 
     def get_verification_pool(self) -> XRPLVerificationWorkerPool:
@@ -174,9 +175,7 @@ class XRPLWorkerPoolManager:
                 node_pool=self._node_pool,
                 num_workers=self._verification_pool_size,
             )
-            self.logger().debug(
-                f"Created verification pool with {self._verification_pool_size} workers"
-            )
+            self.logger().debug(f"Created verification pool with {self._verification_pool_size} workers")
         return self._verification_pool
 
     def get_transaction_pool(
@@ -208,8 +207,7 @@ class XRPLWorkerPoolManager:
                 num_workers=self._transaction_pool_size,
             )
             self.logger().debug(
-                f"Created transaction pool for {pool_id[:8]}... "
-                f"with {self._transaction_pool_size} workers"
+                f"Created transaction pool for {pool_id[:8]}... with {self._transaction_pool_size} workers"
             )
         return self._transaction_pools[pool_id]
 

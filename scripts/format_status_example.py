@@ -9,7 +9,19 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 class FormatStatusExampleConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     exchanges: list = Field(default=["binance_paper_trade", "kucoin_paper_trade", "gate_io_paper_trade"])
-    trading_pairs: list = Field(default=["ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT", "WLD-USDT", "DOGE-USDT", "SHIB-USDT", "XRP-USDT", "SOL-USDT"])
+    trading_pairs: list = Field(
+        default=[
+            "ETH-USDT",
+            "BTC-USDT",
+            "POL-USDT",
+            "AVAX-USDT",
+            "WLD-USDT",
+            "DOGE-USDT",
+            "SHIB-USDT",
+            "XRP-USDT",
+            "SOL-USDT",
+        ]
+    )
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
         # Add all combinations of exchanges and trading pairs
@@ -37,14 +49,23 @@ class FormatStatusExample(StrategyV2Base):
             return "Market connectors are not ready."
         lines = []
         market_status_df = self.get_market_status_df_with_depth()
-        lines.extend(["", "  Market Status Data Frame:"] + ["    " + line for line in market_status_df.to_string(index=False).split("\n")])
+        lines.extend(
+            ["", "  Market Status Data Frame:"]
+            + ["    " + line for line in market_status_df.to_string(index=False).split("\n")]
+        )
         return "\n".join(lines)
 
     def get_market_status_df_with_depth(self):
         market_status_df = self.market_status_data_frame(self.get_market_trading_pair_tuples())
-        market_status_df["Exchange"] = market_status_df.apply(lambda x: x["Exchange"].strip("PaperTrade") + "paper_trade", axis=1)
-        market_status_df["Volume (+1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, 0.01), axis=1)
-        market_status_df["Volume (-1%)"] = market_status_df.apply(lambda x: self.get_volume_for_percentage_from_mid_price(x, -0.01), axis=1)
+        market_status_df["Exchange"] = market_status_df.apply(
+            lambda x: x["Exchange"].strip("PaperTrade") + "paper_trade", axis=1
+        )
+        market_status_df["Volume (+1%)"] = market_status_df.apply(
+            lambda x: self.get_volume_for_percentage_from_mid_price(x, 0.01), axis=1
+        )
+        market_status_df["Volume (-1%)"] = market_status_df.apply(
+            lambda x: self.get_volume_for_percentage_from_mid_price(x, -0.01), axis=1
+        )
         market_status_df.sort_values(by=["Market"], inplace=True)
         return market_status_df
 

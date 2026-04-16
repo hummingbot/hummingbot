@@ -18,6 +18,7 @@ DEFAULT_FEES = [0.2, 0.2]
 # FEE_TYPE not required because default value is Percentage
 # FEE_TOKEN not required because the fee is not flat
 
+
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information
@@ -41,7 +42,7 @@ class NdaxConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     ndax_account_name: SecretStr = Field(
         default=...,
@@ -50,7 +51,7 @@ class NdaxConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     ndax_api_key: SecretStr = Field(
         default=...,
@@ -59,7 +60,7 @@ class NdaxConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     ndax_secret_key: SecretStr = Field(
         default=...,
@@ -68,7 +69,7 @@ class NdaxConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="ndax")
 
@@ -90,7 +91,7 @@ class NdaxTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     ndax_testnet_account_name: SecretStr = Field(
         default=...,
@@ -99,7 +100,7 @@ class NdaxTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     ndax_testnet_api_key: SecretStr = Field(
         default=...,
@@ -108,7 +109,7 @@ class NdaxTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "pr}mpt_on_new": True,
-        }
+        },
     )
     ndax_testnet_secret_key: SecretStr = Field(
         default=...,
@@ -117,7 +118,7 @@ class NdaxTestnetConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="ndax_testnet")
 

@@ -26,7 +26,6 @@ class InFightOrderTest(InFlightOrderBase):
 
 
 class MockTestConnector(ConnectorBase):
-
     def __init__(self):
         super().__init__()
         self._in_flight_orders = {}
@@ -58,8 +57,9 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         orders = {
             "1": InFightOrderTest("1", "A", "HBOT-USDT", OrderType.LIMIT, TradeType.BUY, 100, 1, 1640001112.0, "live"),
             "2": InFightOrderTest("2", "B", "HBOT-USDT", OrderType.LIMIT, TradeType.BUY, 100, 2, 1640001112.0, "live"),
-            "3": InFightOrderTest("3", "C", "HBOT-USDT", OrderType.LIMIT, TradeType.SELL, 110,
-                                  Decimal("1.5"), 1640001112.0, "live")
+            "3": InFightOrderTest(
+                "3", "C", "HBOT-USDT", OrderType.LIMIT, TradeType.SELL, 110, Decimal("1.5"), 1640001112.0, "live"
+            ),
         }
         bals = connector.in_flight_asset_balances(orders)
         self.assertEqual(Decimal("300"), bals["USDT"])
@@ -72,8 +72,8 @@ class ConnectorBaseUnitTest(unittest.TestCase):
 
         initial_balance = Decimal("1000")
         estimated_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_balance)
+            currency="HBOT", available_balance=initial_balance
+        )
 
         self.assertEqual(initial_balance, estimated_balance)
 
@@ -97,7 +97,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         initial_sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -107,23 +107,25 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
-        connector.in_flight_orders_snapshot = {order.client_order_id: order for order
-                                               in [initial_buy_order, initial_sell_order]}
+        connector.in_flight_orders_snapshot = {
+            order.client_order_id: order for order in [initial_buy_order, initial_sell_order]
+        }
         connector.in_flight_orders_snapshot_timestamp = 1640000000
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         self.assertEqual(initial_coinalpha_balance + initial_sell_order.amount, estimated_coinalpha_balance)
-        self.assertEqual(initial_hbot_balance + (initial_buy_order.amount * initial_buy_order.price),
-                         estimated_hbot_balance)
+        self.assertEqual(
+            initial_hbot_balance + (initial_buy_order.amount * initial_buy_order.price), estimated_hbot_balance
+        )
 
     def test_estimated_available_balance_with_no_orders_during_snapshot_and_two_current_orders(self):
         # Considers the case where the balance update was done when no orders were alive
@@ -144,7 +146,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -154,7 +156,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
         connector.in_flight_orders_snapshot = {}
@@ -162,15 +164,14 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         connector._in_flight_orders = {order.client_order_id: order for order in [buy_order, sell_order]}
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         self.assertEqual(initial_coinalpha_balance - sell_order.amount, estimated_coinalpha_balance)
-        self.assertEqual(initial_hbot_balance - (buy_order.amount * buy_order.price),
-                         estimated_hbot_balance)
+        self.assertEqual(initial_hbot_balance - (buy_order.amount * buy_order.price), estimated_hbot_balance)
 
     def test_estimated_available_balance_with_unfilled_orders_during_snapshot_that_are_still_alive(self):
         # Considers the case where the balance update was done when two orders were alive
@@ -191,7 +192,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         initial_sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -201,21 +202,23 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
-        connector.in_flight_orders_snapshot = {order.client_order_id: order for order
-                                               in [initial_buy_order, initial_sell_order]}
+        connector.in_flight_orders_snapshot = {
+            order.client_order_id: order for order in [initial_buy_order, initial_sell_order]
+        }
         connector.in_flight_orders_snapshot_timestamp = 1640000000
-        connector._in_flight_orders = {order.client_order_id: order for order
-                                       in [copy.copy(initial_buy_order), copy.copy(initial_sell_order)]}
+        connector._in_flight_orders = {
+            order.client_order_id: order for order in [copy.copy(initial_buy_order), copy.copy(initial_sell_order)]
+        }
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         self.assertEqual(initial_coinalpha_balance, estimated_coinalpha_balance)
         self.assertEqual(initial_hbot_balance, estimated_hbot_balance)
@@ -245,15 +248,14 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         connector._event_logs.append(fill_event)
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         self.assertEqual(initial_coinalpha_balance + fill_event.amount, estimated_coinalpha_balance)
-        self.assertEqual(initial_hbot_balance - (fill_event.amount * fill_event.price),
-                         estimated_hbot_balance)
+        self.assertEqual(initial_hbot_balance - (fill_event.amount * fill_event.price), estimated_hbot_balance)
 
     def test_fill_event_previous_to_balance_updated_is_ignored_for_estimated_available_balance(self):
         connector = MockTestConnector()
@@ -280,11 +282,11 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         connector._event_logs.append(fill_event)
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         self.assertEqual(initial_coinalpha_balance, estimated_coinalpha_balance)
         self.assertEqual(initial_hbot_balance, estimated_hbot_balance)
@@ -309,7 +311,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         initial_sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -319,11 +321,12 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
-        connector.in_flight_orders_snapshot = {order.client_order_id: order for order
-                                               in [initial_buy_order, initial_sell_order]}
+        connector.in_flight_orders_snapshot = {
+            order.client_order_id: order for order in [initial_buy_order, initial_sell_order]
+        }
         connector.in_flight_orders_snapshot_timestamp = 1640000000
 
         buy_fill_event = OrderFilledEvent(
@@ -355,18 +358,21 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         initial_sell_order.executed_amount_quote = sell_fill_event.amount * sell_fill_event.price
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         # The partial fills prior to the balance update are already impacted in the balance
         # Only the unfilled part of the orders should be recovered once they are gone
-        self.assertEqual(initial_coinalpha_balance + initial_sell_order.amount - sell_fill_event.amount,
-                         estimated_coinalpha_balance)
-        expected_hbot_amount = (initial_hbot_balance
-                                + (initial_buy_order.amount - initial_buy_order.executed_amount_base) * initial_buy_order.price)
+        self.assertEqual(
+            initial_coinalpha_balance + initial_sell_order.amount - sell_fill_event.amount, estimated_coinalpha_balance
+        )
+        expected_hbot_amount = (
+            initial_hbot_balance
+            + (initial_buy_order.amount - initial_buy_order.executed_amount_base) * initial_buy_order.price
+        )
         self.assertEqual(expected_hbot_amount, estimated_hbot_balance)
 
     def test_estimated_available_balance_with_partially_filled_orders_during_snapshot_that_are_still_alive(self):
@@ -388,7 +394,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         initial_sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -398,11 +404,12 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
-        connector.in_flight_orders_snapshot = {order.client_order_id: order for order
-                                               in [initial_buy_order, initial_sell_order]}
+        connector.in_flight_orders_snapshot = {
+            order.client_order_id: order for order in [initial_buy_order, initial_sell_order]
+        }
         connector.in_flight_orders_snapshot_timestamp = 1640000000
 
         buy_fill_event = OrderFilledEvent(
@@ -433,21 +440,24 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         initial_sell_order.executed_amount_base = sell_fill_event.amount
         initial_sell_order.executed_amount_quote = sell_fill_event.amount * sell_fill_event.price
 
-        connector._in_flight_orders = {order.client_order_id: order for order
-                                       in [copy.copy(initial_buy_order), copy.copy(initial_sell_order)]}
+        connector._in_flight_orders = {
+            order.client_order_id: order for order in [copy.copy(initial_buy_order), copy.copy(initial_sell_order)]
+        }
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
         # The partial fills prior to the balance update are already impacted in the balance
         self.assertEqual(initial_coinalpha_balance, estimated_coinalpha_balance)
         self.assertEqual(initial_hbot_balance, estimated_hbot_balance)
 
-    def test_estimated_available_balance_with_unfilled_orders_during_snapshot_two_current_partial_filled_and_extra_fill(self):
+    def test_estimated_available_balance_with_unfilled_orders_during_snapshot_two_current_partial_filled_and_extra_fill(
+        self,
+    ):
         # Considers the case where the balance update was done when two orders were alive
         # Currently those initial orders are gone, and there are two new partially filled orders
         # There is an extra fill event for an order no longer present
@@ -467,7 +477,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
         initial_sell_order = InFlightOrder(
             client_order_id="OID2",
@@ -477,11 +487,12 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640000000
+            creation_timestamp=1640000000,
         )
 
-        connector.in_flight_orders_snapshot = {order.client_order_id: order for order
-                                               in [initial_buy_order, initial_sell_order]}
+        connector.in_flight_orders_snapshot = {
+            order.client_order_id: order for order in [initial_buy_order, initial_sell_order]
+        }
         connector.in_flight_orders_snapshot_timestamp = 1640000000
 
         current_buy_order = InFlightOrder(
@@ -492,7 +503,7 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.BUY,
             price=Decimal("900"),
             amount=Decimal("1"),
-            creation_timestamp=1640100000
+            creation_timestamp=1640100000,
         )
         current_sell_order = InFlightOrder(
             client_order_id="OID4",
@@ -502,11 +513,12 @@ class ConnectorBaseUnitTest(unittest.TestCase):
             trade_type=TradeType.SELL,
             price=Decimal("1100"),
             amount=Decimal("0.5"),
-            creation_timestamp=1640100000
+            creation_timestamp=1640100000,
         )
 
-        connector._in_flight_orders = {order.client_order_id: order for order
-                                       in [current_buy_order, current_sell_order]}
+        connector._in_flight_orders = {
+            order.client_order_id: order for order in [current_buy_order, current_sell_order]
+        }
 
         buy_fill_event = OrderFilledEvent(
             timestamp=1640100999,
@@ -549,22 +561,26 @@ class ConnectorBaseUnitTest(unittest.TestCase):
         connector._event_logs.append(extra_fill_event)
 
         estimated_coinalpha_balance = connector.apply_balance_update_since_snapshot(
-            currency="COINALPHA",
-            available_balance=initial_coinalpha_balance)
+            currency="COINALPHA", available_balance=initial_coinalpha_balance
+        )
         estimated_hbot_balance = connector.apply_balance_update_since_snapshot(
-            currency="HBOT",
-            available_balance=initial_hbot_balance)
+            currency="HBOT", available_balance=initial_hbot_balance
+        )
 
-        expected_coinalpha_amount = (initial_coinalpha_balance
-                                     + initial_sell_order.amount
-                                     + current_buy_order.executed_amount_base
-                                     - current_sell_order.amount
-                                     + extra_fill_event.amount)
+        expected_coinalpha_amount = (
+            initial_coinalpha_balance
+            + initial_sell_order.amount
+            + current_buy_order.executed_amount_base
+            - current_sell_order.amount
+            + extra_fill_event.amount
+        )
         self.assertEqual(expected_coinalpha_amount, estimated_coinalpha_balance)
-        expected_hbot_amount = (initial_hbot_balance
-                                + (initial_buy_order.amount * initial_buy_order.price)
-                                - ((current_buy_order.amount - current_buy_order.executed_amount_base) * current_buy_order.price)
-                                - (current_buy_order.executed_amount_quote)
-                                + (current_sell_order.executed_amount_quote)
-                                - (extra_fill_event.amount * extra_fill_event.price))
+        expected_hbot_amount = (
+            initial_hbot_balance
+            + (initial_buy_order.amount * initial_buy_order.price)
+            - ((current_buy_order.amount - current_buy_order.executed_amount_base) * current_buy_order.price)
+            - (current_buy_order.executed_amount_quote)
+            + (current_sell_order.executed_amount_quote)
+            - (extra_fill_event.amount * extra_fill_event.price)
+        )
         self.assertEqual(expected_hbot_amount, estimated_hbot_balance)

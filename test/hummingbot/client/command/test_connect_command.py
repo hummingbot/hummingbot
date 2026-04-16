@@ -31,6 +31,7 @@ class ConnectCommandTest(IsolatedAsyncioWrapperTestCase):
     def get_async_sleep_fn(delay: float):
         async def async_sleep(*_, **__):
             await asyncio.sleep(delay)
+
         return async_sleep
 
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
@@ -109,7 +110,9 @@ class ConnectCommandTest(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
-    async def test_connection_df_handles_network_timeouts_logs_hidden(self, _: AsyncMock, update_exchanges_mock: AsyncMock):
+    async def test_connection_df_handles_network_timeouts_logs_hidden(
+        self, _: AsyncMock, update_exchanges_mock: AsyncMock
+    ):
         self.cli_mock_assistant.toggle_logs()
 
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
@@ -134,10 +137,10 @@ class ConnectCommandTest(IsolatedAsyncioWrapperTestCase):
         notify_mock.side_effect = lambda s: captures.append(s)
 
         connections_df = pd.DataFrame(
-            columns=pd.Index(['Exchange', '  Keys Added', '  Keys Confirmed', '  Status'], dtype='object'),
+            columns=pd.Index(["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"], dtype="object"),
             data=[
                 ["ascend_ex", "Yes", "Yes", "&cYELLOW"],
-            ]
+            ],
         )
         connection_df_mock.return_value = (connections_df, [])
 

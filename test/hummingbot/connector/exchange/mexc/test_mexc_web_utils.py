@@ -5,7 +5,6 @@ from hummingbot.connector.exchange.mexc import mexc_web_utils as web_utils
 
 
 class MexcUtilTestCases(unittest.TestCase):
-
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         domain = "com"

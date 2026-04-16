@@ -67,9 +67,11 @@ class TradingCore:
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self,
-                 client_config: Union[ClientConfigMap, ClientConfigAdapter, Dict[str, Any]],
-                 scripts_path: Optional[Path] = None):
+    def __init__(
+        self,
+        client_config: Union[ClientConfigMap, ClientConfigAdapter, Dict[str, Any]],
+        scripts_path: Optional[Path] = None,
+    ):
         """
         Initialize the trading core.
 
@@ -222,11 +224,13 @@ class TradingCore:
             self.logger().error(f"Failed to stop clock: {e}")
             return False
 
-    async def create_connector(self,
-                               connector_name: str,
-                               trading_pairs: List[str],
-                               trading_required: bool = True,
-                               api_keys: Optional[Dict[str, str]] = None) -> ExchangeBase:
+    async def create_connector(
+        self,
+        connector_name: str,
+        trading_pairs: List[str],
+        trading_required: bool = True,
+        api_keys: Optional[Dict[str, str]] = None,
+    ) -> ExchangeBase:
         """
         Create a connector instance.
 
@@ -239,9 +243,7 @@ class TradingCore:
         Returns:
             ExchangeBase: Created connector
         """
-        connector = self.connector_manager.create_connector(
-            connector_name, trading_pairs, trading_required, api_keys
-        )
+        connector = self.connector_manager.create_connector(connector_name, trading_pairs, trading_required, api_keys)
 
         # Add to clock if running
         if self.clock and connector:
@@ -344,16 +346,14 @@ class TradingCore:
         if db_name.endswith(".yml") or db_name.endswith(".py"):
             db_name = db_name.split(".")[0]
 
-        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(
-            self.client_config_map, db_name
-        )
+        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(self.client_config_map, db_name)
 
         self.markets_recorder = MarketsRecorder(
             self.trade_fill_db,
             list(self.connector_manager.connectors.values()),
             self._strategy_file_name or db_name,
             self.strategy_name or db_name,
-            self.client_config_map.market_data_collection
+            self.client_config_map.market_data_collection,
         )
 
         self.markets_recorder.start()
@@ -380,21 +380,31 @@ class TradingCore:
             strategy_module = importlib.import_module(f".{strategy_name}", package=SCRIPT_STRATEGIES_MODULE)
 
         try:
-            strategy_class = next((member for member_name, member in inspect.getmembers(strategy_module)
-                                   if inspect.isclass(member) and
-                                   issubclass(member, StrategyV2Base) and
-                                   member is not StrategyV2Base))
+            strategy_class = next(
+                (
+                    member
+                    for member_name, member in inspect.getmembers(strategy_module)
+                    if inspect.isclass(member) and issubclass(member, StrategyV2Base) and member is not StrategyV2Base
+                )
+            )
         except StopIteration:
             raise InvalidScriptModule(f"The module {strategy_name} does not contain any subclass of StrategyV2Base")
 
         # Always load config class
         try:
-            config_class = next((member for member_name, member in inspect.getmembers(strategy_module)
-                                 if inspect.isclass(member) and
-                                 issubclass(member, BaseClientModel) and
-                                 member not in [BaseClientModel, StrategyV2ConfigBase]))
+            config_class = next(
+                (
+                    member
+                    for member_name, member in inspect.getmembers(strategy_module)
+                    if inspect.isclass(member)
+                    and issubclass(member, BaseClientModel)
+                    and member not in [BaseClientModel, StrategyV2ConfigBase]
+                )
+            )
         except StopIteration:
-            raise InvalidScriptModule(f"The module {strategy_name} does not contain any subclass of StrategyV2ConfigBase")
+            raise InvalidScriptModule(
+                f"The module {strategy_name} does not contain any subclass of StrategyV2ConfigBase"
+            )
 
         # Load config data from file or use defaults
         config_data = self._load_strategy_config()
@@ -432,16 +442,18 @@ class TradingCore:
                 # Assume it's in the V2 strategy config directory
                 config_path = SCRIPT_STRATEGY_CONF_DIR_PATH / config_file_path
 
-            with open(config_path, 'r') as file:
+            with open(config_path, "r") as file:
                 return yaml.safe_load(file)
         except Exception as e:
             self.logger().warning(f"Failed to load config file {config_file_path}: {e}")
             return {}
 
-    async def start_strategy(self,
-                             strategy_name: str,
-                             strategy_config: Optional[Union[BaseStrategyConfigMap, Dict[str, Any], str]] = None,
-                             strategy_file_name: Optional[str] = None) -> bool:
+    async def start_strategy(
+        self,
+        strategy_name: str,
+        strategy_config: Optional[Union[BaseStrategyConfigMap, Dict[str, Any], str]] = None,
+        strategy_file_name: Optional[str] = None,
+    ) -> bool:
         """
         Start a trading strategy.
 
@@ -539,12 +551,16 @@ class TradingCore:
 
                 for connector_name, connector in self.connector_manager.connectors.items():
                     if connector_name not in self._metrics_collectors and "_paper_trade" not in connector_name:
-                        self.logger().debug(f"Initializing metrics collector for {connector_name} (created outside normal flow)")
+                        self.logger().debug(
+                            f"Initializing metrics collector for {connector_name} (created outside normal flow)"
+                        )
                         self._initialize_metrics_for_connector(connector, connector_name)
 
             # Initialize kill switch if enabled
-            if (self._trading_required and
-                    self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled"):
+            if (
+                self._trading_required
+                and self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled"
+            ):
                 self.kill_switch = self.client_config_map.kill_switch_mode.get_kill_switch(self)
                 await self._wait_till_ready(self.kill_switch.start)
 
@@ -635,16 +651,17 @@ class TradingCore:
     def get_status(self) -> Dict[str, Any]:
         """Get current status of the trading engine."""
         return {
-            'clock_running': self._is_running,
-            'strategy_running': self._strategy_running,
-            'strategy_name': self.strategy_name,
-            'strategy_file_name': self._strategy_file_name,
-            'strategy_type': self.detect_strategy_type(self.strategy_name).value if self.strategy_name else None,
-            'start_time': self.start_time,
-            'uptime': (time.time() * 1e3 - self.start_time) if self.start_time else 0,
-            'connectors': self.connector_manager.get_status(),
-            'kill_switch_enabled': self.client_config_map.kill_switch_mode.model_config.get("title") == "kill_switch_enabled",
-            'markets_recorder_active': self.markets_recorder is not None,
+            "clock_running": self._is_running,
+            "strategy_running": self._strategy_running,
+            "strategy_name": self.strategy_name,
+            "strategy_file_name": self._strategy_file_name,
+            "strategy_type": self.detect_strategy_type(self.strategy_name).value if self.strategy_name else None,
+            "start_time": self.start_time,
+            "uptime": (time.time() * 1e3 - self.start_time) if self.start_time else 0,
+            "connectors": self.connector_manager.get_status(),
+            "kill_switch_enabled": self.client_config_map.kill_switch_mode.model_config.get("title")
+            == "kill_switch_enabled",
+            "markets_recorder_active": self.markets_recorder is not None,
         }
 
     def add_notifier(self, notifier: NotifierBase):
@@ -671,9 +688,7 @@ class TradingCore:
             # for now we identify gateway connector that contain "/" in their name
             if "/" in connector_name:
                 await self.gateway_monitor.wait_for_online_status()
-            connector = self.connector_manager.create_connector(
-                connector_name, trading_pairs, self._trading_required
-            )
+            connector = self.connector_manager.create_connector(connector_name, trading_pairs, self._trading_required)
 
             # Add to clock if running
             if self.clock and connector:
@@ -697,7 +712,10 @@ class TradingCore:
         return self.connector_manager.get_order_book(connector_name, trading_pair)
 
     async def get_current_balances(self, connector_name: str):
-        if connector_name in self.connector_manager.connectors and self.connector_manager.connectors[connector_name].ready:
+        if (
+            connector_name in self.connector_manager.connectors
+            and self.connector_manager.connectors[connector_name].ready
+        ):
             return self.connector_manager.connectors[connector_name].get_all_balances()
         elif "Paper" in connector_name:
             paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
@@ -725,14 +743,15 @@ class TradingCore:
 
         with self.trade_fill_db.get_new_session() as session:
             trades: List[TradeFill] = self._get_trades_from_session(
-                int(start_time * 1e3),
-                session=session,
-                config_file_path=self.strategy_file_name)
+                int(start_time * 1e3), session=session, config_file_path=self.strategy_file_name
+            )
             perf_metrics = await self.calculate_performance_metrics_by_connector_pair(trades)
             returns_pct = [perf.return_pct for perf in perf_metrics]
             return sum(returns_pct) / len(returns_pct) if len(returns_pct) > 0 else s_decimal_0
 
-    async def calculate_performance_metrics_by_connector_pair(self, trades: List[TradeFill]) -> List[PerformanceMetrics]:
+    async def calculate_performance_metrics_by_connector_pair(
+        self, trades: List[TradeFill]
+    ) -> List[PerformanceMetrics]:
         """
         Calculates performance metrics by connector and trading pair using the provided trades and the PerformanceMetrics class.
         """
@@ -744,25 +763,22 @@ class TradingCore:
             try:
                 cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
             except asyncio.TimeoutError:
-                self.logger().warning("\nA network error prevented the balances retrieval to complete. See logs for more details.")
+                self.logger().warning(
+                    "\nA network error prevented the balances retrieval to complete. See logs for more details."
+                )
                 raise
             perf = await PerformanceMetrics.create(symbol, cur_trades, cur_balances)
             performance_metrics.append(perf)
         return performance_metrics
 
     @staticmethod
-    def _get_trades_from_session(start_timestamp: int,
-                                 session: Session,
-                                 number_of_rows: Optional[int] = None,
-                                 config_file_path: str = None) -> List[TradeFill]:
-
+    def _get_trades_from_session(
+        start_timestamp: int, session: Session, number_of_rows: Optional[int] = None, config_file_path: str = None
+    ) -> List[TradeFill]:
         filters = [TradeFill.timestamp >= start_timestamp]
         if config_file_path is not None:
             filters.append(TradeFill.config_file_path.like(f"%{config_file_path}%"))
-        query: Query = (session
-                        .query(TradeFill)
-                        .filter(*filters)
-                        .order_by(TradeFill.timestamp.desc()))
+        query: Query = session.query(TradeFill).filter(*filters).order_by(TradeFill.timestamp.desc())
         if number_of_rows is None:
             result: List[TradeFill] = query.all() or []
         else:

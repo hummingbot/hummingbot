@@ -1,4 +1,5 @@
 """Unit tests for Evedex Perpetual web utilities module."""
+
 import unittest
 from unittest.mock import MagicMock
 
@@ -87,10 +88,7 @@ class TestEvedexPerpetualRESTPreProcessor(unittest.IsolatedAsyncioTestCase):
     async def test_pre_process_adds_content_type(self):
         """Test that pre-processor adds Content-Type header."""
         pre_processor = web_utils.EvedexPerpetualRESTPreProcessor()
-        request = RESTRequest(
-            method="GET",
-            url="https://exchange-api.evedex.com/api/market/instrument"
-        )
+        request = RESTRequest(method="GET", url="https://exchange-api.evedex.com/api/market/instrument")
 
         processed_request = await pre_processor.pre_process(request)
 
@@ -103,7 +101,7 @@ class TestEvedexPerpetualRESTPreProcessor(unittest.IsolatedAsyncioTestCase):
         request = RESTRequest(
             method="GET",
             url="https://exchange-api.evedex.com/api/position",
-            headers={"X-Custom-Header": "custom-value"}
+            headers={"X-Custom-Header": "custom-value"},
         )
 
         processed_request = await pre_processor.pre_process(request)
@@ -114,10 +112,7 @@ class TestEvedexPerpetualRESTPreProcessor(unittest.IsolatedAsyncioTestCase):
     async def test_pre_process_with_none_headers(self):
         """Test that pre-processor handles None headers."""
         pre_processor = web_utils.EvedexPerpetualRESTPreProcessor()
-        request = RESTRequest(
-            method="POST",
-            url="https://exchange-api.evedex.com/api/v2/order/limit"
-        )
+        request = RESTRequest(method="POST", url="https://exchange-api.evedex.com/api/v2/order/limit")
         request.headers = None
 
         processed_request = await pre_processor.pre_process(request)

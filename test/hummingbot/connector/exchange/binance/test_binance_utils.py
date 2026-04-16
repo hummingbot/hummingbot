@@ -4,7 +4,6 @@ from hummingbot.connector.exchange.binance import binance_utils as utils
 
 
 class BinanceUtilTestCases(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()

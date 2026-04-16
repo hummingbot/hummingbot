@@ -5,21 +5,16 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class BitstampOrderBookTests(TestCase):
-
     def test_snapshot_message_from_exchange(self):
         snapshot_message = BitstampOrderBook.snapshot_message_from_exchange(
             msg={
                 "microtimestamp": "1643643584684047",
                 "timestamp": "1643643584",
-                "bids": [
-                    ["4.00000000", "431.00000000"]
-                ],
-                "asks": [
-                    ["4.00000200", "12.00000000"]
-                ]
+                "bids": [["4.00000000", "431.00000000"]],
+                "asks": [["4.00000200", "12.00000000"]],
             },
             timestamp=1643643584,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -40,26 +35,16 @@ class BitstampOrderBookTests(TestCase):
         diff_msg = BitstampOrderBook.diff_message_from_exchange(
             msg={
                 "data": {
-                    "bids": [
-                        [
-                            "0.0024",
-                            "10"
-                        ]
-                    ],
-                    "asks": [
-                        [
-                            "0.0026",
-                            "100"
-                        ]
-                    ],
+                    "bids": [["0.0024", "10"]],
+                    "asks": [["0.0026", "100"]],
                     "microtimestamp": "1640000000000000",
-                    "timestamp": "1640000000"
+                    "timestamp": "1640000000",
                 },
                 "channel": "diff_order_book_coinalphahbot",
-                "event": "data"
+                "event": "data",
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -89,15 +74,14 @@ class BitstampOrderBookTests(TestCase):
                 "price_str": "64075",
                 "sell_order_id": 1762645598466049,
                 "timestamp": "1719168372",
-                "type": 1
+                "type": 1,
             },
             "event": "trade",
             "channel": "live_trades_coinalphahbot",
         }
 
         trade_message = BitstampOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)

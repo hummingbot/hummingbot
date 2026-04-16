@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 from typing import Awaitable
@@ -18,11 +17,13 @@ class DerivePerpetualAuthTests(TestCase):
         self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         self.sub_id = "45686"  # noqa: mock
         self.domain = "derive_perpetual_testnet"  # noqa: mock
-        self.auth = DerivePerpetualAuth(api_key=self.api_key,
-                                        api_secret=self.api_secret,
-                                        sub_id=self.sub_id,
-                                        trading_required=True,
-                                        domain=self.domain)
+        self.auth = DerivePerpetualAuth(
+            api_key=self.api_key,
+            api_secret=self.api_secret,
+            sub_id=self.sub_id,
+            trading_required=True,
+            domain=self.domain,
+        )
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -63,13 +64,13 @@ class DerivePerpetualAuthTests(TestCase):
         self.assertEqual(authenticated_request.endpoint, request.endpoint)
         self.assertEqual(authenticated_request.payload, request.payload)
 
-    @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.DerivePerpetualAuth.header_for_authentication")
+    @patch(
+        "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.DerivePerpetualAuth.header_for_authentication"
+    )
     def test_rest_authenticate(self, mock_header_for_auth):
         mock_header_for_auth.return_value = {"header": "value"}
 
-        request = RESTRequest(
-            method=RESTMethod.POST, url="/test", data=json.dumps({"key": "value"}), headers={}
-        )
+        request = RESTRequest(method=RESTMethod.POST, url="/test", data=json.dumps({"key": "value"}), headers={})
 
         authenticated_request = self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
@@ -79,6 +80,7 @@ class DerivePerpetualAuthTests(TestCase):
 
     def test_add_auth_to_params_post(self):
         import eth_utils
+
         address = "0x1234567890abcdef1234567890abcdef12345678"
         self.assertTrue(eth_utils.is_hex_address(address))
         params = {
@@ -90,12 +92,18 @@ class DerivePerpetualAuthTests(TestCase):
             "amount": "10",
             "max_fee": "1",
             "recipient_id": 2,
-            "is_bid": True
+            "is_bid": True,
         }
         request = MagicMock(method=RESTMethod.POST)
 
-        with patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.SignedAction.sign") as mock_sign, \
-                patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils.order_to_call") as mock_order_to_call:
+        with (
+            patch(
+                "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.SignedAction.sign"
+            ) as mock_sign,
+            patch(
+                "hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils.order_to_call"
+            ) as mock_order_to_call,
+        ):
             mock_order_to_call.return_value = params
             mock_sign.return_value = None
 

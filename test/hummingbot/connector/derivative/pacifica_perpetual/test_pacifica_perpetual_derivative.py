@@ -102,7 +102,8 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.OrderCancelled, self.order_cancelled_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger)]
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_completed_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -124,11 +125,11 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         return calculation(*args, **kwargs)
 
     def _get_exchange_info_mock_response(
-            self,
-            lot_size: float = 0.0001,
-            tick_size: float = 0.01,
-            min_order_size: float = 10.0,
-            max_order_size: float = 1000000.0,
+        self,
+        lot_size: float = 0.0001,
+        tick_size: float = 0.01,
+        min_order_size: float = 10.0,
+        max_order_size: float = 1000000.0,
     ) -> Dict[str, Any]:
         mocked_exchange_info = {
             "data": [
@@ -151,9 +152,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     async def _simulate_trading_rules_initialized(self):
         mocked_response = self._get_exchange_info_mock_response()
         trading_rules = await self.exchange._format_trading_rules(mocked_response)
-        self.exchange._trading_rules = {
-            self.trading_pair: trading_rules[0]
-        }
+        self.exchange._trading_rules = {self.trading_pair: trading_rules[0]}
 
     async def test_format_trading_rules(self):
         lot_size = 0.0001
@@ -161,9 +160,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         min_order_size = 10.0
         max_order_size = 1000000.0
 
-        mocked_response = self._get_exchange_info_mock_response(
-            lot_size, tick_size, min_order_size, max_order_size
-        )
+        mocked_response = self._get_exchange_info_mock_response(lot_size, tick_size, min_order_size, max_order_size)
 
         # We need to mock the API call because _format_trading_rules is typically called
         # with the RESULT of the API call, assuming the connector handles the request/response wrapping.
@@ -196,7 +193,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "data": {
                 "account_equity": "1000.50",
                 "available_to_spend": "500.25",
-            }
+            },
         }
 
         req_mock.get(regex_url, body=json.dumps(mock_response))
@@ -213,9 +210,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         # Set price record
         self.exchange._prices[self.trading_pair] = PacificaPerpetualPriceRecord(
-            timestamp=self.start_timestamp,
-            index_price=Decimal("1900"),
-            mark_price=Decimal("1900")
+            timestamp=self.start_timestamp, index_price=Decimal("1900"), mark_price=Decimal("1900")
         )
 
         get_positions_url = web_utils.public_rest_url(CONSTANTS.GET_POSITIONS_PATH_URL, domain=self.domain)
@@ -231,7 +226,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                     "entry_price": "1800.0",
                     "leverage": "10",
                 }
-            ]
+            ],
         }
 
         req_mock.get(get_positions_url, body=json.dumps(get_positions_mocked_response))
@@ -251,11 +246,11 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                     "symbol": self.symbol,
                     "timestamp": 1759222967974,
                     "volume_24h": "20896698.0672",
-                    "yesterday_price": "1.3412"
+                    "yesterday_price": "1.3412",
                 }
             ],
             "error": None,
-            "code": None
+            "code": None,
         }
 
         req_mock.get(get_prices_url, body=json.dumps(get_prices_mocked_response))
@@ -276,12 +271,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.CREATE_LIMIT_ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "success": True,
-            "data": {
-                "order_id": 123456789
-            }
-        }
+        mock_response = {"success": True, "data": {"order_id": 123456789}}
 
         req_mock.post(regex_url, body=json.dumps(mock_response))
 
@@ -293,7 +283,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             order_type=OrderType.LIMIT,
             price=Decimal("1900.0"),
-            position_action=PositionAction.OPEN
+            position_action=PositionAction.OPEN,
         )
 
         self.assertEqual("123456789", exchange_order_id)
@@ -305,12 +295,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.CREATE_MARKET_ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "success": True,
-            "data": {
-                "order_id": 987654321
-            }
-        }
+        mock_response = {"success": True, "data": {"order_id": 987654321}}
 
         req_mock.post(regex_url, body=json.dumps(mock_response))
 
@@ -322,7 +307,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.SELL,
             order_type=OrderType.MARKET,
             price=Decimal("1900.0"),
-            position_action=PositionAction.CLOSE
+            position_action=PositionAction.CLOSE,
         )
 
         self.assertEqual("987654321", exchange_order_id)
@@ -355,7 +340,9 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(self.exchange.is_cancel_request_in_exchange_synchronous)
         self.assertTrue(self.exchange.is_trading_required)
         self.assertEqual(120, self.exchange.funding_fee_poll_interval)
-        self.assertEqual([OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET], self.exchange.supported_order_types())
+        self.assertEqual(
+            [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET], self.exchange.supported_order_types()
+        )
         self.assertEqual([PositionMode.ONEWAY], self.exchange.supported_position_modes())
         self.assertEqual("USDC", self.exchange.get_buy_collateral_token(self.trading_pair))
         self.assertEqual("USDC", self.exchange.get_sell_collateral_token(self.trading_pair))
@@ -366,10 +353,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = {
-            "success": True,
-            "data": "some_data"
-        }
+        mock_response = {"success": True, "data": "some_data"}
 
         req_mock.post(regex_url, body=json.dumps(mock_response))
 
@@ -381,7 +365,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1.0"),
             price=Decimal("1900.0"),
-            creation_timestamp=1640780000
+            creation_timestamp=1640780000,
         )
 
         result = await self.exchange._place_cancel("123456789", tracked_order)
@@ -392,8 +376,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         await self._simulate_trading_rules_initialized()
 
         self.exchange._trading_fees[self.trading_pair] = TradeFeeSchema(
-            maker_percent_fee_decimal=Decimal("0.0002"),
-            taker_percent_fee_decimal=Decimal("0.0005")
+            maker_percent_fee_decimal=Decimal("0.0002"), taker_percent_fee_decimal=Decimal("0.0005")
         )
 
         url = web_utils.public_rest_url(CONSTANTS.GET_TRADE_HISTORY_PATH_URL, domain=self.domain)
@@ -416,11 +399,11 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                     "event_type": "fulfill_taker",
                     "side": "open_long",
                     "created_at": 1640780000000,
-                    "cause": "normal"
+                    "cause": "normal",
                 }
             ],
             "next_cursor": "cursor_1",
-            "has_more": True
+            "has_more": True,
         }
 
         # Second response: 1 item, has_more=False
@@ -440,11 +423,11 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                     "event_type": "fulfill_taker",
                     "side": "open_long",
                     "created_at": 1640770000000,
-                    "cause": "normal"
+                    "cause": "normal",
                 }
             ],
             "next_cursor": "",
-            "has_more": False
+            "has_more": False,
         }
 
         # The first call matches the URL without cursor
@@ -461,7 +444,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1.0"),
             price=Decimal("1900.0"),
-            creation_timestamp=1640700000
+            creation_timestamp=1640700000,
         )
 
         trade_updates = await self.exchange._all_trade_updates_for_order(tracked_order)
@@ -484,14 +467,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         mock_response = {
             "success": True,
-            "data": [
-                {
-                    "symbol": self.symbol,
-                    "rate": "0.0001",
-                    "payout": "1.5",
-                    "created_at": 1640780000000
-                }
-            ]
+            "data": [{"symbol": self.symbol, "rate": "0.0001", "payout": "1.5", "created_at": 1640780000000}],
         }
 
         req_mock.get(regex_url, body=json.dumps(mock_response))
@@ -523,30 +499,16 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Page 1: Not found, has_more=True
         mock_response_1 = {
             "success": True,
-            "data": [
-                {
-                    "symbol": "OTHER",
-                    "rate": "0.0001",
-                    "payout": "1.5",
-                    "created_at": 1640780000000
-                }
-            ],
+            "data": [{"symbol": "OTHER", "rate": "0.0001", "payout": "1.5", "created_at": 1640780000000}],
             "has_more": True,
-            "next_cursor": "cursor_2"
+            "next_cursor": "cursor_2",
         }
 
         # Page 2: Found
         mock_response_2 = {
             "success": True,
-            "data": [
-                {
-                    "symbol": self.symbol,
-                    "rate": "0.0002",
-                    "payout": "2.0",
-                    "created_at": 1640779000000
-                }
-            ],
-            "has_more": False
+            "data": [{"symbol": self.symbol, "rate": "0.0002", "payout": "2.0", "created_at": 1640779000000}],
+            "has_more": False,
         }
 
         # Queue responses
@@ -579,10 +541,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.exchange.api_config_key = "testkey"
 
         result = await self.exchange._api_request(
-            path_url="/test",
-            method=RESTMethod.GET,
-            is_auth_required=False,
-            limit_id=CONSTANTS.PACIFICA_LIMIT_ID
+            path_url="/test", method=RESTMethod.GET, is_auth_required=False, limit_id=CONSTANTS.PACIFICA_LIMIT_ID
         )
 
         self.assertEqual({"ok": True}, result)
@@ -619,19 +578,13 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url_get = web_utils.private_rest_url(CONSTANTS.GET_ACCOUNT_API_CONFIG_KEYS, domain=self.domain)
         regex_url_get = re.compile(f"^{url_get}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.post(regex_url_get, payload={
-            "success": True,
-            "data": {"active_api_keys": []}
-        })
+        req_mock.post(regex_url_get, payload={"success": True, "data": {"active_api_keys": []}})
 
         # Mock CREATE key -> Success
         url_create = web_utils.private_rest_url(CONSTANTS.CREATE_ACCOUNT_API_CONFIG_KEY, domain=self.domain)
         regex_url_create = re.compile(f"^{url_create}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.post(regex_url_create, payload={
-            "success": True,
-            "data": {"api_key": "newkey"}
-        })
+        req_mock.post(regex_url_create, payload={"success": True, "data": {"api_key": "newkey"}})
 
         await self.exchange._fetch_or_create_api_config_key()
 
@@ -647,16 +600,15 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             trade_type=TradeType.BUY,
             amount=Decimal("1"),
             price=Decimal("1000"),
-            creation_timestamp=1640780000
+            creation_timestamp=1640780000,
         )
 
         url = web_utils.public_rest_url(CONSTANTS.GET_ORDER_HISTORY_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.get(regex_url, payload={
-            "success": True,
-            "data": [{"order_status": "filled", "created_at": 1234567890}]
-        })
+        req_mock.get(
+            regex_url, payload={"success": True, "data": [{"order_status": "filled", "created_at": 1234567890}]}
+        )
 
         update = await self.exchange._request_order_status(order)
         self.assertEqual(OrderType.LIMIT, order.order_type)  # Just checking object integrity
@@ -669,10 +621,7 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.GET_CANDLES_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.get(regex_url, payload={
-            "success": True,
-            "data": [{"c": "123.45"}]
-        })
+        req_mock.get(regex_url, payload={"success": True, "data": [{"c": "123.45"}]})
 
         price = await self.exchange._get_last_traded_price(self.trading_pair)
         self.assertIsInstance(price, float)
@@ -683,14 +632,17 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         url = web_utils.public_rest_url(CONSTANTS.GET_ACCOUNT_INFO_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        req_mock.get(regex_url, payload={
-            "success": True,
-            "data": {
-                "fee_level": 0,
-                "maker_fee": "0.00015",
-                "taker_fee": "0.0004",
-            }
-        })
+        req_mock.get(
+            regex_url,
+            payload={
+                "success": True,
+                "data": {
+                    "fee_level": 0,
+                    "maker_fee": "0.00015",
+                    "taker_fee": "0.0004",
+                },
+            },
+        )
 
         await self.exchange._update_trading_fees()
 
@@ -699,5 +651,5 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             TradeFeeSchema(
                 maker_percent_fee_decimal=Decimal("0.00015"),
                 taker_percent_fee_decimal=Decimal("0.0004"),
-            )
+            ),
         )

@@ -56,24 +56,25 @@ def endpoint_from_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> 
 
 
 def build_api_factory(
-        throttler: Optional[AsyncThrottler] = None,
-        time_synchronizer: Optional[TimeSynchronizer] = None,
-        domain: str = constants.DEFAULT_DOMAIN,
-        time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
+    throttler: Optional[AsyncThrottler] = None,
+    time_synchronizer: Optional[TimeSynchronizer] = None,
+    domain: str = constants.DEFAULT_DOMAIN,
+    time_provider: Optional[Callable] = None,
+    auth: Optional[AuthBase] = None,
+) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time_ms(
-        throttler=throttler,
-        domain=domain,
-    ))
+    time_provider = time_provider or (
+        lambda: get_current_server_time_ms(
+            throttler=throttler,
+            domain=domain,
+        )
+    )
     return WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(
-                synchronizer=time_synchronizer, time_provider=time_provider
-            ),
+            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ],
     )
 
@@ -87,8 +88,8 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def get_current_server_time_s(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = constants.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = constants.DEFAULT_DOMAIN,
 ) -> float:
     """
     Get the current server time in seconds
@@ -113,15 +114,15 @@ async def get_current_server_time_s(
 
 
 async def get_current_server_time(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = constants.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = constants.DEFAULT_DOMAIN,
 ) -> float:
     return await get_current_server_time_s(throttler=throttler, domain=domain)
 
 
 async def get_current_server_time_ms(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = constants.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = constants.DEFAULT_DOMAIN,
 ) -> int:
     server_time_s = await get_current_server_time_s(throttler=throttler, domain=domain)
     return int(server_time_s * 1000)
@@ -155,6 +156,7 @@ def set_exchange_time_from_timestamp(timestamp: int | float, timestamp_unit: str
         raise ValueError(f"Unsupported timestamp unit {timestamp_unit}")
 
     import datetime
+
     return f"{datetime.datetime.fromtimestamp(timestamp, datetime.UTC).isoformat()}"
 
 
@@ -194,4 +196,5 @@ class CoinbaseAdvancedTradeServerIssueException(Exception):
     """
     Exception raised when the Coinbase Advanced Trade server returns an error
     """
+
     pass

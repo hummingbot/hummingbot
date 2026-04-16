@@ -20,22 +20,16 @@ if TYPE_CHECKING:
 
 
 class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
-    def __init__(self,
-                 trading_pairs: List[str],
-                 connector: 'BitmartExchange',
-                 api_factory: WebAssistantsFactory):
+    def __init__(self, trading_pairs: List[str], connector: "BitmartExchange", api_factory: WebAssistantsFactory):
         super().__init__(trading_pairs)
         self._connector: BitmartExchange = connector
         self._api_factory = api_factory
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -79,9 +73,8 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp)
+            OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp
+        )
 
         return snapshot_msg
 
@@ -95,7 +88,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         params = {
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "size": 200
+            "size": 200,
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -116,15 +109,15 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_content = {
                 "trade_id": int(trade_data["s_t"]),
                 "trading_pair": trading_pair,
-                "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
-                    TradeType.SELL.value),
+                "trade_type": float(TradeType.BUY.value)
+                if trade_data["side"] == "buy"
+                else float(TradeType.SELL.value),
                 "amount": trade_data["size"],
-                "price": trade_data["price"]
+                "price": trade_data["price"],
             }
             trade_message: Optional[OrderBookMessage] = OrderBookMessage(
-                message_type=OrderBookMessageType.TRADE,
-                content=message_content,
-                timestamp=int(trade_data["s_t"]))
+                message_type=OrderBookMessageType.TRADE, content=message_content, timestamp=int(trade_data["s_t"])
+            )
 
             message_queue.put_nowait(trade_message)
 
@@ -138,8 +131,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for diff_data in diff_updates:
             timestamp: float = int(diff_data["ms_t"]) * 1e-3
             update_id: int = int(diff_data["ms_t"])
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                symbol=diff_data["symbol"])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=diff_data["symbol"])
 
             order_book_message_content = {
                 "trading_pair": trading_pair,
@@ -148,26 +140,27 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
             }
             diff_message: OrderBookMessage = OrderBookMessage(
-                OrderBookMessageType.SNAPSHOT,
-                order_book_message_content,
-                timestamp)
+                OrderBookMessageType.SNAPSHOT, order_book_message_content, timestamp
+            )
 
             message_queue.put_nowait(diff_message)
 
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
-            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                       for trading_pair in self._trading_pairs]
+            symbols = [
+                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                for trading_pair in self._trading_pairs
+            ]
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}" for symbol in symbols],
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             payload = {
                 "op": "subscribe",
-                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}" for symbol in symbols]
+                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}" for symbol in symbols],
             }
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -193,8 +186,10 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 else:
                     json_data = decompressed_data
             except Exception:
-                self.logger().warning(f"Invalid event message received through the order book data source "
-                                      f"connection ({decompressed_data})")
+                self.logger().warning(
+                    f"Invalid event message received through the order book data source "
+                    f"connection ({decompressed_data})"
+                )
                 continue
 
             if "errorCode" in json_data or "errorMessage" in json_data:
@@ -218,9 +213,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_CONNECT):
-            await ws.connect(
-                ws_url=CONSTANTS.WSS_PUBLIC_URL,
-                ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
+            await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL, ping_timeout=CONSTANTS.WS_PING_TIMEOUT)
         return ws
 
     @classmethod
@@ -243,16 +236,10 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]
-            }
+            payload = {"op": "subscribe", "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]}
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            payload = {
-                "op": "subscribe",
-                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]
-            }
+            payload = {"op": "subscribe", "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]}
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
@@ -266,10 +253,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred subscribing to {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred subscribing to {trading_pair}...", exc_info=True)
             return False
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
@@ -286,16 +270,10 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            payload = {
-                "op": "unsubscribe",
-                "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]
-            }
+            payload = {"op": "unsubscribe", "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{symbol}"]}
             unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            payload = {
-                "op": "unsubscribe",
-                "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]
-            }
+            payload = {"op": "unsubscribe", "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{symbol}"]}
             unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WS_SUBSCRIBE):
@@ -309,8 +287,5 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(
-                f"Unexpected error occurred unsubscribing from {trading_pair}...",
-                exc_info=True
-            )
+            self.logger().error(f"Unexpected error occurred unsubscribing from {trading_pair}...", exc_info=True)
             return False

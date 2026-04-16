@@ -184,7 +184,6 @@ class AscendExExchange(ExchangePyBase):
         price: Decimal = s_decimal_NaN,
         is_maker: Optional[bool] = None,
     ) -> AddedToCostTradeFee:
-
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
@@ -249,8 +248,8 @@ class AscendExExchange(ExchangePyBase):
         if exchange_order.get("code") == 0:
             return (
                 str(exchange_order["data"]["info"]["orderId"]),
-                int(exchange_order["data"]["info"].get("timestamp") or exchange_order["data"]["info"]
-                    ["lastExecTime"]) * 1e-3,
+                int(exchange_order["data"]["info"].get("timestamp") or exchange_order["data"]["info"]["lastExecTime"])
+                * 1e-3,
             )
         else:
             raise IOError(str(exchange_order))

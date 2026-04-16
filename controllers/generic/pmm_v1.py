@@ -30,6 +30,7 @@ class PMMV1Config(ControllerConfigBase):
 
     Implements the core features from legacy pure_market_making strategy.
     """
+
     controller_type: str = "generic"
     controller_name: str = "pmm_v1"
 
@@ -39,14 +40,14 @@ class PMMV1Config(ControllerConfigBase):
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the connector name (e.g., binance):",
-        }
+        },
     )
     trading_pair: str = Field(
         default="BTC-USDT",
         json_schema_extra={
             "prompt_on_new": True,
             "prompt": "Enter the trading pair (e.g., BTC-USDT):",
-        }
+        },
     )
 
     # === Spread & Amount Configuration ===
@@ -56,95 +57,106 @@ class PMMV1Config(ControllerConfigBase):
     order_amount: Decimal = Field(
         default=Decimal("1"),
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter the order amount in base asset (e.g., 0.01 for BTC):",
-        }
+        },
     )
     buy_spreads: List[float] = Field(
         default="0.01",
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter comma-separated buy spreads as decimals (e.g., '0.01,0.02' for 1%, 2%):",
-        }
+        },
     )
     sell_spreads: List[float] = Field(
         default="0.01",
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter comma-separated sell spreads as decimals (e.g., '0.01,0.02' for 1%, 2%):",
-        }
+        },
     )
 
     # === Timing Configuration ===
     order_refresh_time: int = Field(
         default=30,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter order refresh time in seconds (how often to refresh orders):",
-        }
+        },
     )
     order_refresh_tolerance_pct: Decimal = Field(
         default=Decimal("-1"),
         json_schema_extra={
-            "prompt_on_new": False, "is_updatable": True,
+            "prompt_on_new": False,
+            "is_updatable": True,
             "prompt": "Enter order refresh tolerance as decimal (e.g., 0.01 = 1%). -1 to disable:",
-        }
+        },
     )
     filled_order_delay: int = Field(
         default=60,
         json_schema_extra={
-            "prompt_on_new": False, "is_updatable": True,
+            "prompt_on_new": False,
+            "is_updatable": True,
             "prompt": "Enter delay in seconds after a fill before placing new orders:",
-        }
+        },
     )
 
     # === Inventory Skew Configuration ===
     inventory_skew_enabled: bool = Field(
         default=False,
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enable inventory skew? (adjusts order sizes based on inventory):",
-        }
+        },
     )
     target_base_pct: Decimal = Field(
         default=Decimal("0.5"),
         json_schema_extra={
-            "prompt_on_new": True, "is_updatable": True,
+            "prompt_on_new": True,
+            "is_updatable": True,
             "prompt": "Enter target base percentage (e.g., 0.5 for 50% base, 50% quote):",
-        }
+        },
     )
     inventory_range_multiplier: Decimal = Field(
         default=Decimal("1.0"),
         json_schema_extra={
-            "prompt_on_new": False, "is_updatable": True,
+            "prompt_on_new": False,
+            "is_updatable": True,
             "prompt": "Enter inventory range multiplier for skew calculation:",
-        }
+        },
     )
 
     # === Static Price Band Configuration ===
     price_ceiling: Decimal = Field(
         default=Decimal("-1"),
         json_schema_extra={
-            "prompt_on_new": False, "is_updatable": True,
+            "prompt_on_new": False,
+            "is_updatable": True,
             "prompt": "Enter static price ceiling (-1 to disable). Only sell orders above this price:",
-        }
+        },
     )
     price_floor: Decimal = Field(
         default=Decimal("-1"),
         json_schema_extra={
-            "prompt_on_new": False, "is_updatable": True,
+            "prompt_on_new": False,
+            "is_updatable": True,
             "prompt": "Enter static price floor (-1 to disable). Only buy orders below this price:",
-        }
+        },
     )
 
     # === Validators ===
-    @field_validator('buy_spreads', 'sell_spreads', mode="before")
+    @field_validator("buy_spreads", "sell_spreads", mode="before")
     @classmethod
     def parse_spreads(cls, v):
         if v is None or v == "":
             return []
         if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
+            return [float(x.strip()) for x in v.split(",")]
         return [float(x) for x in v]
 
     def get_spreads(self, trade_type: TradeType) -> List[float]:
@@ -167,8 +179,9 @@ class PMMV1(ControllerBase):
     def __init__(self, config: PMMV1Config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.market_data_provider.initialize_rate_sources([ConnectorPair(
-            connector_name=config.connector_name, trading_pair=config.trading_pair)])
+        self.market_data_provider.initialize_rate_sources(
+            [ConnectorPair(connector_name=config.connector_name, trading_pair=config.trading_pair)]
+        )
 
         # Track when each level can next create orders (for filled_order_delay)
         self._level_next_create_timestamps: Dict[str, float] = {}
@@ -192,9 +205,7 @@ class PMMV1(ControllerBase):
 
         # Check for levels that were active before but aren't now and were filled
         for level_id, was_active in self._last_seen_executors.items():
-            if (was_active and
-                level_id not in current_active_by_level and
-                    level_id in filled_levels):
+            if was_active and level_id not in current_active_by_level and level_id in filled_levels:
                 # This level was active before, not now, and was filled
                 self._handle_filled_executor(level_id)
 
@@ -207,15 +218,15 @@ class PMMV1(ControllerBase):
         self._level_next_create_timestamps[level_id] = current_time + self.config.filled_order_delay
 
         # Log the filled order delay
-        self.logger().debug(f"Order on level {level_id} filled. Next order for this level can be created after {self.config.filled_order_delay}s delay.")
+        self.logger().debug(
+            f"Order on level {level_id} filled. Next order for this level can be created after {self.config.filled_order_delay}s delay."
+        )
 
     def _get_reference_price(self) -> Decimal:
         """Get reference price (mid price)."""
         try:
             price = self.market_data_provider.get_price_by_type(
-                self.config.connector_name,
-                self.config.trading_pair,
-                PriceType.MidPrice
+                self.config.connector_name, self.config.trading_pair, PriceType.MidPrice
             )
             if price is None or (isinstance(price, float) and np.isnan(price)):
                 return Decimal("0")
@@ -270,22 +281,14 @@ class PMMV1(ControllerBase):
         """Get base and quote balances from the connector."""
         try:
             base, quote = self.config.trading_pair.split("-")
-            base_balance = self.market_data_provider.get_balance(
-                self.config.connector_name, base
-            )
-            quote_balance = self.market_data_provider.get_balance(
-                self.config.connector_name, quote
-            )
+            base_balance = self.market_data_provider.get_balance(self.config.connector_name, base)
+            quote_balance = self.market_data_provider.get_balance(self.config.connector_name, quote)
             return Decimal(str(base_balance)), Decimal(str(quote_balance))
         except Exception:
             return Decimal("0"), Decimal("0")
 
     def _calculate_inventory_skew_legacy(
-        self,
-        current_base_pct: Decimal,
-        base_balance: Decimal,
-        quote_balance: Decimal,
-        reference_price: Decimal
+        self, current_base_pct: Decimal, base_balance: Decimal, quote_balance: Decimal, reference_price: Decimal
     ) -> Tuple[Decimal, Decimal]:
         """
         Calculate inventory skew multipliers matching the legacy inventory_skew_calculator.pyx algorithm.
@@ -319,7 +322,7 @@ class PMMV1(ControllerBase):
             float(quote_balance),
             float(reference_price),
             float(self.config.target_base_pct),
-            base_asset_range
+            base_asset_range,
         )
 
     def _c_calculate_bid_ask_ratios(
@@ -328,7 +331,7 @@ class PMMV1(ControllerBase):
         quote_asset_amount: float,
         price: float,
         target_base_asset_ratio: float,
-        base_asset_range: float
+        base_asset_range: float,
     ) -> Tuple[Decimal, Decimal]:
         """
         Exact port of legacy c_calculate_bid_ask_ratios_from_base_asset_ratio.
@@ -345,16 +348,12 @@ class PMMV1(ControllerBase):
         right_base_asset_value_limit = target_base_asset_value + base_asset_range_value
 
         # Use np.interp for smooth interpolation (matching legacy)
-        left_inventory_ratio = float(np.interp(
-            base_asset_value,
-            [left_base_asset_value_limit, target_base_asset_value],
-            [0.0, 0.5]
-        ))
-        right_inventory_ratio = float(np.interp(
-            base_asset_value,
-            [target_base_asset_value, right_base_asset_value_limit],
-            [0.5, 1.0]
-        ))
+        left_inventory_ratio = float(
+            np.interp(base_asset_value, [left_base_asset_value_limit, target_base_asset_value], [0.0, 0.5])
+        )
+        right_inventory_ratio = float(
+            np.interp(base_asset_value, [target_base_asset_value, right_base_asset_value_limit], [0.5, 1.0])
+        )
 
         if base_asset_value < target_base_asset_value:
             bid_adjustment = float(np.interp(left_inventory_ratio, [0, 0.5], [2.0, 1.0]))
@@ -365,9 +364,7 @@ class PMMV1(ControllerBase):
 
         return Decimal(str(bid_adjustment)), Decimal(str(ask_adjustment))
 
-    def _calculate_proposal_prices(
-        self, reference_price: Decimal
-    ) -> Tuple[List[Decimal], List[Decimal]]:
+    def _calculate_proposal_prices(self, reference_price: Decimal) -> Tuple[List[Decimal], List[Decimal]]:
         """Calculate what the proposal prices would be for tolerance comparison."""
         buy_spreads = self.config.get_spreads(TradeType.BUY)
         sell_spreads = self.config.get_spreads(TradeType.SELL)
@@ -449,10 +446,9 @@ class PMMV1(ControllerBase):
             # Create executor config
             executor_config = self._get_executor_config(level_id, price, amount, trade_type)
             if executor_config is not None:
-                create_actions.append(CreateExecutorAction(
-                    controller_id=self.config.id,
-                    executor_config=executor_config
-                ))
+                create_actions.append(
+                    CreateExecutorAction(controller_id=self.config.id, executor_config=executor_config)
+                )
 
         return create_actions
 
@@ -466,10 +462,7 @@ class PMMV1(ControllerBase):
         current_time = self.market_data_provider.time()
 
         # Get levels with active executors
-        active_levels = self.filter_executors(
-            executors=self.executors_info,
-            filter_func=lambda x: x.is_active
-        )
+        active_levels = self.filter_executors(executors=self.executors_info, filter_func=lambda x: x.is_active)
         active_level_ids = [executor.custom_info.get("level_id", "") for executor in active_levels]
 
         # Get missing levels
@@ -477,7 +470,8 @@ class PMMV1(ControllerBase):
 
         # Filter out levels still in filled_order_delay period
         missing_levels = [
-            level_id for level_id in missing_levels
+            level_id
+            for level_id in missing_levels
             if current_time >= self._level_next_create_timestamps.get(level_id, 0)
         ]
 
@@ -546,9 +540,9 @@ class PMMV1(ControllerBase):
 
         # Only consider refresh after refresh time
         executors_past_refresh = [
-            e for e in self.executors_info
-            if e.is_active and not e.is_trading
-            and current_time - e.timestamp > self.config.order_refresh_time
+            e
+            for e in self.executors_info
+            if e.is_active and not e.is_trading and current_time - e.timestamp > self.config.order_refresh_time
         ]
 
         if not executors_past_refresh:
@@ -557,11 +551,7 @@ class PMMV1(ControllerBase):
         # If tolerance is disabled, refresh all
         if self.config.order_refresh_tolerance_pct < 0:
             return [
-                StopExecutorAction(
-                    controller_id=self.config.id,
-                    executor_id=executor.id,
-                    keep_position=True
-                )
+                StopExecutorAction(controller_id=self.config.id, executor_id=executor.id, keep_position=True)
                 for executor in executors_past_refresh
             ]
 
@@ -574,7 +564,7 @@ class PMMV1(ControllerBase):
         current_sell_prices = []
         for executor in executors_past_refresh:
             level_id = executor.custom_info.get("level_id", "")
-            order_price = getattr(executor.config, 'price', None)
+            order_price = getattr(executor.config, "price", None)
             if order_price is None:
                 continue
             if level_id.startswith("buy"):
@@ -583,18 +573,16 @@ class PMMV1(ControllerBase):
                 current_sell_prices.append(order_price)
 
         # Check if within tolerance (matching legacy c_is_within_tolerance)
-        buys_within_tolerance = self._is_within_tolerance(
-            current_buy_prices, buy_proposal_prices
-        )
-        sells_within_tolerance = self._is_within_tolerance(
-            current_sell_prices, sell_proposal_prices
-        )
+        buys_within_tolerance = self._is_within_tolerance(current_buy_prices, buy_proposal_prices)
+        sells_within_tolerance = self._is_within_tolerance(current_sell_prices, sell_proposal_prices)
 
         # Log tolerance decisions
         if buys_within_tolerance and sells_within_tolerance:
             if executors_past_refresh:
                 executor_level_ids = [e.custom_info.get("level_id", "unknown") for e in executors_past_refresh]
-                self.logger().debug(f"Orders {executor_level_ids} will not be canceled because they are within the order tolerance ({self.config.order_refresh_tolerance_pct:.2%}).")
+                self.logger().debug(
+                    f"Orders {executor_level_ids} will not be canceled because they are within the order tolerance ({self.config.order_refresh_tolerance_pct:.2%})."
+                )
             return []
 
         # Log which orders are being refreshed due to tolerance
@@ -606,21 +594,17 @@ class PMMV1(ControllerBase):
             if not sells_within_tolerance:
                 tolerance_reason.append("sell orders outside tolerance")
             reason = " and ".join(tolerance_reason)
-            self.logger().debug(f"Refreshing orders {executor_level_ids} due to {reason} (tolerance: {self.config.order_refresh_tolerance_pct:.2%}).")
+            self.logger().debug(
+                f"Refreshing orders {executor_level_ids} due to {reason} (tolerance: {self.config.order_refresh_tolerance_pct:.2%})."
+            )
 
         # Otherwise, refresh all executors
         return [
-            StopExecutorAction(
-                controller_id=self.config.id,
-                executor_id=executor.id,
-                keep_position=True
-            )
+            StopExecutorAction(controller_id=self.config.id, executor_id=executor.id, keep_position=True)
             for executor in executors_past_refresh
         ]
 
-    def _is_within_tolerance(
-        self, current_prices: List[Decimal], proposal_prices: List[Decimal]
-    ) -> bool:
+    def _is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         """Check if current prices are within tolerance of proposal prices.
 
         Matching legacy c_is_within_tolerance behavior.
@@ -670,7 +654,7 @@ class PMMV1(ControllerBase):
         """Get level number from level ID."""
         if "_" not in level_id:
             return 0
-        return int(level_id.split('_')[1])
+        return int(level_id.split("_")[1])
 
     def to_format_status(self) -> List[str]:
         """Get formatted status display."""
@@ -679,18 +663,20 @@ class PMMV1(ControllerBase):
         status = []
 
         # Get data
-        base_pct = self.processed_data.get('current_base_pct', Decimal('0'))
+        base_pct = self.processed_data.get("current_base_pct", Decimal("0"))
         target_pct = self.config.target_base_pct
-        buy_skew = self.processed_data.get('buy_skew', Decimal('1'))
-        sell_skew = self.processed_data.get('sell_skew', Decimal('1'))
-        ref_price = self.processed_data.get('reference_price', Decimal('0'))
-        ceiling = self.processed_data.get('price_ceiling')
-        floor = self.processed_data.get('price_floor')
+        buy_skew = self.processed_data.get("buy_skew", Decimal("1"))
+        sell_skew = self.processed_data.get("sell_skew", Decimal("1"))
+        ref_price = self.processed_data.get("reference_price", Decimal("0"))
+        ceiling = self.processed_data.get("price_ceiling")
+        floor = self.processed_data.get("price_floor")
 
-        active_buy = sum(1 for e in self.executors_info
-                         if e.is_active and e.custom_info.get("level_id", "").startswith("buy"))
-        active_sell = sum(1 for e in self.executors_info
-                          if e.is_active and e.custom_info.get("level_id", "").startswith("sell"))
+        active_buy = sum(
+            1 for e in self.executors_info if e.is_active and e.custom_info.get("level_id", "").startswith("buy")
+        )
+        active_sell = sum(
+            1 for e in self.executors_info if e.is_active and e.custom_info.get("level_id", "").startswith("sell")
+        )
 
         # Layout
         w = 89  # total width including outer pipes

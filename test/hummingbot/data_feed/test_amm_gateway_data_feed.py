@@ -9,7 +9,6 @@ from hummingbot.data_feed.amm_gateway_data_feed import AmmGatewayDataFeed
 
 
 class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -32,8 +31,12 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
     async def test_check_network_not_connected(self, gateway_client_mock: AsyncMock):
         gateway_client_mock.ping_gateway.return_value = False
         self.assertEqual(NetworkStatus.NOT_CONNECTED, await self.data_feed.check_network())
-        self.assertTrue(self.is_logged(log_level=LogLevel.WARNING,
-                                       message="Gateway is not online. Please check your gateway connection.", ))
+        self.assertTrue(
+            self.is_logged(
+                log_level=LogLevel.WARNING,
+                message="Gateway is not online. Please check your gateway connection.",
+            )
+        )
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed._async_sleep", new_callable=AsyncMock)
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed._fetch_data", new_callable=AsyncMock)
@@ -45,9 +48,12 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
             pass
         self.assertEqual(2, fetch_data_mock.call_count)
         self.assertTrue(
-            self.is_logged(log_level=LogLevel.ERROR,
-                           message="Error getting data from AmmDataFeed[uniswap/amm]Check network "
-                                   "connection. Error: test exception"))
+            self.is_logged(
+                log_level=LogLevel.ERROR,
+                message="Error getting data from AmmDataFeed[uniswap/amm]Check network "
+                "connection. Error: test exception",
+            )
+        )
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
     async def test_fetch_data_successful(self, gateway_client_mock: AsyncMock):
@@ -69,6 +75,7 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
     def test_is_ready_with_prices(self):
         # Test line 76: is_ready returns True when price_dict has data
         from hummingbot.data_feed.amm_gateway_data_feed import TokenBuySellPrice
+
         self.data_feed._price_dict = {
             "HBOT-USDT": TokenBuySellPrice(
                 base="HBOT",
@@ -90,8 +97,8 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         gateway_client_mock.quote_swap.side_effect = Exception("API error")
         await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
         self.assertTrue(
-            self.is_logged(log_level=LogLevel.WARNING,
-                           message="Failed to get price using quote_swap: API error"))
+            self.is_logged(log_level=LogLevel.WARNING, message="Failed to get price using quote_swap: API error")
+        )
 
     @patch("hummingbot.data_feed.amm_gateway_data_feed.AmmGatewayDataFeed.gateway_client", new_callable=AsyncMock)
     async def test_request_token_price_returns_none(self, gateway_client_mock: AsyncMock):
@@ -176,8 +183,7 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         self.assertIsNone(result)
         self.assertTrue(
             self.is_logged(
-                log_level=LogLevel.WARNING,
-                message="Failed to get chain/network for uniswap/amm: Network error"
+                log_level=LogLevel.WARNING, message="Failed to get chain/network for uniswap/amm: Network error"
             )
         )
 
@@ -185,7 +191,7 @@ class TestAmmGatewayDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest)
         # Test when _request_token_price returns None for both buy and sell
         # Clear any existing price dict
         self.data_feed._price_dict.clear()
-        with patch.object(self.data_feed, '_request_token_price', return_value=None):
+        with patch.object(self.data_feed, "_request_token_price", return_value=None):
             await self.data_feed._register_token_buy_sell_price("HBOT-USDT")
             # Should not add to price dict
             self.assertNotIn("HBOT-USDT", self.data_feed._price_dict)

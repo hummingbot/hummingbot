@@ -23,7 +23,10 @@ class DerivativeBase(ExchangeBase):
         self._account_positions = {}
         self._position_mode = None
         self._leverage = {}
-        self._funding_payment_span = [0, 0]  # time span(in seconds) before and after funding period when exchanges consider active positions eligible for funding payment
+        self._funding_payment_span = [
+            0,
+            0,
+        ]  # time span(in seconds) before and after funding period when exchanges consider active positions eligible for funding payment
 
     def set_position_mode(self, position_mode: PositionMode):
         """

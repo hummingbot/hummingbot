@@ -20,7 +20,6 @@ from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRate
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
-from hummingbot.core.rate_oracle.sources.decibel_perpetual_rate_source import DecibelPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.derive_rate_source import DeriveRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.rate_oracle.sources.evedex_perpetual_rate_source import EvedexPerpetualRateSource
@@ -53,7 +52,6 @@ RATE_ORACLE_SOURCES = {
     "mexc": MexcRateSource,
     "evedex_perpetual": EvedexPerpetualRateSource,
     "pacifica_perpetual": PacificaPerpetualRateSource,
-    "decibel_perpetual": DecibelPerpetualRateSource,
 }
 
 
@@ -63,6 +61,7 @@ class RateOracle(NetworkBase):
     It achieves this by query URL on a given source for prices and store them, either in cache or as an object member.
     The find_rate is then used on these prices to find a rate on a given pair.
     """
+
     _logger: Optional[HummingbotLogger] = None
     _shared_instance: "RateOracle" = None
 
@@ -134,8 +133,7 @@ class RateOracle(NetworkBase):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error("Unexpected error while waiting for data feed to get ready.",
-                                exc_info=True)
+            self.logger().error("Unexpected error while waiting for data feed to get ready.", exc_info=True)
 
     @property
     def name(self) -> str:
@@ -276,6 +274,9 @@ class RateOracle(NetworkBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(f"Error fetching new prices from {self.source.name}.", exc_info=True,
-                                      app_warning_msg=f"Couldn't fetch newest prices from {self.source.name}.")
+                self.logger().network(
+                    f"Error fetching new prices from {self.source.name}.",
+                    exc_info=True,
+                    app_warning_msg=f"Couldn't fetch newest prices from {self.source.name}.",
+                )
             await asyncio.sleep(1)

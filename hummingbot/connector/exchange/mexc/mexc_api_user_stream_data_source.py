@@ -20,6 +20,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
     Manages the user stream connection for MEXC exchange, handling listen key lifecycle
     and websocket connection management.
     """
+
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
     LISTEN_KEY_RETRY_INTERVAL = 5.0  # Delay between listen key management iterations
@@ -27,12 +28,14 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 auth: MexcAuth,
-                 trading_pairs: List[str],
-                 connector: 'MexcExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    def __init__(
+        self,
+        auth: MexcAuth,
+        trading_pairs: List[str],
+        connector: "MexcExchange",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    ):
         super().__init__()
         self._auth: MexcAuth = auth
         self._current_listen_key = None
@@ -106,26 +109,13 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-
-            orders_change_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME],
-                "id": 1
-            }
+            orders_change_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME], "id": 1}
             subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
 
-            trades_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME],
-                "id": 2
-            }
+            trades_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME], "id": 2}
             subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
-            balance_payload = {
-                "method": "SUBSCRIPTION",
-                "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME],
-                "id": 3
-            }
+            balance_payload = {"method": "SUBSCRIPTION", "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME], "id": 3}
             subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
 
             await websocket_assistant.send(subscribe_order_change_request)
@@ -170,9 +160,13 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception as exception:
                 retry_count += 1
                 if retry_count > max_retries:
-                    raise IOError(f"Error fetching user stream listen key after {max_retries} retries. Error: {exception}")
+                    raise IOError(
+                        f"Error fetching user stream listen key after {max_retries} retries. Error: {exception}"
+                    )
 
-                self.logger().warning(f"Retry {retry_count}/{max_retries} fetching user stream listen key. Error: {exception}")
+                self.logger().warning(
+                    f"Retry {retry_count}/{max_retries} fetching user stream listen key. Error: {exception}"
+                )
                 await self._sleep(backoff_time)
                 backoff_time *= 2  # Exponential backoff: 1s, 2s, 4s...
 
@@ -185,7 +179,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                is_auth_required=True
+                is_auth_required=True,
             )
 
             if "code" in data:
@@ -233,7 +227,9 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             self._last_listen_key_ping_ts = now
                         else:
                             # Ping failed - force obtaining a new key in next iteration
-                            self.logger().error(f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
+                            self.logger().error(
+                                f"Failed to refresh listen key {self._current_listen_key}. Getting new key..."
+                            )
                             raise Exception("Listen key refresh failed")
 
                     # Sleep before next check
@@ -303,7 +299,7 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 await asyncio.wait_for(
                     super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL
+                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL,
                 )
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"method": "PING"})

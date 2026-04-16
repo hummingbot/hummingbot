@@ -518,7 +518,9 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.assertIn(self.trading_pair, self.ob_data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: trade, book_depth
         self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to public trade and order book diff channels of {self.trading_pair}...")
+            self._is_logged(
+                "INFO", f"Subscribed to public trade and order book diff channels of {self.trading_pair}..."
+            )
         )
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
@@ -529,9 +531,7 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         result = await self.ob_data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -551,9 +551,7 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         result = await self.ob_data_source.subscribe_to_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {self.trading_pair}...")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Unexpected error occurred subscribing to {self.trading_pair}..."))
 
     async def test_unsubscribe_from_trading_pair_fails_due_to_missing_constants(self):
         """Test unsubscription fails due to missing WS_UNSUBSCRIBE_METHOD constant in source."""
@@ -575,9 +573,7 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         result = await self.ob_data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established"))
 
     async def test_unsubscribe_from_trading_pair_logs_error_due_to_missing_constants(self):
         """Test that unsubscription logs error due to missing WS_UNSUBSCRIBE_METHOD constant."""

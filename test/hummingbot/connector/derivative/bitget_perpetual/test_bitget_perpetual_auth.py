@@ -24,7 +24,8 @@ class BitgetPerpetualAuthTests(TestCase):
             api_key=self.api_key,
             secret_key=self.secret_key,
             passphrase=self.passphrase,
-            time_provider=self._time_synchronizer_mock)
+            time_provider=self._time_synchronizer_mock,
+        )
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1) -> Any:
         """
@@ -41,9 +42,7 @@ class BitgetPerpetualAuthTests(TestCase):
         """
         Test that the authentication headers are correctly added to a REST request.
         """
-        params = {
-            "one": "1"
-        }
+        params = {"one": "1"}
         request = RESTRequest(
             method=RESTMethod.GET,
             url="https://test.url",
@@ -55,26 +54,20 @@ class BitgetPerpetualAuthTests(TestCase):
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
-        raw_signature: str = "".join([
-            request.headers.get("ACCESS-TIMESTAMP"),
-            request.method.value,
-            request.throttler_limit_id,
-            "?one=1"
-        ])
-        expected_signature = base64.b64encode(
-            hmac.new(
-                self.secret_key.encode("utf-8"),
-                raw_signature.encode("utf-8"),
-                hashlib.sha256
-            ).digest()
-        ).decode().strip()
+        raw_signature: str = "".join(
+            [request.headers.get("ACCESS-TIMESTAMP"), request.method.value, request.throttler_limit_id, "?one=1"]
+        )
+        expected_signature = (
+            base64.b64encode(
+                hmac.new(self.secret_key.encode("utf-8"), raw_signature.encode("utf-8"), hashlib.sha256).digest()
+            )
+            .decode()
+            .strip()
+        )
 
         self.assertEqual(1, len(request.params))
         self.assertEqual("1", request.params.get("one"))
-        self.assertEqual(
-            self._time_synchronizer_mock.time(),
-            int(request.headers.get("ACCESS-TIMESTAMP")) * 1e-3
-        )
+        self.assertEqual(self._time_synchronizer_mock.time(), int(request.headers.get("ACCESS-TIMESTAMP")) * 1e-3)
         self.assertEqual(self.api_key, request.headers.get("ACCESS-KEY"))
         self.assertEqual(expected_signature, request.headers.get("ACCESS-SIGN"))
 
@@ -85,13 +78,13 @@ class BitgetPerpetualAuthTests(TestCase):
         payload = self.auth.get_ws_auth_payload()
 
         raw_signature = str(int(self._time_synchronizer_mock.time())) + "GET/user/verify"
-        expected_signature = base64.b64encode(
-            hmac.new(
-                self.secret_key.encode("utf-8"),
-                raw_signature.encode("utf-8"),
-                hashlib.sha256
-            ).digest()
-        ).decode().strip()
+        expected_signature = (
+            base64.b64encode(
+                hmac.new(self.secret_key.encode("utf-8"), raw_signature.encode("utf-8"), hashlib.sha256).digest()
+            )
+            .decode()
+            .strip()
+        )
 
         self.assertEqual(self.api_key, payload["apiKey"])
         self.assertEqual(str(int(self._time_synchronizer_mock.time())), payload["timestamp"])
@@ -101,9 +94,7 @@ class BitgetPerpetualAuthTests(TestCase):
         """
         Test ws request without authentication.
         """
-        payload = {
-            "one": "1"
-        }
+        payload = {"one": "1"}
         request = WSJSONRequest(payload=payload, is_auth_required=True)
 
         self.async_run_with_timeout(self.auth.ws_authenticate(request))

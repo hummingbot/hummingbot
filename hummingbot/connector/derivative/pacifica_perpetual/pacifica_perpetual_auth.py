@@ -46,7 +46,7 @@ class PacificaPerpetualAuth(AuthBase):
                 "signature": signature_b58,
                 "timestamp": signature_header["timestamp"],
                 "expiry_window": signature_header["expiry_window"],
-                **request_data
+                **request_data,
             }
 
             request.data = json.dumps(final_body)
@@ -76,12 +76,13 @@ class PacificaPerpetualAuth(AuthBase):
             "signature": signature_b58,
             "timestamp": signature_header["timestamp"],
             "expiry_window": signature_header["expiry_window"],
-            **params
+            **params,
         }
 
         request.payload["params"] = final_body
 
         return request
+
 
 # the following 3 functions have been extracted from the official SDK
 # https://github.com/pacifica-fi/python-sdk
@@ -107,11 +108,7 @@ def sort_json_keys(value):
 
 
 def prepare_message(header, payload):
-    if (
-        "type" not in header
-        or "timestamp" not in header
-        or "expiry_window" not in header
-    ):
+    if "type" not in header or "timestamp" not in header or "expiry_window" not in header:
         raise ValueError("Header must have type, timestamp, and expiry_window")
 
     data = {

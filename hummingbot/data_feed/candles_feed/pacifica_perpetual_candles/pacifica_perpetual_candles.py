@@ -58,8 +58,7 @@ class PacificaPerpetualCandles(CandlesBase):
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(
-            url=self.health_check_url,
-            throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+            url=self.health_check_url, throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
         )
         return NetworkStatus.CONNECTED
 
@@ -83,7 +82,7 @@ class PacificaPerpetualCandles(CandlesBase):
         self,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
     ) -> dict:
         """
         Build REST API parameters for fetching candles.
@@ -151,10 +150,20 @@ class PacificaPerpetualCandles(CandlesBase):
             taker_buy_base_volume = 0
             taker_buy_quote_volume = 0
 
-            new_hb_candles.append([
-                timestamp, open_price, high, low, close, volume,
-                quote_asset_volume, n_trades, taker_buy_base_volume, taker_buy_quote_volume
-            ])
+            new_hb_candles.append(
+                [
+                    timestamp,
+                    open_price,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    quote_asset_volume,
+                    n_trades,
+                    taker_buy_base_volume,
+                    taker_buy_quote_volume,
+                ]
+            )
 
         return new_hb_candles
 
@@ -179,8 +188,8 @@ class PacificaPerpetualCandles(CandlesBase):
             "params": {
                 "source": CONSTANTS.WS_CANDLES_CHANNEL,
                 "symbol": self._ex_trading_pair,
-                "interval": CONSTANTS.INTERVALS[self.interval]
-            }
+                "interval": CONSTANTS.INTERVALS[self.interval],
+            },
         }
 
     def _parse_websocket_message(self, data: dict) -> Optional[Dict[str, Any]]:

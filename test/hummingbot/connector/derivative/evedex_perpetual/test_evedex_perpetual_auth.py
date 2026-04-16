@@ -1,4 +1,5 @@
 """Unit tests for Evedex Perpetual authentication."""
+
 import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -20,9 +21,7 @@ class TestEvedexPerpetualAuth(unittest.TestCase):
         self.private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"  # noqa: mock
         self.time_provider = MagicMock()
         self.auth = EvedexPerpetualAuth(
-            api_key=self.api_key,
-            time_provider=self.time_provider,
-            private_key=self.private_key
+            api_key=self.api_key, time_provider=self.time_provider, private_key=self.private_key
         )
 
     def test_auth_class_initialization(self):
@@ -80,18 +79,12 @@ class TestEvedexPerpetualAuthAsync(unittest.IsolatedAsyncioTestCase):
         self.private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"  # noqa: mock
         self.time_provider = MagicMock()
         self.auth = EvedexPerpetualAuth(
-            api_key=self.api_key,
-            time_provider=self.time_provider,
-            private_key=self.private_key
+            api_key=self.api_key, time_provider=self.time_provider, private_key=self.private_key
         )
 
     async def test_rest_authenticate(self):
         """Test REST request authentication adds proper headers."""
-        request = RESTRequest(
-            method="GET",
-            url="https://exchange-api.evedex.com/api/user/balance",
-            headers={}
-        )
+        request = RESTRequest(method="GET", url="https://exchange-api.evedex.com/api/user/balance", headers={})
 
         authenticated_request = await self.auth.rest_authenticate(request)
 
@@ -102,9 +95,7 @@ class TestEvedexPerpetualAuthAsync(unittest.IsolatedAsyncioTestCase):
         """Test that authentication preserves existing headers."""
         existing_headers = {"Accept": "application/json", "Custom-Header": "custom-value"}
         request = RESTRequest(
-            method="POST",
-            url="https://exchange-api.evedex.com/api/v2/order/limit",
-            headers=existing_headers
+            method="POST", url="https://exchange-api.evedex.com/api/v2/order/limit", headers=existing_headers
         )
 
         authenticated_request = await self.auth.rest_authenticate(request)
@@ -117,10 +108,7 @@ class TestEvedexPerpetualAuthAsync(unittest.IsolatedAsyncioTestCase):
 
     async def test_rest_authenticate_with_none_headers(self):
         """Test REST authentication when request has None headers."""
-        request = RESTRequest(
-            method="GET",
-            url="https://exchange-api.evedex.com/api/position"
-        )
+        request = RESTRequest(method="GET", url="https://exchange-api.evedex.com/api/position")
         request.headers = None
 
         authenticated_request = await self.auth.rest_authenticate(request)
@@ -167,9 +155,7 @@ class TestEvedexPerpetualAuthSigning(unittest.TestCase):
         self.private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"  # noqa: mock
         self.time_provider = MagicMock()
         self.auth = EvedexPerpetualAuth(
-            api_key=self.api_key,
-            time_provider=self.time_provider,
-            private_key=self.private_key
+            api_key=self.api_key, time_provider=self.time_provider, private_key=self.private_key
         )
 
     def test_wallet_address_property(self):
@@ -227,9 +213,7 @@ class TestEvedexPerpetualAuthAccessTokenAsync(unittest.IsolatedAsyncioTestCase):
         self.private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"  # noqa: mock
         self.time_provider = MagicMock()
         self.auth = EvedexPerpetualAuth(
-            api_key=self.api_key,
-            time_provider=self.time_provider,
-            private_key=self.private_key
+            api_key=self.api_key, time_provider=self.time_provider, private_key=self.private_key
         )
 
     async def test_get_access_token_uses_fetcher(self):

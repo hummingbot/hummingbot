@@ -20,13 +20,12 @@ class KrakenAuth(AuthBase):
         self.time_provider = time_provider
 
     @classmethod
-    def get_tracking_nonce(self) -> str:
-        nonce = int(time.time())
-        self._last_tracking_nonce = nonce if nonce > self._last_tracking_nonce else self._last_tracking_nonce + 1
-        return str(self._last_tracking_nonce)
+    def get_tracking_nonce(cls) -> str:
+        nonce = int(time.time() * 1000)
+        cls._last_tracking_nonce = nonce if nonce > cls._last_tracking_nonce else cls._last_tracking_nonce + 1
+        return str(cls._last_tracking_nonce)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
-
         data = json.loads(request.data) if request.data is not None else {}
         _path = urlparse(request.url).path
 
@@ -52,7 +51,7 @@ class KrakenAuth(AuthBase):
         api_secret: bytes = base64.b64decode(self.secret_key)
 
         # Variables (API method, nonce, and POST data)
-        api_path: bytes = bytes(uri, 'utf-8')
+        api_path: bytes = bytes(uri, "utf-8")
         api_nonce: str = self.get_tracking_nonce()
         api_post: str = "nonce=" + api_nonce
 
@@ -61,17 +60,14 @@ class KrakenAuth(AuthBase):
                 api_post += f"&{key}={value}"
 
         # Cryptographic hash algorithms
-        api_sha256: bytes = hashlib.sha256(bytes(api_nonce + api_post, 'utf-8')).digest()
+        api_sha256: bytes = hashlib.sha256(bytes(api_nonce + api_post, "utf-8")).digest()
         api_hmac: hmac.HMAC = hmac.new(api_secret, api_path + api_sha256, hashlib.sha512)
 
         # Encode signature into base64 format used in API-Sign value
         api_signature: bytes = base64.b64encode(api_hmac.digest())
 
         return {
-            "headers": {
-                "API-Key": self.api_key,
-                "API-Sign": str(api_signature, 'utf-8')
-            },
+            "headers": {"API-Key": self.api_key, "API-Sign": str(api_signature, "utf-8")},
             "post": api_post,
-            "postDict": {"nonce": api_nonce, **data} if data is not None else {"nonce": api_nonce}
+            "postDict": {"nonce": api_nonce, **data} if data is not None else {"nonce": api_nonce},
         }

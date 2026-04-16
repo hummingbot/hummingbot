@@ -11,7 +11,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class BitstampWebUtilsTests(TestCase):
-
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -33,9 +32,11 @@ class BitstampWebUtilsTests(TestCase):
         expected_url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + path_url
         self.assertEqual(expected_url, web_utils.private_rest_url(path_url, domain))
 
-    @patch('hummingbot.connector.exchange.bitstamp.bitstamp_web_utils'
-           '.build_api_factory_without_time_synchronizer_pre_processor',
-           new_callable=Mock)
+    @patch(
+        "hummingbot.connector.exchange.bitstamp.bitstamp_web_utils"
+        ".build_api_factory_without_time_synchronizer_pre_processor",
+        new_callable=Mock,
+    )
     def test_get_current_server_time(self, mock_api_factory: Mock):
         response = {"server_time": 1719431075066}
         mock_rest_assistant = AsyncMock()
@@ -52,7 +53,9 @@ class BitstampWebUtilsTests(TestCase):
 
     def test_bitstamp_rest_pre_processor_with_data(self):
         payload = {"test": "data"}
-        request = RESTRequest(method=RESTMethod.POST, data=json.dumps({"test": "data"}), headers={"Content-Type": "application/json"})
+        request = RESTRequest(
+            method=RESTMethod.POST, data=json.dumps({"test": "data"}), headers={"Content-Type": "application/json"}
+        )
         pre_processor = BitstampRESTPreProcessor()
 
         request = self.async_run_with_timeout(pre_processor.pre_process(request))

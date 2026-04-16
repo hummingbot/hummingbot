@@ -389,9 +389,8 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         fills = response.get("result", [])
         trade_updates = []
         for fill in fills:
-            if (
-                str(fill.get("client_order_id")) != order.client_order_id
-                and str(fill.get("order_id")) != str(order.exchange_order_id)
+            if str(fill.get("client_order_id")) != order.client_order_id and str(fill.get("order_id")) != str(
+                order.exchange_order_id
             ):
                 continue
             fee_token = fill.get("fee_currency") or self._instrument_info_by_symbol[exchange_symbol]["quote"]
@@ -702,7 +701,9 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         position_action = kwargs.get("position_action")
 
         if position_action == PositionAction.CLOSE and self._is_reduce_only_position_absent_error(exception):
-            self.logger().info(f"Treating rejected reduce-only close order {order_id} as canceled for {trading_pair}: {exception}")
+            self.logger().info(
+                f"Treating rejected reduce-only close order {order_id} as canceled for {trading_pair}: {exception}"
+            )
             self._order_tracker.process_order_update(
                 OrderUpdate(
                     trading_pair=trading_pair,
@@ -734,10 +735,14 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_active_exchange_order_id(exchange_order_id: Optional[str]) -> bool:
         return exchange_order_id not in (None, "", "0x00", "0x0", "0")
 
-    def _tracked_order_from_ids(self, client_order_id: Optional[str], exchange_order_id: Optional[str]) -> Optional[InFlightOrder]:
+    def _tracked_order_from_ids(
+        self, client_order_id: Optional[str], exchange_order_id: Optional[str]
+    ) -> Optional[InFlightOrder]:
         tracked_order = None
         if client_order_id:
-            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id) or self._order_tracker.all_updatable_orders.get(client_order_id)
+            tracked_order = self._order_tracker.all_fillable_orders.get(
+                client_order_id
+            ) or self._order_tracker.all_updatable_orders.get(client_order_id)
         if tracked_order is None and self._is_active_exchange_order_id(exchange_order_id):
             for order in self._order_tracker.all_fillable_orders.values():
                 if str(order.exchange_order_id) == str(exchange_order_id):

@@ -32,7 +32,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'BitgetPerpetualDerivative',
+        connector: "BitgetPerpetualDerivative",
         api_factory: WebAssistantsFactory,
     ) -> None:
         super().__init__(trading_pairs)
@@ -41,11 +41,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._ping_task: Optional[asyncio.Task] = None
         self._ws_assistant: Optional[WSAssistant] = None
 
-    async def get_last_traded_prices(
-        self,
-        trading_pairs: List[str],
-        domain: Optional[str] = None
-    ) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _parse_pong_message(self) -> None:
@@ -79,10 +75,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             if response_channel == CONSTANTS.PUBLIC_WS_BOOKS:
                 action: Optional[str] = event_message.get("action")
-                channels = {
-                    "snapshot": self._snapshot_messages_queue_key,
-                    "update": self._diff_messages_queue_key
-                }
+                channels = {"snapshot": self._snapshot_messages_queue_key, "update": self._diff_messages_queue_key}
                 channel = channels.get(action)
             elif response_channel == CONSTANTS.PUBLIC_WS_TRADE:
                 channel = self._trade_messages_queue_key
@@ -128,60 +121,40 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "asks": data["asks"],
         }
 
-        return OrderBookMessage(
-            message_type=message_type,
-            content=order_book_message_content,
-            timestamp=timestamp
-        )
+        return OrderBookMessage(message_type=message_type, content=order_book_message_content, timestamp=timestamp)
 
-    async def _parse_order_book_diff_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
         diffs_data: Dict[str, Any] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
 
         for diff in diffs_data:
             diff_message: OrderBookMessage = await self._parse_any_order_book_message(
-                data=diff,
-                symbol=symbol,
-                message_type=OrderBookMessageType.DIFF
+                data=diff, symbol=symbol, message_type=OrderBookMessageType.DIFF
             )
 
             message_queue.put_nowait(diff_message)
 
     async def _parse_order_book_snapshot_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
+        self, raw_message: Dict[str, Any], message_queue: asyncio.Queue
     ) -> None:
         snapshot_data: Dict[str, Any] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
 
         for snapshot in snapshot_data:
             snapshot_message: OrderBookMessage = await self._parse_any_order_book_message(
-                data=snapshot,
-                symbol=symbol,
-                message_type=OrderBookMessageType.SNAPSHOT
+                data=snapshot, symbol=symbol, message_type=OrderBookMessageType.SNAPSHOT
             )
 
             message_queue.put_nowait(snapshot_message)
 
-    async def _parse_trade_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
         data: List[Dict[str, Any]] = raw_message["data"]
         symbol: str = raw_message["arg"]["instId"]
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
             trade_type: float = (
-                float(TradeType.BUY.value)
-                if trade_data["side"] == "buy"
-                else float(TradeType.SELL.value)
+                float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             )
             message_content: Dict[str, Any] = {
                 "trade_id": int(trade_data["tradeId"]),
@@ -197,32 +170,23 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             )
             message_queue.put_nowait(trade_message)
 
-    async def _parse_funding_info_message(
-        self,
-        raw_message: Dict[str, Any],
-        message_queue: asyncio.Queue
-    ) -> None:
+    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue) -> None:
         data: List[Dict[str, Any]] = raw_message["data"]
 
         for entry in data:
-            trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(
-                entry["symbol"]
-            )
+            trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(entry["symbol"])
             funding_update = FundingInfoUpdate(
                 trading_pair=trading_pair,
                 index_price=Decimal(entry["indexPrice"]),
                 mark_price=Decimal(entry["markPrice"]),
                 next_funding_utc_timestamp=int(int(entry["nextFundingTime"]) * 1e-3),
-                rate=Decimal(entry["fundingRate"])
+                rate=Decimal(entry["fundingRate"]),
             )
             message_queue.put_nowait(funding_update)
 
     async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
         rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
-        endpoints = [
-            CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT,
-            CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT
-        ]
+        endpoints = [CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT, CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT]
         tasks: List[asyncio.Task] = []
         funding_info: Dict[str, Any] = {}
 
@@ -230,15 +194,17 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         product_type = await self._connector.product_type_associated_to_trading_pair(trading_pair)
 
         for endpoint in endpoints:
-            tasks.append(rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=endpoint),
-                throttler_limit_id=endpoint,
-                params={
-                    "symbol": symbol,
-                    "productType": product_type,
-                },
-                method=RESTMethod.GET,
-            ))
+            tasks.append(
+                rest_assistant.execute_request(
+                    url=web_utils.public_rest_url(path_url=endpoint),
+                    throttler_limit_id=endpoint,
+                    params={
+                        "symbol": symbol,
+                        "productType": product_type,
+                    },
+                    method=RESTMethod.GET,
+                )
+            )
 
         results = await safe_gather(*tasks)
 
@@ -263,26 +229,22 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-                product_type = await self._connector.product_type_associated_to_trading_pair(
-                    trading_pair
-                )
+                product_type = await self._connector.product_type_associated_to_trading_pair(trading_pair)
 
                 for channel in [
                     CONSTANTS.PUBLIC_WS_BOOKS,
                     CONSTANTS.PUBLIC_WS_TRADE,
                     CONSTANTS.PUBLIC_WS_TICKER,
                 ]:
-                    subscription_topics.append({
-                        "instType": product_type,
-                        "channel": channel,
-                        "instId": symbol
-                    })
+                    subscription_topics.append({"instType": product_type, "channel": channel, "instId": symbol})
 
             await ws.send(
-                WSJSONRequest({
-                    "op": "subscribe",
-                    "args": subscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "subscribe",
+                        "args": subscription_topics,
+                    }
+                )
             )
 
             self.logger().info("Subscribed to public channels...")
@@ -323,11 +285,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "asks": snapshot_data["asks"],
         }
 
-        return OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, order_book_message_content, timestamp)
 
     async def _send_ping(self, websocket_assistant: WSAssistant) -> None:
         ping_request = WSPlainTextRequest(CONSTANTS.PUBLIC_WS_PING_REQUEST)
@@ -362,13 +320,10 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
-                self.logger().warning(
-                    f"The websocket connection was closed ({connection_exception})"
-                )
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to order book streams. "
-                    "Retrying in 5 seconds...",
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
                 )
                 await self._sleep(1.0)
             finally:
@@ -397,9 +352,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         :return: True if subscription was successful, False otherwise.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
@@ -412,17 +365,15 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 CONSTANTS.PUBLIC_WS_TRADE,
                 CONSTANTS.PUBLIC_WS_TICKER,
             ]:
-                subscription_topics.append({
-                    "instType": product_type,
-                    "channel": channel,
-                    "instId": symbol
-                })
+                subscription_topics.append({"instType": product_type, "channel": channel, "instId": symbol})
 
             await self._ws_assistant.send(
-                WSJSONRequest({
-                    "op": "subscribe",
-                    "args": subscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "subscribe",
+                        "args": subscription_topics,
+                    }
+                )
             )
 
             self.add_trading_pair(trading_pair)
@@ -443,9 +394,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         :return: True if unsubscription was successful, False otherwise.
         """
         if self._ws_assistant is None:
-            self.logger().warning(
-                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
-            )
+            self.logger().warning(f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established.")
             return False
 
         try:
@@ -458,17 +407,15 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 CONSTANTS.PUBLIC_WS_TRADE,
                 CONSTANTS.PUBLIC_WS_TICKER,
             ]:
-                unsubscription_topics.append({
-                    "instType": product_type,
-                    "channel": channel,
-                    "instId": symbol
-                })
+                unsubscription_topics.append({"instType": product_type, "channel": channel, "instId": symbol})
 
             await self._ws_assistant.send(
-                WSJSONRequest({
-                    "op": "unsubscribe",
-                    "args": unsubscription_topics,
-                })
+                WSJSONRequest(
+                    {
+                        "op": "unsubscribe",
+                        "args": unsubscription_topics,
+                    }
+                )
             )
 
             self.remove_trading_pair(trading_pair)

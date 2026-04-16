@@ -28,8 +28,9 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage().startswith(message)
-                   for record in self.log_records)
+        return any(
+            record.levelname == log_level and record.getMessage().startswith(message) for record in self.log_records
+        )
 
     @staticmethod
     def quantize_order_amount(trading_pair: str, amount: Decimal):
@@ -67,8 +68,9 @@ class TestHangingOrdersTracker(unittest.TestCase):
         order_to_add = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1))
         self.tracker.add_order(order_to_add)
         self.assertEqual(len(self.tracker.original_orders), 1)
-        order_that_doesnt_belong = LimitOrder("Order-number-2", "BTC-USDT", True, "BTC", "USDT", Decimal(100),
-                                              Decimal(1))
+        order_that_doesnt_belong = LimitOrder(
+            "Order-number-2", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1)
+        )
         self.tracker.remove_order(order_that_doesnt_belong)
         self.assertEqual(len(self.tracker.original_orders), 1)
         self.tracker.remove_order(order_to_add)
@@ -87,23 +89,27 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.strategy.buy_with_specific_market.return_value = "Order-1234569990000000"
 
         # Order just executed
-        new_order = LimitOrder("Order-1234567890000000",
-                               "BTC-USDT",
-                               True,
-                               "BTC",
-                               "USDT",
-                               Decimal(101),
-                               Decimal(1),
-                               creation_timestamp=1234567890000000)
+        new_order = LimitOrder(
+            "Order-1234567890000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234567890000000,
+        )
         # Order executed 1900 seconds ago
-        old_order = LimitOrder("Order-1234565991000000",
-                               "BTC-USDT",
-                               True,
-                               "BTC",
-                               "USDT",
-                               Decimal(105),
-                               Decimal(1),
-                               creation_timestamp=1234565991000000)
+        old_order = LimitOrder(
+            "Order-1234565991000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(105),
+            Decimal(1),
+            creation_timestamp=1234565991000000,
+        )
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -112,30 +118,43 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.update_strategy_orders_with_equivalent_orders()
 
-        self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
-                            for order
-                            in self.tracker.strategy_current_hanging_orders))
+        self.assertTrue(
+            any(
+                order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
+                for order in self.tracker.strategy_current_hanging_orders
+            )
+        )
 
         # When calling the renew logic, the old order should start the renew process (it should be canceled)
         # but it will only stop being a current hanging order once the cancel confirmation arrives
         self.tracker.process_tick()
         self.assertTrue(old_order.client_order_id in cancelled_orders_ids)
-        self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
-                            for order
-                            in self.tracker.strategy_current_hanging_orders))
+        self.assertTrue(
+            any(
+                order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
+                for order in self.tracker.strategy_current_hanging_orders
+            )
+        )
 
         # When the cancel is confirmed the order should no longer be considered a hanging order
         strategy_active_orders.remove(old_order)
-        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
-                                       self,
-                                       OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id))
-        self.assertTrue(self._is_logged("INFO", f"(BTC-USDT) Hanging order {old_order.client_order_id} "
-                                                f"has been canceled as part of the renew process. "
-                                                f"Now the replacing order will be created."))
-        self.assertFalse(any(order.order_id == old_order.client_order_id for order
-                             in self.tracker.strategy_current_hanging_orders))
-        self.assertTrue(any(order.order_id == "Order-1234569990000000" for order
-                            in self.tracker.strategy_current_hanging_orders))
+        self.tracker._did_cancel_order(
+            MarketEvent.OrderCancelled, self, OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id)
+        )
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"(BTC-USDT) Hanging order {old_order.client_order_id} "
+                f"has been canceled as part of the renew process. "
+                f"Now the replacing order will be created.",
+            )
+        )
+        self.assertFalse(
+            any(order.order_id == old_order.client_order_id for order in self.tracker.strategy_current_hanging_orders)
+        )
+        self.assertTrue(
+            any(order.order_id == "Order-1234569990000000" for order in self.tracker.strategy_current_hanging_orders)
+        )
 
     def test_order_being_renewed_is_canceled_only_one_time(self):
         cancelled_orders_ids = []
@@ -146,23 +165,27 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.strategy.buy_with_specific_market.return_value = "Order-1234569990000000"
 
         # Order just executed
-        new_order = LimitOrder("Order-1234567890000000",
-                               "BTC-USDT",
-                               True,
-                               "BTC",
-                               "USDT",
-                               Decimal(101),
-                               Decimal(1),
-                               creation_timestamp=1234567890000000)
+        new_order = LimitOrder(
+            "Order-1234567890000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234567890000000,
+        )
         # Order executed 1900 seconds ago
-        old_order = LimitOrder("Order-1234565991000000",
-                               "BTC-USDT",
-                               True,
-                               "BTC",
-                               "USDT",
-                               Decimal(105),
-                               Decimal(1),
-                               creation_timestamp=1234565991000000)
+        old_order = LimitOrder(
+            "Order-1234565991000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(105),
+            Decimal(1),
+            creation_timestamp=1234565991000000,
+        )
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -171,9 +194,12 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.update_strategy_orders_with_equivalent_orders()
 
-        self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
-                            for order
-                            in self.tracker.strategy_current_hanging_orders))
+        self.assertTrue(
+            any(
+                order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
+                for order in self.tracker.strategy_current_hanging_orders
+            )
+        )
 
         # When calling the renew logic, the old order should start the renew process (it should be canceled)
         # but it will only stop being a current hanging order once the cancel confirmation arrives
@@ -189,14 +215,16 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
 
-        new_order = LimitOrder("Order-1234567890000000",
-                               "BTC-USDT",
-                               True,
-                               "BTC",
-                               "USDT",
-                               Decimal(101),
-                               Decimal(1),
-                               creation_timestamp=1234567890000000)
+        new_order = LimitOrder(
+            "Order-1234567890000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234567890000000,
+        )
 
         self.tracker.add_order(new_order)
         strategy_active_orders.append(new_order)
@@ -204,11 +232,11 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.tracker.update_strategy_orders_with_equivalent_orders()
 
         # Now we simulate the order is cancelled
-        self.tracker._did_cancel_order(MarketEvent.OrderCancelled.value,
-                                       self,
-                                       OrderCancelledEvent(datetime.now().timestamp(),
-                                                           new_order.client_order_id,
-                                                           new_order.client_order_id))
+        self.tracker._did_cancel_order(
+            MarketEvent.OrderCancelled.value,
+            self,
+            OrderCancelledEvent(datetime.now().timestamp(), new_order.client_order_id, new_order.client_order_id),
+        )
 
         self.assertTrue(self._is_logged("INFO", "(BTC-USDT) Hanging order Order-1234567890000000 canceled."))
         self.assertTrue(len(self.tracker.strategy_current_hanging_orders) == 0)
@@ -216,35 +244,43 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
     def test_non_grouped_hanging_order_and_original_order_removed_when_hanging_order_completed(self):
         strategy_active_orders = []
-        newly_created_buy_orders_ids = ["Order-1234570000000000",
-                                        "Order-1234570020000000",
-                                        "Order-1234570040000000",
-                                        "Order-1234570060000000"]
-        newly_created_sell_orders_ids = ["Order-1234570010000000",
-                                         "Order-1234570030000000",
-                                         "Order-1234570050000000",
-                                         "Order-1234570070000000"]
+        newly_created_buy_orders_ids = [
+            "Order-1234570000000000",
+            "Order-1234570020000000",
+            "Order-1234570040000000",
+            "Order-1234570060000000",
+        ]
+        newly_created_sell_orders_ids = [
+            "Order-1234570010000000",
+            "Order-1234570030000000",
+            "Order-1234570050000000",
+            "Order-1234570070000000",
+        ]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
         self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
-        buy_order_1 = LimitOrder("Order-1234569960000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(101),
-                                 Decimal(1),
-                                 creation_timestamp=1234569960000000)
-        sell_order_1 = LimitOrder("Order-1234569970000000",
-                                  "BTC-USDT",
-                                  False,
-                                  "BTC",
-                                  "USDT",
-                                  Decimal(110),
-                                  Decimal(1),
-                                  creation_timestamp=1234569970000000)
+        buy_order_1 = LimitOrder(
+            "Order-1234569960000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234569960000000,
+        )
+        sell_order_1 = LimitOrder(
+            "Order-1234569970000000",
+            "BTC-USDT",
+            False,
+            "BTC",
+            "USDT",
+            Decimal(110),
+            Decimal(1),
+            creation_timestamp=1234569970000000,
+        )
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -263,16 +299,19 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         # Now we simulate the buy hanging order being fully filled
         strategy_active_orders.remove(buy_order_1)
-        self.tracker._did_complete_buy_order(MarketEvent.BuyOrderCompleted,
-                                             self,
-                                             BuyOrderCompletedEvent(
-                                                 timestamp=datetime.now().timestamp(),
-                                                 order_id=buy_order_1.client_order_id,
-                                                 base_asset="BTC",
-                                                 quote_asset="USDT",
-                                                 base_asset_amount=buy_order_1.quantity,
-                                                 quote_asset_amount=buy_order_1.quantity * buy_order_1.price,
-                                                 order_type=OrderType.LIMIT))
+        self.tracker._did_complete_buy_order(
+            MarketEvent.BuyOrderCompleted,
+            self,
+            BuyOrderCompletedEvent(
+                timestamp=datetime.now().timestamp(),
+                order_id=buy_order_1.client_order_id,
+                base_asset="BTC",
+                quote_asset="USDT",
+                base_asset_amount=buy_order_1.quantity,
+                quote_asset_amount=buy_order_1.quantity * buy_order_1.price,
+                order_type=OrderType.LIMIT,
+            ),
+        )
 
         self.assertEqual(1, len(self.tracker.strategy_current_hanging_orders))
         self.assertNotIn(buy_hanging_order, self.tracker.strategy_current_hanging_orders)
@@ -283,44 +322,54 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
     def test_limit_order_added_to_non_grouping_tracker_is_potential_hanging_order(self):
         strategy_active_orders = []
-        newly_created_buy_orders_ids = ["Order-1234570000000000",
-                                        "Order-1234570020000000",
-                                        "Order-1234570040000000",
-                                        "Order-1234570060000000"]
-        newly_created_sell_orders_ids = ["Order-1234570010000000",
-                                         "Order-1234570030000000",
-                                         "Order-1234570050000000",
-                                         "Order-1234570070000000"]
+        newly_created_buy_orders_ids = [
+            "Order-1234570000000000",
+            "Order-1234570020000000",
+            "Order-1234570040000000",
+            "Order-1234570060000000",
+        ]
+        newly_created_sell_orders_ids = [
+            "Order-1234570010000000",
+            "Order-1234570030000000",
+            "Order-1234570050000000",
+            "Order-1234570070000000",
+        ]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
         self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
-        buy_order_1 = LimitOrder("Order-1234569960000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(101),
-                                 Decimal(1),
-                                 creation_timestamp=1234569960000000)
-        buy_order_2 = LimitOrder("Order-1234569980000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(105),
-                                 Decimal(1),
-                                 creation_timestamp=1234569980000000)
+        buy_order_1 = LimitOrder(
+            "Order-1234569960000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234569960000000,
+        )
+        buy_order_2 = LimitOrder(
+            "Order-1234569980000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(105),
+            Decimal(1),
+            creation_timestamp=1234569980000000,
+        )
 
-        sell_order_1 = LimitOrder("Order-1234569970000000",
-                                  "BTC-USDT",
-                                  False,
-                                  "BTC",
-                                  "USDT",
-                                  Decimal(110),
-                                  Decimal(1),
-                                  creation_timestamp=1234569970000000)
+        sell_order_1 = LimitOrder(
+            "Order-1234569970000000",
+            "BTC-USDT",
+            False,
+            "BTC",
+            "USDT",
+            Decimal(110),
+            Decimal(1),
+            creation_timestamp=1234569970000000,
+        )
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -339,36 +388,44 @@ class TestHangingOrdersTracker(unittest.TestCase):
         cancelled_orders_ids = []
         strategy_active_orders = []
 
-        newly_created_buy_orders_ids = ["Order-1234570000000000",
-                                        "Order-1234570020000000",
-                                        "Order-1234570040000000",
-                                        "Order-1234570060000000"]
-        newly_created_sell_orders_ids = ["Order-1234570010000000",
-                                         "Order-1234570030000000",
-                                         "Order-1234570050000000",
-                                         "Order-1234570070000000"]
+        newly_created_buy_orders_ids = [
+            "Order-1234570000000000",
+            "Order-1234570020000000",
+            "Order-1234570040000000",
+            "Order-1234570060000000",
+        ]
+        newly_created_sell_orders_ids = [
+            "Order-1234570010000000",
+            "Order-1234570030000000",
+            "Order-1234570050000000",
+            "Order-1234570070000000",
+        ]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
         self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
         self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
-        buy_order_1 = LimitOrder("Order-1234569960000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(101),
-                                 Decimal(1),
-                                 creation_timestamp=1234569960000000)
-        buy_order_2 = LimitOrder("Order-1234569980000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(120),
-                                 Decimal(1),
-                                 creation_timestamp=1234569980000000)
+        buy_order_1 = LimitOrder(
+            "Order-1234569960000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234569960000000,
+        )
+        buy_order_2 = LimitOrder(
+            "Order-1234569980000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(120),
+            Decimal(1),
+            creation_timestamp=1234569980000000,
+        )
 
         self.tracker.add_order(buy_order_1)
         strategy_active_orders.append(buy_order_1)
@@ -378,10 +435,16 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.tracker.update_strategy_orders_with_equivalent_orders()
 
         # The hanging orders are created
-        hanging_order_1 = next(hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders
-                               if hanging_order.order_id == buy_order_1.client_order_id)
-        hanging_order_2 = next(hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders
-                               if hanging_order.order_id == buy_order_2.client_order_id)
+        hanging_order_1 = next(
+            hanging_order
+            for hanging_order in self.tracker.strategy_current_hanging_orders
+            if hanging_order.order_id == buy_order_1.client_order_id
+        )
+        hanging_order_2 = next(
+            hanging_order
+            for hanging_order in self.tracker.strategy_current_hanging_orders
+            if hanging_order.order_id == buy_order_2.client_order_id
+        )
 
         # After removing orders far from price, the order 2 should be canceled but still be a hanging order
         self.tracker.remove_orders_far_from_price()
@@ -398,9 +461,11 @@ class TestHangingOrdersTracker(unittest.TestCase):
         # We emulate the reception of the cancellation confirmation. After that the hanging order should not be present
         # in the tracker, and the original order should not be considered a potential hanging order.
         strategy_active_orders.remove(buy_order_2)
-        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
-                                       self,
-                                       OrderCancelledEvent(buy_order_2.client_order_id, buy_order_2.client_order_id))
+        self.tracker._did_cancel_order(
+            MarketEvent.OrderCancelled,
+            self,
+            OrderCancelledEvent(buy_order_2.client_order_id, buy_order_2.client_order_id),
+        )
 
         self.assertNotIn(hanging_order_2, self.tracker.strategy_current_hanging_orders)
         self.assertFalse(self.tracker.is_potential_hanging_order(buy_order_2))
@@ -411,54 +476,66 @@ class TestHangingOrdersTracker(unittest.TestCase):
         active_orders = []
         type(self.strategy).active_orders = PropertyMock(return_value=active_orders)
 
-        buy_order_1 = LimitOrder("Order-1234569960000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(101),
-                                 Decimal(1),
-                                 creation_timestamp=1234569960000000)
-        buy_order_2 = LimitOrder("Order-1234569961000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(102),
-                                 Decimal(2),
-                                 creation_timestamp=1234569961000000)
-        buy_order_3 = LimitOrder("Order-1234569962000000",
-                                 "BTC-USDT",
-                                 True,
-                                 "BTC",
-                                 "USDT",
-                                 Decimal(103),
-                                 Decimal(3),
-                                 creation_timestamp=1234569962000000)
-        sell_order_1 = LimitOrder("Order-1234569980000000",
-                                  "BTC-USDT",
-                                  False,
-                                  "BTC",
-                                  "USDT",
-                                  Decimal(120),
-                                  Decimal(1),
-                                  creation_timestamp=1234569980000000)
-        sell_order_2 = LimitOrder("Order-1234569981000000",
-                                  "BTC-USDT",
-                                  False,
-                                  "BTC",
-                                  "USDT",
-                                  Decimal(122),
-                                  Decimal(2),
-                                  creation_timestamp=1234569981000000)
-        sell_order_3 = LimitOrder("Order-1234569982000000",
-                                  "BTC-USDT",
-                                  False,
-                                  "BTC",
-                                  "USDT",
-                                  Decimal(123),
-                                  Decimal(3),
-                                  creation_timestamp=1234569982000000)
+        buy_order_1 = LimitOrder(
+            "Order-1234569960000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(101),
+            Decimal(1),
+            creation_timestamp=1234569960000000,
+        )
+        buy_order_2 = LimitOrder(
+            "Order-1234569961000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(102),
+            Decimal(2),
+            creation_timestamp=1234569961000000,
+        )
+        buy_order_3 = LimitOrder(
+            "Order-1234569962000000",
+            "BTC-USDT",
+            True,
+            "BTC",
+            "USDT",
+            Decimal(103),
+            Decimal(3),
+            creation_timestamp=1234569962000000,
+        )
+        sell_order_1 = LimitOrder(
+            "Order-1234569980000000",
+            "BTC-USDT",
+            False,
+            "BTC",
+            "USDT",
+            Decimal(120),
+            Decimal(1),
+            creation_timestamp=1234569980000000,
+        )
+        sell_order_2 = LimitOrder(
+            "Order-1234569981000000",
+            "BTC-USDT",
+            False,
+            "BTC",
+            "USDT",
+            Decimal(122),
+            Decimal(2),
+            creation_timestamp=1234569981000000,
+        )
+        sell_order_3 = LimitOrder(
+            "Order-1234569982000000",
+            "BTC-USDT",
+            False,
+            "BTC",
+            "USDT",
+            Decimal(123),
+            Decimal(3),
+            creation_timestamp=1234569982000000,
+        )
 
         non_executed_pair = CreatedPairOfOrders(buy_order_1, sell_order_1)
         partially_executed_pair = CreatedPairOfOrders(buy_order_2, sell_order_2)

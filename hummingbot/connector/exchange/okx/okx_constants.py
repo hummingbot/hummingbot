@@ -11,11 +11,7 @@ SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30 * 0.8
 # URL mapping based on where account is registered:
 # sourced from https://app.okx.com/docs-v5/en/#overview-account-mode and https://my.okx.com/docs-v5/en/#overview-account-mode
 
-subdomain_to_api_subdomain = {
-    "www": "www",
-    "app": "us",
-    "my": "eea"
-}
+subdomain_to_api_subdomain = {"www": "www", "app": "us", "my": "eea"}
 
 
 def get_okx_base_url(sub_domain: str) -> str:
@@ -43,18 +39,18 @@ def get_okx_ws_uri_private(sub_domain):
 
 
 # REST API endpoints
-OKX_SERVER_TIME_PATH = '/api/v5/public/time'
-OKX_INSTRUMENTS_PATH = '/api/v5/public/instruments'
-OKX_TICKER_PATH = '/api/v5/market/ticker'
-OKX_TICKERS_PATH = '/api/v5/market/tickers'
-OKX_ORDER_BOOK_PATH = '/api/v5/market/books'
+OKX_SERVER_TIME_PATH = "/api/v5/public/time"
+OKX_INSTRUMENTS_PATH = "/api/v5/public/instruments"
+OKX_TICKER_PATH = "/api/v5/market/ticker"
+OKX_TICKERS_PATH = "/api/v5/market/tickers"
+OKX_ORDER_BOOK_PATH = "/api/v5/market/books"
 
 # Auth required
 OKX_PLACE_ORDER_PATH = "/api/v5/trade/order"
-OKX_ORDER_DETAILS_PATH = '/api/v5/trade/order'
-OKX_ORDER_CANCEL_PATH = '/api/v5/trade/cancel-order'
-OKX_BATCH_ORDER_CANCEL_PATH = '/api/v5/trade/cancel-batch-orders'
-OKX_BALANCE_PATH = '/api/v5/account/balance'
+OKX_ORDER_DETAILS_PATH = "/api/v5/trade/order"
+OKX_ORDER_CANCEL_PATH = "/api/v5/trade/cancel-order"
+OKX_BATCH_ORDER_CANCEL_PATH = "/api/v5/trade/cancel-batch-orders"
+OKX_BALANCE_PATH = "/api/v5/account/balance"
 OKX_TRADE_FILLS_PATH = "/api/v5/trade/fills"
 
 # WebSocket channels
@@ -63,10 +59,7 @@ OKX_WS_ORDERS_CHANNEL = "orders"
 OKX_WS_PUBLIC_TRADES_CHANNEL = "trades"
 OKX_WS_PUBLIC_BOOKS_CHANNEL = "books"
 
-OKX_WS_CHANNELS = {
-    OKX_WS_ACCOUNT_CHANNEL,
-    OKX_WS_ORDERS_CHANNEL
-}
+OKX_WS_CHANNELS = {OKX_WS_ACCOUNT_CHANNEL, OKX_WS_ORDERS_CHANNEL}
 
 # Rate limiting
 WS_CONNECTION_LIMIT_ID = "WSConnection"

@@ -80,11 +80,9 @@ RATE_LIMITS = [
     RateLimit(limit_id=FUNDING_INFO_ENDPOINT, limit=10, time_interval=ONE_SECOND),
     RateLimit(limit_id=FUNDING_EVENTS_ENDPOINT, limit=10, time_interval=ONE_SECOND),
     RateLimit(limit_id=RISK_ENDPOINT, limit=10, time_interval=ONE_SECOND),
-
     RateLimit(limit_id=PLACE_ORDER_ENDPOINT, limit=10, time_interval=ONE_SECOND),
     RateLimit(limit_id=CANCEL_ORDER_ENDPOINT, limit=10, time_interval=ONE_SECOND),
     RateLimit(limit_id=ORDER_STATUS_ENDPOINT, limit=10, time_interval=ONE_SECOND),
     RateLimit(limit_id=ORDER_FILLS_ENDPOINT, limit=10, time_interval=ONE_SECOND),
-
     RateLimit(limit_id=PRIVATE_WS_CONNECTION, limit=10, time_interval=ONE_SECOND),
 ]

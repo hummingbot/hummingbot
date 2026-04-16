@@ -30,7 +30,7 @@ class LiquidationsMonitorController(ControllerBase):
         self.binance_liquidations_config = LiquidationsConfig(
             connector="binance",  # the source for liquidation data (currently only binance is supported)
             max_retention_seconds=self.config.max_retention_seconds,  # how many seconds the data should be stored
-            trading_pairs=self.config.liquidations_trading_pairs
+            trading_pairs=self.config.liquidations_trading_pairs,
         )
         self.binance_liquidations_feed = LiquidationsFactory.get_liquidations_feed(self.binance_liquidations_config)
         self.binance_liquidations_feed.start()
@@ -38,7 +38,7 @@ class LiquidationsMonitorController(ControllerBase):
     async def update_processed_data(self):
         liquidations_data = {
             "feed_ready": self.binance_liquidations_feed.ready,
-            "trading_pairs": self.config.liquidations_trading_pairs
+            "trading_pairs": self.config.liquidations_trading_pairs,
         }
 
         if self.binance_liquidations_feed.ready:
@@ -49,7 +49,9 @@ class LiquidationsMonitorController(ControllerBase):
                 # Get individual trading pair dataframes
                 liquidations_data["individual_dfs"] = {}
                 for trading_pair in self.config.liquidations_trading_pairs:
-                    liquidations_data["individual_dfs"][trading_pair] = self.binance_liquidations_feed.liquidations_df(trading_pair)
+                    liquidations_data["individual_dfs"][trading_pair] = self.binance_liquidations_feed.liquidations_df(
+                        trading_pair
+                    )
             except Exception as e:
                 self.logger().error(f"Error getting liquidations data: {e}")
                 liquidations_data["error"] = str(e)
@@ -89,6 +91,6 @@ class LiquidationsMonitorController(ControllerBase):
 
     async def stop(self):
         """Clean shutdown of the liquidations feed"""
-        if hasattr(self, 'binance_liquidations_feed'):
+        if hasattr(self, "binance_liquidations_feed"):
             self.binance_liquidations_feed.stop()
         await super().stop()

@@ -232,7 +232,6 @@ class NdaxExchange(ExchangePyBase):
         }
 
         if order_type.is_limit_type():
-
             params.update(
                 {
                     "OrderType": 2,  # Limit
@@ -248,7 +247,7 @@ class NdaxExchange(ExchangePyBase):
 
         if send_order_results["status"] == "Rejected":
             raise ValueError(
-                f"Order is rejected by the API. " f"Parameters: {params} Error Msg: {send_order_results['errormsg']}"
+                f"Order is rejected by the API. Parameters: {params} Error Msg: {send_order_results['errormsg']}"
             )
 
         exchange_order_id = str(send_order_results["OrderId"])
@@ -440,17 +439,19 @@ class NdaxExchange(ExchangePyBase):
                 amount=Decimal(order_msg["Quantity"]),
                 price=Decimal(order_msg["Price"]),
             )
-            self._order_tracker.process_trade_update(TradeUpdate(
-                trade_id=str(order_msg["TradeId"]),
-                client_order_id=fillable_order.client_order_id,
-                exchange_order_id=fillable_order.exchange_order_id,
-                trading_pair=fillable_order.trading_pair,
-                fill_timestamp=self.current_timestamp,
-                fill_price=trade_price,
-                fill_base_amount=trade_amount,
-                fill_quote_amount=trade_price * trade_amount,
-                fee=fee,
-            ))
+            self._order_tracker.process_trade_update(
+                TradeUpdate(
+                    trade_id=str(order_msg["TradeId"]),
+                    client_order_id=fillable_order.client_order_id,
+                    exchange_order_id=fillable_order.exchange_order_id,
+                    trading_pair=fillable_order.trading_pair,
+                    fill_timestamp=self.current_timestamp,
+                    fill_price=trade_price,
+                    fill_base_amount=trade_amount,
+                    fill_quote_amount=trade_price * trade_amount,
+                    fee=fee,
+                )
+            )
 
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, params={"OMSId": 1})
@@ -474,7 +475,6 @@ class NdaxExchange(ExchangePyBase):
         )
 
         for trade in raw_responses:
-
             fee = fee = self.get_fee(
                 base_currency=order.base_asset,
                 quote_currency=order.quote_asset,
@@ -547,9 +547,7 @@ class NdaxExchange(ExchangePyBase):
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         ex_symbol = trading_pair.replace("-", "_")
 
-        resp_json = await self._api_request(
-            path_url=CONSTANTS.TICKER_PATH_URL
-        )
+        resp_json = await self._api_request(path_url=CONSTANTS.TICKER_PATH_URL)
 
         return float(resp_json.get(ex_symbol, {}).get("last_price", 0.0))
 

@@ -19,6 +19,7 @@ class ArchitectPerpetualRateSource(RateSourceBase):
     @property
     def name(self) -> str:
         import hummingbot.connector.derivative.architect_perpetual.architect_perpetual_constants as CONSTANTS
+
         return CONSTANTS.EXCHANGE_NAME
 
     @async_ttl_cache(ttl=30, maxsize=1)
@@ -43,7 +44,7 @@ class ArchitectPerpetualRateSource(RateSourceBase):
         except Exception:
             self.logger().exception(
                 msg="Unexpected error while retrieving rates from Architect Perpetual."
-                    " Check the log file for more info.",
+                " Check the log file for more info.",
             )
         return results
 
@@ -51,7 +52,7 @@ class ArchitectPerpetualRateSource(RateSourceBase):
         if self._exchange is None:
             self._exchange = self._build_connector()
 
-    def _build_connector(self) -> 'ArchitectPerpetualDerivative':
+    def _build_connector(self) -> "ArchitectPerpetualDerivative":
         from hummingbot.client.settings import AllConnectorSettings
         from hummingbot.connector.derivative.architect_perpetual.architect_perpetual_derivative import (
             ArchitectPerpetualDerivative,
@@ -62,5 +63,5 @@ class ArchitectPerpetualRateSource(RateSourceBase):
         return ArchitectPerpetualDerivative(
             api_key=connector_config.api_key.get_secret_value(),
             api_secret=connector_config.api_secret.get_secret_value(),
-            domain=self._domain
+            domain=self._domain,
         )

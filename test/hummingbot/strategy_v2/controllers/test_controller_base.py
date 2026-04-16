@@ -14,13 +14,10 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class TestControllerBase(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self):
         # Mocking the ControllerConfigBase
         self.mock_controller_config = ControllerConfigBase(
-            id="test",
-            controller_name="test_controller",
-            controller_type="generic"
+            id="test", controller_name="test_controller", controller_type="generic"
         )
 
         # Mocking dependencies
@@ -31,14 +28,22 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller = ControllerBase(
             config=self.mock_controller_config,
             market_data_provider=self.mock_market_data_provider,
-            actions_queue=self.mock_actions_queue
+            actions_queue=self.mock_actions_queue,
         )
 
-    def create_mock_executor_info(self, executor_id: str, connector_name: str = "binance",
-                                  trading_pair: str = "BTC-USDT", executor_type: str = "PositionExecutor",
-                                  is_active: bool = True, status: RunnableStatus = RunnableStatus.RUNNING,
-                                  side: TradeType = TradeType.BUY, net_pnl_pct: Decimal = Decimal("0.01"),
-                                  timestamp: float = 1640995200.0, controller_id: str = "test_controller"):
+    def create_mock_executor_info(
+        self,
+        executor_id: str,
+        connector_name: str = "binance",
+        trading_pair: str = "BTC-USDT",
+        executor_type: str = "PositionExecutor",
+        is_active: bool = True,
+        status: RunnableStatus = RunnableStatus.RUNNING,
+        side: TradeType = TradeType.BUY,
+        net_pnl_pct: Decimal = Decimal("0.01"),
+        timestamp: float = 1640995200.0,
+        controller_id: str = "test_controller",
+    ):
         """Helper method to create mock ExecutorInfo objects for testing"""
         mock_config = MagicMock()
         mock_config.trading_pair = trading_pair
@@ -69,12 +74,8 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_initialize_candles(self):
         # Mock get_candles_config to return some config so initialize_candles_feed gets called
         from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-        mock_config = CandlesConfig(
-            connector="binance",
-            trading_pair="ETH-USDT",
-            interval="1m",
-            max_records=100
-        )
+
+        mock_config = CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1m", max_records=100)
         self.controller.get_candles_config = MagicMock(return_value=[mock_config])
 
         # Test whether candles are initialized correctly
@@ -84,12 +85,13 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_update_config(self):
         # Test the update_config method
         from decimal import Decimal
+
         new_config = ControllerConfigBase(
             id="test_new",
             controller_name="new_test_controller",
             controller_type="market_making",
             total_amount_quote=Decimal("200"),
-            manual_kill_switch=True
+            manual_kill_switch=True,
         )
         self.controller.update_config(new_config)
         # Controller name is not updatable
@@ -155,7 +157,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             min_pnl_pct=Decimal("-0.05"),
             max_pnl_pct=Decimal("0.10"),
             min_timestamp=1640995200.0,
-            max_timestamp=1672531200.0
+            max_timestamp=1672531200.0,
         )
 
         self.assertEqual(executor_filter.executor_ids, ["exec1", "exec2"])
@@ -175,7 +177,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance"),
             self.create_mock_executor_info("exec2", connector_name="coinbase"),
-            self.create_mock_executor_info("exec3", connector_name="kraken")
+            self.create_mock_executor_info("exec3", connector_name="kraken"),
         ]
 
         # Test filtering by single connector
@@ -197,7 +199,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", trading_pair="BTC-USDT"),
             self.create_mock_executor_info("exec2", trading_pair="ETH-USDT"),
-            self.create_mock_executor_info("exec3", trading_pair="ADA-USDT")
+            self.create_mock_executor_info("exec3", trading_pair="ADA-USDT"),
         ]
 
         # Test filtering by single trading pair
@@ -219,7 +221,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", executor_type="PositionExecutor"),
             self.create_mock_executor_info("exec2", executor_type="DCAExecutor"),
-            self.create_mock_executor_info("exec3", executor_type="GridExecutor")
+            self.create_mock_executor_info("exec3", executor_type="GridExecutor"),
         ]
 
         # Test filtering by single executor type
@@ -241,7 +243,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", side=TradeType.BUY),
             self.create_mock_executor_info("exec2", side=TradeType.SELL),
-            self.create_mock_executor_info("exec3", side=TradeType.BUY)
+            self.create_mock_executor_info("exec3", side=TradeType.BUY),
         ]
 
         # Test filtering by BUY side
@@ -263,7 +265,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", is_active=True),
             self.create_mock_executor_info("exec2", is_active=False),
-            self.create_mock_executor_info("exec3", is_active=True)
+            self.create_mock_executor_info("exec3", is_active=True),
         ]
 
         # Test filtering by active status
@@ -284,8 +286,8 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         # Setup mock executors with different PnL values
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", net_pnl_pct=Decimal("-0.10")),  # -10%
-            self.create_mock_executor_info("exec2", net_pnl_pct=Decimal("0.05")),   # +5%
-            self.create_mock_executor_info("exec3", net_pnl_pct=Decimal("0.15"))    # +15%
+            self.create_mock_executor_info("exec2", net_pnl_pct=Decimal("0.05")),  # +5%
+            self.create_mock_executor_info("exec3", net_pnl_pct=Decimal("0.15")),  # +15%
         ]
 
         # Test filtering by min PnL
@@ -314,7 +316,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", timestamp=1640995200.0),  # Jan 1, 2022
             self.create_mock_executor_info("exec2", timestamp=1656633600.0),  # Jul 1, 2022
-            self.create_mock_executor_info("exec3", timestamp=1672531200.0)   # Jan 1, 2023
+            self.create_mock_executor_info("exec3", timestamp=1672531200.0),  # Jan 1, 2023
         ]
 
         # Test filtering by min timestamp
@@ -338,15 +340,11 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             self.create_mock_executor_info("exec1", connector_name="binance", side=TradeType.BUY, is_active=True),
             self.create_mock_executor_info("exec2", connector_name="binance", side=TradeType.SELL, is_active=True),
             self.create_mock_executor_info("exec3", connector_name="coinbase", side=TradeType.BUY, is_active=True),
-            self.create_mock_executor_info("exec4", connector_name="binance", side=TradeType.BUY, is_active=False)
+            self.create_mock_executor_info("exec4", connector_name="binance", side=TradeType.BUY, is_active=False),
         ]
 
         # Test combined filtering: binance + BUY + active
-        executor_filter = ExecutorFilter(
-            connector_names=["binance"],
-            sides=[TradeType.BUY],
-            is_active=True
-        )
+        executor_filter = ExecutorFilter(connector_names=["binance"], sides=[TradeType.BUY], is_active=True)
         filtered = self.controller.filter_executors(executor_filter=executor_filter)
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].id, "exec1")
@@ -357,7 +355,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance", is_active=True),
             self.create_mock_executor_info("exec2", connector_name="coinbase", is_active=False),
-            self.create_mock_executor_info("exec3", connector_name="binance", is_active=True)
+            self.create_mock_executor_info("exec3", connector_name="binance", is_active=True),
         ]
 
         # Test getting all active executors
@@ -376,7 +374,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", status=RunnableStatus.RUNNING),
             self.create_mock_executor_info("exec2", status=RunnableStatus.TERMINATED),
-            self.create_mock_executor_info("exec3", status=RunnableStatus.TERMINATED)
+            self.create_mock_executor_info("exec3", status=RunnableStatus.TERMINATED),
         ]
 
         # Test getting all completed executors
@@ -391,7 +389,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", executor_type="PositionExecutor"),
             self.create_mock_executor_info("exec2", executor_type="DCAExecutor"),
-            self.create_mock_executor_info("exec3", executor_type="PositionExecutor")
+            self.create_mock_executor_info("exec3", executor_type="PositionExecutor"),
         ]
 
         # Test getting executors by type
@@ -406,7 +404,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", side=TradeType.BUY),
             self.create_mock_executor_info("exec2", side=TradeType.SELL),
-            self.create_mock_executor_info("exec3", side=TradeType.BUY)
+            self.create_mock_executor_info("exec3", side=TradeType.BUY),
         ]
 
         # Test getting executors by side
@@ -421,7 +419,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance", is_active=True),
             self.create_mock_executor_info("exec2", connector_name="coinbase", is_active=False),
-            self.create_mock_executor_info("exec3", connector_name="binance", is_active=True)
+            self.create_mock_executor_info("exec3", connector_name="binance", is_active=True),
         ]
 
         # Test getting open orders with filter
@@ -430,24 +428,24 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(len(orders), 2)  # Only active binance orders
 
         # Verify order information structure
-        self.assertIn('executor_id', orders[0])
-        self.assertIn('connector_name', orders[0])
-        self.assertIn('trading_pair', orders[0])
-        self.assertIn('side', orders[0])
-        self.assertIn('type', orders[0])
+        self.assertIn("executor_id", orders[0])
+        self.assertIn("connector_name", orders[0])
+        self.assertIn("trading_pair", orders[0])
+        self.assertIn("side", orders[0])
+        self.assertIn("type", orders[0])
 
     def test_open_orders_backward_compatibility(self):
         """Test open_orders method maintains backward compatibility"""
         # Setup mock executors
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance", is_active=True),
-            self.create_mock_executor_info("exec2", connector_name="coinbase", is_active=True)
+            self.create_mock_executor_info("exec2", connector_name="coinbase", is_active=True),
         ]
 
         # Test old-style parameters still work
         orders = self.controller.open_orders(connector_name="binance")
         self.assertEqual(len(orders), 1)
-        self.assertEqual(orders[0]['executor_id'], "exec1")
+        self.assertEqual(orders[0]["executor_id"], "exec1")
 
     def test_cancel_all_with_executor_filter(self):
         """Test cancel_all method with ExecutorFilter"""
@@ -455,7 +453,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance", side=TradeType.BUY, is_active=True),
             self.create_mock_executor_info("exec2", connector_name="binance", side=TradeType.SELL, is_active=True),
-            self.create_mock_executor_info("exec3", connector_name="coinbase", side=TradeType.BUY, is_active=True)
+            self.create_mock_executor_info("exec3", connector_name="coinbase", side=TradeType.BUY, is_active=True),
         ]
 
         # Mock the cancel method to always return True
@@ -478,7 +476,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.controller.executors_info = [
             self.create_mock_executor_info("exec1", connector_name="binance"),
             self.create_mock_executor_info("exec2", connector_name="coinbase"),
-            self.create_mock_executor_info("exec3", connector_name="kraken")
+            self.create_mock_executor_info("exec3", connector_name="kraken"),
         ]
 
         # Test old-style filter function still works
@@ -502,7 +500,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             connector_name="binance",
             trading_pair="ETH-USDT",
             amount=Decimal("0.1"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
 
         self.assertIsNotNone(executor_id)
@@ -525,7 +523,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
             trading_pair="ETH-USDT",
             amount=Decimal("0.1"),
             price=Decimal("2100"),
-            execution_strategy=ExecutionStrategy.LIMIT_MAKER
+            execution_strategy=ExecutionStrategy.LIMIT_MAKER,
         )
 
         self.assertIsNotNone(executor_id)
@@ -540,17 +538,13 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_market_data_provider.time.return_value = 1640995200000
         self.mock_market_data_provider.ready = True
 
-        triple_barrier = TripleBarrierConfig(
-            stop_loss=Decimal("0.02"),
-            take_profit=Decimal("0.03"),
-            time_limit=300
-        )
+        triple_barrier = TripleBarrierConfig(stop_loss=Decimal("0.02"), take_profit=Decimal("0.03"), time_limit=300)
 
         executor_id = self.controller.buy(
             connector_name="binance",
             trading_pair="ETH-USDT",
             amount=Decimal("0.1"),
-            triple_barrier_config=triple_barrier
+            triple_barrier_config=triple_barrier,
         )
 
         self.assertIsNotNone(executor_id)
@@ -565,17 +559,14 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_market_data_provider.time.return_value = 1640995200000
         self.mock_market_data_provider.ready = True
 
-        chaser_config = LimitChaserConfig(
-            distance=Decimal("0.001"),
-            refresh_threshold=Decimal("0.002")
-        )
+        chaser_config = LimitChaserConfig(distance=Decimal("0.001"), refresh_threshold=Decimal("0.002"))
 
         executor_id = self.controller.buy(
             connector_name="binance",
             trading_pair="ETH-USDT",
             amount=Decimal("0.1"),
             execution_strategy=ExecutionStrategy.LIMIT_CHASER,
-            chaser_config=chaser_config
+            chaser_config=chaser_config,
         )
 
         self.assertIsNotNone(executor_id)
@@ -639,53 +630,39 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         """Test getting open orders with trading API."""
         # Setup mock executor
         mock_executor = self.create_mock_executor_info(
-            "test_executor_1",
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            side=TradeType.BUY,
-            is_active=True
+            "test_executor_1", connector_name="binance", trading_pair="ETH-USDT", side=TradeType.BUY, is_active=True
         )
         mock_executor.filled_amount_quote = Decimal("0.1")
         mock_executor.status = RunnableStatus.RUNNING
-        mock_executor.custom_info = {
-            'connector_name': 'binance',
-            'trading_pair': 'ETH-USDT',
-            'side': TradeType.BUY
-        }
+        mock_executor.custom_info = {"connector_name": "binance", "trading_pair": "ETH-USDT", "side": TradeType.BUY}
         self.controller.executors_info = [mock_executor]
 
         orders = self.controller.open_orders()
         self.assertEqual(len(orders), 1)
 
         order = orders[0]
-        self.assertEqual(order['executor_id'], "test_executor_1")
-        self.assertEqual(order['connector_name'], 'binance')
-        self.assertEqual(order['trading_pair'], 'ETH-USDT')
-        self.assertEqual(order['side'], TradeType.BUY)
-        self.assertEqual(order['amount'], Decimal("1.0"))  # From mock config
-        self.assertEqual(order['filled_amount'], Decimal("0.1"))
+        self.assertEqual(order["executor_id"], "test_executor_1")
+        self.assertEqual(order["connector_name"], "binance")
+        self.assertEqual(order["trading_pair"], "ETH-USDT")
+        self.assertEqual(order["side"], TradeType.BUY)
+        self.assertEqual(order["amount"], Decimal("1.0"))  # From mock config
+        self.assertEqual(order["filled_amount"], Decimal("0.1"))
 
     def test_open_orders_with_filters_trading_api(self):
         """Test getting open orders with filters in trading API."""
         # Setup mock executors
         mock_executor1 = self.create_mock_executor_info(
-            "test_executor_1",
-            connector_name="binance",
-            trading_pair="ETH-USDT",
-            is_active=True
+            "test_executor_1", connector_name="binance", trading_pair="ETH-USDT", is_active=True
         )
         mock_executor2 = self.create_mock_executor_info(
-            "test_executor_2",
-            connector_name="coinbase",
-            trading_pair="BTC-USDT",
-            is_active=True
+            "test_executor_2", connector_name="coinbase", trading_pair="BTC-USDT", is_active=True
         )
         self.controller.executors_info = [mock_executor1, mock_executor2]
 
         # Filter by connector
         orders = self.controller.open_orders(connector_name="binance")
         self.assertEqual(len(orders), 1)
-        self.assertEqual(orders[0]['executor_id'], "test_executor_1")
+        self.assertEqual(orders[0]["executor_id"], "test_executor_1")
 
         # Filter by non-matching connector
         orders = self.controller.open_orders(connector_name="kucoin")
@@ -694,7 +671,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         # Filter by trading pair
         orders = self.controller.open_orders(trading_pair="ETH-USDT")
         self.assertEqual(len(orders), 1)
-        self.assertEqual(orders[0]['executor_id'], "test_executor_1")
+        self.assertEqual(orders[0]["executor_id"], "test_executor_1")
 
     def test_get_current_price_trading_api(self):
         """Test getting current market price in trading API."""
@@ -709,9 +686,7 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(price, Decimal("2000"))
 
         # Verify the mock was called correctly
-        self.mock_market_data_provider.get_price_by_type.assert_called_with(
-            "binance", "ETH-USDT", PriceType.BestBid
-        )
+        self.mock_market_data_provider.get_price_by_type.assert_called_with("binance", "ETH-USDT", PriceType.BestBid)
 
     def test_find_executor_by_id_trading_api(self):
         """Test finding executor by ID in trading API."""

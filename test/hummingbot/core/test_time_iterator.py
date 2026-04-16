@@ -10,7 +10,6 @@ NaN = float("nan")
 
 
 class TimeIteratorUnitTest(unittest.TestCase):
-
     start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
     end_timestamp: float = pd.Timestamp("2022-01-01 01:00:00", tz="UTC").timestamp()
     tick_size: int = 10

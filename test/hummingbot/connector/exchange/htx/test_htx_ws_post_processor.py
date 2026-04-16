@@ -31,7 +31,6 @@ class HtxWSPostProcessorTest(unittest.TestCase):
         return ret
 
     def test_post_process(self):
-
         # Only Market data is compressed by GZIP
         orderbook_message: bytes = self._compress(
             message={

@@ -25,6 +25,7 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     - Order Fills: orderFills-{userExchangeId}
     - Funding: funding-{userExchangeId}
     """
+
     HEARTBEAT_TIME_INTERVAL = 25.0  # Centrifugo ping interval (send before server timeout)
     PING_TIMEOUT = 10.0  # How long to wait for pong response
 
@@ -33,11 +34,11 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     _message_id: int = 0
 
     def __init__(
-            self,
-            auth: EvedexPerpetualAuth,
-            connector: 'EvedexPerpetualDerivative',
-            api_factory: WebAssistantsFactory,
-            domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        self,
+        auth: EvedexPerpetualAuth,
+        connector: "EvedexPerpetualDerivative",
+        api_factory: WebAssistantsFactory,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__()
         self._domain = domain
@@ -86,9 +87,7 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         if self._user_exchange_id is None:
             user_info = await self._connector._api_get(
-                path_url=CONSTANTS.USER_ME_PATH_URL,
-                is_auth_required=True,
-                limit_id=CONSTANTS.USER_ME_PATH_URL
+                path_url=CONSTANTS.USER_ME_PATH_URL, is_auth_required=True, limit_id=CONSTANTS.USER_ME_PATH_URL
             )
             self._user_exchange_id = str(user_info.get("exchangeId", ""))
         return self._user_exchange_id
@@ -119,10 +118,7 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL + self.PING_TIMEOUT)
 
         # Send Centrifugo connect message (no token - auth is per-subscription)
-        connect_payload = {
-            "connect": {"name": "js"},
-            "id": self._next_message_id()
-        }
+        connect_payload = {"connect": {"name": "js"}, "id": self._next_message_id()}
         connect_request: WSJSONRequest = WSJSONRequest(payload=connect_payload)
         await ws.send(connect_request)
 
@@ -154,12 +150,8 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
             # Subscribe to heartbeat channel (public, no auth required)
             heartbeat_payload = {
-                "subscribe": {
-                    "channel": "futures-perp:heartbeat",
-                    "flag": 1,
-                    "recover": True
-                },
-                "id": self._next_message_id()
+                "subscribe": {"channel": "futures-perp:heartbeat", "flag": 1, "recover": True},
+                "id": self._next_message_id(),
             }
             subscribe_heartbeat_request: WSJSONRequest = WSJSONRequest(payload=heartbeat_payload)
             await websocket_assistant.send(subscribe_heartbeat_request)
@@ -171,9 +163,9 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     "data": {"accessToken": access_token},
                     "recoverable": True,
                     "flag": 1,
-                    "recover": True
+                    "recover": True,
                 },
-                "id": self._next_message_id()
+                "id": self._next_message_id(),
             }
             subscribe_orders_request: WSJSONRequest = WSJSONRequest(payload=orders_payload)
             await websocket_assistant.send(subscribe_orders_request)
@@ -185,9 +177,9 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     "data": {"accessToken": access_token},
                     "recoverable": True,
                     "flag": 1,
-                    "recover": True
+                    "recover": True,
                 },
-                "id": self._next_message_id()
+                "id": self._next_message_id(),
             }
             subscribe_positions_request: WSJSONRequest = WSJSONRequest(payload=positions_payload)
             await websocket_assistant.send(subscribe_positions_request)
@@ -199,9 +191,9 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     "data": {"accessToken": access_token},
                     "recoverable": True,
                     "flag": 1,
-                    "recover": True
+                    "recover": True,
                 },
-                "id": self._next_message_id()
+                "id": self._next_message_id(),
             }
             subscribe_account_request: WSJSONRequest = WSJSONRequest(payload=account_payload)
             await websocket_assistant.send(subscribe_account_request)
@@ -213,9 +205,9 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     "data": {"accessToken": access_token},
                     "recoverable": True,
                     "flag": 1,
-                    "recover": True
+                    "recover": True,
                 },
-                "id": self._next_message_id()
+                "id": self._next_message_id(),
             }
             subscribe_order_fills_request: WSJSONRequest = WSJSONRequest(payload=order_fills_payload)
             await websocket_assistant.send(subscribe_order_fills_request)
@@ -278,10 +270,7 @@ class EvedexPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().warning(f"WebSocket error (code {err_code}): {err_msg}")
                 # Don't raise - just log the warning and continue
                 return
-            raise IOError({
-                "label": "WSS_ERROR",
-                "message": f"Error received via websocket - {err_msg}."
-            })
+            raise IOError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
 
         if "push" in event_message:
             await queue.put(event_message)

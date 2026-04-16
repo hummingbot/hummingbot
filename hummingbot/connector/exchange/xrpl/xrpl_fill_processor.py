@@ -40,8 +40,10 @@ def logger() -> HummingbotLogger:
 # Constants
 # =============================================================================
 
+
 class OfferStatus:
     """XRPL offer status values from get_order_book_changes()."""
+
     FILLED = "filled"
     PARTIALLY_FILLED = "partially-filled"
     CREATED = "created"
@@ -50,6 +52,7 @@ class OfferStatus:
 
 class FillSource(Enum):
     """Source of fill amount extraction."""
+
     BALANCE_CHANGES = "balance_changes"
     OFFER_CHANGE = "offer_change"
     TRANSACTION = "transaction"
@@ -59,9 +62,11 @@ class FillSource(Enum):
 # Result Types
 # =============================================================================
 
+
 @dataclass
 class FillExtractionResult:
     """Result of attempting to extract fill amounts."""
+
     base_amount: Optional[Decimal]
     quote_amount: Optional[Decimal]
     source: FillSource
@@ -69,16 +74,13 @@ class FillExtractionResult:
     @property
     def is_valid(self) -> bool:
         """Check if extraction produced valid fill amounts."""
-        return (
-            self.base_amount is not None and
-            self.quote_amount is not None and
-            self.base_amount > Decimal("0")
-        )
+        return self.base_amount is not None and self.quote_amount is not None and self.base_amount > Decimal("0")
 
 
 # =============================================================================
 # Pure Extraction Functions
 # =============================================================================
+
 
 def extract_transaction_data(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
     """
@@ -398,6 +400,7 @@ def create_trade_update(
 # These functions return tuples instead of FillExtractionResult for backward
 # compatibility with existing code during the transition period.
 
+
 def extract_fill_amounts_from_balance_changes(
     balance_changes: List[Dict[str, Any]],
     base_currency: str,
@@ -416,9 +419,7 @@ def extract_fill_amounts_from_balance_changes(
     Returns:
         Tuple of (base_amount, quote_amount). Values are absolute.
     """
-    result = extract_fill_from_balance_changes(
-        balance_changes, base_currency, quote_currency, tx_fee_xrp
-    )
+    result = extract_fill_from_balance_changes(balance_changes, base_currency, quote_currency, tx_fee_xrp)
     return result.base_amount, result.quote_amount
 
 

@@ -10,7 +10,6 @@ from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_
 
 
 class PerpetualMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.strategy = None
@@ -23,7 +22,7 @@ class PerpetualMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
 
         c_map.get("leverage").value = Decimal("5")
         c_map.get("order_amount").value = Decimal("1")
-        c_map.get("order_refresh_time").value = 60.
+        c_map.get("order_refresh_time").value = 60.0
         c_map.get("bid_spread").value = Decimal("1")
         c_map.get("ask_spread").value = Decimal("2")
 
@@ -45,6 +44,6 @@ class PerpetualMarketMakingStartTest(IsolatedAsyncioWrapperTestCase):
     async def test_strategy_creation(self):
         await strategy_start.start(self)
         self.assertEqual(self.strategy.order_amount, Decimal("1"))
-        self.assertEqual(self.strategy.order_refresh_time, 60.)
+        self.assertEqual(self.strategy.order_refresh_time, 60.0)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))
         self.assertEqual(self.strategy.ask_spread, Decimal("0.02"))

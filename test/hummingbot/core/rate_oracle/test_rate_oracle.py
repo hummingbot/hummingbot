@@ -107,8 +107,8 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         connector = MagicMock()
         connector.name = name
         connector.order_books = {pair: MagicMock() for pair in order_books}
-        connector.get_price_by_type.side_effect = (
-            lambda pair, price_type: order_books.get(pair) if price_type == PriceType.MidPrice else None
+        connector.get_price_by_type.side_effect = lambda pair, price_type: (
+            order_books.get(pair) if price_type == PriceType.MidPrice else None
         )
         return connector
 

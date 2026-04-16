@@ -18,7 +18,7 @@ _seq_nr: int = 0
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.001"),
     taker_percent_fee_decimal=Decimal("0.001"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 
@@ -33,10 +33,11 @@ def get_client_order_id(is_buy: bool) -> str:
     return f"{CONSTANTS.HBOT_ORDER_ID_PREFIX}{side}{newId}"
 
 
-def get_ws_message_frame(endpoint: str,
-                         msg_type: str = "0",
-                         payload: str = "",
-                         ) -> Dict[str, Any]:
+def get_ws_message_frame(
+    endpoint: str,
+    msg_type: str = "0",
+    payload: str = "",
+) -> Dict[str, Any]:
     retValue = CONSTANTS.WS_MESSAGE_FRAME.copy()
     retValue["m"] = msg_type
     retValue["i"] = _get_next_message_frame_sequence_number()
@@ -70,10 +71,11 @@ def ws_data_to_dict(data: str) -> Dict[str, Any]:
     return eval(data.replace(":null", ":None").replace(":false", ":False").replace(":true", ":True"))
 
 
-def datetime_val_or_now(string_value: str,
-                        string_format: str = '%Y-%m-%dT%H:%M:%S.%fZ',
-                        on_error_return_now: bool = True,
-                        ) -> datetime:
+def datetime_val_or_now(
+    string_value: str,
+    string_format: str = "%Y-%m-%dT%H:%M:%S.%fZ",
+    on_error_return_now: bool = True,
+) -> datetime:
     try:
         return datetime.strptime(string_value, string_format)
     except Exception:
@@ -83,33 +85,36 @@ def datetime_val_or_now(string_value: str,
             return None
 
 
-def decimal_val_or_none(string_value: str,
-                        on_error_return_none: bool = True,
-                        ) -> Decimal:
+def decimal_val_or_none(
+    string_value: str,
+    on_error_return_none: bool = True,
+) -> Decimal:
     try:
         return Decimal(string_value)
     except Exception:
         if on_error_return_none:
             return None
         else:
-            return Decimal('0')
+            return Decimal("0")
 
 
-def int_val_or_none(string_value: str,
-                    on_error_return_none: bool = True,
-                    ) -> int:
+def int_val_or_none(
+    string_value: str,
+    on_error_return_none: bool = True,
+) -> int:
     try:
         return int(string_value)
     except Exception:
         if on_error_return_none:
             return None
         else:
-            return int('0')
+            return int("0")
 
 
-def get_order_state(state: str,
-                    on_error_return_failed: bool = False,
-                    ) -> OrderState:
+def get_order_state(
+    state: str,
+    on_error_return_failed: bool = False,
+) -> OrderState:
     try:
         return CONSTANTS.ORDER_STATE[state]
     except Exception:
@@ -132,12 +137,12 @@ class FoxbitConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="foxbit", client_data=None)
     foxbit_api_key: SecretStr = Field(
         default=...,
-        json_schema_extra = {
+        json_schema_extra={
             "prompt": "Enter your Foxbit API key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     foxbit_api_secret: SecretStr = Field(
         default=...,
@@ -146,7 +151,7 @@ class FoxbitConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     foxbit_user_id: SecretStr = Field(
         default=...,
@@ -155,7 +160,7 @@ class FoxbitConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
 
     class Config:

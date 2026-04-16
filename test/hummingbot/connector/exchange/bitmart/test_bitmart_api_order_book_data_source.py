@@ -50,12 +50,12 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.data_source = BitmartAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            api_factory=self.connector._web_assistants_factory)
+            api_factory=self.connector._web_assistants_factory,
+        )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
-        self.connector._set_trading_pair_symbol_map(
-            bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
 
     def handle(self, record):
         self.log_records.append(record)
@@ -65,28 +65,13 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "data": {
                 "ts": 1527777538000,
                 "symbol": "COINALPHA_HBOT",
-                "asks": [
-                    [
-                        "1.00",
-                        "0.007000"
-                    ]
-                ],
-                "bids": [
-                    [
-                        "0.000767",
-                        "4800.0"
-                    ],
-                    [
-                        "0.000201",
-                        "99996475.79"
-                    ]
-                ]
+                "asks": [["1.00", "0.007000"]],
+                "bids": [["0.000767", "4800.0"], ["0.000201", "99996475.79"]],
             }
         }
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     @aioresponses()
     def test_get_last_traded_prices(self, mock_get):
@@ -106,14 +91,15 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                 "ask_sz": "0.00000",
                 "bid_px": "0.00",
                 "bid_sz": "0.00000",
-                "fluctuation": "-0.9999"
-            }
+                "fluctuation": "-0.9999",
+            },
         }
         regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
         mock_get.get(regex_url, body=json.dumps(mock_response))
 
         results = self.local_event_loop.run_until_complete(
-            asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
+            asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair]))
+        )
         results: Dict[str, Any] = results[0]
 
         self.assertEqual(results[self.trading_pair], float("1.00"))
@@ -125,7 +111,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         mock_get.get(regex_url, body=json.dumps(mock_response))
 
         results = self.local_event_loop.run_until_complete(
-            asyncio.gather(self.data_source.get_new_order_book(self.trading_pair)))
+            asyncio.gather(self.data_source.get_new_order_book(self.trading_pair))
+        )
         order_book: OrderBook = results[0]
 
         self.assertTrue(type(order_book) is OrderBook)
@@ -157,35 +144,33 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         }
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
+        )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-            websocket_mock=ws_connect_mock.return_value)
+            websocket_mock=ws_connect_mock.return_value
+        )
 
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             "op": "subscribe",
-            "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{self.ex_trading_pair}"]
+            "args": [f"{CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME}:{self.ex_trading_pair}"],
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "op": "subscribe",
-            "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{self.ex_trading_pair}"]
+            "args": [f"{CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME}:{self.ex_trading_pair}"],
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
 
-        self.assertTrue(self._is_logged(
-            "INFO",
-            "Subscribed to public order book and trade channels..."
-        ))
+        self.assertTrue(self._is_logged("INFO", "Subscribed to public order book and trade channels..."))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
@@ -208,8 +193,9 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(
             self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+                "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
+            )
+        )
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
@@ -245,35 +231,21 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         trade_event = {
             "table": CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME,
             "data": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "162.12",
-                    "side": "buy",
-                    "size": "11.085",
-                    "s_t": 1542337219
-                },
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "163.12",
-                    "side": "buy",
-                    "size": "15",
-                    "s_t": 1542337238
-                }
-            ]
+                {"symbol": self.ex_trading_pair, "price": "162.12", "side": "buy", "size": "11.085", "s_t": 1542337219},
+                {"symbol": self.ex_trading_pair, "price": "163.12", "side": "buy", "size": "15", "s_t": 1542337238},
+            ],
         }
 
         compressed_trade_event = bitmart_utils.compress_ws_message(json.dumps(trade_event))
 
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_trades))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_trades)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs))
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(result_subscribe_diffs)
+        )
         self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=compressed_trade_event,
-            message_type=WSMsgType.BINARY
+            websocket_mock=ws_connect_mock.return_value, message=compressed_trade_event, message_type=WSMsgType.BINARY
         )
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
@@ -291,21 +263,9 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         trade_event = {
             "table": CONSTANTS.PUBLIC_TRADE_CHANNEL_NAME,
             "data": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "162.12",
-                    "side": "buy",
-                    "size": "11.085",
-                    "s_t": 1542337219
-                },
-                {
-                    "symbol": self.ex_trading_pair,
-                    "price": "163.12",
-                    "side": "buy",
-                    "size": "15",
-                    "s_t": 1542337238
-                }
-            ]
+                {"symbol": self.ex_trading_pair, "price": "162.12", "side": "buy", "size": "11.085", "s_t": 1542337219},
+                {"symbol": self.ex_trading_pair, "price": "163.12", "side": "buy", "size": "15", "s_t": 1542337238},
+            ],
         }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
@@ -337,9 +297,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "data": [
                 {
                     "symbol": self.ex_trading_pair,
-
                 }
-            ]
+            ],
         }
 
         mock_queue = AsyncMock()
@@ -353,8 +312,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
@@ -365,9 +323,9 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
                     "asks": [["161.96", "7.37567"]],
                     "bids": [["161.94", "4.552355"]],
                     "symbol": self.ex_trading_pair,
-                    "ms_t": 1542337219120
+                    "ms_t": 1542337219120,
                 }
-            ]
+            ],
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
@@ -375,7 +333,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
 
         msg: OrderBookMessage = await msg_queue.get()
 
@@ -409,12 +368,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     async def test_listen_for_order_book_snapshots_logs_exception(self):
         incomplete_resp = {
             "table": CONSTANTS.PUBLIC_DEPTH_CHANNEL_NAME,
-            "data": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "ms_t": 1542337219120
-                }
-            ]
+            "data": [{"symbol": self.ex_trading_pair, "ms_t": 1542337219120}],
         }
 
         mock_queue = AsyncMock()
@@ -429,7 +383,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange")
+        )
 
     # Dynamic subscription tests
     async def test_subscribe_to_trading_pair_successful(self):
@@ -448,9 +403,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertIn(new_pair, self.data_source._trading_pairs)
         self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: trade, depth
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("INFO", f"Subscribed to public order book and trade channels of {new_pair}..."))
 
     async def test_subscribe_to_trading_pair_websocket_not_connected(self):
         """Test subscription when websocket is not connected."""
@@ -460,9 +413,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established"))
 
     async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated."""
@@ -494,9 +445,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.subscribe_to_trading_pair(new_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}...")
-        )
+        self.assertTrue(self._is_logged("ERROR", f"Unexpected error occurred subscribing to {new_pair}..."))
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         """Test successful unsubscription from a trading pair."""
@@ -519,9 +468,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
 
         self.assertFalse(result)
-        self.assertTrue(
-            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established"))
 
     async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
         """Test that CancelledError is properly propagated during unsubscription."""

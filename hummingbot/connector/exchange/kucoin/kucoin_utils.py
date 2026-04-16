@@ -36,7 +36,7 @@ class KuCoinConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_secret_key: SecretStr = Field(
         default=...,
@@ -45,7 +45,7 @@ class KuCoinConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_passphrase: SecretStr = Field(
         default=...,
@@ -54,7 +54,7 @@ class KuCoinConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="kucoin")
 
@@ -76,7 +76,7 @@ class KuCoinHFTConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_hft_secret_key: SecretStr = Field(
         default=...,
@@ -85,7 +85,7 @@ class KuCoinHFTConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     kucoin_hft_passphrase: SecretStr = Field(
         default=...,
@@ -94,7 +94,7 @@ class KuCoinHFTConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="kucoin_hft")
 

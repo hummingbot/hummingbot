@@ -16,18 +16,20 @@ class GrvtPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioTestCase):
         self.connector = MagicMock()
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC_USDT_Perp")
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="BTC-USDT")
-        self.connector._api_post = AsyncMock(return_value={
-            "result": {
-                "event_time": "1700000000000000000",
-                "instrument": "BTC_USDT_Perp",
-                "bids": [{"price": "62000", "size": "1.2"}],
-                "asks": [{"price": "62010", "size": "1.5"}],
-                "index_price": "61990",
-                "mark_price": "62005",
-                "funding_rate_8h_curr": "0.0001",
-                "next_funding_time": "1700006400000000000",
+        self.connector._api_post = AsyncMock(
+            return_value={
+                "result": {
+                    "event_time": "1700000000000000000",
+                    "instrument": "BTC_USDT_Perp",
+                    "bids": [{"price": "62000", "size": "1.2"}],
+                    "asks": [{"price": "62010", "size": "1.5"}],
+                    "index_price": "61990",
+                    "mark_price": "62005",
+                    "funding_rate_8h_curr": "0.0001",
+                    "next_funding_time": "1700006400000000000",
+                }
             }
-        })
+        )
         self.connector._trading_pair_symbol_map = bidict({"BTC_USDT_Perp": "BTC-USDT"})
         self.api_factory = MagicMock()
         self.data_source = GrvtPerpetualAPIOrderBookDataSource(

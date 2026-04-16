@@ -47,17 +47,19 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             spa_logger = logging.getLogger(__name__)
         return spa_logger
 
-    def init_params(self,
-                    spot_market_info: MarketTradingPairTuple,
-                    perp_market_info: MarketTradingPairTuple,
-                    order_amount: Decimal,
-                    perp_leverage: int,
-                    min_opening_arbitrage_pct: Decimal,
-                    min_closing_arbitrage_pct: Decimal,
-                    spot_market_slippage_buffer: Decimal = Decimal("0"),
-                    perp_market_slippage_buffer: Decimal = Decimal("0"),
-                    next_arbitrage_opening_delay: float = 120,
-                    status_report_interval: float = 10):
+    def init_params(
+        self,
+        spot_market_info: MarketTradingPairTuple,
+        perp_market_info: MarketTradingPairTuple,
+        order_amount: Decimal,
+        perp_leverage: int,
+        min_opening_arbitrage_pct: Decimal,
+        min_closing_arbitrage_pct: Decimal,
+        spot_market_slippage_buffer: Decimal = Decimal("0"),
+        perp_market_slippage_buffer: Decimal = Decimal("0"),
+        next_arbitrage_opening_delay: float = 120,
+        status_report_interval: float = 10,
+    ):
         """
         :param spot_market_info: The spot market info
         :param perp_market_info: The perpetual market info
@@ -127,8 +129,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     @property
     def perp_positions(self) -> List[Position]:
-        return [s for s in self._perp_market_info.market.account_positions.values() if
-                s.trading_pair == self._perp_market_info.trading_pair and s.amount != s_decimal_zero]
+        return [
+            s
+            for s in self._perp_market_info.market.account_positions.values()
+            if s.trading_pair == self._perp_market_info.trading_pair and s.amount != s_decimal_zero
+        ]
 
     def apply_initial_settings(self):
         self._perp_market_info.market.set_leverage(self._perp_market_info.trading_pair, self._perp_leverage)
@@ -162,26 +167,30 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 self.logger().info("Trading not possible.")
                 return
 
-            if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
-                    len(self.perp_positions) > 1:
+            if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or len(self.perp_positions) > 1:
                 self.logger().info("This strategy supports only Oneway position mode. Attempting to switch ...")
                 self._perp_market_info.market.set_position_mode(PositionMode.ONEWAY)
                 return
 
             if len(self.perp_positions) == 1:
                 adj_perp_amount = self._perp_market_info.market.quantize_order_amount(
-                    self._perp_market_info.trading_pair, self._order_amount)
+                    self._perp_market_info.trading_pair, self._order_amount
+                )
                 if abs(self.perp_positions[0].amount) == adj_perp_amount:
-                    self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                       f"{self.perp_positions[0].position_side.name} position. The bot resumes "
-                                       f"operation to close out the arbitrage position")
+                    self.logger().info(
+                        f"There is an existing {self._perp_market_info.trading_pair} "
+                        f"{self.perp_positions[0].position_side.name} position. The bot resumes "
+                        f"operation to close out the arbitrage position"
+                    )
                     self._strategy_state = StrategyState.Opened
                     self._ready_to_start = True
                 else:
-                    self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                       f"{self.perp_positions[0].position_side.name} position with unmatched "
-                                       f"position amount. Please manually close out the position before starting "
-                                       f"this strategy.")
+                    self.logger().info(
+                        f"There is an existing {self._perp_market_info.trading_pair} "
+                        f"{self.perp_positions[0].position_side.name} position with unmatched "
+                        f"position amount. Please manually close out the position before starting "
+                        f"this strategy."
+                    )
                     return
             else:
                 self._ready_to_start = True
@@ -201,8 +210,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         proposals = await self.create_base_proposals()
         if self._strategy_state == StrategyState.Opened:
             perp_is_buy = False if self.perp_positions[0].amount > 0 else True
-            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
-                         self._min_closing_arbitrage_pct]
+            proposals = [
+                p
+                for p in proposals
+                if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >= self._min_closing_arbitrage_pct
+            ]
         else:
             proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
         if len(proposals) == 0:
@@ -221,12 +233,18 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         Updates strategy state to either Opened or Closed if the condition is right.
         """
-        if self._strategy_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
-                self.perp_positions:
+        if (
+            self._strategy_state == StrategyState.Opening
+            and len(self._completed_opening_order_ids) == 2
+            and self.perp_positions
+        ):
             self._strategy_state = StrategyState.Opened
             self._completed_opening_order_ids.clear()
-        elif self._strategy_state == StrategyState.Closing and len(self._completed_closing_order_ids) == 2 and \
-                len(self.perp_positions) == 0:
+        elif (
+            self._strategy_state == StrategyState.Closing
+            and len(self._completed_closing_order_ids) == 2
+            and len(self.perp_positions) == 0
+        ):
             self._strategy_state = StrategyState.Closed
             self._completed_closing_order_ids.clear()
             self._next_arbitrage_opening_ts = self.current_timestamp + self._next_arbitrage_opening_delay
@@ -236,23 +254,33 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Creates a list of 2 base proposals, no filter.
         :return: A list of 2 base proposals.
         """
-        tasks = [self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, True,
-                                                               self._order_amount),
-                 self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, False,
-                                                               self._order_amount),
-                 self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, True,
-                                                               self._order_amount),
-                 self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, False,
-                                                               self._order_amount)]
+        tasks = [
+            self._spot_market_info.market.get_order_price(
+                self._spot_market_info.trading_pair, True, self._order_amount
+            ),
+            self._spot_market_info.market.get_order_price(
+                self._spot_market_info.trading_pair, False, self._order_amount
+            ),
+            self._perp_market_info.market.get_order_price(
+                self._perp_market_info.trading_pair, True, self._order_amount
+            ),
+            self._perp_market_info.market.get_order_price(
+                self._perp_market_info.trading_pair, False, self._order_amount
+            ),
+        ]
         prices = await safe_gather(*tasks, return_exceptions=True)
         spot_buy, spot_sell, perp_buy, perp_sell = [*prices]
         return [
-            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy),
-                        ArbProposalSide(self._perp_market_info, False, perp_sell),
-                        self._order_amount),
-            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell),
-                        ArbProposalSide(self._perp_market_info, True, perp_buy),
-                        self._order_amount)
+            ArbProposal(
+                ArbProposalSide(self._spot_market_info, True, spot_buy),
+                ArbProposalSide(self._perp_market_info, False, perp_sell),
+                self._order_amount,
+            ),
+            ArbProposal(
+                ArbProposalSide(self._spot_market_info, False, spot_sell),
+                ArbProposalSide(self._perp_market_info, True, perp_buy),
+                self._order_amount,
+            ),
         ]
 
     def apply_slippage_buffers(self, proposal: ArbProposal):
@@ -265,13 +293,15 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         for arb_side in (proposal.spot_side, proposal.perp_side):
             market = arb_side.market_info.market
             # arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
-            s_buffer = self._spot_market_slippage_buffer if market == self._spot_market_info.market \
+            s_buffer = (
+                self._spot_market_slippage_buffer
+                if market == self._spot_market_info.market
                 else self._perp_market_slippage_buffer
+            )
             if not arb_side.is_buy:
                 s_buffer *= Decimal("-1")
             arb_side.order_price *= Decimal("1") + s_buffer
-            arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
-                                                               arb_side.order_price)
+            arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair, arb_side.order_price)
 
     def check_budget_available(self) -> bool:
         """
@@ -288,14 +318,18 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         balance_perp_quote = self._perp_market_info.market.get_available_balance(perp_quote)
 
         if balance_spot_base == s_decimal_zero and balance_spot_quote == s_decimal_zero:
-            self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_base} balance "
-                               f"({balance_spot_base}) is 0 and {self._spot_market_info.market.display_name} {spot_quote} balance "
-                               f"({balance_spot_quote}) is 0.")
+            self.logger().info(
+                f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_base} balance "
+                f"({balance_spot_base}) is 0 and {self._spot_market_info.market.display_name} {spot_quote} balance "
+                f"({balance_spot_quote}) is 0."
+            )
             return False
 
         if balance_perp_quote == s_decimal_zero:
-            self.logger().info(f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_quote} balance "
-                               f"({balance_perp_quote}) is 0.")
+            self.logger().info(
+                f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_quote} balance "
+                f"({balance_perp_quote}) is 0."
+            )
             return False
 
         return True
@@ -391,7 +425,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self.log_with_clock(
             logging.INFO,
             f"Placing {side} order for {proposal.order_amount} {spot_side.market_info.base_asset} "
-            f"at {spot_side.market_info.market.display_name} at {spot_side.order_price} price"
+            f"at {spot_side.market_info.market.display_name} at {spot_side.order_price} price",
         )
         spot_order_fn(
             spot_side.market_info,
@@ -407,14 +441,14 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             logging.INFO,
             f"Placing {side} order for {proposal.order_amount} {perp_side.market_info.base_asset} "
             f"at {perp_side.market_info.market.display_name} at {perp_side.order_price} price to "
-            f"{position_action.name} position."
+            f"{position_action.name} position.",
         )
         perp_order_fn(
             perp_side.market_info,
             proposal.order_amount,
             perp_side.market_info.market.get_taker_order_type(),
             perp_side.order_price,
-            position_action=position_action
+            position_action=position_action,
         )
         if self._strategy_state == StrategyState.Opened:
             self._strategy_state = StrategyState.Closing
@@ -430,14 +464,16 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
         for pos in self.perp_positions:
-            data.append([
-                pos.trading_pair,
-                "LONG" if pos.amount > 0 else "SHORT",
-                pos.entry_price,
-                pos.amount,
-                pos.leverage,
-                pos.unrealized_pnl
-            ])
+            data.append(
+                [
+                    pos.trading_pair,
+                    "LONG" if pos.amount > 0 else "SHORT",
+                    pos.entry_price,
+                    pos.amount,
+                    pos.leverage,
+                    pos.unrealized_pnl,
+                ]
+            )
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -453,13 +489,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
             mid_price = (buy_price + sell_price) / 2
-            data.append([
-                market.display_name,
-                trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
-            ])
+            data.append([market.display_name, trading_pair, float(sell_price), float(buy_price), float(mid_price)])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
@@ -472,8 +502,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             lines.extend(["", "  No active positions."])
 
         assets_df = self.wallet_balance_data_frame([self._spot_market_info, self._perp_market_info])
-        lines.extend(["", "  Assets:"] +
-                     ["    " + line for line in str(assets_df).split("\n")])
+        lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
         proposals = await self.create_base_proposals()
         lines.extend(["", "  Opportunity:"] + self.short_proposal_msg(proposals))
@@ -499,10 +528,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             spot_side = "buy" if proposal.spot_side.is_buy else "sell"
             perp_side = "buy" if proposal.perp_side.is_buy else "sell"
             profit_pct = proposal.profit_pct()
-            lines.append(f"{'    ' if indented else ''}{spot_side} at "
-                         f"{proposal.spot_side.market_info.market.display_name}"
-                         f", {perp_side} at {proposal.perp_side.market_info.market.display_name}: "
-                         f"{profit_pct:.2%}")
+            lines.append(
+                f"{'    ' if indented else ''}{spot_side} at "
+                f"{proposal.spot_side.market_info.market.display_name}"
+                f", {perp_side} at {proposal.perp_side.market_info.market.display_name}: "
+                f"{profit_pct:.2%}"
+            )
         return lines
 
     @property
@@ -531,18 +562,17 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     def did_change_position_mode_succeed(self, position_mode_changed_event: PositionModeChangeEvent):
         if position_mode_changed_event.position_mode is PositionMode.ONEWAY:
-            self.logger().info(
-                f"Changing position mode to {PositionMode.ONEWAY.name} succeeded.")
+            self.logger().info(f"Changing position mode to {PositionMode.ONEWAY.name} succeeded.")
             self._position_mode_ready = True
         else:
-            self.logger().warning(
-                f"Changing position mode to {PositionMode.ONEWAY.name} did not succeed.")
+            self.logger().warning(f"Changing position mode to {PositionMode.ONEWAY.name} did not succeed.")
             self._position_mode_ready = False
 
     def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         self.logger().error(
             f"Changing position mode to {PositionMode.ONEWAY.name} failed. "
-            f"Reason: {position_mode_changed_event.message}.")
+            f"Reason: {position_mode_changed_event.message}."
+        )
         self._position_mode_ready = False
         self.logger().warning("Cannot continue. Please resolve the issue in the account.")
 

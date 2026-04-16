@@ -41,11 +41,8 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.time_synchronizer.add_time_offset_ms_sample(0)
 
         self.connector = BinanceExchange(
-            binance_api_key="",
-            binance_api_secret="",
-            trading_pairs=[],
-            trading_required=False,
-            domain=self.domain)
+            binance_api_key="", binance_api_secret="", trading_pairs=[], trading_required=False, domain=self.domain
+        )
         self.connector._web_assistants_factory._auth = self.auth
 
         self.data_source = BinanceAPIUserStreamDataSource(
@@ -53,7 +50,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            domain=self.domain
+            domain=self.domain,
         )
 
         self.data_source.logger().setLevel(1)
@@ -71,8 +68,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -82,50 +78,30 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         raise exception
 
     def _error_response(self) -> Dict[str, Any]:
-        return {
-            "code": "ERROR CODE",
-            "msg": "ERROR MESSAGE"
-        }
+        return {"code": "ERROR CODE", "msg": "ERROR MESSAGE"}
 
     def _user_update_event(self):
         # WS API wraps events in {"subscriptionId": N, "event": {...}}
         resp = {
             "subscriptionId": 0,
-            "event": {
-                "e": "balanceUpdate",
-                "E": 1573200697110,
-                "a": "BTC",
-                "d": "100.00000000",
-                "T": 1573200697068
-            }
+            "event": {"e": "balanceUpdate", "E": 1573200697110, "a": "BTC", "d": "100.00000000", "T": 1573200697068},
         }
         return json.dumps(resp)
 
     def _user_update_event_inner(self):
-        return {
-            "e": "balanceUpdate",
-            "E": 1573200697110,
-            "a": "BTC",
-            "d": "100.00000000",
-            "T": 1573200697068
-        }
+        return {"e": "balanceUpdate", "E": 1573200697110, "a": "BTC", "d": "100.00000000", "T": 1573200697068}
 
     def _ws_subscribe_success_response(self, request_id: str = "test-id"):
-        return json.dumps({
-            "id": request_id,
-            "status": 200,
-            "result": {}
-        })
+        return json.dumps({"id": request_id, "status": 200, "result": {}})
 
     def _ws_subscribe_error_response(self, request_id: str = "test-id"):
-        return json.dumps({
-            "id": request_id,
-            "status": 400,
-            "error": {
-                "code": -1022,
-                "msg": "Signature for this request is not valid."
+        return json.dumps(
+            {
+                "id": request_id,
+                "status": 400,
+                "error": {"code": -1022, "msg": "Signature for this request is not valid."},
             }
-        })
+        )
 
     # --- Auth signing tests ---
 
@@ -166,18 +142,14 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         )
 
         await self.data_source._subscribe_channels(ws)
-        self.assertTrue(
-            self._is_logged("INFO", "Successfully subscribed to user data stream via WebSocket API")
-        )
+        self.assertTrue(self._is_logged("INFO", "Successfully subscribed to user data stream via WebSocket API"))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_subscribe_channels_failure(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         ws = await self.data_source._connected_websocket_assistant()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, self._ws_subscribe_error_response()
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._ws_subscribe_error_response())
 
         with self.assertRaises(IOError):
             await self.data_source._subscribe_channels(ws)
@@ -221,13 +193,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_process_event_message_handles_stream_terminated(self):
         queue = asyncio.Queue()
-        terminated_event = {
-            "subscriptionId": 0,
-            "event": {
-                "e": "eventStreamTerminated",
-                "E": 1728973001334
-            }
-        }
+        terminated_event = {"subscriptionId": 0, "event": {"e": "eventStreamTerminated", "E": 1728973001334}}
         with self.assertRaises(ConnectionError):
             await self.data_source._process_event_message(terminated_event, queue)
         self.assertEqual(0, queue.qsize())
@@ -247,14 +213,10 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             mock_ws.return_value, self._ws_subscribe_success_response()
         )
         # Second message: actual user data event
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, self._user_update_event()
-        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._user_update_event())
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         msg = await msg_queue.get()
         # Events are unwrapped from the WS API container before being queued
@@ -272,9 +234,7 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "")
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
         self.assertEqual(0, msg_queue.qsize())
@@ -282,18 +242,17 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_connection_failed(self, mock_ws):
         mock_ws.side_effect = lambda *arg, **kwars: self._create_exception_and_unlock_test_with_event(
-            Exception("TEST ERROR."))
+            Exception("TEST ERROR.")
+        )
 
         msg_queue = asyncio.Queue()
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged("ERROR",
-                            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_iter_message_throws_exception(self, mock_ws):
@@ -304,18 +263,15 @@ class BinanceUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             mock_ws.return_value, self._ws_subscribe_success_response()
         )
         # Then receive throws
-        mock_ws.return_value.receive.side_effect = (lambda *args, **kwargs:
-                                                    self._create_exception_and_unlock_test_with_event(
-                                                        Exception("TEST ERROR")))
+        mock_ws.return_value.receive.side_effect = lambda *args, **kwargs: (
+            self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
+        )
         mock_ws.close.return_value = None
 
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_user_stream(msg_queue)
-        )
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
 
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds...")
+        )

@@ -220,27 +220,29 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         )
 
     async def test_get_all_pairs_prices_formats_response(self):
-        self.connector._api_get = AsyncMock(return_value=[
-            {
-                "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                "instrument_name": self.ex_trading_pair,
-                "index_price": "2000",
-            },
-            {
-                "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                "instrument_name": "BTC-PERP",
-                "index_price": "50000",
-            },
-            {
-                "instrument_type": "OPTION",
-                "instrument_name": "ETH-30JUN23-1600-C",
-                "mark_price": "10",
-            },
-            {
-                "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                "mark_price": "123",
-            },
-        ])
+        self.connector._api_get = AsyncMock(
+            return_value=[
+                {
+                    "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                    "instrument_name": self.ex_trading_pair,
+                    "index_price": "2000",
+                },
+                {
+                    "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                    "instrument_name": "BTC-PERP",
+                    "index_price": "50000",
+                },
+                {
+                    "instrument_type": "OPTION",
+                    "instrument_name": "ETH-30JUN23-1600-C",
+                    "mark_price": "10",
+                },
+                {
+                    "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                    "mark_price": "123",
+                },
+            ]
+        )
 
         result = await self.connector.get_all_pairs_prices()
 
@@ -330,14 +332,21 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
                 price=Decimal("100"),
             )
 
-        self.assertTrue(self._is_logged("ERROR", f"Order order-1 rejected: instrument not found for {self.trading_pair}."))
+        self.assertTrue(
+            self._is_logged("ERROR", f"Order order-1 rejected: instrument not found for {self.trading_pair}.")
+        )
 
     async def test_place_order_successful(self):
         self.connector._instrument_ids[self.trading_pair] = 101
         self.connector._api_post = AsyncMock(return_value={"order_id": "123"})
 
-        with patch("hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_derivative.time.time", return_value=10):
-            with patch("hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_derivative.random.randint", return_value=55):
+        with patch(
+            "hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_derivative.time.time", return_value=10
+        ):
+            with patch(
+                "hummingbot.connector.derivative.aevo_perpetual.aevo_perpetual_derivative.random.randint",
+                return_value=55,
+            ):
                 with patch.object(web_utils, "decimal_to_int", side_effect=[111, 222]):
                     exchange_order_id, _ = await self.connector._place_order(
                         order_id="order-1",
@@ -410,11 +419,13 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
             creation_timestamp=1,
             exchange_order_id="200",
         )
-        self.connector._api_get = AsyncMock(return_value={
-            "order_id": "200",
-            "order_status": "filled",
-            "timestamp": "1000000000",
-        })
+        self.connector._api_get = AsyncMock(
+            return_value={
+                "order_id": "200",
+                "order_status": "filled",
+                "timestamp": "1000000000",
+            }
+        )
 
         update = await self.connector._request_order_status(order)
 
@@ -434,26 +445,28 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
             exchange_order_id="300",
             position=PositionAction.CLOSE,
         )
-        self.connector._api_get = AsyncMock(return_value={
-            "trade_history": [
-                {
-                    "order_id": "300",
-                    "trade_id": "t1",
-                    "created_timestamp": "1000000000",
-                    "price": "100",
-                    "amount": "2",
-                    "fees": "0.01",
-                },
-                {
-                    "order_id": "999",
-                    "trade_id": "t2",
-                    "created_timestamp": "1000000001",
-                    "price": "99",
-                    "amount": "1",
-                    "fees": "0.02",
-                },
-            ]
-        })
+        self.connector._api_get = AsyncMock(
+            return_value={
+                "trade_history": [
+                    {
+                        "order_id": "300",
+                        "trade_id": "t1",
+                        "created_timestamp": "1000000000",
+                        "price": "100",
+                        "amount": "2",
+                        "fees": "0.01",
+                    },
+                    {
+                        "order_id": "999",
+                        "trade_id": "t2",
+                        "created_timestamp": "1000000001",
+                        "price": "99",
+                        "amount": "1",
+                        "fees": "0.02",
+                    },
+                ]
+            }
+        )
 
         updates = await self.connector._all_trade_updates_for_order(order)
 
@@ -467,15 +480,17 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
     async def test_update_balances_updates_and_removes(self):
         self.connector._account_balances = {"OLD": Decimal("1")}
         self.connector._account_available_balances = {"OLD": Decimal("1")}
-        self.connector._api_get = AsyncMock(return_value={
-            "collaterals": [
-                {
-                    "collateral_asset": self.quote_asset,
-                    "available_balance": "10",
-                    "balance": "12",
-                }
-            ]
-        })
+        self.connector._api_get = AsyncMock(
+            return_value={
+                "collaterals": [
+                    {
+                        "collateral_asset": self.quote_asset,
+                        "available_balance": "10",
+                        "balance": "12",
+                    }
+                ]
+            }
+        )
 
         await self.connector._update_balances()
 
@@ -493,22 +508,24 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_update_positions_sets_and_clears_positions(self):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
-        self.connector._api_get = AsyncMock(side_effect=[
-            {
-                "positions": [
-                    {
-                        "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                        "instrument_name": self.ex_trading_pair,
-                        "side": "buy",
-                        "amount": "2",
-                        "avg_entry_price": "100",
-                        "unrealized_pnl": "1",
-                        "leverage": "3",
-                    }
-                ]
-            },
-            {"positions": []},
-        ])
+        self.connector._api_get = AsyncMock(
+            side_effect=[
+                {
+                    "positions": [
+                        {
+                            "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                            "instrument_name": self.ex_trading_pair,
+                            "side": "buy",
+                            "amount": "2",
+                            "avg_entry_price": "100",
+                            "unrealized_pnl": "1",
+                            "leverage": "3",
+                        }
+                    ]
+                },
+                {"positions": []},
+            ]
+        )
 
         await self.connector._update_positions()
         positions = list(self.connector.account_positions.values())
@@ -521,19 +538,21 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_update_positions_sets_short_position_amount_as_negative(self):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
-        self.connector._api_get = AsyncMock(return_value={
-            "positions": [
-                {
-                    "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                    "instrument_name": self.ex_trading_pair,
-                    "side": "sell",
-                    "amount": "2",
-                    "avg_entry_price": "100",
-                    "unrealized_pnl": "1",
-                    "leverage": "3",
-                }
-            ]
-        })
+        self.connector._api_get = AsyncMock(
+            return_value={
+                "positions": [
+                    {
+                        "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                        "instrument_name": self.ex_trading_pair,
+                        "side": "sell",
+                        "amount": "2",
+                        "avg_entry_price": "100",
+                        "unrealized_pnl": "1",
+                        "leverage": "3",
+                    }
+                ]
+            }
+        )
 
         await self.connector._update_positions()
 
@@ -545,19 +564,21 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
     async def test_update_positions_does_not_override_configured_leverage(self):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
         self.connector._perpetual_trading.set_leverage(self.trading_pair, 3)
-        self.connector._api_get = AsyncMock(return_value={
-            "positions": [
-                {
-                    "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-                    "instrument_name": self.ex_trading_pair,
-                    "side": "buy",
-                    "amount": "2",
-                    "avg_entry_price": "100",
-                    "unrealized_pnl": "1",
-                    "leverage": "1",
-                }
-            ]
-        })
+        self.connector._api_get = AsyncMock(
+            return_value={
+                "positions": [
+                    {
+                        "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                        "instrument_name": self.ex_trading_pair,
+                        "side": "buy",
+                        "amount": "2",
+                        "avg_entry_price": "100",
+                        "unrealized_pnl": "1",
+                        "leverage": "1",
+                    }
+                ]
+            }
+        )
 
         await self.connector._update_positions()
 
@@ -592,7 +613,7 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         safe_ensure_future_mock.side_effect = lambda coro: coro.close()
         exception = IOError(
             "Error executing request POST https://api.aevo.xyz/orders. HTTP status is 400. "
-            "Error: {\"error\":\"NO_POSITION_REDUCE_ONLY\"}"
+            'Error: {"error":"NO_POSITION_REDUCE_ONLY"}'
         )
 
         self.connector._on_order_failure(
@@ -650,11 +671,13 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         self.connector._order_tracker.start_tracking_order(tracked_order)
         self.connector._order_tracker.process_order_update = MagicMock()
 
-        self.connector._process_order_message({
-            "order_id": "400",
-            "order_status": "filled",
-            "created_timestamp": "1000000000",
-        })
+        self.connector._process_order_message(
+            {
+                "order_id": "400",
+                "order_status": "filled",
+                "created_timestamp": "1000000000",
+            }
+        )
 
         self.connector._order_tracker.process_order_update.assert_called_once()
         update = self.connector._order_tracker.process_order_update.call_args.kwargs["order_update"]
@@ -674,14 +697,16 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         self.connector._order_tracker.start_tracking_order(tracked_order)
         self.connector._order_tracker.process_trade_update = MagicMock()
 
-        await self.connector._process_trade_message({
-            "order_id": "500",
-            "trade_id": "t3",
-            "created_timestamp": "2000000000",
-            "price": "10",
-            "filled": "3",
-            "fees": "0.1",
-        })
+        await self.connector._process_trade_message(
+            {
+                "order_id": "500",
+                "trade_id": "t3",
+                "created_timestamp": "2000000000",
+                "price": "10",
+                "filled": "3",
+                "fees": "0.1",
+            }
+        )
 
         self.connector._order_tracker.process_trade_update.assert_called_once()
         update = self.connector._order_tracker.process_trade_update.call_args.args[0]
@@ -693,15 +718,17 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
         pos_key = self.connector._perpetual_trading.position_key(self.trading_pair, PositionSide.LONG)
 
-        await self.connector._process_position_message({
-            "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-            "instrument_name": self.ex_trading_pair,
-            "side": "buy",
-            "amount": "2",
-            "avg_entry_price": "100",
-            "unrealized_pnl": "1",
-            "leverage": "3",
-        })
+        await self.connector._process_position_message(
+            {
+                "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                "instrument_name": self.ex_trading_pair,
+                "side": "buy",
+                "amount": "2",
+                "avg_entry_price": "100",
+                "unrealized_pnl": "1",
+                "leverage": "3",
+            }
+        )
 
         position: Position = self.connector.account_positions[pos_key]
         self.assertEqual(Decimal("2"), position.amount)
@@ -710,15 +737,17 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value=self.trading_pair)
         pos_key = self.connector._perpetual_trading.position_key(self.trading_pair, PositionSide.SHORT)
 
-        await self.connector._process_position_message({
-            "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
-            "instrument_name": self.ex_trading_pair,
-            "side": "sell",
-            "amount": "2",
-            "avg_entry_price": "100",
-            "unrealized_pnl": "1",
-            "leverage": "3",
-        })
+        await self.connector._process_position_message(
+            {
+                "instrument_type": CONSTANTS.PERPETUAL_INSTRUMENT_TYPE,
+                "instrument_name": self.ex_trading_pair,
+                "side": "sell",
+                "amount": "2",
+                "avg_entry_price": "100",
+                "unrealized_pnl": "1",
+                "leverage": "3",
+            }
+        )
 
         position: Position = self.connector.account_positions[pos_key]
         self.assertEqual(PositionSide.SHORT, position.position_side)
@@ -759,7 +788,9 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
 
         await self.connector._user_stream_event_listener()
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected message in user stream: {'channel': 'unknown', 'data': {}}."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected message in user stream: {'channel': 'unknown', 'data': {}}.")
+        )
 
     async def test_get_last_traded_price_uses_mark_price(self):
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)

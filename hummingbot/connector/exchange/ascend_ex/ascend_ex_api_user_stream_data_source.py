@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(

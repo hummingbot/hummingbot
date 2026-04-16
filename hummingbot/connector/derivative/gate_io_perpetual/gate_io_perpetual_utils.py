@@ -22,7 +22,7 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     gate_io_perpetual_secret_key: SecretStr = Field(
         default=...,
@@ -31,7 +31,7 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     gate_io_perpetual_user_id: SecretStr = Field(
         default=...,
@@ -40,7 +40,7 @@ class GateIOPerpetualConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
-        }
+        },
     )
     model_config = ConfigDict(title="gate_io_perpetual")
 

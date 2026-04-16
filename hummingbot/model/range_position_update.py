@@ -9,11 +9,13 @@ class RangePositionUpdate(HummingbotBase):
     Table schema used when an event to update LP position(Add/Remove/Collect) is triggered.
     Stores all data needed for P&L tracking.
     """
+
     __tablename__ = "RangePositionUpdate"
-    __table_args__ = (Index("rpu_timestamp_index", "hb_id", "timestamp"),
-                      Index("rpu_config_file_index", "config_file_path", "timestamp"),
-                      Index("rpu_position_index", "position_address"),
-                      )
+    __table_args__ = (
+        Index("rpu_timestamp_index", "hb_id", "timestamp"),
+        Index("rpu_config_file_index", "config_file_path", "timestamp"),
+        Index("rpu_position_index", "position_address"),
+    )
 
     id = Column(Integer, primary_key=True)
     hb_id = Column(Text, nullable=False)  # Order ID (e.g., "range-SOL-USDC-...")
@@ -40,6 +42,8 @@ class RangePositionUpdate(HummingbotBase):
     trade_fee_in_quote = Column(Float, nullable=True)  # Transaction fee converted to quote currency
 
     def __repr__(self) -> str:
-        return (f"RangePositionUpdate(id={self.id}, hb_id='{self.hb_id}', "
-                f"timestamp={self.timestamp}, tx_hash='{self.tx_hash}', "
-                f"order_action={self.order_action}, position_address={self.position_address})")
+        return (
+            f"RangePositionUpdate(id={self.id}, hb_id='{self.hb_id}', "
+            f"timestamp={self.timestamp}, tx_hash='{self.tx_hash}', "
+            f"order_action={self.order_action}, position_address={self.position_address})"
+        )

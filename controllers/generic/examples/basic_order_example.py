@@ -27,13 +27,17 @@ class BasicOrderExample(ControllerBase):
         self.last_timestamp = 0
 
     async def update_processed_data(self):
-        mid_price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair, PriceType.MidPrice)
+        mid_price = self.market_data_provider.get_price_by_type(
+            self.config.connector_name, self.config.trading_pair, PriceType.MidPrice
+        )
         n_active_executors = len([executor for executor in self.executors_info if executor.is_active])
         self.processed_data = {"mid_price": mid_price, "n_active_executors": n_active_executors}
 
     def determine_executor_actions(self) -> list[ExecutorAction]:
-        if (self.processed_data["n_active_executors"] == 0 and
-                self.market_data_provider.time() - self.last_timestamp > self.config.order_frequency):
+        if (
+            self.processed_data["n_active_executors"] == 0
+            and self.market_data_provider.time() - self.last_timestamp > self.config.order_frequency
+        ):
             self.last_timestamp = self.market_data_provider.time()
             config = OrderExecutorConfig(
                 timestamp=self.market_data_provider.time(),

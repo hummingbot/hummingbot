@@ -9,7 +9,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(  # https://architect.co/legal/ax-pricing-policy section 5
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0025"),
-    buy_percent_fee_deducted_from_returns=True
+    buy_percent_fee_deducted_from_returns=True,
 )
 
 CENTRALIZED = True
@@ -25,8 +25,8 @@ class ArchitectPerpetualConfigMapBase(BaseConnectorConfigMap):
             "prompt": "Enter your Architect Perpetual API key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
     api_secret: SecretStr = Field(
         default=...,
@@ -34,8 +34,8 @@ class ArchitectPerpetualConfigMapBase(BaseConnectorConfigMap):
             "prompt": "Enter your Architect Perpetual API secret",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
 
