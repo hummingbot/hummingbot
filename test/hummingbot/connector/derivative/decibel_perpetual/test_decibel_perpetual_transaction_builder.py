@@ -238,6 +238,7 @@ class TestDecibelPerpetualTransactionBuilder(IsolatedAsyncioWrapperTestCase):
 
         # Use PlaceOrderFailure from decibel SDK
         from decibel import PlaceOrderFailure
+
         mock_result = PlaceOrderFailure(error="Insufficient balance")
 
         mock_dex = AsyncMock()
@@ -265,6 +266,7 @@ class TestDecibelPerpetualTransactionBuilder(IsolatedAsyncioWrapperTestCase):
         mock_gas_price_manager.return_value = mock_gas_instance
 
         from decibel import PlaceOrderFailure
+
         mock_result = PlaceOrderFailure(error="Market not found", reason="Market not found")
 
         mock_dex = AsyncMock()

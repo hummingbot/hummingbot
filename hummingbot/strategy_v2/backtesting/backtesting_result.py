@@ -95,7 +95,9 @@ class BacktestingResult:
 
         specs = [[{"secondary_y": True}] for _ in range(n_rows)]
         fig = make_subplots(
-            rows=n_rows, cols=1, shared_xaxes=True,
+            rows=n_rows,
+            cols=1,
+            shared_xaxes=True,
             vertical_spacing=0.04,
             subplot_titles=subtitles,
             row_heights=row_heights,
@@ -109,13 +111,18 @@ class BacktestingResult:
         fig.add_trace(
             go.Candlestick(
                 x=df.index,
-                open=df["open"], high=df["high"],
-                low=df["low"], close=df["close"],
-                increasing_line_color="#26a69a", decreasing_line_color="#ef5350",
-                increasing_fillcolor="#26a69a", decreasing_fillcolor="#ef5350",
+                open=df["open"],
+                high=df["high"],
+                low=df["low"],
+                close=df["close"],
+                increasing_line_color="#26a69a",
+                decreasing_line_color="#ef5350",
+                increasing_fillcolor="#26a69a",
+                decreasing_fillcolor="#ef5350",
                 name="Price",
             ),
-            row=1, col=1,
+            row=1,
+            col=1,
         )
 
         # --- Row 1: Executor entry/exit markers ---
@@ -137,23 +144,28 @@ class BacktestingResult:
             plot_bgcolor="#0e1117",
             paper_bgcolor="#0e1117",
             font=dict(color="#e0e0e0", size=11),
-            height=950, width=1400,
+            height=950,
+            width=1400,
             margin=dict(l=60, r=30, t=120, b=40),
             hovermode="x unified",
             showlegend=True,
             legend=dict(
-                orientation="h", yanchor="bottom", y=1.06,
-                xanchor="center", x=0.5,
+                orientation="h",
+                yanchor="bottom",
+                y=1.06,
+                xanchor="center",
+                x=0.5,
                 font=dict(size=10),
             ),
             title=dict(
                 text=f"{self.controller_config.controller_name} | "
-                     f"{getattr(self.controller_config, 'trading_pair', '')} | "
-                     f"PnL: ${self.results['net_pnl_quote']:.2f} "
-                     f"({self.results['net_pnl'] * 100:.2f}%) | "
-                     f"Volume: ${self.results.get('total_volume', 0):,.0f}",
+                f"{getattr(self.controller_config, 'trading_pair', '')} | "
+                f"PnL: ${self.results['net_pnl_quote']:.2f} "
+                f"({self.results['net_pnl'] * 100:.2f}%) | "
+                f"Volume: ${self.results.get('total_volume', 0):,.0f}",
                 font=dict(size=14),
-                y=0.99, yanchor="top",
+                y=0.99,
+                yanchor="top",
             ),
         )
 
@@ -166,8 +178,7 @@ class BacktestingResult:
 
         fig.update_yaxes(title_text="Price", row=1, col=1)
         fig.update_yaxes(title_text="PnL ($)", row=2, col=1)
-        fig.update_yaxes(title_text="Volume ($)", row=2, col=1, secondary_y=True,
-                         showgrid=False)
+        fig.update_yaxes(title_text="Volume ($)", row=2, col=1, secondary_y=True, showgrid=False)
         if has_holds:
             fig.update_yaxes(title_text="Position ($)", row=3, col=1)
 
@@ -188,15 +199,78 @@ class BacktestingResult:
         # Collect points by category for batch plotting
         categories = {
             "Hold Buy": {"entries": [], "exits": [], "pnls": [], "color": "#42a5f5", "symbol": "circle", "dash": "dot"},
-            "Hold Sell": {"entries": [], "exits": [], "pnls": [], "color": "#ab47bc", "symbol": "circle", "dash": "dot"},
-            "Early Stop Buy": {"entries": [], "exits": [], "pnls": [], "color": "#e0e0e0", "symbol": "x", "dash": "dash"},
-            "Early Stop Sell": {"entries": [], "exits": [], "pnls": [], "color": "#e0e0e0", "symbol": "x", "dash": "dash"},
-            "TP Buy": {"entries": [], "exits": [], "pnls": [], "color": "#26a69a", "symbol": "triangle-up", "dash": None},
-            "TP Sell": {"entries": [], "exits": [], "pnls": [], "color": "#ef5350", "symbol": "triangle-down", "dash": None},
-            "SL Buy": {"entries": [], "exits": [], "pnls": [], "color": "#ff6d00", "symbol": "triangle-up", "dash": None},
-            "SL Sell": {"entries": [], "exits": [], "pnls": [], "color": "#ff6d00", "symbol": "triangle-down", "dash": None},
-            "Other Buy": {"entries": [], "exits": [], "pnls": [], "color": "#78909c", "symbol": "triangle-up", "dash": None},
-            "Other Sell": {"entries": [], "exits": [], "pnls": [], "color": "#78909c", "symbol": "triangle-down", "dash": None},
+            "Hold Sell": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#ab47bc",
+                "symbol": "circle",
+                "dash": "dot",
+            },
+            "Early Stop Buy": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#e0e0e0",
+                "symbol": "x",
+                "dash": "dash",
+            },
+            "Early Stop Sell": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#e0e0e0",
+                "symbol": "x",
+                "dash": "dash",
+            },
+            "TP Buy": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#26a69a",
+                "symbol": "triangle-up",
+                "dash": None,
+            },
+            "TP Sell": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#ef5350",
+                "symbol": "triangle-down",
+                "dash": None,
+            },
+            "SL Buy": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#ff6d00",
+                "symbol": "triangle-up",
+                "dash": None,
+            },
+            "SL Sell": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#ff6d00",
+                "symbol": "triangle-down",
+                "dash": None,
+            },
+            "Other Buy": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#78909c",
+                "symbol": "triangle-up",
+                "dash": None,
+            },
+            "Other Sell": {
+                "entries": [],
+                "exits": [],
+                "pnls": [],
+                "color": "#78909c",
+                "symbol": "triangle-down",
+                "dash": None,
+            },
         }
 
         for executor in self.executors:
@@ -272,20 +346,24 @@ class BacktestingResult:
                         y=[float(entry_y[i]), float(exit_y[i])],
                         mode="lines",
                         line=dict(color=line_color, width=line_width, dash=line_dash),
-                        showlegend=False, hoverinfo="skip",
+                        showlegend=False,
+                        hoverinfo="skip",
                     ),
-                    row=row, col=col,
+                    row=row,
+                    col=col,
                 )
 
             # Exit markers
             fig.add_trace(
                 go.Scatter(
-                    x=list(exit_x), y=[float(p) for p in exit_y],
+                    x=list(exit_x),
+                    y=[float(p) for p in exit_y],
                     mode="markers",
                     marker=dict(color=data["color"], size=7, symbol=data["symbol"]),
                     name=label,
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
 
     def _add_cumulative_pnl(self, fig, row=2, col=1):
@@ -302,39 +380,52 @@ class BacktestingResult:
             # Total PnL line (executor realized + position realized + position unrealized)
             fig.add_trace(
                 go.Scatter(
-                    x=pnl_df["dt"], y=pnl_df["total_pnl"],
-                    mode="lines", line=dict(color="#ffd54f", width=2),
-                    fill="tozeroy", fillcolor="rgba(255,213,79,0.1)",
+                    x=pnl_df["dt"],
+                    y=pnl_df["total_pnl"],
+                    mode="lines",
+                    line=dict(color="#ffd54f", width=2),
+                    fill="tozeroy",
+                    fillcolor="rgba(255,213,79,0.1)",
                     name="Total PnL",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
             # Executor realized PnL line
             fig.add_trace(
                 go.Scatter(
-                    x=pnl_df["dt"], y=pnl_df["executor_realized_pnl"],
-                    mode="lines", line=dict(color="#26a69a", width=1.5, dash="dot"),
+                    x=pnl_df["dt"],
+                    y=pnl_df["executor_realized_pnl"],
+                    mode="lines",
+                    line=dict(color="#26a69a", width=1.5, dash="dot"),
                     name="Executor Realized PnL",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
             # Position realized PnL line (from buy/sell netting)
             fig.add_trace(
                 go.Scatter(
-                    x=pnl_df["dt"], y=pnl_df["position_realized_pnl"],
-                    mode="lines", line=dict(color="#42a5f5", width=1.5, dash="dot"),
+                    x=pnl_df["dt"],
+                    y=pnl_df["position_realized_pnl"],
+                    mode="lines",
+                    line=dict(color="#42a5f5", width=1.5, dash="dot"),
                     name="Position Realized PnL",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
             # Position unrealized PnL line (from open net position)
             fig.add_trace(
                 go.Scatter(
-                    x=pnl_df["dt"], y=pnl_df["position_unrealized_pnl"],
-                    mode="lines", line=dict(color="#ab47bc", width=1.5, dash="dot"),
+                    x=pnl_df["dt"],
+                    y=pnl_df["position_unrealized_pnl"],
+                    mode="lines",
+                    line=dict(color="#ab47bc", width=1.5, dash="dot"),
                     name="Position Unrealized PnL",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
             # Active executors count (shown as subtle filled area)
             if "active_executors" in pnl_df.columns:
@@ -346,13 +437,16 @@ class BacktestingResult:
                     go.Scatter(
                         x=pnl_df["dt"],
                         y=pnl_df["active_executors"] * scale,
-                        mode="lines", line=dict(color="rgba(255,255,255,0.2)", width=0),
-                        fill="tozeroy", fillcolor="rgba(255,255,255,0.07)",
+                        mode="lines",
+                        line=dict(color="rgba(255,255,255,0.2)", width=0),
+                        fill="tozeroy",
+                        fillcolor="rgba(255,255,255,0.07)",
                         name="Active Executors",
                         hovertemplate="Active: %{customdata}<extra></extra>",
                         customdata=pnl_df["active_executors"],
                     ),
-                    row=row, col=col,
+                    row=row,
+                    col=col,
                 )
             # Cumulative volume on secondary y-axis
             if "cumulative_volume" in pnl_df.columns:
@@ -360,17 +454,24 @@ class BacktestingResult:
                     go.Scatter(
                         x=pnl_df["dt"],
                         y=pnl_df["cumulative_volume"],
-                        mode="lines", line=dict(color="#80cbc4", width=1.5, dash="dashdot"),
+                        mode="lines",
+                        line=dict(color="#80cbc4", width=1.5, dash="dashdot"),
                         name="Cumulative Volume",
                         hovertemplate="Volume: $%{y:,.0f}<extra></extra>",
                     ),
-                    row=row, col=col, secondary_y=True,
+                    row=row,
+                    col=col,
+                    secondary_y=True,
                 )
         else:
             # Fallback: use executor-level PnL (excludes POSITION_HOLD)
-            closed = [e for e in self.executors
-                      if e.close_timestamp is not None and e.filled_amount_quote > 0
-                      and e.close_type != CloseType.POSITION_HOLD]
+            closed = [
+                e
+                for e in self.executors
+                if e.close_timestamp is not None
+                and e.filled_amount_quote > 0
+                and e.close_type != CloseType.POSITION_HOLD
+            ]
             if not closed:
                 fig.add_hline(y=0, line_dash="dot", line_color="#555", row=row, col=col)
                 return
@@ -380,12 +481,16 @@ class BacktestingResult:
             cum_pnl = np.cumsum(pnl)
             fig.add_trace(
                 go.Scatter(
-                    x=timestamps, y=cum_pnl,
-                    mode="lines", line=dict(color="#ffd54f", width=2),
-                    fill="tozeroy", fillcolor="rgba(255,213,79,0.1)",
+                    x=timestamps,
+                    y=cum_pnl,
+                    mode="lines",
+                    line=dict(color="#ffd54f", width=2),
+                    fill="tozeroy",
+                    fillcolor="rgba(255,213,79,0.1)",
                     name="Cum. PnL",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
 
         fig.add_hline(y=0, line_dash="dot", line_color="#555", row=row, col=col)
@@ -406,41 +511,55 @@ class BacktestingResult:
         # Long position area
         fig.add_trace(
             go.Scatter(
-                x=ts_df["dt"], y=ts_df["long_amount"],
-                mode="lines", line=dict(color="#26a69a", width=0),
-                fill="tozeroy", fillcolor="rgba(38,166,154,0.3)",
+                x=ts_df["dt"],
+                y=ts_df["long_amount"],
+                mode="lines",
+                line=dict(color="#26a69a", width=0),
+                fill="tozeroy",
+                fillcolor="rgba(38,166,154,0.3)",
                 name="Long Held",
             ),
-            row=row, col=col,
+            row=row,
+            col=col,
         )
         # Short position area (negative)
         if ts_df["short_amount"].sum() > 0:
             fig.add_trace(
                 go.Scatter(
-                    x=ts_df["dt"], y=-ts_df["short_amount"],
-                    mode="lines", line=dict(color="#ef5350", width=0),
-                    fill="tozeroy", fillcolor="rgba(239,83,80,0.3)",
+                    x=ts_df["dt"],
+                    y=-ts_df["short_amount"],
+                    mode="lines",
+                    line=dict(color="#ef5350", width=0),
+                    fill="tozeroy",
+                    fillcolor="rgba(239,83,80,0.3)",
                     name="Short Held",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
         # Net position line
         fig.add_trace(
             go.Scatter(
-                x=ts_df["dt"], y=ts_df["net_amount"],
-                mode="lines", line=dict(color="#e0e0e0", width=1.5),
+                x=ts_df["dt"],
+                y=ts_df["net_amount"],
+                mode="lines",
+                line=dict(color="#e0e0e0", width=1.5),
                 name="Net Position",
             ),
-            row=row, col=col,
+            row=row,
+            col=col,
         )
         # Unrealized PnL on secondary y-axis via a separate trace
         fig.add_trace(
             go.Scatter(
-                x=ts_df["dt"], y=ts_df["unrealized_pnl"],
-                mode="lines", line=dict(color="#ffd54f", width=1.5, dash="dot"),
+                x=ts_df["dt"],
+                y=ts_df["unrealized_pnl"],
+                mode="lines",
+                line=dict(color="#ffd54f", width=1.5, dash="dot"),
                 name="Unrealized PnL",
             ),
-            row=row, col=col,
+            row=row,
+            col=col,
         )
         fig.add_hline(y=0, line_dash="dot", line_color="#555", row=row, col=col)
 
@@ -452,10 +571,7 @@ class BacktestingResult:
             return
 
         # Collect grid data from all executors that have it
-        grid_executors = [
-            e for e in self.executors
-            if e.custom_info.get("grid_level_prices")
-        ]
+        grid_executors = [e for e in self.executors if e.custom_info.get("grid_level_prices")]
         if not grid_executors:
             return
 
@@ -480,7 +596,8 @@ class BacktestingResult:
             for i, price in enumerate(level_prices):
                 fig.add_trace(
                     go.Scatter(
-                        x=[start_dt, end_dt], y=[price, price],
+                        x=[start_dt, end_dt],
+                        y=[price, price],
                         mode="lines",
                         line=dict(color="rgba(100,181,246,0.35)", width=1, dash="dash"),
                         showlegend=(first_executor and i == 0),
@@ -488,14 +605,16 @@ class BacktestingResult:
                         name="Grid Level",
                         hoverinfo="y",
                     ),
-                    row=row, col=col,
+                    row=row,
+                    col=col,
                 )
 
             # --- TP level lines ---
             for i, tp_price in enumerate(tp_prices):
                 fig.add_trace(
                     go.Scatter(
-                        x=[start_dt, end_dt], y=[tp_price, tp_price],
+                        x=[start_dt, end_dt],
+                        y=[tp_price, tp_price],
                         mode="lines",
                         line=dict(color="rgba(255,183,77,0.25)", width=1, dash="dot"),
                         showlegend=(first_executor and i == 0),
@@ -503,7 +622,8 @@ class BacktestingResult:
                         name="TP Level",
                         hoverinfo="y",
                     ),
-                    row=row, col=col,
+                    row=row,
+                    col=col,
                 )
 
             # --- Limit price line ---
@@ -511,7 +631,8 @@ class BacktestingResult:
             if grid_limit_price is not None:
                 fig.add_trace(
                     go.Scatter(
-                        x=[start_dt, end_dt], y=[grid_limit_price, grid_limit_price],
+                        x=[start_dt, end_dt],
+                        y=[grid_limit_price, grid_limit_price],
                         mode="lines",
                         line=dict(color="rgba(239,83,80,0.7)", width=1.5, dash="dashdot"),
                         showlegend=first_executor,
@@ -519,7 +640,8 @@ class BacktestingResult:
                         name="Limit Price",
                         hoverinfo="y",
                     ),
-                    row=row, col=col,
+                    row=row,
+                    col=col,
                 )
 
             # --- Executor boundary marker (vertical line at start) ---
@@ -528,7 +650,8 @@ class BacktestingResult:
             y_max = max(tp_prices) if tp_prices else (max(level_prices) if level_prices else 0)
             fig.add_trace(
                 go.Scatter(
-                    x=[start_dt, start_dt], y=[y_min, y_max],
+                    x=[start_dt, start_dt],
+                    y=[y_min, y_max],
                     mode="lines+text",
                     line=dict(color="rgba(255,255,255,0.3)", width=1, dash="dot"),
                     text=[f"#{exec_idx}", ""],
@@ -540,7 +663,8 @@ class BacktestingResult:
                     hovertext=f"Executor #{exec_idx} start",
                     hoverinfo="text",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
 
             # --- Collect fill markers ---
@@ -565,28 +689,32 @@ class BacktestingResult:
         if all_entry_x:
             fig.add_trace(
                 go.Scatter(
-                    x=all_entry_x, y=all_entry_y,
+                    x=all_entry_x,
+                    y=all_entry_y,
                     mode="markers",
-                    marker=dict(color="#26a69a", size=8, symbol=entry_symbol,
-                                line=dict(width=1, color="#1b5e20")),
+                    marker=dict(color="#26a69a", size=8, symbol=entry_symbol, line=dict(width=1, color="#1b5e20")),
                     name="Grid Entry Fill",
                     legendgroup="grid_entry_fill",
-                    text=all_entry_text, hoverinfo="text+y",
+                    text=all_entry_text,
+                    hoverinfo="text+y",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )
 
         # --- Single trace for all TP fills ---
         if all_tp_x:
             fig.add_trace(
                 go.Scatter(
-                    x=all_tp_x, y=all_tp_y,
+                    x=all_tp_x,
+                    y=all_tp_y,
                     mode="markers",
-                    marker=dict(color="#ffd54f", size=8, symbol=tp_symbol,
-                                line=dict(width=1, color="#f57f17")),
+                    marker=dict(color="#ffd54f", size=8, symbol=tp_symbol, line=dict(width=1, color="#f57f17")),
                     name="Grid TP Fill",
                     legendgroup="grid_tp_fill",
-                    text=all_tp_text, hoverinfo="text+y",
+                    text=all_tp_text,
+                    hoverinfo="text+y",
                 ),
-                row=row, col=col,
+                row=row,
+                col=col,
             )

@@ -48,7 +48,7 @@ class DecibelPerpetualRateSource(RateSourceBase):
         if self._exchange is None:
             self._exchange = self._build_decibel_connector()
 
-    def _build_decibel_connector(self) -> 'DecibelPerpetualDerivative':
+    def _build_decibel_connector(self) -> "DecibelPerpetualDerivative":
         from hummingbot.connector.derivative.decibel_perpetual.decibel_perpetual_constants import DEFAULT_DOMAIN
         from hummingbot.connector.derivative.decibel_perpetual.decibel_perpetual_derivative import (
             DecibelPerpetualDerivative,

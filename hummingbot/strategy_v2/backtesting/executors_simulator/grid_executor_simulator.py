@@ -14,6 +14,7 @@ from hummingbot.strategy_v2.utils.distributions import Distributions
 
 class GridExecutorSimulation(ExecutorSimulation):
     """ExecutorSimulation subclass that carries grid-specific fill events and level data."""
+
     fill_events: List[Dict] = Field(default_factory=list)
     grid_level_prices: List[float] = Field(default_factory=list)
     grid_tp_prices: List[float] = Field(default_factory=list)
@@ -31,10 +32,8 @@ class GridExecutorSimulation(ExecutorSimulation):
 
 
 class GridExecutorSimulator(ExecutorSimulatorBase):
-
     @staticmethod
-    def _generate_grid_levels(config: GridExecutorConfig, mid_price: Decimal,
-                              trading_rules=None) -> List[GridLevel]:
+    def _generate_grid_levels(config: GridExecutorConfig, mid_price: Decimal, trading_rules=None) -> List[GridLevel]:
         """Generate grid levels mirroring the real GridExecutor._generate_grid_levels logic.
 
         When trading_rules is provided, uses exchange-specific min_notional_size,
@@ -52,10 +51,12 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
         if min_base_increment is not None:
             min_base_amount = max(
                 min_notional_with_margin / mid_price,
-                min_base_increment * Decimal(str(math.ceil(float(min_notional) / float(min_base_increment * mid_price))))
+                min_base_increment
+                * Decimal(str(math.ceil(float(min_notional) / float(min_base_increment * mid_price)))),
             )
-            min_base_amount = Decimal(
-                str(math.ceil(float(min_base_amount) / float(min_base_increment)))) * min_base_increment
+            min_base_amount = (
+                Decimal(str(math.ceil(float(min_base_amount) / float(min_base_increment)))) * min_base_increment
+            )
         else:
             min_base_amount = min_notional_with_margin / mid_price
 
@@ -63,10 +64,7 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
 
         grid_range = (config.end_price - config.start_price) / config.start_price
         if trading_rules is not None:
-            min_step_size = max(
-                config.min_spread_between_orders,
-                trading_rules.min_price_increment / mid_price
-            )
+            min_step_size = max(config.min_spread_between_orders, trading_rules.min_price_increment / mid_price)
         else:
             min_step_size = config.min_spread_between_orders
 
@@ -81,8 +79,14 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
             if min_base_increment is not None:
                 base_amount_per_level = max(
                     min_base_amount,
-                    Decimal(str(math.floor(float(config.total_amount_quote / (mid_price * n_levels)) /
-                                           float(min_base_increment)))) * min_base_increment
+                    Decimal(
+                        str(
+                            math.floor(
+                                float(config.total_amount_quote / (mid_price * n_levels)) / float(min_base_increment)
+                            )
+                        )
+                    )
+                    * min_base_increment,
                 )
                 quote_amount_per_level = base_amount_per_level * mid_price
             else:
@@ -100,7 +104,11 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
             prices = [(config.start_price + config.end_price) / 2]
             step = grid_range
 
-        take_profit = max(step, config.triple_barrier_config.take_profit) if config.coerce_tp_to_step else config.triple_barrier_config.take_profit
+        take_profit = (
+            max(step, config.triple_barrier_config.take_profit)
+            if config.coerce_tp_to_step
+            else config.triple_barrier_config.take_profit
+        )
 
         grid_levels = []
         for i, price in enumerate(prices):
@@ -117,8 +125,9 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
             )
         return grid_levels
 
-    def simulate(self, df: pd.DataFrame, config: GridExecutorConfig, trade_cost: float,
-                 trading_rules=None) -> ExecutorSimulation:
+    def simulate(
+        self, df: pd.DataFrame, config: GridExecutorConfig, trade_cost: float, trading_rules=None
+    ) -> ExecutorSimulation:
         """
         Simulate grid execution on historical OHLCV data.
 
@@ -135,25 +144,29 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
         :return: ExecutorSimulation with per-row evolving PnL.
         """
         side_multiplier = 1 if config.side == TradeType.BUY else -1
-        last_timestamp = df['timestamp'].max()
+        last_timestamp = df["timestamp"].max()
         tl = config.triple_barrier_config.time_limit if config.triple_barrier_config.time_limit else None
         tl_timestamp = config.timestamp + tl if tl else last_timestamp
 
         df_filtered = df[:tl_timestamp].copy()
-        df_filtered['net_pnl_pct'] = 0.0
-        df_filtered['net_pnl_quote'] = 0.0
-        df_filtered['cum_fees_quote'] = 0.0
-        df_filtered['filled_amount_quote'] = 0.0
-        df_filtered['current_position_average_price'] = 0.0
+        df_filtered["net_pnl_pct"] = 0.0
+        df_filtered["net_pnl_quote"] = 0.0
+        df_filtered["cum_fees_quote"] = 0.0
+        df_filtered["filled_amount_quote"] = 0.0
+        df_filtered["current_position_average_price"] = 0.0
 
         if df_filtered.empty:
-            return GridExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
+            return GridExecutorSimulation(
+                config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT
+            )
 
-        initial_mid_price = Decimal(str(df_filtered.iloc[0]['close']))
+        initial_mid_price = Decimal(str(df_filtered.iloc[0]["close"]))
         grid_levels = self._generate_grid_levels(config, initial_mid_price, trading_rules)
 
         if not grid_levels:
-            return GridExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT)
+            return GridExecutorSimulation(
+                config=config, executor_simulation=df_filtered, close_type=CloseType.TIME_LIMIT
+            )
 
         stop_loss = float(config.triple_barrier_config.stop_loss) if config.triple_barrier_config.stop_loss else None
         limit_price = float(config.limit_price) if config.limit_price else None
@@ -193,10 +206,10 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
         total_realized_amount = 0.0  # sum of all round-trip filled amounts (entry side)
         active_levels_info = {}  # level_idx -> {'entry_price': float, 'amount_quote': float}
 
-        closes = df_filtered['close'].values
-        highs = df_filtered['high'].values
-        lows = df_filtered['low'].values
-        timestamps = df_filtered['timestamp'].values
+        closes = df_filtered["close"].values
+        highs = df_filtered["high"].values
+        lows = df_filtered["low"].values
+        timestamps = df_filtered["timestamp"].values
 
         terminated = False
         close_row_idx = n_rows - 1
@@ -240,8 +253,8 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
 
                 if tp_hit:
                     entry_info = active_levels_info[lvl_idx]
-                    entry_price = entry_info['entry_price']
-                    amount_quote = entry_info['amount_quote']
+                    entry_price = entry_info["entry_price"]
+                    amount_quote = entry_info["amount_quote"]
                     amount_base = amount_quote / entry_price
 
                     # PnL from the round-trip: buy at entry_price, sell at tp_price (or vice versa)
@@ -256,13 +269,15 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
                     total_realized_amount += amount_quote
                     levels_to_deactivate.append(lvl_idx)
 
-                    fill_events.append({
-                        'timestamp': float(timestamps[row_idx]),
-                        'price': tp_price,
-                        'side': 'tp',
-                        'level_idx': lvl_idx,
-                        'amount_quote': amount_quote,
-                    })
+                    fill_events.append(
+                        {
+                            "timestamp": float(timestamps[row_idx]),
+                            "price": tp_price,
+                            "side": "tp",
+                            "level_idx": lvl_idx,
+                            "amount_quote": amount_quote,
+                        }
+                    )
 
             for lvl_idx in levels_to_deactivate:
                 del active_levels_info[lvl_idx]
@@ -284,24 +299,26 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
                     if entry_hit:
                         level_state[lvl_idx] = row_idx
                         active_levels_info[lvl_idx] = {
-                            'entry_price': level_price,
-                            'amount_quote': level_amounts_quote[lvl_idx],
+                            "entry_price": level_price,
+                            "amount_quote": level_amounts_quote[lvl_idx],
                         }
-                        fill_events.append({
-                            'timestamp': float(timestamps[row_idx]),
-                            'price': level_price,
-                            'side': 'entry',
-                            'level_idx': lvl_idx,
-                            'amount_quote': level_amounts_quote[lvl_idx],
-                        })
+                        fill_events.append(
+                            {
+                                "timestamp": float(timestamps[row_idx]),
+                                "price": level_price,
+                                "side": "entry",
+                                "level_idx": lvl_idx,
+                                "amount_quote": level_amounts_quote[lvl_idx],
+                            }
+                        )
 
             # --- Compute current unrealized PnL for active levels ---
             unrealized_pnl = 0.0
             active_amount_quote = 0.0
             weighted_entry_sum = 0.0
             for lvl_idx, info in active_levels_info.items():
-                entry_price = info['entry_price']
-                amount_quote = info['amount_quote']
+                entry_price = info["entry_price"]
+                amount_quote = info["amount_quote"]
                 amount_base = amount_quote / entry_price
                 unrealized = (close_price - entry_price) * side_multiplier * amount_base
                 # Deduct estimated entry + exit fees for active positions
@@ -346,21 +363,21 @@ class GridExecutorSimulator(ExecutorSimulatorBase):
                 break
 
         # Write arrays back into the dataframe
-        df_filtered['net_pnl_quote'] = net_pnl_quote_arr
-        df_filtered['filled_amount_quote'] = filled_amount_quote_arr
-        df_filtered['cum_fees_quote'] = cum_fees_quote_arr
-        df_filtered['current_position_average_price'] = avg_price_arr
-        df_filtered.loc[df_filtered['filled_amount_quote'] > 0, 'net_pnl_pct'] = (
-            df_filtered['net_pnl_quote'] / df_filtered['filled_amount_quote']
+        df_filtered["net_pnl_quote"] = net_pnl_quote_arr
+        df_filtered["filled_amount_quote"] = filled_amount_quote_arr
+        df_filtered["cum_fees_quote"] = cum_fees_quote_arr
+        df_filtered["current_position_average_price"] = avg_price_arr
+        df_filtered.loc[df_filtered["filled_amount_quote"] > 0, "net_pnl_pct"] = (
+            df_filtered["net_pnl_quote"] / df_filtered["filled_amount_quote"]
         )
 
         # Trim to close timestamp
-        df_filtered = df_filtered.iloc[:close_row_idx + 1].copy()
+        df_filtered = df_filtered.iloc[: close_row_idx + 1].copy()
 
         # Double the filled_amount_quote on the last row to signal position close (convention from other simulators)
         if not df_filtered.empty:
-            df_filtered.loc[df_filtered.index[-1], 'filled_amount_quote'] = (
-                df_filtered['filled_amount_quote'].iloc[-1] * 2
+            df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = (
+                df_filtered["filled_amount_quote"].iloc[-1] * 2
             )
 
         return GridExecutorSimulation(

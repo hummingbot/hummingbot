@@ -74,7 +74,7 @@ class DecibelPerpetualCandles(CandlesBase):
         """Get REST URL based on domain."""
         if self._domain == CONSTANTS.TESTNET_DOMAIN:
             return CONSTANTS.TESTNET_REST_URL
-        elif hasattr(CONSTANTS, 'NETNA_DOMAIN') and self._domain == CONSTANTS.NETNA_DOMAIN:
+        elif hasattr(CONSTANTS, "NETNA_DOMAIN") and self._domain == CONSTANTS.NETNA_DOMAIN:
             return CONSTANTS.NETNA_REST_URL
         return CONSTANTS.REST_URL
 
@@ -82,7 +82,7 @@ class DecibelPerpetualCandles(CandlesBase):
         """Get WebSocket URL based on domain."""
         if self._domain == CONSTANTS.TESTNET_DOMAIN:
             return CONSTANTS.TESTNET_WSS_URL
-        elif hasattr(CONSTANTS, 'NETNA_DOMAIN') and self._domain == CONSTANTS.NETNA_DOMAIN:
+        elif hasattr(CONSTANTS, "NETNA_DOMAIN") and self._domain == CONSTANTS.NETNA_DOMAIN:
             return CONSTANTS.NETNA_WSS_URL
         return CONSTANTS.WSS_URL
 
@@ -115,7 +115,7 @@ class DecibelPerpetualCandles(CandlesBase):
 
         if self._domain == CONSTANTS.TESTNET_DOMAIN:
             return TESTNET_CONFIG.deployment.package
-        elif hasattr(CONSTANTS, 'NETNA_DOMAIN') and self._domain == CONSTANTS.NETNA_DOMAIN:
+        elif hasattr(CONSTANTS, "NETNA_DOMAIN") and self._domain == CONSTANTS.NETNA_DOMAIN:
             return NETNA_CONFIG.deployment.package
         return MAINNET_CONFIG.deployment.package
 
@@ -157,7 +157,7 @@ class DecibelPerpetualCandles(CandlesBase):
         self,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST
+        limit: Optional[int] = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST,
     ) -> dict:
         """
         Build REST API parameters for fetching candles.
@@ -218,10 +218,20 @@ class DecibelPerpetualCandles(CandlesBase):
             taker_buy_base_volume = 0
             taker_buy_quote_volume = 0
 
-            new_hb_candles.append([
-                timestamp, open_price, high, low, close, volume,
-                quote_asset_volume, n_trades, taker_buy_base_volume, taker_buy_quote_volume
-            ])
+            new_hb_candles.append(
+                [
+                    timestamp,
+                    open_price,
+                    high,
+                    low,
+                    close,
+                    volume,
+                    quote_asset_volume,
+                    n_trades,
+                    taker_buy_base_volume,
+                    taker_buy_quote_volume,
+                ]
+            )
 
         return new_hb_candles
 
@@ -236,7 +246,7 @@ class DecibelPerpetualCandles(CandlesBase):
         market_param = self._market_addr if self._market_addr else self._ex_trading_pair
         return {
             "method": "subscribe",
-            "topic": f"{CONSTANTS.WS_CANDLES_CHANNEL}:{market_param}:{CONSTANTS.INTERVALS[self.interval]}"
+            "topic": f"{CONSTANTS.WS_CANDLES_CHANNEL}:{market_param}:{CONSTANTS.INTERVALS[self.interval]}",
         }
 
     def _parse_websocket_message(self, data: dict) -> Optional[Dict[str, Any]]:

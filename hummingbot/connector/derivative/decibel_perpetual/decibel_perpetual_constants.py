@@ -91,30 +91,58 @@ MARKET_ORDER_SLIPPAGE = Decimal("0.08")  # 8%
 VOLUME_WINDOW_30D = "30d"
 FEE_TIER_SCHEDULE = [
     # (tier, min_30d_volume_usd, maker_decimal, taker_decimal)
-    (6, Decimal("15000000000"), Decimal("0"), Decimal("0.00018")),      # > $15B
-    (5, Decimal("4000000000"), Decimal("0"), Decimal("0.00019")),       # > $4B
-    (4, Decimal("1000000000"), Decimal("0"), Decimal("0.00021")),       # > $1B
+    (6, Decimal("15000000000"), Decimal("0"), Decimal("0.00018")),  # > $15B
+    (5, Decimal("4000000000"), Decimal("0"), Decimal("0.00019")),  # > $4B
+    (4, Decimal("1000000000"), Decimal("0"), Decimal("0.00021")),  # > $1B
     (3, Decimal("200000000"), Decimal("0.00003"), Decimal("0.00022")),  # > $200M
-    (2, Decimal("50000000"), Decimal("0.00006"), Decimal("0.00025")),   # > $50M
-    (1, Decimal("10000000"), Decimal("0.00009"), Decimal("0.0003")),    # > $10M
-    (0, Decimal("0"), Decimal("0.00011"), Decimal("0.00034")),          # Tier 0 (default)
+    (2, Decimal("50000000"), Decimal("0.00006"), Decimal("0.00025")),  # > $50M
+    (1, Decimal("10000000"), Decimal("0.00009"), Decimal("0.0003")),  # > $10M
+    (0, Decimal("0"), Decimal("0.00011"), Decimal("0.00034")),  # Tier 0 (default)
 ]
 
 # Single rate limit tier (API key required for all requests)
 RATE_LIMITS = [
     RateLimit(limit_id=DECIBEL_LIMIT_ID, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL),
-    RateLimit(limit_id=GET_MARKETS_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=GET_MARKET_PRICES_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=GET_ACCOUNT_OVERVIEW_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)]),
-    RateLimit(limit_id=GET_ACCOUNT_POSITIONS_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)]),
-    RateLimit(limit_id=GET_ORDER_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=GET_USER_TRADE_HISTORY_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)]),
-    RateLimit(limit_id=GET_USER_FUNDING_HISTORY_PATH_URL, limit=DECIBEL_API_LIMIT, time_interval=DECIBEL_LIMIT_INTERVAL,
-              linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)]),
+    RateLimit(
+        limit_id=GET_MARKETS_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_MARKET_PRICES_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_OVERVIEW_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_POSITIONS_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_ORDER_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_USER_TRADE_HISTORY_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_USER_FUNDING_HISTORY_PATH_URL,
+        limit=DECIBEL_API_LIMIT,
+        time_interval=DECIBEL_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=DECIBEL_LIMIT_ID, weight=HEAVY_REQUEST_COST)],
+    ),
 ]

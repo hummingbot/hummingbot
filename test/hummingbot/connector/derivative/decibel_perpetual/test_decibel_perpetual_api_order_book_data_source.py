@@ -38,8 +38,12 @@ class DecibelPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase
         self.async_tasks = []
 
         self.connector = MagicMock()
-        self.connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=lambda trading_pair: trading_pair.replace("-", "/"))
-        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(side_effect=lambda symbol: symbol.replace("/", "-"))
+        self.connector.exchange_symbol_associated_to_pair = AsyncMock(
+            side_effect=lambda trading_pair: trading_pair.replace("-", "/")
+        )
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(
+            side_effect=lambda symbol: symbol.replace("/", "-")
+        )
         self.connector.get_last_traded_prices = AsyncMock(return_value={"BTC-USD": 50000.0})
         self.connector._trading_pairs = [self.trading_pair]
         self.connector.api_key = "test_api_key"
@@ -204,9 +208,7 @@ class DecibelPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase
         await self.data_source._parse_order_book_snapshot_message(raw_message, message_queue)
 
         self.assertEqual(0, message_queue.qsize())
-        self.assertTrue(
-            self._is_logged("WARNING", "Unknown market address in orderbook message: 0xunknown")
-        )
+        self.assertTrue(self._is_logged("WARNING", "Unknown market address in orderbook message: 0xunknown"))
 
     async def test_parse_trade_message(self):
         message_queue = asyncio.Queue()

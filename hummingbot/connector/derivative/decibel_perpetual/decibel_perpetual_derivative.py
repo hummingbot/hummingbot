@@ -279,7 +279,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
             if exchange_symbol is None:
-                self.logger().error(f"Cannot get price for {trading_pair}: exchange symbol not found. Market may not exist on this network.")
+                self.logger().error(
+                    f"Cannot get price for {trading_pair}: exchange symbol not found. Market may not exist on this network."
+                )
                 return 0.0
 
             # Convert market name to market address
@@ -288,7 +290,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 market_addr = get_market_addr(exchange_symbol, perp_engine_global)
             except Exception as e:
-                self.logger().error(f"Cannot derive market address for {exchange_symbol}: {e}. Market may not exist on this network.")
+                self.logger().error(
+                    f"Cannot derive market address for {exchange_symbol}: {e}. Market may not exist on this network."
+                )
                 return 0.0
 
             params = {"market": market_addr}
@@ -304,7 +308,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
 
             # Handle error response
             if isinstance(response, dict) and response.get("status") == "failed":
-                self.logger().error(f"Price fetch failed for {trading_pair}: {response.get('message', 'Unknown error')}")
+                self.logger().error(
+                    f"Price fetch failed for {trading_pair}: {response.get('message', 'Unknown error')}"
+                )
                 return 0.0
 
             # Response is a list of market prices, get the first one
@@ -368,9 +374,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                 px_decimals = market.get("px_decimals", 6)
                 sz_decimals = market.get("sz_decimals", 8)
 
-                min_size = Decimal(str(market.get("min_size", 0))) / Decimal(10 ** sz_decimals)
-                lot_size = Decimal(str(market.get("lot_size", 0))) / Decimal(10 ** sz_decimals)
-                tick_size = Decimal(str(market.get("tick_size", 0))) / Decimal(10 ** px_decimals)
+                min_size = Decimal(str(market.get("min_size", 0))) / Decimal(10**sz_decimals)
+                lot_size = Decimal(str(market.get("lot_size", 0))) / Decimal(10**sz_decimals)
+                tick_size = Decimal(str(market.get("tick_size", 0))) / Decimal(10**px_decimals)
 
                 trading_rule = TradingRule(
                     trading_pair=hb_trading_pair,
@@ -437,10 +443,8 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
 
         fee_schema: Optional[TradeFeeSchema] = self._trading_fees.get(trading_pair)
         if fee_schema is not None:
-            percent = (fee_schema.maker_percent_fee_decimal if is_maker
-                       else fee_schema.taker_percent_fee_decimal)
-            flat_fees = (fee_schema.maker_fixed_fees if is_maker
-                         else fee_schema.taker_fixed_fees)
+            percent = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
+            flat_fees = fee_schema.maker_fixed_fees if is_maker else fee_schema.taker_fixed_fees
             return TradeFeeBase.new_perpetual_fee(
                 fee_schema=fee_schema,
                 position_action=position_action,
@@ -516,9 +520,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                     # Storing it as-is would register the position under a hex address,
                     # preventing the strategy from recognizing / closing it (see QA reports
                     # where strategy appended buys instead of closing on fill).
-                    self.logger().warning(
-                        f"Skipping position with unknown market identifier: {raw_market}"
-                    )
+                    self.logger().warning(f"Skipping position with unknown market identifier: {raw_market}")
                     continue
 
                 position_size = Decimal(str(position_data.get("size", 0)))
@@ -583,22 +585,24 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             fee_asset = order.quote_asset
             fill_price = Decimal(str(trade.get("price", "0")))
             fill_size = Decimal(str(trade.get("size", "0")))
-            updates.append(TradeUpdate(
-                trade_id=str(trade.get("trade_id", "")),
-                client_order_id=order.client_order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=order.trading_pair,
-                fill_timestamp=trade.get("timestamp", time.time() * 1000) / 1000,
-                fill_price=fill_price,
-                fill_base_amount=fill_size,
-                fill_quote_amount=fill_price * fill_size,
-                fee=TradeFeeBase.new_perpetual_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    position_action=order.position,
-                    percent_token=fee_asset,
-                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
-                ),
-            ))
+            updates.append(
+                TradeUpdate(
+                    trade_id=str(trade.get("trade_id", "")),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=order.trading_pair,
+                    fill_timestamp=trade.get("timestamp", time.time() * 1000) / 1000,
+                    fill_price=fill_price,
+                    fill_base_amount=fill_size,
+                    fill_quote_amount=fill_price * fill_size,
+                    fee=TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=order.position,
+                        percent_token=fee_asset,
+                        flat_fees=[TokenAmount(amount=fee_amount, token=fee_asset)],
+                    ),
+                )
+            )
         return updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
@@ -651,9 +655,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             # already confirmed the cancel locally (blockchain propagation delay).
             # Pattern used by dYdX and other blockchain-based connectors.
             if new_state_from_api == OrderState.OPEN and tracked_order.current_state == OrderState.CANCELED:
-                self.logger().debug(
-                    f"Ignoring stale 'Open' status for canceled order {exchange_order_id}"
-                )
+                self.logger().debug(f"Ignoring stale 'Open' status for canceled order {exchange_order_id}")
                 state = OrderState.CANCELED
                 order_data = response.get("order", {})
                 timestamp = order_data.get("unix_ms", time.time() * 1000)
@@ -678,7 +680,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         """
         market_info = self._market_info.get(trading_pair, {})
         px_decimals = market_info.get("px_decimals", 6)
-        return int(price * Decimal(10 ** px_decimals))
+        return int(price * Decimal(10**px_decimals))
 
     def _convert_size_to_chain_units(self, trading_pair: str, size: Decimal) -> int:
         """
@@ -688,7 +690,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         """
         market_info = self._market_info.get(trading_pair, {})
         sz_decimals = market_info.get("sz_decimals", 6)
-        return int(size * Decimal(10 ** sz_decimals))
+        return int(size * Decimal(10**sz_decimals))
 
     async def _place_order(
         self,
@@ -699,7 +701,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         order_type: OrderType,
         price: Decimal,
         position_action: PositionAction = PositionAction.OPEN,
-        **kwargs
+        **kwargs,
     ) -> Tuple[str, float]:
         """
         Place order on Decibel exchange.
@@ -810,7 +812,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                     await asyncio.sleep(5)
                 else:
-                    self.logger().error(f"[ORDER SUBMIT FAILED] client={order_id} placement failed after {max_retries} retries: {e}")
+                    self.logger().error(
+                        f"[ORDER SUBMIT FAILED] client={order_id} placement failed after {max_retries} retries: {e}"
+                    )
                     raise
 
             except TxnConfirmError as e:
@@ -822,7 +826,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                     )
                     await asyncio.sleep(5)
                 else:
-                    self.logger().error(f"[ORDER CONFIRM ISSUE] client={order_id} confirmation failed after {max_retries} retries: {e}")
+                    self.logger().error(
+                        f"[ORDER CONFIRM ISSUE] client={order_id} confirmation failed after {max_retries} retries: {e}"
+                    )
                     raise
 
             except Exception as e:
@@ -844,7 +850,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         """
         from decibel import TxnConfirmError, TxnSubmitError
 
-        self.logger().debug(f"[CANCEL ATTEMPT] order_id={order_id}, exchange_order_id={tracked_order.exchange_order_id}")
+        self.logger().debug(
+            f"[CANCEL ATTEMPT] order_id={order_id}, exchange_order_id={tracked_order.exchange_order_id}"
+        )
 
         # Get exchange_order_id, waiting for it if order placement is still pending
         try:
@@ -860,8 +868,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
 
         if exchange_order_id is None:
             self.logger().warning(
-                f"[CANCEL] Cannot cancel order {order_id} - no exchange_order_id. "
-                f"The order placement may have failed."
+                f"[CANCEL] Cannot cancel order {order_id} - no exchange_order_id. The order placement may have failed."
             )
             return False
 
@@ -887,9 +894,13 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                     )
 
                     if tx_hash:
-                        self.logger().debug(f"[CANCEL SUCCESS] client={order_id} exchange={exchange_order_id} canceled: tx_hash={tx_hash} (attempt {attempt}/{max_retries})")
+                        self.logger().debug(
+                            f"[CANCEL SUCCESS] client={order_id} exchange={exchange_order_id} canceled: tx_hash={tx_hash} (attempt {attempt}/{max_retries})"
+                        )
                     else:
-                        self.logger().warning(f"[CANCEL] client={order_id} exchange={exchange_order_id} cancel submitted but no tx_hash received")
+                        self.logger().warning(
+                            f"[CANCEL] client={order_id} exchange={exchange_order_id} cancel submitted but no tx_hash received"
+                        )
 
                     return True
 
@@ -958,10 +969,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             account_addr = self.authenticator.main_wallet_address
 
             # Get recent trades
-            params = {
-                "account": account_addr,
-                "limit": 100
-            }
+            params = {"account": account_addr, "limit": 100}
 
             response = await self._api_get(
                 path_url=CONSTANTS.GET_USER_TRADE_HISTORY_PATH_URL,
@@ -975,9 +983,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             for trade_data in response.get("trades", []):
                 try:
                     exchange_order_id = str(trade_data.get("order_id", ""))
-                    tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                        exchange_order_id
-                    )
+                    tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
                     if not tracked_order:
                         continue
@@ -1041,15 +1047,15 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                     await self._process_order_update_event(data)
                 elif CONSTANTS.WS_USER_OPEN_ORDERS_CHANNEL in topic:
                     # account_open_orders: process each order in the list
-                    for order_data in (data if isinstance(data, list) else data.get("orders", [])):
+                    for order_data in data if isinstance(data, list) else data.get("orders", []):
                         await self._process_order_update_event(order_data)
                 elif CONSTANTS.WS_USER_TRADES_CHANNEL in topic:
                     # user_trades: process each trade in the list
-                    for trade_data in (data if isinstance(data, list) else data.get("trades", [])):
+                    for trade_data in data if isinstance(data, list) else data.get("trades", []):
                         await self._process_trade_event(trade_data)
                 elif CONSTANTS.WS_USER_POSITIONS_CHANNEL in topic:
                     # user_positions: process each position in the list
-                    for pos_data in (data if isinstance(data, list) else data.get("positions", [])):
+                    for pos_data in data if isinstance(data, list) else data.get("positions", []):
                         await self._process_position_update_event(pos_data)
                 elif CONSTANTS.WS_ACCOUNT_OVERVIEW_CHANNEL in topic:
                     await self._process_balance_update_event(data)
@@ -1065,9 +1071,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(exchange_order_id)
 
         if not tracked_order:
-            self.logger().debug(
-                f"Ignoring order update with id {exchange_order_id}: not in tracked orders"
-            )
+            self.logger().debug(f"Ignoring order update with id {exchange_order_id}: not in tracked orders")
             return
 
         # Map Decibel order status to Hummingbot OrderState
@@ -1077,9 +1081,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         # Ignore "Open" status updates for orders that have been explicitly canceled
         # This prevents race conditions where WS updates arrive after local cancel confirmation
         if new_state == OrderState.OPEN and tracked_order.current_state == OrderState.CANCELED:
-            self.logger().debug(
-                f"Ignoring stale 'Open' status for canceled order {exchange_order_id}"
-            )
+            self.logger().debug(f"Ignoring stale 'Open' status for canceled order {exchange_order_id}")
             return
 
         update_timestamp = event.get("timestamp", time.time() * 1000) / 1000
@@ -1106,9 +1108,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
             if tracked_order is None:
-                self.logger().debug(
-                    f"Ignoring trade event with order_id {exchange_order_id}: not in tracked orders"
-                )
+                self.logger().debug(f"Ignoring trade event with order_id {exchange_order_id}: not in tracked orders")
                 return
 
         # Build trade update
@@ -1146,9 +1146,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             if trading_pair is None:
                 # Same guard as in _update_positions - don't register a position under
                 # an unresolved hex market address.
-                self.logger().warning(
-                    f"Ignoring WS position update with unknown market identifier: {raw_market}"
-                )
+                self.logger().warning(f"Ignoring WS position update with unknown market identifier: {raw_market}")
                 return
 
             position_side = PositionSide.LONG if Decimal(str(event.get("size", "0"))) > 0 else PositionSide.SHORT
@@ -1184,7 +1182,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             # This handles the case where WS sends 0 during initial sync or for pending state
             current_available = self._account_available_balances.get("USD", Decimal("0"))
             if available_balance == 0 and current_available > 0:
-                self.logger().debug(f"Ignoring 0 balance update from WS as we have a positive balance ({current_available}) from REST.")
+                self.logger().debug(
+                    f"Ignoring 0 balance update from WS as we have a positive balance ({current_available}) from REST."
+                )
                 return
 
             self._account_available_balances["USD"] = available_balance
@@ -1254,7 +1254,9 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
                 try:
                     addr = get_market_addr(exchange_symbol, perp_engine_global)
                 except Exception:
-                    self.logger().debug(f"Skipping {exchange_symbol} in market_addr reverse map: get_market_addr failed", exc_info=True)
+                    self.logger().debug(
+                        f"Skipping {exchange_symbol} in market_addr reverse map: get_market_addr failed", exc_info=True
+                    )
                     continue
                 self._market_addr_to_trading_pair[addr] = trading_pair
 
@@ -1381,11 +1383,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             perp_engine_global = self.get_perp_engine_global_address()
             market_addr = get_market_addr(exchange_symbol, perp_engine_global)
 
-            params = {
-                "account": account_addr,
-                "market": market_addr,
-                "limit": 1
-            }
+            params = {"account": account_addr, "market": market_addr, "limit": 1}
 
             response = await self._api_get(
                 path_url=CONSTANTS.GET_USER_FUNDING_HISTORY_PATH_URL,
@@ -1526,8 +1524,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             self._trading_fees[trading_pair] = fee_schema
 
         self.logger().debug(
-            f"Updated trading fees from 30d volume ${volume_30d}: "
-            f"maker={maker_decimal}, taker={taker_decimal}"
+            f"Updated trading fees from 30d volume ${volume_30d}: maker={maker_decimal}, taker={taker_decimal}"
         )
 
     async def get_all_pairs_prices(self) -> List[Dict[str, Any]]:
@@ -1581,10 +1578,12 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
 
                     mark_px = price_data.get("mark_px")
                     if mark_px is not None:
-                        results.append({
-                            "trading_pair": hb_trading_pair,
-                            "price": str(mark_px),
-                        })
+                        results.append(
+                            {
+                                "trading_pair": hb_trading_pair,
+                                "price": str(mark_px),
+                            }
+                        )
                 except Exception:
                     self.logger().debug(f"Failed to fetch price for {exchange_symbol}")
                     continue

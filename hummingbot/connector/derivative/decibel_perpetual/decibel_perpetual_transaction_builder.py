@@ -60,6 +60,7 @@ class DecibelPerpetualTransactionBuilder:
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
             from hummingbot.logger import HummingbotLogger
+
             cls._logger = HummingbotLogger(__name__)
         return cls._logger
 
@@ -83,23 +84,20 @@ class DecibelPerpetualTransactionBuilder:
                 config = base_config
 
             self.logger().debug(f"[GAS_STATION] Final config gas_station_url: {config.gas_station_url}")
-            self.logger().debug(f"[GAS_STATION] Final config gas_station_api_key: {'Provided' if config.gas_station_api_key else 'None'}")
+            self.logger().debug(
+                f"[GAS_STATION] Final config gas_station_api_key: {'Provided' if config.gas_station_api_key else 'None'}"
+            )
 
             account = self._auth.account
 
             # Initialize GasPriceManager
             gas = GasPriceManager(
-                config,
-                opts=GasPriceManagerOptions(node_api_key=self._api_key) if self._api_key else None
+                config, opts=GasPriceManagerOptions(node_api_key=self._api_key) if self._api_key else None
             )
 
             await gas.initialize()
 
-            self._write_dex = DecibelWriteDex(
-                config,
-                account,
-                opts=BaseSDKOptions(gas_price_manager=gas)
-            )
+            self._write_dex = DecibelWriteDex(config, account, opts=BaseSDKOptions(gas_price_manager=gas))
         return self._write_dex
 
     async def place_order(
@@ -182,19 +180,23 @@ class DecibelPerpetualTransactionBuilder:
         # Handle SDK result - place_order always returns PlaceOrderSuccess or PlaceOrderFailure
         if isinstance(result, PlaceOrderFailure):
             # Order failed - extract all available error details
-            error_msg = getattr(result, 'error', None)
-            reason = getattr(result, 'reason', None)
-            message = getattr(result, 'message', None)
-            success = getattr(result, 'success', None)
+            error_msg = getattr(result, "error", None)
+            reason = getattr(result, "reason", None)
+            message = getattr(result, "message", None)
+            success = getattr(result, "success", None)
 
             # Log ALL attributes for debugging - SDK sometimes hides details
-            attrs = {k: v for k, v in result.__dict__.items() if not k.startswith('_')}
-            self.logger().error(f"[ORDER PLACEMENT FAILED] success={success}, error='{error_msg}', reason='{reason}', message='{message}'")
+            attrs = {k: v for k, v in result.__dict__.items() if not k.startswith("_")}
+            self.logger().error(
+                f"[ORDER PLACEMENT FAILED] success={success}, error='{error_msg}', reason='{reason}', message='{message}'"
+            )
             self.logger().error(f"[ORDER PLACEMENT FAILED] Full attributes: {attrs}")
             self.logger().error(f"[ORDER PLACEMENT FAILED] Result str: {str(result)}")
 
             # Use most descriptive error message available
-            error_detail = reason or message or error_msg or str(result) or "Unknown error (empty error message from SDK)"
+            error_detail = (
+                reason or message or error_msg or str(result) or "Unknown error (empty error message from SDK)"
+            )
             raise IOError(f"Order placement failed: {error_detail}")
 
         # Success - extract fields from PlaceOrderSuccess (SDK uses snake_case)
@@ -264,7 +266,7 @@ class DecibelPerpetualTransactionBuilder:
 
         # Extract transaction hash from Aptos result dict
         # The 'hash' field contains the transaction hash (not 'tx_hash' or 'transaction_hash')
-        tx_hash: Optional[str] = result.get('hash')
+        tx_hash: Optional[str] = result.get("hash")
 
         self.logger().info(f"Submitted cancel transaction: tx_hash={tx_hash}")
 

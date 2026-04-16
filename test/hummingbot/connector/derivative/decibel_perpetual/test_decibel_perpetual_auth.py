@@ -13,36 +13,27 @@ class DummyRESTRequest:
 
 
 class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
-
     def test_init_strips_0x_prefix_from_public_key(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
         assert auth._main_wallet_public_key == "mainwallet123"
 
     def test_init_strips_0X_prefix_from_public_key(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0XMAINWALLET123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0XMAINWALLET123", api_key="test-api-key"
         )
         assert auth._main_wallet_public_key == "MAINWALLET123"
 
     def test_main_wallet_address_format(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="mainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="mainwallet123", api_key="test-api-key"
         )
         assert auth.main_wallet_address == "0xmainwallet123"
 
     def test_get_subaccount_address_returns_main_wallet(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
         result = auth.get_subaccount_address("0xpackage123")
         assert result == "0xmainwallet123"
@@ -54,9 +45,7 @@ class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
         mock_account.load_key.return_value = mock_account_instance
 
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
 
         assert auth._api_wallet_account is None
@@ -72,9 +61,7 @@ class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
         mock_account.load_key.return_value = mock_account_instance
 
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
 
         address = auth.address
@@ -88,9 +75,7 @@ class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
         mock_account.load_key.return_value = mock_account_instance
 
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
 
         mock_transaction = MagicMock()
@@ -100,9 +85,7 @@ class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
 
     def test_rest_authenticate_adds_bearer_token(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key="test-api-key"
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key="test-api-key"
         )
 
         request = DummyRESTRequest(method="GET", data={"key": "value"})
@@ -113,9 +96,7 @@ class TestDecibelPerpetualAuth(IsolatedAsyncioWrapperTestCase):
 
     def test_rest_authenticate_no_token_when_api_key_empty(self):
         auth = DecibelPerpetualAuth(
-            api_wallet_private_key="0xaabbccdd",
-            main_wallet_public_key="0xmainwallet123",
-            api_key=""
+            api_wallet_private_key="0xaabbccdd", main_wallet_public_key="0xmainwallet123", api_key=""
         )
 
         request = DummyRESTRequest(method="GET", data={"key": "value"})

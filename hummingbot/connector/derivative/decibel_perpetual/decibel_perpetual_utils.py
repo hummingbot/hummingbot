@@ -31,8 +31,8 @@ class DecibelPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual API Wallet Private Key (hex format, with or without 0x prefix)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_main_wallet_public_key: SecretStr = Field(
@@ -41,8 +41,8 @@ class DecibelPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Main Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_api_key: SecretStr = Field(
@@ -51,8 +51,8 @@ class DecibelPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual API Key from geomi.dev (required for all API access)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_gas_station_api_key: SecretStr = Field(
@@ -61,8 +61,8 @@ class DecibelPerpetualConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Gas Station API Key from geomi.dev (required for sponsored transactions)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     model_config = ConfigDict(title="decibel_perpetual")
@@ -88,8 +88,8 @@ class DecibelPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Testnet API Wallet Private Key (hex format, with or without 0x prefix)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_testnet_main_wallet_public_key: SecretStr = Field(
@@ -98,8 +98,8 @@ class DecibelPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Testnet Main Wallet Public Key",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_testnet_api_key: SecretStr = Field(
@@ -108,8 +108,8 @@ class DecibelPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Testnet API Key from geomi.dev (required)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     decibel_perpetual_testnet_gas_station_api_key: SecretStr = Field(
@@ -118,13 +118,11 @@ class DecibelPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt": "Enter your Decibel Perpetual Testnet Gas Station API Key from geomi.dev (required for sponsored transactions)",
             "is_secure": True,
             "is_connect_key": True,
-            "prompt_on_new": True
-        }
+            "prompt_on_new": True,
+        },
     )
 
     model_config = ConfigDict(title="decibel_perpetual_testnet")
 
 
-OTHER_DOMAINS_KEYS = {
-    "decibel_perpetual_testnet": DecibelPerpetualTestnetConfigMap.model_construct()
-}
+OTHER_DOMAINS_KEYS = {"decibel_perpetual_testnet": DecibelPerpetualTestnetConfigMap.model_construct()}

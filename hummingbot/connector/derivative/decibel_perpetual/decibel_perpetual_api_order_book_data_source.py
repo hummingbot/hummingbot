@@ -53,7 +53,7 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Includes API key if available for better rate limits.
         """
         headers = {}
-        if hasattr(self._connector, 'api_key') and self._connector.api_key:
+        if hasattr(self._connector, "api_key") and self._connector.api_key:
             headers["Authorization"] = f"Bearer {self._connector.api_key}"
         return headers
 
@@ -78,13 +78,8 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         timestamp = time.time()
         return OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
-            {
-                "trading_pair": trading_pair,
-                "update_id": int(timestamp * 1000),
-                "bids": [],
-                "asks": []
-            },
-            timestamp=timestamp
+            {"trading_pair": trading_pair, "update_id": int(timestamp * 1000), "bids": [], "asks": []},
+            timestamp=timestamp,
         )
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -103,7 +98,7 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 params={"market": market_addr},
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.GET_MARKET_PRICES_PATH_URL,
-                headers=self._get_headers()
+                headers=self._get_headers(),
             )
             price_data = response[0] if isinstance(response, list) and len(response) > 0 else response
 
@@ -141,13 +136,13 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         # Add authentication headers for WebSocket connection
         headers = {}
-        if hasattr(self._connector, 'api_key') and self._connector.api_key:
+        if hasattr(self._connector, "api_key") and self._connector.api_key:
             headers["Authorization"] = f"Bearer {self._connector.api_key}"
 
         await ws_assistant.connect(
             ws_url=ws_url,
             ping_timeout=None,  # Disable aiohttp heartbeat - use app-level ping instead
-            ws_headers=headers
+            ws_headers=headers,
         )
 
         # Start application-level ping to keep connection alive
@@ -170,24 +165,21 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 self._market_addr_to_trading_pair[market_addr] = trading_pair
 
                 # Subscribe to order book updates
-                subscribe_orderbook_request = WSJSONRequest({
-                    "method": "subscribe",
-                    "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"
-                })
+                subscribe_orderbook_request = WSJSONRequest(
+                    {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"}
+                )
                 await ws_assistant.send(subscribe_orderbook_request)
 
                 # Subscribe to trades
-                subscribe_trades_request = WSJSONRequest({
-                    "method": "subscribe",
-                    "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"
-                })
+                subscribe_trades_request = WSJSONRequest(
+                    {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"}
+                )
                 await ws_assistant.send(subscribe_trades_request)
 
                 # Subscribe to prices (for funding rate updates)
-                subscribe_prices_request = WSJSONRequest({
-                    "method": "subscribe",
-                    "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"
-                })
+                subscribe_prices_request = WSJSONRequest(
+                    {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"}
+                )
                 await ws_assistant.send(subscribe_prices_request)
 
             self.logger().debug("Subscribed to all public channels")
@@ -231,7 +223,9 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         trading_pair = self._market_addr_to_trading_pair.get(market_addr)
         if not trading_pair:
-            self.logger().warning(f"Unknown market address in orderbook message: {market_addr} from topic {topic}. Known mappings: {self._market_addr_to_trading_pair}")
+            self.logger().warning(
+                f"Unknown market address in orderbook message: {market_addr} from topic {topic}. Known mappings: {self._market_addr_to_trading_pair}"
+            )
             return
 
         # MarketDepthMessage from Decibel doesn't contain a timestamp, use current time
@@ -249,12 +243,14 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "trading_pair": trading_pair,
                 "update_id": int(timestamp * 1000),
                 "bids": [_parse_level(b) for b in raw_message.get("bids", [])],
-                "asks": [_parse_level(a) for a in raw_message.get("asks", [])]
+                "asks": [_parse_level(a) for a in raw_message.get("asks", [])],
             },
-            timestamp=timestamp
+            timestamp=timestamp,
         )
 
-        self.logger().debug(f"Created OrderBookMessage for {trading_pair} with {len(order_book_message.bids)} bids and {len(order_book_message.asks)} asks.")
+        self.logger().debug(
+            f"Created OrderBookMessage for {trading_pair} with {len(order_book_message.bids)} bids and {len(order_book_message.asks)} asks."
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -290,9 +286,9 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     "trade_id": trade.get("trade_id"),
                     "update_id": ts_ms,
                     "price": str(trade.get("price")),
-                    "amount": str(trade.get("size"))
+                    "amount": str(trade.get("size")),
                 },
-                timestamp=ts_ms / 1000
+                timestamp=ts_ms / 1000,
             )
             message_queue.put_nowait(trade_message)
 
@@ -372,24 +368,21 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._market_addr_to_trading_pair[market_addr] = trading_pair
 
         # Subscribe to order book
-        subscribe_orderbook_request = WSJSONRequest({
-            "method": "subscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"
-        })
+        subscribe_orderbook_request = WSJSONRequest(
+            {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"}
+        )
         await self._ws_assistant.send(subscribe_orderbook_request)
 
         # Subscribe to trades
-        subscribe_trades_request = WSJSONRequest({
-            "method": "subscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"
-        })
+        subscribe_trades_request = WSJSONRequest(
+            {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"}
+        )
         await self._ws_assistant.send(subscribe_trades_request)
 
         # Subscribe to prices (funding)
-        subscribe_prices_request = WSJSONRequest({
-            "method": "subscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"
-        })
+        subscribe_prices_request = WSJSONRequest(
+            {"method": "subscribe", "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"}
+        )
         await self._ws_assistant.send(subscribe_prices_request)
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str):
@@ -403,22 +396,19 @@ class DecibelPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         market_addr = await self._connector.get_market_addr_for_pair(trading_pair)
 
         # Unsubscribe from order book
-        unsubscribe_orderbook_request = WSJSONRequest({
-            "method": "unsubscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"
-        })
+        unsubscribe_orderbook_request = WSJSONRequest(
+            {"method": "unsubscribe", "topic": f"{CONSTANTS.WS_MARKET_DEPTH_CHANNEL}:{market_addr}:1"}
+        )
         await self._ws_assistant.send(unsubscribe_orderbook_request)
 
         # Unsubscribe from trades
-        unsubscribe_trades_request = WSJSONRequest({
-            "method": "unsubscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"
-        })
+        unsubscribe_trades_request = WSJSONRequest(
+            {"method": "unsubscribe", "topic": f"{CONSTANTS.WS_MARKET_TRADES_CHANNEL}:{market_addr}"}
+        )
         await self._ws_assistant.send(unsubscribe_trades_request)
 
         # Unsubscribe from prices (funding)
-        unsubscribe_prices_request = WSJSONRequest({
-            "method": "unsubscribe",
-            "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"
-        })
+        unsubscribe_prices_request = WSJSONRequest(
+            {"method": "unsubscribe", "topic": f"{CONSTANTS.WS_MARKET_PRICE_CHANNEL}:{market_addr}"}
+        )
         await self._ws_assistant.send(unsubscribe_prices_request)

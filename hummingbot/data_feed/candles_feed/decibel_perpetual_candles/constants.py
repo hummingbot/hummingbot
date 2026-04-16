@@ -22,19 +22,21 @@ CANDLES_ENDPOINT = "/api/v1/candlesticks"
 WS_CANDLES_CHANNEL = "market_candlestick"
 
 # Supported intervals (Decibel supports standard intervals)
-INTERVALS = bidict({
-    "1m": "1m",
-    "3m": "3m",
-    "5m": "5m",
-    "15m": "15m",
-    "30m": "30m",
-    "1h": "1h",
-    "2h": "2h",
-    "4h": "4h",
-    "8h": "8h",
-    "12h": "12h",
-    "1d": "1d",
-})
+INTERVALS = bidict(
+    {
+        "1m": "1m",
+        "3m": "3m",
+        "5m": "5m",
+        "15m": "15m",
+        "30m": "30m",
+        "1h": "1h",
+        "2h": "2h",
+        "4h": "4h",
+        "8h": "8h",
+        "12h": "12h",
+        "1d": "1d",
+    }
+)
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
@@ -45,8 +47,16 @@ STANDARD_REQUEST_COST = 1
 
 RATE_LIMITS = [
     RateLimit(limit_id=DECIBEL_CANDLES_LIMIT_ID, limit=400, time_interval=60),
-    RateLimit(limit_id=HEALTH_CHECK_ENDPOINT, limit=400, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(DECIBEL_CANDLES_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
-    RateLimit(limit_id=CANDLES_ENDPOINT, limit=400, time_interval=60,
-              linked_limits=[LinkedLimitWeightPair(DECIBEL_CANDLES_LIMIT_ID, weight=STANDARD_REQUEST_COST)]),
+    RateLimit(
+        limit_id=HEALTH_CHECK_ENDPOINT,
+        limit=400,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(DECIBEL_CANDLES_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CANDLES_ENDPOINT,
+        limit=400,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(DECIBEL_CANDLES_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
 ]

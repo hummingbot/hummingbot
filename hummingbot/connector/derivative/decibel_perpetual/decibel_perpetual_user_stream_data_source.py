@@ -32,6 +32,7 @@ class DecibelPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     All subscriptions are subaccount-based since Decibel uses subaccounts for trading.
     """
+
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(
@@ -70,13 +71,13 @@ class DecibelPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
         # Add authentication headers for WebSocket connection
         headers = {}
-        if hasattr(self._connector, 'api_key') and self._connector.api_key:
+        if hasattr(self._connector, "api_key") and self._connector.api_key:
             headers["Authorization"] = f"Bearer {self._connector.api_key}"
 
         await ws.connect(
             ws_url=ws_url,
             ping_timeout=None,  # Disable aiohttp heartbeat
-            ws_headers=headers
+            ws_headers=headers,
         )
         self._ping_task = safe_ensure_future(self._ping_loop(ws))
         return ws
@@ -99,26 +100,23 @@ class DecibelPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             # Subscribe to account overview (balance, margin, etc.)
             account_overview_payload = {
                 "method": "subscribe",
-                "topic": f"{CONSTANTS.WS_ACCOUNT_OVERVIEW_CHANNEL}:{account_addr}"
+                "topic": f"{CONSTANTS.WS_ACCOUNT_OVERVIEW_CHANNEL}:{account_addr}",
             }
 
             # Subscribe to user positions
             user_positions_payload = {
                 "method": "subscribe",
-                "topic": f"{CONSTANTS.WS_USER_POSITIONS_CHANNEL}:{account_addr}"
+                "topic": f"{CONSTANTS.WS_USER_POSITIONS_CHANNEL}:{account_addr}",
             }
 
             # Subscribe to open orders
             open_orders_payload = {
                 "method": "subscribe",
-                "topic": f"{CONSTANTS.WS_USER_OPEN_ORDERS_CHANNEL}:{account_addr}"
+                "topic": f"{CONSTANTS.WS_USER_OPEN_ORDERS_CHANNEL}:{account_addr}",
             }
 
             # Subscribe to user trades
-            user_trades_payload = {
-                "method": "subscribe",
-                "topic": f"{CONSTANTS.WS_USER_TRADES_CHANNEL}:{account_addr}"
-            }
+            user_trades_payload = {"method": "subscribe", "topic": f"{CONSTANTS.WS_USER_TRADES_CHANNEL}:{account_addr}"}
 
             await websocket_assistant.send(WSJSONRequest(account_overview_payload))
             await websocket_assistant.send(WSJSONRequest(user_positions_payload))
