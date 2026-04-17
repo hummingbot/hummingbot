@@ -281,7 +281,7 @@ def test_get_exchange_rate_raises_when_rate_source_returns_none():
     rate_source.get_pair_rate.return_value = None
 
     with pytest.raises(ValueError, match="Could not find the exchange rate"):
-        TradeFeeBase._get_exchange_rate("BTC-USDT", exchange=None, rate_source=rate_source)
+        TradeFeeBase._get_exchange_rate("BTC-USDT", rate_source=rate_source)
 
 
 def test_fee_amount_in_token_flat_fee_base_to_quote_conversion():

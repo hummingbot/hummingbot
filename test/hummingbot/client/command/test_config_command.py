@@ -36,6 +36,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
         strategy_name = "some-strategy"
         self.app.trading_core.strategy_name = strategy_name
         self.app.client_config_map.commands_timeout.other_commands_timeout = Decimal("30.0")
+        self.app.client_config_map.rate_oracle_source = "binance"
 
         strategy_config_map_mock = {
             "five": ConfigVar(key="five", prompt=""),
