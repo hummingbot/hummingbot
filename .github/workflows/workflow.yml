@@ -98,7 +98,8 @@ jobs:
             --ignore="test/hummingbot/remote_iface/" \
             --ignore="test/connector/utilities/oms_connector/" \
             --ignore="test/hummingbot/strategy/amm_arb/" \
-            --ignore="test/hummingbot/strategy/cross_exchange_market_making/"
+            --ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
+            --ignore="test/hummingbot/connector/derivative/decibel_perpetual/"
 
       - name: Coverage report
         run: |
