@@ -137,6 +137,7 @@ install-dev = "pip install --no-build-isolation -e ."
 build = { cmd = "python setup.py build_ext --inplace", depends-on = ["install-dev"] }
 test = { cmd = "pytest test", depends-on = ["build"] }
 test-unit = { cmd = "pytest test/hummingbot", depends-on = ["build"] }
+test-fast = "pytest --timeout=30 --tb=short -q"
 lint = "ruff check hummingbot test"
 lint-cython = "cython-lint hummingbot"
 format = "ruff format hummingbot test"
