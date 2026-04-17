@@ -54,6 +54,7 @@ platforms = ["linux-64", "osx-arm64"]
 # Build/install
 python = ">=3.10.12,<3.13"
 cython = ">=3.0.12"
+maturin = ">=1.5"
 setuptools = ">=80.8.0"
 pip = ">=23.2.1"
 # Core runtime
@@ -135,6 +136,7 @@ ci = { features = ["ci", "dev"], solve-group = "default" }
 [tool.pixi.tasks]
 install-dev = "pip install --no-build-isolation -e ."
 build = { cmd = "python setup.py build_ext --inplace", depends-on = ["install-dev"] }
+rust-build = { cmd = "maturin develop --manifest-path hummingbot/rust/Cargo.toml", depends-on = ["install-dev"] }
 test = { cmd = "pytest test", depends-on = ["build"] }
 test-unit = { cmd = "pytest test/hummingbot", depends-on = ["build"] }
 test-fast = "pytest --timeout=30 --tb=short -q"
