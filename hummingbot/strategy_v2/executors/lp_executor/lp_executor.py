@@ -54,12 +54,14 @@ class LPExecutor(ExecutorBase):
     ):
         # Extract connector names from config for ExecutorBase
         connectors = [config.connector_name]
-        super().__init__(strategy, connectors, config, update_interval)
+        super().__init__(strategy, connectors, config, update_interval, max_retries=max_retries)
         self.config: LPExecutorConfig = config
         self._max_retries = max_retries
         self.lp_position_state = LPExecutorState()
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
+        self._max_retries_reached = False  # True when max retries reached, requires intervention
+        self._last_attempted_signature: Optional[str] = None  # Track for retry logging
         # Position tracking - store LP position for position aggregation when keep_position=True
         self._held_position_orders: List[Dict] = []
         # Swap tracking for close-out flow

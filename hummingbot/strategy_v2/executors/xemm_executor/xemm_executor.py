@@ -45,12 +45,12 @@ class XEMMExecutor(ExecutorBase):
             {"WBTC", "BTC"},
             {"USOL", "SOL"},
             {"UETH", "ETH"},
-            {"UBTC", "BTC"},
+            {"UBTC", "BTC"}
         ]
         same_token_condition = first_token == second_token
-        tokens_interchangeable_condition = any(
-            ({first_token, second_token} <= interchangeable_pair for interchangeable_pair in interchangeable_tokens)
-        )
+        tokens_interchangeable_condition = any(({first_token, second_token} <= interchangeable_pair
+                                                for interchangeable_pair
+                                                in interchangeable_tokens))
         # for now, we will consider all the stablecoins interchangeable
         stable_coins_condition = "USD" in first_token and "USD" in second_token
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
@@ -60,12 +60,10 @@ class XEMMExecutor(ExecutorBase):
         base_asset2, _ = split_hb_trading_pair(pair2)
         return self._are_tokens_interchangeable(base_asset1, base_asset2)
 
-    def __init__(
-        self, strategy: StrategyV2Base, config: XEMMExecutorConfig, update_interval: float = 1.0, max_retries: int = 10
-    ):
-        if not self.is_arbitrage_valid(
-            pair1=config.buying_market.trading_pair, pair2=config.selling_market.trading_pair
-        ):
+    def __init__(self, strategy: StrategyV2Base, config: XEMMExecutorConfig, update_interval: float = 1.0,
+                 max_retries: int = 10):
+        if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
+                                       pair2=config.selling_market.trading_pair):
             raise Exception("XEMM is not valid since the trading pairs are not interchangeable.")
         self.config = config
         self.rate_oracle = RateOracle.get_instance()
@@ -101,33 +99,27 @@ class XEMMExecutor(ExecutorBase):
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
-        self._current_retries = 0
-        self._max_retries = max_retries
-        super().__init__(
-            strategy=strategy,
-            connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
-            config=config,
-            update_interval=update_interval,
-        )
+        super().__init__(strategy=strategy,
+                         connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
+                         config=config, update_interval=update_interval, max_retries=max_retries)
 
     async def validate_sufficient_balance(self):
-        mid_price = self.get_price(self.maker_connector, self.maker_trading_pair, price_type=PriceType.MidPrice)
+        mid_price = self.get_price(self.maker_connector, self.maker_trading_pair,
+                                   price_type=PriceType.MidPrice)
         maker_order_candidate = OrderCandidate(
             trading_pair=self.maker_trading_pair,
             is_maker=True,
             order_type=OrderType.LIMIT,
             order_side=self.maker_order_side,
             amount=self.config.order_amount,
-            price=mid_price,
-        )
+            price=mid_price,)
         taker_order_candidate = OrderCandidate(
             trading_pair=self.taker_trading_pair,
             is_maker=False,
             order_type=OrderType.MARKET,
             order_side=self.taker_order_side,
             amount=self.config.order_amount,
-            price=mid_price,
-        )
+            price=mid_price,)
         maker_adjusted_candidate = self.adjust_order_candidates(self.maker_connector, [maker_order_candidate])[0]
         taker_adjusted_candidate = self.adjust_order_candidates(self.taker_connector, [taker_order_candidate])[0]
         if maker_adjusted_candidate.amount == Decimal("0") or taker_adjusted_candidate.amount == Decimal("0"):
@@ -153,59 +145,43 @@ class XEMMExecutor(ExecutorBase):
             connector=self.taker_connector,
             trading_pair=self.taker_trading_pair,
             is_buy=self.taker_order_side == TradeType.BUY,
-            order_amount=self.config.order_amount,
-        )
+            order_amount=self.config.order_amount)
         await self.update_tx_costs()
         if self.taker_order_side == TradeType.BUY:
             # Maker is SELL: profitability = (maker_price - taker_price) / maker_price
             # To achieve target: maker_price = taker_price / (1 - target_profitability - tx_cost_pct)
-            self._maker_target_price = self._taker_result_price / (
-                Decimal("1") - self.config.target_profitability - self._tx_cost_pct
-            )
+            self._maker_target_price = self._taker_result_price / (Decimal("1") - self.config.target_profitability - self._tx_cost_pct)
         else:
             # Maker is BUY: profitability = (taker_price - maker_price) / maker_price
             # To achieve target: maker_price = taker_price / (1 + target_profitability + tx_cost_pct)
-            self._maker_target_price = self._taker_result_price / (
-                Decimal("1") + self.config.target_profitability + self._tx_cost_pct
-            )
+            self._maker_target_price = self._taker_result_price / (Decimal("1") + self.config.target_profitability + self._tx_cost_pct)
 
     async def update_tx_costs(self):
         base, quote = split_hb_trading_pair(trading_pair=self.config.buying_market.trading_pair)
         base_without_wrapped = base[1:] if base.startswith("W") else base
-        taker_fee_task = asyncio.create_task(
-            self.get_tx_cost_in_asset(
-                exchange=self.taker_connector,
-                trading_pair=self.taker_trading_pair,
-                order_type=OrderType.MARKET,
-                is_buy=self.taker_order_side == TradeType.BUY,
-                order_amount=self.config.order_amount,
-                asset=base_without_wrapped,
-            )
-        )
-        maker_fee_task = asyncio.create_task(
-            self.get_tx_cost_in_asset(
-                exchange=self.maker_connector,
-                trading_pair=self.maker_trading_pair,
-                order_type=OrderType.LIMIT,
-                is_buy=self.maker_order_side == TradeType.BUY,
-                order_amount=self.config.order_amount,
-                asset=base_without_wrapped,
-            )
-        )
+        taker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
+            exchange=self.taker_connector,
+            trading_pair=self.taker_trading_pair,
+            order_type=OrderType.MARKET,
+            is_buy=self.taker_order_side == TradeType.BUY,
+            order_amount=self.config.order_amount,
+            asset=base_without_wrapped
+        ))
+        maker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
+            exchange=self.maker_connector,
+            trading_pair=self.maker_trading_pair,
+            order_type=OrderType.LIMIT,
+            is_buy=self.maker_order_side == TradeType.BUY,
+            order_amount=self.config.order_amount,
+            asset=base_without_wrapped
+        ))
 
         taker_fee, maker_fee = await asyncio.gather(taker_fee_task, maker_fee_task)
         self._tx_cost = taker_fee + maker_fee
         self._tx_cost_pct = self._tx_cost / self.config.order_amount
 
-    async def get_tx_cost_in_asset(
-        self,
-        exchange: str,
-        trading_pair: str,
-        is_buy: bool,
-        order_amount: Decimal,
-        asset: str,
-        order_type: OrderType = OrderType.MARKET,
-    ):
+    async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal,
+                                   asset: str, order_type: OrderType = OrderType.MARKET):
         connector = self.connectors[exchange]
         if self.is_amm_connector(exchange=exchange):
             gas_cost = connector.network_transaction_fee
@@ -231,9 +207,8 @@ class XEMMExecutor(ExecutorBase):
                 token=asset,
             )
 
-    async def get_resulting_price_for_amount(
-        self, connector: str, trading_pair: str, is_buy: bool, order_amount: Decimal
-    ):
+    async def get_resulting_price_for_amount(self, connector: str, trading_pair: str, is_buy: bool,
+                                             order_amount: Decimal):
         return await self.connectors[connector].get_quote_price(trading_pair, is_buy, order_amount)
 
     async def create_maker_order(self):
@@ -243,8 +218,7 @@ class XEMMExecutor(ExecutorBase):
             order_type=OrderType.LIMIT,
             side=self.maker_order_side,
             amount=self.config.order_amount,
-            price=self._maker_target_price,
-        )
+            price=self._maker_target_price)
         self.maker_order = TrackedOrder(order_id=order_id)
         self.logger().info(f"Created maker order {order_id} at price {self._maker_target_price}.")
 
@@ -256,15 +230,11 @@ class XEMMExecutor(ExecutorBase):
     async def control_update_maker_order(self):
         await self.update_current_trade_profitability()
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
-            self.logger().info(
-                f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order."
-            )
+            self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
         elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
-            self.logger().info(
-                f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order."
-            )
+            self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
             self.maker_order = None
 
@@ -289,9 +259,10 @@ class XEMMExecutor(ExecutorBase):
         self._current_trade_profitability = trade_profitability
         return trade_profitability
 
-    def process_order_created_event(
-        self, event_tag: int, market: ConnectorBase, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]
-    ):
+    def process_order_created_event(self,
+                                    event_tag: int,
+                                    market: ConnectorBase,
+                                    event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if self.maker_order and event.order_id == self.maker_order.order_id:
             self.logger().info(f"Maker order {event.order_id} created.")
             self.maker_order.order = self.get_in_flight_order(self.maker_connector, event.order_id)
@@ -299,9 +270,10 @@ class XEMMExecutor(ExecutorBase):
             self.logger().info(f"Taker order {event.order_id} created.")
             self.taker_order.order = self.get_in_flight_order(self.taker_connector, event.order_id)
 
-    def process_order_completed_event(
-        self, event_tag: int, market: ConnectorBase, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]
-    ):
+    def process_order_completed_event(self,
+                                      event_tag: int,
+                                      market: ConnectorBase,
+                                      event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         if self.maker_order and event.order_id == self.maker_order.order_id:
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
             self.place_taker_order()
@@ -313,8 +285,7 @@ class XEMMExecutor(ExecutorBase):
             trading_pair=self.taker_trading_pair,
             order_type=OrderType.MARKET,
             side=self.taker_order_side,
-            amount=self.config.order_amount,
-        )
+            amount=self.config.order_amount)
         self.taker_order = TrackedOrder(order_id=taker_order_id)
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
@@ -352,7 +323,7 @@ class XEMMExecutor(ExecutorBase):
         if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             self.logger().info(f"Cancelling maker order {self.maker_order.order_id}.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-        self.close_type = CloseType.EARLY_STOP
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self.stop()
 
     def get_cum_fees_quote(self) -> Decimal:
@@ -362,13 +333,7 @@ class XEMMExecutor(ExecutorBase):
             return Decimal("0")
 
     def get_net_pnl_quote(self) -> Decimal:
-        if (
-            self.is_closed
-            and self.maker_order
-            and self.taker_order
-            and self.maker_order.is_done
-            and self.taker_order.is_done
-        ):
+        if self.is_closed and self.maker_order and self.taker_order and self.maker_order.is_done and self.taker_order.is_done:
             maker_pnl = self.maker_order.executed_amount_base * self.maker_order.average_executed_price
             taker_pnl = self.taker_order.executed_amount_base * self.taker_order.average_executed_price
             return taker_pnl - maker_pnl - self.get_cum_fees_quote()
@@ -401,6 +366,6 @@ Maker Side: {self.maker_order_side}
     - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
     - Min profitability: {self.config.min_profitability * 100:.2f}% | Target profitability: {self.config.target_profitability * 100:.2f}% | Max profitability: {self.config.max_profitability * 100:.2f}% | Current profitability: {(self._current_trade_profitability - self._tx_cost_pct) * 100:.2f}%
     - Trade profitability: {self._current_trade_profitability * 100:.2f}% | Tx cost: {self._tx_cost_pct * 100:.2f}%
-    - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split("-")[-1]} | Order amount (Base): {self.config.order_amount:.2f}
+    - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split('-')[-1]} | Order amount (Base): {self.config.order_amount:.2f}
 -----------------------------------------------------------------------------------------------------------------------
 """
