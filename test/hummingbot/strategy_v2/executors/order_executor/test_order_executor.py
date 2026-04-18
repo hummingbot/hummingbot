@@ -735,7 +735,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 
@@ -758,7 +758,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 
@@ -787,7 +787,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 
@@ -811,7 +811,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 
@@ -843,7 +843,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 
@@ -859,7 +859,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             trading_pair="ETH-USDT",
             amount=Decimal("1"),
             price=Decimal("100"),
-            execution_strategy=ExecutionStrategy.MARKET
+            execution_strategy=ExecutionStrategy.MARKET,
         )
         executor = self.get_order_executor_from_config(config)
 

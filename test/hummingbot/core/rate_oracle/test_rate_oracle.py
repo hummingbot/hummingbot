@@ -92,7 +92,7 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         # Test case 2: common denominator pair has zero price - should skip that path
         prices_with_zero_common = {
             "HBOT-USDT": Decimal("100"),
-            "GBP-USDT": Decimal("0")  # Zero price in common denominator
+            "GBP-USDT": Decimal("0"),  # Zero price in common denominator
         }
         rate = find_rate(prices_with_zero_common, "HBOT-GBP")
         # Should return None since the only route involves dividing by zero

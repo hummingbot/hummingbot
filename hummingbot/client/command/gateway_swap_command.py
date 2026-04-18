@@ -31,8 +31,13 @@ class GatewaySwapCommand:
 
         safe_ensure_future(self._gateway_swap(connector, pair, side, amount), loop=self.ev_loop)
 
-    async def _gateway_swap(self, connector: Optional[str] = None,
-                            pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
+    async def _gateway_swap(
+        self,
+        connector: Optional[str] = None,
+        pair: Optional[str] = None,
+        side: Optional[str] = None,
+        amount: Optional[str] = None,
+    ):
         """Unified swap flow - get quote first, then ask for confirmation to execute."""
         swap_connector = None
         try:
@@ -110,9 +115,7 @@ class GatewaySwapCommand:
                 return
 
             # Get default wallet for the chain
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
-                chain
-            )
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
             if error:
                 self.notify(error)
                 return
@@ -156,7 +159,7 @@ class GatewaySwapCommand:
                 amount=amount_decimal,
                 side=trade_side,
                 slippage_pct=None,  # Use default slippage from connector config
-                pool_address=None   # Let gateway find the best pool
+                pool_address=None,  # Let gateway find the best pool
             )
 
             if "error" in quote_resp:
@@ -165,17 +168,17 @@ class GatewaySwapCommand:
                 return
 
             # Store quote ID for logging only
-            quote_id = quote_resp.get('quoteId')
+            quote_id = quote_resp.get("quoteId")
             if quote_id:
                 self.logger().info(f"Swap quote ID: {quote_id}")
 
             # Extract relevant details from quote response
-            token_in = quote_resp.get('tokenIn')
-            token_out = quote_resp.get('tokenOut')
-            amount_in = quote_resp.get('amountIn')
-            amount_out = quote_resp.get('amountOut')
-            min_amount_out = quote_resp.get('minAmountOut')
-            max_amount_in = quote_resp.get('maxAmountIn')
+            token_in = quote_resp.get("tokenIn")
+            token_out = quote_resp.get("tokenOut")
+            amount_in = quote_resp.get("amountIn")
+            amount_out = quote_resp.get("amountOut")
+            min_amount_out = quote_resp.get("minAmountOut")
+            max_amount_in = quote_resp.get("maxAmountIn")
 
             # Display transaction details
             self.notify("\n=== Swap Transaction ===")
@@ -196,12 +199,12 @@ class GatewaySwapCommand:
             warnings = quote_resp.get("warnings", [])
 
             # Extract and display fee info
-            fee_info = quote_resp.get('feeInfo', {})
+            fee_info = quote_resp.get("feeInfo", {})
             if not fee_info:
                 # Try to construct basic fee info from response
                 fee_info = {
-                    "transactionFee": quote_resp.get('fee', 'N/A'),
-                    "transactionFeeSymbol": quote_resp.get('feeAsset', chain.upper())
+                    "transactionFee": quote_resp.get("fee", "N/A"),
+                    "transactionFeeSymbol": quote_resp.get("feeAsset", chain.upper()),
                 }
 
             GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
@@ -213,9 +216,7 @@ class GatewaySwapCommand:
             await GatewayCommandUtils.enter_interactive_mode(self)
             try:
                 # Show wallet info in prompt
-                if not await GatewayCommandUtils.prompt_for_confirmation(
-                    self, "Do you want to execute this swap now?"
-                ):
+                if not await GatewayCommandUtils.prompt_for_confirmation(self, "Do you want to execute this swap now?"):
                     self.notify("Swap cancelled")
                     await swap_connector.stop_network()
                     return
@@ -223,7 +224,7 @@ class GatewaySwapCommand:
                 self.notify("\nExecuting swap...")
 
                 # Use price from quote for better tracking
-                price_value = quote_resp.get('price', '0')
+                price_value = quote_resp.get("price", "0")
                 # Handle both string and numeric price values
                 try:
                     price = Decimal(str(price_value))
@@ -247,7 +248,7 @@ class GatewaySwapCommand:
                         amount=amount_decimal,
                         price=price,
                         order_type=OrderType.MARKET,
-                        **swap_kwargs
+                        **swap_kwargs,
                     )
                 else:
                     order_id = swap_connector.sell(
@@ -255,7 +256,7 @@ class GatewaySwapCommand:
                         amount=amount_decimal,
                         price=price,
                         order_type=OrderType.MARKET,
-                        **swap_kwargs
+                        **swap_kwargs,
                     )
 
                 self.notify(f"Order created: {order_id}")
@@ -268,7 +269,7 @@ class GatewaySwapCommand:
                     order_id=order_id,
                     timeout=60.0,
                     check_interval=1.0,
-                    pending_msg_delay=3.0
+                    pending_msg_delay=3.0,
                 )
 
                 if result.get("success"):

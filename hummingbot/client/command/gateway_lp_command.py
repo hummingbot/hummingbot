@@ -74,47 +74,31 @@ class GatewayLPCommand:
         pool_info: Union[AMMPoolInfo, CLMMPoolInfo],
         is_clmm: bool,
         base_token: str = None,
-        quote_token: str = None
+        quote_token: str = None,
     ):
         """Display pool information in a user-friendly format"""
         LPCommandUtils.display_pool_info(self, pool_info, is_clmm, base_token, quote_token)
 
-    def _format_position_id(
-        self,
-        position: Union[AMMPositionInfo, CLMMPositionInfo]
-    ) -> str:
+    def _format_position_id(self, position: Union[AMMPositionInfo, CLMMPositionInfo]) -> str:
         """Format position identifier for display"""
         return LPCommandUtils.format_position_id(position)
 
     def _calculate_removal_amounts(
-        self,
-        position: Union[AMMPositionInfo, CLMMPositionInfo],
-        percentage: float
+        self, position: Union[AMMPositionInfo, CLMMPositionInfo], percentage: float
     ) -> Tuple[float, float]:
         """Calculate token amounts to receive when removing liquidity"""
         return LPCommandUtils.calculate_removal_amounts(position, percentage)
 
-    def _display_positions_with_fees(
-        self,
-        positions: List[CLMMPositionInfo]
-    ):
+    def _display_positions_with_fees(self, positions: List[CLMMPositionInfo]):
         """Display positions that have uncollected fees"""
         LPCommandUtils.display_positions_with_fees(self, positions)
 
-    def _calculate_total_fees(
-        self,
-        positions: List[CLMMPositionInfo]
-    ) -> Dict[str, float]:
+    def _calculate_total_fees(self, positions: List[CLMMPositionInfo]) -> Dict[str, float]:
         """Calculate total fees across positions grouped by token"""
         return LPCommandUtils.calculate_total_fees(positions)
 
     def _calculate_clmm_pair_amount(
-        self,
-        known_amount: float,
-        pool_info: CLMMPoolInfo,
-        lower_price: float,
-        upper_price: float,
-        is_base_known: bool
+        self, known_amount: float, pool_info: CLMMPoolInfo, lower_price: float, upper_price: float, is_base_known: bool
     ) -> float:
         """
         Calculate the paired token amount for CLMM positions.
@@ -132,7 +116,7 @@ class GatewayLPCommand:
         is_clmm: bool,
         chain: str,
         network: str,
-        wallet_address: str
+        wallet_address: str,
     ):
         """Display detailed information for a specific position
 
@@ -201,7 +185,7 @@ class GatewayLPCommand:
                 chain=chain,
                 network=network,
                 address=wallet_address,
-                trading_pairs=[trading_pair]
+                trading_pairs=[trading_pair],
             )
             await lp_connector.start_network()
 
@@ -210,8 +194,9 @@ class GatewayLPCommand:
             )
             if pool_info:
                 self.notify("\nPool Statistics:")
-                self.notify(f"  Total Liquidity: {pool_info.base_token_amount:.2f} / "
-                            f"{pool_info.quote_token_amount:.2f}")
+                self.notify(
+                    f"  Total Liquidity: {pool_info.base_token_amount:.2f} / {pool_info.quote_token_amount:.2f}"
+                )
                 self.notify(f"  Fee Tier: {pool_info.fee_pct}%")
 
             await lp_connector.stop_network()
@@ -220,10 +205,7 @@ class GatewayLPCommand:
             self.logger().debug(f"Could not fetch additional pool info: {e}")
 
     async def _monitor_fee_collection_tx(
-        self,
-        connector: Gateway,
-        tx_hash: str,
-        timeout: float = 60.0
+        self, connector: Gateway, tx_hash: str, timeout: float = 60.0
     ) -> Dict[str, Any]:
         """Monitor a fee collection transaction"""
         start_time = time.time()
@@ -231,9 +213,7 @@ class GatewayLPCommand:
         while time.time() - start_time < timeout:
             try:
                 tx_status = await self._get_gateway_instance().get_transaction_status(
-                    connector.chain,
-                    connector.network,
-                    tx_hash
+                    connector.chain, connector.network, tx_hash
                 )
 
                 if tx_status.get("txStatus") == TransactionStatus.CONFIRMED.value:
@@ -252,7 +232,7 @@ class GatewayLPCommand:
     async def _position_info(
         self,  # type: HummingbotApplication
         dex_type: str,
-        trading_pair: Optional[str] = None
+        trading_pair: Optional[str] = None,
     ):
         """
         Display detailed information about user's liquidity positions.
@@ -263,17 +243,13 @@ class GatewayLPCommand:
         """
         try:
             # 1. Validate dex_type and get chain/network/dex info
-            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
-                dex_type
-            )
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(dex_type)
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
-                chain
-            )
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
             if error:
                 self.notify(f"Error: {error}")
                 return
@@ -294,7 +270,7 @@ class GatewayLPCommand:
                 chain=chain,
                 network=network,
                 address=wallet_address,
-                trading_pairs=[]  # Will be populated as needed
+                trading_pairs=[],  # Will be populated as needed
             )
             await lp_connector.start_network()
 
@@ -316,9 +292,7 @@ class GatewayLPCommand:
                     await GatewayCommandUtils.enter_interactive_mode(self)
 
                     try:
-                        pair_input = await self.app.prompt(
-                            prompt="Enter trading pair (e.g., SOL-USDC): "
-                        )
+                        pair_input = await self.app.prompt(prompt="Enter trading pair (e.g., SOL-USDC): ")
 
                         if self.app.to_stop_config:
                             return
@@ -345,10 +319,14 @@ class GatewayLPCommand:
 
                 pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
+                self.notify(
+                    f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})..."
+                )
 
                 # Get positions for this pool
-                positions = await lp_connector.get_user_positions(dex_name=dex_name, trading_type=trading_type, pool_address=pool_address)
+                positions = await lp_connector.get_user_positions(
+                    dex_name=dex_name, trading_type=trading_type, pool_address=pool_address
+                )
 
                 if not positions:
                     self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
@@ -365,9 +343,7 @@ class GatewayLPCommand:
                             position, base_token, quote_token
                         )
                     else:
-                        position_display = LPCommandUtils.format_amm_position_display(
-                            position, base_token, quote_token
-                        )
+                        position_display = LPCommandUtils.format_amm_position_display(position, base_token, quote_token)
 
                     self.notify(position_display)
 
@@ -384,7 +360,7 @@ class GatewayLPCommand:
     async def _add_liquidity(
         self,  # type: HummingbotApplication
         dex_type: str,
-        trading_pair: Optional[str] = None
+        trading_pair: Optional[str] = None,
     ):
         """
         Interactive flow for adding liquidity to a pool.
@@ -395,17 +371,13 @@ class GatewayLPCommand:
         """
         try:
             # 1. Validate dex_type and get chain/network/dex info
-            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
-                dex_type
-            )
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(dex_type)
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
-                chain
-            )
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
             if error:
                 self.notify(f"Error: {error}")
                 return
@@ -435,9 +407,7 @@ class GatewayLPCommand:
                     user_trading_pair = f"{user_base_token}-{user_quote_token}"
                 else:
                     # Get trading pair from prompt
-                    pair = await self.app.prompt(
-                        prompt="Enter trading pair (e.g., SOL-USDC): "
-                    )
+                    pair = await self.app.prompt(prompt="Enter trading pair (e.g., SOL-USDC): ")
                     if self.app.to_stop_config or not pair:
                         self.notify("Add liquidity cancelled")
                         return
@@ -458,7 +428,7 @@ class GatewayLPCommand:
                     chain=chain,
                     network=network,
                     address=wallet_address,
-                    trading_pairs=[user_trading_pair]
+                    trading_pairs=[user_trading_pair],
                 )
                 await lp_connector.start_network()
 
@@ -509,14 +479,10 @@ class GatewayLPCommand:
                     self.notify("Enter your price range for liquidity provision:")
 
                     # Get lower price bound
-                    lower_price_str = await self.app.prompt(
-                        prompt="Lower price bound: "
-                    )
+                    lower_price_str = await self.app.prompt(prompt="Lower price bound: ")
 
                     # Get upper price bound
-                    upper_price_str = await self.app.prompt(
-                        prompt="Upper price bound: "
-                    )
+                    upper_price_str = await self.app.prompt(prompt="Upper price bound: ")
 
                     try:
                         lower_price = float(lower_price_str)
@@ -537,8 +503,8 @@ class GatewayLPCommand:
                         self.notify(f"  Upper: {upper_price:.6f}")
 
                         # Store the explicit price range for passing to add_liquidity
-                        position_params['lower_price'] = lower_price
-                        position_params['upper_price'] = upper_price
+                        position_params["lower_price"] = lower_price
+                        position_params["upper_price"] = upper_price
 
                     except ValueError:
                         self.notify("Error: Invalid price values")
@@ -547,12 +513,8 @@ class GatewayLPCommand:
                 # 9. Get token amounts
                 self.notify("Enter token amounts to add (press Enter to skip):")
 
-                base_amount_str = await self.app.prompt(
-                    prompt=f"Amount of {base_token} (optional): "
-                )
-                quote_amount_str = await self.app.prompt(
-                    prompt=f"Amount of {quote_token} (optional): "
-                )
+                base_amount_str = await self.app.prompt(prompt=f"Amount of {base_token} (optional): ")
+                quote_amount_str = await self.app.prompt(prompt=f"Amount of {quote_token} (optional): ")
 
                 # Parse amounts - track whether user explicitly provided each amount
                 base_amount = None
@@ -585,9 +547,7 @@ class GatewayLPCommand:
                 self.notify("\nCalculating optimal token amounts...")
 
                 # Get slippage from dex config
-                connector_config = await self._get_gateway_instance().get_connector_config(
-                    dex_type
-                )
+                connector_config = await self._get_gateway_instance().get_connector_config(dex_type)
                 slippage_pct = connector_config.get("slippagePct", 1.0)
 
                 if is_clmm:
@@ -601,7 +561,7 @@ class GatewayLPCommand:
                         trading_type=trading_type,
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
-                        slippage_pct=slippage_pct
+                        slippage_pct=slippage_pct,
                     )
 
                     # Only update amounts that weren't explicitly provided by user
@@ -635,7 +595,7 @@ class GatewayLPCommand:
                         quote_token_amount=quote_amount,
                         dex=dex_name,
                         trading_type=trading_type,
-                        slippage_pct=slippage_pct
+                        slippage_pct=slippage_pct,
                     )
 
                     # Only update amounts that weren't explicitly provided by user
@@ -674,7 +634,7 @@ class GatewayLPCommand:
                     network=network,
                     wallet_address=wallet_address,
                     tokens_to_check=tokens_to_check,
-                    native_token=native_token
+                    native_token=native_token,
                 )
 
                 # 12. Estimate transaction fee
@@ -703,7 +663,7 @@ class GatewayLPCommand:
                     native_token=native_token,
                     gas_fee=gas_fee_estimate,
                     warnings=warnings,
-                    title="Balance Impact After Adding Liquidity"
+                    title="Balance Impact After Adding Liquidity",
                 )
 
                 # 15. Display transaction fee details
@@ -726,9 +686,7 @@ class GatewayLPCommand:
                 self.notify(f"\nSlippage tolerance: {slippage_pct}%")
 
                 # 19. Confirmation
-                if not await GatewayCommandUtils.prompt_for_confirmation(
-                    self, "Do you want to add liquidity?"
-                ):
+                if not await GatewayCommandUtils.prompt_for_confirmation(self, "Do you want to add liquidity?"):
                     self.notify("Add liquidity cancelled")
                     return
 
@@ -743,11 +701,11 @@ class GatewayLPCommand:
                         price=pool_info.price,
                         dex_name=dex_name,
                         trading_type=trading_type,
-                        lower_price=position_params.get('lower_price'),
-                        upper_price=position_params.get('upper_price'),
+                        lower_price=position_params.get("lower_price"),
+                        upper_price=position_params.get("upper_price"),
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
-                        slippage_pct=slippage_pct
+                        slippage_pct=slippage_pct,
                     )
                 else:
                     order_id = lp_connector.add_liquidity(
@@ -757,7 +715,7 @@ class GatewayLPCommand:
                         trading_type=trading_type,
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
-                        slippage_pct=slippage_pct
+                        slippage_pct=slippage_pct,
                     )
 
                 self.notify(f"Transaction submitted. Order ID: {order_id}")
@@ -770,13 +728,14 @@ class GatewayLPCommand:
                     order_id=order_id,
                     timeout=120.0,  # 2 minutes for LP transactions
                     check_interval=2.0,
-                    pending_msg_delay=5.0
+                    pending_msg_delay=5.0,
                 )
 
                 if GatewayCommandUtils.handle_transaction_result(
-                    self, result,
+                    self,
+                    result,
                     success_msg="Liquidity added successfully!",
-                    failure_msg="Failed to add liquidity. Please try again."
+                    failure_msg="Failed to add liquidity. Please try again.",
                 ):
                     self.notify(f"Use 'gateway lp {dex_type} position-info' to view your position")
 
@@ -795,7 +754,7 @@ class GatewayLPCommand:
     async def _remove_liquidity(
         self,  # type: HummingbotApplication
         dex_type: str,
-        trading_pair: Optional[str] = None
+        trading_pair: Optional[str] = None,
     ):
         """
         Interactive flow for removing liquidity from positions.
@@ -806,17 +765,13 @@ class GatewayLPCommand:
         """
         try:
             # 1. Validate dex_type and get chain/network/dex info
-            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
-                dex_type
-            )
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(dex_type)
             if error:
                 self.notify(f"Error: {error}")
                 return
 
             # 2. Get wallet address
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
-                chain
-            )
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
             if error:
                 self.notify(f"Error: {error}")
                 return
@@ -837,7 +792,7 @@ class GatewayLPCommand:
                 chain=chain,
                 network=network,
                 address=wallet_address,
-                trading_pairs=[]  # Will be populated after we get positions
+                trading_pairs=[],  # Will be populated after we get positions
             )
             await lp_connector.start_network()
 
@@ -857,9 +812,7 @@ class GatewayLPCommand:
                             return
                     else:
                         # Get trading pair from user
-                        pair_input = await self.app.prompt(
-                            prompt="Enter trading pair (e.g., SOL-USDC): "
-                        )
+                        pair_input = await self.app.prompt(prompt="Enter trading pair (e.g., SOL-USDC): ")
 
                         if self.app.to_stop_config:
                             return
@@ -884,10 +837,14 @@ class GatewayLPCommand:
 
                     pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
+                    self.notify(
+                        f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})..."
+                    )
 
                     # Get positions for this pool
-                    positions = await lp_connector.get_user_positions(dex_name=dex_name, trading_type=trading_type, pool_address=pool_address)
+                    positions = await lp_connector.get_user_positions(
+                        dex_name=dex_name, trading_type=trading_type, pool_address=pool_address
+                    )
 
                     if not positions:
                         self.notify(f"\nNo liquidity positions found for {user_trading_pair}")
@@ -934,8 +891,7 @@ class GatewayLPCommand:
 
                     # 10. Calculate and display removal impact
                     base_to_receive, quote_to_receive = LPCommandUtils.display_position_removal_impact(
-                        self, selected_position, percentage,
-                        base_token, quote_token
+                        self, selected_position, percentage, base_token, quote_token
                     )
 
                     # 11. Check balances and estimate fees
@@ -957,7 +913,7 @@ class GatewayLPCommand:
                         network=network,
                         wallet_address=wallet_address,
                         tokens_to_check=tokens_to_check,
-                        native_token=native_token
+                        native_token=native_token,
                     )
 
                     # 13. Estimate transaction fee
@@ -975,7 +931,7 @@ class GatewayLPCommand:
                     balance_changes[quote_token] = quote_to_receive
 
                     # Add fees to balance changes
-                    if hasattr(selected_position, 'base_fee_amount'):
+                    if hasattr(selected_position, "base_fee_amount"):
                         balance_changes[base_token] += selected_position.base_fee_amount
                         balance_changes[quote_token] += selected_position.quote_fee_amount
 
@@ -989,7 +945,7 @@ class GatewayLPCommand:
                         native_token=native_token,
                         gas_fee=gas_fee_estimate,
                         warnings=warnings,
-                        title="Balance Impact After Removing Liquidity"
+                        title="Balance Impact After Removing Liquidity",
                     )
 
                     # 16. Display transaction fee details
@@ -1000,9 +956,7 @@ class GatewayLPCommand:
 
                     # 18. Confirmation
                     action_text = "close position" if close_position else f"remove {percentage}% liquidity"
-                    if not await GatewayCommandUtils.prompt_for_confirmation(
-                        self, f"Do you want to {action_text}?"
-                    ):
+                    if not await GatewayCommandUtils.prompt_for_confirmation(self, f"Do you want to {action_text}?"):
                         self.notify("Remove liquidity cancelled")
                         return
 
@@ -1010,7 +964,9 @@ class GatewayLPCommand:
                     self.notify(f"\n{'Closing position' if close_position else 'Removing liquidity'}...")
 
                     # Get position address
-                    position_address = getattr(selected_position, 'address', None) or getattr(selected_position, 'pool_address', None)
+                    position_address = getattr(selected_position, "address", None) or getattr(
+                        selected_position, "pool_address", None
+                    )
 
                     # The remove_liquidity method now handles the routing correctly:
                     # - For CLMM: uses clmm_close_position if 100%, clmm_remove_liquidity otherwise
@@ -1020,7 +976,7 @@ class GatewayLPCommand:
                         dex_name=dex_name,
                         trading_type=trading_type,
                         position_address=position_address,
-                        percentage=percentage
+                        percentage=percentage,
                     )
 
                     self.notify(f"Transaction submitted. Order ID: {order_id}")
@@ -1033,19 +989,21 @@ class GatewayLPCommand:
                         order_id=order_id,
                         timeout=120.0,
                         check_interval=2.0,
-                        pending_msg_delay=5.0
+                        pending_msg_delay=5.0,
                     )
 
                     if close_position:
                         GatewayCommandUtils.handle_transaction_result(
-                            self, result,
+                            self,
+                            result,
                             success_msg="Position closed successfully!",
-                            failure_msg="Failed to close position. Please try again."
+                            failure_msg="Failed to close position. Please try again.",
                         )
                     elif GatewayCommandUtils.handle_transaction_result(
-                        self, result,
+                        self,
+                        result,
                         success_msg=f"{percentage}% liquidity removed successfully!",
-                        failure_msg="Failed to remove liquidity. Please try again."
+                        failure_msg="Failed to remove liquidity. Please try again.",
                     ):
                         self.notify(f"Use 'gateway lp {dex_type} position-info' to view remaining position")
 
@@ -1065,7 +1023,7 @@ class GatewayLPCommand:
     async def _collect_fees(
         self,  # type: HummingbotApplication
         dex_type: str,
-        trading_pair: Optional[str] = None
+        trading_pair: Optional[str] = None,
     ):
         """
         Interactive flow for collecting accumulated fees from positions.
@@ -1076,9 +1034,7 @@ class GatewayLPCommand:
         """
         try:
             # 1. Validate dex_type and get chain/network/dex info
-            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
-                dex_type
-            )
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(dex_type)
             if error:
                 self.notify(f"Error: {error}")
                 return
@@ -1089,9 +1045,7 @@ class GatewayLPCommand:
                 return
 
             # 3. Get wallet address
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
-                chain
-            )
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
             if error:
                 self.notify(f"Error: {error}")
                 return
@@ -1110,7 +1064,7 @@ class GatewayLPCommand:
                 chain=chain,
                 network=network,
                 address=wallet_address,
-                trading_pairs=[]  # Will be populated as needed
+                trading_pairs=[],  # Will be populated as needed
             )
             await lp_connector.start_network()
 
@@ -1130,9 +1084,7 @@ class GatewayLPCommand:
                             return
                     else:
                         # Prompt for trading pair
-                        pair_input = await self.app.prompt(
-                            prompt="Enter trading pair (e.g., SOL-USDC): "
-                        )
+                        pair_input = await self.app.prompt(prompt="Enter trading pair (e.g., SOL-USDC): ")
 
                         if self.app.to_stop_config:
                             return
@@ -1157,16 +1109,20 @@ class GatewayLPCommand:
 
                     pool_info, pool_address, base_token, quote_token, trading_pair_result = pool_result
 
-                    self.notify(f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})...")
+                    self.notify(
+                        f"\nFetching positions for {user_trading_pair} (pool: {GatewayCommandUtils.format_address_display(pool_address)})..."
+                    )
 
                     # Get positions for this pool
-                    all_positions = await lp_connector.get_user_positions(dex_name=dex_name, trading_type=trading_type, pool_address=pool_address)
+                    all_positions = await lp_connector.get_user_positions(
+                        dex_name=dex_name, trading_type=trading_type, pool_address=pool_address
+                    )
 
                     # Filter positions with fees > 0
                     positions_with_fees = [
-                        pos for pos in all_positions
-                        if hasattr(pos, 'base_fee_amount') and
-                        (pos.base_fee_amount > 0 or pos.quote_fee_amount > 0)
+                        pos
+                        for pos in all_positions
+                        if hasattr(pos, "base_fee_amount") and (pos.base_fee_amount > 0 or pos.quote_fee_amount > 0)
                     ]
 
                     if not positions_with_fees:
@@ -1177,14 +1133,13 @@ class GatewayLPCommand:
                     self._display_positions_with_fees(positions_with_fees)
 
                     # 6. Calculate and display total fees
-                    GatewayCommandUtils.calculate_and_display_fees(
-                        self, positions_with_fees
-                    )
+                    GatewayCommandUtils.calculate_and_display_fees(self, positions_with_fees)
 
                     # 8. Select position to collect fees from
                     selected_position = await LPCommandUtils.prompt_for_position_selection(
-                        self, positions_with_fees,
-                        prompt_text=f"\nSelect position to collect fees from (1-{len(positions_with_fees)}): "
+                        self,
+                        positions_with_fees,
+                        prompt_text=f"\nSelect position to collect fees from (1-{len(positions_with_fees)}): ",
                     )
 
                     if not selected_position:
@@ -1233,7 +1188,7 @@ class GatewayLPCommand:
                         network=network,
                         wallet_address=wallet_address,
                         tokens_to_check=tokens_to_check,
-                        native_token=native_token
+                        native_token=native_token,
                     )
 
                     # 13. Display balance impact
@@ -1241,7 +1196,7 @@ class GatewayLPCommand:
                     # Calculate fees to receive
                     fees_to_receive = {
                         selected_position.base_token: selected_position.base_fee_amount,
-                        selected_position.quote_token: selected_position.quote_fee_amount
+                        selected_position.quote_token: selected_position.quote_fee_amount,
                     }
 
                     GatewayCommandUtils.display_balance_impact_table(
@@ -1252,7 +1207,7 @@ class GatewayLPCommand:
                         native_token=native_token,
                         gas_fee=gas_fee_estimate,
                         warnings=warnings,
-                        title="Balance Impact After Collecting Fees"
+                        title="Balance Impact After Collecting Fees",
                     )
 
                     # 14. Display transaction fee details
@@ -1281,7 +1236,7 @@ class GatewayLPCommand:
                             wallet_address=wallet_address,
                             position_address=selected_position.address,
                             dex=dex_name,
-                            trading_type=trading_type
+                            trading_type=trading_type,
                         )
 
                         if result.get("signature"):
@@ -1290,13 +1245,13 @@ class GatewayLPCommand:
                             self.notify("Monitoring transaction status...")
 
                             # Monitor transaction
-                            tx_status = await self._monitor_fee_collection_tx(
-                                lp_connector, tx_hash
-                            )
+                            tx_status = await self._monitor_fee_collection_tx(lp_connector, tx_hash)
 
-                            if tx_status['success']:
-                                self.notify(f"\n✓ Fees collected successfully from position "
-                                            f"{self._format_position_id(selected_position)}!")
+                            if tx_status["success"]:
+                                self.notify(
+                                    f"\n✓ Fees collected successfully from position "
+                                    f"{self._format_position_id(selected_position)}!"
+                                )
                             else:
                                 self.notify(f"\n✗ Transaction failed: {tx_status.get('error', 'Unknown error')}")
                         else:

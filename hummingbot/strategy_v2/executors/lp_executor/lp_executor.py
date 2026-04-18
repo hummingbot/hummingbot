@@ -36,6 +36,7 @@ class LPExecutor(ExecutorBase):
     the fire-and-forget pattern with events. This makes it work in environments
     without the Clock/tick mechanism (like hummingbot-api).
     """
+
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -64,9 +65,7 @@ class LPExecutor(ExecutorBase):
         # Swap tracking for close-out flow
         self._swap_not_found_count: int = 0
         # Parse lp_provider into dex_name and trading_type for gateway calls
-        self.lp_dex_name, self.lp_trading_type = parse_provider(
-            config.lp_provider, default_trading_type="clmm"
-        )
+        self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider, default_trading_type="clmm")
 
     def _validate_and_normalize_connector(self, connector_name: str) -> Optional[str]:
         """
@@ -82,9 +81,7 @@ class LPExecutor(ExecutorBase):
         Returns:
             Normalized connector name, or None if validation failed (executor stopped)
         """
-        normalized, success = validate_and_normalize_connector(
-            connector_name, "clmm", self.logger().error
-        )
+        normalized, success = validate_and_normalize_connector(connector_name, "clmm", self.logger().error)
         if not success:
             self.close_type = CloseType.FAILED
             self.stop()
@@ -97,8 +94,7 @@ class LPExecutor(ExecutorBase):
 
         # Log LP provider info
         self.logger().info(
-            f"Using LP provider: {self.config.lp_provider} "
-            f"(dex={self.lp_dex_name}, type={self.lp_trading_type})"
+            f"Using LP provider: {self.config.lp_provider} (dex={self.lp_dex_name}, type={self.lp_trading_type})"
         )
 
         # Resolve swap_provider from network default if not provided and keep_position=False
@@ -107,12 +103,11 @@ class LPExecutor(ExecutorBase):
             gateway = GatewayHttpClient.get_instance()
             default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
             if default_provider:
-                self.config = self.config.model_copy(update={'swap_provider': default_provider})
+                self.config = self.config.model_copy(update={"swap_provider": default_provider})
                 self.logger().info(f"Using network default swap provider: {default_provider}")
             else:
                 self.logger().warning(
-                    f"No swap provider found for {self.config.connector_name}. "
-                    "Close-out swaps will not be available."
+                    f"No swap provider found for {self.config.connector_name}. Close-out swaps will not be available."
                 )
 
     async def control_task(self):
@@ -170,11 +165,17 @@ class LPExecutor(ExecutorBase):
                     direction = ""
 
                     # Check if price exceeded upper limit
-                    if self.config.upper_limit_price is not None and self._current_price >= self.config.upper_limit_price:
+                    if (
+                        self.config.upper_limit_price is not None
+                        and self._current_price >= self.config.upper_limit_price
+                    ):
                         should_close = True
                         direction = "above upper limit"
                     # Check if price exceeded lower limit
-                    elif self.config.lower_limit_price is not None and self._current_price <= self.config.lower_limit_price:
+                    elif (
+                        self.config.lower_limit_price is not None
+                        and self._current_price <= self.config.lower_limit_price
+                    ):
                         should_close = True
                         direction = "below lower limit"
 
@@ -205,7 +206,7 @@ class LPExecutor(ExecutorBase):
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
-                position_address=self.lp_position_state.position_address
+                position_address=self.lp_position_state.position_address,
             )
 
             if position_info:
@@ -228,9 +229,7 @@ class LPExecutor(ExecutorBase):
             # - "Position not found or closed: {addr}" (404) - combined check
             error_msg = str(e).lower()
             if "position closed" in error_msg:
-                self.logger().info(
-                    f"Position {self.lp_position_state.position_address} confirmed closed on-chain"
-                )
+                self.logger().info(f"Position {self.lp_position_state.position_address} confirmed closed on-chain")
                 self._emit_already_closed_event()
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 self.lp_position_state.active_close_order = None
@@ -318,7 +317,7 @@ class LPExecutor(ExecutorBase):
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
-                position_address=position_address
+                position_address=position_address,
             )
 
             if position_info:
@@ -358,11 +357,11 @@ class LPExecutor(ExecutorBase):
             # Trigger event for database recording (lphistory command)
             # Note: mid_price is the current MARKET price, not the position range midpoint
             # Create trade_fee with tx_fee in native currency for proper tracking
-            native_currency = getattr(connector, '_native_currency', DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
+            native_currency = getattr(connector, "_native_currency", DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
             trade_fee = TradeFeeBase.new_spot_fee(
                 fee_schema=connector.trade_fee_schema(),
                 trade_type=TradeType.RANGE,
-                flat_fees=[TokenAmount(amount=self.lp_position_state.tx_fee, token=native_currency)]
+                flat_fees=[TokenAmount(amount=self.lp_position_state.tx_fee, token=native_currency)],
             )
             event = connector._trigger_add_liquidity_event(
                 order_id=order_id,
@@ -414,7 +413,7 @@ class LPExecutor(ExecutorBase):
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
-                position_address=self.lp_position_state.position_address
+                position_address=self.lp_position_state.position_address,
             )
             if position_info is None:
                 self.logger().info(
@@ -427,9 +426,7 @@ class LPExecutor(ExecutorBase):
             # Gateway returns HttpError with message patterns (see _update_position_info)
             error_msg = str(e).lower()
             if "position closed" in error_msg:
-                self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping"
-                )
+                self.logger().info(f"Position {self.lp_position_state.position_address} already closed - skipping")
                 self._emit_already_closed_event()
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
@@ -490,11 +487,11 @@ class LPExecutor(ExecutorBase):
             # Note: mid_price is the current MARKET price, not the position range midpoint
             current_price = self._current_price if self._current_price else Decimal("0")
             # Create trade_fee with close tx_fee in native currency for proper tracking
-            native_currency = getattr(connector, '_native_currency', DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
+            native_currency = getattr(connector, "_native_currency", DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
             trade_fee = TradeFeeBase.new_spot_fee(
                 fee_schema=connector.trade_fee_schema(),
                 trade_type=TradeType.RANGE,
-                flat_fees=[TokenAmount(amount=close_tx_fee, token=native_currency)]
+                flat_fees=[TokenAmount(amount=close_tx_fee, token=native_currency)],
             )
             event = connector._trigger_remove_liquidity_event(
                 order_id=order_id,
@@ -588,6 +585,7 @@ class LPExecutor(ExecutorBase):
                 return
 
             from hummingbot.core.data_type.in_flight_order import OrderState
+
             if order.current_state == OrderState.FILLED:
                 self.logger().info(f"Close-out swap completed: {order.client_order_id}")
                 self.lp_position_state.active_swap_order = None
@@ -616,9 +614,7 @@ class LPExecutor(ExecutorBase):
         amount = abs(base_diff)
         side = TradeType.BUY if is_buy else TradeType.SELL
 
-        self.logger().info(
-            f"Executing close-out swap: {side.name} {amount:.6f} base (diff={base_diff:.6f})"
-        )
+        self.logger().info(f"Executing close-out swap: {side.name} {amount:.6f} base (diff={base_diff:.6f})")
 
         try:
             # Place swap order using connector's place_order with swap_provider
@@ -668,11 +664,11 @@ class LPExecutor(ExecutorBase):
         )
 
         # For synthetic events, we don't have the actual close tx_fee, so use 0
-        native_currency = getattr(connector, '_native_currency', DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
+        native_currency = getattr(connector, "_native_currency", DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
         trade_fee = TradeFeeBase.new_spot_fee(
             fee_schema=connector.trade_fee_schema(),
             trade_type=TradeType.RANGE,
-            flat_fees=[TokenAmount(amount=Decimal("0"), token=native_currency)]
+            flat_fees=[TokenAmount(amount=Decimal("0"), token=native_currency)],
         )
         connector._trigger_remove_liquidity_event(
             order_id=order_id,
@@ -717,9 +713,9 @@ class LPExecutor(ExecutorBase):
         - net_base ≈ 0, net_quote ≈ 0: No trade (same assets in/out)
         """
         # Get ADD data (stored when position was opened)
-        add_base = getattr(self, '_add_base_amount', Decimal("0"))
-        add_quote = getattr(self, '_add_quote_amount', Decimal("0"))
-        add_tx_fee = getattr(self, '_add_tx_fee_quote', 0.0)
+        add_base = getattr(self, "_add_base_amount", Decimal("0"))
+        add_quote = getattr(self, "_add_quote_amount", Decimal("0"))
+        add_tx_fee = getattr(self, "_add_tx_fee_quote", 0.0)
 
         # Calculate net change (REMOVE - ADD)
         # Include LP fees earned in the returned amounts
@@ -743,16 +739,18 @@ class LPExecutor(ExecutorBase):
             # No significant conversion - don't record a trade
             # But still track fees if any
             if total_tx_fee_quote > 0:
-                self._held_position_orders.append({
-                    "client_order_id": event.exchange_order_id,
-                    "trade_type": "BUY",  # Dummy, won't affect P&L with 0 amounts
-                    "price": float(event.mid_price),
-                    "executed_amount_base": 0.0,
-                    "executed_amount_quote": 0.0,
-                    "cumulative_fee_paid_quote": total_tx_fee_quote,
-                    "lp_source": True,
-                    "lp_net_trade": True,
-                })
+                self._held_position_orders.append(
+                    {
+                        "client_order_id": event.exchange_order_id,
+                        "trade_type": "BUY",  # Dummy, won't affect P&L with 0 amounts
+                        "price": float(event.mid_price),
+                        "executed_amount_base": 0.0,
+                        "executed_amount_quote": 0.0,
+                        "cumulative_fee_paid_quote": total_tx_fee_quote,
+                        "lp_source": True,
+                        "lp_net_trade": True,
+                    }
+                )
             return
 
         if net_base > threshold and net_quote < -threshold:
@@ -780,33 +778,37 @@ class LPExecutor(ExecutorBase):
             price = float(event.mid_price)
         else:
             # Only quote changed - record as 0-base trade (fees only)
-            self._held_position_orders.append({
-                "client_order_id": event.exchange_order_id,
-                "trade_type": "BUY",
-                "price": float(event.mid_price),
-                "executed_amount_base": 0.0,
-                "executed_amount_quote": float(abs(net_quote)),
-                "cumulative_fee_paid_quote": total_tx_fee_quote,
-                "lp_source": True,
-                "lp_net_trade": True,
-            })
+            self._held_position_orders.append(
+                {
+                    "client_order_id": event.exchange_order_id,
+                    "trade_type": "BUY",
+                    "price": float(event.mid_price),
+                    "executed_amount_base": 0.0,
+                    "executed_amount_quote": float(abs(net_quote)),
+                    "cumulative_fee_paid_quote": total_tx_fee_quote,
+                    "lp_source": True,
+                    "lp_net_trade": True,
+                }
+            )
             return
 
         # Create single order representing the net trade
-        self._held_position_orders.append({
-            "client_order_id": event.exchange_order_id,
-            "order_id": event.order_id,
-            "exchange_order_id": event.exchange_order_id,
-            "trading_pair": event.trading_pair,
-            "trade_type": trade_type,
-            "price": price,
-            "amount": amount_base,
-            "executed_amount_base": amount_base,
-            "executed_amount_quote": amount_quote,
-            "cumulative_fee_paid_quote": total_tx_fee_quote,
-            "lp_source": True,
-            "lp_net_trade": True,
-        })
+        self._held_position_orders.append(
+            {
+                "client_order_id": event.exchange_order_id,
+                "order_id": event.order_id,
+                "exchange_order_id": event.exchange_order_id,
+                "trading_pair": event.trading_pair,
+                "trade_type": trade_type,
+                "price": price,
+                "amount": amount_base,
+                "executed_amount_base": amount_base,
+                "executed_amount_quote": amount_quote,
+                "cumulative_fee_paid_quote": total_tx_fee_quote,
+                "lp_source": True,
+                "lp_net_trade": True,
+            }
+        )
 
     def early_stop(self, keep_position: bool = True):
         """Stop executor - transitions to CLOSING state.
@@ -886,7 +888,7 @@ class LPExecutor(ExecutorBase):
         Returns Decimal("1") if rate is not available.
         """
         connector = self.connectors.get(self.config.connector_name)
-        native_currency = getattr(connector, '_native_currency', DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
+        native_currency = getattr(connector, "_native_currency", DEFAULT_NATIVE_CURRENCY) or DEFAULT_NATIVE_CURRENCY
         _, quote_token = split_hb_trading_pair(self.config.trading_pair)
 
         # If native currency is the quote token, no conversion needed
@@ -943,16 +945,12 @@ class LPExecutor(ExecutorBase):
         current_time = self._strategy.current_timestamp
 
         # Calculate total value in quote
-        total_value = (
-            float(self.lp_position_state.base_amount) * price_float +
-            float(self.lp_position_state.quote_amount)
+        total_value = float(self.lp_position_state.base_amount) * price_float + float(
+            self.lp_position_state.quote_amount
         )
 
         # Calculate fees earned in quote
-        fees_earned = (
-            float(self.lp_position_state.base_fee) * price_float +
-            float(self.lp_position_state.quote_fee)
-        )
+        fees_earned = float(self.lp_position_state.base_fee) * price_float + float(self.lp_position_state.quote_fee)
 
         return {
             "side": self.config.side,
@@ -1010,8 +1008,7 @@ class LPExecutor(ExecutorBase):
         current_price = self._current_price
 
         # If executor failed before creating a position, P&L is 0
-        if (self.lp_position_state.state == LPExecutorStates.FAILED and
-                not self.lp_position_state.position_address):
+        if self.lp_position_state.state == LPExecutorStates.FAILED and not self.lp_position_state.position_address:
             return Decimal("0")
 
         # Use stored add_mid_price for initial value, fall back to current price if not set
@@ -1028,16 +1025,10 @@ class LPExecutor(ExecutorBase):
         initial_value = initial_base * add_price + initial_quote
 
         # Current position value (tokens in position, valued at current price)
-        current_value = (
-            self.lp_position_state.base_amount * current_price +
-            self.lp_position_state.quote_amount
-        )
+        current_value = self.lp_position_state.base_amount * current_price + self.lp_position_state.quote_amount
 
         # Fees earned (LP swap fees, not transaction costs)
-        fees_earned = (
-            self.lp_position_state.base_fee * current_price +
-            self.lp_position_state.quote_fee
-        )
+        fees_earned = self.lp_position_state.base_fee * current_price + self.lp_position_state.quote_fee
 
         # P&L in pool quote currency (before tx fees)
         pnl_in_quote = current_value + fees_earned - initial_value

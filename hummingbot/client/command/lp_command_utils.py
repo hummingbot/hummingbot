@@ -1,6 +1,7 @@
 """
 LP-specific utilities for gateway liquidity provision commands.
 """
+
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -26,7 +27,7 @@ class LPCommandUtils:
         lp_connector: "Gateway",
         user_trading_pair: str,
         dex_name: str,
-        trading_type: str = "clmm"
+        trading_type: str = "clmm",
     ) -> Optional[Tuple[Any, str, str, str, str]]:
         """
         Fetch pool info and display enhanced notification with pool details.
@@ -61,8 +62,12 @@ class LPCommandUtils:
         pool_type = "CLMM" if trading_type == "clmm" else "AMM"
         app.notify("Pool found:")
         app.notify(f"  Address: {GatewayCommandUtils.format_address_display(pool_address)}")
-        app.notify(f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})")
-        app.notify(f"  Quote Token: {quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)})")
+        app.notify(
+            f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})"
+        )
+        app.notify(
+            f"  Quote Token: {quote_token} ({GatewayCommandUtils.format_address_display(pool_info.quote_token_address)})"
+        )
         app.notify(f"  Type: {pool_type}")
         app.notify(f"  Fee: {pool_info.fee_pct}%")
 
@@ -86,7 +91,7 @@ class LPCommandUtils:
     def format_pool_info_display(
         pool_info: Any,  # Union[AMMPoolInfo, CLMMPoolInfo]
         base_symbol: str,
-        quote_symbol: str
+        quote_symbol: str,
     ) -> List[Dict[str, str]]:
         """
         Format pool information for display.
@@ -98,47 +103,28 @@ class LPCommandUtils:
         """
         rows = []
 
-        rows.append({
-            "Property": "Pool Address",
-            "Value": GatewayCommandUtils.format_address_display(pool_info.address)
-        })
+        rows.append(
+            {"Property": "Pool Address", "Value": GatewayCommandUtils.format_address_display(pool_info.address)}
+        )
 
-        rows.append({
-            "Property": "Current Price",
-            "Value": f"{pool_info.price:.6f} {quote_symbol}/{base_symbol}"
-        })
+        rows.append({"Property": "Current Price", "Value": f"{pool_info.price:.6f} {quote_symbol}/{base_symbol}"})
 
-        rows.append({
-            "Property": "Fee Tier",
-            "Value": f"{pool_info.fee_pct}%"
-        })
+        rows.append({"Property": "Fee Tier", "Value": f"{pool_info.fee_pct}%"})
 
-        rows.append({
-            "Property": "Base Reserves",
-            "Value": f"{pool_info.base_token_amount:.6f} {base_symbol}"
-        })
+        rows.append({"Property": "Base Reserves", "Value": f"{pool_info.base_token_amount:.6f} {base_symbol}"})
 
-        rows.append({
-            "Property": "Quote Reserves",
-            "Value": f"{pool_info.quote_token_amount:.6f} {quote_symbol}"
-        })
+        rows.append({"Property": "Quote Reserves", "Value": f"{pool_info.quote_token_amount:.6f} {quote_symbol}"})
 
-        if hasattr(pool_info, 'active_bin_id'):
-            rows.append({
-                "Property": "Active Bin",
-                "Value": str(pool_info.active_bin_id)
-            })
-        if hasattr(pool_info, 'bin_step'):
-            rows.append({
-                "Property": "Bin Step",
-                "Value": str(pool_info.bin_step)
-            })
+        if hasattr(pool_info, "active_bin_id"):
+            rows.append({"Property": "Active Bin", "Value": str(pool_info.active_bin_id)})
+        if hasattr(pool_info, "bin_step"):
+            rows.append({"Property": "Bin Step", "Value": str(pool_info.bin_step)})
 
         return rows
 
     @staticmethod
     def format_position_info_display(
-        position: Any  # Union[AMMPositionInfo, CLMMPositionInfo]
+        position: Any,  # Union[AMMPositionInfo, CLMMPositionInfo]
     ) -> List[Dict[str, str]]:
         """
         Format position information for display.
@@ -148,45 +134,33 @@ class LPCommandUtils:
         """
         rows = []
 
-        if hasattr(position, 'address'):
-            rows.append({
-                "Property": "Position ID",
-                "Value": GatewayCommandUtils.format_address_display(position.address)
-            })
+        if hasattr(position, "address"):
+            rows.append(
+                {"Property": "Position ID", "Value": GatewayCommandUtils.format_address_display(position.address)}
+            )
 
-        rows.append({
-            "Property": "Pool",
-            "Value": GatewayCommandUtils.format_address_display(position.pool_address)
-        })
+        rows.append({"Property": "Pool", "Value": GatewayCommandUtils.format_address_display(position.pool_address)})
 
-        rows.append({
-            "Property": "Base Amount",
-            "Value": f"{position.base_token_amount:.6f}"
-        })
+        rows.append({"Property": "Base Amount", "Value": f"{position.base_token_amount:.6f}"})
 
-        rows.append({
-            "Property": "Quote Amount",
-            "Value": f"{position.quote_token_amount:.6f}"
-        })
+        rows.append({"Property": "Quote Amount", "Value": f"{position.quote_token_amount:.6f}"})
 
-        if hasattr(position, 'lower_price') and hasattr(position, 'upper_price'):
-            rows.append({
-                "Property": "Price Range",
-                "Value": f"{position.lower_price:.6f} - {position.upper_price:.6f}"
-            })
+        if hasattr(position, "lower_price") and hasattr(position, "upper_price"):
+            rows.append(
+                {"Property": "Price Range", "Value": f"{position.lower_price:.6f} - {position.upper_price:.6f}"}
+            )
 
-            if hasattr(position, 'base_fee_amount') and hasattr(position, 'quote_fee_amount'):
+            if hasattr(position, "base_fee_amount") and hasattr(position, "quote_fee_amount"):
                 if position.base_fee_amount > 0 or position.quote_fee_amount > 0:
-                    rows.append({
-                        "Property": "Uncollected Fees",
-                        "Value": f"{position.base_fee_amount:.6f} / {position.quote_fee_amount:.6f}"
-                    })
+                    rows.append(
+                        {
+                            "Property": "Uncollected Fees",
+                            "Value": f"{position.base_fee_amount:.6f} / {position.quote_fee_amount:.6f}",
+                        }
+                    )
 
-        elif hasattr(position, 'lp_token_amount'):
-            rows.append({
-                "Property": "LP Tokens",
-                "Value": f"{position.lp_token_amount:.6f}"
-            })
+        elif hasattr(position, "lp_token_amount"):
+            rows.append({"Property": "LP Tokens", "Value": f"{position.lp_token_amount:.6f}"})
 
         return rows
 
@@ -194,7 +168,7 @@ class LPCommandUtils:
     async def prompt_for_position_selection(
         app: Any,  # HummingbotApplication
         positions: List[Any],
-        prompt_text: str = None
+        prompt_text: str = None,
     ) -> Optional[Any]:
         """
         Prompt user to select a position from a list.
@@ -234,7 +208,7 @@ class LPCommandUtils:
         position: Any,
         percentage: float,
         base_token: str,
-        quote_token: str
+        quote_token: str,
     ) -> Tuple[float, float]:
         """
         Display the impact of removing liquidity from a position.
@@ -256,7 +230,7 @@ class LPCommandUtils:
         app.notify(f"  {quote_token}: {quote_to_receive:.6f}")
 
         # Show fees if applicable
-        if hasattr(position, 'base_fee_amount') and percentage == 100:
+        if hasattr(position, "base_fee_amount") and percentage == 100:
             total_base_fees = position.base_fee_amount
             total_quote_fees = position.quote_fee_amount
             if total_base_fees > 0 or total_quote_fees > 0:
@@ -273,7 +247,7 @@ class LPCommandUtils:
         pool_info: Union["AMMPoolInfo", "CLMMPoolInfo"],
         is_clmm: bool,
         base_token: str = None,
-        quote_token: str = None
+        quote_token: str = None,
     ):
         """Display pool information in a user-friendly format"""
         app.notify("\n=== Pool Information ===")
@@ -281,7 +255,7 @@ class LPCommandUtils:
         app.notify(f"Current Price: {pool_info.price:.6f}")
         app.notify(f"Fee: {pool_info.fee_pct}%")
 
-        if is_clmm and hasattr(pool_info, 'active_bin_id'):
+        if is_clmm and hasattr(pool_info, "active_bin_id"):
             app.notify(f"Active Bin ID: {pool_info.active_bin_id}")
             app.notify(f"Bin Step: {pool_info.bin_step}")
 
@@ -293,16 +267,13 @@ class LPCommandUtils:
         app.notify(f"  {quote_label}: {pool_info.quote_token_amount:.6f}")
 
         # Calculate TVL if prices available
-        tvl_estimate = (pool_info.base_token_amount * pool_info.price +
-                        pool_info.quote_token_amount)
+        tvl_estimate = pool_info.base_token_amount * pool_info.price + pool_info.quote_token_amount
         app.notify(f"  TVL (in {quote_label}): ~{tvl_estimate:.2f}")
 
     @staticmethod
-    def format_position_id(
-        position: Union["AMMPositionInfo", "CLMMPositionInfo"]
-    ) -> str:
+    def format_position_id(position: Union["AMMPositionInfo", "CLMMPositionInfo"]) -> str:
         """Format position identifier for display"""
-        if hasattr(position, 'address'):
+        if hasattr(position, "address"):
             # CLMM position with unique address
             return GatewayCommandUtils.format_address_display(position.address)
         else:
@@ -311,8 +282,7 @@ class LPCommandUtils:
 
     @staticmethod
     def calculate_removal_amounts(
-        position: Union["AMMPositionInfo", "CLMMPositionInfo"],
-        percentage: float
+        position: Union["AMMPositionInfo", "CLMMPositionInfo"], percentage: float
     ) -> Tuple[float, float]:
         """Calculate token amounts to receive when removing liquidity"""
         factor = percentage / 100.0
@@ -326,7 +296,7 @@ class LPCommandUtils:
     def format_amm_position_display(
         position: Any,  # AMMPositionInfo
         base_token: str = None,
-        quote_token: str = None
+        quote_token: str = None,
     ) -> str:
         """
         Format AMM position for display.
@@ -337,8 +307,8 @@ class LPCommandUtils:
         :return: Formatted position string
         """
         # Use provided tokens or fall back to position data
-        base = base_token or getattr(position, 'base_token', 'Unknown')
-        quote = quote_token or getattr(position, 'quote_token', 'Unknown')
+        base = base_token or getattr(position, "base_token", "Unknown")
+        quote = quote_token or getattr(position, "quote_token", "Unknown")
 
         lines = []
         lines.append("\n=== AMM Position ===")
@@ -356,7 +326,7 @@ class LPCommandUtils:
     def format_clmm_position_display(
         position: Any,  # CLMMPositionInfo
         base_token: str = None,
-        quote_token: str = None
+        quote_token: str = None,
     ) -> str:
         """
         Format CLMM position for display.
@@ -367,8 +337,8 @@ class LPCommandUtils:
         :return: Formatted position string
         """
         # Use provided tokens or fall back to position data
-        base = base_token or getattr(position, 'base_token', 'Unknown')
-        quote = quote_token or getattr(position, 'quote_token', 'Unknown')
+        base = base_token or getattr(position, "base_token", "Unknown")
+        quote = quote_token or getattr(position, "quote_token", "Unknown")
 
         lines = []
         lines.append("\n=== CLMM Position ===")
@@ -407,18 +377,20 @@ class LPCommandUtils:
     @staticmethod
     def display_positions_with_fees(
         app: Any,  # HummingbotApplication
-        positions: List["CLMMPositionInfo"]
+        positions: List["CLMMPositionInfo"],
     ):
         """Display positions that have uncollected fees"""
         rows = []
         for i, pos in enumerate(positions):
-            rows.append({
-                "No": i + 1,
-                "Position": LPCommandUtils.format_position_id(pos),
-                "Pair": f"{pos.base_token}-{pos.quote_token}",
-                "Base Fees": f"{pos.base_fee_amount:.6f}",
-                "Quote Fees": f"{pos.quote_fee_amount:.6f}"
-            })
+            rows.append(
+                {
+                    "No": i + 1,
+                    "Position": LPCommandUtils.format_position_id(pos),
+                    "Pair": f"{pos.base_token}-{pos.quote_token}",
+                    "Base Fees": f"{pos.base_fee_amount:.6f}",
+                    "Quote Fees": f"{pos.quote_fee_amount:.6f}",
+                }
+            )
 
         df = pd.DataFrame(rows)
         app.notify("\nPositions with Uncollected Fees:")
@@ -426,9 +398,7 @@ class LPCommandUtils:
         app.notify("\n".join(lines))
 
     @staticmethod
-    def calculate_total_fees(
-        positions: List["CLMMPositionInfo"]
-    ) -> Dict[str, float]:
+    def calculate_total_fees(positions: List["CLMMPositionInfo"]) -> Dict[str, float]:
         """Calculate total fees across positions grouped by token"""
         fees_by_token = {}
 
@@ -448,11 +418,7 @@ class LPCommandUtils:
 
     @staticmethod
     def calculate_clmm_pair_amount(
-        known_amount: float,
-        pool_info: "CLMMPoolInfo",
-        lower_price: float,
-        upper_price: float,
-        is_base_known: bool
+        known_amount: float, pool_info: "CLMMPoolInfo", lower_price: float, upper_price: float, is_base_known: bool
     ) -> float:
         """
         Calculate the paired token amount for CLMM positions.

@@ -28,9 +28,7 @@ def create_mock_remove_event(
 ) -> RangePositionLiquidityRemovedEvent:
     """Create a mock RangePositionLiquidityRemovedEvent for testing."""
     trade_fee = TradeFeeBase.new_spot_fee(
-        fee_schema={'percent_fee_token': 'SOL'},
-        trade_type=None,
-        flat_fees=[TokenAmount(amount=tx_fee, token='SOL')]
+        fee_schema={"percent_fee_token": "SOL"}, trade_type=None, flat_fees=[TokenAmount(amount=tx_fee, token="SOL")]
     )
     return RangePositionLiquidityRemovedEvent(
         timestamp=1234567890,
@@ -65,9 +63,9 @@ def create_mock_add_event(
 ) -> RangePositionLiquidityAddedEvent:
     """Create a mock RangePositionLiquidityAddedEvent for testing."""
     trade_fee = TradeFeeBase.new_spot_fee(
-        fee_schema={'percent_fee_token': 'SOL'},
+        fee_schema={"percent_fee_token": "SOL"},
         trade_type=None,
-        flat_fees=[TokenAmount(amount=position_rent, token='SOL')]
+        flat_fees=[TokenAmount(amount=position_rent, token="SOL")],
     )
     return RangePositionLiquidityAddedEvent(
         timestamp=1234567890,
@@ -157,11 +155,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     async def test_on_start(self):
         """Test on_start calls super"""
         executor = self.get_executor()
-        with patch.object(executor.__class__.__bases__[0], 'on_start', new_callable=AsyncMock) as mock_super:
+        with patch.object(executor.__class__.__bases__[0], "on_start", new_callable=AsyncMock) as mock_super:
             await executor.on_start()
             mock_super.assert_called_once()
 
-    @patch('hummingbot.strategy_v2.executors.lp_executor.lp_executor.GatewayHttpClient')
+    @patch("hummingbot.strategy_v2.executors.lp_executor.lp_executor.GatewayHttpClient")
     async def test_on_start_resolves_swap_provider(self, mock_gateway_client):
         """Test on_start resolves swap_provider when keep_position=False and no swap_provider."""
         config = self.get_default_config()
@@ -177,13 +175,13 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_instance.get_default_swap_provider = AsyncMock(return_value="jupiter/router")
         mock_gateway_client.get_instance.return_value = mock_instance
 
-        with patch.object(executor.__class__.__bases__[0], 'on_start', new_callable=AsyncMock):
+        with patch.object(executor.__class__.__bases__[0], "on_start", new_callable=AsyncMock):
             await executor.on_start()
 
         mock_instance.get_default_swap_provider.assert_called_once_with(new_config.connector_name)
         self.assertEqual(executor.config.swap_provider, "jupiter/router")
 
-    @patch('hummingbot.strategy_v2.executors.lp_executor.lp_executor.GatewayHttpClient')
+    @patch("hummingbot.strategy_v2.executors.lp_executor.lp_executor.GatewayHttpClient")
     async def test_on_start_no_swap_provider_warning(self, mock_gateway_client):
         """Test on_start logs warning when no swap_provider available."""
         config = self.get_default_config()
@@ -199,7 +197,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_instance.get_default_swap_provider = AsyncMock(return_value=None)
         mock_gateway_client.get_instance.return_value = mock_instance
 
-        with patch.object(executor.__class__.__bases__[0], 'on_start', new_callable=AsyncMock):
+        with patch.object(executor.__class__.__bases__[0], "on_start", new_callable=AsyncMock):
             await executor.on_start()
 
         mock_instance.get_default_swap_provider.assert_called_once_with(new_config.connector_name)
@@ -485,7 +483,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
         connector._clmm_add_liquidity = AsyncMock(side_effect=Exception("Test - prevent actual creation"))
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock):
+        with patch.object(executor, "_create_position", new_callable=AsyncMock):
             await executor.control_task()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.OPENING)
@@ -501,7 +499,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, 'stop') as mock_stop:
+        with patch.object(executor, "stop") as mock_stop:
             await executor.control_task()
             mock_stop.assert_called_once()
 
@@ -717,7 +715,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock) as mock_create:
+        with patch.object(executor, "_create_position", new_callable=AsyncMock) as mock_create:
             await executor.control_task()
             mock_create.assert_called_once()
 
@@ -733,7 +731,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info = AsyncMock(return_value=mock_position)
 
-        with patch.object(executor, '_close_position', new_callable=AsyncMock) as mock_close:
+        with patch.object(executor, "_close_position", new_callable=AsyncMock) as mock_close:
             await executor.control_task()
             mock_close.assert_called_once()
 
@@ -861,9 +859,9 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.upper_price = 105.5
         mock_position.price = 100.0
         connector.get_position_info = AsyncMock(return_value=mock_position)
-        connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event(
-            base_amount=Decimal("0.95"), quote_amount=Decimal("105.0")
-        ))
+        connector._trigger_add_liquidity_event = MagicMock(
+            return_value=create_mock_add_event(base_amount=Decimal("0.95"), quote_amount=Decimal("105.0"))
+        )
 
         await executor._create_position()
 
@@ -879,9 +877,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector._clmm_add_liquidity = AsyncMock(return_value="sig123")
-        connector._lp_orders_metadata = {
-            "order-123": {"position_address": "pos456", "position_rent": Decimal("0.002")}
-        }
+        connector._lp_orders_metadata = {"order-123": {"position_address": "pos456", "position_rent": Decimal("0.002")}}
         connector.get_position_info = AsyncMock(return_value=None)
         connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
 
@@ -955,7 +951,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.01"),
                 "quote_fee": Decimal("1.0"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
         connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event())
@@ -983,7 +979,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.01"),
                 "quote_fee": Decimal("1.0"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
         connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event())
@@ -1146,7 +1142,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._current_price = None
 
         # With mock to return non-zero pnl (simulating edge case)
-        with patch.object(executor, 'get_net_pnl_quote', return_value=Decimal("10")):
+        with patch.object(executor, "get_net_pnl_quote", return_value=Decimal("10")):
             pct = executor.get_net_pnl_pct()
             self.assertEqual(pct, Decimal("0"))
 
@@ -1224,7 +1220,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_create_position', new_callable=AsyncMock):
+        with patch.object(executor, "_create_position", new_callable=AsyncMock):
             await executor.control_task()
 
         connector.get_pool_info_by_address.assert_called_once()
@@ -1240,12 +1236,12 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, 'stop') as mock_stop:
+        with patch.object(executor, "stop") as mock_stop:
             await executor.control_task()
             self.assertEqual(executor.close_type, CloseType.FAILED)
             mock_stop.assert_called_once()
 
-    @patch('hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS', {'solana-mainnet-beta'})
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS", {"solana-mainnet-beta"})
     def test_validate_connector_network_format_success(self):
         """Test connector validation succeeds with network format"""
         executor = self.get_executor()
@@ -1254,7 +1250,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(result, "solana-mainnet-beta")
 
-    @patch('hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS', {'solana-mainnet-beta'})
+    @patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS", {"solana-mainnet-beta"})
     def test_validate_connector_network_not_found(self):
         """Test connector validation fails for unknown network"""
         config = LPExecutorConfig(
@@ -1296,7 +1292,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         executor = self.get_executor(config)
 
-        with patch('hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS', {'solana-mainnet-beta'}):
+        with patch("hummingbot.strategy_v2.executors.gateway_utils.GATEWAY_DEXS", {"solana-mainnet-beta"}):
             await executor.on_start()
 
         self.assertEqual(executor.config.connector_name, "solana-mainnet-beta")
@@ -1314,7 +1310,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_pool_info_by_address = AsyncMock(return_value=mock_pool_info)
 
-        with patch.object(executor, '_execute_closeout_swap', new_callable=AsyncMock) as mock_swap:
+        with patch.object(executor, "_execute_closeout_swap", new_callable=AsyncMock) as mock_swap:
             await executor.control_task()
             mock_swap.assert_called_once()
 
@@ -1344,12 +1340,12 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.01"),
                 "quote_fee": Decimal("0.5"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
-        connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event(
-            base_amount=Decimal("1.5"), quote_amount=Decimal("50.0")
-        ))
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(base_amount=Decimal("1.5"), quote_amount=Decimal("50.0"))
+        )
 
         await executor._close_position()
 
@@ -1381,12 +1377,12 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 "base_fee": Decimal("0.0"),
                 "quote_fee": Decimal("0.0"),
                 "position_rent_refunded": Decimal("0.002"),
-                "tx_fee": Decimal("0.0001")
+                "tx_fee": Decimal("0.0001"),
             }
         }
-        connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event(
-            base_amount=Decimal("1.0"), quote_amount=Decimal("100.0")
-        ))
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(base_amount=Decimal("1.0"), quote_amount=Decimal("100.0"))
+        )
 
         await executor._close_position()
 
