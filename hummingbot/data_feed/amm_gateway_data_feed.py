@@ -60,9 +60,7 @@ class AmmGatewayDataFeed(NetworkBase):
 
         # New format: connector/type (e.g., jupiter/router)
         if "/" not in connector:
-            raise ValueError(
-                f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'"
-            )
+            raise ValueError(f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'")
         self._connector_name = connector
         # We'll get chain and network from gateway during price fetching
         self._chain = None
@@ -118,7 +116,8 @@ class AmmGatewayDataFeed(NetworkBase):
                 raise
             except Exception as e:
                 self.logger().error(
-                    f"Error getting data from {self.name}Check network connection. Error: {e}",
+                    f"Error getting data from {self.name}"
+                    f"Check network connection. Error: {e}",
                 )
             await self._async_sleep(self._update_interval)
 
@@ -156,9 +155,12 @@ class AmmGatewayDataFeed(NetworkBase):
 
         # Use gateway's quote_swap which handles chain/network internally
         try:
+
             # Get chain and network from connector if not cached
             if not self._chain or not self._network:
-                chain, network, error = await self.gateway_client.get_connector_chain_network(self.connector)
+                dex_name, trading_type, chain, network, error = await self.gateway_client.get_dex_info(
+                    self.connector
+                )
                 if not error:
                     self._chain = chain
                     self._network = network
@@ -166,16 +168,13 @@ class AmmGatewayDataFeed(NetworkBase):
                     self.logger().warning(f"Failed to get chain/network for {self.connector}: {error}")
                     return None
 
-            # Use quote_swap which accepts the full connector name
+            # Use quote_swap - dex/trading_type will be fetched from network config
             response = await self.gateway_client.quote_swap(
                 network=self._network,
-                connector=self.connector,
                 base_asset=base,
                 quote_asset=quote,
                 amount=self.order_amount_in_base,
-                side=trade_type,
-                slippage_pct=None,
-                pool_address=None,
+                side=trade_type
             )
 
             if response and "price" in response:

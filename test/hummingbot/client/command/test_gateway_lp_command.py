@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.client.command.gateway_lp_command import GatewayLPCommand
 from hummingbot.connector.gateway.common_types import ConnectorType
-from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
+from hummingbot.connector.gateway.gateway import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
 
 
 class GatewayLPCommandTest(unittest.TestCase):
@@ -17,26 +17,22 @@ class GatewayLPCommandTest(unittest.TestCase):
         self.app.change_prompt = MagicMock()
 
         # Create command instance with app's attributes
-        self.command = type(
-            "TestCommand",
-            (GatewayLPCommand,),
-            {
-                "notify": self.app.notify,
-                "app": self.app,
-                "logger": MagicMock(return_value=MagicMock()),
-                "_get_gateway_instance": MagicMock(),
-                "ev_loop": None,  # Will be set in tests that need it
-                "placeholder_mode": False,
-                "client_config_map": MagicMock(),
-            },
-        )()
+        self.command = type('TestCommand', (GatewayLPCommand,), {
+            'notify': self.app.notify,
+            'app': self.app,
+            'logger': MagicMock(return_value=MagicMock()),
+            '_get_gateway_instance': MagicMock(),
+            'ev_loop': None,  # Will be set in tests that need it
+            'placeholder_mode': False,
+            'client_config_map': MagicMock()
+        })()
 
     def test_gateway_lp_no_connector(self):
         """Test gateway lp command without connector"""
         self.command.gateway_lp(None, None)
 
-        self.app.notify.assert_any_call("\nError: Connector is required")
-        self.app.notify.assert_any_call("Usage: gateway lp <connector> <action> [trading-pair]")
+        self.app.notify.assert_any_call("\nError: DEX type is required")
+        self.app.notify.assert_any_call("Usage: gateway lp <dex_type> <action> [trading-pair]")
 
     def test_gateway_lp_no_action(self):
         """Test gateway lp command without action"""
@@ -55,7 +51,7 @@ class GatewayLPCommandTest(unittest.TestCase):
         self.app.notify.assert_any_call("\nError: Unknown action 'invalid-action'")
         self.app.notify.assert_any_call("Valid actions: add-liquidity, remove-liquidity, position-info, collect-fees")
 
-    @patch("hummingbot.client.command.gateway_lp_command.safe_ensure_future")
+    @patch('hummingbot.client.command.gateway_lp_command.safe_ensure_future')
     def test_gateway_lp_valid_actions(self, mock_ensure_future):
         """Test gateway lp command routes to correct handlers"""
         # Ensure ev_loop is properly set
@@ -90,7 +86,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             price=201.1487388734142,
             feePct=0.25,
             baseTokenAmount=27504.876827658,
-            quoteTokenAmount=5532571.286752,
+            quoteTokenAmount=5532571.286752
         )
 
         self.command._display_pool_info(pool_info, is_clmm=False)
@@ -115,7 +111,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             price=201.4895711979229,
             baseTokenAmount=53407.223282564,
             quoteTokenAmount=6018616.591386,
-            activeBinId=-16021,
+            activeBinId=-16021
         )
 
         self.command._display_pool_info(pool_info, is_clmm=True)
@@ -133,7 +129,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             price=0.00024289989374932578,
             feePct=0.3,
             baseTokenAmount=25481341.747313,
-            quoteTokenAmount=6189.415203012587,
+            quoteTokenAmount=6189.415203012587
         )
 
         self.command._display_pool_info(pool_info, is_clmm=False)
@@ -158,7 +154,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             price=0.000243487718186346,
             baseTokenAmount=1435921192058.0022,
             quoteTokenAmount=1.4359211920580022,
-            activeBinId=193115,
+            activeBinId=193115
         )
 
         self.command._display_pool_info(pool_info, is_clmm=True)
@@ -178,7 +174,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             quoteTokenAmount=15000.0,
             price=1500.0,
             base_token="ETH",
-            quote_token="USDC",
+            quote_token="USDC"
         )
 
         # Test 50% removal
@@ -207,7 +203,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             upperBinId=1100,
             lowerPrice=1400.0,
             upperPrice=1600.0,
-            price=1500.0,
+            price=1500.0
         )
 
         formatted = self.command._format_position_id(clmm_position)
@@ -222,7 +218,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             lpTokenAmount=100.0,
             baseTokenAmount=10.0,
             quoteTokenAmount=15000.0,
-            price=1500.0,
+            price=1500.0
         )
 
         formatted = self.command._format_position_id(amm_position)
@@ -246,7 +242,7 @@ class GatewayLPCommandTest(unittest.TestCase):
                 upperPrice=1600.0,
                 price=1500.0,
                 base_token="ETH",
-                quote_token="USDC",
+                quote_token="USDC"
             ),
             CLMMPositionInfo(
                 address="0x2",
@@ -263,8 +259,8 @@ class GatewayLPCommandTest(unittest.TestCase):
                 upperPrice=1550.0,
                 price=1500.0,
                 base_token="ETH",
-                quote_token="USDC",
-            ),
+                quote_token="USDC"
+            )
         ]
 
         total_fees = self.command._calculate_total_fees(positions)
@@ -283,35 +279,47 @@ class GatewayLPCommandTest(unittest.TestCase):
             price=1500.0,
             baseTokenAmount=1000.0,
             quoteTokenAmount=1500000.0,
-            activeBinId=1000,
+            activeBinId=1000
         )
 
         # Test when price is in range
         quote_amount = self.command._calculate_clmm_pair_amount(
-            known_amount=1.0, pool_info=pool_info, lower_price=1400.0, upper_price=1600.0, is_base_known=True
+            known_amount=1.0,
+            pool_info=pool_info,
+            lower_price=1400.0,
+            upper_price=1600.0,
+            is_base_known=True
         )
         self.assertGreater(quote_amount, 0)
 
         # Test when price is below range
         quote_amount = self.command._calculate_clmm_pair_amount(
-            known_amount=1.0, pool_info=pool_info, lower_price=1600.0, upper_price=1700.0, is_base_known=True
+            known_amount=1.0,
+            pool_info=pool_info,
+            lower_price=1600.0,
+            upper_price=1700.0,
+            is_base_known=True
         )
         self.assertEqual(quote_amount, 1500.0)  # All quote token
 
         # Test when price is above range - fixed test
         quote_amount = self.command._calculate_clmm_pair_amount(
-            known_amount=1.0, pool_info=pool_info, lower_price=1300.0, upper_price=1400.0, is_base_known=True
+            known_amount=1.0,
+            pool_info=pool_info,
+            lower_price=1300.0,
+            upper_price=1400.0,
+            is_base_known=True
         )
         self.assertEqual(quote_amount, 0)  # All base token
 
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
     async def test_position_info_no_positions(self, mock_wallet, mock_chain_network):
         """Test position info when no positions exist"""
         mock_chain_network.return_value = ("ethereum", "mainnet", None)
         mock_wallet.return_value = ("0xwallet123", None)
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_user_positions = AsyncMock(return_value=[])
             mock_lp.start_network = AsyncMock()
@@ -321,9 +329,9 @@ class GatewayLPCommandTest(unittest.TestCase):
 
             self.app.notify.assert_any_call("\nNo liquidity positions found for this connector")
 
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
     async def test_position_info_with_positions(self, mock_connector_type, mock_wallet, mock_chain_network):
         """Test position info with existing positions"""
         mock_chain_network.return_value = ("ethereum", "mainnet", None)
@@ -341,11 +349,11 @@ class GatewayLPCommandTest(unittest.TestCase):
                 quoteTokenAmount=15000.0,
                 price=1500.0,
                 base_token="ETH",
-                quote_token="USDC",
+                quote_token="USDC"
             )
         ]
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_user_positions = AsyncMock(return_value=positions)
             mock_lp.start_network = AsyncMock()
@@ -356,17 +364,15 @@ class GatewayLPCommandTest(unittest.TestCase):
             # Check that positions were displayed
             self.app.notify.assert_any_call("\nTotal Positions: 1")
 
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
     async def test_add_liquidity_invalid_connector(self, mock_chain_network):
         """Test add liquidity with invalid connector format"""
         await self.command._add_liquidity("invalid-connector")
 
-        self.app.notify.assert_any_call(
-            "Error: Invalid connector format 'invalid-connector'. Use format like 'uniswap/amm'"
-        )
+        self.app.notify.assert_any_call("Error: Invalid connector format 'invalid-connector'. Use format like 'uniswap/amm'")
 
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
     async def test_collect_fees_wrong_connector_type(self, mock_connector_type, mock_chain_network):
         """Test collect fees with non-CLMM connector"""
         mock_chain_network.return_value = ("ethereum", "mainnet", None)
@@ -394,7 +400,7 @@ class GatewayLPCommandTest(unittest.TestCase):
                 upperPrice=1600.0,
                 price=1500.0,
                 base_token="ETH",
-                quote_token="USDC",
+                quote_token="USDC"
             )
         ]
 
@@ -402,13 +408,11 @@ class GatewayLPCommandTest(unittest.TestCase):
 
         self.app.notify.assert_any_call("\nPositions with Uncollected Fees:")
 
-    @patch("hummingbot.client.command.gateway_api_manager.begin_placeholder_mode")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
-    async def test_add_liquidity_uses_pool_token_order(
-        self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder
-    ):
+    @patch('hummingbot.client.command.gateway_api_manager.begin_placeholder_mode')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
+    async def test_add_liquidity_uses_pool_token_order(self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder):
         """Test that add_liquidity uses pool's authoritative token order"""
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
         mock_wallet.return_value = ("0xwallet123", None)
@@ -429,19 +433,17 @@ class GatewayLPCommandTest(unittest.TestCase):
             quoteTokenAmount=6018616.591386,
             activeBinId=-16021,
             base_token="SOL",
-            quote_token="USDC",
+            quote_token="USDC"
         )
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
             mock_lp.start_network = AsyncMock()
             mock_lp.stop_network = AsyncMock()
             mock_lp.load_token_data = AsyncMock()
 
-            with patch(
-                "hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode"
-            ) as mock_enter:
+            with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode') as mock_enter:
                 mock_enter.return_value = AsyncMock()
 
                 try:
@@ -454,13 +456,11 @@ class GatewayLPCommandTest(unittest.TestCase):
             mock_lp.get_pool_info.assert_called()
             # Note: Token order notification may not trigger if user input matches pool order
 
-    @patch("hummingbot.client.command.gateway_api_manager.begin_placeholder_mode")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
-    async def test_remove_liquidity_uses_pool_token_order(
-        self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder
-    ):
+    @patch('hummingbot.client.command.gateway_api_manager.begin_placeholder_mode')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
+    async def test_remove_liquidity_uses_pool_token_order(self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder):
         """Test that remove_liquidity uses pool's authoritative token order"""
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
         mock_wallet.return_value = ("0xwallet123", None)
@@ -479,7 +479,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             baseTokenAmount=27504.876827658,
             quoteTokenAmount=5532571.286752,
             base_token="SOL",
-            quote_token="USDC",
+            quote_token="USDC"
         )
 
         positions = [
@@ -493,11 +493,11 @@ class GatewayLPCommandTest(unittest.TestCase):
                 quoteTokenAmount=2011.487,
                 price=201.1487388734142,
                 base_token="SOL",
-                quote_token="USDC",
+                quote_token="USDC"
             )
         ]
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="0xpool")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
@@ -506,9 +506,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             mock_lp.stop_network = AsyncMock()
             mock_lp.load_token_data = AsyncMock()
 
-            with patch(
-                "hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode"
-            ) as mock_enter:
+            with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode') as mock_enter:
                 mock_enter.return_value = AsyncMock()
 
                 try:
@@ -520,13 +518,11 @@ class GatewayLPCommandTest(unittest.TestCase):
             # Verify that pool info was fetched
             mock_lp.get_pool_info.assert_called_once()
 
-    @patch("hummingbot.client.command.gateway_api_manager.begin_placeholder_mode")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
-    async def test_position_info_uses_pool_token_order(
-        self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder
-    ):
+    @patch('hummingbot.client.command.gateway_api_manager.begin_placeholder_mode')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
+    async def test_position_info_uses_pool_token_order(self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder):
         """Test that position_info uses pool's authoritative token order"""
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
         mock_wallet.return_value = ("0xwallet123", None)
@@ -546,7 +542,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             quoteTokenAmount=6018616.591386,
             activeBinId=-16021,
             base_token="SOL",
-            quote_token="USDC",
+            quote_token="USDC"
         )
 
         positions = [
@@ -565,11 +561,11 @@ class GatewayLPCommandTest(unittest.TestCase):
                 upperPrice=210.0,
                 price=201.4895711979229,
                 base_token="SOL",
-                quote_token="USDC",
+                quote_token="USDC"
             )
         ]
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
@@ -578,12 +574,8 @@ class GatewayLPCommandTest(unittest.TestCase):
             mock_lp.stop_network = AsyncMock()
             mock_lp.load_token_data = AsyncMock()
 
-            with patch(
-                "hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode"
-            ) as mock_enter:
-                with patch(
-                    "hummingbot.client.command.command_utils.GatewayCommandUtils.exit_interactive_mode"
-                ) as mock_exit:
+            with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode') as mock_enter:
+                with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.exit_interactive_mode') as mock_exit:
                     mock_enter.return_value = AsyncMock()
                     mock_exit.return_value = AsyncMock()
 
@@ -592,13 +584,11 @@ class GatewayLPCommandTest(unittest.TestCase):
             # Verify pool info was fetched
             mock_lp.get_pool_info.assert_called_once()
 
-    @patch("hummingbot.client.command.gateway_api_manager.begin_placeholder_mode")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network")
-    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet")
-    @patch("hummingbot.connector.gateway.common_types.get_connector_type")
-    async def test_collect_fees_uses_pool_token_order(
-        self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder
-    ):
+    @patch('hummingbot.client.command.gateway_api_manager.begin_placeholder_mode')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_default_wallet')
+    @patch('hummingbot.connector.gateway.common_types.get_connector_type')
+    async def test_collect_fees_uses_pool_token_order(self, mock_connector_type, mock_wallet, mock_chain_network, mock_placeholder):
         """Test that collect_fees uses pool's authoritative token order"""
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
         mock_wallet.return_value = ("0xwallet123", None)
@@ -618,7 +608,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             quoteTokenAmount=6018616.591386,
             activeBinId=-16021,
             base_token="SOL",
-            quote_token="USDC",
+            quote_token="USDC"
         )
 
         positions_with_fees = [
@@ -637,11 +627,11 @@ class GatewayLPCommandTest(unittest.TestCase):
                 upperPrice=210.0,
                 price=201.4895711979229,
                 base_token="SOL",
-                quote_token="USDC",
+                quote_token="USDC"
             )
         ]
 
-        with patch("hummingbot.connector.gateway.gateway_lp.GatewayLp") as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
@@ -650,12 +640,8 @@ class GatewayLPCommandTest(unittest.TestCase):
             mock_lp.stop_network = AsyncMock()
             mock_lp.load_token_data = AsyncMock()
 
-            with patch(
-                "hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode"
-            ) as mock_enter:
-                with patch(
-                    "hummingbot.client.command.command_utils.GatewayCommandUtils.exit_interactive_mode"
-                ) as mock_exit:
+            with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.enter_interactive_mode') as mock_enter:
+                with patch('hummingbot.client.command.command_utils.GatewayCommandUtils.exit_interactive_mode') as mock_exit:
                     mock_enter.return_value = AsyncMock()
                     mock_exit.return_value = AsyncMock()
 

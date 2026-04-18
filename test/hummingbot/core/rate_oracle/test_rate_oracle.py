@@ -82,6 +82,27 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         rate = find_rate(prices, "HBOT-GBP")
         self.assertEqual(rate, Decimal("75"))
 
+    def test_find_rate_skips_zero_prices(self):
+        """Test that find_rate doesn't cause DivisionByZero when prices contain zero values."""
+        # Test case 1: reverse pair has zero price - should skip division and return None
+        prices_with_zero_reverse = {"SOL-FARTCOIN": Decimal("0")}
+        rate = find_rate(prices_with_zero_reverse, "FARTCOIN-SOL")
+        self.assertIsNone(rate)
+
+        # Test case 2: common denominator pair has zero price - should skip that path
+        prices_with_zero_common = {
+            "HBOT-USDT": Decimal("100"),
+            "GBP-USDT": Decimal("0")  # Zero price in common denominator
+        }
+        rate = find_rate(prices_with_zero_common, "HBOT-GBP")
+        # Should return None since the only route involves dividing by zero
+        self.assertIsNone(rate)
+
+        # Test case 3: direct pair has zero price - should still return it (no division involved)
+        prices_with_zero_direct = {"FARTCOIN-SOL": Decimal("0")}
+        rate = find_rate(prices_with_zero_direct, "FARTCOIN-SOL")
+        self.assertEqual(rate, Decimal("0"))
+
     def test_rate_oracle_single_instance_rate_source_reset_after_configuration_change(self):
         config_map = ClientConfigAdapter(ClientConfigMap())
         config_map.rate_oracle_source = "binance"

@@ -16,7 +16,6 @@ def validate_exchange(value: str) -> Optional[str]:
     Restrict valid connectors to spot connectors
     """
     from hummingbot.client.settings import AllConnectorSettings
-
     if value not in AllConnectorSettings.get_exchange_names():
         return f"Invalid exchange, please choose value from {AllConnectorSettings.get_exchange_names()}"
 
@@ -26,7 +25,6 @@ def validate_derivative(value: str) -> Optional[str]:
     Restrict valid connectors to perpetual connectors
     """
     from hummingbot.client.settings import AllConnectorSettings
-
     if value not in AllConnectorSettings.get_derivative_names():
         return f"Invalid derivative, please choose value from {AllConnectorSettings.get_derivative_names()}"
 
@@ -35,11 +33,10 @@ def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid connectors to ALL spot connectors, including paper trade and Gateway
     """
-    from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings
-
+    from hummingbot.client.settings import GATEWAY_DEXS, AllConnectorSettings
     valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
     valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
-    valid_connectors.update(GATEWAY_CONNECTORS)
+    valid_connectors.update(GATEWAY_DEXS)
 
     if value not in valid_connectors:
         all_options = sorted(valid_connectors)
@@ -51,7 +48,6 @@ def validate_strategy(value: str) -> Optional[str]:
     Restrict valid derivatives to the strategy file names
     """
     from hummingbot.client.settings import STRATEGIES
-
     if value not in STRATEGIES:
         return f"Invalid strategy, please choose value from {STRATEGIES}"
 
@@ -88,7 +84,6 @@ def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
     in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
     """
     from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, [])
@@ -102,7 +97,7 @@ def validate_bool(value: str) -> Optional[str]:
     """
     Permissively interpret a string as a boolean
     """
-    valid_values = ("true", "yes", "y", "false", "no", "n")
+    valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
     if value.lower() not in valid_values:
         return f"Invalid value, please choose value from {valid_values}"
 
@@ -161,14 +156,14 @@ def validate_float(value: str, min_value: float = None, max_value: float = None,
 
 def validate_datetime_iso_string(value: str) -> Optional[str]:
     try:
-        datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
     except ValueError:
         return "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
 
 
 def validate_time_iso_string(value: str) -> Optional[str]:
     try:
-        time.strptime(value, "%H:%M:%S")
+        time.strptime(value, '%H:%M:%S')
     except ValueError:
         return "Incorrect time format (expected is HH:MM:SS)"
 

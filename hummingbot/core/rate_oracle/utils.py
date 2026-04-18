@@ -24,7 +24,7 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
     if base == quote:
         return Decimal("1")
     reverse_pair = combine_to_hb_trading_pair(base=quote, quote=base)
-    if reverse_pair in prices:
+    if reverse_pair in prices and prices[reverse_pair] > Decimal("0"):
         return Decimal("1") / prices[reverse_pair]
     base_prices = {k: v for k, v in prices.items() if k.startswith(f"{base}-")}
     for base_pair, proxy_price in base_prices.items():
@@ -33,5 +33,5 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
         if link_pair in prices:
             return proxy_price * prices[link_pair]
         common_denom_pair = combine_to_hb_trading_pair(base=quote, quote=link_quote)
-        if common_denom_pair in prices:
+        if common_denom_pair in prices and prices[common_denom_pair] > Decimal("0"):
             return proxy_price / prices[common_denom_pair]

@@ -16,32 +16,33 @@ class GatewayApproveCommand:
 
     def gateway_approve(self, connector: Optional[str], token: Optional[str]):
         if connector is not None and token is not None:
-            safe_ensure_future(self._update_gateway_approve_token(connector, token), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_approve_token(
+                connector, token), loop=self.ev_loop)
         else:
-            self.notify("\nPlease specify an Ethereum connector and a token to approve.\n")
+            self.notify(
+                "\nPlease specify an Ethereum connector and a token to approve.\n")
 
     async def _update_gateway_approve_token(
-        self,  # type: HummingbotApplication
-        connector: str,
-        token: str,
+            self,           # type: HummingbotApplication
+            connector: str,
+            token: str,
     ):
         """
         Allow the user to approve a token for spending using the connector.
         """
         try:
-            # Parse connector format (e.g., "uniswap/amm")
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                return
-
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(connector)
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
+                connector
+            )
             if error:
-                self.notify(error)
+                self.notify(f"Error: {error}")
                 return
 
             # Get default wallet for the chain
-            wallet_address, error = await self._get_gateway_instance().get_default_wallet(chain)
+            wallet_address, error = await self._get_gateway_instance().get_default_wallet(
+                chain
+            )
             if error:
                 self.notify(error)
                 return
@@ -58,7 +59,7 @@ class GatewayApproveCommand:
                 network=network,
                 address=wallet_address,
                 trading_pairs=[],
-                trading_required=True,  # Set to True to enable gas estimation
+                trading_required=True  # Set to True to enable gas estimation
             )
 
             # Start the connector network
@@ -87,14 +88,11 @@ class GatewayApproveCommand:
             token_info = gateway_connector.get_token_info(token)
             token_data_for_display = {token: token_info} if token_info else {}
             formatted_rows = GatewayCommandUtils.format_allowance_display(
-                {token: current_allowance}, token_data=token_data_for_display
+                {token: current_allowance},
+                token_data=token_data_for_display
             )
 
-            formatted_row = (
-                formatted_rows[0]
-                if formatted_rows
-                else {"Symbol": token.upper(), "Address": "Unknown", "Allowance": "0"}
-            )
+            formatted_row = formatted_rows[0] if formatted_rows else {"Symbol": token.upper(), "Address": "Unknown", "Allowance": "0"}
 
             self.notify("\nToken to approve:")
             self.notify(f"  Symbol: {formatted_row['Symbol']}")
@@ -102,9 +100,7 @@ class GatewayApproveCommand:
             self.notify(f"  Current Allowance: {formatted_row['Allowance']}")
 
             # Log the connector state for debugging
-            self.logger().info(
-                f"Gateway connector initialized: chain={chain}, network={network}, connector={connector}"
-            )
+            self.logger().info(f"Gateway connector initialized: chain={chain}, network={network}, connector={connector}")
             self.logger().info(f"Network transaction fee before check: {gateway_connector.network_transaction_fee}")
 
             # Wait a moment for gas estimation to complete if needed
@@ -134,7 +130,7 @@ class GatewayApproveCommand:
                 network=network,
                 wallet_address=wallet_address,
                 tokens_to_check=tokens_to_check,
-                native_token=native_token,
+                native_token=native_token
             )
 
             # For approve, there's no token balance change, only gas fee
@@ -149,7 +145,7 @@ class GatewayApproveCommand:
                 native_token=native_token,
                 gas_fee=gas_fee_estimate or 0,
                 warnings=warnings,
-                title="Balance Impact After Approval",
+                title="Balance Impact After Approval"
             )
 
             # Display transaction fee details
@@ -185,14 +181,13 @@ class GatewayApproveCommand:
                     order_id=order_id,
                     timeout=60.0,
                     check_interval=1.0,
-                    pending_msg_delay=3.0,
+                    pending_msg_delay=3.0
                 )
 
                 GatewayCommandUtils.handle_transaction_result(
-                    self,
-                    result,
+                    self, result,
                     success_msg=f"Token {token} is approved for spending on {connector}",
-                    failure_msg=f"Token {token} approval failed. Please try again.",
+                    failure_msg=f"Token {token} approval failed. Please try again."
                 )
 
             finally:
