@@ -182,10 +182,12 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             if call_count >= 2:
                 self.component.stop()
 
-        with patch.object(self.component, "control_task", side_effect=mock_control_task), \
-             patch.object(self.component, "evaluate_max_retries") as mock_eval, \
-             patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock), \
-             patch.object(self.component, "on_stop"):
+        with (
+            patch.object(self.component, "control_task", side_effect=mock_control_task),
+            patch.object(self.component, "evaluate_max_retries") as mock_eval,
+            patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock),
+            patch.object(self.component, "on_stop"),
+        ):
             self.component.update_interval = 0.01
             await self.component.control_loop()
             self.assertGreaterEqual(call_count, 2)
@@ -202,10 +204,12 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 raise RuntimeError("test error")
             self.component.stop()
 
-        with patch.object(self.component, "control_task", side_effect=mock_control_task), \
-             patch.object(self.component, "evaluate_max_retries"), \
-             patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock), \
-             patch.object(self.component, "on_stop"):
+        with (
+            patch.object(self.component, "control_task", side_effect=mock_control_task),
+            patch.object(self.component, "evaluate_max_retries"),
+            patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock),
+            patch.object(self.component, "on_stop"),
+        ):
             self.component.update_interval = 0.01
             self.component.terminated.clear()
             await self.component.control_loop()
