@@ -37,6 +37,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          submodules: recursive
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
