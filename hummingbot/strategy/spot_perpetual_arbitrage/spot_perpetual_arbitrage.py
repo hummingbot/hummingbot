@@ -85,6 +85,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
+        self._last_no_arb_log_ts = 0  # throttle "no opportunity" heartbeat logs
         self.add_markets([spot_market_info.market, perp_market_info.market])
 
         self._main_task = None
@@ -198,14 +199,32 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             return
         if self.strategy_state == StrategyState.Closed and self._next_arbitrage_opening_ts > self.current_timestamp:
             return
-        proposals = await self.create_base_proposals()
+        all_proposals = await self.create_base_proposals()
         if self._strategy_state == StrategyState.Opened:
             perp_is_buy = False if self.perp_positions[0].amount > 0 else True
-            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
+            proposals = [p for p in all_proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
                          self._min_closing_arbitrage_pct]
         else:
-            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
+            proposals = [p for p in all_proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
         if len(proposals) == 0:
+            if self._last_no_arb_log_ts + 60 < self.current_timestamp:
+                if all_proposals:
+                    best = max(all_proposals, key=lambda p: p.profit_pct())
+                    threshold = (
+                        self._min_closing_arbitrage_pct
+                        if self._strategy_state == StrategyState.Opened
+                        else self._min_opening_arbitrage_pct
+                    )
+                    action = 'close' if self._strategy_state == StrategyState.Opened else 'open'
+                    spot_px = best.spot_side.order_price if best.spot_side.is_buy else best.perp_side.order_price
+                    perp_px = best.perp_side.order_price if not best.perp_side.is_buy else best.spot_side.order_price
+                    self.logger().info(
+                        f'No arb opportunity to {action}. '
+                        f'Best spread: {best.profit_pct():.4%} '
+                        f'(threshold: {threshold:.4%}). '
+                        f'Spot buy={spot_px:.4f}, perp sell={perp_px:.4f}'
+                    )
+                self._last_no_arb_log_ts = self.current_timestamp
             return
         proposal = proposals[0]
         if self._last_arb_op_reported_ts + 60 < self.current_timestamp:
@@ -481,7 +500,16 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         warning_lines = self.network_warning([self._spot_market_info])
         warning_lines.extend(self.network_warning([self._perp_market_info]))
         warning_lines.extend(self.balance_warning([self._spot_market_info]))
-        warning_lines.extend(self.balance_warning([self._perp_market_info]))
+        # Perpetual connectors only hold collateral (quote asset = USDC), not the base asset (ETH).
+        # balance_warning() incorrectly flags ETH as "too low" for perp connectors that use
+        # PerpetualDerivativePyBase (not DerivativeBase), so we check the quote balance directly.
+        perp_quote = self._perp_market_info.quote_asset
+        perp_quote_balance = self._perp_market_info.market.get_balance(perp_quote)
+        if perp_quote_balance <= Decimal("0.0001"):
+            warning_lines.append(
+                f"  {self._perp_market_info.market.name} market "
+                f"{perp_quote} balance is too low. Cannot place order."
+            )
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 

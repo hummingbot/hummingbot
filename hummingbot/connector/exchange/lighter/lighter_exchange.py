@@ -56,22 +56,19 @@ class LighterExchange(ExchangePyBase):
 
     def __init__(
         self,
-        lighter_api_key: str,
-        lighter_api_secret: str,
-        lighter_account_index: str,
+        lighter_account_index: str = "",
         lighter_api_key_index: str = "",
-        lighter_private_key: str = "",
+        lighter_api_key_private_key: str = "",
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
         rate_limits_share_pct: Decimal = Decimal("100"),
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-        self._api_key = lighter_api_key
-        self._api_secret = lighter_api_secret
+        self._api_key = lighter_api_key_private_key
+        self._api_secret = lighter_api_key_index
         self._account_index = lighter_account_index
         self._api_key_index = lighter_api_key_index
-        self._private_key = lighter_private_key
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs or []
@@ -106,13 +103,11 @@ class LighterExchange(ExchangePyBase):
             return False
 
     def _get_signer_private_key(self) -> str:
-        if self._private_key:
-            return self._private_key
         if self._api_key and not self._is_int_string(self._api_key):
             return self._api_key
         raise ValueError(
-            "Lighter signer private key is required for signed spot transactions. "
-            "Provide lighter_private_key (or set lighter_api_key to signer private key in compatibility mode)."
+            "API private key is required for signed transactions. "
+            "Enter your signing key via connect lighter."
         )
 
     def _api_host_for_signer(self) -> str:
@@ -198,11 +193,8 @@ class LighterExchange(ExchangePyBase):
         api_key_index = getattr(self, "_api_key_index", "")
         if self._is_int_string(api_key_index):
             return int(api_key_index)
-        if self._is_int_string(self._api_secret):
-            return int(self._api_secret)
         raise ValueError(
-            "Lighter API key index must be provided as an integer string in lighter_api_key_index or "
-            "lighter_api_secret (compatibility mode)."
+            "API key index must be an integer. Enter it via connect lighter."
         )
 
     def _get_account_index(self) -> int:
@@ -773,6 +765,12 @@ class LighterExchange(ExchangePyBase):
             )
         return rules
 
+    async def start_network(self):
+        # Fetch balances immediately so check_budget_available() in the strategy tick
+        # sees real balances instead of zeros before the first polling interval fires.
+        await self._update_balances()
+        await super().start_network()
+
     async def _update_balances(self):
         response = await self._api_get(
             path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
@@ -782,13 +780,19 @@ class LighterExchange(ExchangePyBase):
         )
 
         if not self._is_ok_response(response):
-            self.logger().error(f"[_update_balances] Failed to update balances (api responded with failure): {response}")
-            return
+            code = response.get("code") if isinstance(response, dict) else ""
+            msg = response.get("message") or response.get("error") or "" if isinstance(response, dict) else str(response)
+            raise IOError(
+                f"Cannot connect to Lighter: server returned code {code}. "
+                f"{msg} — check your account index and API key index."
+            )
 
         account_data = self._account_from_response(response)
         if not account_data:
-            self.logger().error(f"[_update_balances] Failed to update balances (no account data): {response}")
-            return
+            raise IOError(
+                f"Cannot connect to Lighter: no account data returned. "
+                f"Verify your account index is correct. Response: {response}"
+            )
 
         remote_asset_names = set()
         for asset_entry in account_data.get("assets", []):

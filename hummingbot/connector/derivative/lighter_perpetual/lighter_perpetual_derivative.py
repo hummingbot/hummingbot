@@ -63,7 +63,6 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         lighter_perpetual_api_secret: str,
         lighter_perpetual_account_index: str,
         lighter_perpetual_api_key_index: str = "",
-        lighter_perpetual_private_key: str = "",
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
@@ -74,7 +73,6 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self.api_secret = lighter_perpetual_api_secret
         self.account_index = lighter_perpetual_account_index
         self.api_key_index = lighter_perpetual_api_key_index
-        self.private_key = lighter_perpetual_private_key
         self.api_config_key = self.api_key
         self.user_wallet_public_key = self.account_index
 
@@ -217,15 +215,13 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         return len(key) >= 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
     def _get_signer_private_key(self) -> str:
-        if self.private_key:
-            return self.private_key
         if self.api_key and not self._is_int_string(self.api_key) and self._is_hex_private_key(self.api_key):
             return self.api_key
         if self.api_secret and not self._is_int_string(self.api_secret) and self._is_hex_private_key(self.api_secret):
             return self.api_secret
         raise ValueError(
             "Lighter signer private key is required for signed transactions. "
-            "Provide lighter_perpetual_private_key (or set lighter_perpetual_api_key to signer private key in compatibility mode)."
+            "Set lighter_perpetual_api_key to your API private key (64+ char hex string)."
         )
 
     @property
@@ -490,18 +486,21 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def all_trading_pairs(self) -> List[str]:
         """
-        Returns all active perpetual trading pairs available on the Lighter exchange.
-        Fetches from /tokenlist and filters for market == 'PERPS' and is_allowed_mainnet == True.
+        Returns all active perpetual trading pairs on Lighter.
+        Uses /orderBooks (same as _initialize_trading_pair_symbols_from_exchange_info)
+        filtered for market_type == 'perp'. Works on both mainnet and testnet.
         """
         try:
-            result = await self._api_get(path_url=CONSTANTS.GET_TOKENLIST_PATH_URL)
+            result = await self._api_get(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
             pairs = []
-            for token in result.get("tokens") or []:
-                if token.get("market") != "PERPS":
+            for market in result.get("order_books") or []:
+                if str(market.get("market_type", "")).lower() != "perp":
                     continue
-                if not token.get("is_allowed_mainnet"):
+                if str(market.get("status", "active")).lower() in {
+                    "inactive", "disabled", "halted", "suspended", "delisted"
+                }:
                     continue
-                symbol = token.get("symbol", "")
+                symbol = market.get("symbol", "")
                 if symbol:
                     pairs.append(combine_to_hb_trading_pair(symbol, "USDC"))
             return pairs
@@ -830,20 +829,51 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         }
         ```
         """
+        # Generate a signed auth token so the server validates the private key.
+        # Without this, GET /account is unauthenticated and accepts any valid account_index
+        # even with a wrong API key — causing a false "connected" result.
+        params = self._account_query_params()
+        try:
+            signer_client = self._get_lighter_signer_client()
+            auth_token, auth_error = signer_client.create_auth_token_with_expiry(
+                api_key_index=self._get_api_key_index()
+            )
+            if auth_error or not auth_token:
+                raise IOError(
+                    f"Cannot connect to Lighter Perpetual: failed to generate auth token. {auth_error} "
+                    "Check your API private key and API key index."
+                )
+            params["auth"] = auth_token
+        except IOError:
+            raise
+        except Exception as e:
+            raise IOError(
+                f"Cannot connect to Lighter Perpetual: failed to build auth token — {e}. "
+                "Check your API private key and API key index."
+            )
+
         response = await self._api_get(
             path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
-            params=self._account_query_params(),
+            params=params,
+            is_auth_required=True,
             return_err=True
         )
 
         if not self._is_ok_response(response):
-            self.logger().error(f"[_update_balances] Failed to update balances (api responded with failure): {response}")
-            return
+            code = response.get("code") if isinstance(response, dict) else ""
+            msg = response.get("message") or response.get("error") or "" if isinstance(response, dict) else str(response)
+            raise IOError(
+                f"Cannot connect to Lighter Perpetual: server returned code {code}. "
+                f"{msg} — check your account index, API key index, and API private key."
+            )
 
         data = self._account_from_response(response)
         if not data:
-            self.logger().error(f"[_update_balances] Failed to update balances (no data): {response}")
-            return
+            raise IOError(
+                f"Cannot connect to Lighter Perpetual: no account data returned. "
+                f"Verify your account index is correct (large number, e.g. 693751 — NOT the API key index). "
+                f"Response: {response}"
+            )
 
         total_balance = data.get("account_equity") or data.get("equity") or data.get("collateral") or "0"
         available_balance = data.get("available_to_spend") or data.get("availableForTrade") or data.get("available_balance") or total_balance
@@ -982,6 +1012,10 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     unrealized_pnl = (mark_price - entry_price) * amount
                 else:
                     unrealized_pnl = (entry_price - mark_price) * amount
+
+            # Include cumulative funding P&L (positive = received, negative = paid)
+            cumulative_funding = Decimal(str(position_entry.get("funding") or "0"))
+            unrealized_pnl += cumulative_funding
 
             position = Position(
                 trading_pair=hb_trading_pair,
@@ -1385,6 +1419,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.GET_FUNDING_HISTORY_PATH_URL,
             params={
                 "account_index": self._get_account_index(),
+                "market_id": market_id,
                 "limit": 100,
                 "auth": auth_token_ff or "",
             },
@@ -1557,6 +1592,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 "a": str(abs(raw_amount)),
                 "p": str(position_entry.get("avg_entry_price") or "0"),
                 "upnl": str(position_entry.get("unrealized_pnl")) if position_entry.get("unrealized_pnl") is not None else None,
+                # cumulative funding P&L for this position (positive = received, negative = paid)
+                "f": str(position_entry.get("funding") or "0"),
             })
 
         return normalized_entries
@@ -1769,6 +1806,10 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     unrealized_pnl = (mark_price - entry_price) * amount
                 else:
                     unrealized_pnl = (entry_price - mark_price) * amount
+
+            # "f" field = cumulative funding P&L (positive = received, negative = paid)
+            cumulative_funding = Decimal(str(position_entry.get("f") or "0"))
+            unrealized_pnl += cumulative_funding
 
             position = Position(
                 trading_pair=hb_trading_pair,

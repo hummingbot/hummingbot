@@ -1,7 +1,8 @@
 import json
 from decimal import Decimal
+from typing import Optional
 
-from pydantic import AliasChoices, ConfigDict, Field, SecretStr, field_validator
+from pydantic import AliasChoices, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -45,11 +46,11 @@ _API_KEY_FORMAT_HINT = (
 class LighterConfigMap(BaseConnectorConfigMap):
     connector: str = "lighter"
 
-    lighter_api_secret: SecretStr = Field(
+    lighter_api_key_index: SecretStr = Field(
         default=...,
-        validation_alias=AliasChoices("lighter_api_secret", "lighter_api_key_index"),
+        validation_alias=AliasChoices("lighter_api_key_index", "lighter_api_secret"),
         json_schema_extra={
-            "prompt": "Enter your Lighter API key index",
+            "prompt": "Enter your API key index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -60,29 +61,18 @@ class LighterConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_account_index"),
         json_schema_extra={
-            "prompt": "Enter your Lighter account index",
+            "prompt": "Enter your account index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         },
     )
 
-    lighter_private_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices("lighter_private_key", "lighter_signer_private_key", "lighter_eoa_private_key"),
-        json_schema_extra={
-            "prompt": "Enter your Lighter API private key (required for order placement/cancel; leave blank for read-only)",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": False,
-        },
-    )
-
-    lighter_api_key: SecretStr = Field(
+    lighter_api_key_private_key: SecretStr = Field(
         default=...,
-        validation_alias=AliasChoices("lighter_api_key"),
+        validation_alias=AliasChoices("lighter_api_key_private_key", "lighter_api_key", "lighter_private_key"),
         json_schema_extra={
-            "prompt": "Enter your Lighter API key (hex string, e.g. 3d6e9253...4357)",
+            "prompt": "Enter your API private key (64+ char hex string, e.g. 3d6e9253...4357)",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -91,7 +81,27 @@ class LighterConfigMap(BaseConnectorConfigMap):
 
     model_config = ConfigDict(title="lighter")
 
-    @field_validator("lighter_api_secret", mode="before")
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_fields(cls, data):
+        """Map old field names from saved YAML configs to the current names."""
+        if not isinstance(data, dict):
+            return data
+        # lighter_api_secret → lighter_api_key_index
+        if "lighter_api_secret" in data and "lighter_api_key_index" not in data:
+            data["lighter_api_key_index"] = data.pop("lighter_api_secret")
+        else:
+            data.pop("lighter_api_secret", None)
+        # lighter_api_key → lighter_api_key_private_key
+        if "lighter_api_key" in data and "lighter_api_key_private_key" not in data:
+            data["lighter_api_key_private_key"] = data.pop("lighter_api_key")
+        else:
+            data.pop("lighter_api_key", None)
+        # lighter_private_key was a separate L1 key; discard (encrypted value is stale after rename)
+        data.pop("lighter_private_key", None)
+        return data
+
+    @field_validator("lighter_api_key_index", mode="before")
     @classmethod
     def validate_api_key_index(cls, value):
         raw_value = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
@@ -117,7 +127,7 @@ class LighterConfigMap(BaseConnectorConfigMap):
             raise ValueError("Lighter account index must be an integer string")
         return SecretStr(sanitized)
 
-    @field_validator("lighter_api_key", mode="before")
+    @field_validator("lighter_api_key_private_key", mode="before")
     @classmethod
     def validate_api_key(cls, value):
         raw_value = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
@@ -142,22 +152,26 @@ OTHER_DOMAINS_DEFAULT_FEES = {"lighter_testnet": [0.00015, 0.0004]}
 class LighterTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "lighter_testnet"
 
-    lighter_testnet_api_key: SecretStr = Field(
+    lighter_testnet_api_key_private_key: SecretStr = Field(
         default=...,
-        validation_alias=AliasChoices("lighter_testnet_api_key"),
+        validation_alias=AliasChoices(
+            "lighter_testnet_api_key_private_key",
+            "lighter_testnet_api_key",
+            "lighter_testnet_private_key",
+        ),
         json_schema_extra={
-            "prompt": "Enter your Lighter testnet API key",
+            "prompt": "Enter your API private key (hex string, e.g. 3d6e9253...4357)",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         },
     )
 
-    lighter_testnet_api_secret: SecretStr = Field(
+    lighter_testnet_api_key_index: SecretStr = Field(
         default=...,
-        validation_alias=AliasChoices("lighter_testnet_api_secret", "lighter_testnet_api_key_index"),
+        validation_alias=AliasChoices("lighter_testnet_api_key_index", "lighter_testnet_api_secret"),
         json_schema_extra={
-            "prompt": "Enter your Lighter testnet API key index",
+            "prompt": "Enter your API key index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -168,31 +182,36 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_testnet_account_index"),
         json_schema_extra={
-            "prompt": "Enter your Lighter testnet account index",
+            "prompt": "Enter your account index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         },
     )
 
-    lighter_testnet_private_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices(
-            "lighter_testnet_private_key",
-            "lighter_testnet_signer_private_key",
-            "lighter_testnet_eoa_private_key",
-        ),
-        json_schema_extra={
-            "prompt": "Enter your Lighter testnet API private key (required for order placement/cancel; leave blank for read-only)",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": False,
-        },
-    )
-
     model_config = ConfigDict(title="lighter_testnet")
 
-    @field_validator("lighter_testnet_api_secret", mode="before")
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_fields(cls, data):
+        """Map old field names from saved YAML configs to the current names."""
+        if not isinstance(data, dict):
+            return data
+        # lighter_testnet_api_secret → lighter_testnet_api_key_index
+        if "lighter_testnet_api_secret" in data and "lighter_testnet_api_key_index" not in data:
+            data["lighter_testnet_api_key_index"] = data.pop("lighter_testnet_api_secret")
+        else:
+            data.pop("lighter_testnet_api_secret", None)
+        # lighter_testnet_api_key → lighter_testnet_api_key_private_key
+        if "lighter_testnet_api_key" in data and "lighter_testnet_api_key_private_key" not in data:
+            data["lighter_testnet_api_key_private_key"] = data.pop("lighter_testnet_api_key")
+        else:
+            data.pop("lighter_testnet_api_key", None)
+        # lighter_testnet_private_key was a separate L1 key; discard
+        data.pop("lighter_testnet_private_key", None)
+        return data
+
+    @field_validator("lighter_testnet_api_key_index", mode="before")
     @classmethod
     def validate_testnet_api_key_index(cls, value):
         raw_value = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
@@ -218,7 +237,7 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
             raise ValueError("Lighter account index must be an integer string")
         return SecretStr(sanitized)
 
-    @field_validator("lighter_testnet_api_key", mode="before")
+    @field_validator("lighter_testnet_api_key_private_key", mode="before")
     @classmethod
     def validate_testnet_api_key(cls, value):
         raw_value = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
@@ -247,3 +266,70 @@ def is_exchange_information_valid(exchange_info: dict) -> bool:
         return False
 
     return bool(exchange_info.get("symbol"))
+
+
+async def fetch_lighter_public_key(connector_name: str, account_index: str, api_key_index: str) -> Optional[str]:
+    """Fetch the public key for a lighter API key from the exchange REST API.
+
+    Returns the public key hex string, or None if the lookup fails.
+    """
+    import logging
+
+    import aiohttp
+
+    from hummingbot.connector.exchange.lighter.lighter_constants import REST_URL, TESTNET_REST_URL
+
+    logger = logging.getLogger(__name__)
+    base_url = TESTNET_REST_URL if connector_name in ("lighter_testnet", "lighter_perpetual_testnet") else REST_URL
+    url = f"{base_url}/apikeys"
+    params = {"account_index": account_index, "api_key_index": api_key_index}
+    try:
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    api_keys = data.get("api_keys", [])
+                    if api_keys:
+                        return api_keys[0].get("public_key")
+                    logger.warning(
+                        f"fetch_lighter_public_key: no api_keys in response "
+                        f"(account={account_index}, key_index={api_key_index}): {data}"
+                    )
+                else:
+                    logger.warning(
+                        f"fetch_lighter_public_key: HTTP {resp.status} "
+                        f"(account={account_index}, key_index={api_key_index})"
+                    )
+    except Exception as e:
+        logger.warning(f"fetch_lighter_public_key failed: {e}")
+    return None
+
+
+async def validate_lighter_api_key_index(connector_name: str, account_index: str, api_key_index: str) -> Optional[str]:
+    """Validate that api_key_index exists within the given account.
+
+    Returns None if the key is valid (or if the check cannot be performed due to a network error).
+    Returns an error message string if the key index is not found in the account.
+    """
+    import aiohttp
+
+    from hummingbot.connector.exchange.lighter.lighter_constants import REST_URL, TESTNET_REST_URL
+
+    base_url = TESTNET_REST_URL if connector_name in ("lighter_testnet", "lighter_perpetual_testnet") else REST_URL
+    url = f"{base_url}/apikeys"
+    params = {"account_index": account_index, "api_key_index": api_key_index}
+    try:
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if not data.get("api_keys"):
+                        return (
+                            f"No API key found at index {api_key_index} for account {account_index}. "
+                            "Please verify your API key index."
+                        )
+    except Exception:
+        pass
+    return None

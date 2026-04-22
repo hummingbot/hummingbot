@@ -41,9 +41,31 @@ class ConnectCommand:
         connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
-            api_key_config = [value for key, value in Security.api_keys(connector_name).items() if "api_key" in key]
+            api_keys = Security.api_keys(connector_name)
+            api_key_config = [value for key, value in api_keys.items() if "api_key" in key]
             if api_key_config:
                 api_key = api_key_config[0]
+                # For lighter connectors, always display the public key fetched from the REST API.
+                if connector_name in ("lighter", "lighter_testnet", "lighter_perpetual", "lighter_perpetual_testnet"):
+                    from hummingbot.connector.exchange.lighter.lighter_utils import fetch_lighter_public_key
+                    # Spot uses lighter_account_index / lighter_api_key_index
+                    # Perpetual uses lighter_perpetual_account_index / lighter_perpetual_api_secret
+                    acct_idx = (
+                        api_keys.get(f"{connector_name}_account_index")
+                        or ""
+                    )
+                    key_idx = (
+                        api_keys.get(f"{connector_name}_api_key_index")
+                        or api_keys.get(f"{connector_name}_api_secret")
+                        or ""
+                    )
+                    public_key = await fetch_lighter_public_key(connector_name, acct_idx, key_idx)
+                    if public_key:
+                        api_key = public_key
+                    elif key_idx:
+                        api_key = f"<public key for index {key_idx} unavailable>"
+                    else:
+                        api_key = "<no API key index configured>"
                 prompt = (
                     f"Would you like to replace your existing {connector_name} API key {api_key} (Yes/No)? >>> "
                 )
@@ -136,6 +158,20 @@ class ConnectCommand:
             self.app.to_stop_config = False
             return
         Security.update_secure_config(connector_config)
+        if connector_name in ("lighter", "lighter_testnet", "lighter_perpetual", "lighter_perpetual_testnet"):
+            from hummingbot.connector.exchange.lighter.lighter_utils import validate_lighter_api_key_index
+            fresh_keys = Security.api_keys(connector_name)
+            acct_idx = fresh_keys.get(f"{connector_name}_account_index", "")
+            key_idx = (
+                fresh_keys.get(f"{connector_name}_api_key_index")
+                or fresh_keys.get(f"{connector_name}_api_secret", "")
+            )
+            key_err = await validate_lighter_api_key_index(connector_name, acct_idx, key_idx)
+            if key_err is not None:
+                self.notify(f"\nError: {key_err}")
+                if previous_keys is not None:
+                    Security.update_secure_config(original_config)
+                return
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
