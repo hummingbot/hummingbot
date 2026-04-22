@@ -61,6 +61,8 @@ class DexalotExchange(ExchangePyBase):
 
         self._evm_params = {}
         self._tx_client: DexalotClient = self._create_tx_client()
+        # Initialize _orders_processing_delta_time to avoid AttributeError
+        self._orders_processing_delta_time = 1.0
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 

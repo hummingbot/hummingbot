@@ -30,9 +30,21 @@ class DexalotRateSource(RateSourceBase):
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
 
-                if Decimal(str(record["low"])) > 0 and Decimal(str(record["high"])) > 0:
-                    results[pair] = (Decimal(str(record["low"])) +
-                                     Decimal(str(record["high"]))) / Decimal("2")
+                # Validate that record has required fields and they are valid numbers
+                try:
+                    low_val = str(record.get("low", ""))
+                    high_val = str(record.get("high", ""))
+                    # Skip if values are empty, 'null', 'None', or non-numeric
+                    if not low_val or not high_val or low_val in ('null', 'None') or high_val in ('null', 'None'):
+                        continue
+                    low_decimal = Decimal(low_val)
+                    high_decimal = Decimal(high_val)
+                    if low_decimal > 0 and high_decimal > 0:
+                        results[pair] = (low_decimal + high_decimal) / Decimal("2")
+                except (KeyError, TypeError, ValueError):
+                    # Skip records with invalid data
+                    continue
+
         except Exception:
             self.logger().exception(
                 msg="Unexpected error while retrieving rates from Dexalot. Check the log file for more info.",
@@ -46,7 +58,6 @@ class DexalotRateSource(RateSourceBase):
     @staticmethod
     def _build_dexalot_connector_without_private_keys() -> 'DexalotExchange':
         from hummingbot.connector.exchange.dexalot.dexalot_exchange import DexalotExchange
-
         return DexalotExchange(
             dexalot_api_key="",
             dexalot_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
