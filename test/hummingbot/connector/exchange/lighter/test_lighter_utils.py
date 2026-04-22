@@ -23,18 +23,18 @@ class LighterUtilsTests(TestCase):
         self.assertEqual("lighter_testnet", LighterTestnetConfigMap.model_config.get("title"))
 
     def test_connect_flow_prompts_for_api_key_instead_of_private_key(self):
-        mainnet_api_key = LighterConfigMap.model_fields["lighter_api_key"].json_schema_extra
-        mainnet_private_key = LighterConfigMap.model_fields["lighter_private_key"].json_schema_extra
-        testnet_api_key = LighterTestnetConfigMap.model_fields["lighter_testnet_api_key"].json_schema_extra
-        testnet_private_key = LighterTestnetConfigMap.model_fields["lighter_testnet_private_key"].json_schema_extra
+        mainnet_api_key = LighterConfigMap.model_fields["lighter_api_key_private_key"].json_schema_extra
+        testnet_api_key = LighterTestnetConfigMap.model_fields["lighter_testnet_api_key_private_key"].json_schema_extra
 
         self.assertTrue(mainnet_api_key["prompt_on_new"])
-        self.assertEqual("Enter your Lighter API key (hex string, e.g. 3d6e9253...4357)", mainnet_api_key["prompt"])
-        self.assertFalse(mainnet_private_key["prompt_on_new"])
+        self.assertIn("private key", mainnet_api_key["prompt"].lower())
 
         self.assertTrue(testnet_api_key["prompt_on_new"])
-        self.assertEqual("Enter your Lighter testnet API key", testnet_api_key["prompt"])
-        self.assertFalse(testnet_private_key["prompt_on_new"])
+        self.assertIn("private key", testnet_api_key["prompt"].lower())
+
+        # Verify no (now-removed) EOA private key field is present
+        self.assertNotIn("lighter_private_key", LighterConfigMap.model_fields)
+        self.assertNotIn("lighter_testnet_private_key", LighterTestnetConfigMap.model_fields)
 
     def test_is_exchange_information_valid(self):
         self.assertTrue(is_exchange_information_valid({"symbol": "ETH/USDC", "market_type": "spot", "status": "active"}))
@@ -49,7 +49,7 @@ class LighterUtilsTests(TestCase):
             lighter_account_index=" 456 ",
         )
 
-        self.assertEqual("123", cfg.lighter_api_secret.get_secret_value())
+        self.assertEqual("123", cfg.lighter_api_key_index.get_secret_value())
         self.assertEqual("456", cfg.lighter_account_index.get_secret_value())
 
         with self.assertRaises(ValidationError):
@@ -64,7 +64,7 @@ class LighterUtilsTests(TestCase):
             lighter_api_secret="",
             lighter_account_index="",
         )
-        self.assertEqual("", cfg_empty.lighter_api_secret.get_secret_value())
+        self.assertEqual("", cfg_empty.lighter_api_key_index.get_secret_value())
         self.assertEqual("", cfg_empty.lighter_account_index.get_secret_value())
 
     def test_testnet_config_validates_integer_indexes(self):
@@ -74,7 +74,7 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_account_index=" 890 ",
         )
 
-        self.assertEqual("7", cfg.lighter_testnet_api_secret.get_secret_value())
+        self.assertEqual("7", cfg.lighter_testnet_api_key_index.get_secret_value())
         self.assertEqual("890", cfg.lighter_testnet_account_index.get_secret_value())
 
         cfg_empty = LighterTestnetConfigMap(
@@ -82,7 +82,7 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_secret="",
             lighter_testnet_account_index="",
         )
-        self.assertEqual("", cfg_empty.lighter_testnet_api_secret.get_secret_value())
+        self.assertEqual("", cfg_empty.lighter_testnet_api_key_index.get_secret_value())
         self.assertEqual("", cfg_empty.lighter_testnet_account_index.get_secret_value())
 
         with self.assertRaises(ValidationError):
@@ -99,7 +99,7 @@ class LighterUtilsTests(TestCase):
             lighter_account_index="456",
             lighter_api_key=hex_key,
         )
-        self.assertEqual(hex_key, cfg.lighter_api_key.get_secret_value())
+        self.assertEqual(hex_key, cfg.lighter_api_key_private_key.get_secret_value())
 
         with self.assertRaises(ValidationError):
             LighterConfigMap(
@@ -115,7 +115,7 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_secret="7",
             lighter_testnet_account_index="890",
         )
-        self.assertEqual(hex_key, cfg.lighter_testnet_api_key.get_secret_value())
+        self.assertEqual(hex_key, cfg.lighter_testnet_api_key_private_key.get_secret_value())
 
         with self.assertRaises(ValidationError):
             LighterTestnetConfigMap(
@@ -132,7 +132,7 @@ class LighterUtilsTests(TestCase):
             lighter_account_index=encrypted,
         )
 
-        self.assertEqual(encrypted, cfg.lighter_api_secret.get_secret_value())
+        self.assertEqual(encrypted, cfg.lighter_api_key_index.get_secret_value())
         self.assertEqual(encrypted, cfg.lighter_account_index.get_secret_value())
 
     def test_testnet_config_accepts_encrypted_index_values_before_decrypt(self):
@@ -143,5 +143,5 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_account_index=encrypted,
         )
 
-        self.assertEqual(encrypted, cfg.lighter_testnet_api_secret.get_secret_value())
+        self.assertEqual(encrypted, cfg.lighter_testnet_api_key_index.get_secret_value())
         self.assertEqual(encrypted, cfg.lighter_testnet_account_index.get_secret_value())

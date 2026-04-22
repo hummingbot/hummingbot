@@ -102,10 +102,9 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
     def test_init_and_properties(self):
         with patch("hummingbot.connector.exchange.lighter.lighter_exchange.ExchangePyBase.__init__", lambda self, *a, **kw: None):
             exchange = LighterExchange(
-                lighter_api_key="0x" + ("a" * 64),
-                lighter_api_secret="7",
+                lighter_api_key_private_key="0x" + ("a" * 64),
+                lighter_api_key_index="7",
                 lighter_account_index="693751",
-                lighter_private_key="pk",
                 trading_pairs=["ETH-USDC"],
                 trading_required=False,
             )
@@ -641,35 +640,25 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
 
     def test_get_signer_private_key_precedence_and_validation(self):
         exchange = LighterExchange.__new__(LighterExchange)
-        exchange._private_key = "private"
         exchange._api_key = "0x" + ("a" * 64)
-        exchange._api_secret = "222"
-        self.assertEqual("private", exchange._get_signer_private_key())
+        self.assertEqual("0x" + ("a" * 64), exchange._get_signer_private_key())
 
-        exchange._private_key = ""
-        exchange._api_key = "0x" + ("b" * 64)
-        exchange._api_secret = "123"
-        self.assertEqual("0x" + ("b" * 64), exchange._get_signer_private_key())
+        exchange._api_key = "7"
+        with self.assertRaises(ValueError):
+            exchange._get_signer_private_key()
 
-        exchange._api_key = "123"
-        exchange._api_secret = "0xdef"
+        exchange._api_key = ""
         with self.assertRaises(ValueError):
             exchange._get_signer_private_key()
 
     def test_get_api_key_index_and_account_index(self):
         exchange = LighterExchange.__new__(LighterExchange)
-        exchange._api_key = "0x" + ("a" * 64)
-        exchange._api_secret = "999"
+        exchange._api_key_index = "7"
         exchange._account_index = "42"
-        self.assertEqual(999, exchange._get_api_key_index())
+        self.assertEqual(7, exchange._get_api_key_index())
         self.assertEqual(42, exchange._get_account_index())
 
-        exchange._api_key = "0x" + ("b" * 64)
-        exchange._api_secret = "8"
-        self.assertEqual(8, exchange._get_api_key_index())
-
-        exchange._api_key = "0x" + ("c" * 64)
-        exchange._api_secret = "secret"
+        exchange._api_key_index = "not-an-int"
         with self.assertRaises(ValueError):
             exchange._get_api_key_index()
 
@@ -1350,9 +1339,11 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
 
         exchange.logger = lambda: Logger()
         exchange._api_get = AsyncMock(return_value={"success": False})
-        await exchange._update_balances()
+        with self.assertRaises(IOError):
+            await exchange._update_balances()
         exchange._api_get = AsyncMock(return_value={"success": True, "data": []})
-        await exchange._update_balances()
+        with self.assertRaises(IOError):
+            await exchange._update_balances()
         exchange._api_get = AsyncMock(return_value={"success": True, "data": {"assets": [{"locked_balance": "1", "balance": "1"}]}})
         await exchange._update_balances()
 

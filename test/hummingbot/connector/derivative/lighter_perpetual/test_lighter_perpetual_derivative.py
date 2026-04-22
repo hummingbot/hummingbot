@@ -76,6 +76,10 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_update_balances_parses_collateral(self):
+        mock_signer = type("MockSigner", (), {})()
+        mock_signer.create_auth_token_with_expiry = lambda api_key_index: ("test_token", None)
+        self.connector._get_lighter_signer_client = lambda: mock_signer
+        self.connector._get_api_key_index = lambda: 1
         self.connector._api_get = AsyncMock(return_value={
             "success": True,
             "data": {
@@ -171,11 +175,10 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         )
 
     def test_get_signer_private_key_prefers_explicit_private_key(self):
-        self.connector.private_key = "0xsigner"
+        # api_key holds the signing private key when it's a hex string (not an integer index)
         self.connector.api_key = "0x" + ("a" * 64)
         self.connector.api_secret = "1"
-
-        self.assertEqual("0xsigner", self.connector._get_signer_private_key())
+        self.assertEqual("0x" + ("a" * 64), self.connector._get_signer_private_key())
 
     def test_is_int_string_handles_valid_and_invalid_values(self):
         self.assertTrue(self.connector._is_int_string("12"))
