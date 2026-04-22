@@ -14,14 +14,17 @@ TESTNET_WSS_URL = "wss://testnet.zklighter.elliot.ai/stream"
 
 PING_PATH_URL = "/orderBooks"
 EXCHANGE_INFO_PATH_URL = "/orderBooks"
-GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL = "/orderbooks"
+GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL = "/orderBookOrders"
 GET_ORDER_HISTORY_PATH_URL = "/accountInactiveOrders"
+GET_ACTIVE_ORDERS_PATH_URL = "/accountActiveOrders"
 GET_TRADE_HISTORY_PATH_URL = "/trades"
+GET_PRICES_PATH_URL = "/exchangeStats"
 GET_ACCOUNT_INFO_PATH_URL = "/account"
 GET_ACCOUNT_API_CONFIG_KEYS = "/apikeys"
 CREATE_ACCOUNT_API_CONFIG_KEY = "/tokens_create"
 CREATE_ORDER_PATH_URL = "/sendTx"
 CANCEL_ORDER_PATH_URL = "/sendTx"
+GET_TOKENLIST_PATH_URL = "/tokenlist"
 
 WS_ORDER_BOOK_SNAPSHOT_CHANNEL = "order_book"
 WS_TRADES_CHANNEL = "trade"
@@ -29,54 +32,138 @@ WS_ACCOUNT_ALL_CHANNEL = "account_all"
 WS_PING_INTERVAL = 30
 
 LIGHTER_LIMIT_ID = "LIGHTER_LIMIT"
-LIGHTER_LIMIT = 24000
+LIGHTER_TIER_1_LIMIT = 24000
+LIGHTER_TIER_2_LIMIT = 24000
 LIGHTER_LIMIT_INTERVAL = 60
 STANDARD_REQUEST_COST = 10
-HEAVY_GET_REQUEST_COST = 30
+HEAVY_GET_REQUEST_COST_TIER_1 = 120
+HEAVY_GET_REQUEST_COST_TIER_2 = 30
 ORDER_CANCELLATION_COST = 5
 
 RATE_LIMITS = [
-    RateLimit(limit_id=LIGHTER_LIMIT_ID, limit=LIGHTER_LIMIT, time_interval=LIGHTER_LIMIT_INTERVAL),
+    RateLimit(limit_id=LIGHTER_LIMIT_ID, limit=LIGHTER_TIER_1_LIMIT, time_interval=LIGHTER_LIMIT_INTERVAL),
     RateLimit(
         limit_id=EXCHANGE_INFO_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST)],
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
     ),
     RateLimit(
         limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST)],
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
     ),
     RateLimit(
         limit_id=GET_ACCOUNT_INFO_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST)],
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
     ),
     RateLimit(
         limit_id=GET_TRADE_HISTORY_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST)],
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_PRICES_PATH_URL,
+        limit=LIGHTER_TIER_1_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
     ),
     RateLimit(
         limit_id=GET_ORDER_HISTORY_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST)],
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
+    ),
+    RateLimit(
+        limit_id=GET_ACTIVE_ORDERS_PATH_URL,
+        limit=LIGHTER_TIER_1_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)],
     ),
     RateLimit(
         limit_id=CREATE_ORDER_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
         linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
     ),
     RateLimit(
         limit_id=CANCEL_ORDER_PATH_URL,
-        limit=LIGHTER_LIMIT,
+        limit=LIGHTER_TIER_1_LIMIT,
         time_interval=LIGHTER_LIMIT_INTERVAL,
         linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=ORDER_CANCELLATION_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_TOKENLIST_PATH_URL,
+        limit=LIGHTER_TIER_1_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+]
+
+RATE_LIMITS_TIER_2 = [
+    RateLimit(limit_id=LIGHTER_LIMIT_ID, limit=LIGHTER_TIER_2_LIMIT, time_interval=LIGHTER_LIMIT_INTERVAL),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_MARKET_ORDER_BOOK_SNAPSHOT_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_ACCOUNT_INFO_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_TRADE_HISTORY_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_PRICES_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_ORDER_HISTORY_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=GET_ACTIVE_ORDERS_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)],
+    ),
+    RateLimit(
+        limit_id=CREATE_ORDER_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=ORDER_CANCELLATION_COST)],
+    ),
+    RateLimit(
+        limit_id=GET_TOKENLIST_PATH_URL,
+        limit=LIGHTER_TIER_2_LIMIT,
+        time_interval=LIGHTER_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(limit_id=LIGHTER_LIMIT_ID, weight=STANDARD_REQUEST_COST)],
     ),
 ]

@@ -1,12 +1,12 @@
 import sys
+import time
 import types
 import unittest
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType
 
 
 def _ensure_limit_order_stub():
@@ -68,8 +68,8 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             self.skipTest("Compiled hummingbot core modules are unavailable in this environment")
 
         self.connector = self.connector_cls(
-            lighter_perpetual_api_key="1",
-            lighter_perpetual_api_secret="0xabc",
+            lighter_perpetual_api_key="0x" + ("a" * 64),
+            lighter_perpetual_api_secret="1",
             lighter_perpetual_account_index="237600",
             trading_pairs=["BTC-USDC"],
             trading_required=False,
@@ -103,12 +103,31 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
     def test_check_network_request_path_uses_exchange_stats(self):
         self.assertEqual("/exchangeStats", self.connector.check_network_request_path)
 
-    def test_get_api_key_index_prefers_numeric_api_key(self):
-        self.connector.api_key = "12"
+    def test_allocate_client_order_index_uses_high_range_spacing(self):
+        self.connector._last_client_order_index = 0
+
+        with patch(
+            "hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_derivative.time.time",
+            return_value=1000.001,
+        ):
+            first_index = self.connector._allocate_client_order_index()
+            second_index = self.connector._allocate_client_order_index()
+
+        expected_first_index = int(1000.001 * 1000) * self.connector._CLIENT_ORDER_INDEX_TIME_MULTIPLIER
+        self.assertEqual(expected_first_index, first_index)
+        self.assertEqual(first_index + 1, second_index)
+
+    def test_get_api_key_index_prefers_explicit_index_and_secret(self):
+        self.connector.api_key_index = "4"
+        self.assertEqual(4, self.connector._get_api_key_index())
+
+        self.connector.api_key_index = ""
+        self.connector.api_key = "0x" + ("a" * 64)
+        self.connector.api_secret = "12"
         self.assertEqual(12, self.connector._get_api_key_index())
 
     def test_get_api_key_index_raises_for_non_numeric_config(self):
-        self.connector.api_key = "not-a-number"
+        self.connector.api_key = "0x" + ("a" * 64)
         self.connector.api_secret = "not-a-number"
         self.connector.api_key_index = ""
 
@@ -132,10 +151,29 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual("5", self.connector.api_key_index)
 
+    async def test_set_trading_pair_leverage_uses_signer_client(self):
+        self.connector._get_market_spec = AsyncMock(return_value=(3, 2, 2, "DOGE"))
+        mock_signer = MagicMock()
+        mock_signer.CROSS_MARGIN_MODE = 0
+        mock_signer.update_leverage = AsyncMock(return_value=(None, {"success": True}, None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+
+        success, message = await self.connector._set_trading_pair_leverage("DOGE-USDC", 5)
+
+        self.assertTrue(success)
+        self.assertEqual("", message)
+        mock_signer.update_leverage.assert_awaited_once_with(
+            market_index=3,
+            margin_mode=0,
+            leverage=5,
+            api_key_index=4,
+        )
+
     def test_get_signer_private_key_prefers_explicit_private_key(self):
         self.connector.private_key = "0xsigner"
-        self.connector.api_key = "public"
-        self.connector.api_secret = "secret"
+        self.connector.api_key = "0x" + ("a" * 64)
+        self.connector.api_secret = "1"
 
         self.assertEqual("0xsigner", self.connector._get_signer_private_key())
 
@@ -156,19 +194,20 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector.api_secret = ""
         self.assertEqual("not-numeric", self.connector._get_rest_api_key())
 
-    def test_get_signer_private_key_uses_api_key_or_secret_fallbacks(self):
+    def test_get_signer_private_key_uses_api_key_when_private_key_missing(self):
         self.connector.private_key = ""
-        self.connector.api_key = "0xapi"
+        self.connector.api_key = "0x" + ("a" * 64)
         self.connector.api_secret = "7"
-        self.assertEqual("0xapi", self.connector._get_signer_private_key())
+        self.assertEqual("0x" + ("a" * 64), self.connector._get_signer_private_key())
 
-        self.connector.api_key = "5"
+        self.connector.api_key = "7"
         self.connector.api_secret = "0xsecret"
-        self.assertEqual("0xsecret", self.connector._get_signer_private_key())
+        with self.assertRaises(ValueError):
+            self.connector._get_signer_private_key()
 
     def test_get_signer_private_key_raises_when_missing(self):
         self.connector.private_key = ""
-        self.connector.api_key = "5"
+        self.connector.api_key = "7"
         self.connector.api_secret = "6"
 
         with self.assertRaises(ValueError):
@@ -180,125 +219,15 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector._domain = "lighter_perpetual_testnet"
         self.assertEqual("https://testnet.zklighter.elliot.ai", self.connector._api_host_for_signer())
 
-    def test_get_lighter_api_client_builds_once(self):
-        fake_lighter = types.ModuleType("lighter")
-
-        class Configuration:
-            def __init__(self, host):
-                self.host = host
-
-        class ApiClient:
-            def __init__(self, configuration):
-                self.configuration = configuration
-
-        fake_lighter.Configuration = Configuration
-        fake_lighter.ApiClient = ApiClient
-        sys.modules["lighter"] = fake_lighter
-        self.connector._lighter_api_client = None
-
-        client_1 = self.connector._get_lighter_api_client()
-        client_2 = self.connector._get_lighter_api_client()
-
-        self.assertIs(client_1, client_2)
-        self.assertEqual("https://mainnet.zklighter.elliot.ai", client_1.configuration.host)
-
-    async def test_close_lighter_api_client_closes_and_resets(self):
-        api_client = SimpleNamespace(close=AsyncMock())
-        self.connector._lighter_api_client = api_client
-
-        await self.connector._close_lighter_api_client()
-
-        api_client.close.assert_awaited_once()
-        self.assertIsNone(self.connector._lighter_api_client)
-
-    async def test_sdk_api_request_serializes_request_and_returns_dict_payload(self):
-        response = SimpleNamespace(status=200, data=b'{"result": "ok"}', read=AsyncMock())
-        api_client = SimpleNamespace(
-            param_serialize=MagicMock(return_value=("serialized",)),
-            call_api=AsyncMock(return_value=response),
-        )
-        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
-        self.connector._throttler = None
-
-        result = await self.connector._sdk_api_request(
-            path_url="/account",
-            method=RESTMethod.POST,
-            params={"a": 1},
-            data={"b": 2},
-            headers={"X-Test": "1"},
-        )
-
-        self.assertEqual("ok", result["result"])
-        self.assertEqual(200, result["code"])
-        self.assertTrue(result["success"])
-        api_client.param_serialize.assert_called_once()
-        api_client.call_api.assert_awaited_once_with("serialized")
-
-    async def test_sdk_api_request_wraps_non_dict_payload(self):
-        response = SimpleNamespace(status=200, data=b'[1, 2, 3]', read=AsyncMock())
-        api_client = SimpleNamespace(
-            param_serialize=MagicMock(return_value=("serialized",)),
-            call_api=AsyncMock(return_value=response),
-        )
-        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
-        self.connector._throttler = None
-
-        result = await self.connector._sdk_api_request(path_url="/account")
-
-        self.assertEqual([1, 2, 3], result["data"])
-        self.assertEqual(200, result["code"])
-
-    async def test_sdk_api_request_returns_error_payload_when_requested(self):
-        api_client = SimpleNamespace(
-            param_serialize=MagicMock(return_value=("serialized",)),
-            call_api=AsyncMock(side_effect=RuntimeError("boom")),
-        )
-        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
-        self.connector._throttler = None
-
-        result = await self.connector._sdk_api_request(path_url="/account", return_err=True)
-
-        self.assertFalse(result["success"])
-        self.assertIn("boom", result["error"])
-
-    async def test_sdk_api_request_raises_on_error_without_return_err(self):
-        api_client = SimpleNamespace(
-            param_serialize=MagicMock(return_value=("serialized",)),
-            call_api=AsyncMock(side_effect=RuntimeError("boom")),
-        )
-        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
-        self.connector._throttler = None
-
-        with self.assertRaises(IOError):
-            await self.connector._sdk_api_request(path_url="/account")
-
-    async def test_sdk_api_request_uses_throttler_context(self):
-        response = SimpleNamespace(status=200, data=b'{}', read=AsyncMock())
-        api_client = SimpleNamespace(
-            param_serialize=MagicMock(return_value=("serialized",)),
-            call_api=AsyncMock(return_value=response),
-        )
-
-        class LimitContext:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
-
-        throttler = SimpleNamespace(execute_task=MagicMock(return_value=LimitContext()))
-        self.connector._get_lighter_api_client = MagicMock(return_value=api_client)
-        self.connector._throttler = throttler
-
-        await self.connector._sdk_api_request(path_url="/account", limit_id="custom")
-
-        throttler.execute_task.assert_called_once_with(limit_id="custom")
-
     def test_get_account_index_and_account_helpers(self):
         self.assertEqual(237600, self.connector._get_account_index())
         self.assertEqual({"by": "index", "value": "237600"}, self.connector._account_query_params())
         self.assertEqual({"id": 1}, self.connector._account_from_response({"data": {"id": 1}}))
+        self.assertEqual({"id": 1}, self.connector._account_from_response({"data": [{"id": 1}]}))
         self.assertEqual({"id": 2}, self.connector._account_from_response({"accounts": [{"id": 2}]}))
+        # Top-level account response (no data/accounts wrapper)
+        top_level = {"code": 200, "collateral": "5.7", "available_balance": "5.7", "assets": []}
+        self.assertEqual(top_level, self.connector._account_from_response(top_level))
         self.assertIsNone(self.connector._account_from_response({}))
 
         self.connector.account_index = "bad"
@@ -308,6 +237,8 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
     def test_is_ok_response_and_signer_client_builds_once(self):
         self.assertTrue(self.connector._is_ok_response({"success": True}))
         self.assertTrue(self.connector._is_ok_response({"code": 200}))
+        self.assertTrue(self.connector._is_ok_response({"code": 0}))   # Lighter uses code=0 for success
+        self.assertFalse(self.connector._is_ok_response({"code": 5}))   # Lighter error code
         self.assertFalse(self.connector._is_ok_response({"code": 500}))
 
         fake_lighter = types.ModuleType("lighter")
@@ -368,6 +299,13 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             await self.connector._api_request_url("/account"),
         )
 
+        self.connector._domain = "lighter_perpetual_testnet"
+        self.assertEqual(
+            "https://testnet.zklighter.elliot.ai/api/v1/account",
+            await self.connector._api_request_url("/account"),
+        )
+        self.connector._domain = "lighter_perpetual"
+
         self.connector.api_key = ""
         self.assertEqual(self.connector.rate_limits_rules, self.connector.rate_limits_rules)
 
@@ -378,16 +316,25 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("LIGHTER_LIMIT", rate_limits[0].limit_id)
 
     async def test_api_request_routes_authenticated_and_public_requests(self):
-        self.connector._sdk_api_request = AsyncMock(return_value={"auth": True})
+        # Authenticated request: _api_request must inject X-Api-Key header
+        with patch(
+            "hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase._api_request",
+            new=AsyncMock(return_value={"auth": True}),
+        ) as super_req:
+            auth_result = await self.connector._api_request(path_url="/account", is_auth_required=True)
+            self.assertEqual({"auth": True}, auth_result)
+            auth_headers = super_req.await_args.kwargs.get("headers") or {}
+            self.assertEqual(self.connector.rest_api_key, auth_headers.get("X-Api-Key"))
 
-        auth_result = await self.connector._api_request(path_url="/account", is_auth_required=True)
-        self.assertEqual({"auth": True}, auth_result)
-
-        with patch("hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase._api_request", new=AsyncMock(return_value={"auth": False})) as super_api_request:
+        # Public request: _api_request must NOT inject X-Api-Key header
+        with patch(
+            "hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase._api_request",
+            new=AsyncMock(return_value={"auth": False}),
+        ) as super_req:
             public_result = await self.connector._api_request(path_url="/account", is_auth_required=False)
-
-        self.assertEqual({"auth": False}, public_result)
-        self.assertTrue(super_api_request.await_count, 1)
+            self.assertEqual({"auth": False}, public_result)
+            public_headers = super_req.await_args.kwargs.get("headers") or {}
+            self.assertNotIn("X-Api-Key", public_headers)
 
     async def test_fetch_or_create_api_config_key_short_circuits_and_warns(self):
         self.connector.api_config_key = "abc"
@@ -402,6 +349,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector.api_key_index = ""
         self.connector.account_index = ""
         self.connector.api_key = ""
+        self.connector.api_secret = ""
         logger = MagicMock()
         self.connector.logger = MagicMock(return_value=logger)
 
@@ -451,6 +399,42 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("101"), price_record.index_price)
         self.assertEqual(Decimal("102"), price_record.mark_price)
 
+    def test_get_price_by_type_returns_nan_when_order_book_empty(self):
+        order_book_module = __import__("hummingbot.core.data_type.order_book", fromlist=["OrderBook"])
+        OrderBook = getattr(order_book_module, "OrderBook")
+
+        empty_order_book = OrderBook()
+        self.connector.get_order_book = MagicMock(return_value=empty_order_book)
+        self.connector.set_LIGHTER_price("BTC-USDC", time.time(), Decimal("101"), Decimal("102"))
+
+        # Some local test environments provide a runtime variant that omits get_price_by_type.
+        # Fall back to get_price to keep the NaN-on-empty-orderbook behavior check deterministic.
+        if hasattr(self.connector, "get_price_by_type"):
+            best_ask = self.connector.get_price_by_type("BTC-USDC", PriceType.BestAsk)
+            best_bid = self.connector.get_price_by_type("BTC-USDC", PriceType.BestBid)
+        elif hasattr(self.connector, "get_price"):
+            best_ask = self.connector.get_price("BTC-USDC", True)
+            best_bid = self.connector.get_price("BTC-USDC", False)
+        else:
+            self.skipTest("Connector runtime variant does not expose get_price_by_type/get_price")
+
+        self.assertTrue(best_ask.is_nan())
+        self.assertTrue(best_bid.is_nan())
+
+    async def test_get_last_traded_price_logs_no_candle_warning(self):
+        self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC")
+        self.connector._market_id_by_symbol["BTC"] = 1
+        self.connector._size_decimals_by_symbol["BTC"] = 3
+        self.connector._price_decimals_by_symbol["BTC"] = 2
+        self.connector._api_get = AsyncMock(return_value={"data": []})
+        logger_mock = MagicMock()
+        self.connector.logger = MagicMock(return_value=logger_mock)
+
+        price = await self.connector._get_last_traded_price("BTC-USDC")
+
+        self.assertEqual(0.0, price)
+        logger_mock.warning.assert_called()
+
     async def test_process_account_order_updates_ws_event_message_updates_tracked_order(self):
         tracked_order = MagicMock()
         tracked_order.exchange_order_id = "123"
@@ -468,6 +452,65 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         order_update = self.connector._order_tracker.process_order_update.call_args.args[0]
         self.assertEqual("HBOT-1", order_update.client_order_id)
         self.assertEqual("123", order_update.exchange_order_id)
+
+    async def test_process_account_order_updates_ws_event_message_maps_client_index_to_exchange_order_id(self):
+        # tracked order starts with client_order_index as exchange_order_id
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "999"   # client_order_index placeholder
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "BTC-USDC"
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.all_updatable_orders = {"HBOT-1": tracked_order}
+        self.connector._order_tracker.process_order_update = MagicMock()
+
+        # WS sends i=<order_index>, I=<client_order_index>
+        await self.connector._process_account_order_updates_ws_event_message({
+            "data": [{"i": 123, "I": 999, "os": "filled", "ut": 1700000000000}],
+        })
+
+        self.connector._order_tracker.process_order_update.assert_called_once()
+        order_update = self.connector._order_tracker.process_order_update.call_args.args[0]
+        # exchange_order_id must be updated to the real order_index "123"
+        self.assertEqual("123", order_update.exchange_order_id)
+        # mapping must be populated
+        self.assertEqual("123", self.connector._client_order_index_to_order_index.get("999"))
+
+    async def test_resolve_exchange_order_id_matches_client_order_index(self):
+        mock_signer = MagicMock()
+        mock_signer.create_auth_token_with_expiry = MagicMock(return_value=("auth-token", None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+        # First page: no results, has_more=True
+        # Second page: contains our order
+        self.connector._api_get = AsyncMock(side_effect=[
+            {
+                "success": True,
+                "code": 200,
+                "data": [],
+                "has_more": True,
+                "next_cursor": "cursor-1",
+            },
+            {
+                "success": True,
+                "code": 200,
+                "data": [
+                    {
+                        "client_order_id": "888",
+                        "order_id": "123456",
+                    }
+                ],
+                "has_more": False,
+            },
+        ])
+
+        order_index = await self.connector._resolve_order_index_from_active_orders(
+            market_id=1,
+            client_order_index="888",
+        )
+
+        self.assertEqual("123456", order_index)
+        # Mapping must also be populated
+        self.assertEqual("123456", self.connector._client_order_index_to_order_index.get("888"))
 
     async def test_process_account_order_updates_ws_event_message_ignores_unknown_order(self):
         self.connector._order_tracker = MagicMock()
@@ -574,6 +617,40 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         eth_position = positions["ETH-USDC-SHORT"]
         self.assertEqual(Decimal("-1.25"), eth_position.amount)
         self.assertEqual(Decimal("7.5"), eth_position.unrealized_pnl)
+
+    async def test_update_positions_clears_stale_positions_before_symbol_resolution(self):
+        self.connector._perpetual_trading.account_positions["DOGE-USDC"] = "stale"
+        self.connector._api_get = AsyncMock(return_value={
+            "success": True,
+            "data": {
+                "positions": [
+                    {"symbol": "DOGE", "position": "0", "sign": 1, "avg_entry_price": "0"},
+                ]
+            },
+        })
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(side_effect=Exception("boom"))
+
+        with self.assertRaises(Exception):
+            await self.connector._update_positions()
+
+        self.assertEqual({}, self.connector._perpetual_trading.account_positions)
+
+    async def test_update_positions_rest_skips_zero_amount(self):
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="DOGE-USDC")
+        # Pre-populate price cache so the prices HTTP fetch is skipped
+        self.connector.set_LIGHTER_price("DOGE-USDC", timestamp=1.0,
+                                          index_price=Decimal("0.05"), mark_price=Decimal("0.05"))
+        self.connector._api_get = AsyncMock(return_value={
+            "success": True,
+            "data": {
+                "positions": [
+                    {"symbol": "DOGE", "amount": "0", "sign": 1, "entry_price": "0.05"},
+                ]
+            },
+        })
+        await self.connector._update_positions()
+        # Zero-amount closed positions must NOT be stored (same guard as WS handler)
+        self.assertEqual({}, self.connector._perpetual_trading.account_positions)
 
     async def test_process_account_trades_ws_event_message_processes_tracked_trade(self):
         tracked_order = MagicMock()
@@ -695,6 +772,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         event = {"type": "update/account_all", "channel": "account_all:237600", "positions": {}, "trades": {}}
         await self.connector._process_account_all_ws_event_message(event)
 
+        # Both handlers are forwarded the full event; each handler normalises its own slice.
         self.connector._process_account_trades_ws_event_message.assert_awaited_once_with(event)
         self.connector._process_account_positions_ws_event_message.assert_awaited_once_with(event)
 
@@ -704,6 +782,8 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             "channel": "account_all:237600",
             "positions": {},
             "trades": {},
+            "collateral": "100.50",
+            "available_balance": "90.25",
             "assets": {
                 "3": {"symbol": "USDC", "asset_id": 3, "balance": "100.50", "locked_balance": "10.25"},
                 "1": {"symbol": "ETH", "asset_id": 1, "balance": "0.001", "locked_balance": "0.0"},
@@ -778,7 +858,6 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             order_index=12345,
             base_amount=1234,
             price=12345,
-            api_key_index=4,
         )
 
     async def test_place_modify_raises_on_signing_error(self):
@@ -797,3 +876,108 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIn("modify_order signing/send failed", str(error_context.exception))
+
+    async def test_positions_ws_skips_zero_amount(self):
+        """_process_account_positions_ws_event_message must not store zero-amount ghost positions."""
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="ETH-USDC")
+        self.connector.get_LIGHTER_price = MagicMock(return_value=None)
+        self.connector.get_leverage = MagicMock(return_value=5)
+
+        ws_message = {
+            "channel": "account_positions",
+            "data": [
+                {"s": "ETH", "d": "bid", "a": "0.00000", "p": "2300.0"},
+            ],
+        }
+
+        self.connector._perpetual_trading.account_positions.clear()
+        await self.connector._process_account_positions_ws_event_message(ws_message)
+
+        self.assertEqual(0, len(self.connector._perpetual_trading.account_positions),
+                         "Zero-amount position must not be stored")
+
+    async def test_positions_ws_stores_nonzero_amount(self):
+        """_process_account_positions_ws_event_message stores positions with non-zero amount."""
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="ETH-USDC")
+        self.connector.get_LIGHTER_price = MagicMock(return_value=None)
+        self.connector.get_leverage = MagicMock(return_value=5)
+
+        ws_message = {
+            "channel": "account_positions",
+            "data": [
+                {"s": "ETH", "d": "bid", "a": "0.05", "p": "2300.0"},
+            ],
+        }
+
+        self.connector._perpetual_trading.account_positions.clear()
+        await self.connector._process_account_positions_ws_event_message(ws_message)
+
+        self.assertEqual(1, len(self.connector._perpetual_trading.account_positions),
+                         "Non-zero-amount position must be stored")
+
+    async def test_trade_updates_nan_timestamp_not_stored(self):
+        """NaN current_timestamp must not be written to _order_history_last_poll_timestamp."""
+        from hummingbot.core.data_type.in_flight_order import InFlightOrder
+
+        mock_signer = MagicMock()
+        mock_signer.create_auth_token_with_expiry = MagicMock(return_value=("tok", 9999999999))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+        self.connector._get_market_spec = AsyncMock(return_value=(1, 3, 2, "ETH"))
+        self.connector._get_account_index = MagicMock(return_value=42)
+        self.connector._api_get = AsyncMock(return_value={"success": True, "data": [], "has_more": False})
+        self.connector._exchange_order_id_by_client_order_index = {}
+
+        order = InFlightOrder(
+            client_order_id="HBOT-nan",
+            exchange_order_id="99999",
+            trading_pair="ETH-USDC",
+            order_type=None,
+            trade_type=None,
+            price=Decimal("2300"),
+            amount=Decimal("0.01"),
+            creation_timestamp=1700000000.0,
+        )
+
+        # Simulate clock stopped: current_timestamp is NaN
+        self.connector._current_timestamp = float("nan")
+
+        await self.connector._all_trade_updates_for_order(order)
+
+        # Should NOT be stored
+        stored = self.connector._order_history_last_poll_timestamp.get("99999")
+        self.assertIsNone(stored, "NaN timestamp must not be persisted")
+
+    async def test_trade_updates_nan_last_poll_does_not_crash(self):
+        """If a NaN is already stored in _order_history_last_poll_timestamp, the next call must not crash."""
+        from hummingbot.core.data_type.in_flight_order import InFlightOrder
+
+        mock_signer = MagicMock()
+        mock_signer.create_auth_token_with_expiry = MagicMock(return_value=("tok", 9999999999))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+        self.connector._get_market_spec = AsyncMock(return_value=(1, 3, 2, "ETH"))
+        self.connector._get_account_index = MagicMock(return_value=42)
+        self.connector._api_get = AsyncMock(return_value={"success": True, "data": [], "has_more": False})
+        self.connector._exchange_order_id_by_client_order_index = {}
+
+        # Pre-populate with a NaN value (simulating a previous bad write)
+        self.connector._order_history_last_poll_timestamp["99999"] = float("nan")
+        self.connector._current_timestamp = 1700000001.0
+
+        order = InFlightOrder(
+            client_order_id="HBOT-nan2",
+            exchange_order_id="99999",
+            trading_pair="ETH-USDC",
+            order_type=None,
+            trade_type=None,
+            price=Decimal("2300"),
+            amount=Decimal("0.01"),
+            creation_timestamp=1700000000.0,
+        )
+
+        # Must not raise ValueError
+        try:
+            await self.connector._all_trade_updates_for_order(order)
+        except ValueError as exc:
+            self.fail(f"NaN last_poll_timestamp must not crash: {exc}")

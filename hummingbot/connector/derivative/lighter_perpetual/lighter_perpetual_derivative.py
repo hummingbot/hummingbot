@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-import json
+import math
 import time
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -22,8 +22,8 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, PriceType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -32,6 +32,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 s_decimal_0 = Decimal(0)
+s_decimal_NaN = Decimal("nan")
 
 
 class LighterPerpetualPriceRecord(NamedTuple):
@@ -52,6 +53,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     TRADING_FEES_INTERVAL = DAY
+    EMPTY_MARKET_DATA_WARNING_INTERVAL = 30.0
+    _CLIENT_ORDER_INDEX_MAX = (1 << 48) - 1
+    _CLIENT_ORDER_INDEX_TIME_MULTIPLIER = 140
 
     def __init__(
         self,
@@ -74,6 +78,22 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self.api_config_key = self.api_key
         self.user_wallet_public_key = self.account_index
 
+        configured_api_key_index = next(
+            (
+                str(int(str(candidate).strip()))
+                for candidate in (
+                    lighter_perpetual_api_key_index,
+                    lighter_perpetual_api_secret,
+                    lighter_perpetual_api_key,
+                )
+                if self._is_int_string(candidate)
+            ),
+            "",
+        )
+        self.api_key_index = configured_api_key_index
+        if not self.api_config_key:
+            self.api_config_key = configured_api_key_index
+
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -87,8 +107,15 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self._size_decimals_by_symbol: Dict[str, int] = {}
         self._price_decimals_by_symbol: Dict[str, int] = {}
         self._lighter_signer_client = None
+        self._signer_request_lock = asyncio.Lock()
 
         self._fee_tier = 0
+        self._last_client_order_index: int = 0
+        # Maps our client_order_index (str) -> exchange-assigned order_index (str)
+        # Populated by WS account_all order updates and REST active-order queries.
+        self._client_order_index_to_order_index: Dict[str, str] = {}
+        self._last_empty_order_book_warning_timestamp: Dict[str, float] = {}
+        self._last_no_candle_warning_timestamp: Dict[str, float] = {}
 
         super().__init__(balance_asset_limit=balance_asset_limit, rate_limits_share_pct=rate_limits_share_pct)
 
@@ -97,15 +124,82 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         digest = hashlib.sha256(order_id.encode()).digest()
         return int.from_bytes(digest[:8], byteorder="big", signed=False) & 0x7FFFFFFFFFFFFFFF
 
+    def _allocate_client_order_index(self) -> int:
+        """Allocate a unique client order index using current timestamp as base.
+
+        Time-based allocation: base = int(time_ms) * TIME_MULTIPLIER.
+        Consecutive calls within the same millisecond bump the counter by 1.
+        """
+        base = int(time.time() * 1000) * self._CLIENT_ORDER_INDEX_TIME_MULTIPLIER
+        if base > self._last_client_order_index:
+            self._last_client_order_index = base
+        else:
+            self._last_client_order_index += 1
+        return self._last_client_order_index
+
     @staticmethod
     def _is_int_string(value: str) -> bool:
         if value is None:
             return False
         try:
-            int(str(value))
+            int(str(value).strip())
             return True
         except Exception:
             return False
+
+    def _should_emit_throttled_warning(self, warning_key: str, warning_timestamps: Dict[str, float]) -> bool:
+        now = time.time()
+        last_warning_timestamp = warning_timestamps.get(warning_key, 0.0)
+        if now - last_warning_timestamp >= self.EMPTY_MARKET_DATA_WARNING_INTERVAL:
+            warning_timestamps[warning_key] = now
+            return True
+        return False
+
+    def _get_top_order_book_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        try:
+            order_book = self.get_order_book(trading_pair)
+        except Exception:
+            warning_key = f"{trading_pair}:{'ask' if is_buy else 'bid'}:missing"
+            if self._should_emit_throttled_warning(warning_key, self._last_empty_order_book_warning_timestamp):
+                self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
+            return s_decimal_NaN
+
+        entries = order_book.ask_entries() if is_buy else order_book.bid_entries()
+        top_entry = next(entries, None)
+
+        if top_entry is None:
+            warning_key = f"{trading_pair}:{'ask' if is_buy else 'bid'}"
+            if self._should_emit_throttled_warning(warning_key, self._last_empty_order_book_warning_timestamp):
+                self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
+            return s_decimal_NaN
+
+        top_price = Decimal(str(top_entry.price))
+        return self.quantize_order_price(trading_pair, top_price)
+
+    def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
+        return self._get_top_order_book_price(trading_pair=trading_pair, is_buy=is_buy)
+
+    def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
+        if price_type is PriceType.BestBid:
+            return self._get_top_order_book_price(trading_pair=trading_pair, is_buy=False)
+        elif price_type is PriceType.BestAsk:
+            return self._get_top_order_book_price(trading_pair=trading_pair, is_buy=True)
+        elif price_type is PriceType.MidPrice:
+            ask_price = self._get_top_order_book_price(trading_pair=trading_pair, is_buy=True)
+            bid_price = self._get_top_order_book_price(trading_pair=trading_pair, is_buy=False)
+            if ask_price.is_nan() or bid_price.is_nan():
+                return s_decimal_NaN
+            return (ask_price + bid_price) / Decimal("2")
+        elif price_type is PriceType.LastTrade:
+            try:
+                price = Decimal(str(self.get_order_book(trading_pair).last_trade_price))
+                if price > s_decimal_0:
+                    return price
+            except Exception:
+                pass
+            return s_decimal_NaN
+        else:
+            return s_decimal_NaN
 
     def _get_rest_api_key(self) -> str:
         if self._is_int_string(self.api_key):
@@ -114,12 +208,20 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             return self.api_secret
         return self.api_key
 
+    @staticmethod
+    def _is_hex_private_key(value: str) -> bool:
+        """Return True only if value is a 64+ char hex string (valid signer private key)."""
+        if not value:
+            return False
+        key = value[2:] if value.lower().startswith("0x") else value
+        return len(key) >= 64 and all(c in "0123456789abcdefABCDEF" for c in key)
+
     def _get_signer_private_key(self) -> str:
         if self.private_key:
             return self.private_key
-        if self.api_key and not self._is_int_string(self.api_key):
+        if self.api_key and not self._is_int_string(self.api_key) and self._is_hex_private_key(self.api_key):
             return self.api_key
-        if self.api_secret and not self._is_int_string(self.api_secret):
+        if self.api_secret and not self._is_int_string(self.api_secret) and self._is_hex_private_key(self.api_secret):
             return self.api_secret
         raise ValueError(
             "Lighter signer private key is required for signed transactions. "
@@ -131,83 +233,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         return self._get_rest_api_key()
 
     def _api_host_for_signer(self) -> str:
-        rest_url = CONSTANTS.REST_URL if self.domain == CONSTANTS.DEFAULT_DOMAIN else CONSTANTS.TESTNET_REST_URL
-        return rest_url.split("/api/v1")[0]
-
-    def _sdk_rest_base_url(self) -> str:
-        return self._api_host_for_signer()
-
-    def _get_lighter_api_client(self):
-        if getattr(self, "_lighter_api_client", None) is None:
-            import lighter
-
-            configuration = lighter.Configuration(host=self._sdk_rest_base_url())
-            self._lighter_api_client = lighter.ApiClient(configuration=configuration)
-
-        return self._lighter_api_client
-
-    async def _close_lighter_api_client(self):
-        api_client = getattr(self, "_lighter_api_client", None)
-        if api_client is not None:
-            await api_client.close()
-            self._lighter_api_client = None
-
-    async def _sdk_api_request(
-        self,
-        path_url: str,
-        method: RESTMethod = RESTMethod.GET,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        limit_id: Optional[str] = None,
-        headers: Optional[Dict[str, Any]] = None,
-        return_err: bool = False,
-    ) -> Dict[str, Any]:
-        api_client = self._get_lighter_api_client()
-        request_headers = dict(headers or {})
-
-        if data is not None and "Content-Type" not in request_headers:
-            request_headers["Content-Type"] = "application/json"
-
-        serialized_request = api_client.param_serialize(
-            method=method.value,
-            resource_path=f"/api/v1{path_url}",
-            query_params=params,
-            header_params=request_headers,
-            body=data,
-            _host=self._sdk_rest_base_url(),
-        )
-
-        throttler = getattr(self, "_throttler", None)
-        limit_context = throttler.execute_task(limit_id=limit_id or path_url) if throttler is not None else None
-
-        try:
-            if limit_context is None:
-                response = await api_client.call_api(*serialized_request)
-            else:
-                async with limit_context:
-                    response = await api_client.call_api(*serialized_request)
-            await response.read()
-            raw_body = response.data.decode("utf-8") if response.data else ""
-            payload: Any = json.loads(raw_body) if raw_body else {}
-        except Exception as request_exception:
-            if return_err:
-                return {
-                    "success": False,
-                    "error": str(request_exception),
-                    "code": getattr(request_exception, "status", None),
-                }
-            raise IOError(f"Error executing Lighter SDK request {method.value} {path_url}: {request_exception}")
-
-        if not isinstance(payload, dict):
-            payload = {"data": payload}
-
-        payload.setdefault("code", getattr(response, "status", None))
-        payload.setdefault("success", int(payload.get("code") or 0) < 400)
-
-        if int(payload.get("code") or 0) >= 400 and not return_err:
-            raise IOError(f"Lighter SDK request failed for {method.value} {path_url}: {payload}")
-
-        return payload
+        url = CONSTANTS.REST_URL if self._domain == CONSTANTS.DEFAULT_DOMAIN else CONSTANTS.TESTNET_REST_URL
+        return url.split("/api/v1")[0]
 
     def _get_api_key_index(self) -> int:
         if self._is_int_string(self.api_key_index):
@@ -233,7 +260,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             return True
         code = response.get("code")
         try:
-            return int(code) == 200
+            # Lighter API uses code=0 for success; HTTP 200 is also accepted.
+            code_int = int(code)
+            return code_int == 0 or code_int == 200
         except Exception:
             return False
 
@@ -248,14 +277,23 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         data = response.get("data")
         if isinstance(data, dict):
             return data
+        if isinstance(data, list) and len(data) > 0:
+            return data[0]
         accounts = response.get("accounts")
         if isinstance(accounts, list) and len(accounts) > 0:
             return accounts[0]
+        # Top-level account response (no data/accounts wrapper)
+        if response.get("collateral") is not None or response.get("available_balance") is not None:
+            return response
+        if not response:
+            return None
         return None
 
     def _get_lighter_signer_client(self):
         if self._lighter_signer_client is None:
             import lighter
+
+            # connector-side signer override removed
 
             self._lighter_signer_client = lighter.signer_client.SignerClient(
                 url=self._api_host_for_signer(),
@@ -337,23 +375,12 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         **kwargs
     ) -> Dict[str, Any]:
 
-        if self.rest_api_key:
+        if is_auth_required and self.rest_api_key:
             api_headers = {"X-Api-Key": self.rest_api_key}
             if headers:
                 headers.update(api_headers)
             else:
                 headers = api_headers
-
-        if is_auth_required:
-            return await self._sdk_api_request(
-                path_url=path_url,
-                method=method,
-                params=params,
-                data=data,
-                limit_id=limit_id,
-                headers=headers,
-                return_err=return_err,
-            )
 
         return await super()._api_request(
             path_url=path_url,
@@ -372,7 +399,18 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         return web_utils.private_rest_url(path_url, domain=self._domain)
 
     async def _fetch_or_create_api_config_key(self):
-        if self.api_config_key and self._is_int_string(self.api_key_index):
+        configured_api_key_index = next(
+            (
+                str(int(str(candidate).strip()))
+                for candidate in (self.api_key_index, self.api_secret, self.api_key)
+                if self._is_int_string(candidate)
+            ),
+            None,
+        )
+        if configured_api_key_index is not None:
+            self.api_key_index = configured_api_key_index
+            if not self.api_config_key:
+                self.api_config_key = configured_api_key_index
             return
 
         if not self.account_index or not self.rest_api_key:
@@ -450,6 +488,26 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     def trading_pairs(self) -> Optional[List[str]]:
         return self._trading_pairs
 
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        Returns all active perpetual trading pairs available on the Lighter exchange.
+        Fetches from /tokenlist and filters for market == 'PERPS' and is_allowed_mainnet == True.
+        """
+        try:
+            result = await self._api_get(path_url=CONSTANTS.GET_TOKENLIST_PATH_URL)
+            pairs = []
+            for token in result.get("tokens") or []:
+                if token.get("market") != "PERPS":
+                    continue
+                if not token.get("is_allowed_mainnet"):
+                    continue
+                symbol = token.get("symbol", "")
+                if symbol:
+                    pairs.append(combine_to_hb_trading_pair(symbol, "USDC"))
+            return pairs
+        except Exception:
+            return []
+
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
         return True
@@ -492,7 +550,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         """
         e.g.
         {"success":false,"data":null,"error":"Failed to cancel order","code":5}
-        https://docs.LIGHTER.fi/api-documentation/api/error-codes
+        https://docs.lighter.fi/api-documentation/api/error-codes
 
         """
         return '"code":5' in str(cancelation_exception)
@@ -521,7 +579,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-market-info
+        https://docs.lighter.fi/api-documentation/api/rest-api/markets/get-market-info
 
         {
             "success": true,
@@ -618,20 +676,12 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/create-market-order
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/create-limit-order
+        https://docs.lighter.fi/api-documentation/api/rest-api/orders/create-market-order
+        https://docs.lighter.fi/api-documentation/api/rest-api/orders/create-limit-order
         """
 
         if order_type not in self.supported_order_types():
             raise ValueError(f"Order type {order_type} is not supported by {self.name}.")
-
-        # the exchange APIs let you pass client order id, which must be a UUID string
-        # in order to do that, we should change the behaviour of
-        # hummingbot.connector.utils.py:get_new_client_order_id(...) function
-        # which is used to generate client order IDs in self.buy() / self.sell() functions
-
-        # Until Hummingbot client IDs can be emitted as UUID strings, the connector uses
-        # the exchange order id for follow-up status, fill, and cancellation operations.
 
         market_id, size_decimals, price_decimals, _ = await self._get_market_spec(trading_pair)
         signer_client = self._get_lighter_signer_client()
@@ -649,19 +699,32 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         elif order_type == OrderType.LIMIT_MAKER:
             signer_tif = signer_client.ORDER_TIME_IN_FORCE_POST_ONLY
 
-        client_order_index = self._client_order_index_from_order_id(order_id)
-        _, tx_response, error = await signer_client.create_order(
-            market_index=market_id,
-            client_order_index=client_order_index,
-            base_amount=base_amount_scaled,
-            price=price_scaled,
-            is_ask=(trade_type == TradeType.SELL),
-            order_type=signer_order_type,
-            time_in_force=signer_tif,
-            reduce_only=position_action == PositionAction.CLOSE,
-            order_expiry=order_expiry,
-            api_key_index=self._get_api_key_index(),
-        )
+        async with self._signer_request_lock:
+            signer_client = self._get_lighter_signer_client()
+            tx_response = None
+            error = None
+            for attempt in range(5):
+                client_order_index = self._allocate_client_order_index()
+                _, tx_response, error = await signer_client.create_order(
+                    market_index=market_id,
+                    client_order_index=client_order_index,
+                    base_amount=base_amount_scaled,
+                    price=price_scaled,
+                    is_ask=(trade_type == TradeType.SELL),
+                    order_type=signer_order_type,
+                    time_in_force=signer_tif,
+                    reduce_only=position_action == PositionAction.CLOSE,
+                    order_expiry=order_expiry,
+                    api_key_index=self._get_api_key_index(),
+                )
+                if error is None and getattr(tx_response, "code", None) == 200:
+                    break
+                if attempt < 4 and "invalid nonce" in str(error or tx_response).lower():
+                    self._lighter_signer_client = None
+                    signer_client = self._get_lighter_signer_client()
+                    await self._sleep(0.3)
+                    continue
+                break
 
         if error is not None:
             raise IOError(f"Lighter create_order signing/send failed: {error}")
@@ -683,16 +746,53 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/cancel-order
+        https://docs.lighter.fi/api-documentation/api/rest-api/orders/cancel-order
         """
+        if tracked_order.exchange_order_id is None:
+            self.logger().warning(
+                "[_place_cancel] exchange_order_id is None for order %s, skipping cancel.",
+                order_id,
+            )
+            return False
+
         market_id, _, _, _ = await self._get_market_spec(tracked_order.trading_pair)
         signer_client = self._get_lighter_signer_client()
 
-        _, tx_response, error = await signer_client.cancel_order(
-            market_index=market_id,
-            order_index=int(tracked_order.exchange_order_id),
-            api_key_index=self._get_api_key_index(),
-        )
+        # Resolve the actual exchange order_index from our client_order_index.
+        # _place_order stores client_order_index as exchange_order_id initially;
+        # the real order_index is populated from WS updates or REST lookup.
+        client_oid = str(tracked_order.exchange_order_id)
+        actual_order_index = self._client_order_index_to_order_index.get(client_oid)
+        if actual_order_index is None:
+            actual_order_index = await self._resolve_order_index_from_active_orders(
+                market_id=market_id,
+                client_order_index=client_oid,
+            )
+        if actual_order_index is None:
+            self.logger().warning(
+                "[_place_cancel] Cannot resolve actual order_index for "
+                f"client_order_index={client_oid}. Order may already be filled/cancelled."
+            )
+            return False
+
+        async with self._signer_request_lock:
+            signer_client = self._get_lighter_signer_client()
+            tx_response = None
+            error = None
+            for attempt in range(5):
+                _, tx_response, error = await signer_client.cancel_order(
+                    market_index=market_id,
+                    order_index=int(actual_order_index),
+                    api_key_index=self._get_api_key_index(),
+                )
+                if error is None and getattr(tx_response, "code", None) == 200:
+                    break
+                if attempt < 4 and "invalid nonce" in str(error or tx_response).lower():
+                    self._lighter_signer_client = None
+                    signer_client = self._get_lighter_signer_client()
+                    await self._sleep(0.3)
+                    continue
+                break
 
         if error is not None:
             raise IOError(f"Lighter cancel_order signing/send failed: {error}")
@@ -701,34 +801,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         return True
 
-    async def _place_modify(self, tracked_order: InFlightOrder, amount: Decimal, price: Decimal) -> bool:
-        """
-        https://docs.lighter.xyz/ (signer SDK modify order flow)
-        """
-        market_id, size_decimals, price_decimals, _ = await self._get_market_spec(tracked_order.trading_pair)
-        signer_client = self._get_lighter_signer_client()
-
-        base_amount_scaled = int((amount * Decimal(f"1e{size_decimals}")).to_integral_value())
-        price_scaled = int((price * Decimal(f"1e{price_decimals}")).to_integral_value())
-
-        _, tx_response, error = await signer_client.modify_order(
-            market_index=market_id,
-            order_index=int(tracked_order.exchange_order_id),
-            base_amount=base_amount_scaled,
-            price=price_scaled,
-            api_key_index=self._get_api_key_index(),
-        )
-
-        if error is not None:
-            raise IOError(f"Lighter modify_order signing/send failed: {error}")
-        if tx_response is None or getattr(tx_response, "code", None) != 200:
-            raise IOError(f"Lighter modify_order failed: {tx_response}")
-
-        return True
-
     async def _update_balances(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-account-info
+        https://docs.lighter.fi/api-documentation/api/rest-api/account/get-account-info
         ```
         {
           "success": true,
@@ -781,7 +856,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_positions(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-positions
+        https://docs.lighter.fi/api-documentation/api/rest-api/account/get-positions
         Positions Info
         ```
           {
@@ -805,7 +880,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         }
         ```
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-prices
+        https://docs.lighter.fi/api-documentation/api/rest-api/markets/get-prices
         Prices Info
         ```
          {
@@ -846,12 +921,15 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         position_entries = account_data.get("positions") or response.get("data") or []
 
+        # Clear first so a partial refresh cannot leave stale position state visible to the strategy.
+        self._perpetual_trading.account_positions.clear()
+
         position_symbols = [position_entry["symbol"] for position_entry in position_entries if position_entry.get("symbol")]
         position_trading_pairs = [
             await self.trading_pair_associated_to_exchange_symbol(position_symbol) for position_symbol in position_symbols
         ]
         if any([self.get_LIGHTER_price(position_trading_pair) is None for position_trading_pair in position_trading_pairs]):
-            self.logger().info("[_update_positions] Prices cache is empty. Going to fetch prices via HTTP.")
+            self.logger().debug("[_update_positions] Prices cache is empty. Going to fetch prices via HTTP.")
             # we should update the cache
             # in future we could also consider to add some cache invalidation rules (e.g. timestamp too old)
             prices_response = await self._api_get(
@@ -859,7 +937,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 return_err=True,
             )
             if not self._is_ok_response(prices_response):
-                self.logger().error(f"[_update_positions] Failed to update prices cache using HTTP API: {response}")
+                self.logger().error(f"[_update_positions] Failed to update prices cache using HTTP API: {prices_response}")
                 return
             price_entries = prices_response.get("data") or prices_response.get("order_book_stats") or []
             for price_entry in price_entries:
@@ -876,18 +954,15 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     mark_price=Decimal(str(mark_price)),
                 )
 
-        # if there're 2 positions available, it will only show those 2
-        # if one of those 2 positions is closed -- you will see only 1
-        # so it make sense to clear the storage of positions
-        # and fill it with the positions from the response
-        self._perpetual_trading.account_positions.clear()
-
         for position_entry in position_entries:
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(position_entry["symbol"])
             sign = int(position_entry.get("sign", 1))
             position_side = PositionSide.LONG if sign >= 0 else PositionSide.SHORT
             position_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             amount = Decimal(str(position_entry.get("amount") or position_entry.get("position") or "0"))
+            if amount == Decimal("0"):
+                # Skip closed positions (exchange sends trailing zero-amount entries after close)
+                continue
             entry_price = Decimal(str(position_entry.get("entry_price") or position_entry.get("avg_entry_price") or "0"))
 
             price_record = self.get_LIGHTER_price(hb_trading_pair)
@@ -920,98 +995,102 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
-        Retrieves trade updates for a specific order using the account trade history endpoint.
-        Uses the order's creation timestamp as the start time to filter the trade history.
+        Fetch fill history for a specific order via GET /trades.
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-trade-history
-
-        Example API response:
-        ```
-        {
-            "success": true,
-            "data": [
-                {
-                    "history_id": 19329801,
-                    "order_id": 315293920,
-                    "client_order_id": "acf...",
-                    "symbol": "LDO",
-                    "amount": "0.1",
-                    "price": "1.1904",
-                    "entry_price": "1.176247",
-                    "fee": "0",
-                    "pnl": "-0.001415",
-                    "event_type": "fulfill_maker",
-                    "side": "close_short",
-                    "created_at": 1759215599188,
-                    "cause": "normal"
-                }
-            ],
-            "next_cursor": "11111Z5RK",
-            "has_more": true
-        }
-        ```
+        /trades requires sort_by (required) + auth (passed via is_auth_required).
+        Response: {"code": 200, "trades": [...], "next_cursor": "..."}
+        Each trade: trade_id, ask_id, bid_id, size, price, timestamp (ms), is_maker_ask, etc.
         """
         trade_updates = []
 
-        # Use cached last poll timestamp or order creation time as start_time
         last_poll_timestamp = self._order_history_last_poll_timestamp.get(order.exchange_order_id)
-        if last_poll_timestamp:
-            start_time = int(last_poll_timestamp * 1000)
+        if last_poll_timestamp and not math.isnan(last_poll_timestamp):
+            from_ts = int(last_poll_timestamp)  # seconds
         else:
-            start_time = int(order.creation_timestamp * 1000)
+            from_ts = int(order.creation_timestamp)  # seconds
 
-        current_time = self.current_timestamp
-        end_time = int(current_time * 1000)
+        try:
+            current_time = self.current_timestamp
+        except AttributeError:
+            current_time = None
+        current_time_is_valid = current_time is not None and not math.isnan(current_time)
+        if not current_time_is_valid:
+            current_time = time.time()
 
-        params = {
-            "account": self.user_wallet_public_key,
-            "start_time": start_time,
-            "end_time": end_time,
+        market_id_trades, _, _, _ = await self._get_market_spec(order.trading_pair)
+
+        signer_client_trades = self._get_lighter_signer_client()
+        auth_token_trades, _ = signer_client_trades.create_auth_token_with_expiry(
+            api_key_index=self._get_api_key_index()
+        )
+
+        params: Dict[str, Any] = {
+            "account_index": self._get_account_index(),
+            "market_id": market_id_trades,
+            "sort_by": "timestamp",
+            "from": from_ts,
             "limit": 100,
+            "auth": auth_token_trades or "",
         }
+        # Narrow to this specific order when exchange_order_id is numeric.
+        try:
+            params["order_index"] = int(order.exchange_order_id)
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            our_order_id_int = int(order.exchange_order_id) if order.exchange_order_id else None
+        except (ValueError, TypeError):
+            our_order_id_int = None
 
         while True:
             response = await self._api_get(
                 path_url=CONSTANTS.GET_TRADE_HISTORY_PATH_URL,
                 params=params,
+                is_auth_required=True,
+                return_err=True,
             )
 
-            if not response.get("success") or not response.get("data"):
+            trades_list = response.get("trades") or response.get("data") or []
+            if not trades_list:
                 break
 
-            for trade_message in response["data"]:
-                exchange_order_id = str(trade_message["order_id"])
+            for trade in trades_list:
+                ask_id = trade.get("ask_id")
+                bid_id = trade.get("bid_id")
 
-                if exchange_order_id != order.exchange_order_id:
+                if our_order_id_int is not None:
+                    our_is_ask = our_order_id_int == ask_id
+                    our_is_bid = our_order_id_int == bid_id
+                else:
+                    our_is_ask = str(trade.get("ask_client_id") or "") == str(order.exchange_order_id)
+                    our_is_bid = str(trade.get("bid_client_id") or "") == str(order.exchange_order_id)
+
+                if not our_is_ask and not our_is_bid:
                     continue
 
-                fill_timestamp = trade_message["created_at"] / 1000
-                fill_price = Decimal(trade_message["price"])
-                fill_base_amount = Decimal(trade_message["amount"])
+                fill_timestamp = float(trade.get("timestamp") or 0)
+                if fill_timestamp > 1e12:
+                    fill_timestamp /= 1000.0
+
+                fill_price = Decimal(str(trade.get("price") or "0"))
+                fill_base_amount = Decimal(str(trade.get("size") or "0"))
+
+                is_maker_ask = trade.get("is_maker_ask", False)
+                is_taker = (our_is_ask and not is_maker_ask) or (our_is_bid and is_maker_ask)
 
                 trade_id = self.get_LIGHTER_finance_trade_id(
-                    order_id=trade_message["order_id"],
+                    order_id=trade.get("trade_id") or 0,
                     timestamp=fill_timestamp,
                     fill_base_amount=fill_base_amount,
                     fill_price=fill_price,
                 )
 
-                fee_amount = Decimal(trade_message["fee"])
-                fee_asset = order.quote_asset
-
-                position_action = PositionAction.OPEN if trade_message["side"] in ("open_long", "open_short", ) else PositionAction.CLOSE
-
                 fee = TradeFeeBase.new_perpetual_fee(
                     fee_schema=self.trade_fee_schema(),
-                    position_action=position_action,
-                    percent_token=fee_asset,
-                    flat_fees=[TokenAmount(
-                        amount=fee_amount,
-                        token=fee_asset
-                    )]
+                    position_action=order.position,
+                    percent_token=order.quote_asset,
                 )
-
-                is_taker = trade_message["event_type"] == "fulfill_taker"
 
                 trade_updates.append(TradeUpdate(
                     trade_id=trade_id,
@@ -1026,18 +1105,20 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     is_taker=is_taker,
                 ))
 
-            if response.get("has_more") and response.get("next_cursor"):
-                params["cursor"] = response["next_cursor"]
+            next_cursor = response.get("next_cursor")
+            if next_cursor:
+                params["cursor"] = next_cursor
             else:
                 break
 
-        self._order_history_last_poll_timestamp[order.exchange_order_id] = current_time
+        # Guard: do not store NaN (or fallback wall-time) timestamps.
+        if current_time_is_valid:
+            self._order_history_last_poll_timestamp[order.exchange_order_id] = current_time
 
         return trade_updates
-
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/orders/get-order-history-by-id
+        https://docs.lighter.fi/api-documentation/api/rest-api/orders/get-order-history-by-id
 
         Example API response:
         ```
@@ -1086,36 +1167,101 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         }
         ```
         """
+        # Step 1: check whether the order is still active.
+        client_oid = str(tracked_order.exchange_order_id)
+        actual_order_index = self._client_order_index_to_order_index.get(client_oid)
+
+        if actual_order_index is None:
+            # Try to find it in active orders and populate the mapping.
+            try:
+                market_id, _, _, _ = await self._get_market_spec(tracked_order.trading_pair)
+                actual_order_index = await self._resolve_order_index_from_active_orders(
+                    market_id=market_id,
+                    client_order_index=client_oid,
+                )
+            except Exception:
+                actual_order_index = None
+
+        if actual_order_index is not None:
+            # Order is still active – return OPEN with real exchange_order_id.
+            return OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=OrderState.OPEN,
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=actual_order_index,
+            )
+
+        # Step 2: order is not active – look in historical/inactive orders.
+        query_oid = client_oid
+        signer_client_oi = self._get_lighter_signer_client()
+        auth_token_oi, _ = signer_client_oi.create_auth_token_with_expiry(
+            api_key_index=self._get_api_key_index()
+        )
+        market_id_oi, _, _, _ = await self._get_market_spec(tracked_order.trading_pair)
         response = await self._api_get(
             path_url=CONSTANTS.GET_ORDER_HISTORY_PATH_URL,
             params={
-                "order_id": tracked_order.exchange_order_id,
+                "account_index": self._get_account_index(),
+                "market_id": market_id_oi,
+                "limit": 50,
+                "auth": auth_token_oi or "",
             },
+            is_auth_required=True,
+            return_err=True,
         )
 
-        data = response.get("data")
+        data = response.get("data") or response.get("orders") or []
         if not data:
             raise IOError(
                 f"Order status query returned empty data for order {tracked_order.exchange_order_id}: {response}"
             )
 
-        order_entry = data[0]
-        raw_status = order_entry.get("order_status", "")
+        # Filter to find the specific order by client_order_id or order_id
+        order_entry = None
+        for row in data:
+            row_cid = str(row.get("client_order_id") or row.get("client_order_index") or row.get("I") or "")
+            row_oid = str(row.get("order_id") or row.get("order_index") or row.get("i") or "")
+            if row_cid == query_oid or row_oid == query_oid:
+                order_entry = row
+                break
+
+        if order_entry is None:
+            self.logger().debug(
+                f"Order {tracked_order.exchange_order_id} not found in inactive orders response; treating as canceled."
+            )
+            return OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=OrderState.CANCELED,
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=str(tracked_order.exchange_order_id),
+            )
+
+        raw_status = order_entry.get("order_status", "") or order_entry.get("status", "")
         order_status = CONSTANTS.ORDER_STATE.get(raw_status)
         if order_status is None:
-            raise IOError(f"Unknown order status '{raw_status}' for order {tracked_order.exchange_order_id}")
+            if not raw_status:
+                # Empty status from inactive orders � treat as cancelled
+                order_status = CONSTANTS.ORDER_STATE["cancelled"]
+            else:
+                raise IOError(f"Unknown order status '{raw_status}' for order {tracked_order.exchange_order_id}")
 
+        resolved_eid = str(
+            order_entry.get("order_id") or order_entry.get("order_index")
+            or tracked_order.exchange_order_id
+        )
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_entry.get("created_at", 0) / 1000,
             new_state=order_status,
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=tracked_order.exchange_order_id,
+            exchange_order_id=resolved_eid,
         )
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-candle-data
+        https://docs.lighter.fi/api-documentation/api/rest-api/markets/get-candle-data
 
         Example API response:
         ```
@@ -1144,7 +1290,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         params = {
             "symbol": symbol,
             "interval": "1m",
-            "start_time": int(time.time() * 1000) - 60 * 1000,
+            "start_time": int(time.time() * 1000) - 5 * 60 * 1000,
         }
 
         response = await self._api_get(
@@ -1154,13 +1300,15 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         candles = response.get("data") or []
         if not candles:
-            self.logger().warning(f"No candle data returned for {trading_pair}, returning 0.0")
+            warning_key = f"{trading_pair}:candles"
+            if self._should_emit_throttled_warning(warning_key, self._last_no_candle_warning_timestamp):
+                self.logger().warning(f"No candle data returned for {trading_pair}, returning 0.0")
             return 0.0
         return float(candles[0]["c"])
 
     async def _update_trading_fees(self):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-account-info
+        https://docs.lighter.fi/api-documentation/api/rest-api/account/get-account-info
         ```
         {
           "success": true,
@@ -1218,133 +1366,68 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         for trading_pair in self._trading_pairs:
             self._trading_fees[trading_pair] = trade_fee_schema
 
-        self.logger().info("Trading fees updated")
+        self.logger().debug("Trading fees updated")
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         """
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/account/get-funding-history
+        Fetch the most recent funding payment for a trading pair.
 
-        Example API response:
-            {
-                "success": true,
-                "data": [
-                    {
-                        "history_id": 2287920,
-                        "symbol": "PUMP",
-                        "side": "ask",
-                        "amount": "39033804",
-                        "payout": "2.617479",
-                        "rate": "0.0000125",
-                        "created_at": 1759222804122
-                    },
-                    ...
-                ],
-                "next_cursor": "11114Lz77",
-                "has_more": true
-            }
+        The /positionFunding endpoint returns:
+            {"code": 200, "position_fundings": [{"timestamp": <seconds>, "market_id": ..., "change": ..., "rate": ..., ...}]}
         """
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        market_id, _, _, _ = await self._get_market_spec(trading_pair)
 
+        signer_client_ff = self._get_lighter_signer_client()
+        auth_token_ff, _ = signer_client_ff.create_auth_token_with_expiry(
+            api_key_index=self._get_api_key_index()
+        )
         response = await self._api_get(
             path_url=CONSTANTS.GET_FUNDING_HISTORY_PATH_URL,
             params={
-                "account": self.user_wallet_public_key,
+                "account_index": self._get_account_index(),
                 "limit": 100,
+                "auth": auth_token_ff or "",
             },
+            is_auth_required=True,
             return_err=True
         )
 
-        if not response.get("success") is True:
+        if not self._is_ok_response(response):
             self.logger().error(f"Failed to fetch last fee payment (api responded with failure): {response}")
             return 0, Decimal("-1"), Decimal("-1")
 
-        data = response.get("data")
+        # Support both response shapes: {"data": [...]} and {"position_fundings": [...]}
+        data = response.get("data") or response.get("position_fundings")
         if not data:
             self.logger().debug(f"Failed to fetch last fee payment (no data): {response}")
             return 0, Decimal("-1"), Decimal("-1")
 
-        # check if the first page has the trading pair we need
-        for funding_history_item in data:
-            if funding_history_item["symbol"] == symbol:
-                return funding_history_item["created_at"], Decimal(funding_history_item["rate"]), Decimal(funding_history_item["payout"])
-
-        # so it's not presented on the first page
-        # we should check other pages, but no more than 1 hour back
-        # 1 hour back from the time of first item on first page
-        # has_more == True if there're more pages
-        # cursor is used to query next page (pass it to GET params)
-
-        timestamp_of_first_record_on_first_page = data[0]["created_at"]
-
-        # this is timestamp in ms
-        # let's calculate 1hr back from it
-        one_hour_back_timestamp = timestamp_of_first_record_on_first_page - 60 * 60 * 1000
-
-        # let's also extend it by 5 minutes
-        # in case the exchange the gap between entries is a bit bigger than 1hr
-        one_hour_back_timestamp -= 5 * 60 * 1000
-
-        # now let's query the pages one by one
-        # until we reach the page with the first record older than one hour back
-        has_more = response.get("has_more", False)
-        cursor = response.get("next_cursor")
-        while has_more:
-            response = await self._api_get(
-                path_url=CONSTANTS.GET_FUNDING_HISTORY_PATH_URL,
-                params={
-                    "account": self.user_wallet_public_key,
-                    "limit": 100,
-                    "cursor": cursor,
-                },
-                return_err=True
-            )
-
-            if not response.get("success") is True:
-                self.logger().error(f"Failed to fetch last fee payment (api responded with failure): {response}")
-                return 0, Decimal("-1"), Decimal("-1")
-
-            data = response.get("data")
-            if not data:
-                self.logger().debug(f"Failed to fetch last fee payment (no data): {response}")
-                return 0, Decimal("-1"), Decimal("-1")
-
-            if data[0]["created_at"] < one_hour_back_timestamp:
-                # this page doesn't have the record we need
-                # the timestamp of first record on this page is alrady behind the limit
-                return 0, Decimal("-1"), Decimal("-1")
-
-            for funding_history_item in data:
-                if funding_history_item["symbol"] == symbol:
-                    return funding_history_item["created_at"], Decimal(funding_history_item["rate"]), Decimal(funding_history_item["payout"])
-
-            has_more = response.get("has_more", False)
-            cursor = response.get("next_cursor")
+        for item in data:
+            if item.get("market_id") == market_id:
+                # timestamp may be in seconds; normalize to ms
+                ts = item.get("created_at") or item.get("timestamp", 0)
+                if ts < 1e12:
+                    ts = int(ts) * 1000
+                rate = item.get("rate", "0")
+                payout = item.get("payout") or item.get("change", "0")
+                return float(ts), Decimal(str(rate)), Decimal(str(payout))
 
         return 0, Decimal("-1"), Decimal("-1")
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-
-        data = {
-            "symbol": symbol,
-            "leverage": leverage,
-            "type": "update_leverage",
-        }
-        response: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-            data=data,
-            return_err=True,
-            is_auth_required=True,
+        """Set leverage using signer_client.update_leverage() (signed tx via /sendTx)."""
+        market_id, _, _, _ = await self._get_market_spec(trading_pair)
+        signer_client = self._get_lighter_signer_client()
+        margin_mode = signer_client.CROSS_MARGIN_MODE  # 0 = cross
+        _, tx_response, error = await signer_client.update_leverage(
+            market_index=market_id,
+            margin_mode=margin_mode,
+            leverage=leverage,
+            api_key_index=self._get_api_key_index(),
         )
-
-        success = response.get("success") is True
-        msg = ""
-        if not success:
-            msg = (f"Error when setting leverage: "
-                   f"msg={response.get('error', 'error')}, "
-                   f"code={response.get('code', 'code')}")
-
-        return success, msg
+        if error is not None:
+            return False, f"Error when setting leverage: {error}"
+        return True, ""
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         return True, ""
@@ -1429,6 +1512,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def _process_account_all_ws_event_message(self, event_message: Dict[str, Any]):
         await self._process_account_trades_ws_event_message(event_message)
         await self._process_account_positions_ws_event_message(event_message)
+        # Process the 'orders' section to populate client_order_index -> order_index mapping.
+        await self._process_account_all_orders_ws_event_message(event_message)
         # Extract balance info from account_all assets payload (USDC asset)
         assets = event_message.get("assets")
         if isinstance(assets, dict):
@@ -1445,6 +1530,8 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def _normalized_position_entries_from_event(event_message: Dict[str, Any]) -> List[Dict[str, Any]]:
         raw_entries = event_message.get("data")
+        if isinstance(raw_entries, dict):
+            raw_entries = None
         if raw_entries is None:
             positions = event_message.get("positions") or {}
             raw_entries = list(positions.values()) if isinstance(positions, dict) else positions
@@ -1528,7 +1615,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_order_updates_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-order-updates
+        https://docs.lighter.fi/api-documentation/api/websocket/subscriptions/account-order-updates
         {
             "channel": "account_order_updates",
             "data": [
@@ -1556,25 +1643,51 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             ]
         }
         """
-        tracked_orders = {order.exchange_order_id: order for order in self._order_tracker.all_updatable_orders.values()}
+        # Build two indices: by exchange order_index AND by client_order_index.
+        tracked_orders_by_oid = {order.exchange_order_id: order for order in self._order_tracker.all_updatable_orders.values()}
+        tracked_orders_by_client = {order.exchange_order_id: order for order in self._order_tracker.all_updatable_orders.values()}
 
-        for order_update_message in event_message["data"]:
-            exchange_order_id = str(order_update_message["i"])
-            tracked_order = tracked_orders.get(exchange_order_id)
-            if tracked_order:
-                order_status = CONSTANTS.ORDER_STATE[order_update_message["os"]]
-                order_update = OrderUpdate(
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=order_update_message["ut"] / 1000,
-                    new_state=order_status,
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                )
-                self._order_tracker.process_order_update(order_update)
+        raw_entries = event_message.get("data")
+        if not isinstance(raw_entries, list):
+            return
+
+        for order_update_message in raw_entries:
+            exchange_order_id = str(order_update_message.get("i") or "")
+            client_order_index = str(order_update_message.get("I") or "")
+
+            # Populate mapping regardless of whether we have a tracked order.
+            if exchange_order_id and client_order_index:
+                self._client_order_index_to_order_index[client_order_index] = exchange_order_id
+
+            # Try direct lookup by exchange order_index first (works once exchange_order_id is updated).
+            tracked_order = tracked_orders_by_oid.get(exchange_order_id)
+            # Then try by client_order_index (works on first WS update after placement).
+            if tracked_order is None and client_order_index:
+                tracked_order = tracked_orders_by_client.get(client_order_index)
+
+            if tracked_order is None:
+                continue
+
+            raw_status = order_update_message.get("os", "")
+            order_status = CONSTANTS.ORDER_STATE.get(raw_status)
+            if order_status is None:
+                self.logger().warning(f"Unknown order status '{raw_status}' in WS update")
+                continue
+
+            # Use real exchange order_index as exchange_order_id going forward.
+            resolved_eid = exchange_order_id if exchange_order_id else tracked_order.exchange_order_id
+            order_update = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_update_message.get("ut", 0) / 1000,
+                new_state=order_status,
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id=resolved_eid,
+            )
+            self._order_tracker.process_order_update(order_update)
 
     async def _process_account_positions_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-positions
+        https://docs.lighter.fi/api-documentation/api/websocket/subscriptions/account-positions
         {
             "channel": "subscribe",
             "data": {
@@ -1640,6 +1753,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             position_side = PositionSide.LONG if position_entry["d"] == "bid" else PositionSide.SHORT
             position_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             amount = Decimal(position_entry["a"])
+            if amount == Decimal("0"):
+                # Skip closed positions (exchange may still send a trailing zero-amount entry)
+                continue
             entry_price = Decimal(position_entry["p"])
 
             provided_unrealized_pnl = position_entry.get("upnl")
@@ -1666,7 +1782,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_info_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-info
+        https://docs.lighter.fi/api-documentation/api/websocket/subscriptions/account-info
         {
             "channel": "account_info",
             "data": {
@@ -1693,7 +1809,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _process_account_trades_ws_event_message(self, event_message: Dict[str, Any]):
         """
-        https://docs.LIGHTER.fi/api-documentation/api/websocket/subscriptions/account-trades
+        https://docs.lighter.fi/api-documentation/api/websocket/subscriptions/account-trades
         {
             "channel": "account_trades",
             "data": [
@@ -1830,18 +1946,350 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         # but we need to ensure fee tier is fetched immediately
         # we call it before super() so that the rate limits are correctly set before the periodic loops start
         await self._update_balances()
+
+        # super().start_network() calls restore_tracking_states() which re-populates the order tracker
+        # with orders from the previous session.  We must call it first so that we only cancel the
+        # bot-tracked stale orders and NOT any manually-placed orders on the exchange.
         await super().start_network()
 
+        # Cancel only tracked stale orders from the previous session (not user-placed orders).
+        # This avoids wiping manual orders while still cleaning up bot orders that survived a crash.
+        if self._trading_required and self._trading_pairs:
+            try:
+                await self._cancel_tracked_stale_orders()
+            except Exception as ex:
+                self.logger().warning(f"[start_network] stale order cleanup error (non-fatal): {ex}")
+
     async def stop_network(self):
+        # If any in-flight orders are still awaiting exchange confirmation (exchange_order_id
+        # is None), briefly wait so they land on the exchange before we sweep.  This prevents
+        # orders placed within ~3 s of "stop" from being silently abandoned on the exchange.
+        pending = [o for o in self.in_flight_orders.values() if o.exchange_order_id is None]
+        if pending:
+            self.logger().info(
+                "[stop_network] Waiting up to 3 s for %d in-flight order(s) to be confirmed "
+                "before final cancel sweep.",
+                len(pending),
+            )
+            await asyncio.sleep(3.0)
+        try:
+            await self._cancel_all_exchange_active_orders()
+        except Exception as ex:
+            self.logger().warning(f"[stop_network] Exchange order sweep error (non-fatal): {ex}")
         await super().stop_network()
-        await self._close_lighter_api_client()
+
+    async def _place_modify(
+        self,
+        tracked_order,
+        amount: Decimal,
+        price: Decimal,
+    ) -> bool:
+        """Modify an existing order via the lighter signer client.
+
+        :param tracked_order: the InFlightOrder (or compatible SimpleNamespace) to modify
+        :param amount: new base amount
+        :param price: new price
+        :return: True if modify succeeded
+        :raises IOError: if the signing/send operation fails
+        """
+        market_id, size_decimals, price_decimals, _ = await self._get_market_spec(tracked_order.trading_pair)
+        signer_client = self._get_lighter_signer_client()
+
+        base_amount_int = int(amount * Decimal(10 ** size_decimals))
+        price_int = int(price * Decimal(10 ** price_decimals))
+
+        _, response_obj, error = await signer_client.modify_order(
+            market_index=market_id,
+            order_index=int(tracked_order.exchange_order_id),
+            base_amount=base_amount_int,
+            price=price_int,
+        )
+
+        if error is not None:
+            raise IOError(f"modify_order signing/send failed: {error}")
+
+        return True
+
+    async def _cancel_tracked_stale_orders(self) -> int:
+        """
+        Cancel only orders that are tracked in the local order tracker (restored from the previous
+        session via restore_tracking_states).  This is the startup sweep — it cleans up bot-placed
+        orders from a crashed or stopped previous session WITHOUT cancelling any orders the user
+        placed manually on the exchange.
+
+        Returns the number of orders successfully cancelled.
+        """
+        stale_orders = list(self._order_tracker.all_updatable_orders.values())
+        if not stale_orders:
+            return 0
+
+        canceled_count = 0
+        now = self.current_timestamp
+        signer_client = self._refresh_signer_client()
+
+        for stale_order in stale_orders:
+            exchange_order_id = stale_order.exchange_order_id
+            if not exchange_order_id:
+                # Order wasn't confirmed by the exchange — mark cancelled locally, nothing to cancel on exchange
+                self._order_tracker.process_order_update(OrderUpdate(
+                    trading_pair=stale_order.trading_pair,
+                    update_timestamp=now,
+                    new_state=OrderState.CANCELED,
+                    client_order_id=stale_order.client_order_id,
+                    exchange_order_id=None,
+                ))
+                continue
+
+            try:
+                market_id, _, _, _ = await self._get_market_spec(stale_order.trading_pair)
+            except Exception:
+                market_id = None
+
+            if market_id is None:
+                self.logger().warning(
+                    "[_cancel_tracked_stale_orders] Cannot resolve market for %s, skipping",
+                    stale_order.client_order_id,
+                )
+                continue
+
+            try:
+                async with self._signer_request_lock:
+                    _, _, error = await signer_client.cancel_order(
+                        market_index=int(market_id),
+                        order_index=int(exchange_order_id),
+                        api_key_index=self._get_api_key_index(),
+                    )
+                if error is None:
+                    canceled_count += 1
+                    self.logger().info(
+                        "[start_network] Canceled stale bot order %s (exchange_id=%s)",
+                        stale_order.client_order_id,
+                        exchange_order_id,
+                    )
+                else:
+                    # Order may already be gone — still mark locally as cancelled
+                    self.logger().debug(
+                        "[_cancel_tracked_stale_orders] cancel_order error for %s (may already be gone): %s",
+                        exchange_order_id, error,
+                    )
+            except Exception as ex:
+                self.logger().warning(
+                    "[_cancel_tracked_stale_orders] Exception cancelling %s: %s",
+                    exchange_order_id, ex,
+                )
+
+            # Mark cancelled in local tracker regardless (prevents re-submission)
+            self._order_tracker.process_order_update(OrderUpdate(
+                trading_pair=stale_order.trading_pair,
+                update_timestamp=now,
+                new_state=OrderState.CANCELED,
+                client_order_id=stale_order.client_order_id,
+                exchange_order_id=exchange_order_id,
+            ))
+
+        if canceled_count > 0:
+            self.logger().info(
+                "[start_network] startup sweep canceled %d tracked stale orders", canceled_count
+            )
+        return canceled_count
+
+    async def _cancel_all_exchange_active_orders(self) -> int:
+        """
+        Cancel all currently active exchange orders for configured trading pairs.
+        This is a safety net for orders not tracked in local in-flight state.
+        """
+        if not self._trading_pairs:
+            return 0
+
+        signer_client = self._get_lighter_signer_client()
+        active_orders_by_id: Dict[str, int] = {}
+
+        for trading_pair in self._trading_pairs:
+            try:
+                market_id, _, _, _ = await self._get_market_spec(trading_pair)
+                signer_client = self._get_lighter_signer_client()
+                auth_token, _auth_err = signer_client.create_auth_token_with_expiry(
+                    api_key_index=self._get_api_key_index()
+                )
+                params: Dict[str, Any] = {
+                    "account_index": self._get_account_index(),
+                    "market_id": market_id,
+                    "limit": 200,
+                    "auth": auth_token or "",
+                }
+                while True:
+                    response = await self._api_get(
+                        path_url="/accountActiveOrders",
+                        params=params,
+                        is_auth_required=True,
+                        return_err=True,
+                    )
+                    if not self._is_ok_response(response):
+                        self.logger().warning(
+                            f"[_cancel_all_exchange_active_orders] Failed fetching active orders for {trading_pair}: {response}"
+                        )
+                        break
+
+                    rows = response.get("data") or response.get("orders") or []
+                    for row in rows:
+                        order_id = str(row.get("order_id") or row.get("order_index") or row.get("i") or "")
+                        if order_id:
+                            active_orders_by_id[order_id] = market_id
+
+                    if response.get("has_more") and response.get("next_cursor"):
+                        params["cursor"] = response["next_cursor"]
+                    else:
+                        break
+            except Exception as ex:
+                self.logger().warning(
+                    f"[_cancel_all_exchange_active_orders] Error fetching active orders for {trading_pair}: {ex}"
+                )
+
+        canceled_count = 0
+        for order_id, market_id in active_orders_by_id.items():
+            try:
+                _, _, error = await signer_client.cancel_order(
+                    market_index=int(market_id),
+                    order_index=int(order_id),
+                    api_key_index=self._get_api_key_index(),
+                )
+                if error is None:
+                    canceled_count += 1
+                else:
+                    self.logger().warning(
+                        f"[_cancel_all_exchange_active_orders] Failed to cancel order {order_id}: {error}"
+                    )
+            except Exception as ex:
+                self.logger().warning(
+                    f"[_cancel_all_exchange_active_orders] Exception cancelling order {order_id}: {ex}"
+                )
+
+        return canceled_count
+
+    async def _resolve_order_index_from_active_orders(
+        self,
+        market_id: int,
+        client_order_index: str,
+        max_pages: int = 5,
+    ) -> Optional[str]:
+        """Query /accountActiveOrders to resolve client_order_index -> actual order_index.
+
+        Returns the exchange-assigned order_index string, or None if not found.
+        Also populates self._client_order_index_to_order_index as a side-effect.
+        """
+        try:
+            signer_client = self._get_lighter_signer_client()
+            auth_token, _auth_err = signer_client.create_auth_token_with_expiry(
+                api_key_index=self._get_api_key_index()
+            )
+            params: Dict[str, Any] = {
+                "account_index": self._get_account_index(),
+                "market_id": market_id,
+                "limit": 200,
+                "auth": auth_token or "",
+            }
+
+            for _ in range(max_pages):
+                response = await self._api_get(
+                    path_url=CONSTANTS.GET_ACTIVE_ORDERS_PATH_URL,
+                    params=params,
+                    is_auth_required=True,
+                    return_err=True,
+                )
+                if not self._is_ok_response(response):
+                    break
+
+                rows = response.get("data") or response.get("orders") or []
+                for row in rows:
+                    row_oid = str(row.get("order_id") or row.get("order_index") or row.get("i") or "")
+                    row_cid = str(row.get("client_order_id") or row.get("client_order_index") or row.get("I") or "")
+                    if row_oid and row_cid:
+                        self._client_order_index_to_order_index[row_cid] = row_oid
+                    if row_cid == client_order_index and row_oid:
+                        return row_oid
+
+                if not response.get("has_more") or not response.get("next_cursor"):
+                    break
+                params["cursor"] = response["next_cursor"]
+        except Exception as ex:
+            self.logger().warning(f"[_resolve_order_index_from_active_orders] Error: {ex}")
+        return None
+
+    async def _refresh_signer_nonce(self) -> None:
+        """Fetch fresh nonce from /nextNonce and update the signer client state.
+
+        Called on 21104 (stale nonce) errors to resynchronise with the exchange.
+        """
+        try:
+            response = await self._api_get(
+                path_url=CONSTANTS.GET_NEXT_NONCE_PATH_URL,
+                params={
+                    "account_index": self._get_account_index(),
+                    "api_key_index": self._get_api_key_index(),
+                },
+                return_err=True,
+            )
+            nonce = response.get("nonce") or response.get("next_nonce")
+            if nonce is not None:
+                new_base = int(nonce) * self._CLIENT_ORDER_INDEX_TIME_MULTIPLIER
+                if new_base > self._last_client_order_index:
+                    self._last_client_order_index = new_base
+                    self.logger().debug(f"[_refresh_signer_nonce] Synced client_order_index base to {new_base}")
+        except Exception as ex:
+            self.logger().warning(f"[_refresh_signer_nonce] Failed: {ex}")
+
+    async def _process_account_all_orders_ws_event_message(self, event_message: Dict[str, Any]) -> None:
+        """Process the 'orders' dict from an account_all WS event.
+
+        The account_all channel may include:
+            "orders": { "{MARKET_INDEX}": [ Order, ... ], ... }
+        where Order has both order_index (exchange-assigned) and client_order_index (ours).
+        We use this to populate _client_order_index_to_order_index and emit OrderUpdates.
+        """
+        orders_by_market = event_message.get("orders")
+        if not isinstance(orders_by_market, dict):
+            return
+
+        for market_orders in orders_by_market.values():
+            if not isinstance(market_orders, list):
+                market_orders = [market_orders] if isinstance(market_orders, dict) else []
+            for order_entry in market_orders:
+                if not isinstance(order_entry, dict):
+                    continue
+                order_index = str(order_entry.get("order_index") or order_entry.get("order_id") or order_entry.get("i") or "")
+                client_index = str(order_entry.get("client_order_index") or order_entry.get("client_order_id") or order_entry.get("I") or "")
+                if order_index and client_index:
+                    self._client_order_index_to_order_index[client_index] = order_index
+
+                # Find the matching tracked order and emit an OrderUpdate.
+                for tracked_order in list(self._order_tracker.all_updatable_orders.values()):
+                    tracked_eid = str(tracked_order.exchange_order_id)
+                    if tracked_eid != client_index and tracked_eid != order_index:
+                        continue
+                    raw_status = str(order_entry.get("status") or "open").replace("-", "_")
+                    order_status = CONSTANTS.ORDER_STATE.get(raw_status) or CONSTANTS.ORDER_STATE.get(
+                        str(order_entry.get("status") or "open")
+                    )
+                    if order_status is None:
+                        break
+                    resolved_eid = order_index if order_index else tracked_eid
+                    ts_raw = order_entry.get("updated_at") or order_entry.get("timestamp") or 0
+                    order_update = OrderUpdate(
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=float(ts_raw) / 1000 if ts_raw > 1_000_000_000_000 else float(ts_raw),
+                        new_state=order_status,
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=resolved_eid,
+                    )
+                    self._order_tracker.process_order_update(order_update)
+                    break
 
     async def get_all_pairs_prices(self) -> List[Dict[str, Any]]:
         """
         Retrieves the prices (mark price) for all trading pairs.
         Required for Rate Oracle support.
 
-        https://docs.LIGHTER.fi/api-documentation/api/rest-api/markets/get-prices
+        https://docs.lighter.fi/api-documentation/api/rest-api/markets/get-prices
         Prices Info
         ```
          {

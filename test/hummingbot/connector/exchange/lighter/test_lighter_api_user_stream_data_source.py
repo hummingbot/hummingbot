@@ -29,6 +29,7 @@ class LighterAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         ws.connect.assert_awaited_once_with(
             ws_url="wss://mainnet.zklighter.elliot.ai/stream",
             ws_headers={"X-Api-Key": "api-key"},
+            ping_timeout=30,
         )
 
     async def test_subscribe_channels_sends_account_subscription(self):

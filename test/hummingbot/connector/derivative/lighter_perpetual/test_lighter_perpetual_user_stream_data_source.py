@@ -173,3 +173,44 @@ class LighterPerpetualUserStreamDataSourceTests(unittest.IsolatedAsyncioTestCase
         self.assertEqual({"type": "pong"}, self.ws_assistant.send.call_args.args[0].payload)
         queued_event = output.get_nowait()
         self.assertEqual("update/account_all", queued_event["type"])
+
+    async def test_listen_for_user_stream_get_listen_key_successful_with_user_update_event(self):
+        output = asyncio.Queue()
+        ws = MagicMock()
+        ws.disconnect = AsyncMock()
+        self.data_source._connected_websocket_assistant = AsyncMock(return_value=ws)
+        self.data_source._subscribe_channels = AsyncMock()
+        self.data_source._send_ping = AsyncMock()
+
+        async def process_messages(websocket_assistant, queue):
+            queue.put_nowait({"type": "update/account_all", "channel": "account_all:237600"})
+            raise asyncio.CancelledError()
+
+        self.data_source._process_websocket_messages = process_messages
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(output)
+
+        self.assertEqual("update/account_all", output.get_nowait()["type"])
+
+    async def test_listen_for_user_stream_does_not_queue_empty_payload(self):
+        output = asyncio.Queue()
+        await self.data_source._process_event_message({}, output)
+        self.assertTrue(output.empty())
+
+    async def test_listen_for_user_stream_connection_failed(self):
+        self.data_source._connected_websocket_assistant = AsyncMock(side_effect=[ConnectionError("closed"), asyncio.CancelledError()])
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
+
+    async def test_listen_for_user_stream_iter_message_throws_exception(self):
+        ws = MagicMock()
+        ws.disconnect = AsyncMock()
+        self.data_source._connected_websocket_assistant = AsyncMock(return_value=ws)
+        self.data_source._subscribe_channels = AsyncMock()
+        self.data_source._send_ping = AsyncMock()
+        self.data_source._process_websocket_messages = AsyncMock(side_effect=Exception("boom"))
+        self.data_source._sleep = AsyncMock(side_effect=asyncio.CancelledError())
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(asyncio.Queue())

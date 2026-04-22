@@ -53,11 +53,22 @@ class LighterAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         rest_assistant = MagicMock()
         rest_assistant.execute_request = AsyncMock(return_value={"success": True, "data": {"t": 1, "l": [[], []]}})
         self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+        self.connector.rest_api_key = "api-key"
 
         snapshot = await self.data_source._request_order_book_snapshot("ETH-USDC")
 
-        self.assertEqual({"t": 1, "l": [[], []]}, snapshot)
+        self.assertEqual({"success": True, "data": {"t": 1, "l": [[], []]}}, snapshot)
         rest_assistant.execute_request.assert_awaited_once()
+        self.assertEqual({}, rest_assistant.execute_request.call_args.kwargs["headers"])
+
+    async def test_request_order_book_snapshot_accepts_code_200_without_success_flag(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(return_value={"code": 200, "data": {"t": 2, "l": [[], []]}})
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+
+        snapshot = await self.data_source._request_order_book_snapshot("ETH-USDC")
+
+        self.assertEqual({"code": 200, "data": {"t": 2, "l": [[], []]}}, snapshot)
 
     async def test_request_order_book_snapshot_raises_on_unsuccessful_response(self):
         rest_assistant = MagicMock()
@@ -69,17 +80,19 @@ class LighterAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_order_book_snapshot_formats_snapshot_message(self):
         self.data_source._request_order_book_snapshot = AsyncMock(return_value={
-            "t": 1710000000000,
-            "l": [
-                [{"p": "1999", "a": "1.2"}],
-                [{"p": "2001", "a": "1.4"}],
+            "bids": [
+                {"price": "1999", "remaining_base_amount": "1.2"},
+            ],
+            "asks": [
+                {"price": "2001", "remaining_base_amount": "1.4"},
             ],
         })
 
         message = await self.data_source._order_book_snapshot("ETH-USDC")
 
         self.assertEqual("ETH-USDC", message.content["trading_pair"])
-        self.assertEqual(1710000000000, message.content["update_id"])
+        self.assertEqual([(1999.0, 1.2)], [(float(p), float(a)) for p, a in message.content["bids"]])
+        self.assertEqual([(2001.0, 1.4)], [(float(p), float(a)) for p, a in message.content["asks"]])
 
     async def test_connected_websocket_assistant_connects_with_headers(self):
         ws = MagicMock()

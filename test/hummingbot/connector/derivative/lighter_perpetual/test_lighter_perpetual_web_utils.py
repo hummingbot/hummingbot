@@ -62,3 +62,8 @@ class LighterPerpetualWebUtilsTests(unittest.TestCase):
         constants, web_utils = _load_web_utils_module()
         self.assertEqual(constants.WSS_URL, web_utils.wss_url(domain=constants.DEFAULT_DOMAIN))
         self.assertEqual(constants.TESTNET_WSS_URL, web_utils.wss_url(domain=constants.TESTNET_DOMAIN))
+
+    def test_tier_2_rate_limits_include_exchange_info(self):
+        constants, _ = _load_web_utils_module()
+        tier_2_limit_ids = {limit.limit_id for limit in constants.RATE_LIMITS_TIER_2}
+        self.assertIn(constants.EXCHANGE_INFO_PATH_URL, tier_2_limit_ids)

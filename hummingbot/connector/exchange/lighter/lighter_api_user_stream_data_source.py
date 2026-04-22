@@ -35,7 +35,11 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws_headers = {}
         if self._connector.rest_api_key:
             ws_headers["X-Api-Key"] = self._connector.rest_api_key
-        await ws.connect(ws_url=web_utils.wss_url(self._domain), ws_headers=ws_headers)
+        await ws.connect(
+            ws_url=web_utils.wss_url(self._domain),
+            ws_headers=ws_headers,
+            ping_timeout=CONSTANTS.WS_PING_INTERVAL,
+        )
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
