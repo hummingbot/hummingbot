@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorState, LPExecutorStates
 from hummingbot.strategy_v2.models.executors import TrackedOrder
 
@@ -16,6 +17,7 @@ class TestLPExecutorStates(TestCase):
         self.assertEqual(LPExecutorStates.OUT_OF_RANGE.value, "OUT_OF_RANGE")
         self.assertEqual(LPExecutorStates.CLOSING.value, "CLOSING")
         self.assertEqual(LPExecutorStates.COMPLETE.value, "COMPLETE")
+        self.assertEqual(LPExecutorStates.FAILED.value, "FAILED")
 
     def test_states_enum_names(self):
         """Verify all state enum names"""
@@ -25,6 +27,7 @@ class TestLPExecutorStates(TestCase):
         self.assertEqual(LPExecutorStates.OUT_OF_RANGE.name, "OUT_OF_RANGE")
         self.assertEqual(LPExecutorStates.CLOSING.name, "CLOSING")
         self.assertEqual(LPExecutorStates.COMPLETE.name, "COMPLETE")
+        self.assertEqual(LPExecutorStates.FAILED.name, "FAILED")
 
 
 class TestLPExecutorConfig(TestCase):
@@ -35,66 +38,76 @@ class TestLPExecutorConfig(TestCase):
         config = LPExecutorConfig(
             id="test-1",
             timestamp=1234567890,
-            connector_name="meteora/clmm",
+            connector_name="solana-mainnet-beta",
+            lp_provider="meteora/clmm",
             trading_pair="SOL-USDC",
             pool_address="pool123",
             lower_price=Decimal("100"),
             upper_price=Decimal("110"),
+            side=TradeType.RANGE,
         )
         self.assertEqual(config.type, "lp_executor")
-        self.assertEqual(config.connector_name, "meteora/clmm")
+        self.assertEqual(config.connector_name, "solana-mainnet-beta")
+        self.assertEqual(config.lp_provider, "meteora/clmm")
         self.assertEqual(config.trading_pair, "SOL-USDC")
         self.assertEqual(config.pool_address, "pool123")
         self.assertEqual(config.lower_price, Decimal("100"))
         self.assertEqual(config.upper_price, Decimal("110"))
         self.assertEqual(config.base_amount, Decimal("0"))
         self.assertEqual(config.quote_amount, Decimal("0"))
-        self.assertEqual(config.side, 0)
-        self.assertIsNone(config.auto_close_above_range_seconds)
-        self.assertIsNone(config.auto_close_below_range_seconds)
+        self.assertEqual(config.side, TradeType.RANGE)
+        self.assertIsNone(config.upper_limit_price)
+        self.assertIsNone(config.lower_limit_price)
         self.assertIsNone(config.extra_params)
-        self.assertFalse(config.keep_position)
+        self.assertTrue(config.keep_position)
 
     def test_config_creation_full(self):
         """Test creating config with all fields"""
         config = LPExecutorConfig(
             id="test-2",
             timestamp=1234567890,
-            connector_name="meteora/clmm",
+            connector_name="solana-mainnet-beta",
+            lp_provider="meteora/clmm",
             trading_pair="SOL-USDC",
             pool_address="pool456",
             lower_price=Decimal("90"),
             upper_price=Decimal("100"),
             base_amount=Decimal("1.5"),
             quote_amount=Decimal("150"),
-            side=1,
-            auto_close_above_range_seconds=300,
-            auto_close_below_range_seconds=600,
+            side=TradeType.BUY,
+            upper_limit_price=Decimal("120"),
+            lower_limit_price=Decimal("80"),
             extra_params={"strategyType": 0},
             keep_position=True,
         )
         self.assertEqual(config.base_amount, Decimal("1.5"))
         self.assertEqual(config.quote_amount, Decimal("150"))
-        self.assertEqual(config.side, 1)
-        self.assertEqual(config.auto_close_above_range_seconds, 300)
-        self.assertEqual(config.auto_close_below_range_seconds, 600)
+        self.assertEqual(config.side, TradeType.BUY)
+        self.assertEqual(config.upper_limit_price, Decimal("120"))
+        self.assertEqual(config.lower_limit_price, Decimal("80"))
         self.assertEqual(config.extra_params, {"strategyType": 0})
         self.assertTrue(config.keep_position)
 
     def test_config_side_values(self):
-        """Test different side values: 0=BOTH, 1=BUY, 2=SELL"""
-        for side in [0, 1, 2]:
+        """Test different side values: 1=BUY, 2=SELL, 3=RANGE"""
+        side_map = {
+            1: TradeType.BUY,
+            2: TradeType.SELL,
+            3: TradeType.RANGE,
+        }
+        for side_int, side_enum in side_map.items():
             config = LPExecutorConfig(
-                id=f"test-side-{side}",
+                id=f"test-side-{side_int}",
                 timestamp=1234567890,
-                connector_name="meteora/clmm",
+                connector_name="solana-mainnet-beta",
+                lp_provider="meteora/clmm",
                 trading_pair="SOL-USDC",
                 pool_address="pool",
                 lower_price=Decimal("100"),
                 upper_price=Decimal("110"),
-                side=side,
+                side=side_int,
             )
-            self.assertEqual(config.side, side)
+            self.assertEqual(config.side, side_enum)
 
 
 class TestLPExecutorState(TestCase):
@@ -163,6 +176,12 @@ class TestLPExecutorState(TestCase):
         state = LPExecutorState(state=LPExecutorStates.CLOSING)
         state.update_state(Decimal("100"), 1000.0)
         self.assertEqual(state.state, LPExecutorStates.CLOSING)
+
+    def test_update_state_failed_preserved(self):
+        """Test that FAILED state is preserved"""
+        state = LPExecutorState(state=LPExecutorStates.FAILED)
+        state.update_state(Decimal("100"), 1000.0)
+        self.assertEqual(state.state, LPExecutorStates.FAILED)
 
     def test_update_state_with_close_order(self):
         """Test state becomes CLOSING when close order active"""

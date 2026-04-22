@@ -3,10 +3,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
 from hummingbot.client.command.command_utils import GatewayCommandUtils
-from hummingbot.connector.gateway.gateway_swap import GatewaySwap
+from hummingbot.connector.gateway.gateway import Gateway
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
@@ -19,7 +18,11 @@ class GatewaySwapCommand:
     def gateway_swap(self, connector: Optional[str] = None, args: List[str] = None):
         """
         Perform swap operations through gateway - shows quote and asks for confirmation.
-        Usage: gateway swap <connector> [base-quote] [side] [amount]
+        Usage: gateway swap <network> [base-quote] [side] [amount]
+
+        Examples:
+            gateway swap solana-mainnet-beta SOL-USDC BUY 1
+            gateway swap ethereum-mainnet ETH-USDC SELL 0.5
         """
         # Parse arguments: [base-quote] [side] [amount]
         pair = args[0] if args and len(args) > 0 else None
@@ -31,19 +34,24 @@ class GatewaySwapCommand:
     async def _gateway_swap(self, connector: Optional[str] = None,
                             pair: Optional[str] = None, side: Optional[str] = None, amount: Optional[str] = None):
         """Unified swap flow - get quote first, then ask for confirmation to execute."""
+        swap_connector = None
         try:
-            # Parse connector format (e.g., "uniswap/amm")
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
+            if not connector:
+                self.notify("Error: Network is required")
+                self.notify("Usage: gateway swap <network> <trading-pair> <side> <amount>")
+                self.notify("Example: gateway swap solana-mainnet-beta SOL-USDC BUY 1")
                 return
 
-            # Get chain and network info for the connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
-            if error:
-                self.notify(f"Error: {error}")
+            # Parse network format (e.g., "solana-mainnet-beta" -> chain="solana", network="mainnet-beta")
+            if "-" not in connector:
+                self.notify(f"Error: Invalid network format '{connector}'.")
+                self.notify("Use format like 'solana-mainnet-beta' or 'ethereum-mainnet'")
                 return
+
+            # Parse chain and network from connector string
+            parts = connector.split("-", 1)
+            chain = parts[0]
+            network = parts[1] if len(parts) > 1 else "mainnet"
 
             # Parse trading pair
             try:
@@ -91,8 +99,8 @@ class GatewaySwapCommand:
             if side:
                 side = side.upper()
 
-            # Construct pair for display
-            pair_display = f"{base_token}-{quote_token}"
+            # Construct trading pair
+            trading_pair = f"{base_token}-{quote_token}"
 
             # Convert amount to decimal
             try:
@@ -109,14 +117,40 @@ class GatewaySwapCommand:
                 self.notify(error)
                 return
 
-            self.notify(f"\nFetching swap quote for {pair_display} from {connector}...")
+            # Create Gateway connector and start network to get swap_provider
+            swap_connector = Gateway(
+                connector_name=connector,
+                chain=chain,
+                network=network,
+                address=wallet_address,
+                trading_pairs=[trading_pair],
+            )
+            await swap_connector.start_network()
+
+            # Get swap provider from connector (fetched during start_network)
+            swap_provider = swap_connector.swap_provider
+            if not swap_provider:
+                self.notify(f"Error: No swap provider configured for network '{connector}'")
+                self.notify("Make sure Gateway has swapProvider set in the network config")
+                await swap_connector.stop_network()
+                return
+
+            # Parse swap provider into dex_name and trading_type
+            if "/" in swap_provider:
+                dex_name, trading_type = swap_provider.split("/", 1)
+            else:
+                dex_name, trading_type = swap_provider, "router"
+            self.notify(f"Using swap provider: {dex_name}/{trading_type}")
+
+            self.notify(f"\nFetching swap quote for {trading_pair} on {connector}...")
 
             # Get quote from gateway
             trade_side = TradeType.BUY if side == "BUY" else TradeType.SELL
 
             quote_resp = await self._get_gateway_instance().quote_swap(
                 network=network,
-                connector=connector,
+                dex=dex_name,
+                trading_type=trading_type,
                 base_asset=base_token,
                 quote_asset=quote_token,
                 amount=amount_decimal,
@@ -127,6 +161,7 @@ class GatewaySwapCommand:
 
             if "error" in quote_resp:
                 self.notify(f"\nError getting quote: {quote_resp['error']}")
+                await swap_connector.stop_network()
                 return
 
             # Store quote ID for logging only
@@ -149,100 +184,26 @@ class GatewaySwapCommand:
             self.notify(f"Token In: {base_token} ({token_in})")
             self.notify(f"Token Out: {quote_token} ({token_out})")
 
-            # Get connector config to show slippage
-            connector_config = await self._get_gateway_instance().get_connector_config(
-                connector
-            )
-            slippage_pct = connector_config.get("slippagePct")
+            # Amount information
+            self.notify(f"\nAmount In: {amount_in}")
+            self.notify(f"Amount Out: {amount_out}")
+            if min_amount_out:
+                self.notify(f"Minimum Amount Out: {min_amount_out}")
+            if max_amount_in:
+                self.notify(f"Maximum Amount In: {max_amount_in}")
 
-            # Price and impact information
-            self.notify(f"\nPrice: {quote_resp['price']} {quote_token}/{base_token}")
-            if slippage_pct is not None:
-                self.notify(f"Slippage: {slippage_pct}%")
+            # Display warnings and fee information
+            warnings = quote_resp.get("warnings", [])
 
-            if "priceImpactPct" in quote_resp:
-                impact = float(quote_resp["priceImpactPct"])
-                self.notify(f"Price Impact: {impact:.4f}%")
+            # Extract and display fee info
+            fee_info = quote_resp.get('feeInfo', {})
+            if not fee_info:
+                # Try to construct basic fee info from response
+                fee_info = {
+                    "transactionFee": quote_resp.get('fee', 'N/A'),
+                    "transactionFeeSymbol": quote_resp.get('feeAsset', chain.upper())
+                }
 
-            # Show what user will spend and receive
-            if side == "BUY":
-                # Buying base with quote
-                self.notify("\nYou will spend:")
-                self.notify(f"  Amount: {amount_in} {quote_token}")
-                self.notify(f"  Max Amount (w/ slippage): {max_amount_in} {quote_token}")
-
-                self.notify("\nYou will receive:")
-                self.notify(f"  Amount: {amount_out} {base_token}")
-
-            else:
-                # Selling base for quote
-                self.notify("\nYou will spend:")
-                self.notify(f"  Amount: {amount_in} {base_token}")
-
-                self.notify("\nYou will receive:")
-                self.notify(f"  Amount: {amount_out} {quote_token}")
-                self.notify(f"  Min Amount (w/ slippage): {min_amount_out} {quote_token}")
-
-            # Get fee estimation from gateway
-            self.notify(f"\nEstimating transaction fees for {chain} {network}...")
-            fee_info = await self._get_gateway_instance().estimate_transaction_fee(
-                chain,
-                network,
-            )
-
-            native_token = fee_info.get("native_token", chain.upper())
-            gas_fee_estimate = fee_info.get("fee_in_native", 0) if fee_info.get("success", False) else None
-
-            # Get all tokens to check (include native token for gas)
-            tokens_to_check = [base_token, quote_token]
-            if native_token and native_token.upper() not in [base_token.upper(), quote_token.upper()]:
-                tokens_to_check.append(native_token)
-
-            # Collect warnings throughout the command
-            warnings = []
-
-            # Get current balances
-            current_balances = await self._get_gateway_instance().get_wallet_balances(
-
-                chain=chain,
-                network=network,
-                wallet_address=wallet_address,
-                tokens_to_check=tokens_to_check,
-                native_token=native_token
-            )
-
-            # Calculate balance changes from the swap
-            balance_changes = {}
-            try:
-                amount_in_decimal = Decimal(amount_in)
-                amount_out_decimal = Decimal(amount_out)
-
-                if side == "BUY":
-                    # Buying base with quote
-                    balance_changes[base_token] = float(amount_out_decimal)  # Receiving base
-                    balance_changes[quote_token] = -float(amount_in_decimal)  # Spending quote
-                else:
-                    # Selling base for quote
-                    balance_changes[base_token] = -float(amount_in_decimal)  # Spending base
-                    balance_changes[quote_token] = float(amount_out_decimal)  # Receiving quote
-
-            except Exception as e:
-                self.notify(f"\nWarning: Could not calculate balance changes: {str(e)}")
-                balance_changes = {}
-
-            # Display unified balance impact table
-            GatewayCommandUtils.display_balance_impact_table(
-                app=self,
-                wallet_address=wallet_address,
-                current_balances=current_balances,
-                balance_changes=balance_changes,
-                native_token=native_token,
-                gas_fee=gas_fee_estimate or 0,
-                warnings=warnings,
-                title="Balance Impact After Swap"
-            )
-
-            # Display transaction fee details
             GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
 
             # Display any warnings
@@ -256,24 +217,10 @@ class GatewaySwapCommand:
                     self, "Do you want to execute this swap now?"
                 ):
                     self.notify("Swap cancelled")
+                    await swap_connector.stop_network()
                     return
 
                 self.notify("\nExecuting swap...")
-
-                # Create trading pair first
-                trading_pair = f"{base_token}-{quote_token}"
-
-                # Create a new GatewaySwap instance for this swap
-                swap_connector = GatewaySwap(
-                    connector_name=connector,  # DEX connector (e.g., 'uniswap/amm', 'raydium/clmm')
-                    chain=chain,
-                    network=network,
-                    address=wallet_address,
-                    trading_pairs=[trading_pair],
-                )
-
-                # Start the network connection
-                await swap_connector.start_network()
 
                 # Use price from quote for better tracking
                 price_value = quote_resp.get('price', '0')
@@ -286,6 +233,7 @@ class GatewaySwapCommand:
                     return
 
                 # Store quote data in kwargs for the swap handler
+                # Note: dex_name not needed since connector already has swap_provider
                 swap_kwargs = {
                     "quote_id": quote_id,
                     "quote_response": quote_resp,
@@ -323,26 +271,25 @@ class GatewaySwapCommand:
                     pending_msg_delay=3.0
                 )
 
-                GatewayCommandUtils.handle_transaction_result(
-                    self, result,
-                    success_msg="Swap completed successfully!",
-                    failure_msg="Swap failed. Please try again."
-                )
+                if result.get("success"):
+                    self.notify("\n=== Swap Completed ===")
+                    if result.get("tx_hash"):
+                        self.notify(f"Transaction: {result['tx_hash']}")
+                    if result.get("executed_price"):
+                        self.notify(f"Executed Price: {result['executed_price']}")
+                    if result.get("executed_amount"):
+                        self.notify(f"Executed Amount: {result['executed_amount']}")
+                else:
+                    error_msg = result.get("error", "Unknown error")
+                    self.notify(f"\nSwap failed: {error_msg}")
 
-                # Clean up - remove temporary connector and stop network
-                if hasattr(self, 'connector_manager') and self.connector_manager:
-                    self.connector_manager.connectors.pop(swap_connector.name, None)
-
-                # Stop the network connection
                 await swap_connector.stop_network()
 
             finally:
                 await GatewayCommandUtils.exit_interactive_mode(self)
 
         except Exception as e:
-            self.notify(f"Error executing swap: {str(e)}")
-
-    def _get_gateway_instance(self) -> GatewayHttpClient:
-        """Get the gateway HTTP client instance"""
-        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
-        return gateway_instance
+            self.notify(f"Error: {str(e)}")
+            self.logger().exception("Gateway swap error")
+            if swap_connector:
+                await swap_connector.stop_network()

@@ -20,8 +20,10 @@ from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRate
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
+from hummingbot.core.rate_oracle.sources.decibel_perpetual_rate_source import DecibelPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.derive_rate_source import DeriveRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
+from hummingbot.core.rate_oracle.sources.evedex_perpetual_rate_source import EvedexPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.hyperliquid_perpetual_rate_source import HyperliquidPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.hyperliquid_rate_source import HyperliquidRateSource
@@ -49,7 +51,9 @@ RATE_ORACLE_SOURCES = {
     "architect_perpetual": ArchitectPerpetualRateSource,
     "derive": DeriveRateSource,
     "mexc": MexcRateSource,
+    "evedex_perpetual": EvedexPerpetualRateSource,
     "pacifica_perpetual": PacificaPerpetualRateSource,
+    "decibel_perpetual": DecibelPerpetualRateSource,
 }
 
 

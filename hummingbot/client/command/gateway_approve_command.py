@@ -31,17 +31,12 @@ class GatewayApproveCommand:
         Allow the user to approve a token for spending using the connector.
         """
         try:
-            # Parse connector format (e.g., "uniswap/amm")
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                return
-
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
                 connector
             )
             if error:
-                self.notify(error)
+                self.notify(f"Error: {error}")
                 return
 
             # Get default wallet for the chain

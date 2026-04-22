@@ -668,9 +668,14 @@ class TradingCore:
         """
         # Create connectors for each market
         for connector_name, trading_pairs in market_names:
-            # for now we identify gateway connector that contain "/" in their name
-            if "/" in connector_name:
-                await self.gateway_monitor.wait_for_online_status()
+            # Check if this is a gateway connector (chain-network format like "solana-mainnet-beta")
+            if "-" in connector_name:
+                from hummingbot.client.settings import GATEWAY_CHAINS
+                known_chains = {c.lower() for c in GATEWAY_CHAINS} if GATEWAY_CHAINS else {"solana", "ethereum"}
+                chain = connector_name.split("-", 1)[0].lower()
+                if chain in known_chains:
+                    await self.gateway_monitor.wait_for_online_status()
+                    await self.gateway_monitor.ensure_gateway_connectors_registered()
             connector = self.connector_manager.create_connector(
                 connector_name, trading_pairs, self._trading_required
             )
