@@ -1503,7 +1503,20 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                  amount: Decimal,
                  price: Decimal = Decimal("nan"),
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = is_maker or False
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        # Use live fee schema from account API when available; fall back to DEFAULT_FEES.
+        fee_schema: Optional[TradeFeeSchema] = self._trading_fees.get(trading_pair)
+        if fee_schema is not None:
+            percent = (fee_schema.maker_percent_fee_decimal if is_maker
+                       else fee_schema.taker_percent_fee_decimal)
+            return TradeFeeBase.new_perpetual_fee(
+                fee_schema=fee_schema,
+                position_action=position_action,
+                percent=percent,
+                percent_token=quote_currency,
+                flat_fees=[],
+            )
         fee = build_trade_fee(
             self.name,
             is_maker,
