@@ -99,3 +99,46 @@ class DexalotRateSourceTest(IsolatedAsyncioWrapperTestCase):
         self.assertIn(self.trading_pair, prices)
         self.assertEqual(expected_rate, prices[self.trading_pair])
         self.assertNotIn(self.ignored_trading_pair, prices)
+
+    @aioresponses()
+    async def test_get_prices_skips_invalid_low_high(self, mock_api):
+        """Regression test for #7335 — Dexalot returns None/empty/- for low/high on zero-volume pairs."""
+        rate_source = DexalotRateSource()
+        symbols_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        symbols_response = [
+            {'env': 'production-multi-subnet', 'pair': 'ALOT/USDC', 'base': 'ALOT', 'quote': 'USDC',
+             'basedisplaydecimals': 2, 'quotedisplaydecimals': 4,
+             'baseaddress': '0x093783055F9047C2BfF99c4e414501F8A147bC69',
+             'quoteaddress': '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+             'mintrade_amnt': '5.000000000000000000', 'maxtrade_amnt': '50000.000000000000000000',
+             'base_evmdecimals': 18, 'quote_evmdecimals': 6, 'allowswap': True,
+             'auctionmode': 0, 'auctionendtime': None, 'status': 'deployed', 'maker_rate_bps': 10, 'taker_rate_bps': 12,
+             'allowed_slippage_pct': 20, 'additional_ordertypes': None, 'taker_fee': 0.001, 'maker_fee': 0.0012},
+        ]
+        mock_api.get(url=symbols_url, body=json.dumps(symbols_response))
+
+        with patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock) as ws_connect_mock:
+            ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+            result_subscribe = {'data': [
+                {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '9', 'high': '11',
+                 'open': '0.56628', 'close': '0.5659', 'volume': '124062.5422952677657237',
+                 'quote_volume': '70336.660027130678322247184899', 'change': '-0.0007'},
+                {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': None, 'high': '11',
+                 'open': '0.56628', 'close': '0.5659', 'volume': '0',
+                 'quote_volume': '0', 'change': '0'},
+                {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': '', 'high': '-',
+                 'open': '0.56628', 'close': '0.5659', 'volume': '0',
+                 'quote_volume': '0', 'change': '0'},
+                {'pair': 'ALOT/USDC', 'date': '2024-10-04T08:54:32.021Z', 'low': 'None', 'high': 'None',
+                 'open': '0.56628', 'close': '0.5659', 'volume': '0',
+                 'quote_volume': '0', 'change': '0'},
+            ], 'type': 'marketSnapShot'}
+
+            self.mocking_assistant.add_websocket_aiohttp_message(
+                websocket_mock=ws_connect_mock.return_value,
+                message=json.dumps(result_subscribe))
+            prices = await rate_source.get_prices()
+            await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertIn(self.trading_pair, prices)
+        self.assertEqual(Decimal("10"), prices[self.trading_pair])
