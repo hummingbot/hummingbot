@@ -642,7 +642,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="DOGE-USDC")
         # Pre-populate price cache so the prices HTTP fetch is skipped
         self.connector.set_LIGHTER_price("DOGE-USDC", timestamp=1.0,
-                                          index_price=Decimal("0.05"), mark_price=Decimal("0.05"))
+                                         index_price=Decimal("0.05"), mark_price=Decimal("0.05"))
         self.connector._api_get = AsyncMock(return_value={
             "success": True,
             "data": {

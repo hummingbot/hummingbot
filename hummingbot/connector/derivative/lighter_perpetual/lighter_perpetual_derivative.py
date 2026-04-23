@@ -1150,6 +1150,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             self._order_history_last_poll_timestamp[order.exchange_order_id] = current_time
 
         return trade_updates
+
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         https://docs.lighter.fi/api-documentation/api/rest-api/orders/get-order-history-by-id
