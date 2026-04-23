@@ -59,22 +59,24 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     def __init__(
         self,
-        lighter_perpetual_api_key: str,
-        lighter_perpetual_api_secret: str,
+        lighter_perpetual_api_key_index: str,
         lighter_perpetual_account_index: str,
-        lighter_perpetual_api_key_index: str = "",
+        lighter_perpetual_api_key_private_key: str,
+        lighter_perpetual_api_key_public_key: str = "",
+        lighter_perpetual_api_key: str = "",
+        lighter_perpetual_api_secret: str = "",
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
         rate_limits_share_pct: Decimal = Decimal("100"),
     ):
-        self.api_key = lighter_perpetual_api_key
-        self.api_secret = lighter_perpetual_api_secret
+        self.api_key = lighter_perpetual_api_key_private_key
+        self.api_secret = lighter_perpetual_api_key_index
         self.account_index = lighter_perpetual_account_index
         self.api_key_index = lighter_perpetual_api_key_index
         self.api_config_key = self.api_key
-        self.user_wallet_public_key = self.account_index
+        self.user_wallet_public_key = lighter_perpetual_api_key_public_key
 
         configured_api_key_index = next(
             (

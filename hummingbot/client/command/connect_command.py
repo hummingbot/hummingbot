@@ -48,15 +48,13 @@ class ConnectCommand:
                 # For lighter connectors, always display the public key fetched from the REST API.
                 if connector_name in ("lighter", "lighter_testnet", "lighter_perpetual", "lighter_perpetual_testnet"):
                     from hummingbot.connector.exchange.lighter.lighter_utils import fetch_lighter_public_key
-                    # Spot uses lighter_account_index / lighter_api_key_index
-                    # Perpetual uses lighter_perpetual_account_index / lighter_perpetual_api_secret
+                    # All lighter connectors: {name}_account_index / {name}_api_key_index
                     acct_idx = (
                         api_keys.get(f"{connector_name}_account_index")
                         or ""
                     )
                     key_idx = (
                         api_keys.get(f"{connector_name}_api_key_index")
-                        or api_keys.get(f"{connector_name}_api_secret")
                         or ""
                     )
                     public_key = await fetch_lighter_public_key(connector_name, acct_idx, key_idx)
@@ -162,10 +160,7 @@ class ConnectCommand:
             from hummingbot.connector.exchange.lighter.lighter_utils import validate_lighter_api_key_index
             fresh_keys = Security.api_keys(connector_name)
             acct_idx = fresh_keys.get(f"{connector_name}_account_index", "")
-            key_idx = (
-                fresh_keys.get(f"{connector_name}_api_key_index")
-                or fresh_keys.get(f"{connector_name}_api_secret", "")
-            )
+            key_idx = fresh_keys.get(f"{connector_name}_api_key_index", "")
             key_err = await validate_lighter_api_key_index(connector_name, acct_idx, key_idx)
             if key_err is not None:
                 self.notify(f"\nError: {key_err}")

@@ -58,6 +58,7 @@ class LighterExchange(ExchangePyBase):
         self,
         lighter_account_index: str = "",
         lighter_api_key_index: str = "",
+        lighter_api_key_public_key: str = "",
         lighter_api_key_private_key: str = "",
         balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
         rate_limits_share_pct: Decimal = Decimal("100"),
@@ -69,6 +70,7 @@ class LighterExchange(ExchangePyBase):
         self._api_secret = lighter_api_key_index
         self._account_index = lighter_account_index
         self._api_key_index = lighter_api_key_index
+        self._api_key_public_key = lighter_api_key_public_key
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs or []
@@ -103,12 +105,20 @@ class LighterExchange(ExchangePyBase):
             return False
 
     def _get_signer_private_key(self) -> str:
-        if self._api_key and not self._is_int_string(self._api_key):
+        if self._api_key and not self._is_int_string(self._api_key) and self._is_hex_private_key(self._api_key):
             return self._api_key
         raise ValueError(
             "API private key is required for signed transactions. "
             "Enter your signing key via connect lighter."
         )
+
+    @staticmethod
+    def _is_hex_private_key(value: str) -> bool:
+        """Return True only if value is a 64-char hex string (valid signer private key)."""
+        if not value:
+            return False
+        key = value[2:] if value.lower().startswith("0x") else value
+        return len(key) >= 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
     def _api_host_for_signer(self) -> str:
         rest_url = CONSTANTS.REST_URL if self.domain == CONSTANTS.DEFAULT_DOMAIN else CONSTANTS.TESTNET_REST_URL
@@ -308,10 +318,11 @@ class LighterExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> LighterAuth:
+        account_identifier = self._api_key_public_key if self._api_key_public_key else self._account_index
         return LighterAuth(
             api_key=self.rest_api_key,
             api_secret=self._api_secret,
-            account_identifier=self._account_index,
+            account_identifier=account_identifier,
         )
 
     @property

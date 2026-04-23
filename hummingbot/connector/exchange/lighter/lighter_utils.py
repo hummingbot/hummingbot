@@ -50,7 +50,7 @@ class LighterConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_api_key_index", "lighter_api_secret"),
         json_schema_extra={
-            "prompt": "Enter your API key index",
+            "prompt": "Enter your API Key Index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -61,7 +61,18 @@ class LighterConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_account_index"),
         json_schema_extra={
-            "prompt": "Enter your account index",
+            "prompt": "Enter your Account Index",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_api_key_public_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("lighter_api_key_public_key"),
+        json_schema_extra={
+            "prompt": "Enter your Public Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -72,7 +83,7 @@ class LighterConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_api_key_private_key", "lighter_api_key", "lighter_private_key"),
         json_schema_extra={
-            "prompt": "Enter your API private key (64+ char hex string, e.g. 3d6e9253...4357)",
+            "prompt": "Enter your Private Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -152,26 +163,11 @@ OTHER_DOMAINS_DEFAULT_FEES = {"lighter_testnet": [0.00015, 0.0004]}
 class LighterTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "lighter_testnet"
 
-    lighter_testnet_api_key_private_key: SecretStr = Field(
-        default=...,
-        validation_alias=AliasChoices(
-            "lighter_testnet_api_key_private_key",
-            "lighter_testnet_api_key",
-            "lighter_testnet_private_key",
-        ),
-        json_schema_extra={
-            "prompt": "Enter your API private key (hex string, e.g. 3d6e9253...4357)",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
     lighter_testnet_api_key_index: SecretStr = Field(
         default=...,
         validation_alias=AliasChoices("lighter_testnet_api_key_index", "lighter_testnet_api_secret"),
         json_schema_extra={
-            "prompt": "Enter your API key index",
+            "prompt": "Enter your API Key Index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -182,7 +178,33 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
         default=...,
         validation_alias=AliasChoices("lighter_testnet_account_index"),
         json_schema_extra={
-            "prompt": "Enter your account index",
+            "prompt": "Enter your Account Index",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_testnet_api_key_public_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("lighter_testnet_api_key_public_key"),
+        json_schema_extra={
+            "prompt": "Enter your Public Key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_testnet_api_key_private_key: SecretStr = Field(
+        default=...,
+        validation_alias=AliasChoices(
+            "lighter_testnet_api_key_private_key",
+            "lighter_testnet_api_key",
+            "lighter_testnet_private_key",
+        ),
+        json_schema_extra={
+            "prompt": "Enter your Private Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,

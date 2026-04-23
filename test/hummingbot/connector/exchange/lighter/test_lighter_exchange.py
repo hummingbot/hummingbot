@@ -1154,6 +1154,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         exchange._api_key = "api"
         exchange._api_secret = "sec"
         exchange._account_index = "1"
+        exchange._api_key_public_key = ""
 
         self.assertFalse(LighterExchange._is_int_string(BadStr()))
         self.assertFalse(LighterExchange._is_int_string(None))
@@ -1170,6 +1171,7 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
     def test_rest_api_key_and_authenticator_use_key_index_when_available(self):
         exchange = LighterExchange.__new__(LighterExchange)
         exchange._account_index = "1"
+        exchange._api_key_public_key = ""
 
         exchange._api_key = "0x" + ("a" * 64)
         exchange._api_secret = "7"

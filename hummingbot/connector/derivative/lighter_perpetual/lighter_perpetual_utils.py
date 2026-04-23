@@ -19,16 +19,16 @@ DEFAULT_FEES = TradeFeeSchema(
 class LighterPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "lighter_perpetual"
 
-    lighter_perpetual_api_secret: SecretStr = Field(
+    lighter_perpetual_api_key_index: SecretStr = Field(
         default=...,
         validation_alias=AliasChoices(
+            "lighter_perpetual_api_key_index",
             "lighter_perpetual_api_secret",
             "lighter_api_secret",
-            "lighter_perpetual_api_key_index",
             "lighter_api_key_index",
         ),
         json_schema_extra={
-            "prompt": "Enter your Lighter API key index",
+            "prompt": "Enter your API Key Index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -42,21 +42,35 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
             "lighter_account_index",
         ),
         json_schema_extra={
-            "prompt": "Enter your Lighter account index",
+            "prompt": "Enter your Account Index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         },
     )
 
-    lighter_perpetual_api_key: SecretStr = Field(
+    lighter_perpetual_api_key_public_key: SecretStr = Field(
         default=SecretStr(""),
         validation_alias=AliasChoices(
+            "lighter_perpetual_api_key_public_key",
+        ),
+        json_schema_extra={
+            "prompt": "Enter your Public Key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_perpetual_api_key_private_key: SecretStr = Field(
+        default=...,
+        validation_alias=AliasChoices(
+            "lighter_perpetual_api_key_private_key",
             "lighter_perpetual_api_key",
             "lighter_api_key",
         ),
         json_schema_extra={
-            "prompt": "Enter your Lighter API key",
+            "prompt": "Enter your Private Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -70,9 +84,9 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
     @staticmethod
     def _is_hex_key(raw: str) -> bool:
         key = raw[2:] if raw.lower().startswith("0x") else raw
-        return len(key) == 64 and all(c in "0123456789abcdefABCDEF" for c in key)
+        return len(key) >= 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
-    @field_validator("lighter_perpetual_api_secret", mode="before")
+    @field_validator("lighter_perpetual_api_key_index", mode="before")
     @classmethod
     def validate_api_key_index(cls, v: Any) -> Any:
         raw = v.get_secret_value() if hasattr(v, "get_secret_value") else str(v)
@@ -106,7 +120,7 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
             )
         return v
 
-    @field_validator("lighter_perpetual_api_key", mode="before")
+    @field_validator("lighter_perpetual_api_key_private_key", mode="before")
     @classmethod
     def validate_api_key(cls, v: Any) -> Any:
         raw = v.get_secret_value() if hasattr(v, "get_secret_value") else str(v)
@@ -116,7 +130,7 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
             return v
         if not cls._is_hex_key(raw):
             raise ValueError(
-                "Lighter API key must be a hex string (64+ characters, with or without 0x prefix). "
+                "Lighter API Private Key must be a hex string (64+ characters, with or without 0x prefix). "
                 "Copy it from the Lighter exchange API keys page."
             )
         return v
@@ -135,30 +149,16 @@ OTHER_DOMAINS_DEFAULT_FEES = {"lighter_perpetual_testnet": [0.00015, 0.0004]}
 class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "lighter_perpetual_testnet"
 
-    lighter_perpetual_testnet_api_key: SecretStr = Field(
+    lighter_perpetual_testnet_api_key_index: SecretStr = Field(
         default=...,
         validation_alias=AliasChoices(
-            "lighter_perpetual_testnet_api_key",
-            "lighter_testnet_api_key",
-        ),
-        json_schema_extra={
-            "prompt": "Enter your Lighter testnet API key",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
-    lighter_perpetual_testnet_api_secret: SecretStr = Field(
-        default=...,
-        validation_alias=AliasChoices(
+            "lighter_perpetual_testnet_api_key_index",
             "lighter_perpetual_testnet_api_secret",
             "lighter_testnet_api_secret",
-            "lighter_perpetual_testnet_api_key_index",
             "lighter_testnet_api_key_index",
         ),
         json_schema_extra={
-            "prompt": "Enter your Lighter testnet API key index",
+            "prompt": "Enter your API Key Index",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -172,7 +172,35 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "lighter_testnet_account_index",
         ),
         json_schema_extra={
-            "prompt": "Enter your Lighter testnet account index",
+            "prompt": "Enter your Account Index",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_perpetual_testnet_api_key_public_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "lighter_perpetual_testnet_api_key_public_key",
+        ),
+        json_schema_extra={
+            "prompt": "Enter your Public Key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+
+    lighter_perpetual_testnet_api_key_private_key: SecretStr = Field(
+        default=...,
+        validation_alias=AliasChoices(
+            "lighter_perpetual_testnet_api_key_private_key",
+            "lighter_perpetual_testnet_api_key",
+            "lighter_testnet_api_key",
+        ),
+        json_schema_extra={
+            "prompt": "Enter your Private Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -188,9 +216,9 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     @staticmethod
     def _is_hex_key(raw: str) -> bool:
         key = raw[2:] if raw.lower().startswith("0x") else raw
-        return len(key) == 64 and all(c in "0123456789abcdefABCDEF" for c in key)
+        return len(key) >= 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
-    @field_validator("lighter_perpetual_testnet_api_secret", mode="before")
+    @field_validator("lighter_perpetual_testnet_api_key_index", mode="before")
     @classmethod
     def validate_testnet_api_key_index(cls, v: Any) -> Any:
         raw = v.get_secret_value() if hasattr(v, "get_secret_value") else str(v)
@@ -202,7 +230,7 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             int(raw)
         except (ValueError, TypeError):
             raise ValueError(
-                f"Lighter testnet API key index must be an integer (e.g. 4), got: {raw!r}."
+                f"Lighter API key index must be an integer (e.g. 4), got: {raw!r}."
             )
         return v
 
@@ -218,11 +246,11 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             int(raw)
         except (ValueError, TypeError):
             raise ValueError(
-                f"Lighter testnet account index must be an integer (e.g. 693751), got: {raw!r}."
+                f"Lighter account index must be an integer (e.g. 693751), got: {raw!r}."
             )
         return v
 
-    @field_validator("lighter_perpetual_testnet_api_key", mode="before")
+    @field_validator("lighter_perpetual_testnet_api_key_private_key", mode="before")
     @classmethod
     def validate_testnet_api_key(cls, v: Any) -> Any:
         raw = v.get_secret_value() if hasattr(v, "get_secret_value") else str(v)
@@ -232,7 +260,7 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             return v
         if not cls._is_hex_key(raw):
             raise ValueError(
-                "Lighter testnet API key must be a hex string (64+ characters, with or without 0x prefix)."
+                "Lighter API Private Key must be a hex string (64+ characters, with or without 0x prefix)."
             )
         return v
 

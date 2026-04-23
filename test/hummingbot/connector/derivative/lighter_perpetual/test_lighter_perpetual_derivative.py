@@ -68,9 +68,10 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             self.skipTest("Compiled hummingbot core modules are unavailable in this environment")
 
         self.connector = self.connector_cls(
-            lighter_perpetual_api_key="0x" + ("a" * 64),
-            lighter_perpetual_api_secret="1",
+            lighter_perpetual_api_key_index="1",
             lighter_perpetual_account_index="237600",
+            lighter_perpetual_api_key_private_key="0x" + ("a" * 64),
+            lighter_perpetual_api_key_public_key="0x" + ("b" * 40),
             trading_pairs=["BTC-USDC"],
             trading_required=False,
         )
