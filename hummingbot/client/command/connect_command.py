@@ -48,6 +48,7 @@ class ConnectCommand:
                 # For lighter connectors, always display the public key fetched from the REST API.
                 if connector_name in ("lighter", "lighter_testnet", "lighter_perpetual", "lighter_perpetual_testnet"):
                     from hummingbot.connector.exchange.lighter.lighter_utils import fetch_lighter_public_key
+
                     # All lighter connectors: {name}_account_index / {name}_api_key_index
                     acct_idx = (
                         api_keys.get(f"{connector_name}_account_index")
