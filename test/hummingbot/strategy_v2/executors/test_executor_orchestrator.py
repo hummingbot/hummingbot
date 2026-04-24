@@ -872,7 +872,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         executors = []
         for close_type, eid in [(CloseType.STOP_LOSS, "sl_exec"), (CloseType.TAKE_PROFIT, "tp_exec"),
-                                 (CloseType.TIME_LIMIT, "tl_exec")]:
+                                (CloseType.TIME_LIMIT, "tl_exec")]:
             config = PositionExecutorConfig(
                 timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
                 side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
