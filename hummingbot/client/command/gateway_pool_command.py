@@ -82,14 +82,13 @@ class GatewayPoolCommand:
     ):
         """View pool information."""
         try:
-            # Parse connector format
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
+                connector
+            )
+            if error:
+                self.notify(f"Error: {error}")
                 return
-
-            connector_parts = connector.split("/")
-            connector_name = connector_parts[0]
-            trading_type = connector_parts[1]
 
             # Parse trading pair
             if "-" not in trading_pair:
@@ -99,23 +98,14 @@ class GatewayPoolCommand:
             # Capitalize the trading pair
             trading_pair = trading_pair.upper()
 
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
-
-            if error:
-                self.notify(error)
-                return
-
             self.notify(f"\nFetching pool information for {trading_pair} on {connector}...")
 
             # Get pool information
             response = await self._get_gateway_instance().get_pool(
                 trading_pair=trading_pair,
-                connector=connector_name,
+                dex=dex_name,
                 network=network,
-                type=trading_type
+                trading_type=trading_type
             )
 
             if "error" in response:
@@ -142,14 +132,13 @@ class GatewayPoolCommand:
     ):
         """Direct mode to add a pool with just the address."""
         try:
-            # Parse connector format
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
+                connector
+            )
+            if error:
+                self.notify(f"Error: {error}")
                 return
-
-            connector_parts = connector.split("/")
-            connector_name = connector_parts[0]
-            trading_type = connector_parts[1]
 
             # Parse trading pair
             if "-" not in trading_pair:
@@ -159,15 +148,6 @@ class GatewayPoolCommand:
             # Capitalize the trading pair
             trading_pair = trading_pair.upper()
 
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
-
-            if error:
-                self.notify(error)
-                return
-
             self.notify(f"\nAdding pool for {trading_pair} on {connector}")
             self.notify(f"Chain: {chain}")
             self.notify(f"Network: {network}")
@@ -176,7 +156,8 @@ class GatewayPoolCommand:
             self.notify("\nFetching pool information from Gateway...")
             try:
                 pool_info_response = await self._get_gateway_instance().pool_info(
-                    connector=connector,
+                    dex=dex_name,
+                    trading_type=trading_type,
                     network=network,
                     pool_address=pool_address
                 )
@@ -271,7 +252,7 @@ class GatewayPoolCommand:
             # Add pool
             self.notify("\nAdding pool...")
             result = await self._get_gateway_instance().add_pool(
-                connector=connector_name,
+                connector=dex_name,
                 network=network,
                 pool_data=pool_data
             )
@@ -301,14 +282,13 @@ class GatewayPoolCommand:
     ):
         """Interactive flow to add a pool."""
         try:
-            # Parse connector format
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
+                connector
+            )
+            if error:
+                self.notify(f"Error: {error}")
                 return
-
-            connector_parts = connector.split("/")
-            connector_name = connector_parts[0]
-            trading_type = connector_parts[1]
 
             # Parse trading pair
             if "-" not in trading_pair:
@@ -317,15 +297,6 @@ class GatewayPoolCommand:
 
             # Capitalize the trading pair
             trading_pair = trading_pair.upper()
-
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
-
-            if error:
-                self.notify(error)
-                return
 
             self.notify(f"\n=== Add Pool for {trading_pair} on {connector} ===")
             self.notify(f"Chain: {chain}")
@@ -336,9 +307,9 @@ class GatewayPoolCommand:
                 try:
                     existing_pool = await self._get_gateway_instance().get_pool(
                         trading_pair=trading_pair,
-                        connector=connector_name,
+                        dex=dex_name,
                         network=network,
-                        type=trading_type
+                        trading_type=trading_type
                     )
                 except Exception:
                     # Pool doesn't exist, which is fine for adding a new pool
@@ -375,7 +346,8 @@ class GatewayPoolCommand:
                 self.notify("\nFetching pool information from Gateway...")
                 try:
                     pool_info_response = await self._get_gateway_instance().pool_info(
-                        connector=connector,
+                        dex=dex_name,
+                        trading_type=trading_type,
                         network=network,
                         pool_address=pool_address
                     )
@@ -479,7 +451,7 @@ class GatewayPoolCommand:
                 # Add pool
                 self.notify("\nAdding pool...")
                 result = await self._get_gateway_instance().add_pool(
-                    connector=connector_name,
+                    connector=dex_name,
                     network=network,
                     pool_data=pool_data
                 )

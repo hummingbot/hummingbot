@@ -32,7 +32,8 @@ class TWAPExecutor(ExecutorBase):
 
     def __init__(self, strategy: StrategyV2Base, config: TWAPExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 15):
-        super().__init__(strategy=strategy, connectors=[config.connector_name], config=config, update_interval=update_interval)
+        super().__init__(strategy=strategy, connectors=[config.connector_name], config=config,
+                         update_interval=update_interval, max_retries=max_retries)
         self.config = config
         trading_rules = self.get_trading_rules(config.connector_name, config.trading_pair)
         if self.config.order_amount_quote < trading_rules.min_order_size:
@@ -41,8 +42,6 @@ class TWAPExecutor(ExecutorBase):
                                 f"amount {self.config.order_amount_quote} is less than the minimum order {trading_rules.min_order_size}")
         if self.config.is_maker:
             self.logger().warning("Maker mode is in beta. Please use with caution.")
-        self._max_retries = max_retries
-        self._current_retries = 0
         self._start_timestamp = self._strategy.current_timestamp
         self._order_plan: Dict[float, Optional[TrackedOrder]] = self.create_order_plan()
         self._failed_orders = []
@@ -93,7 +92,6 @@ class TWAPExecutor(ExecutorBase):
             self.evaluate_create_order()
             self.evaluate_refresh_orders()
             self.evaluate_all_orders_completed()
-            self.evaluate_max_retries()
         elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.evaluate_all_orders_closed()
 

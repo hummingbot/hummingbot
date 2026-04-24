@@ -135,7 +135,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
     gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions")
-    gateway_lp_parser.add_argument("connector", nargs="?", type=str, help="Connector name/type (e.g., raydium/amm)")
+    gateway_lp_parser.add_argument("dex_type", nargs="?", type=str, help="DEX type (e.g., raydium/amm, orca/clmm)")
     gateway_lp_parser.add_argument("action", nargs="?", type=str, choices=["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], help="LP action to perform")
     gateway_lp_parser.add_argument("trading_pair", nargs="?", default=None, help="Trading pair (e.g., WETH-USDC)")
     gateway_lp_parser.set_defaults(func=hummingbot.gateway_lp)
@@ -155,11 +155,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
         "swap",
         help="Swap tokens")
     gateway_swap_parser.add_argument("connector", nargs="?", default=None,
-                                     help="Connector name/type (e.g., jupiter/router)")
+                                     help="Network (e.g., solana-mainnet-beta, ethereum-mainnet)")
     gateway_swap_parser.add_argument("args", nargs="*",
                                      help="Arguments: [base-quote] [side] [amount]. "
                                           "Interactive mode if not all provided. "
-                                          "Example: gateway swap uniswap ETH-USDC BUY 0.1")
+                                          "Example: gateway swap solana-mainnet-beta SOL-USDC BUY 0.1")
     gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
 
     gateway_token_parser = gateway_subparsers.add_parser("token", help="View or update token information")

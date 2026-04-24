@@ -99,11 +99,9 @@ class XEMMExecutor(ExecutorBase):
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
-        self._current_retries = 0
-        self._max_retries = max_retries
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
-                         config=config, update_interval=update_interval)
+                         config=config, update_interval=update_interval, max_retries=max_retries)
 
     async def validate_sufficient_balance(self):
         mid_price = self.get_price(self.maker_connector, self.maker_trading_pair,

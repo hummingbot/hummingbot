@@ -843,9 +843,9 @@ class HyperliquidExchange(ExchangePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        price = 0
+        price = 0.0
         for token in response[1]:
             if token['coin'] == exchange_symbol:
-                price = token['markPx']
+                price = float(token['markPx'])
                 break
         return price

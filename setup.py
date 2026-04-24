@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260302"
+    version = "20260421"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -56,7 +56,7 @@ def main():
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",
         "eth-account>=0.13.0",
-        "injective-py",
+        "injective-py>=1.13",
         "msgpack-python",
         "numba>=0.61.2",
         "numpy>=2.2.6",
@@ -155,6 +155,7 @@ def main():
         author="Hummingbot Foundation",
         author_email="dev@hummingbot.org",
         license="Apache 2.0",
+        python_requires=">=3.10.12",
         packages=packages,
         package_data=package_data,
         install_requires=install_requires,

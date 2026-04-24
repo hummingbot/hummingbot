@@ -117,6 +117,34 @@ class ArchitectPerpetualDerivativeUnitTest(AbstractPerpetualDerivativeTests.Perp
                     "trading_schedule": {
                     },
                 },
+                {
+                    "symbol": "OCPI-H100-PERP",
+                    "multiplier": "1",
+                    "price_scale": 1000,
+                    "minimum_order_size": "100",
+                    "tick_size": "0.001",
+                    "quote_currency": "USD",
+                    "price_band_lower_deviation_pct": "10",
+                    "price_band_upper_deviation_pct": "10",
+                    "funding_settlement_currency": "USD",
+                    "funding_rate_cap_upper_pct": "1.0",
+                    "funding_rate_cap_lower_pct": "-1.0",
+                    "maintenance_margin_pct": "25.0",
+                    "initial_margin_pct": "40.0",
+                    "category": "compute",
+                    "description": "OCPI H100 Perpetual Future",
+                    "underlying_benchmark_price": "Ornn H100 SXM GPU Hourly Index",
+                    "contract_mark_price": "Average price on AX at 4pm EST",
+                    "contract_size": "1 hour cost of GPU compute, per contract",
+                    "price_quotation": "U.S. dollars per GPU-compute-hour",
+                    "price_bands": "+/- 10% from prior Contract Mark Price",
+                    "funding_schedule_time_description": "Daily around 4:00 P.M. NY time",
+                    "funding_schedule_calendar_description": "All days where a valid Underlying Benchmark Price AND Contract Mark Price are published",
+                    "funding_schedule": {
+                    },
+                    "trading_schedule": {
+                    }
+                }
             ]
         }
         return response
@@ -256,6 +284,9 @@ class ArchitectPerpetualDerivativeUnitTest(AbstractPerpetualDerivativeTests.Perp
     @property
     def expected_fill_trade_id(self) -> str:
         return "7G2GCXA0442B"
+
+    def _expected_valid_trading_pairs(self):
+        return [self.trading_pair, "OCPI_H100-USD"]
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return f"{base_token}{quote_token}-PERP"

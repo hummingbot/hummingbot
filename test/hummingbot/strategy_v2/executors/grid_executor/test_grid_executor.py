@@ -1247,6 +1247,7 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_grid_executor_from_config(config)
         executor._current_retries = 11
         await executor.control_task()
+        executor.evaluate_max_retries()
         self.assertEqual(executor._status, RunnableStatus.TERMINATED)
 
     @patch.object(GridExecutor, "_sleep")

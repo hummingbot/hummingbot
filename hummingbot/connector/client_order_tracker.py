@@ -202,12 +202,10 @@ class ClientOrderTracker:
 
     def process_trade_update(self, trade_update: TradeUpdate):
         client_order_id: str = trade_update.client_order_id
-
         tracked_order: Optional[InFlightOrder] = self.all_fillable_orders.get(client_order_id)
 
         if tracked_order:
             previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
-
             updated: bool = tracked_order.update_with_trade_update(trade_update)
             if updated:
                 self._trigger_order_fills(

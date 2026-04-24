@@ -51,7 +51,7 @@ class GridExecutor(ExecutorBase):
             self.logger().error(error)
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
-                         update_interval=update_interval)
+                         update_interval=update_interval, max_retries=max_retries)
         self.open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
         self.close_order_price_type = PriceType.BestAsk if config.side == TradeType.BUY else PriceType.BestBid
         self.close_order_side = TradeType.BUY if config.side == TradeType.SELL else TradeType.SELL
@@ -84,8 +84,6 @@ class GridExecutor(ExecutorBase):
         self._open_fee_in_base = False
 
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
-        self._current_retries = 0
-        self._max_retries = max_retries
 
     @property
     def is_perpetual(self) -> bool:
@@ -269,7 +267,6 @@ class GridExecutor(ExecutorBase):
                 )
         elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
-        self.evaluate_max_retries()
 
     def early_stop(self, keep_position: bool = False):
         """
@@ -361,7 +358,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        elif self.close_type != CloseType.POSITION_HOLD:
+        else:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
@@ -728,17 +725,6 @@ class GridExecutor(ExecutorBase):
             self.logger().error(f"Grid is already expired by {self.close_type}.")
 
             self._status = RunnableStatus.SHUTTING_DOWN
-
-    def evaluate_max_retries(self):
-        """
-        This method is responsible for evaluating the maximum number of retries to place an order and stop the executor
-        if the maximum number of retries is reached.
-
-        :return: None
-        """
-        if self._current_retries > self._max_retries:
-            self.close_type = CloseType.FAILED
-            self.stop()
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
