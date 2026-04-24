@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any
 
-from pydantic import AliasChoices, ConfigDict, Field, SecretStr, field_validator
+from pydantic import AliasChoices, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -43,19 +43,6 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
         ),
         json_schema_extra={
             "prompt": "Enter your Account Index",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
-    lighter_perpetual_api_key_public_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices(
-            "lighter_perpetual_api_key_public_key",
-        ),
-        json_schema_extra={
-            "prompt": "Enter your Public Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -135,6 +122,15 @@ class LighterPerpetualConfigMap(BaseConnectorConfigMap):
             )
         return v
 
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_fields(cls, data):
+        """Discard removed fields from saved YAML configs."""
+        if not isinstance(data, dict):
+            return data
+        data.pop("lighter_perpetual_api_key_public_key", None)
+        return data
+
     model_config = ConfigDict(title="lighter_perpetual")
 
 
@@ -173,19 +169,6 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
         ),
         json_schema_extra={
             "prompt": "Enter your Account Index",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
-    lighter_perpetual_testnet_api_key_public_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices(
-            "lighter_perpetual_testnet_api_key_public_key",
-        ),
-        json_schema_extra={
-            "prompt": "Enter your Public Key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -249,6 +232,15 @@ class LighterPerpetualTestnetConfigMap(BaseConnectorConfigMap):
                 f"Lighter account index must be an integer (e.g. 693751), got: {raw!r}."
             )
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_fields(cls, data):
+        """Discard removed fields from saved YAML configs."""
+        if not isinstance(data, dict):
+            return data
+        data.pop("lighter_perpetual_testnet_api_key_public_key", None)
+        return data
 
     @field_validator("lighter_perpetual_testnet_api_key_private_key", mode="before")
     @classmethod

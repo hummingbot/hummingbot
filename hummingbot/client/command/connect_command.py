@@ -157,12 +157,17 @@ class ConnectCommand:
             self.app.to_stop_config = False
             return
         Security.update_secure_config(connector_config)
+        lighter_acct_idx = None
+        lighter_key_idx = None
         if connector_name in ("lighter", "lighter_testnet", "lighter_perpetual", "lighter_perpetual_testnet"):
-            from hummingbot.connector.exchange.lighter.lighter_utils import validate_lighter_api_key_index
+            from hummingbot.connector.exchange.lighter.lighter_utils import (
+                fetch_lighter_public_key,
+                validate_lighter_api_key_index,
+            )
             fresh_keys = Security.api_keys(connector_name)
-            acct_idx = fresh_keys.get(f"{connector_name}_account_index", "")
-            key_idx = fresh_keys.get(f"{connector_name}_api_key_index", "")
-            key_err = await validate_lighter_api_key_index(connector_name, acct_idx, key_idx)
+            lighter_acct_idx = fresh_keys.get(f"{connector_name}_account_index", "")
+            lighter_key_idx = fresh_keys.get(f"{connector_name}_api_key_index", "")
+            key_err = await validate_lighter_api_key_index(connector_name, lighter_acct_idx, lighter_key_idx)
             if key_err is not None:
                 self.notify(f"\nError: {key_err}")
                 if previous_keys is not None:
@@ -170,7 +175,17 @@ class ConnectCommand:
                 return
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
-            self.notify(f"\nYou are now connected to {connector_name}.")
+            if lighter_acct_idx is not None:
+                pub_key = await fetch_lighter_public_key(connector_name, lighter_acct_idx, lighter_key_idx)
+                if pub_key:
+                    self.notify(
+                        f"\nYou are now connected to {connector_name}."
+                        f"\nPublic key: {pub_key}"
+                    )
+                else:
+                    self.notify(f"\nYou are now connected to {connector_name}.")
+            else:
+                self.notify(f"\nYou are now connected to {connector_name}.")
             safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
         else:
             self.notify(f"\nError: {err_msg}")

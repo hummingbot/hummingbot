@@ -14,19 +14,21 @@ from hummingbot.connector.exchange.lighter.lighter_api_user_stream_data_source i
 from hummingbot.connector.exchange.lighter.lighter_auth import LighterAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class LighterExchange(ExchangePyBase):
     web_utils = web_utils
+    _MARKET_ORDER_MAX_SLIPPAGE = Decimal("5")  # 5%
     _ORDER_STATE = {
         "in-progress": OrderState.OPEN,
         "open": OrderState.OPEN,
@@ -497,6 +499,68 @@ class LighterExchange(ExchangePyBase):
 
         return True
 
+    def buy(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type=OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
+        order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        if order_type is OrderType.MARKET:
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
+            slippage = self._MARKET_ORDER_MAX_SLIPPAGE / Decimal("100")
+            price = self.quantize_order_price(trading_pair, reference_price * (Decimal("1") + slippage))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return order_id
+
+    def sell(
+        self,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType = OrderType.LIMIT,
+        price: Decimal = s_decimal_NaN,
+        **kwargs,
+    ) -> str:
+        order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        if order_type is OrderType.MARKET:
+            reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
+            slippage = self._MARKET_ORDER_MAX_SLIPPAGE / Decimal("100")
+            price = self.quantize_order_price(trading_pair, reference_price * (Decimal("1") - slippage))
+        safe_ensure_future(
+            self._create_order(
+                trade_type=TradeType.SELL,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=price,
+                **kwargs,
+            )
+        )
+        return order_id
+
     async def _place_order(
         self,
         order_id: str,
@@ -507,10 +571,34 @@ class LighterExchange(ExchangePyBase):
         price: Decimal,
         **kwargs,
     ) -> Tuple[str, float]:
-        # Validate sufficient balance before placing order
-        if trade_type == TradeType.BUY:
+        if order_type not in self.supported_order_types():
+            raise ValueError(f"Order type {order_type} is not supported by {self.name}.")
+
+        market_id, size_decimals, price_decimals, _ = await self._get_market_spec(trading_pair)
+
+        # Resolve effective price; for MARKET orders apply a slippage cap
+        effective_price = price
+        if order_type == OrderType.MARKET or effective_price is None or effective_price.is_nan():
+            order_book = self.get_order_book(trading_pair)
+            best_price = (
+                Decimal(str(order_book.get_price(True)))
+                if trade_type == TradeType.BUY
+                else Decimal(str(order_book.get_price(False)))
+            )
+            if best_price is None or best_price.is_nan() or best_price <= 0:
+                raise ValueError(
+                    f"Unable to determine a valid execution price for {order_type.name} order on {trading_pair}."
+                )
+            slippage = self._MARKET_ORDER_MAX_SLIPPAGE / Decimal("100")
+            if trade_type == TradeType.BUY:
+                effective_price = best_price * (Decimal("1") + slippage)
+            else:
+                effective_price = best_price * (Decimal("1") - slippage)
+
+        # Validate sufficient balance (skip for MARKET — price is already capped)
+        if trade_type == TradeType.BUY and order_type != OrderType.MARKET:
             quote_asset = trading_pair.split("-")[-1]
-            required_balance = amount * price
+            required_balance = amount * effective_price
             available_balances = getattr(self, "_account_available_balances", None)
             if available_balances is not None:
                 available_balance = available_balances.get(quote_asset, Decimal("0"))
@@ -520,13 +608,8 @@ class LighterExchange(ExchangePyBase):
                         f"Required: {required_balance}, Available: {available_balance}"
                     )
 
-        if order_type not in self.supported_order_types():
-            raise ValueError(f"Order type {order_type} is not supported by {self.name}.")
-
-        market_id, size_decimals, price_decimals, _ = await self._get_market_spec(trading_pair)
-
         base_amount_scaled = int((amount * Decimal(f"1e{size_decimals}")).to_integral_value())
-        price_scaled = int((price * Decimal(f"1e{price_decimals}")).to_integral_value())
+        price_scaled = int((effective_price * Decimal(f"1e{price_decimals}")).to_integral_value())
 
         signer_order_type = self._get_lighter_signer_client().ORDER_TYPE_LIMIT
         signer_tif = self._get_lighter_signer_client().ORDER_TIME_IN_FORCE_GOOD_TILL_TIME

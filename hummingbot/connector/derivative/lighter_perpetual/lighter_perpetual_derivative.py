@@ -687,8 +687,27 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         market_id, size_decimals, price_decimals, _ = await self._get_market_spec(trading_pair)
         signer_client = self._get_lighter_signer_client()
 
+        # Resolve effective price; for MARKET orders use best ask/bid with slippage cap.
+        effective_price = price
+        if order_type == OrderType.MARKET or effective_price is None or effective_price.is_nan():
+            order_book = self.get_order_book(trading_pair)
+            best_price = (
+                Decimal(str(order_book.get_price(True)))
+                if trade_type == TradeType.BUY
+                else Decimal(str(order_book.get_price(False)))
+            )
+            if best_price is None or best_price.is_nan() or best_price <= 0:
+                raise ValueError(
+                    f"Unable to determine a valid execution price for {order_type.name} order on {trading_pair}."
+                )
+            slippage = Decimal(CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE) / Decimal("100")
+            if trade_type == TradeType.BUY:
+                effective_price = best_price * (Decimal("1") + slippage)
+            else:
+                effective_price = best_price * (Decimal("1") - slippage)
+
         base_amount_scaled = int((amount * Decimal(f"1e{size_decimals}")).to_integral_value())
-        price_scaled = int((price * Decimal(f"1e{price_decimals}")).to_integral_value())
+        price_scaled = int((effective_price * Decimal(f"1e{price_decimals}")).to_integral_value())
 
         signer_order_type = signer_client.ORDER_TYPE_LIMIT
         signer_tif = signer_client.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
@@ -962,8 +981,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         ]
         if any([self.get_LIGHTER_price(position_trading_pair) is None for position_trading_pair in position_trading_pairs]):
             self.logger().debug("[_update_positions] Prices cache is empty. Going to fetch prices via HTTP.")
-            # we should update the cache
-            # in future we could also consider to add some cache invalidation rules (e.g. timestamp too old)
+            # Price cache is stale; refresh via HTTP before processing positions.
             prices_response = await self._api_get(
                 path_url=CONSTANTS.GET_PRICES_PATH_URL,
                 return_err=True,
@@ -2000,8 +2018,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await self._fetch_or_create_api_config_key()
         # status polling is already started in super().start_network() -> _status_polling_loop()
-        # but we need to ensure fee tier is fetched immediately
-        # we call it before super() so that the rate limits are correctly set before the periodic loops start
+        # _update_balances is called first to ensure fee tier and rate limits are configured before the periodic loops start.
         await self._update_balances()
 
         # super().start_network() calls restore_tracking_states() which re-populates the order tracker

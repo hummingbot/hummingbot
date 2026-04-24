@@ -68,17 +68,6 @@ class LighterConfigMap(BaseConnectorConfigMap):
         },
     )
 
-    lighter_api_key_public_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices("lighter_api_key_public_key"),
-        json_schema_extra={
-            "prompt": "Enter your Public Key",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
     lighter_api_key_private_key: SecretStr = Field(
         default=...,
         validation_alias=AliasChoices("lighter_api_key_private_key", "lighter_api_key", "lighter_private_key"),
@@ -110,6 +99,8 @@ class LighterConfigMap(BaseConnectorConfigMap):
             data.pop("lighter_api_key", None)
         # lighter_private_key was a separate L1 key; discard (encrypted value is stale after rename)
         data.pop("lighter_private_key", None)
+        # lighter_api_key_public_key was removed; discard from saved configs
+        data.pop("lighter_api_key_public_key", None)
         return data
 
     @field_validator("lighter_api_key_index", mode="before")
@@ -185,17 +176,6 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
         },
     )
 
-    lighter_testnet_api_key_public_key: SecretStr = Field(
-        default=SecretStr(""),
-        validation_alias=AliasChoices("lighter_testnet_api_key_public_key"),
-        json_schema_extra={
-            "prompt": "Enter your Public Key",
-            "is_secure": True,
-            "is_connect_key": True,
-            "prompt_on_new": True,
-        },
-    )
-
     lighter_testnet_api_key_private_key: SecretStr = Field(
         default=...,
         validation_alias=AliasChoices(
@@ -231,6 +211,8 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
             data.pop("lighter_testnet_api_key", None)
         # lighter_testnet_private_key was a separate L1 key; discard
         data.pop("lighter_testnet_private_key", None)
+        # lighter_testnet_api_key_public_key was removed; discard from saved configs
+        data.pop("lighter_testnet_api_key_public_key", None)
         return data
 
     @field_validator("lighter_testnet_api_key_index", mode="before")

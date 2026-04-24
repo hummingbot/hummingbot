@@ -228,6 +228,9 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         signer_client.cancel_order = AsyncMock(return_value=(None, None, "err"))
         exchange._get_lighter_signer_client = lambda: signer_client
 
+        mock_order_book = type("OrderBook", (), {"get_price": lambda self, is_bid: 10.0})()
+        exchange.get_order_book = lambda trading_pair: mock_order_book
+
         with self.assertRaises(IOError):
             await exchange._place_order(
                 order_id="HBOT-B",
@@ -1651,3 +1654,100 @@ class LighterExchangeTests(IsolatedAsyncioWrapperTestCase):
         result = await exchange.all_trading_pairs()
 
         self.assertEqual([], result)
+
+    async def test_place_order_market_buy_uses_best_ask_with_slippage(self):
+        """MARKET BUY order with NaN price must query best ASK (get_price(True)) and add 5% slippage."""
+        exchange = LighterExchange.__new__(LighterExchange)
+        _set_exchange_timestamp(exchange, 1700000000)
+        exchange._get_market_spec = AsyncMock(return_value=(2048, 2, 2, "ETH/USDC"))
+        exchange._get_api_key_index = lambda: 7
+
+        signer_client = type(
+            "SignerClient",
+            (),
+            {
+                "ORDER_TYPE_LIMIT": 1,
+                "ORDER_TYPE_MARKET": 2,
+                "ORDER_TIME_IN_FORCE_GOOD_TILL_TIME": 10,
+                "ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL": 11,
+                "ORDER_TIME_IN_FORCE_POST_ONLY": 12,
+                "DEFAULT_28_DAY_ORDER_EXPIRY": 1000,
+                "DEFAULT_IOC_EXPIRY": 1001,
+            },
+        )()
+        signer_client.create_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 200})(), None))
+        exchange._get_lighter_signer_client = lambda: signer_client
+        exchange._refresh_signer_client = lambda: signer_client
+        import asyncio as _asyncio
+        exchange._signer_client_lock = _asyncio.Lock()
+        exchange._is_invalid_nonce_failure = lambda error=None, response=None: False
+        exchange._response_code = lambda r: getattr(r, "code", 0)
+        exchange._sleep = AsyncMock()
+        exchange._account_available_balances = None
+
+        # BUY -> get_price(True) -> best ask = 2000; SELL -> get_price(False) -> best bid = 1990
+        prices = {True: 2000.0, False: 1990.0}
+        mock_order_book = type("OB", (), {"get_price": lambda self, is_buy: prices[is_buy]})()
+        exchange.get_order_book = lambda trading_pair: mock_order_book
+
+        await exchange._place_order(
+            order_id="HBOT-MKBUY",
+            trading_pair="ETH-USDC",
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.MARKET,
+            price=Decimal("NaN"),
+        )
+
+        call_kwargs = signer_client.create_order.call_args.kwargs
+        # best_ask=2000, slippage=5%, effective=2100, price_decimals=2 -> price_scaled=210000
+        self.assertEqual(210000, call_kwargs["price"])
+        self.assertEqual(2, call_kwargs["order_type"])  # ORDER_TYPE_MARKET
+
+    async def test_place_order_market_sell_uses_best_bid_with_slippage(self):
+        """MARKET SELL order with NaN price must query best BID (get_price(False)) and subtract 5% slippage."""
+        exchange = LighterExchange.__new__(LighterExchange)
+        _set_exchange_timestamp(exchange, 1700000000)
+        exchange._get_market_spec = AsyncMock(return_value=(2048, 2, 2, "ETH/USDC"))
+        exchange._get_api_key_index = lambda: 7
+
+        signer_client = type(
+            "SignerClient",
+            (),
+            {
+                "ORDER_TYPE_LIMIT": 1,
+                "ORDER_TYPE_MARKET": 2,
+                "ORDER_TIME_IN_FORCE_GOOD_TILL_TIME": 10,
+                "ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL": 11,
+                "ORDER_TIME_IN_FORCE_POST_ONLY": 12,
+                "DEFAULT_28_DAY_ORDER_EXPIRY": 1000,
+                "DEFAULT_IOC_EXPIRY": 1001,
+            },
+        )()
+        signer_client.create_order = AsyncMock(return_value=(None, type("Resp", (), {"code": 200})(), None))
+        exchange._get_lighter_signer_client = lambda: signer_client
+        exchange._refresh_signer_client = lambda: signer_client
+        import asyncio as _asyncio
+        exchange._signer_client_lock = _asyncio.Lock()
+        exchange._is_invalid_nonce_failure = lambda error=None, response=None: False
+        exchange._response_code = lambda r: getattr(r, "code", 0)
+        exchange._sleep = AsyncMock()
+        exchange._account_available_balances = None
+
+        prices = {True: 2000.0, False: 1990.0}
+        mock_order_book = type("OB", (), {"get_price": lambda self, is_buy: prices[is_buy]})()
+        exchange.get_order_book = lambda trading_pair: mock_order_book
+
+        await exchange._place_order(
+            order_id="HBOT-MKSELL",
+            trading_pair="ETH-USDC",
+            amount=Decimal("1"),
+            trade_type=TradeType.SELL,
+            order_type=OrderType.MARKET,
+            price=Decimal("NaN"),
+        )
+
+        call_kwargs = signer_client.create_order.call_args.kwargs
+        # best_bid=1990, slippage=5%, effective=1990*0.95=1890.5, price_decimals=2 -> price_scaled=189050
+        self.assertEqual(189050, call_kwargs["price"])
+        self.assertEqual(2, call_kwargs["order_type"])  # ORDER_TYPE_MARKET

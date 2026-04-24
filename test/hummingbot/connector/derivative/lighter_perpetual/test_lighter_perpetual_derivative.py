@@ -71,7 +71,6 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             lighter_perpetual_api_key_index="1",
             lighter_perpetual_account_index="237600",
             lighter_perpetual_api_key_private_key="0x" + ("a" * 64),
-            lighter_perpetual_api_key_public_key="0x" + ("b" * 40),
             trading_pairs=["BTC-USDC"],
             trading_required=False,
         )
@@ -985,3 +984,91 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
             await self.connector._all_trade_updates_for_order(order)
         except ValueError as exc:
             self.fail(f"NaN last_poll_timestamp must not crash: {exc}")
+
+    async def test_place_order_market_buy_uses_best_ask_with_slippage(self):
+        """MARKET BUY order with NaN price must query best ASK (get_price(True)) and add 5% slippage."""
+        from hummingbot.core.data_type.common import TradeType
+
+        signer_client = SimpleNamespace(
+            ORDER_TYPE_LIMIT=1,
+            ORDER_TYPE_MARKET=2,
+            ORDER_TIME_IN_FORCE_GOOD_TILL_TIME=10,
+            ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL=11,
+            ORDER_TIME_IN_FORCE_POST_ONLY=12,
+            DEFAULT_28_DAY_ORDER_EXPIRY=1000,
+            DEFAULT_IOC_EXPIRY=1001,
+            create_order=AsyncMock(return_value=(None, SimpleNamespace(code=200), None)),
+        )
+        self.connector._get_market_spec = AsyncMock(return_value=(0, 2, 2, "ETH"))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=signer_client)
+        self.connector._get_api_key_index = MagicMock(return_value=1)
+
+        # BUY -> get_price(True) -> best ask = 2000; SELL -> get_price(False) -> best bid = 1990
+        prices = {True: 2000.0, False: 1990.0}
+        mock_order_book = SimpleNamespace(get_price=lambda is_buy: prices[is_buy])
+        self.connector.get_order_book = MagicMock(return_value=mock_order_book)
+        self.connector._current_timestamp = 1700000000.0
+
+        try:
+            await self.connector._place_order(
+                order_id="HBOT-PERM-MKBUY",
+                trading_pair="ETH-USDC",
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.MARKET,
+                price=Decimal("NaN"),
+                position_action=PositionAction.OPEN,
+            )
+        except AttributeError as exc:
+            if "current_timestamp" not in str(exc):
+                raise
+
+        self.assertTrue(signer_client.create_order.called)
+        call_kwargs = signer_client.create_order.call_args.kwargs
+        # best_ask=2000, slippage=5%, effective=2100, price_decimals=2 -> price_scaled=210000
+        self.assertEqual(210000, call_kwargs["price"])
+        self.assertEqual(2, call_kwargs["order_type"])  # ORDER_TYPE_MARKET
+
+    async def test_place_order_market_sell_uses_best_bid_with_slippage(self):
+        """MARKET SELL order with NaN price must query best BID (get_price(False)) and subtract 5% slippage."""
+        from hummingbot.core.data_type.common import TradeType
+
+        signer_client = SimpleNamespace(
+            ORDER_TYPE_LIMIT=1,
+            ORDER_TYPE_MARKET=2,
+            ORDER_TIME_IN_FORCE_GOOD_TILL_TIME=10,
+            ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL=11,
+            ORDER_TIME_IN_FORCE_POST_ONLY=12,
+            DEFAULT_28_DAY_ORDER_EXPIRY=1000,
+            DEFAULT_IOC_EXPIRY=1001,
+            create_order=AsyncMock(return_value=(None, SimpleNamespace(code=200), None)),
+        )
+        self.connector._get_market_spec = AsyncMock(return_value=(0, 2, 2, "ETH"))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=signer_client)
+        self.connector._get_api_key_index = MagicMock(return_value=1)
+
+        prices = {True: 2000.0, False: 1990.0}
+        mock_order_book = SimpleNamespace(get_price=lambda is_buy: prices[is_buy])
+        self.connector.get_order_book = MagicMock(return_value=mock_order_book)
+        self.connector._current_timestamp = 1700000000.0
+
+        try:
+            await self.connector._place_order(
+                order_id="HBOT-PERM-MKSELL",
+                trading_pair="ETH-USDC",
+                amount=Decimal("1"),
+                trade_type=TradeType.SELL,
+                order_type=OrderType.MARKET,
+                price=Decimal("NaN"),
+                position_action=PositionAction.CLOSE,
+            )
+        except AttributeError as exc:
+            if "current_timestamp" not in str(exc):
+                raise
+
+        self.assertTrue(signer_client.create_order.called)
+        call_kwargs = signer_client.create_order.call_args.kwargs
+        # best_bid=1990, slippage=5%, effective=1990*0.95=1890.5, price_decimals=2 -> price_scaled=189050
+        self.assertEqual(189050, call_kwargs["price"])
+        self.assertEqual(2, call_kwargs["order_type"])  # ORDER_TYPE_MARKET
+        self.assertTrue(call_kwargs["reduce_only"])  # CLOSE position

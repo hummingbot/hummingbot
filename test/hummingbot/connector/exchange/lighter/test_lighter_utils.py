@@ -47,7 +47,6 @@ class LighterUtilsTests(TestCase):
             lighter_api_key="0x" + ("a" * 64),
             lighter_api_secret=" 123 ",
             lighter_account_index=" 456 ",
-            lighter_api_key_public_key="0x" + ("b" * 40),
         )
 
         self.assertEqual("123", cfg.lighter_api_key_index.get_secret_value())
@@ -58,14 +57,12 @@ class LighterUtilsTests(TestCase):
                 lighter_api_key="0x" + ("a" * 64),
                 lighter_api_secret="not-an-int",
                 lighter_account_index="456",
-                lighter_api_key_public_key="0x" + ("b" * 40),
             )
 
         cfg_empty = LighterConfigMap(
             lighter_api_key="0x" + ("a" * 64),
             lighter_api_secret="",
             lighter_account_index="",
-            lighter_api_key_public_key="0x" + ("b" * 40),
         )
         self.assertEqual("", cfg_empty.lighter_api_key_index.get_secret_value())
         self.assertEqual("", cfg_empty.lighter_account_index.get_secret_value())
@@ -75,7 +72,6 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_key="0x" + ("a" * 64),
             lighter_testnet_api_secret=" 7 ",
             lighter_testnet_account_index=" 890 ",
-            lighter_testnet_api_key_public_key="0x" + ("b" * 40),
         )
 
         self.assertEqual("7", cfg.lighter_testnet_api_key_index.get_secret_value())
@@ -85,7 +81,6 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_key="0x" + ("a" * 64),
             lighter_testnet_api_secret="",
             lighter_testnet_account_index="",
-            lighter_testnet_api_key_public_key="0x" + ("b" * 40),
         )
         self.assertEqual("", cfg_empty.lighter_testnet_api_key_index.get_secret_value())
         self.assertEqual("", cfg_empty.lighter_testnet_account_index.get_secret_value())
@@ -95,7 +90,6 @@ class LighterUtilsTests(TestCase):
                 lighter_testnet_api_key="0x" + ("a" * 64),
                 lighter_testnet_api_secret="7",
                 lighter_testnet_account_index="abc",
-                lighter_testnet_api_key_public_key="0x" + ("b" * 40),
             )
 
     def test_mainnet_config_validates_hex_api_key(self):
@@ -104,7 +98,6 @@ class LighterUtilsTests(TestCase):
             lighter_api_secret="123",
             lighter_account_index="456",
             lighter_api_key=hex_key,
-            lighter_api_key_public_key="0x" + ("b" * 40),
         )
         self.assertEqual(hex_key, cfg.lighter_api_key_private_key.get_secret_value())
 
@@ -113,7 +106,6 @@ class LighterUtilsTests(TestCase):
                 lighter_api_secret="123",
                 lighter_account_index="456",
                 lighter_api_key="not-hex",
-                lighter_api_key_public_key="0x" + ("b" * 40),
             )
 
     def test_testnet_config_validates_hex_api_key(self):
@@ -122,7 +114,6 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_key=hex_key,
             lighter_testnet_api_secret="7",
             lighter_testnet_account_index="890",
-            lighter_testnet_api_key_public_key="0x" + ("b" * 40),
         )
         self.assertEqual(hex_key, cfg.lighter_testnet_api_key_private_key.get_secret_value())
 
@@ -131,7 +122,6 @@ class LighterUtilsTests(TestCase):
                 lighter_testnet_api_key="not-hex",
                 lighter_testnet_api_secret="7",
                 lighter_testnet_account_index="890",
-                lighter_testnet_api_key_public_key="0x" + ("b" * 40),
             )
 
     def test_mainnet_config_accepts_encrypted_index_values_before_decrypt(self):
@@ -140,7 +130,6 @@ class LighterUtilsTests(TestCase):
             lighter_api_key=encrypted,
             lighter_api_secret=encrypted,
             lighter_account_index=encrypted,
-            lighter_api_key_public_key=encrypted,
         )
 
         self.assertEqual(encrypted, cfg.lighter_api_key_index.get_secret_value())
@@ -152,7 +141,6 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_api_key="0x" + ("a" * 64),
             lighter_testnet_api_secret=encrypted,
             lighter_testnet_account_index=encrypted,
-            lighter_testnet_api_key_public_key=encrypted,
         )
 
         self.assertEqual(encrypted, cfg.lighter_testnet_api_key_index.get_secret_value())
