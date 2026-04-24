@@ -166,6 +166,21 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._status = RunnableStatus.RUNNING
         executor.early_stop()
         self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+
+    async def test_early_stop_keep_position_true(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = RunnableStatus.RUNNING
+        executor.early_stop(keep_position=True)
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_early_stop_keep_position_false(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = RunnableStatus.RUNNING
+        executor.early_stop(keep_position=False)
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
     @patch.object(TWAPExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, mock_get_in_flight_order):

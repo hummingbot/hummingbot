@@ -532,11 +532,11 @@ class StrategyV2Base(StrategyPyBase):
                             "Trading Pair": pos.trading_pair,
                             "Side": pos.side.name,
                             "Amount": f"{pos.amount:.4f}",
-                            "Value (USD)": f"${pos.amount * pos.breakeven_price:.2f}",
+                            "Value (Quote)": f"{pos.amount * pos.breakeven_price:.2f}",
                             "Breakeven Price": f"{pos.breakeven_price:.6f}",
-                            "Unrealized PnL": f"${pos.unrealized_pnl_quote:+.2f}",
-                            "Realized PnL": f"${pos.realized_pnl_quote:+.2f}",
-                            "Fees": f"${pos.cum_fees_quote:.2f}"
+                            "Unrealized PnL": f"{pos.unrealized_pnl_quote:+.2f}",
+                            "Realized PnL": f"{pos.realized_pnl_quote:+.2f}",
+                            "Fees": f"{pos.cum_fees_quote:.2f}"
                         })
                     positions_df = pd.DataFrame(positions_data)
                     lines.append(format_df_for_printout(positions_df, table_format="psql", index=False))
@@ -548,11 +548,11 @@ class StrategyV2Base(StrategyPyBase):
                 if performance_report:
                     performance_data.append({
                         "Controller": controller_id,
-                        "Realized PnL": f"${performance_report.realized_pnl_quote:.2f}",
-                        "Unrealized PnL": f"${performance_report.unrealized_pnl_quote:.2f}",
-                        "Global PnL": f"${performance_report.global_pnl_quote:.2f}",
+                        "Realized PnL": f"{performance_report.realized_pnl_quote:.2f}",
+                        "Unrealized PnL": f"{performance_report.unrealized_pnl_quote:.2f}",
+                        "Global PnL": f"{performance_report.global_pnl_quote:.2f}",
                         "Global PnL %": f"{performance_report.global_pnl_pct:.2f}%",
-                        "Volume Traded": f"${performance_report.volume_traded:.2f}"
+                        "Volume Traded": f"{performance_report.volume_traded:.2f}"
                     })
 
             # Performance summary table
@@ -562,20 +562,20 @@ class StrategyV2Base(StrategyPyBase):
                 lines.append(f"{'=' * 80}")
 
                 # Calculate global totals
-                global_realized = sum(Decimal(p["Realized PnL"].replace("$", "")) for p in performance_data)
-                global_unrealized = sum(Decimal(p["Unrealized PnL"].replace("$", "")) for p in performance_data)
+                global_realized = sum(Decimal(p["Realized PnL"]) for p in performance_data)
+                global_unrealized = sum(Decimal(p["Unrealized PnL"]) for p in performance_data)
                 global_total = global_realized + global_unrealized
-                global_volume = sum(Decimal(p["Volume Traded"].replace("$", "")) for p in performance_data)
+                global_volume = sum(Decimal(p["Volume Traded"]) for p in performance_data)
                 global_pnl_pct = (global_total / global_volume) * 100 if global_volume > 0 else Decimal(0)
 
                 # Add global row
                 performance_data.append({
                     "Controller": "GLOBAL TOTAL",
-                    "Realized PnL": f"${global_realized:.2f}",
-                    "Unrealized PnL": f"${global_unrealized:.2f}",
-                    "Global PnL": f"${global_total:.2f}",
+                    "Realized PnL": f"{global_realized:.2f}",
+                    "Unrealized PnL": f"{global_unrealized:.2f}",
+                    "Global PnL": f"{global_total:.2f}",
                     "Global PnL %": f"{global_pnl_pct:.2f}%",
-                    "Volume Traded": f"${global_volume:.2f}"
+                    "Volume Traded": f"{global_volume:.2f}"
                 })
 
                 performance_df = pd.DataFrame(performance_data)
