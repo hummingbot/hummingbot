@@ -197,9 +197,10 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         connector._get_last_traded_price.return_value = 100
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
         self.assertEqual(result, {"BTC-USDT": 100})
+        # When price fetch fails, the pair should be excluded (not set to 0) to avoid division by zero in rate oracle
         connector._get_last_traded_price.side_effect = Exception("Error")
         result = await self.provider._safe_get_last_traded_prices(connector, ["BTC-USDT"])
-        self.assertEqual(result, {"BTC-USDT": Decimal("0")})
+        self.assertEqual(result, {})
 
     def test_remove_rate_sources(self):
         # Test removing regular connector rate sources
@@ -259,58 +260,60 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_new_format(self, mock_gateway_client, mock_rate_oracle):
-        # Test gateway connector with new format (e.g., "uniswap/amm")
+    async def test_update_rates_task_gateway_network_format(self, mock_gateway_client, mock_rate_oracle):
+        # Test gateway connector with network format (e.g., "solana-mainnet-beta")
+        # Gateway connectors are detected by having a swap provider configured
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
+        mock_gateway_instance.get_default_swap_provider.return_value = "jupiter/router"
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
-        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        # New format stores by connector name directly
-        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
+        connector_pair = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair)
 
         # Mock asyncio.sleep to cancel immediately after first iteration
         with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
 
-        # Verify chain/network was fetched
-        mock_gateway_instance.get_connector_chain_network.assert_called_with("uniswap/amm")
-        # Verify price was fetched
+        # Verify swap provider was checked
+        mock_gateway_instance.get_default_swap_provider.assert_called_with("solana-mainnet-beta")
+        # Verify price was fetched with network
         mock_gateway_instance.get_price.assert_called()
+        call_kwargs = mock_gateway_instance.get_price.call_args[1]
+        self.assertEqual(call_kwargs['network'], 'solana-mainnet-beta')
         # Verify price was set
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
     @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_old_format(self, mock_gateway_client, mock_rate_oracle):
-        # Test gateway connector with old format (e.g., "gateway_ethereum-mainnet")
+    async def test_update_rates_task_gateway_ethereum(self, mock_gateway_client, mock_rate_oracle):
+        # Test gateway connector on ethereum network
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
+        mock_gateway_instance.get_default_swap_provider.return_value = "uniswap/router"
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
-        connector_pair = ConnectorPair(connector_name="gateway_ethereum-mainnet", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway_ethereum-mainnet", connector_pair)
+        connector_pair = ConnectorPair(connector_name="ethereum-mainnet", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("ethereum-mainnet", connector_pair)
 
         # Mock asyncio.sleep to cancel immediately after first iteration
         with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
 
-        # Old format doesn't call get_connector_chain_network
-        mock_gateway_instance.get_connector_chain_network.assert_not_called()
-        # Verify price was fetched with parsed chain/network
+        # Verify swap provider was checked
+        mock_gateway_instance.get_default_swap_provider.assert_called_with("ethereum-mainnet")
+        # Verify price was fetched with network
         mock_gateway_instance.get_price.assert_called()
         call_kwargs = mock_gateway_instance.get_price.call_args[1]
-        self.assertEqual(call_kwargs['chain'], 'ethereum')
-        self.assertEqual(call_kwargs['network'], 'mainnet')
+        self.assertEqual(call_kwargs['network'], 'ethereum-mainnet')
         # Verify price was set
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
@@ -338,11 +341,11 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         # Test gateway connector with error handling
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_connector_chain_network.return_value = ("ethereum", "mainnet", None)
+        mock_gateway_instance.get_default_swap_provider.return_value = "jupiter/router"
         mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
+        connector_pair = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair)
 
         with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
             with self.assertRaises(asyncio.CancelledError):
@@ -352,20 +355,20 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_gateway_instance.get_price.assert_called()
 
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_chain_network_error(self, mock_gateway_client):
-        # Test error handling when fetching chain/network info fails
+    async def test_update_rates_task_no_swap_provider(self, mock_gateway_client):
+        # Test that connector without swap provider is treated as non-gateway
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_connector_chain_network.return_value = (None, None, "Network error")
+        mock_gateway_instance.get_default_swap_provider.return_value = None
 
-        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
+        connector_pair = ConnectorPair(connector_name="unknown-network", trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update("unknown-network", connector_pair)
 
         with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
             with self.assertRaises(asyncio.CancelledError):
                 await self.provider.update_rates_task()
 
-        # Should not attempt to fetch price if chain/network fetch failed
+        # Should not attempt to fetch price if no swap provider configured
         mock_gateway_instance.get_price.assert_not_called()
 
     async def test_update_rates_task_cancellation(self):
@@ -388,21 +391,21 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_gateway_instance = AsyncMock()
         mock_gateway_client.return_value = mock_gateway_instance
 
-        # Set up multiple gateway connectors
-        mock_gateway_instance.get_connector_chain_network.side_effect = [
-            ("ethereum", "mainnet", None),
-            ("solana", "mainnet-beta", None),
+        # Both networks have swap providers configured
+        mock_gateway_instance.get_default_swap_provider.side_effect = [
+            "uniswap/router",
+            "jupiter/router",
         ]
         mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
         mock_oracle_instance = MagicMock()
         mock_rate_oracle.return_value = mock_oracle_instance
 
-        # Add multiple gateway connector pairs
-        connector_pair1 = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        connector_pair2 = ConnectorPair(connector_name="jupiter/router", trading_pair="SOL-USDC")
-        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair1)
-        self.provider._rates_required.add_or_update("jupiter/router", connector_pair2)
+        # Add multiple gateway connector pairs (using network format)
+        connector_pair1 = ConnectorPair(connector_name="ethereum-mainnet", trading_pair="BTC-USDT")
+        connector_pair2 = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="SOL-USDC")
+        self.provider._rates_required.add_or_update("ethereum-mainnet", connector_pair1)
+        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair2)
 
         # Mock asyncio.gather to verify parallel execution
         original_gather = asyncio.gather

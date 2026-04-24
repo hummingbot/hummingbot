@@ -13,6 +13,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -26,10 +27,6 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 class MarketDataProvider:
     _logger: Optional[HummingbotLogger] = None
-    gateway_price_provider_by_chain: Dict = {
-        "ethereum": "uniswap/router",
-        "solana": "jupiter/router",
-    }
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -114,38 +111,24 @@ class MarketDataProvider:
                 non_gateway_connectors = {}
 
                 for connector, connector_pairs in self._rates_required.items():
-                    # Detect gateway connectors: either new format (contains "/") or old format (contains "gateway")
-                    is_gateway = "/" in connector or "gateway" in connector
+                    # Gateway connectors use network format: "chain-network" (e.g., "solana-mainnet-beta")
+                    # Only query Gateway for connectors that start with known chain names
+                    known_chains = tuple(c.chain for c in Chain)
+                    is_gateway_network = connector.startswith(known_chains)
 
-                    if is_gateway:
+                    swap_provider = None
+                    if is_gateway_network:
                         gateway_client = GatewayHttpClient.get_instance()
+                        swap_provider = await gateway_client.get_default_swap_provider(connector)
 
+                    if swap_provider:
+                        # Gateway connector - get_price will auto-fetch dex/trading_type from network config
                         for connector_pair in connector_pairs:
                             try:
                                 base, quote = connector_pair.trading_pair.split("-")
 
-                                # Parse connector format to extract chain/network
-                                if "/" in connector:
-                                    # New format: "jupiter/router" or "uniswap/amm"
-                                    # Need to get chain/network from the connector instance or Gateway
-                                    chain, network, error = await gateway_client.get_connector_chain_network(connector)
-                                    if error:
-                                        self.logger().warning(f"Failed to get chain/network for {connector}: {error}")
-                                        continue
-                                    connector_name = connector  # Use the connector as-is for new format
-                                else:
-                                    # Old format: "gateway_chain-network"
-                                    gateway, chain_network = connector.split("_", 1)
-                                    chain, network = chain_network.split("-", 1)
-                                    connector_name = self.gateway_price_provider_by_chain.get(chain)
-                                    if not connector_name:
-                                        self.logger().warning(f"No gateway price provider found for chain {chain}")
-                                        continue
-
                                 task = gateway_client.get_price(
-                                    chain=chain,
-                                    network=network,
-                                    connector=connector_name,
+                                    network=connector,
                                     base_asset=base,
                                     quote_asset=quote,
                                     amount=Decimal("1"),
@@ -792,7 +775,8 @@ class MarketDataProvider:
         try:
             tasks = [self._safe_get_last_traded_price(connector, trading_pair) for trading_pair in trading_pairs]
             prices = await asyncio.wait_for(asyncio.gather(*tasks), timeout=timeout)
-            return {pair: Decimal(rate) for pair, rate in zip(trading_pairs, prices)}
+            # Filter out None values (failed price fetches) to avoid setting invalid prices
+            return {pair: rate for pair, rate in zip(trading_pairs, prices) if rate is not None}
         except Exception as e:
             logging.error(f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
             return {}
@@ -800,7 +784,11 @@ class MarketDataProvider:
     async def _safe_get_last_traded_price(self, connector, trading_pair):
         try:
             last_traded = await connector._get_last_traded_price(trading_pair=trading_pair)
-            return Decimal(last_traded)
-        except Exception as e:
-            logging.error(f"Error getting last traded price in connector {connector} for trading pair {trading_pair}: {e}")
-            return Decimal(0)
+            price = Decimal(last_traded)
+            # Return None for zero or negative prices - these are invalid
+            return price if price > Decimal("0") else None
+        except Exception:
+            logging.exception(
+                f"Error getting last traded price in connector {connector} for trading pair {trading_pair}."
+            )
+            return None

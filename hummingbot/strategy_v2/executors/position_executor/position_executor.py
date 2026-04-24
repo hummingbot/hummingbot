@@ -48,7 +48,7 @@ class PositionExecutor(ExecutorBase):
             self.logger().error(error)
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
-                         update_interval=update_interval)
+                         update_interval=update_interval, max_retries=max_retries)
         if not config.entry_price:
             open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
             config.entry_price = self.get_price(config.connector_name, config.trading_pair,
@@ -64,8 +64,6 @@ class PositionExecutor(ExecutorBase):
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
 
         self._total_executed_amount_backup: Decimal = Decimal("0")
-        self._current_retries = 0
-        self._max_retries = max_retries
 
     @property
     def is_perpetual(self) -> bool:
@@ -249,6 +247,8 @@ class PositionExecutor(ExecutorBase):
         :return: The cumulative fees in quote asset.
         """
         orders = [self._open_order, self._close_order]
+        if self._take_profit_limit_order and self._take_profit_limit_order != self._close_order:
+            orders.append(self._take_profit_limit_order)
         return sum([order.cum_fees_quote for order in orders if order])
 
     def get_net_pnl_pct(self) -> Decimal:
@@ -302,7 +302,6 @@ class PositionExecutor(ExecutorBase):
             self.control_barriers()
         elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
-        self.evaluate_max_retries()
 
     def all_orders_completed(self):
         """
@@ -367,17 +366,6 @@ class PositionExecutor(ExecutorBase):
                 self._close_order = None
         else:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
-
-    def evaluate_max_retries(self):
-        """
-        This method is responsible for evaluating the maximum number of retries to place an order and stop the executor
-        if the maximum number of retries is reached.
-
-        :return: None
-        """
-        if self._current_retries > self._max_retries:
-            self.close_type = CloseType.FAILED
-            self.stop()
 
     async def on_start(self):
         """
@@ -464,8 +452,14 @@ class PositionExecutor(ExecutorBase):
         if self._open_order and self._open_order.is_filled and self.open_filled_amount >= self.trading_rules.min_order_size \
                 and self.open_filled_amount_quote >= self.trading_rules.min_notional_size:
             self.control_stop_loss()
+            if self.status != RunnableStatus.RUNNING:
+                return
             self.control_trailing_stop()
+            if self.status != RunnableStatus.RUNNING:
+                return
             self.control_take_profit()
+            if self.status != RunnableStatus.RUNNING:
+                return
         self.control_time_limit()
 
     def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):

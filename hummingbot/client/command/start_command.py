@@ -1,7 +1,7 @@
 import asyncio
 import platform
 import threading
-from typing import TYPE_CHECKING, Callable, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Optional, Set
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
@@ -33,13 +33,19 @@ class StartCommand(GatewayChainApiManager):
             else:
                 return func(*args, **kwargs)
 
-    def _strategy_uses_gateway_connector(self, required_exchanges: Set[str]) -> bool:
-        exchange_settings: List[settings.ConnectorSetting] = [
-            settings.AllConnectorSettings.get_connector_settings().get(e, None)
-            for e in required_exchanges
-        ]
-        return any([s.uses_gateway_generic_connector()
-                    for s in exchange_settings])
+    async def _strategy_uses_gateway_connector(self,  # type: HummingbotApplication
+                                               required_exchanges: Set[str]) -> bool:
+        """Check if any required exchange is a gateway connector."""
+        # Ensure gateway connectors are registered before checking
+        # This handles the case where gateway is online but monitor loop hasn't run yet
+        await self.trading_core.gateway_monitor.ensure_gateway_connectors_registered()
+
+        for connector_name in required_exchanges:
+            conn_setting = settings.AllConnectorSettings.get_connector_settings().get(connector_name)
+            if conn_setting is not None and conn_setting.uses_gateway_generic_connector():
+                return True
+
+        return False
 
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
@@ -71,7 +77,7 @@ class StartCommand(GatewayChainApiManager):
                 return
 
         if self.strategy_file_name and self.trading_core.strategy_name and is_quickstart:
-            if self._strategy_uses_gateway_connector(settings.required_exchanges):
+            if await self._strategy_uses_gateway_connector(settings.required_exchanges):
                 try:
                     await asyncio.wait_for(self.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
                 except asyncio.TimeoutError:

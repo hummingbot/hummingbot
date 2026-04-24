@@ -715,3 +715,152 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.control_task()
         mock_cancel_order.assert_not_called()
         mock_place_open_order.assert_not_called()
+
+    def test_executed_amount_base_with_order(self):
+        """Test executed_amount_base with a partially filled main order."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        # Create a partially filled order
+        order = MagicMock()
+        order.executed_amount_base = Decimal("0.5")
+        tracked_order = TrackedOrder("OID-1")
+        tracked_order.order = order
+        executor._order = tracked_order
+
+        self.assertEqual(executor.executed_amount_base, Decimal("0.5"))
+
+    def test_executed_amount_base_with_partial_orders(self):
+        """Test executed_amount_base with partial filled orders."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        # Create partial filled orders
+        order1 = MagicMock()
+        order1.executed_amount_base = Decimal("0.3")
+        tracked1 = TrackedOrder("OID-1")
+        tracked1.order = order1
+
+        order2 = MagicMock()
+        order2.executed_amount_base = Decimal("0.2")
+        tracked2 = TrackedOrder("OID-2")
+        tracked2.order = order2
+
+        executor._partial_filled_orders = [tracked1, tracked2]
+
+        self.assertEqual(executor.executed_amount_base, Decimal("0.5"))
+
+    def test_average_executed_price_with_order(self):
+        """Test average_executed_price with main order having executed amount."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        # Create a filled order
+        order = MagicMock()
+        order.executed_amount_base = Decimal("1")
+        order.average_executed_price = Decimal("105")
+        tracked_order = TrackedOrder("OID-1")
+        tracked_order.order = order
+        executor._order = tracked_order
+
+        self.assertEqual(executor.average_executed_price, Decimal("105"))
+
+    def test_average_executed_price_with_partial_orders(self):
+        """Test average_executed_price with multiple partial filled orders."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        # Create partial filled orders with different prices
+        order1 = MagicMock()
+        order1.executed_amount_base = Decimal("0.6")
+        order1.average_executed_price = Decimal("100")
+        tracked1 = TrackedOrder("OID-1")
+        tracked1.order = order1
+
+        order2 = MagicMock()
+        order2.executed_amount_base = Decimal("0.4")
+        order2.average_executed_price = Decimal("110")
+        tracked2 = TrackedOrder("OID-2")
+        tracked2.order = order2
+
+        executor._partial_filled_orders = [tracked1, tracked2]
+
+        # Weighted average: (0.6 * 100 + 0.4 * 110) / 1.0 = 104
+        self.assertEqual(executor.average_executed_price, Decimal("104"))
+
+    def test_average_executed_price_no_fills(self):
+        """Test average_executed_price returns 0 when no fills."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        self.assertEqual(executor.average_executed_price, Decimal("0"))
+
+    def test_filled_amount_quote(self):
+        """Test filled_amount_quote property."""
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+
+        # Create a filled order
+        order = MagicMock()
+        order.executed_amount_base = Decimal("0.5")
+        order.average_executed_price = Decimal("100")
+        tracked_order = TrackedOrder("OID-1")
+        tracked_order.order = order
+        executor._order = tracked_order
+
+        # filled_amount_quote = 0.5 * 100 = 50
+        self.assertEqual(executor.filled_amount_quote, Decimal("50"))

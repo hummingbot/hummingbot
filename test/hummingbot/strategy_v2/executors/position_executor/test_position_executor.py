@@ -728,6 +728,145 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(executor_info.net_pnl_pct, Decimal("0"))
 
     @patch.object(PositionExecutor, "get_trading_rules")
+    @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price",
+           return_value=Decimal("100"))
+    def test_cum_fees_includes_take_profit_limit_order(self, _, trading_rules_mock):
+        """Fee calculation should include fees from _take_profit_limit_order when it differs from _close_order."""
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules_mock.return_value = trading_rules
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+
+        # Set up open order with fees
+        open_order = TrackedOrder("OID-BUY-1")
+        open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1", exchange_order_id="EOID1",
+            trading_pair="ETH-USDT", order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY, amount=Decimal("1"), price=Decimal("100"),
+            creation_timestamp=1640001112.223, initial_state=OrderState.FILLED
+        )
+        open_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="1", client_order_id="OID-BUY-1", exchange_order_id="EOID1",
+            trading_pair="ETH-USDT", fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"), fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.1"))]),
+            fill_timestamp=10,
+        ))
+        position_executor._open_order = open_order
+
+        # Set up TP limit order with partial fill and fees (different from close order)
+        tp_order = TrackedOrder("OID-SELL-TP")
+        tp_order.order = InFlightOrder(
+            client_order_id="OID-SELL-TP", exchange_order_id="EOID2",
+            trading_pair="ETH-USDT", order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL, amount=Decimal("1"), price=Decimal("110"),
+            creation_timestamp=1640001112.223, initial_state=OrderState.PARTIALLY_FILLED
+        )
+        tp_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="2", client_order_id="OID-SELL-TP", exchange_order_id="EOID2",
+            trading_pair="ETH-USDT", fill_price=Decimal("110"),
+            fill_base_amount=Decimal("0.5"), fill_quote_amount=Decimal("55"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.05"))]),
+            fill_timestamp=11,
+        ))
+        position_executor._take_profit_limit_order = tp_order
+
+        # No separate close order
+        position_executor._close_order = None
+
+        # Fees should include both open order and TP order fees
+        cum_fees = position_executor.get_cum_fees_quote()
+        self.assertEqual(cum_fees, Decimal("0.15"))  # 0.1 + 0.05
+
+    @patch.object(PositionExecutor, "get_trading_rules")
+    @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price",
+           return_value=Decimal("100"))
+    def test_cum_fees_deduplicates_tp_and_close_order(self, _, trading_rules_mock):
+        """When _take_profit_limit_order IS _close_order, fees should not be double-counted."""
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules_mock.return_value = trading_rules
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+
+        open_order = TrackedOrder("OID-BUY-1")
+        open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1", exchange_order_id="EOID1",
+            trading_pair="ETH-USDT", order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY, amount=Decimal("1"), price=Decimal("100"),
+            creation_timestamp=1640001112.223, initial_state=OrderState.FILLED
+        )
+        open_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="1", client_order_id="OID-BUY-1", exchange_order_id="EOID1",
+            trading_pair="ETH-USDT", fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"), fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.1"))]),
+            fill_timestamp=10,
+        ))
+        position_executor._open_order = open_order
+
+        # TP order is the same as close order (normal TP fill path)
+        tp_order = TrackedOrder("OID-SELL-TP")
+        tp_order.order = InFlightOrder(
+            client_order_id="OID-SELL-TP", exchange_order_id="EOID2",
+            trading_pair="ETH-USDT", order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL, amount=Decimal("1"), price=Decimal("110"),
+            creation_timestamp=1640001112.223, initial_state=OrderState.FILLED
+        )
+        tp_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="2", client_order_id="OID-SELL-TP", exchange_order_id="EOID2",
+            trading_pair="ETH-USDT", fill_price=Decimal("110"),
+            fill_base_amount=Decimal("1"), fill_quote_amount=Decimal("110"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.1"))]),
+            fill_timestamp=11,
+        ))
+        position_executor._take_profit_limit_order = tp_order
+        position_executor._close_order = tp_order  # Same object
+
+        cum_fees = position_executor.get_cum_fees_quote()
+        self.assertEqual(cum_fees, Decimal("0.2"))  # 0.1 + 0.1, no double counting
+
+    @patch.object(PositionExecutor, "get_trading_rules")
+    @patch("hummingbot.strategy_v2.executors.position_executor.position_executor.PositionExecutor.get_price",
+           return_value=Decimal("70"))
+    async def test_barrier_race_condition_only_one_close_order(self, _, trading_rules_mock):
+        """When stop loss triggers, subsequent barriers should not place additional close orders."""
+        trading_rules = MagicMock(spec=TradingRule)
+        trading_rules.min_order_size = Decimal("0.1")
+        trading_rules.min_notional_size = Decimal("1")
+        trading_rules_mock.return_value = trading_rules
+        position_config = self.get_position_config_market_long()
+        # Set a time limit that would also trigger
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890 + 61)
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._open_order = TrackedOrder(order_id="OID-BUY-1")
+        position_executor._open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1", exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.triple_barrier_config.open_order_type,
+            trade_type=TradeType.BUY, amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223, initial_state=OrderState.FILLED
+        )
+        position_executor._open_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="1", client_order_id="OID-BUY-1", exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            fill_price=position_config.entry_price,
+            fill_base_amount=position_config.amount,
+            fill_quote_amount=position_config.amount * position_config.entry_price,
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+            fill_timestamp=10,
+        ))
+        self.strategy.connectors["binance"].quantize_order_amount.return_value = position_config.amount
+        await position_executor.control_task()
+        # Stop loss should trigger first; time limit should NOT also trigger
+        self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
+        self.assertEqual(position_executor._close_order.order_id, "OID-SELL-1")
+        # Only one sell order should have been placed (not two)
+        self.strategy.sell.assert_called_once()
+
+    @patch.object(PositionExecutor, "get_trading_rules")
     @patch.object(PositionExecutor, "get_price")
     def test_early_stop(self, mock_price, trading_rules_mock):
         mock_price.return_value = Decimal("100")
