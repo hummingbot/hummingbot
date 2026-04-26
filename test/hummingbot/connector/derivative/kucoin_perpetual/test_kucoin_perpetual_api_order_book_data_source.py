@@ -227,7 +227,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_diff_subscription = {
             "id": 2,
             "type": "subscribe",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -331,22 +331,22 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     async def test_listen_for_trades_successful(self):
+        """Test that a trade message from the /contractMarket/execution topic is parsed correctly,
+        including the nanosecond-precision `ts` timestamp field introduced in the fix for #7482."""
         self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
+        # Real KuCoin perpetual execution message shape – uses `ts` (nanoseconds) and `symbol` not `takerOrderId`
         trade_event = {
             "type": "message",
-            "topic": f"/market/match:{self.trading_pair}",
-            "subject": "trade.l3match",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "subject": "match",
             "data": {
                 "sequence": "1545896669145",
-                "type": "match",
                 "symbol": self.trading_pair,
                 "side": "buy",
                 "price": "0.08200000000000000000",
-                "size": "0.01022222000000000000",
+                "size": "1",
                 "tradeId": "5c24c5da03aa673885cd67aa",
-                "takerOrderId": "5c24c5d903aa6772d55b371e",
-                "makerOrderId": "5c2187d003aa677bd09d5c93",
                 "ts": "1545913818099033203"
             }
         }
@@ -363,6 +363,95 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertTrue(trade_event["data"]["tradeId"], msg.trade_id)
+        # Verify timestamp was parsed from nanoseconds (ts field), not milliseconds (time field)
+        expected_timestamp = int(trade_event["data"]["ts"]) * 1e-9
+        self.assertAlmostEqual(expected_timestamp, msg.timestamp, places=3)
+
+    async def test_parse_trade_message_uses_ts_nanoseconds(self):
+        """Regression test for #7482: _parse_trade_message must read `ts` in nanoseconds.
+        The old code used `time` which does not exist in the execution stream payload,
+        causing a KeyError and silent trade drops."""
+        self._simulate_trading_rules_initialized()
+        mock_message_queue: asyncio.Queue = asyncio.Queue()
+
+        ts_nanoseconds = 1545913818099033203
+        raw_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "subject": "match",
+            "data": {
+                "sequence": "100",
+                "symbol": self.trading_pair,
+                "side": "sell",
+                "price": "100.5",
+                "size": "2",
+                "tradeId": "trade-abc-123",
+                "ts": str(ts_nanoseconds),
+            }
+        }
+
+        await self.data_source._parse_trade_message(raw_message, mock_message_queue)
+
+        self.assertEqual(1, mock_message_queue.qsize())
+        msg: OrderBookMessage = mock_message_queue.get_nowait()
+        self.assertEqual(OrderBookMessageType.TRADE, msg.type)
+        self.assertEqual("trade-abc-123", msg.trade_id)
+        # Timestamp must come from nanosecond `ts` field
+        self.assertAlmostEqual(ts_nanoseconds * 1e-9, msg.timestamp, places=3)
+
+    async def test_parse_trade_message_fails_without_ts_field(self):
+        """Verify that the old `time` field no longer exists in real messages and
+        that omitting `ts` raises a KeyError (prevents silent data loss)."""
+        mock_message_queue: asyncio.Queue = asyncio.Queue()
+        raw_message = {
+            "type": "message",
+            "data": {
+                "sequence": "100",
+                "symbol": self.trading_pair,
+                "side": "buy",
+                "price": "50.0",
+                "size": "1",
+                "tradeId": "abc",
+                # Intentionally missing `ts` – this is what the old `time` field looked like
+                "time": "1545913818099",
+            }
+        }
+        with self.assertRaises(KeyError):
+            await self.data_source._parse_trade_message(raw_message, mock_message_queue)
+
+    def test_channel_originating_message_routes_execution_topic(self):
+        """Regression test for #7482: the execution topic (/contractMarket/execution)
+        must route to the trade messages queue, not be silently dropped."""
+        trade_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "data": {"tradeId": "abc"}
+        }
+        channel = self.data_source._channel_originating_message(trade_message)
+        self.assertEqual(self.data_source._trade_messages_queue_key, channel)
+
+    def test_channel_originating_message_routes_level2_diff_topic(self):
+        """Verify order book diff messages on the level2 topic are routed correctly."""
+        diff_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
+            "data": {"sequence": 1}
+        }
+        channel = self.data_source._channel_originating_message(diff_message)
+        self.assertEqual(self.data_source._diff_messages_queue_key, channel)
+
+    def test_channel_originating_message_ignores_old_ticker_topic(self):
+        """The old (wrong) ticker topic must NOT route to the trade queue.
+        This verifies that the pre-fix behaviour (subscribing to /contractMarket/ticker)
+        would have silently dropped all messages."""
+        old_ticker_message = {
+            "type": "message",
+            "topic": f"/contractMarket/ticker:{self.trading_pair}",
+            "data": {"price": "100"}
+        }
+        channel = self.data_source._channel_originating_message(old_ticker_message)
+        # Must NOT route to trade queue – it would be an empty string (unrecognised)
+        self.assertNotEqual(self.data_source._trade_messages_queue_key, channel)
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -377,7 +466,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": "message",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
         }
 
         mock_queue = AsyncMock()
@@ -399,7 +488,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         mock_queue = AsyncMock()
         diff_event = {
             "subject": "level2",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "type": "message",
             "data": {
                 "sequence": 18,
