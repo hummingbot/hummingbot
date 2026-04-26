@@ -219,7 +219,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_trade_subscription = {
             "id": 1,
             "type": "subscribe",
-            "topic": f"/contractMarket/ticker:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -347,7 +347,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "tradeId": "5c24c5da03aa673885cd67aa",
                 "takerOrderId": "5c24c5d903aa6772d55b371e",
                 "makerOrderId": "5c2187d003aa677bd09d5c93",
-                "time": "1545913818099033203"
+                "ts": "1545913818099033203"
             }
         }
 
