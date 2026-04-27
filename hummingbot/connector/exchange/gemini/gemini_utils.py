@@ -49,3 +49,34 @@ class GeminiConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = GeminiConfigMap.model_construct()
+
+OTHER_DOMAINS = ["gemini_sandbox"]
+OTHER_DOMAINS_PARAMETER = {"gemini_sandbox": "gemini_sandbox"}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"gemini_sandbox": "BTC-USD"}
+OTHER_DOMAINS_DEFAULT_FEES = {"gemini_sandbox": DEFAULT_FEES}
+
+
+class GeminiSandboxConfigMap(BaseConnectorConfigMap):
+    connector: str = "gemini_sandbox"
+    gemini_sandbox_api_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": lambda cm: "Enter your Gemini Sandbox API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    gemini_sandbox_api_secret: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": lambda cm: "Enter your Gemini Sandbox API secret",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        }
+    )
+    model_config = ConfigDict(title="gemini_sandbox")
+
+
+OTHER_DOMAINS_KEYS = {"gemini_sandbox": GeminiSandboxConfigMap.model_construct()}
