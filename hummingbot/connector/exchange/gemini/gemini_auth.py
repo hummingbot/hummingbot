@@ -27,7 +27,7 @@ class GeminiAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self._nonce_creator = NonceCreator.for_milliseconds()
+        self._nonce_creator = NonceCreator.for_seconds()
 
     def _generate_nonce(self) -> int:
         return self._nonce_creator.get_tracking_nonce()
