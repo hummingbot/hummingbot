@@ -158,7 +158,7 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         /funding-rates response (array of objects):
         [
-            {"market_id": 1, "exchange": "binance", "symbol": "BTC", "rate": 2.779e-05},
+            {"market_id": 1, "symbol": "BTC", "rate": 2.779e-05},
             ...
         ]
 
@@ -260,9 +260,22 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 self.logger().warning("Error sending ping to LIGHTER WebSocket", exc_info=True)
                 await asyncio.sleep(5.0)  # Wait before retrying
 
+    @staticmethod
+    def _market_id_from_channel(channel: str) -> Optional[int]:
+        for separator in (":", "/"):
+            if separator in channel:
+                tail = channel.rsplit(separator, 1)[-1]
+                try:
+                    return int(tail)
+                except Exception:
+                    return None
+        return None
+
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -283,7 +296,9 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -304,7 +319,9 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -327,7 +344,9 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return
 
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -359,15 +378,24 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return ""
         event_channel = str(event_message.get("channel"))
         event_type = str(event_message.get("type", ""))
-        if event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}:"):
+        if (
+            event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}:")
+            or event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}/")
+        ):
             if event_type in {"subscribed/order_book", "snapshot/order_book"}:
                 return self._snapshot_messages_queue_key
             if event_type == "update/order_book":
                 return self._diff_messages_queue_key
             return self._snapshot_messages_queue_key
-        if event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}:"):
+        if (
+            event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}:")
+            or event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}/")
+        ):
             return self._trade_messages_queue_key
-        if event_channel.startswith(f"{CONSTANTS.WS_MARKET_STATS_CHANNEL}:"):
+        if (
+            event_channel.startswith(f"{CONSTANTS.WS_MARKET_STATS_CHANNEL}:")
+            or event_channel.startswith(f"{CONSTANTS.WS_MARKET_STATS_CHANNEL}/")
+        ):
             return self._funding_info_messages_queue_key
         return ""
 

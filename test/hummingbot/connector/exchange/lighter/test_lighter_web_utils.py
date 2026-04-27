@@ -24,3 +24,15 @@ class LighterWebUtilsTests(unittest.TestCase):
         api_factory = web_utils.build_api_factory()
         self.assertIsInstance(api_factory, WebAssistantsFactory)
         self.assertIsNone(api_factory._auth)
+
+    def test_get_current_server_time(self):
+        import asyncio
+        import time
+        before = time.time()
+        result = asyncio.run(web_utils.get_current_server_time())
+        after = time.time()
+        self.assertGreaterEqual(result, before)
+        self.assertLessEqual(result, after + 1)
+
+    def test_wss_url_testnet(self):
+        self.assertEqual(CONSTANTS.TESTNET_WSS_URL, web_utils.wss_url(domain=CONSTANTS.TESTNET_DOMAIN))

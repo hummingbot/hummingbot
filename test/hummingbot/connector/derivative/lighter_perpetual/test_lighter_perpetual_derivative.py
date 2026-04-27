@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import time
 import types
@@ -7,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 
 
 def _ensure_limit_order_stub():
@@ -95,6 +97,84 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("120.11"), self.connector._account_available_balances["USDC"])
         self.assertEqual(2, self.connector._fee_tier)
 
+    async def test_update_balances_parses_short_form_keys(self):
+        mock_signer = type("MockSigner", (), {})()
+        mock_signer.create_auth_token_with_expiry = lambda api_key_index: ("test_token", None)
+        self.connector._get_lighter_signer_client = lambda: mock_signer
+        self.connector._get_api_key_index = lambda: 1
+        self.connector._api_get = AsyncMock(return_value={
+            "success": True,
+            "data": {
+                "ae": "250.75",
+                "as": "145.50",
+                "f": 1,
+            },
+        })
+
+        await self.connector._update_balances()
+
+        self.assertEqual(Decimal("250.75"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("145.50"), self.connector._account_available_balances["USDC"])
+
+    async def test_process_account_info_ws_event_message_handles_partial_short_payload(self):
+        event_message = {
+            "channel": "account_info",
+            "data": {
+                "as": "77.12",
+            },
+        }
+
+        await self.connector._process_account_info_ws_event_message(event_message)
+
+        self.assertEqual(Decimal("77.12"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("77.12"), self.connector._account_available_balances["USDC"])
+
+    async def test_process_account_info_ws_event_message_preserves_zero_available_balance(self):
+        event_message = {
+            "channel": "account_info",
+            "data": {
+                "ae": 100,
+                "as": 0,
+            },
+        }
+
+        await self.connector._process_account_info_ws_event_message(event_message)
+
+        self.assertEqual(Decimal("100"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("0"), self.connector._account_available_balances["USDC"])
+
+    async def test_process_account_all_ws_event_message_ignores_partial_top_level_balance_fields(self):
+        self.connector._account_balances["USDC"] = Decimal("100")
+        self.connector._account_available_balances["USDC"] = Decimal("95")
+        self.connector._process_account_trades_ws_event_message = AsyncMock()
+        self.connector._process_account_positions_ws_event_message = AsyncMock()
+        self.connector._process_account_all_orders_ws_event_message = AsyncMock()
+
+        # Partial payload with only total balance should not clobber existing balances.
+        event_message = {
+            "collateral": "120",
+        }
+
+        await self.connector._process_account_all_ws_event_message(event_message)
+
+        self.assertEqual(Decimal("100"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("95"), self.connector._account_available_balances["USDC"])
+
+    async def test_process_account_all_ws_event_message_preserves_zero_available_balance(self):
+        self.connector._process_account_trades_ws_event_message = AsyncMock()
+        self.connector._process_account_positions_ws_event_message = AsyncMock()
+        self.connector._process_account_all_orders_ws_event_message = AsyncMock()
+
+        event_message = {
+            "collateral": 120,
+            "available_to_spend": 0,
+        }
+
+        await self.connector._process_account_all_ws_event_message(event_message)
+
+        self.assertEqual(Decimal("120"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("0"), self.connector._account_available_balances["USDC"])
+
     def test_set_usdc_balances_replaces_stale_assets(self):
         self.connector._account_balances["BTC"] = Decimal("1")
         self.connector._account_available_balances["BTC"] = Decimal("0.5")
@@ -106,6 +186,56 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
     def test_check_network_request_path_uses_exchange_stats(self):
         self.assertEqual("/exchangeStats", self.connector.check_network_request_path)
+
+    def test_status_dict_requires_balance_fetched_once_for_trading_connectors(self):
+        trading_connector = self.connector_cls(
+            lighter_perpetual_api_key_index="1",
+            lighter_perpetual_account_index="237600",
+            lighter_perpetual_api_key_private_key="0x" + ("a" * 64),
+            trading_pairs=["BTC-USDC"],
+            trading_required=True,
+        )
+        trading_connector._account_balances["USDC"] = Decimal("10")
+        # timestamp=0 means balance never fetched → not ready
+        trading_connector._last_balance_update_timestamp = 0
+        self.assertFalse(trading_connector.status_dict["account_balance"])
+
+        # once fetched (even long ago), connector is ready
+        trading_connector._last_balance_update_timestamp = time.time() - 3600
+        self.assertTrue(trading_connector.status_dict["account_balance"])
+
+    def test_is_user_stream_initialized_requires_recent_messages(self):
+        trading_connector = self.connector_cls(
+            lighter_perpetual_api_key_index="1",
+            lighter_perpetual_account_index="237600",
+            lighter_perpetual_api_key_private_key="0x" + ("a" * 64),
+            trading_pairs=["BTC-USDC"],
+            trading_required=True,
+        )
+        trading_connector._user_stream_tracker = SimpleNamespace(
+            data_source=SimpleNamespace(last_recv_time=time.time() - 120)
+        )
+
+        self.assertFalse(trading_connector._is_user_stream_initialized())
+
+    def test_get_poll_interval_is_short_when_any_active_order_exists(self):
+        now = time.time()
+        self.connector._user_stream_tracker = SimpleNamespace(last_recv_time=now)
+        self.connector._order_tracker.active_orders["test-order"] = SimpleNamespace(position=PositionAction.OPEN)
+
+        interval = self.connector._get_poll_interval(timestamp=now)
+
+        self.assertEqual(self.connector.SHORT_POLL_INTERVAL, interval)
+
+    def test_get_poll_interval_is_short_when_open_position_exists(self):
+        now = time.time()
+        self.connector._user_stream_tracker = SimpleNamespace(last_recv_time=now)
+        self.connector._order_tracker.active_orders.clear()
+        self.connector._perpetual_trading.account_positions["HYPE-USDC-LONG"] = SimpleNamespace(amount=Decimal("0.5"))
+
+        interval = self.connector._get_poll_interval(timestamp=now)
+
+        self.assertEqual(self.connector.SHORT_POLL_INTERVAL, interval)
 
     def test_allocate_client_order_index_uses_high_range_spacing(self):
         self.connector._last_client_order_index = 0
@@ -162,17 +292,40 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         mock_signer.update_leverage = AsyncMock(return_value=(None, {"success": True}, None))
         self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
         self.connector._get_api_key_index = MagicMock(return_value=4)
+        self.connector._update_balances = AsyncMock()
 
         success, message = await self.connector._set_trading_pair_leverage("DOGE-USDC", 5)
 
         self.assertTrue(success)
         self.assertEqual("", message)
+        self.connector._update_balances.assert_awaited_once()
         mock_signer.update_leverage.assert_awaited_once_with(
             market_index=3,
             margin_mode=0,
             leverage=5,
             api_key_index=4,
         )
+
+    async def test_set_trading_pair_leverage_retries_on_transient_error(self):
+        self.connector._get_market_spec = AsyncMock(return_value=(3, 2, 2, "DOGE"))
+        mock_signer = MagicMock()
+        mock_signer.CROSS_MARGIN_MODE = 0
+        mock_signer.update_leverage = AsyncMock(side_effect=[
+            (None, None, "context deadline exceeded"),
+            (None, {"success": True}, None),
+        ])
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+        self.connector._sleep = AsyncMock()
+        self.connector._update_balances = AsyncMock()
+
+        success, message = await self.connector._set_trading_pair_leverage("DOGE-USDC", 5)
+
+        self.assertTrue(success)
+        self.assertEqual("", message)
+        self.assertEqual(2, mock_signer.update_leverage.await_count)
+        self.connector._update_balances.assert_awaited_once()
+        self.connector._sleep.assert_awaited_once()
 
     def test_get_signer_private_key_prefers_explicit_private_key(self):
         # api_key holds the signing private key when it's a hex string (not an integer index)
@@ -478,6 +631,50 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         # mapping must be populated
         self.assertEqual("123", self.connector._client_order_index_to_order_index.get("999"))
 
+    async def test_process_account_order_updates_ws_event_message_uses_client_index_when_exchange_id_missing(self):
+        # tracked order is known only by the initial client_order_index placeholder
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "999"
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "BTC-USDC"
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.all_updatable_orders = {"HBOT-1": tracked_order}
+        self.connector._order_tracker.process_order_update = MagicMock()
+
+        # WS sends only client_order_index without real exchange order id
+        await self.connector._process_account_order_updates_ws_event_message({
+            "data": [{"I": 999, "os": "canceled", "ut": 1700000000000}],
+        })
+
+        self.connector._order_tracker.process_order_update.assert_called_once()
+        order_update = self.connector._order_tracker.process_order_update.call_args.args[0]
+        self.assertEqual("HBOT-1", order_update.client_order_id)
+        self.assertEqual("999", order_update.exchange_order_id)
+
+    async def test_process_account_order_updates_ws_event_message_uses_reverse_mapping_when_client_index_missing(self):
+        # tracked order still has placeholder client_order_index as exchange_order_id
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "999"
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "BTC-USDC"
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.all_updatable_orders = {"HBOT-1": tracked_order}
+        self.connector._order_tracker.process_order_update = MagicMock()
+
+        # Pretend we learned this mapping from account_all or active-order reconciliation.
+        self.connector._client_order_index_to_client_order_id["999"] = "HBOT-1"
+        self.connector._client_order_index_to_order_index["999"] = "123"
+
+        # WS sends only i=<order_index> (I omitted/null).
+        await self.connector._process_account_order_updates_ws_event_message({
+            "data": [{"i": 123, "os": "canceled", "ut": 1700000000000}],
+        })
+
+        self.connector._order_tracker.process_order_update.assert_called_once()
+        order_update = self.connector._order_tracker.process_order_update.call_args.args[0]
+        self.assertEqual("HBOT-1", order_update.client_order_id)
+        self.assertEqual("123", order_update.exchange_order_id)
+
     async def test_resolve_exchange_order_id_matches_client_order_index(self):
         mock_signer = MagicMock()
         mock_signer.create_auth_token_with_expiry = MagicMock(return_value=("auth-token", None))
@@ -519,12 +716,14 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_updatable_orders = {}
         self.connector._order_tracker.process_order_update = MagicMock()
+        self.connector._reconcile_unmatched_private_event = AsyncMock()
 
         await self.connector._process_account_order_updates_ws_event_message({
             "data": [{"i": 123, "os": "filled", "ut": 1700000000000}],
         })
 
         self.connector._order_tracker.process_order_update.assert_not_called()
+        self.connector._reconcile_unmatched_private_event.assert_awaited_once()
 
     async def test_process_account_info_ws_event_message_updates_balances_and_fee_tier(self):
         await self.connector._process_account_info_ws_event_message({
@@ -555,6 +754,7 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector.set_LIGHTER_price("ETH-USDC", 100.0, Decimal("200"), Decimal("190"))
 
         await self.connector._process_account_positions_ws_event_message({
+            "channel": "account_positions",
             "data": [
                 {"s": "BTC", "d": "bid", "a": "0.5", "p": "100"},
                 {"s": "ETH", "d": "ask", "a": "1.2", "p": "200"},
@@ -583,9 +783,30 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
         self.connector._perpetual_trading = FakePerpetualTrading()
 
-        await self.connector._process_account_positions_ws_event_message({"data": []})
+        await self.connector._process_account_positions_ws_event_message({"channel": "account_positions", "data": []})
 
         self.assertEqual({}, self.connector._perpetual_trading.account_positions)
+
+    async def test_process_account_positions_ws_event_message_ignores_non_position_payload(self):
+        class FakePerpetualTrading:
+            def __init__(self):
+                self.account_positions = {"BTC-USDC-LONG": "existing"}
+
+            def position_key(self, trading_pair, position_side):
+                return f"{trading_pair}-{position_side.name}"
+
+            def set_position(self, key, position):
+                self.account_positions[key] = position
+
+        self.connector._perpetual_trading = FakePerpetualTrading()
+
+        # account_all update without `positions` must not clear existing snapshot
+        await self.connector._process_account_positions_ws_event_message({
+            "type": "update/account_all",
+            "data": [{"i": 123, "s": "BTC", "a": "0.2"}],
+        })
+
+        self.assertEqual({"BTC-USDC-LONG": "existing"}, self.connector._perpetual_trading.account_positions)
 
     async def test_process_account_positions_ws_event_message_handles_account_all_snapshot(self):
         class FakePerpetualTrading:
@@ -688,12 +909,14 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.connector._order_tracker = MagicMock()
         self.connector._order_tracker.all_fillable_orders = {}
         self.connector._order_tracker.process_trade_update = MagicMock()
+        self.connector._reconcile_unmatched_private_event = AsyncMock()
 
         await self.connector._process_account_trades_ws_event_message({
             "data": [{"i": 123, "p": "100", "a": "0.2", "f": "0.01", "ts": "open_long", "t": 1700000000000}],
         })
 
         self.connector._order_tracker.process_trade_update.assert_not_called()
+        self.connector._reconcile_unmatched_private_event.assert_awaited_once()
 
     async def test_process_account_trades_ws_event_message_handles_account_all_trade_update(self):
         tracked_order = MagicMock()
@@ -734,6 +957,108 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(Decimal("0.0051"), trade_update.fill_base_amount)
         self.assertEqual("16734837600", trade_update.trade_id)
 
+    async def test_process_account_trades_ws_event_message_uses_reverse_mapping_for_exchange_id(self):
+        tracked_order = MagicMock()
+        tracked_order.exchange_order_id = "999"
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "ETH-USDC"
+        tracked_order.quote_asset = "USDC"
+        tracked_order.position = PositionAction.OPEN
+        tracked_order.amount = Decimal("1")
+        tracked_order.executed_amount_base = Decimal("0")
+        tracked_order.update_exchange_order_id = MagicMock()
+
+        self.connector._client_order_index_to_client_order_id["999"] = "HBOT-1"
+        self.connector._client_order_index_to_order_index["999"] = "123"
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.all_fillable_orders = {"HBOT-1": tracked_order}
+        self.connector._order_tracker.process_trade_update = MagicMock()
+
+        await self.connector._process_account_trades_ws_event_message({
+            "data": [{
+                "i": 123,
+                "s": "ETH",
+                "p": "2000",
+                "a": "0.2",
+                "f": "0.01",
+                "ts": "open_long",
+                "t": 1700000000000,
+            }],
+        })
+
+        tracked_order.update_exchange_order_id.assert_called_once_with("123")
+        self.connector._order_tracker.process_trade_update.assert_called_once()
+        trade_update = self.connector._order_tracker.process_trade_update.call_args.args[0]
+        self.assertEqual("HBOT-1", trade_update.client_order_id)
+        self.assertEqual("123", trade_update.exchange_order_id)
+
+    async def test_execute_order_cancel_reconciles_state_before_local_terminal_mark(self):
+        tracked_order = MagicMock()
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "ETH-USDC"
+        tracked_order.exchange_order_id = "999"
+
+        self.connector._execute_order_cancel_and_process_update = AsyncMock(
+            side_effect=IOError("[_place_cancel] Cannot resolve actual order_index for client_order_index=999")
+        )
+        self.connector._request_order_status = AsyncMock(return_value=OrderUpdate(
+            trading_pair="ETH-USDC",
+            update_timestamp=1700000000,
+            new_state=OrderState.OPEN,
+            client_order_id="HBOT-1",
+            exchange_order_id="123",
+        ))
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.process_order_update = MagicMock()
+
+        result = await self.connector._execute_order_cancel(tracked_order)
+
+        self.assertIsNone(result)
+        self.connector._request_order_status.assert_awaited_once_with(tracked_order)
+        self.connector._order_tracker.process_order_update.assert_called_once()
+
+    async def test_execute_order_cancel_returns_id_when_reconciled_terminal(self):
+        tracked_order = MagicMock()
+        tracked_order.client_order_id = "HBOT-1"
+        tracked_order.trading_pair = "ETH-USDC"
+        tracked_order.exchange_order_id = "999"
+
+        self.connector._execute_order_cancel_and_process_update = AsyncMock(
+            side_effect=IOError("[_place_cancel] Cannot resolve actual order_index for client_order_index=999")
+        )
+        self.connector._request_order_status = AsyncMock(return_value=OrderUpdate(
+            trading_pair="ETH-USDC",
+            update_timestamp=1700000000,
+            new_state=OrderState.CANCELED,
+            client_order_id="HBOT-1",
+            exchange_order_id="123",
+        ))
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.process_order_update = MagicMock()
+
+        result = await self.connector._execute_order_cancel(tracked_order)
+
+        self.assertEqual("HBOT-1", result)
+        self.connector._request_order_status.assert_awaited_once_with(tracked_order)
+        self.connector._order_tracker.process_order_update.assert_called_once()
+
+    async def test_execute_order_cancel_timeout_runs_reconcile_instead_of_not_found(self):
+        tracked_order = MagicMock()
+        tracked_order.client_order_id = "HBOT-2"
+        tracked_order.trading_pair = "ETH-USDC"
+        tracked_order.exchange_order_id = None
+
+        self.connector._execute_order_cancel_and_process_update = AsyncMock(side_effect=asyncio.TimeoutError())
+        self.connector._reconcile_unmatched_private_event = AsyncMock()
+        self.connector._order_tracker = MagicMock()
+        self.connector._order_tracker.process_order_not_found = AsyncMock()
+
+        result = await self.connector._execute_order_cancel(tracked_order)
+
+        self.assertIsNone(result)
+        self.connector._reconcile_unmatched_private_event.assert_awaited_once()
+        self.connector._order_tracker.process_order_not_found.assert_not_awaited()
+
     async def test_user_stream_event_listener_routes_known_channels(self):
         async def event_iter():
             for event in [
@@ -741,6 +1066,52 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
                 {"channel": "account_positions", "data": []},
                 {"channel": "account_info", "data": {"ae": "1", "as": "1"}},
                 {"channel": "account_trades", "data": []},
+            ]:
+                yield event
+
+        self.connector._iter_user_event_queue = event_iter
+        self.connector._process_account_order_updates_ws_event_message = AsyncMock()
+        self.connector._process_account_positions_ws_event_message = AsyncMock()
+        self.connector._process_account_info_ws_event_message = AsyncMock()
+        self.connector._process_account_trades_ws_event_message = AsyncMock()
+
+        await self.connector._user_stream_event_listener()
+
+        self.connector._process_account_order_updates_ws_event_message.assert_awaited_once()
+        self.connector._process_account_positions_ws_event_message.assert_awaited_once()
+        self.connector._process_account_info_ws_event_message.assert_awaited_once()
+        self.connector._process_account_trades_ws_event_message.assert_awaited_once()
+
+    async def test_user_stream_event_listener_routes_subscribed_dedicated_events(self):
+        async def event_iter():
+            for event in [
+                {"type": "subscribed/account_order_updates", "data": []},
+                {"type": "subscribed/account_positions", "data": []},
+                {"type": "subscribed/account_info", "data": {"ae": "1", "as": "1"}},
+                {"type": "subscribed/account_trades", "data": []},
+            ]:
+                yield event
+
+        self.connector._iter_user_event_queue = event_iter
+        self.connector._process_account_order_updates_ws_event_message = AsyncMock()
+        self.connector._process_account_positions_ws_event_message = AsyncMock()
+        self.connector._process_account_info_ws_event_message = AsyncMock()
+        self.connector._process_account_trades_ws_event_message = AsyncMock()
+
+        await self.connector._user_stream_event_listener()
+
+        self.connector._process_account_order_updates_ws_event_message.assert_awaited_once()
+        self.connector._process_account_positions_ws_event_message.assert_awaited_once()
+        self.connector._process_account_info_ws_event_message.assert_awaited_once()
+        self.connector._process_account_trades_ws_event_message.assert_awaited_once()
+
+    async def test_user_stream_event_listener_routes_colon_scoped_channels(self):
+        async def event_iter():
+            for event in [
+                {"channel": "account_order_updates:237600", "data": []},
+                {"channel": "account_positions:237600", "data": []},
+                {"channel": "account_info:237600", "data": {"ae": "1", "as": "1"}},
+                {"channel": "account_trades:237600", "data": []},
             ]:
                 yield event
 
@@ -809,6 +1180,23 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
 
         # Should not error; balances remain at their defaults
         self.assertEqual({}, self.connector._account_balances)
+
+    async def test_process_account_all_ws_event_message_fallback_balance_without_assets(self):
+        event = {
+            "type": "update/account_all",
+            "channel": "account_all:237600",
+            "positions": {},
+            "trades": {},
+            "collateral": "150.75",
+            "available_balance": "120.50",
+        }
+        self.connector._process_account_trades_ws_event_message = AsyncMock()
+        self.connector._process_account_positions_ws_event_message = AsyncMock()
+
+        await self.connector._process_account_all_ws_event_message(event)
+
+        self.assertEqual(Decimal("150.75"), self.connector._account_balances["USDC"])
+        self.assertEqual(Decimal("120.50"), self.connector._account_available_balances["USDC"])
 
     async def test_user_stream_event_listener_sleeps_after_processing_error(self):
         async def event_iter():
@@ -985,6 +1373,36 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         except ValueError as exc:
             self.fail(f"NaN last_poll_timestamp must not crash: {exc}")
 
+    async def test_trade_updates_applies_time_drift_buffer_to_from_param(self):
+        from hummingbot.core.data_type.in_flight_order import InFlightOrder
+
+        mock_signer = MagicMock()
+        mock_signer.create_auth_token_with_expiry = MagicMock(return_value=("tok", 9999999999))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=mock_signer)
+        self.connector._get_api_key_index = MagicMock(return_value=4)
+        self.connector._get_market_spec = AsyncMock(return_value=(1, 3, 2, "ETH"))
+        self.connector._get_account_index = MagicMock(return_value=42)
+        self.connector._api_get = AsyncMock(return_value={"success": True, "data": [], "has_more": False})
+
+        self.connector._order_history_last_poll_timestamp["99999"] = 100.0
+        self.connector._current_timestamp = 1700000001.0
+
+        order = InFlightOrder(
+            client_order_id="HBOT-buf",
+            exchange_order_id="99999",
+            trading_pair="ETH-USDC",
+            order_type=None,
+            trade_type=None,
+            price=Decimal("2300"),
+            amount=Decimal("0.01"),
+            creation_timestamp=1700000000.0,
+        )
+
+        await self.connector._all_trade_updates_for_order(order)
+
+        api_get_call = self.connector._api_get.call_args
+        self.assertEqual(90, api_get_call.kwargs["params"]["from"])
+
     async def test_place_order_market_buy_uses_best_ask_with_slippage(self):
         """MARKET BUY order with NaN price must query best ASK (get_price(True)) and add 5% slippage."""
         from hummingbot.core.data_type.common import TradeType
@@ -1072,3 +1490,403 @@ class LighterPerpetualDerivativeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(189050, call_kwargs["price"])
         self.assertEqual(2, call_kwargs["order_type"])  # ORDER_TYPE_MARKET
         self.assertTrue(call_kwargs["reduce_only"])  # CLOSE position
+
+    # ------------------------------------------------------------------ #
+    # Additional branch coverage for missing CI lines                     #
+    # ------------------------------------------------------------------ #
+
+    def test_is_request_exception_not_time_synchronizer(self):
+        """_is_request_exception_related_to_time_synchronizer must always return False."""
+        self.assertFalse(self.connector._is_request_exception_related_to_time_synchronizer(Exception("timeout")))
+        self.assertFalse(self.connector._is_request_exception_related_to_time_synchronizer(Exception("")))
+
+    def test_is_order_not_found_status_update_error(self):
+        """_is_order_not_found_during_status_update_error must detect 'not found' messages."""
+        self.assertTrue(self.connector._is_order_not_found_during_status_update_error(
+            Exception("Order history not found for order ID: 123")))
+        self.assertFalse(self.connector._is_order_not_found_during_status_update_error(
+            Exception("Server error 500")))
+
+    def test_is_order_not_found_during_cancelation_error(self):
+        """_is_order_not_found_during_cancelation_error must detect code 5 error strings."""
+        self.assertTrue(self.connector._is_order_not_found_during_cancelation_error(
+            Exception('{"success":false,"data":null,"error":"Failed to cancel order","code":5}')))
+        self.assertFalse(self.connector._is_order_not_found_during_cancelation_error(
+            Exception('{"code":404,"error":"not found"}')))
+
+    def test_get_price_by_type_all_price_types(self):
+        """get_price_by_type must handle MidPrice, LastTrade, and unknown types (covers lines 211-222)."""
+        if not hasattr(self.connector, "get_price_by_type"):
+            self.skipTest("get_price_by_type not available in this runtime")
+
+        order_book_module = __import__("hummingbot.core.data_type.order_book", fromlist=["OrderBook"])
+        OrderBook = getattr(order_book_module, "OrderBook")
+        empty_order_book = OrderBook()
+        self.connector.get_order_book = MagicMock(return_value=empty_order_book)
+
+        # MidPrice with empty order book → NaN (both sides NaN)
+        mid = self.connector.get_price_by_type("BTC-USDC", PriceType.MidPrice)
+        self.assertTrue(mid.is_nan())
+
+        # LastTrade with no trades → NaN
+        last = self.connector.get_price_by_type("BTC-USDC", PriceType.LastTrade)
+        self.assertTrue(last.is_nan())
+
+    def test_rate_limits_rules_without_api_key_returns_base_limits(self):
+        """rate_limits_rules without api_key must return base RATE_LIMITS (covers line 406)."""
+        from hummingbot.connector.derivative.lighter_perpetual import lighter_perpetual_constants as CONSTANTS
+        self.connector.api_key = ""
+        rules = self.connector.rate_limits_rules
+        self.assertEqual(CONSTANTS.RATE_LIMITS, rules)
+
+    async def test_format_trading_rules_with_data_fallback_path(self):
+        """_format_trading_rules must handle legacy 'data' key format (covers lines 732-753)."""
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="BTC-USDC")
+        exchange_info = {
+            "data": [
+                {
+                    "symbol": "BTC",
+                    "lot_size": "0.001",
+                    "tick_size": "0.01",
+                    "min_order_size": "10",
+                },
+            ]
+        }
+        rules = await self.connector._format_trading_rules(exchange_info)
+        self.assertEqual(1, len(rules))
+        self.assertEqual(Decimal("0.001"), rules[0].min_order_size)
+        self.assertEqual(Decimal("0.01"), rules[0].min_price_increment)
+        self.assertEqual(Decimal("10"), rules[0].min_notional_size)
+
+    async def test_format_trading_rules_skips_non_perp_markets(self):
+        """_format_trading_rules must skip non-perp order_books entries (covers lines 704-708)."""
+        self.connector.trading_pair_associated_to_exchange_symbol = AsyncMock(return_value="ETH-USDC")
+        exchange_info = {
+            "order_books": [
+                {"symbol": "BTC", "market_type": "spot", "market_id": 1,
+                 "supported_size_decimals": 3, "supported_price_decimals": 2, "min_quote_amount": "10"},
+                {"symbol": "ETH", "market_type": "perp", "market_id": 2,
+                 "supported_size_decimals": 2, "supported_price_decimals": 2, "min_quote_amount": "5"},
+            ]
+        }
+        rules = await self.connector._format_trading_rules(exchange_info)
+        # Only the perp market should produce a rule
+        self.assertEqual(1, len(rules))
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _index_client_to_order_mapping_from_rows
+    # ---------------------------------------------------------------------------
+
+    def test_index_client_to_order_mapping_skips_rows_with_empty_oid_or_cid(self):
+        """Rows without both oid and cid must be skipped; valid rows must be stored."""
+        self.connector._client_order_index_to_order_index.clear()
+        rows = [
+            {"order_id": "42", "client_order_id": ""},      # empty cid → skip
+            {"order_id": "", "client_order_id": "cid0"},    # empty oid → skip
+            {},                                              # both empty → skip
+            {"order_id": "43", "client_order_id": "cid1"},  # valid → store
+        ]
+        self.connector._index_client_to_order_mapping_from_rows(rows)
+        self.assertEqual({"cid1": "43"}, self.connector._client_order_index_to_order_index)
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _refresh_account_state
+    # ---------------------------------------------------------------------------
+
+    async def test_refresh_account_state_calls_updates_when_requested(self):
+        """_refresh_account_state must call _update_positions and _update_balances when flags are True."""
+        with patch.object(self.connector, "_update_positions", new=AsyncMock()) as mock_pos, \
+             patch.object(self.connector, "_update_balances", new=AsyncMock()) as mock_bal:
+            await self.connector._refresh_account_state("test", refresh_positions=True, refresh_balances=True)
+            mock_pos.assert_called_once()
+            mock_bal.assert_called_once()
+
+    async def test_refresh_account_state_swallows_exceptions(self):
+        """_refresh_account_state must not propagate exceptions from sub-calls."""
+        with patch.object(self.connector, "_update_positions", new=AsyncMock(side_effect=IOError("fail"))), \
+             patch.object(self.connector, "_update_balances", new=AsyncMock(side_effect=IOError("fail2"))):
+            # Should not raise
+            await self.connector._refresh_account_state("err", refresh_positions=True, refresh_balances=True)
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _reconcile_unmatched_private_event
+    # ---------------------------------------------------------------------------
+
+    async def test_reconcile_unmatched_private_event_respects_cooldown(self):
+        """Second call within 2 s must be a no-op."""
+        import time
+        self.connector._last_unmatched_private_event_reconcile_ts = time.time()
+        with patch.object(self.connector, "_update_order_status", new=AsyncMock()) as mock_s, \
+             patch.object(self.connector, "_update_positions", new=AsyncMock()) as mock_p, \
+             patch.object(self.connector, "_update_balances", new=AsyncMock()) as mock_b:
+            await self.connector._reconcile_unmatched_private_event("test")
+            mock_s.assert_not_called()
+            mock_p.assert_not_called()
+            mock_b.assert_not_called()
+
+    async def test_reconcile_unmatched_private_event_runs_after_cooldown_expires(self):
+        """Call after cooldown must invoke update methods."""
+        self.connector._last_unmatched_private_event_reconcile_ts = 0.0
+        with patch.object(self.connector, "_update_order_status", new=AsyncMock()) as mock_s, \
+             patch.object(self.connector, "_update_positions", new=AsyncMock()) as mock_p, \
+             patch.object(self.connector, "_update_balances", new=AsyncMock()) as mock_b:
+            await self.connector._reconcile_unmatched_private_event("old")
+            mock_s.assert_called_once()
+            mock_p.assert_called_once()
+            mock_b.assert_called_once()
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _prime_active_orders_snapshot_cache_for_poll_cycle
+    # ---------------------------------------------------------------------------
+
+    async def test_prime_active_orders_snapshot_skips_when_cycle_not_active(self):
+        """Must return immediately when _status_poll_cycle_active is False."""
+        self.connector._status_poll_cycle_active = False
+        self.connector._get_market_spec = AsyncMock()
+        await self.connector._prime_active_orders_snapshot_cache_for_poll_cycle()
+        self.connector._get_market_spec.assert_not_called()
+
+    async def test_prime_active_orders_snapshot_stores_rows_and_updates_mapping(self):
+        """Active cycle must fetch rows, store them, and build the order-index mapping."""
+        self.connector._status_poll_cycle_active = True
+        rows = [{"order_id": "55", "client_order_id": "cid55"}]
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._fetch_active_orders_rows_for_market = AsyncMock(return_value=rows)
+        self.connector._client_order_index_to_order_index.clear()
+        await self.connector._prime_active_orders_snapshot_cache_for_poll_cycle()
+        self.assertIn(7, self.connector._active_orders_snapshot_by_market)
+        self.assertEqual(rows, self.connector._active_orders_snapshot_by_market[7])
+        self.assertIn(7, self.connector._active_orders_snapshot_market_complete)
+        self.assertEqual("55", self.connector._client_order_index_to_order_index.get("cid55"))
+
+    async def test_prime_active_orders_snapshot_skips_already_fetched_market(self):
+        """Market already in _active_orders_snapshot_market_complete must not be fetched again."""
+        self.connector._status_poll_cycle_active = True
+        self.connector._active_orders_snapshot_market_complete.add(7)
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._fetch_active_orders_rows_for_market = AsyncMock()
+        await self.connector._prime_active_orders_snapshot_cache_for_poll_cycle()
+        self.connector._fetch_active_orders_rows_for_market.assert_not_called()
+
+    async def test_prime_active_orders_snapshot_logs_warning_on_exception(self):
+        """Exceptions must be caught and logged; must not propagate."""
+        self.connector._status_poll_cycle_active = True
+        self.connector._get_market_spec = AsyncMock(side_effect=RuntimeError("network error"))
+        # Should not raise
+        await self.connector._prime_active_orders_snapshot_cache_for_poll_cycle()
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _status_polling_loop_fetch_updates
+    # ---------------------------------------------------------------------------
+
+    async def test_status_polling_loop_with_account_data_applies_balances(self):
+        """When account snapshot succeeds the balances and positions must be applied."""
+        account_data = {"account_equity": "1000", "available_to_spend": "800"}
+        with patch.object(self.connector, "_fetch_account_snapshot_data", new=AsyncMock(return_value=account_data)), \
+             patch.object(self.connector, "_apply_balances_from_account_data") as mock_apply, \
+             patch.object(self.connector, "_update_positions", new=AsyncMock()) as mock_pos, \
+             patch.object(self.connector, "_prime_active_orders_snapshot_cache_for_poll_cycle", new=AsyncMock()), \
+             patch.object(self.connector, "_update_order_status", new=AsyncMock()) as mock_status:
+            await self.connector._status_polling_loop_fetch_updates()
+            mock_apply.assert_called_once_with(account_data=account_data)
+            mock_pos.assert_called_once()
+            mock_status.assert_called_once()
+        # Poll cycle must be ended after completion
+        self.assertFalse(self.connector._status_poll_cycle_active)
+
+    async def test_status_polling_loop_falls_back_when_snapshot_fails(self):
+        """When account snapshot raises, balances/positions must be fetched independently."""
+        with patch.object(self.connector, "_fetch_account_snapshot_data", new=AsyncMock(side_effect=IOError("fail"))), \
+             patch.object(self.connector, "_update_positions", new=AsyncMock()) as mock_pos, \
+             patch.object(self.connector, "_update_balances", new=AsyncMock()) as mock_bal, \
+             patch.object(self.connector, "_prime_active_orders_snapshot_cache_for_poll_cycle", new=AsyncMock()), \
+             patch.object(self.connector, "_update_order_status", new=AsyncMock()):
+            await self.connector._status_polling_loop_fetch_updates()
+            mock_pos.assert_called()
+            mock_bal.assert_called()
+        self.assertFalse(self.connector._status_poll_cycle_active)
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _update_orders (rescue fill on FILLED order)
+    # ---------------------------------------------------------------------------
+
+    async def test_update_orders_rescue_fill_on_newly_filled_order(self):
+        """_update_orders must call _all_trade_updates_for_order when order is FILLED with no fills yet."""
+        from hummingbot.core.data_type.in_flight_order import TradeUpdate
+
+        mock_order = MagicMock()
+        mock_order.client_order_id = "test-order-1"
+        mock_order.is_done = False
+        mock_order.executed_amount_base = Decimal("0")
+        mock_order.amount = Decimal("1")
+
+        filled_update = OrderUpdate(
+            trading_pair="BTC-USDC",
+            update_timestamp=1234567890.0,
+            new_state=OrderState.FILLED,
+            client_order_id="test-order-1",
+            exchange_order_id="42",
+        )
+        fill_update = MagicMock(spec=TradeUpdate)
+
+        mock_tracker = MagicMock()
+        mock_tracker.active_orders = {"test-order-1": mock_order}
+        self.connector._order_tracker = mock_tracker
+        self.connector._request_order_status = AsyncMock(return_value=filled_update)
+        self.connector._all_trade_updates_for_order = AsyncMock(return_value=[fill_update])
+
+        await self.connector._update_orders()
+
+        self.connector._all_trade_updates_for_order.assert_called_once_with(mock_order)
+        mock_tracker.process_trade_update.assert_called_once_with(fill_update)
+        mock_tracker.process_order_update.assert_called_once_with(filled_update)
+
+    async def test_update_orders_rescue_fill_handles_exception(self):
+        """Exception in _all_trade_updates_for_order must be swallowed."""
+        mock_order = MagicMock()
+        mock_order.client_order_id = "test-order-2"
+        mock_order.is_done = False
+        mock_order.executed_amount_base = Decimal("0")
+        mock_order.amount = Decimal("1")
+
+        filled_update = OrderUpdate(
+            trading_pair="BTC-USDC",
+            update_timestamp=1234567890.0,
+            new_state=OrderState.FILLED,
+            client_order_id="test-order-2",
+            exchange_order_id="43",
+        )
+
+        mock_tracker = MagicMock()
+        mock_tracker.active_orders = {"test-order-2": mock_order}
+        self.connector._order_tracker = mock_tracker
+        self.connector._request_order_status = AsyncMock(return_value=filled_update)
+        self.connector._all_trade_updates_for_order = AsyncMock(side_effect=IOError("trades api down"))
+
+        await self.connector._update_orders()
+
+        mock_tracker.process_order_update.assert_called_once_with(filled_update)
+
+    async def test_update_orders_raises_on_cancelled_error(self):
+        """asyncio.CancelledError from _request_order_status must propagate."""
+        mock_order = MagicMock()
+        mock_order.client_order_id = "test-order-3"
+
+        mock_tracker = MagicMock()
+        mock_tracker.active_orders = {"test-order-3": mock_order}
+        self.connector._order_tracker = mock_tracker
+        self.connector._request_order_status = AsyncMock(side_effect=asyncio.CancelledError())
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.connector._update_orders()
+
+    async def test_update_orders_handles_general_exception_via_error_handler(self):
+        """Non-CancelledError exceptions must be passed to _handle_update_error_for_active_order."""
+        mock_order = MagicMock()
+        mock_order.client_order_id = "test-order-4"
+
+        mock_tracker = MagicMock()
+        mock_tracker.active_orders = {"test-order-4": mock_order}
+        self.connector._order_tracker = mock_tracker
+        self.connector._request_order_status = AsyncMock(side_effect=RuntimeError("boom"))
+        self.connector._handle_update_error_for_active_order = AsyncMock()
+
+        await self.connector._update_orders()
+
+        self.connector._handle_update_error_for_active_order.assert_called_once()
+
+    # ---------------------------------------------------------------------------
+    # Coverage boost: _request_order_status
+    # ---------------------------------------------------------------------------
+
+    async def test_request_order_status_returns_open_when_active_order_found(self):
+        """When active order lookup succeeds, state must be OPEN with real exchange_order_id."""
+        mock_order = MagicMock()
+        mock_order.exchange_order_id = "client-idx-999"
+        mock_order.trading_pair = "BTC-USDC"
+        mock_order.client_order_id = "cid-1"
+
+        self.connector._client_order_index_to_order_index = {}
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._resolve_order_index_from_active_orders = AsyncMock(return_value="12345")
+        self.connector._current_timestamp = 1234567890.0
+
+        result = await self.connector._request_order_status(mock_order)
+
+        self.assertEqual(OrderState.OPEN, result.new_state)
+        self.assertEqual("12345", result.exchange_order_id)
+        self.assertEqual("cid-1", result.client_order_id)
+
+    async def test_request_order_status_returns_canceled_when_not_in_history(self):
+        """When order is not active and not found in history, state must be CANCELED."""
+        mock_order = MagicMock()
+        mock_order.exchange_order_id = "client-idx-999"
+        mock_order.trading_pair = "BTC-USDC"
+        mock_order.client_order_id = "cid-missing"
+
+        self.connector._client_order_index_to_order_index = {}
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._resolve_order_index_from_active_orders = AsyncMock(return_value=None)
+        self.connector._current_timestamp = 1234567890.0
+
+        signer_mock = MagicMock()
+        signer_mock.create_auth_token_with_expiry = MagicMock(return_value=("tok", None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=signer_mock)
+        self.connector._get_account_index = MagicMock(return_value=237600)
+        self.connector._get_api_key_index = MagicMock(return_value=1)
+        # Return history with a different order → not matched
+        self.connector._api_get = AsyncMock(return_value={
+            "data": [{"order_id": "100", "client_order_id": "other-cid", "order_status": "cancelled"}]
+        })
+
+        result = await self.connector._request_order_status(mock_order)
+
+        self.assertEqual(OrderState.CANCELED, result.new_state)
+
+    async def test_request_order_status_returns_status_from_history_when_found(self):
+        """When order found in history, state must match the raw order_status field."""
+        mock_order = MagicMock()
+        mock_order.exchange_order_id = "100"
+        mock_order.trading_pair = "BTC-USDC"
+        mock_order.client_order_id = "cid-found"
+
+        self.connector._client_order_index_to_order_index = {"100": "100"}
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._resolve_order_index_from_active_orders = AsyncMock(return_value=None)
+        self.connector._current_timestamp = 1234567890.0
+
+        signer_mock = MagicMock()
+        signer_mock.create_auth_token_with_expiry = MagicMock(return_value=("tok", None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=signer_mock)
+        self.connector._get_account_index = MagicMock(return_value=237600)
+        self.connector._get_api_key_index = MagicMock(return_value=1)
+        self.connector._api_get = AsyncMock(return_value={
+            "data": [{"order_id": "100", "client_order_id": "cid-found", "order_status": "cancelled"}]
+        })
+
+        result = await self.connector._request_order_status(mock_order)
+
+        self.assertEqual(OrderState.CANCELED, result.new_state)
+        self.assertEqual("100", result.exchange_order_id)
+
+    async def test_request_order_status_raises_when_history_returns_empty_data(self):
+        """When history response has no data, IOError must be raised."""
+        mock_order = MagicMock()
+        mock_order.exchange_order_id = "999"
+        mock_order.trading_pair = "BTC-USDC"
+        mock_order.client_order_id = "cid-empty"
+
+        self.connector._client_order_index_to_order_index = {}
+        self.connector._get_market_spec = AsyncMock(return_value=(7, 3, 2, "BTC"))
+        self.connector._resolve_order_index_from_active_orders = AsyncMock(return_value=None)
+        self.connector._current_timestamp = 1234567890.0
+
+        signer_mock = MagicMock()
+        signer_mock.create_auth_token_with_expiry = MagicMock(return_value=("tok", None))
+        self.connector._get_lighter_signer_client = MagicMock(return_value=signer_mock)
+        self.connector._get_account_index = MagicMock(return_value=237600)
+        self.connector._get_api_key_index = MagicMock(return_value=1)
+        self.connector._api_get = AsyncMock(return_value={"data": []})
+
+        with self.assertRaises(IOError):
+            await self.connector._request_order_status(mock_order)

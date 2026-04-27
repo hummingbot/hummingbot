@@ -54,14 +54,43 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             if message.get("type") != "connected":
                 raise IOError("Private websocket connection did not acknowledge the session")
 
-            account_all_payload = {
-                "type": "subscribe",
-                "channel": f"{CONSTANTS.WS_ACCOUNT_ALL_CHANNEL}/{self._auth.user_wallet_public_key}",
+            # Some environments emit private events for different account identifiers
+            # (account index, wallet/public key, api key index). Subscribe to all known
+            # candidates and both delimiter styles to avoid missing manual exchange updates.
+            account_identifiers = {
+                str(self._auth.user_wallet_public_key),
+                str(getattr(self._connector, "account_index", "") or ""),
+                str(getattr(self._connector, "api_key_index", "") or ""),
             }
+            account_identifiers.discard("")
 
-            await websocket_assistant.send(WSJSONRequest(account_all_payload))
+            channels = (
+                CONSTANTS.WS_ACCOUNT_ALL_CHANNEL,
+                CONSTANTS.WS_ACCOUNT_ORDER_UPDATES_CHANNEL,
+                CONSTANTS.WS_ACCOUNT_POSITIONS_CHANNEL,
+                CONSTANTS.WS_ACCOUNT_TRADES_CHANNEL,
+                CONSTANTS.WS_ACCOUNT_INFO_CHANNEL,
+            )
 
-            self.logger().info("Subscribed to private account channel")
+            sent_channels = set()
+            for account_identifier in account_identifiers:
+                for channel_const in channels:
+                    for channel in (f"{channel_const}/{account_identifier}", f"{channel_const}:{account_identifier}"):
+                        if channel in sent_channels:
+                            continue
+                        await websocket_assistant.send(WSJSONRequest({
+                            "type": "subscribe",
+                            "channel": channel,
+                        }))
+                        sent_channels.add(channel)
+
+            # Also subscribe to the dedicated per-type channels so each event type
+            # arrives independently via its own channel subscription.
+            self.logger().info(
+                "Subscribed to private account channels for identifiers=%s (%d subscriptions)",
+                sorted(account_identifiers),
+                len(sent_channels),
+            )
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -76,10 +105,25 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 continue
             await self._process_event_message(event_message=data, queue=queue)
 
+    _ACCEPTED_CHANNEL_PREFIXES = (
+        "account_all",
+        "account_order_updates",
+        "account_positions",
+        "account_trades",
+        "account_info",
+    )
+
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        message_type = event_message.get("type")
+        message_type = str(event_message.get("type", ""))
         channel = str(event_message.get("channel", ""))
-        if message_type in {"subscribed/account_all", "update/account_all"} or channel.startswith(f"{CONSTANTS.WS_ACCOUNT_ALL_CHANNEL}:"):
+        event_type_name = message_type.split("/", 1)[1] if "/" in message_type else message_type
+        # Forward account_all messages (subscribed/update variants) AND all dedicated channel messages.
+        if (
+            event_type_name in self._ACCEPTED_CHANNEL_PREFIXES
+            or "account_all" in message_type
+            or any(channel.startswith(f"{prefix}/") or channel.startswith(f"{prefix}:") for prefix in self._ACCEPTED_CHANNEL_PREFIXES)
+            or channel in self._ACCEPTED_CHANNEL_PREFIXES
+        ):
             queue.put_nowait(event_message)
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):

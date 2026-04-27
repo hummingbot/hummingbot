@@ -228,6 +228,27 @@ class LighterPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCa
         self.assertEqual([("100", "1")], message.content["bids"])
         self.assertEqual([("101", "2")], message.content["asks"])
 
+    async def test_parse_order_book_snapshot_message_supports_slash_channel(self):
+        queue = asyncio.Queue()
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+
+        await self.data_source._parse_order_book_snapshot_message(
+            {
+                "channel": "order_book/1001",
+                "type": "subscribed/order_book",
+                "timestamp": 1700000000000,
+                "order_book": {
+                    "nonce": 123,
+                    "bids": [{"price": "100", "size": "1"}],
+                    "asks": [{"price": "101", "size": "2"}],
+                },
+            },
+            queue,
+        )
+
+        message = queue.get_nowait()
+        self.assertEqual("BTC-USDC", message.content["trading_pair"])
+
     async def test_parse_trade_message_emits_buy_and_sell_messages(self):
         queue = asyncio.Queue()
         self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
@@ -250,6 +271,24 @@ class LighterPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCa
         self.assertEqual(2.0, sell_message.content["trade_type"])
         self.assertEqual("0.1", buy_message.content["amount"])
         self.assertEqual("99", sell_message.content["price"])
+
+    async def test_parse_trade_message_supports_slash_channel(self):
+        queue = asyncio.Queue()
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+
+        await self.data_source._parse_trade_message(
+            {
+                "channel": "trade/1001",
+                "timestamp": 1700000000000,
+                "trades": [
+                    {"price": "100", "size": "0.1", "is_maker_ask": True, "nonce": 1},
+                ],
+            },
+            queue,
+        )
+
+        message = queue.get_nowait()
+        self.assertEqual("BTC-USDC", message.content["trading_pair"])
 
     async def test_parse_funding_info_message_updates_queue_and_cached_prices(self):
         queue = asyncio.Queue()
@@ -283,6 +322,28 @@ class LighterPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCa
             mark_price=Decimal("101"),
         )
 
+    async def test_parse_funding_info_message_supports_slash_channel(self):
+        queue = asyncio.Queue()
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+
+        await self.data_source._parse_funding_info_message(
+            {
+                "channel": "market_stats/1001",
+                "timestamp": 1700000000000,
+                "market_stats": {
+                    "symbol": "BTC",
+                    "index_price": "100",
+                    "mark_price": "101",
+                    "current_funding_rate": "0.0001",
+                    "funding_timestamp": 1700003600000,
+                },
+            },
+            queue,
+        )
+
+        update = queue.get_nowait()
+        self.assertEqual("BTC-USDC", update.trading_pair)
+
     def test_channel_originating_message_routes_known_channels(self):
         # Snapshot on initial subscription
         self.assertEqual(
@@ -301,6 +362,18 @@ class LighterPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCa
         self.assertEqual(
             self.data_source._funding_info_messages_queue_key,
             self.data_source._channel_originating_message({"channel": "market_stats:1", "type": "update/market_stats"}),
+        )
+        self.assertEqual(
+            self.data_source._snapshot_messages_queue_key,
+            self.data_source._channel_originating_message({"channel": "order_book/1", "type": "subscribed/order_book"}),
+        )
+        self.assertEqual(
+            self.data_source._trade_messages_queue_key,
+            self.data_source._channel_originating_message({"channel": "trade/1", "type": "update/trade"}),
+        )
+        self.assertEqual(
+            self.data_source._funding_info_messages_queue_key,
+            self.data_source._channel_originating_message({"channel": "market_stats/1", "type": "update/market_stats"}),
         )
         self.assertEqual("", self.data_source._channel_originating_message({"channel": "other"}))
         self.assertEqual("", self.data_source._channel_originating_message({}))

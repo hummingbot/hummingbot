@@ -533,8 +533,6 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                                 if o.client_order_id not in self._exit_orders.keys()]
         ask_price = market.get_price(self.trading_pair, True)
         bid_price = market.get_price(self.trading_pair, False)
-        if ask_price.is_nan() or bid_price.is_nan():
-            return None
         buys = []
         sells = []
 
@@ -589,8 +587,6 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         market: DerivativeBase = self._market_info.market
         top_ask = market.get_price(self.trading_pair, False)
         top_bid = market.get_price(self.trading_pair, True)
-        if top_ask.is_nan() or top_bid.is_nan():
-            return None
         buys = []
         sells = []
 

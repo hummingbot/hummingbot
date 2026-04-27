@@ -67,3 +67,13 @@ class LighterPerpetualWebUtilsTests(unittest.TestCase):
         constants, _ = _load_web_utils_module()
         tier_2_limit_ids = {limit.limit_id for limit in constants.RATE_LIMITS_TIER_2}
         self.assertIn(constants.EXCHANGE_INFO_PATH_URL, tier_2_limit_ids)
+
+    def test_get_current_server_time(self):
+        import asyncio
+        import time
+        _, web_utils = _load_web_utils_module()
+        before = time.time()
+        result = asyncio.run(web_utils.get_current_server_time())
+        after = time.time()
+        self.assertGreaterEqual(result, before)
+        self.assertLessEqual(result, after + 1)

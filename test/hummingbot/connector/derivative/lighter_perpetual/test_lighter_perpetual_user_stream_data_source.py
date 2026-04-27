@@ -101,13 +101,22 @@ class LighterPerpetualUserStreamDataSourceTests(unittest.IsolatedAsyncioTestCase
 
     async def test_subscribe_channels_sends_all_private_subscriptions(self):
         self.ws_assistant.receive = AsyncMock(return_value=SimpleNamespace(data={"type": "connected"}))
+        self.connector.account_index = "237600"
+        self.connector.api_key_index = "1"
+        self.auth.user_wallet_public_key = "0xabc"
 
         await self.data_source._subscribe_channels(self.ws_assistant)
 
         self.ws_assistant.receive.assert_awaited_once()
-        self.assertEqual(1, self.ws_assistant.send.await_count)
-        payload = self.ws_assistant.send.call_args.args[0].payload
-        self.assertEqual({"type": "subscribe", "channel": "account_all/237600"}, payload)
+        # 3 identifiers * 5 channels * 2 delimiters
+        self.assertEqual(30, self.ws_assistant.send.await_count)
+        sent_payloads = [call.args[0].payload for call in self.ws_assistant.send.await_args_list]
+        self.assertIn({"type": "subscribe", "channel": "account_all/0xabc"}, sent_payloads)
+        self.assertIn({"type": "subscribe", "channel": "account_all:0xabc"}, sent_payloads)
+        self.assertIn({"type": "subscribe", "channel": "account_positions/237600"}, sent_payloads)
+        self.assertIn({"type": "subscribe", "channel": "account_positions:237600"}, sent_payloads)
+        self.assertIn({"type": "subscribe", "channel": "account_trades/1"}, sent_payloads)
+        self.assertIn({"type": "subscribe", "channel": "account_trades:1"}, sent_payloads)
 
     async def test_subscribe_channels_raises_when_connected_message_missing(self):
         self.ws_assistant.receive = AsyncMock(return_value=SimpleNamespace(data={"type": "unexpected"}))
@@ -197,6 +206,16 @@ class LighterPerpetualUserStreamDataSourceTests(unittest.IsolatedAsyncioTestCase
         output = asyncio.Queue()
         await self.data_source._process_event_message({}, output)
         self.assertTrue(output.empty())
+
+    async def test_process_event_message_queues_type_only_dedicated_updates(self):
+        output = asyncio.Queue()
+        event = {"type": "update/account_order_updates", "data": [{"i": 1, "os": "cancelled"}]}
+
+        await self.data_source._process_event_message(event, output)
+
+        self.assertFalse(output.empty())
+        queued = output.get_nowait()
+        self.assertEqual("update/account_order_updates", queued["type"])
 
     async def test_listen_for_user_stream_connection_failed(self):
         self.data_source._connected_websocket_assistant = AsyncMock(side_effect=[ConnectionError("closed"), asyncio.CancelledError()])

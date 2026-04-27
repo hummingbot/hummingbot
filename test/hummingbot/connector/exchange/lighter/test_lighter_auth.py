@@ -33,3 +33,19 @@ class LighterAuthTests(TestCase):
 
         self.assertEqual("1", authed_request.headers["X-Test"])
         self.assertEqual("test-api-key", authed_request.headers["X-Api-Key"])
+
+    def test_ws_authenticate_returns_request_unchanged(self):
+        from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+        ws_request = WSJSONRequest(payload={"type": "subscribe"})
+        result = self.async_run_with_timeout(self.auth.ws_authenticate(request=ws_request))
+        self.assertIs(ws_request, result)
+
+    def test_rest_authenticate_without_api_key_does_not_inject_key_header(self):
+        auth_no_key = __import__(
+            "hummingbot.connector.exchange.lighter.lighter_auth",
+            fromlist=["LighterAuth"],
+        ).LighterAuth(api_key="", api_secret="", account_identifier="")
+        from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+        request = RESTRequest(method=RESTMethod.GET, url="https://test.url", is_auth_required=True)
+        authed = self.async_run_with_timeout(auth_no_key.rest_authenticate(request=request))
+        self.assertNotIn("X-Api-Key", authed.headers)

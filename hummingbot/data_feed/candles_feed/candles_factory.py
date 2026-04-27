@@ -27,6 +27,8 @@ from hummingbot.data_feed.candles_feed.hyperliquid_spot_candles.hyperliquid_spot
 from hummingbot.data_feed.candles_feed.kraken_spot_candles.kraken_spot_candles import KrakenSpotCandles
 from hummingbot.data_feed.candles_feed.kucoin_perpetual_candles.kucoin_perpetual_candles import KucoinPerpetualCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
+from hummingbot.data_feed.candles_feed.lighter_perpetual_candles import LighterPerpetualCandles
+from hummingbot.data_feed.candles_feed.lighter_spot_candles import LighterSpotCandles
 from hummingbot.data_feed.candles_feed.mexc_perpetual_candles.mexc_perpetual_candles import MexcPerpetualCandles
 from hummingbot.data_feed.candles_feed.mexc_spot_candles.mexc_spot_candles import MexcSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
@@ -71,6 +73,8 @@ class CandlesFactory:
         "bybit_perpetual": BybitPerpetualCandles,
         "hyperliquid": HyperliquidSpotCandles,
         "hyperliquid_perpetual": HyperliquidPerpetualCandles,
+        "lighter": LighterSpotCandles,
+        "lighter_perpetual": LighterPerpetualCandles,
         "dexalot": DexalotSpotCandles,
         "evedex_perpetual": EvedexPerpetualCandles,
         "bitmart_perpetual": BitmartPerpetualCandles,
