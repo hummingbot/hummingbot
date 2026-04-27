@@ -456,7 +456,7 @@ class GeminiExchange(ExchangePyBase):
 
         account_info = await self._api_post(
             path_url=CONSTANTS.BALANCES_PATH_URL,
-            data={},
+            data={"account": CONSTANTS.DEFAULT_ACCOUNT},
             is_auth_required=True)
 
         if account_info:

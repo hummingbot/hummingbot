@@ -17,6 +17,9 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 MAX_ORDER_ID_LEN = 100
 HBOT_ORDER_ID_PREFIX = "HBOT-"
 
+# Default account name for API requests
+DEFAULT_ACCOUNT = "primary"
+
 # REST API paths
 SYMBOLS_PATH_URL = "/v1/symbols"
 SYMBOL_DETAILS_PATH_URL = "/v1/symbols/details/{symbol}"
