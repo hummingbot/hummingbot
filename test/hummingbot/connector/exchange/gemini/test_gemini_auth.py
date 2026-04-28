@@ -112,10 +112,11 @@ class TestGeminiAuth(unittest.IsolatedAsyncioTestCase):
         self.assertIn("X-GEMINI-SIGNATURE", headers)
         self.assertEqual(headers["X-GEMINI-APIKEY"], self.api_key)
 
-        # Verify payload is a valid base64 string that decodes to a nonce string
+        # Payload is base64(JSON({"request": <path>, "nonce": <int>}))
         b64_payload = headers["X-GEMINI-PAYLOAD"]
-        decoded_nonce = base64.b64decode(b64_payload).decode("utf-8")
-        self.assertTrue(decoded_nonce.isdigit())
+        decoded = json.loads(base64.b64decode(b64_payload).decode("utf-8"))
+        self.assertEqual(decoded["request"], "/v1/order/events")
+        self.assertIsInstance(decoded["nonce"], int)
 
         # Verify signature
         expected_sig = hmac.new(

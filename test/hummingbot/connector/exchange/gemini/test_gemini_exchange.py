@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.gemini.gemini_exchange import GeminiExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
@@ -63,6 +63,7 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 "min_order_size": "0.00001",
                 "status": "open",
                 "wrap_enabled": False,
+                "product_type": "spot",
             }
         ]
 
@@ -91,6 +92,7 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "min_order_size": "0.00001",
             "status": "closed",
             "wrap_enabled": False,
+            "product_type": "spot",
         }
         return "INVALID-PAIR", [valid, invalid]
 

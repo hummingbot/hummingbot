@@ -19,10 +19,13 @@ DEFAULT_FEES = TradeFeeSchema(
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information.
-    Gemini returns status "open" for active pairs.
+    Gemini returns status "open" for active pairs. Perpetual swaps share base/quote with
+    their spot counterparts (e.g. AVAXGUSD vs AVAXGUSDPERP), so we restrict to product_type "spot".
     """
-    status = exchange_info.get("status", "")
-    return status == "open"
+    return (
+        exchange_info.get("status", "") == "open"
+        and exchange_info.get("product_type", "") == "spot"
+    )
 
 
 class GeminiConfigMap(BaseConnectorConfigMap):
