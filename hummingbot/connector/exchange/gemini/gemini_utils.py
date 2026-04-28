@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 from pydantic import ConfigDict, Field, SecretStr
 
@@ -15,6 +15,14 @@ DEFAULT_FEES = TradeFeeSchema(
     buy_percent_fee_deducted_from_returns=False
 )
 
+# Quote currencies Gemini lists pairs against. Order matters for split heuristic:
+# longest first to prefer multi-char quotes, but USD-prefixed bases (USDC, GUSD…)
+# are peeled separately below to avoid mis-splitting symbols like "usdcusd".
+_KNOWN_QUOTES = ("USDT", "USDC", "GUSD", "EUR", "GBP", "SGD", "USD", "BTC", "ETH", "FIL", "JPY", "KRW")
+_QUOTES_LONGEST_FIRST = tuple(sorted(_KNOWN_QUOTES, key=len, reverse=True))
+# Bases whose ticker contains "USD" — peeled as base before quote matching.
+_USD_PREFIX_BASES = ("RLUSD", "PYUSD", "FDUSD", "BUSD", "USDC", "USDT", "GUSD", "PAXG", "FRAX", "LUSD")
+
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
@@ -26,6 +34,24 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
         exchange_info.get("status", "") == "open"
         and exchange_info.get("product_type", "") == "spot"
     )
+
+
+def split_gemini_symbol(symbol: str) -> Optional[Tuple[str, str]]:
+    """
+    Best-effort split of a Gemini symbol string ("btcusd", "usdcusd", "avaxgusd")
+    into (base, quote). Used for the bulk /v1/symbols path which only returns names.
+    Returns None for symbols that can't be confidently split.
+    """
+    s = symbol.upper()
+    for prefix in _USD_PREFIX_BASES:
+        if s.startswith(prefix):
+            tail = s[len(prefix):]
+            if tail in _KNOWN_QUOTES:
+                return prefix, tail
+    for q in _QUOTES_LONGEST_FIRST:
+        if s.endswith(q) and len(s) - len(q) >= 2:
+            return s[: -len(q)], q
+    return None
 
 
 class GeminiConfigMap(BaseConnectorConfigMap):

@@ -38,8 +38,10 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def trading_rules_url(self):
+        symbol = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
         return web_utils.public_rest_url(
-            path_url=CONSTANTS.SYMBOLS_PATH_URL, domain=self.exchange._domain)
+            path_url=CONSTANTS.SYMBOL_DETAILS_PATH_URL.format(symbol=symbol),
+            domain=self.exchange._domain)
 
     @property
     def order_creation_url(self):
@@ -53,19 +55,23 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def all_symbols_request_mock_response(self):
-        return [
-            {
-                "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset).upper(),
-                "base_currency": self.base_asset,
-                "quote_currency": self.quote_asset,
-                "tick_size": 1e-8,
-                "quote_increment": 0.01,
-                "min_order_size": "0.00001",
-                "status": "open",
-                "wrap_enabled": False,
-                "product_type": "spot",
-            }
-        ]
+        # /v1/symbols returns a flat array of name strings.
+        return [self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)]
+
+    @property
+    def symbol_detail_mock_response(self):
+        # /v1/symbols/details/{symbol} returns a single dict.
+        return {
+            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset).upper(),
+            "base_currency": self.base_asset,
+            "quote_currency": self.quote_asset,
+            "tick_size": 1e-8,
+            "quote_increment": 0.01,
+            "min_order_size": "0.00001",
+            "status": "open",
+            "wrap_enabled": False,
+            "product_type": "spot",
+        }
 
     @property
     def latest_prices_request_mock_response(self):
@@ -82,19 +88,10 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
-        valid = self.all_symbols_request_mock_response[0]
-        invalid = {
-            "symbol": "INVALIDPAIR",
-            "base_currency": "INVALID",
-            "quote_currency": "PAIR",
-            "tick_size": 1e-8,
-            "quote_increment": 0.01,
-            "min_order_size": "0.00001",
-            "status": "closed",
-            "wrap_enabled": False,
-            "product_type": "spot",
-        }
-        return "INVALID-PAIR", [valid, invalid]
+        # /v1/symbols returns strings; perpetuals are filtered out by name suffix.
+        valid_symbol = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+        invalid_symbol = f"{valid_symbol}perp"
+        return "INVALID-PAIR", [valid_symbol, invalid_symbol]
 
     @property
     def network_status_request_successful_mock_response(self):
@@ -102,14 +99,16 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def trading_rules_request_mock_response(self):
-        return self.all_symbols_request_mock_response
+        # _make_trading_rules_request fetches /v1/symbols/details/{symbol} per
+        # configured pair; the API returns a single dict per call.
+        return self.symbol_detail_mock_response
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        erroneous = self.all_symbols_request_mock_response[0].copy()
+        erroneous = self.symbol_detail_mock_response.copy()
         del erroneous["tick_size"]
         del erroneous["min_order_size"]
-        return [erroneous]
+        return erroneous
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -183,7 +182,7 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_trading_rule(self):
-        detail = self.trading_rules_request_mock_response[0]
+        detail = self.trading_rules_request_mock_response
         return TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=Decimal(str(detail["min_order_size"])),
@@ -194,7 +193,7 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous = self.trading_rules_request_erroneous_mock_response[0]
+        erroneous = self.trading_rules_request_erroneous_mock_response
         return f"Error parsing the trading pair rule {erroneous}. Skipping."
 
     @property
@@ -508,40 +507,6 @@ class GeminiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     # === Override base methods that assume GET for Gemini's POST-based endpoints ===
-
-    def configure_all_symbols_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
-        # Gemini symbols list is GET, but details per symbol require more calls
-        # The base class sets up the _all_symbols_url, which in our case is /v1/symbols
-        # That returns a list of symbol strings, but our _make_trading_rules_request
-        # actually fetches details. For the abstract tests, the base_class does:
-        #   mock_api.get(url, body=json.dumps(response))
-        # But our all_symbols_request_mock_response returns a list of detail dicts
-        # which is what _initialize_trading_pair_symbols_from_exchange_info expects
-        url = self.all_symbols_url
-        response = self.all_symbols_request_mock_response
-        mock_api.get(url, body=json.dumps(response), callback=callback)
-        return [url]
-
-    def configure_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        mock_api.get(url, body=json.dumps(response), callback=callback)
-        return [url]
-
-    def configure_erroneous_trading_rules_response(
-            self,
-            mock_api: aioresponses,
-            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
-        url = self.trading_rules_url
-        response = self.trading_rules_request_erroneous_mock_response
-        mock_api.get(url, body=json.dumps(response), callback=callback)
-        return [url]
 
     def _configure_balance_response(
             self,
