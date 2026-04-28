@@ -14,7 +14,7 @@ SANDBOX_WSS_MARKET_DATA_URL = "wss://api.sandbox.gemini.com/v2/marketdata"
 SANDBOX_WSS_ORDER_EVENTS_URL = "wss://api.sandbox.gemini.com/v1/order/events"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
-MAX_ORDER_ID_LEN = 100
+MAX_ORDER_ID_LEN = 36
 HBOT_ORDER_ID_PREFIX = "HBOT-"
 
 # Default account name for API requests
