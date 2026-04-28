@@ -13,14 +13,13 @@ from hummingbot.client.config.client_config_map import GatewayConfigMap
 from hummingbot.client.config.security import Security
 from hummingbot.client.settings import (
     GATEWAY_CHAINS,
-    GATEWAY_CONNECTORS,
-    GATEWAY_ETH_CONNECTORS,
+    GATEWAY_DEXS,
+    GATEWAY_ETH_DEXS,
     GATEWAY_NAMESPACES,
     AllConnectorSettings,
     ConnectorSetting,
     ConnectorType as ConnectorTypeSettings,
 )
-from hummingbot.connector.gateway.common_types import ConnectorType, get_connector_type
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -208,43 +207,40 @@ class GatewayHttpClient:
                 if await asyncio.wait_for(self.ping_gateway(), timeout=POLL_TIMEOUT):
                     if self.gateway_status is GatewayStatus.OFFLINE:
                         # Clear all collections
-                        GATEWAY_CONNECTORS.clear()
-                        GATEWAY_ETH_CONNECTORS.clear()
+                        GATEWAY_DEXS.clear()
+                        GATEWAY_ETH_DEXS.clear()
                         GATEWAY_CHAINS.clear()
                         GATEWAY_NAMESPACES.clear()
 
-                        # Get connectors
+                        # Get DEX providers for CLI completers (not registered in AllConnectorSettings)
                         gateway_connectors = await self.get_connectors(fail_silently=True)
-
-                        # Build connector list with trading types appended
-                        connector_list = []
-                        eth_connector_list = []
                         for connector in gateway_connectors.get("connectors", []):
                             name = connector["name"]
                             chain = connector.get("chain", "")
                             trading_types = connector.get("trading_types", [])
-
-                            # Add each trading type as a separate entry
                             for trading_type in trading_types:
-                                connector_full_name = f"{name}/{trading_type}"
-                                connector_list.append(connector_full_name)
-                                # Add to Ethereum connectors if chain is ethereum
+                                dex_name = f"{name}/{trading_type}"
+                                GATEWAY_DEXS.append(dex_name)
                                 if chain.lower() == "ethereum":
-                                    eth_connector_list.append(connector_full_name)
-
-                        GATEWAY_CONNECTORS.extend(connector_list)
-                        GATEWAY_ETH_CONNECTORS.extend(eth_connector_list)
-
-                        # Update AllConnectorSettings with gateway connectors
-                        await self._register_gateway_connectors(connector_list)
+                                    GATEWAY_ETH_DEXS.append(dex_name)
 
                         # Get chains using the dedicated endpoint
                         try:
                             chains_response = await self.get_chains(fail_silently=True)
                             if chains_response and "chains" in chains_response:
-                                # Extract just the chain names from the response
-                                chain_names = [chain_info["chain"] for chain_info in chains_response["chains"]]
-                                GATEWAY_CHAINS.extend(chain_names)
+                                # Extract chain names and build network identifiers
+                                network_connectors = []
+                                for chain_info in chains_response["chains"]:
+                                    chain_name = chain_info["chain"]
+                                    GATEWAY_CHAINS.append(chain_name)
+                                    # Add networks as valid connectors (e.g., "solana-mainnet-beta")
+                                    for network in chain_info.get("networks", []):
+                                        network_connector = f"{chain_name}-{network}"
+                                        network_connectors.append(network_connector)
+                                # Add network connectors to GATEWAY_DEXS
+                                GATEWAY_DEXS.extend(network_connectors)
+                                # Also register network connectors with AllConnectorSettings
+                                await self._register_gateway_connectors(network_connectors)
                         except Exception:
                             pass
 
@@ -260,7 +256,7 @@ class GatewayHttpClient:
                         await self.update_gateway_config_key_list()
 
                     # If gateway was already online, ensure connectors are registered
-                    if self._gateway_status is GatewayStatus.ONLINE and not GATEWAY_CONNECTORS:
+                    if self._gateway_status is GatewayStatus.ONLINE and not GATEWAY_DEXS:
                         # Gateway is online but connectors haven't been registered yet
                         await self.ensure_gateway_connectors_registered()
 
@@ -322,26 +318,35 @@ class GatewayHttpClient:
                 )
 
     async def ensure_gateway_connectors_registered(self):
-        """Ensure gateway connectors are registered in AllConnectorSettings"""
+        """Ensure gateway network connectors are registered in AllConnectorSettings"""
         if self.gateway_status is not GatewayStatus.ONLINE:
             return
 
         try:
+            # Populate GATEWAY_DEXS with DEX providers for CLI completers
+            # (not registered in AllConnectorSettings)
             gateway_connectors = await self.get_connectors(fail_silently=True)
-
-            # Build connector list with trading types appended
-            connector_list = []
             for connector in gateway_connectors.get("connectors", []):
                 name = connector["name"]
+                chain = connector.get("chain", "")
                 trading_types = connector.get("trading_types", [])
-
-                # Add each trading type as a separate entry
                 for trading_type in trading_types:
-                    connector_full_name = f"{name}/{trading_type}"
-                    connector_list.append(connector_full_name)
+                    dex_name = f"{name}/{trading_type}"
+                    if dex_name not in GATEWAY_DEXS:
+                        GATEWAY_DEXS.append(dex_name)
+                    if chain.lower() == "ethereum" and dex_name not in GATEWAY_ETH_DEXS:
+                        GATEWAY_ETH_DEXS.append(dex_name)
 
-            # Register the connectors
-            await self._register_gateway_connectors(connector_list)
+            # Register network connectors (e.g., "solana-mainnet-beta", "ethereum-mainnet")
+            chains_response = await self.get_chains(fail_silently=True)
+            if chains_response and "chains" in chains_response:
+                network_connectors = []
+                for chain_info in chains_response["chains"]:
+                    chain_name = chain_info["chain"]
+                    for network in chain_info.get("networks", []):
+                        network_connector = f"{chain_name}-{network}"
+                        network_connectors.append(network_connector)
+                await self._register_gateway_connectors(network_connectors)
 
         except Exception as e:
             self.logger().error(f"Error ensuring gateway connectors are registered: {e}", exc_info=True)
@@ -584,6 +589,25 @@ class GatewayHttpClient:
             self.logger().warning(f"Failed to get default network for {chain}: {e}")
             return None
 
+    async def get_default_swap_provider(self, network: str) -> Optional[str]:
+        """
+        Get the default swap provider for a network from Gateway config.
+
+        :param network: Full network name (e.g., "solana-mainnet-beta")
+        :return: Swap provider string in format "dex_name/trading_type" or None if not found
+        """
+        try:
+            # Get swapProvider from network config (most authoritative source)
+            network_config = await self.get_configuration(network)
+            if network_config:
+                swap_provider = network_config.get("swapProvider")
+                if swap_provider:
+                    return swap_provider
+            return None
+        except Exception as e:
+            self.logger().warning(f"Failed to get default swap provider for {network}: {e}")
+            return None
+
     async def get_default_wallet_for_chain(self, chain: str) -> Optional[str]:
         """
         Get the default wallet for a chain from its configuration.
@@ -732,25 +756,75 @@ class GatewayHttpClient:
     # AMM and CLMM Methods
     # ============================================
 
+    @staticmethod
+    def _parse_network(network: str) -> str:
+        """
+        Parse network string to extract just the network portion for API calls.
+
+        Full format "solana-mainnet-beta" -> "mainnet-beta"
+        Short format "mainnet-beta" -> "mainnet-beta"
+        """
+        # If network contains chain prefix (e.g., "solana-mainnet-beta"), extract network portion
+        if "-" in network:
+            parts = network.split("-", 1)
+            if len(parts) == 2 and parts[0].lower() in ("solana", "ethereum"):
+                return parts[1]
+        return network
+
+    @staticmethod
+    def _parse_swap_provider(swap_provider: str) -> tuple:
+        """
+        Parse swap provider string into dex and trading_type.
+
+        "jupiter/router" -> ("jupiter", "router")
+        """
+        if "/" not in swap_provider:
+            raise ValueError(f"Invalid swap provider format '{swap_provider}' - expected 'dex/trading_type'")
+        return swap_provider.split("/", 1)
+
     async def quote_swap(
         self,
         network: str,
-        connector: str,
         base_asset: str,
         quote_asset: str,
         amount: Decimal,
         side: TradeType,
+        dex: Optional[str] = None,
+        trading_type: Optional[str] = None,
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Get a swap quote from the specified DEX.
+
+        :param network: Network name - accepts both full format (e.g., "solana-mainnet-beta") or short format (e.g., "mainnet-beta")
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param amount: Amount to swap
+        :param side: Trade side (BUY or SELL)
+        :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
+        :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
+        :param slippage_pct: Optional slippage percentage
+        :param pool_address: Pool address for CLMM/AMM swaps
+        :param fail_silently: Whether to fail silently on error
+        :return: Quote response with price, amountIn, amountOut
+        """
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
 
-        connector_type = get_connector_type(connector)
+        # If dex/trading_type not provided, get from network's default swap provider
+        if not dex or not trading_type:
+            swap_provider = await self.get_default_swap_provider(network)
+            if not swap_provider:
+                raise ValueError(f"No swap provider configured for network {network}")
+            dex, trading_type = self._parse_swap_provider(swap_provider)
+
+        # Parse network to extract just the network portion for API call
+        api_network = self._parse_network(network)
 
         request_payload = {
-            "network": network,
+            "network": api_network,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
@@ -758,39 +832,50 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
-        if connector_type in (ConnectorType.CLMM, ConnectorType.AMM) and pool_address is not None:
+        if trading_type in ("clmm", "amm") and pool_address is not None:
             request_payload["poolAddress"] = pool_address
 
         return await self.api_request(
             "get",
-            f"connectors/{connector}/quote-swap",
+            f"connectors/{dex}/{trading_type}/quote-swap",
             request_payload,
             fail_silently=fail_silently
         )
 
     async def get_price(
         self,
-        chain: str,
         network: str,
-        connector: str,
         base_asset: str,
         quote_asset: str,
         amount: Decimal,
         side: TradeType,
+        dex: Optional[str] = None,
+        trading_type: Optional[str] = None,
         fail_silently: bool = False,
         pool_address: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Wrapper for quote_swap
+        Wrapper for quote_swap.
+
+        :param network: Network name (e.g., "solana-mainnet-beta")
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param amount: Amount to swap
+        :param side: Trade side (BUY or SELL)
+        :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
+        :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
+        :param fail_silently: Whether to fail silently on error
+        :param pool_address: Pool address for CLMM/AMM swaps
         """
         try:
             response = await self.quote_swap(
                 network=network,
-                connector=connector,
                 base_asset=base_asset,
                 quote_asset=quote_asset,
                 amount=amount,
                 side=side,
+                dex=dex,
+                trading_type=trading_type,
                 pool_address=pool_address
             )
             return response
@@ -804,42 +889,67 @@ class GatewayHttpClient:
 
     async def execute_swap(
         self,
-        connector: str,
+        network: str,
         base_asset: str,
         quote_asset: str,
         side: TradeType,
         amount: Decimal,
+        dex: Optional[str] = None,
+        trading_type: Optional[str] = None,
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
-        network: Optional[str] = None,
         wallet_address: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """
+        Execute a swap on the specified DEX.
+
+        :param network: Network name (e.g., "solana-mainnet-beta")
+        :param base_asset: Base token symbol
+        :param quote_asset: Quote token symbol
+        :param side: Trade side (BUY or SELL)
+        :param amount: Amount to swap
+        :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
+        :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
+        :param slippage_pct: Optional slippage percentage
+        :param pool_address: Pool address for CLMM/AMM swaps
+        :param wallet_address: Wallet address to execute the swap
+        """
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
+
+        # If dex/trading_type not provided, get from network's default swap provider
+        if not dex or not trading_type:
+            swap_provider = await self.get_default_swap_provider(network)
+            if not swap_provider:
+                raise ValueError(f"No swap provider configured for network {network}")
+            dex, trading_type = self._parse_swap_provider(swap_provider)
+
+        # Parse network to extract just the network portion for API call
+        api_network = self._parse_network(network)
 
         request_payload: Dict[str, Any] = {
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
             "side": side.name,
+            "network": api_network,
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
         if pool_address is not None:
             request_payload["poolAddress"] = pool_address
-        if network is not None:
-            request_payload["network"] = network
         if wallet_address is not None:
             request_payload["walletAddress"] = wallet_address
         return await self.api_request(
             "post",
-            f"connectors/{connector}/execute-swap",
+            f"connectors/{dex}/{trading_type}/execute-swap",
             request_payload
         )
 
     async def execute_quote(
         self,
-        connector: str,
+        dex: str,
+        trading_type: str,
         quote_id: str,
         network: Optional[str] = None,
         wallet_address: Optional[str] = None,
@@ -847,7 +957,8 @@ class GatewayHttpClient:
         """
         Execute a previously obtained quote by its ID.
 
-        :param connector: Connector name (e.g., 'jupiter/router')
+        :param dex: DEX protocol name (e.g., "jupiter", "orca")
+        :param trading_type: Trading type (e.g., "router", "clmm", "amm")
         :param quote_id: ID of the quote to execute
         :param network: Optional blockchain network to use
         :param wallet_address: Optional wallet address that will execute the swap
@@ -863,7 +974,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "post",
-            f"connectors/{connector}/execute-quote",
+            f"connectors/{dex}/{trading_type}/execute-quote",
             request_payload
         )
 
@@ -882,25 +993,27 @@ class GatewayHttpClient:
 
     async def pool_info(
         self,
-        connector: str,
         network: str,
         pool_address: str,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Gets information about a AMM or CLMM pool
+        Gets information about a AMM or CLMM pool.
 
-        Note: Meteora pools will automatically include bins in the response
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            pool_address: Pool contract address
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type (e.g., "clmm", "amm"). Defaults to "clmm".
+            fail_silently: If True, suppress errors
         """
         query_params = {
             "network": network,
             "poolAddress": pool_address
         }
-
-        # Parse connector to get name and type
-        # Format is always "raydium/amm" with the "/" included
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/pool-info"
+        path = f"connectors/{dex}/{trading_type}/pool-info"
 
         return await self.api_request(
             "get",
@@ -911,25 +1024,30 @@ class GatewayHttpClient:
 
     async def clmm_position_info(
         self,
-        connector: str,
         network: str,
         position_address: str,
         wallet_address: str,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Gets information about a concentrated liquidity position
+        Gets information about a concentrated liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            position_address: Position address
+            wallet_address: Wallet address
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type (e.g., "clmm"). Defaults to "clmm".
+            fail_silently: If True, suppress errors
         """
         query_params = {
             "network": network,
             "positionAddress": position_address,
             "walletAddress": wallet_address,
         }
-
-        # Parse connector to get name and type
-        # Format is always "raydium/clmm" with the "/" included
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/position-info"
+        path = f"connectors/{dex}/{trading_type}/position-info"
 
         return await self.api_request(
             "get",
@@ -940,25 +1058,30 @@ class GatewayHttpClient:
 
     async def amm_position_info(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         pool_address: str,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "amm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Gets information about a AMM liquidity position
+        Gets information about a AMM liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            pool_address: Pool address
+            dex: DEX protocol name (e.g., "raydium")
+            trading_type: Trading type. Defaults to "amm".
+            fail_silently: If True, suppress errors
         """
         query_params = {
             "network": network,
             "walletAddress": wallet_address,
             "poolAddress": pool_address
         }
-
-        # Parse connector to get name and type
-        # Format is always "raydium/amm" with the "/" included
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/position-info"
+        path = f"connectors/{dex}/{trading_type}/position-info"
 
         return await self.api_request(
             "get",
@@ -969,22 +1092,35 @@ class GatewayHttpClient:
 
     async def clmm_open_position(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         pool_address: str,
         lower_price: float,
         upper_price: float,
+        dex: str,
+        trading_type: str = "clmm",
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
         extra_params: Optional[Dict[str, Any]] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Opens a new concentrated liquidity position
+        Opens a new concentrated liquidity position.
 
-        :param extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            pool_address: Pool contract address
+            lower_price: Lower price bound
+            upper_price: Upper price bound
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            base_token_amount: Amount of base token to deposit
+            quote_token_amount: Amount of quote token to deposit
+            slippage_pct: Maximum slippage percentage
+            extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
@@ -1004,9 +1140,7 @@ class GatewayHttpClient:
         if extra_params:
             request_payload.update(extra_params)
 
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/open-position"
+        path = f"connectors/{dex}/{trading_type}/open-position"
 
         return await self.api_request(
             "post",
@@ -1017,24 +1151,30 @@ class GatewayHttpClient:
 
     async def clmm_close_position(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         position_address: str,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Closes an existing concentrated liquidity position
+        Closes an existing concentrated liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            position_address: Position address to close
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
-
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/close-position"
+        path = f"connectors/{dex}/{trading_type}/close-position"
 
         return await self.api_request(
             "post",
@@ -1045,20 +1185,31 @@ class GatewayHttpClient:
 
     async def clmm_add_liquidity(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         position_address: str,
+        dex: str,
+        trading_type: str = "clmm",
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
         extra_params: Optional[Dict[str, Any]] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Add liquidity to an existing concentrated liquidity position
+        Add liquidity to an existing concentrated liquidity position.
 
-        :param extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            position_address: Existing position address
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            base_token_amount: Amount of base token to add
+            quote_token_amount: Amount of quote token to add
+            slippage_pct: Maximum slippage percentage
+            extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
@@ -1076,9 +1227,7 @@ class GatewayHttpClient:
         if extra_params:
             request_payload.update(extra_params)
 
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
+        path = f"connectors/{dex}/{trading_type}/add-liquidity"
 
         return await self.api_request(
             "post",
@@ -1089,15 +1238,25 @@ class GatewayHttpClient:
 
     async def clmm_remove_liquidity(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         position_address: str,
         percentage: float,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Remove liquidity from a concentrated liquidity position
+        Remove liquidity from a concentrated liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            position_address: Position address
+            percentage: Percentage of liquidity to remove (0-100)
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
@@ -1105,10 +1264,7 @@ class GatewayHttpClient:
             "positionAddress": position_address,
             "percentageToRemove": percentage,
         }
-
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
+        path = f"connectors/{dex}/{trading_type}/remove-liquidity"
 
         return await self.api_request(
             "post",
@@ -1119,24 +1275,30 @@ class GatewayHttpClient:
 
     async def clmm_collect_fees(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         position_address: str,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Collect accumulated fees from a concentrated liquidity position
+        Collect accumulated fees from a concentrated liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            position_address: Position address
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
-
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/collect-fees"
+        path = f"connectors/{dex}/{trading_type}/collect-fees"
 
         return await self.api_request(
             "post",
@@ -1147,28 +1309,29 @@ class GatewayHttpClient:
 
     async def clmm_positions_owned(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
-        pool_address: Optional[str] = None,  # Not used by API, kept for compatibility
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "clmm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
         Get all CLMM positions owned by a wallet.
 
-        Note: The Gateway API does not support filtering by pool_address.
-        Filtering must be done client-side.
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            fail_silently: If True, suppress errors
+
+        Note: Filtering by pool_address must be done client-side.
         """
         query_params = {
             "network": network,
             "walletAddress": wallet_address,
         }
-        # Note: poolAddress parameter is not supported by Gateway API
-        # Client-side filtering is done in gateway_lp.py
-
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/positions-owned"
+        path = f"connectors/{dex}/{trading_type}/positions-owned"
 
         return await self.api_request(
             "get",
@@ -1179,16 +1342,27 @@ class GatewayHttpClient:
 
     async def amm_quote_liquidity(
         self,
-        connector: str,
         network: str,
         pool_address: str,
         base_token_amount: float,
         quote_token_amount: float,
+        dex: str,
+        trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Quote the required token amounts for adding liquidity to an AMM pool
+        Quote the required token amounts for adding liquidity to an AMM pool.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            pool_address: Pool address
+            base_token_amount: Amount of base token
+            quote_token_amount: Amount of quote token
+            dex: DEX protocol name (e.g., "raydium")
+            trading_type: Trading type. Defaults to "amm".
+            slippage_pct: Maximum slippage percentage
+            fail_silently: If True, suppress errors
         """
         query_params = {
             "network": network,
@@ -1199,9 +1373,7 @@ class GatewayHttpClient:
         if slippage_pct is not None:
             query_params["slippagePct"] = slippage_pct
 
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/quote-liquidity"
+        path = f"connectors/{dex}/{trading_type}/quote-liquidity"
 
         return await self.api_request(
             "get",
@@ -1212,18 +1384,31 @@ class GatewayHttpClient:
 
     async def clmm_quote_position(
         self,
-        connector: str,
         network: str,
         pool_address: str,
         lower_price: float,
         upper_price: float,
+        dex: str,
+        trading_type: str = "clmm",
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Quote the required token amounts for opening a CLMM position
+        Quote the required token amounts for opening a CLMM position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            pool_address: Pool address
+            lower_price: Lower price bound
+            upper_price: Upper price bound
+            dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
+            trading_type: Trading type. Defaults to "clmm".
+            base_token_amount: Amount of base token
+            quote_token_amount: Amount of quote token
+            slippage_pct: Maximum slippage percentage
+            fail_silently: If True, suppress errors
         """
         query_params = {
             "network": network,
@@ -1238,9 +1423,7 @@ class GatewayHttpClient:
         if slippage_pct is not None:
             query_params["slippagePct"] = slippage_pct
 
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/quote-position"
+        path = f"connectors/{dex}/{trading_type}/quote-position"
 
         return await self.api_request(
             "get",
@@ -1251,17 +1434,29 @@ class GatewayHttpClient:
 
     async def amm_add_liquidity(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         pool_address: str,
         base_token_amount: float,
         quote_token_amount: float,
+        dex: str,
+        trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
-        fail_silently: bool = False
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Add liquidity to an AMM liquidity position
+        Add liquidity to an AMM liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            pool_address: Pool address
+            base_token_amount: Amount of base token
+            quote_token_amount: Amount of quote token
+            dex: DEX protocol name (e.g., "raydium")
+            trading_type: Trading type. Defaults to "amm".
+            slippage_pct: Maximum slippage percentage
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
@@ -1273,9 +1468,7 @@ class GatewayHttpClient:
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
 
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/add-liquidity"
+        path = f"connectors/{dex}/{trading_type}/add-liquidity"
 
         return await self.api_request(
             "post",
@@ -1286,15 +1479,25 @@ class GatewayHttpClient:
 
     async def amm_remove_liquidity(
         self,
-        connector: str,
         network: str,
         wallet_address: str,
         pool_address: str,
         percentage: float,
-        fail_silently: bool = False
+        dex: str,
+        trading_type: str = "amm",
+        fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Closes an existing AMM liquidity position
+        Closes an existing AMM liquidity position.
+
+        Args:
+            network: Network name (e.g., "mainnet-beta")
+            wallet_address: Wallet address
+            pool_address: Pool address
+            percentage: Percentage of liquidity to remove (0-100)
+            dex: DEX protocol name (e.g., "raydium")
+            trading_type: Trading type. Defaults to "amm".
+            fail_silently: If True, suppress errors
         """
         request_payload = {
             "network": network,
@@ -1302,10 +1505,7 @@ class GatewayHttpClient:
             "poolAddress": pool_address,
             "percentageToRemove": percentage,
         }
-
-        # Parse connector to get name and type
-        connector_name, connector_type = connector.split("/", 1)
-        path = f"connectors/{connector_name}/{connector_type}/remove-liquidity"
+        path = f"connectors/{dex}/{trading_type}/remove-liquidity"
 
         return await self.api_request(
             "post",
@@ -1396,23 +1596,23 @@ class GatewayHttpClient:
     async def get_pool(
         self,
         trading_pair: str,
-        connector: str,
+        dex: str,
         network: str,
-        type: str = "amm"
+        trading_type: str = "amm"
     ) -> Dict[str, Any]:
         """
         Get pool information for a specific trading pair.
 
         :param trading_pair: Trading pair (e.g., "SOL-USDC")
-        :param connector: Connector name (e.g., "raydium")
+        :param dex: DEX protocol name (e.g., "raydium", "orca", "meteora")
         :param network: Network name (e.g., "mainnet-beta")
-        :param type: Pool type ("amm" or "clmm"), defaults to "amm"
+        :param trading_type: Pool type ("amm" or "clmm"), defaults to "amm"
         :return: Pool information including address
         """
         params = {
-            "connector": connector,
+            "connector": dex,
             "network": network,
-            "type": type
+            "type": trading_type
         }
 
         response = await self.api_request("get", f"pools/{trading_pair}", params=params)
@@ -1516,48 +1716,81 @@ class GatewayHttpClient:
         connector: str
     ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Get chain and default network for a connector.
+        Get chain and network for a network-format connector.
 
-        :param connector: Connector name in format 'name/type' (e.g., 'uniswap/amm')
+        :param connector: Network connector in format 'chain-network' (e.g., 'solana-mainnet-beta', 'ethereum-mainnet')
         :return: Tuple of (chain, network, error_message)
         """
-        # Parse connector format - allow for more than 2 parts but only use first 2
-        connector_parts = connector.split('/')
-        if len(connector_parts) < 2:
-            return None, None, "Invalid connector format. Use format like 'uniswap/amm' or 'jupiter/router'"
-
-        connector_name = connector_parts[0]
-
-        # Get all connectors to find chain info
         try:
+            if '-' not in connector:
+                return None, None, f"Invalid network format '{connector}'. Use format like 'solana-mainnet-beta'"
+
+            # Try to find in chains config first
+            chains_resp = await self.get_chains(fail_silently=True)
+            if chains_resp and "chains" in chains_resp:
+                for chain_info in chains_resp["chains"]:
+                    chain_name = chain_info["chain"]
+                    for network in chain_info.get("networks", []):
+                        network_connector = f"{chain_name}-{network}"
+                        if connector == network_connector:
+                            return chain_name, network, None
+
+            # Fallback: parse directly using GATEWAY_CHAINS
+            parts = connector.split('-', 1)
+            if len(parts) == 2 and parts[0].lower() in [c.lower() for c in GATEWAY_CHAINS]:
+                return parts[0], parts[1], None
+
+            return None, None, f"Unknown network '{connector}'"
+
+        except Exception as e:
+            return None, None, f"Error parsing network: {str(e)}"
+
+    async def get_dex_info(
+        self,
+        dex_connector: str
+    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
+        """
+        Get DEX info including chain and network for a DEX-format connector.
+
+        :param dex_connector: DEX connector in format 'dex/trading_type' (e.g., 'orca/clmm', 'jupiter/router')
+        :return: Tuple of (dex_name, trading_type, chain, network, error_message)
+        """
+        try:
+            if '/' not in dex_connector:
+                return None, None, None, None, f"Invalid DEX format '{dex_connector}'. Use format like 'orca/clmm'"
+
+            # Parse dex_name and trading_type
+            dex_name, trading_type = dex_connector.split('/', 1)
+
+            # Get connector info to find chain
             connectors_resp = await self.get_connectors()
             if "error" in connectors_resp:
-                return None, None, f"Error getting connectors: {connectors_resp['error']}"
+                return None, None, None, None, f"Error getting connectors: {connectors_resp['error']}"
 
             # Find the connector info
             connector_info = None
             for conn in connectors_resp.get("connectors", []):
-                if conn.get("name") == connector_name:
+                if conn.get("name") == dex_name:
                     connector_info = conn
                     break
 
             if not connector_info:
-                return None, None, f"Connector '{connector_name}' not found"
+                return None, None, None, None, f"DEX '{dex_name}' not found"
 
             # Get chain from connector info
             chain = connector_info.get("chain")
             if not chain:
-                return None, None, f"Could not determine chain for connector '{connector_name}'"
+                return None, None, None, None, f"Could not determine chain for DEX '{dex_name}'"
 
             # Get default network for the chain
             network = await self.get_default_network_for_chain(chain)
             if not network:
-                return None, None, f"Could not get default network for chain '{chain}'"
+                return None, None, None, None, f"Could not get default network for chain '{chain}'"
 
-            return chain, network, None
+            return dex_name, trading_type, chain, network, None
 
         except Exception as e:
-            return None, None, f"Error getting connector info: {str(e)}"
+            return None, None, None, None, f"Error getting DEX info: {str(e)}"
 
     async def get_available_tokens(
         self,

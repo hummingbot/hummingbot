@@ -443,6 +443,26 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
             self.connector.get_currencies_from_trading_pair("FAKE-PAIR")
         self.assertIn("FAKE-PAIR", str(ctx.exception))
 
+    def test_get_currencies_from_custom_market(self):
+        """Custom markets added via config should be resolvable (issue #8118)."""
+        from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
+
+        custom_market = XRPLMarket(
+            base="BBRL",
+            quote="RLUSD",
+            base_issuer="rBBRLissuerAddress",
+            quote_issuer="rRLUSDissuerAddress",
+            trading_pair_symbol="BBRL-RLUSD",
+        )
+        self.connector._custom_markets["BBRL-RLUSD"] = custom_market
+
+        base_currency, quote_currency = self.connector.get_currencies_from_trading_pair("BBRL-RLUSD")
+
+        self.assertIsInstance(base_currency, IssuedCurrency)
+        self.assertIsInstance(quote_currency, IssuedCurrency)
+        self.assertEqual(base_currency.issuer, "rBBRLissuerAddress")
+        self.assertEqual(quote_currency.issuer, "rRLUSDissuerAddress")
+
     # ------------------------------------------------------------------ #
     # get_token_symbol_from_all_markets
     # ------------------------------------------------------------------ #

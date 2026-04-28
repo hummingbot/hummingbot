@@ -51,7 +51,7 @@ class GridExecutor(ExecutorBase):
             self.logger().error(error)
             raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
-                         update_interval=update_interval)
+                         update_interval=update_interval, max_retries=max_retries)
         self.open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
         self.close_order_price_type = PriceType.BestAsk if config.side == TradeType.BUY else PriceType.BestBid
         self.close_order_side = TradeType.BUY if config.side == TradeType.SELL else TradeType.SELL
@@ -84,8 +84,6 @@ class GridExecutor(ExecutorBase):
         self._open_fee_in_base = False
 
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
-        self._current_retries = 0
-        self._max_retries = max_retries
 
     @property
     def is_perpetual(self) -> bool:
@@ -269,7 +267,6 @@ class GridExecutor(ExecutorBase):
                 )
         elif self.status == RunnableStatus.SHUTTING_DOWN:
             await self.control_shutdown_process()
-        self.evaluate_max_retries()
 
     def early_stop(self, keep_position: bool = False):
         """
@@ -361,7 +358,7 @@ class GridExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._close_order.order_id)
                 self._close_order = None
-        elif not self.config.keep_position or self.close_type == CloseType.TAKE_PROFIT:
+        else:
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def adjust_and_place_open_order(self, level: GridLevel):
@@ -676,9 +673,20 @@ class GridExecutor(ExecutorBase):
             for order in self._held_position_orders
         ])
 
+        # Grid visualization data (shared structure with backtesting simulator)
+        grid_level_prices = [float(level.price) for level in self.grid_levels]
+        tp_prices = []
+        for level in self.grid_levels:
+            tp = float(level.take_profit)
+            price = float(level.price)
+            if self.config.side == TradeType.BUY:
+                tp_prices.append(price * (1 + tp))
+            else:
+                tp_prices.append(price * (1 - tp))
+
         return {
             "side": self.config.side,
-            "levels_by_state": {key.name: value for key, value in self.levels_by_state.items()},
+            "levels_by_state": {key.name: len(value) for key, value in self.levels_by_state.items()},
             "filled_orders": self._filled_orders,
             "held_position_orders": self._held_position_orders,
             "held_position_value": held_position_value,
@@ -696,6 +704,12 @@ class GridExecutor(ExecutorBase):
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,
+            # Shared grid viz fields (same keys as backtesting simulator)
+            "grid_level_prices": grid_level_prices,
+            "grid_tp_prices": tp_prices,
+            "grid_side": self.config.side.name,
+            "grid_limit_price": float(self.config.limit_price) if self.config.limit_price else None,
+            "fill_events": self._filled_orders,
         }
 
     async def on_start(self):
@@ -711,17 +725,6 @@ class GridExecutor(ExecutorBase):
             self.logger().error(f"Grid is already expired by {self.close_type}.")
 
             self._status = RunnableStatus.SHUTTING_DOWN
-
-    def evaluate_max_retries(self):
-        """
-        This method is responsible for evaluating the maximum number of retries to place an order and stop the executor
-        if the maximum number of retries is reached.
-
-        :return: None
-        """
-        if self._current_retries > self._max_retries:
-            self.close_type = CloseType.FAILED
-            self.stop()
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """

@@ -15,8 +15,8 @@ from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
     GATEWAY_CHAINS,
-    GATEWAY_CONNECTORS,
-    GATEWAY_ETH_CONNECTORS,
+    GATEWAY_DEXS,
+    GATEWAY_ETH_DEXS,
     GATEWAY_NAMESPACES,
     SCRIPT_STRATEGIES_PATH,
     SCRIPT_STRATEGY_CONF_DIR_PATH,
@@ -55,18 +55,18 @@ class HummingbotCompleter(Completer):
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["allowance", "approve", "balance", "config", "connect", "generate-certs", "list", "lp", "ping", "pool", "swap", "token"], ignore_case=True)
-        self._gateway_swap_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_swap_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_ping_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
-        self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_CONNECTORS, ignore_case=True)
+        self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
+        self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["update"], ignore_case=True)
-        self._gateway_lp_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_lp_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
         self._gateway_lp_action_completer = WordCompleter(["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], ignore_case=True)
-        self._gateway_pool_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_pool_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
         self._gateway_pool_action_completer = WordCompleter(["update"], ignore_case=True)
         self._gateway_token_completer = WordCompleter(["<symbol_or_address>"], ignore_case=True)
         self._gateway_token_action_completer = WordCompleter(["update"], ignore_case=True)
@@ -152,7 +152,7 @@ class HummingbotCompleter(Completer):
     def _exchange_completer(self):
         """Dynamic completer for all connectors including gateway"""
         all_connectors = list(AllConnectorSettings.get_connector_settings().keys())
-        all_connectors.extend(GATEWAY_CONNECTORS)
+        all_connectors.extend(GATEWAY_DEXS)
         return WordCompleter(sorted(set(all_connectors)), ignore_case=True)
 
     @property

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from random import randrange
 from typing import Dict, Final, List, Optional, cast
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from xrpl.asyncio.account import get_next_valid_seq_number
@@ -431,6 +432,9 @@ class XRPLConfigMap(BaseConnectorConfigMap):
                 quote_issuer="",
             )
         },
+        json_schema_extra={
+            "is_connect_key": True,
+        },
     )
 
     max_request_per_minute: int = Field(
@@ -455,7 +459,7 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         for url in v:
             ret = validate_with_regex(url, pattern, error_message)
             if ret is not None:
-                raise ValueError(f"{ret}: {url}")
+                raise ValueError(f"{ret}: {mask_node_url(url)}")
         if not v:
             raise ValueError("At least one XRPL node URL must be provided.")
         return v
@@ -490,6 +494,29 @@ class XRPLSystemBusyError(Exception):
 class XRPLCircuitBreakerOpen(Exception):
     """Raised when too many failures have occurred."""
     pass
+
+
+# ============================================
+# URL Masking Utility
+# ============================================
+def mask_node_url(url: str) -> str:
+    """Mask the path/query portion of a node URL to avoid leaking API keys in logs.
+
+    Many node providers (QuikNode, Infura, etc.) embed API keys in the URL path.
+    This keeps the domain visible for debugging while hiding sensitive path segments.
+
+    Examples:
+        wss://xrplcluster.com/                              -> wss://xrplcluster.com/
+        wss://my-node.quiknode.pro/f9dcecb9b67cabf67e.../   -> wss://my-node.quiknode.pro/***
+    """
+    try:
+        parsed = urlparse(url)
+        path = parsed.path.strip("/")
+        if not path:
+            return url
+        return f"{parsed.scheme}://{parsed.netloc}/***"
+    except Exception:
+        return "***"
 
 
 # ============================================
@@ -840,7 +867,7 @@ class XRPLNodePool:
             if conn.client is not None:
                 await conn.client.close()
         except Exception as e:
-            self.logger().debug(f"Error closing connection to {conn.url}: {e}")
+            self.logger().debug(f"Error closing connection to {mask_node_url(conn.url)}: {e}")
 
     async def _init_connection(self, url: str) -> bool:
         """
@@ -873,7 +900,7 @@ class XRPLNodePool:
             latency = time.time() - start_time
 
             if not response.is_successful():
-                self.logger().warning(f"ServerInfo request failed for {url}: {response.result}")
+                self.logger().warning(f"ServerInfo request failed for {mask_node_url(url)}: {response.result}")
                 await client.close()
                 return False
 
@@ -885,14 +912,14 @@ class XRPLNodePool:
                 self._connections[url] = conn
                 self._healthy_connections.append(url)
 
-            self.logger().debug(f"Connection established to {url} (latency: {latency:.3f}s)")
+            self.logger().debug(f"Connection established to {mask_node_url(url)} (latency: {latency:.3f}s)")
             return True
 
         except asyncio.TimeoutError:
-            self.logger().warning(f"Connection timeout for {url}")
+            self.logger().warning(f"Connection timeout for {mask_node_url(url)}")
             return False
         except Exception as e:
-            self.logger().warning(f"Failed to connect to {url}: {e}")
+            self.logger().warning(f"Failed to connect to {mask_node_url(url)}: {e}")
             return False
 
     async def get_client(self, use_burst: bool = True) -> AsyncWebsocketClient:
@@ -936,7 +963,7 @@ class XRPLNodePool:
 
                 # Check if connection is still open
                 if not conn.is_open:
-                    self.logger().debug(f"Connection to {url} is closed, triggering reconnection")
+                    self.logger().debug(f"Connection to {mask_node_url(url)} is closed, triggering reconnection")
                     if not conn.is_reconnecting:
                         # Trigger background reconnection
                         asyncio.create_task(self._reconnect(url))
@@ -949,7 +976,7 @@ class XRPLNodePool:
                 # Check if connection is currently reconnecting - skip to avoid race conditions
                 # where _open_requests gets cleared during reconnection causing KeyError
                 if conn.is_reconnecting:
-                    self.logger().debug(f"Connection to {url} is reconnecting, skipping")
+                    self.logger().debug(f"Connection to {mask_node_url(url)} is reconnecting, skipping")
                     continue
 
                 # Found a good connection
@@ -970,7 +997,7 @@ class XRPLNodePool:
         #     if result is True:
         #         conn = self._connections.get(url)
         #         if conn and conn.client and conn.is_open:
-        #             self.logger().info(f"Emergency reconnection succeeded via {url}")
+        #             self.logger().info(f"Emergency reconnection succeeded via {mask_node_url(url)}")
         #             return conn.client
 
         raise XRPLConnectionError("No healthy connections available and unable to establish new connections")
@@ -989,7 +1016,7 @@ class XRPLNodePool:
                 return
 
             if conn.is_reconnecting:
-                self.logger().debug(f"Already reconnecting to {url}")
+                self.logger().debug(f"Already reconnecting to {mask_node_url(url)}")
                 return
 
             conn.is_reconnecting = True
@@ -1000,7 +1027,7 @@ class XRPLNodePool:
 
         # Perform reconnection outside lock to avoid blocking other operations
         try:
-            self.logger().debug(f"Reconnecting to {url}...")
+            self.logger().debug(f"Reconnecting to {mask_node_url(url)}...")
 
             # Close old connection if exists
             if conn.client is not None:
@@ -1012,9 +1039,9 @@ class XRPLNodePool:
             # Initialize new connection
             success = await self._init_connection(url)
             if success:
-                self.logger().debug(f"Successfully reconnected to {url}")
+                self.logger().debug(f"Successfully reconnected to {mask_node_url(url)}")
             else:
-                self.logger().warning(f"Failed to reconnect to {url}")
+                self.logger().warning(f"Failed to reconnect to {mask_node_url(url)}")
 
         finally:
             if url in self._connections:
@@ -1077,7 +1104,7 @@ class XRPLNodePool:
                                 conn.record_error()
                                 if conn.consecutive_errors >= CONSTANTS.CONNECTION_MAX_CONSECUTIVE_ERRORS:
                                     self.logger().warning(
-                                        f"Proactive ping: {url} failed {conn.consecutive_errors} times, "
+                                        f"Proactive ping: {mask_node_url(url)} failed {conn.consecutive_errors} times, "
                                         f"triggering reconnection"
                                     )
                                     conn.is_healthy = False
@@ -1122,14 +1149,14 @@ class XRPLNodePool:
             if response.is_successful():
                 return True
             else:
-                self.logger().debug(f"Proactive ping to {conn.url} returned error: {response.result}")
+                self.logger().debug(f"Proactive ping to {mask_node_url(conn.url)} returned error: {response.result}")
                 return False
 
         except asyncio.TimeoutError:
-            self.logger().debug(f"Proactive ping to {conn.url} timed out")
+            self.logger().debug(f"Proactive ping to {mask_node_url(conn.url)} timed out")
             return False
         except Exception as e:
-            self.logger().debug(f"Proactive ping to {conn.url} failed: {e}")
+            self.logger().debug(f"Proactive ping to {mask_node_url(conn.url)} failed: {e}")
             return False
 
     async def _check_all_connections(self):
@@ -1185,7 +1212,7 @@ class XRPLNodePool:
                     reason = f"health check error: {e}"
 
             if should_reconnect:
-                self.logger().debug(f"Triggering reconnection for {url}: {reason}")
+                self.logger().debug(f"Triggering reconnection for {mask_node_url(url)}: {reason}")
                 conn.is_healthy = False
                 asyncio.create_task(self._reconnect(url))
 
@@ -1201,13 +1228,13 @@ class XRPLNodePool:
             if conn.client is client:
                 conn.record_error()
                 self.logger().debug(
-                    f"Error recorded for {url}: consecutive errors = {conn.consecutive_errors}"
+                    f"Error recorded for {mask_node_url(url)}: consecutive errors = {conn.consecutive_errors}"
                 )
 
                 if conn.consecutive_errors >= CONSTANTS.CONNECTION_MAX_CONSECUTIVE_ERRORS:
                     conn.is_healthy = False
                     self.logger().warning(
-                        f"Connection to {url} marked unhealthy after {conn.consecutive_errors} errors"
+                        f"Connection to {mask_node_url(url)} marked unhealthy after {conn.consecutive_errors} errors"
                     )
                     if not conn.is_reconnecting:
                         asyncio.create_task(self._reconnect(url))
@@ -1217,7 +1244,7 @@ class XRPLNodePool:
         """Legacy method: Mark a node as bad for cooldown seconds"""
         until = float(time.time() + self._cooldown)
         self._bad_nodes[url] = until
-        self.logger().debug(f"Node marked as bad: {url} (cooldown until {until})")
+        self.logger().debug(f"Node marked as bad: {mask_node_url(url)} (cooldown until {until})")
 
         # Also mark the connection as unhealthy
         conn = self._connections.get(url)

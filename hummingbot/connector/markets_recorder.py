@@ -429,7 +429,6 @@ class MarketsRecorder:
                         price=evt.price,
                         order_amount=evt.amount,
                         token=quote_asset,
-                        exchange=market
                     )
                 except Exception as e:
                     self.logger().error(f"Error calculating fee in quote: {e}, will be stored in the DB as 0.")
@@ -597,7 +596,6 @@ class MarketsRecorder:
                     price=mid_price,
                     order_amount=base_amount,
                     token=quote_asset,
-                    exchange=connector
                 )
             except Exception as e:
                 self.logger().error(f"Error calculating fee in quote for LP position: {e}, will be stored as 0.")
