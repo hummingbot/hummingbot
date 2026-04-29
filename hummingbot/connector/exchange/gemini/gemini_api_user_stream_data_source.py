@@ -52,15 +52,21 @@ class GeminiAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_event_message(self, event_message, queue: asyncio.Queue):
         if isinstance(event_message, list):
-            # Initial snapshot of open orders sent as a list on connect
+            # Initial snapshot of open orders sent as a list on (re)connect.
+            # Gemini marks these with type "initial".
             for order_event in event_message:
-                if isinstance(order_event, dict) and order_event.get("type") in ("accepted", "booked"):
+                if isinstance(order_event, dict) and order_event.get("type") in (
+                    "initial", "accepted", "booked"
+                ):
                     queue.put_nowait(order_event)
             return
         msg_type = event_message.get("type", "")
         if msg_type in ("heartbeat", "subscription_ack"):
             return
-        if msg_type in ("accepted", "rejected", "booked", "fill", "cancelled", "closed", "cancel_rejected"):
+        if msg_type in (
+            "initial", "accepted", "rejected", "booked",
+            "fill", "cancelled", "closed", "cancel_rejected"
+        ):
             queue.put_nowait(event_message)
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):

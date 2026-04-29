@@ -98,11 +98,12 @@ class GeminiAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "changes": [],
             "trades": [
                 {
-                    "type": "buy",
+                    "type": "trade",
+                    "side": "buy",
                     "price": "4.00000100",
                     "quantity": "10.00000000",
                     "tid": 12345,
-                    "timestamp": 1640000001,
+                    "timestamp": 1640000001000,
                 },
             ],
         }
@@ -224,17 +225,13 @@ class GeminiAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             await self.data_source.listen_for_trades(self.local_event_loop, msg_queue)
 
     async def test_listen_for_trades_successful(self):
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [self._trade_event(), asyncio.CancelledError()]
-        self.data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
-
+        # Trades are extracted inside _parse_order_book_diff_message (from the
+        # diff queue), so verify that path produces trade messages correctly.
         msg_queue: asyncio.Queue = asyncio.Queue()
-
-        self.listening_task = self.local_event_loop.create_task(
-            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+        trade_event = self._trade_event()
+        await self.data_source._parse_order_book_diff_message(trade_event, msg_queue)
 
         msg: OrderBookMessage = await msg_queue.get()
-
         self.assertEqual(12345, msg.trade_id)
 
     async def test_listen_for_order_book_diffs_cancelled(self):
@@ -295,9 +292,11 @@ class GeminiAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNotNone(msg)
 
     def test_channel_originating_message_trade(self):
+        # All l2_updates messages (even trade-only ones) route to the diff
+        # queue; trades are extracted inside _parse_order_book_diff_message.
         event = self._trade_event()
         channel = self.data_source._channel_originating_message(event)
-        self.assertEqual(CONSTANTS.TRADE_EVENT_TYPE, channel)
+        self.assertEqual(CONSTANTS.DIFF_EVENT_TYPE, channel)
 
     def test_channel_originating_message_diff(self):
         event = self._l2_update_event()

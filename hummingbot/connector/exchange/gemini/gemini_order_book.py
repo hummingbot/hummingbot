@@ -45,12 +45,14 @@ class GeminiOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         trade = msg["trade"]
-        ts = float(trade.get("timestamp", time.time()))
+        # Gemini trade timestamps are in milliseconds
+        ts_ms = float(trade.get("timestamp", time.time() * 1000))
+        ts = ts_ms / 1000.0
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg.get("trading_pair", ""),
-            "trade_type": float(TradeType.BUY.value) if trade.get("type") == "buy" else float(TradeType.SELL.value),
+            "trade_type": float(TradeType.BUY.value) if trade.get("side") == "buy" else float(TradeType.SELL.value),
             "trade_id": trade.get("tid", 0),
-            "update_id": int(ts * 1000),
+            "update_id": int(ts_ms),
             "price": trade["price"],
             "amount": trade["quantity"],
         }, timestamp=ts)

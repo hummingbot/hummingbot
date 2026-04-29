@@ -76,11 +76,12 @@ class TestGeminiOrderBook(unittest.TestCase):
     def test_trade_message_from_exchange(self):
         msg = {
             "trade": {
-                "type": "buy",
+                "type": "trade",
+                "side": "buy",
                 "price": "50000.00",
                 "quantity": "0.5",
                 "tid": 123456,
-                "timestamp": 1640000004,
+                "timestamp": 1640000004000,
             }
         }
         metadata = {"trading_pair": "BTC-USD"}
@@ -92,15 +93,18 @@ class TestGeminiOrderBook(unittest.TestCase):
         self.assertEqual(123456, result.trade_id)
         self.assertEqual("50000.00", result.content["price"])
         self.assertEqual("0.5", result.content["amount"])
+        self.assertAlmostEqual(1640000004.0, result.timestamp, places=1)
+        self.assertEqual(1640000004000, result.content["update_id"])
 
     def test_trade_message_sell_type(self):
         msg = {
             "trade": {
-                "type": "sell",
+                "type": "trade",
+                "side": "sell",
                 "price": "49000.00",
                 "quantity": "1.0",
                 "tid": 789,
-                "timestamp": 1640000005,
+                "timestamp": 1640000005000,
             }
         }
         metadata = {"trading_pair": "BTC-USD"}
@@ -108,18 +112,18 @@ class TestGeminiOrderBook(unittest.TestCase):
         result = GeminiOrderBook.trade_message_from_exchange(msg, metadata)
 
         self.assertEqual(OrderBookMessageType.TRADE, result.type)
-        # TradeType.SELL.value is 2.0
         from hummingbot.core.data_type.common import TradeType
         self.assertEqual(float(TradeType.SELL.value), result.content["trade_type"])
 
     def test_trade_message_buy_type(self):
         msg = {
             "trade": {
-                "type": "buy",
+                "type": "trade",
+                "side": "buy",
                 "price": "51000.00",
                 "quantity": "2.0",
                 "tid": 999,
-                "timestamp": 1640000006,
+                "timestamp": 1640000006000,
             }
         }
         metadata = {"trading_pair": "BTC-USD"}
@@ -132,7 +136,8 @@ class TestGeminiOrderBook(unittest.TestCase):
     def test_trade_message_with_missing_timestamp_uses_fallback(self):
         msg = {
             "trade": {
-                "type": "buy",
+                "type": "trade",
+                "side": "buy",
                 "price": "50000.00",
                 "quantity": "0.1",
                 "tid": 111,

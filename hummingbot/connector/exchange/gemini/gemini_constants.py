@@ -38,11 +38,14 @@ SIDE_SELL = "sell"
 
 # Gemini order state -> Hummingbot OrderState
 ORDER_STATE = {
+    "initial": OrderState.OPEN,
     "accepted": OrderState.OPEN,
     "booked": OrderState.OPEN,
     "cancelled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
-    "closed": OrderState.FILLED,
+    # "closed" is intentionally omitted — it is sent for both filled and
+    # cancelled orders.  The exchange class inspects is_cancelled /
+    # remaining_amount to determine the correct final state.
 }
 
 # WebSocket event types

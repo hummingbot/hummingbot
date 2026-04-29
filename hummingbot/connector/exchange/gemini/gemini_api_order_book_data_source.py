@@ -68,44 +68,48 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        msg_type = raw_message.get("type", "")
-        if msg_type == "l2_updates":
-            trades = raw_message.get("trades", [])
-            if trades:
-                symbol = raw_message.get("symbol", "").lower()
-                trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
-                for trade in trades:
-                    trade_message = GeminiOrderBook.trade_message_from_exchange(
-                        {"trade": trade},
-                        metadata={"trading_pair": trading_pair}
-                    )
-                    message_queue.put_nowait(trade_message)
+        # Trades are handled inside _parse_order_book_diff_message because
+        # Gemini bundles trades and order-book changes in the same l2_updates
+        # message, and the base class routes each message to only one queue.
+        pass
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         msg_type = raw_message.get("type", "")
-        if msg_type == "l2_updates":
-            changes = raw_message.get("changes", [])
-            if changes:
-                symbol = raw_message.get("symbol", "").lower()
-                trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
-                bids = [[c[1], c[2]] for c in changes if c[0] == "buy"]
-                asks = [[c[1], c[2]] for c in changes if c[0] == "sell"]
-                diff_msg = GeminiOrderBook.diff_message_from_exchange(
-                    {"bids": bids, "asks": asks},
-                    time.time(),
-                    metadata={"trading_pair": trading_pair}
-                )
-                message_queue.put_nowait(diff_msg)
+        if msg_type != "l2_updates":
+            return
+
+        symbol = raw_message.get("symbol", "").lower()
+        trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
+
+        # Process order book changes
+        changes = raw_message.get("changes", [])
+        if changes:
+            bids = [[c[1], c[2]] for c in changes if c[0] == "buy"]
+            asks = [[c[1], c[2]] for c in changes if c[0] == "sell"]
+            diff_msg = GeminiOrderBook.diff_message_from_exchange(
+                {"bids": bids, "asks": asks},
+                time.time(),
+                metadata={"trading_pair": trading_pair}
+            )
+            message_queue.put_nowait(diff_msg)
+
+        # Process trades bundled in the same message
+        trades = raw_message.get("trades", [])
+        for trade in trades:
+            trade_message = GeminiOrderBook.trade_message_from_exchange(
+                {"trade": trade},
+                metadata={"trading_pair": trading_pair}
+            )
+            message_queue.put_nowait(trade_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        # Gemini l2_updates messages can contain both order book changes AND
+        # trades.  The base class routes each message to exactly one queue, so
+        # we always route to the diff queue (the more critical path) and handle
+        # trade extraction inside _parse_order_book_diff_message.
         msg_type = event_message.get("type", "")
         if msg_type == "l2_updates":
-            trades = event_message.get("trades", [])
-            if trades:
-                return self._trade_messages_queue_key
-            changes = event_message.get("changes", [])
-            if changes:
-                return self._diff_messages_queue_key
+            return self._diff_messages_queue_key
         return ""
 
     async def _subscribe_channels(self, ws: WSAssistant):

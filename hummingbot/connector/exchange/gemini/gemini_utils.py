@@ -9,9 +9,12 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
 
+# Gemini ActiveTrader base-tier fees effective March 13, 2026.
+# Higher-volume tiers pay less; actual fill fees from the exchange are used
+# for P&L tracking, so these defaults only affect pre-trade estimates.
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.001"),
-    taker_percent_fee_decimal=Decimal("0.0035"),
+    maker_percent_fee_decimal=Decimal("0.006"),
+    taker_percent_fee_decimal=Decimal("0.012"),
     buy_percent_fee_deducted_from_returns=False
 )
 

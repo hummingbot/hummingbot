@@ -226,14 +226,14 @@ class GeminiAPIUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_process_event_message_handles_initial_snapshot_list(self):
         queue = asyncio.Queue()
-        # Gemini sends initial snapshot as a list of order dicts
+        # Gemini sends initial snapshot as a list of order dicts with type "initial"
         snapshot = [
-            {"type": "accepted", "order_id": "100"},
-            {"type": "booked", "order_id": "101"},
-            {"type": "fill", "order_id": "102"},  # fill not in accepted/booked, should be skipped
+            {"type": "initial", "order_id": "100"},
+            {"type": "initial", "order_id": "101"},
+            {"type": "fill", "order_id": "102"},  # fill not in initial/accepted/booked, should be skipped
         ]
         await self.data_source._process_event_message(snapshot, queue)
-        # Only accepted and booked from the snapshot should be queued
+        # Only initial/accepted/booked from the snapshot should be queued
         self.assertEqual(2, queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

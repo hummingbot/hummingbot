@@ -46,6 +46,9 @@ class GeminiExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._last_trades_poll_gemini_timestamp = 1.0
         self._gemini_symbol_map: Optional[bidict] = None
+        # Master API keys (prefixed "master-") require an "account" param on
+        # every private endpoint.  Account-scoped keys do not.
+        self._is_master_key = gemini_api_key.startswith("master-")
         super().__init__(balance_asset_limit, rate_limits_share_pct)
         # Gemini does not provide balance updates through websocket
         self.real_time_balance_update = False
@@ -111,7 +114,10 @@ class GeminiExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        # Gemini discourages "exchange market" orders (no price protection) and
+        # recommends immediate-or-cancel limits instead.  We only advertise
+        # LIMIT and LIMIT_MAKER to avoid the untested market-order path.
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # Gemini uses nonce-based auth, not timestamp. Nonce errors look different.
@@ -281,6 +287,9 @@ class GeminiExchange(ExchangePyBase):
             "type": order_type_str,
         }
 
+        if self._is_master_key:
+            api_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+
         if order_type == OrderType.LIMIT_MAKER:
             api_params["options"] = ["maker-or-cancel"]
 
@@ -310,6 +319,8 @@ class GeminiExchange(ExchangePyBase):
         api_params = {
             "order_id": int(tracked_order.exchange_order_id),
         }
+        if self._is_master_key:
+            api_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             data=api_params,
@@ -326,7 +337,7 @@ class GeminiExchange(ExchangePyBase):
                 if event_type is None:
                     continue
 
-                if event_type in ("accepted", "booked", "cancelled", "rejected", "closed"):
+                if event_type in ("initial", "accepted", "booked", "cancelled", "rejected", "closed"):
                     client_order_id = event_message.get("client_order_id")
                     exchange_order_id = str(event_message.get("order_id", ""))
 
@@ -341,7 +352,21 @@ class GeminiExchange(ExchangePyBase):
                     if tracked_order is None or client_order_id is None:
                         continue
 
-                    new_state = CONSTANTS.ORDER_STATE.get(event_type, OrderState.FAILED)
+                    if event_type == "closed":
+                        # "closed" fires for both filled and cancelled orders.
+                        # Inspect the event fields to determine the true state.
+                        is_cancelled = event_message.get("is_cancelled", False)
+                        remaining = Decimal(str(event_message.get("remaining_amount", "0")))
+                        executed = Decimal(str(event_message.get("executed_amount", "0")))
+                        if is_cancelled:
+                            new_state = OrderState.CANCELED
+                        elif remaining == Decimal("0") and executed > Decimal("0"):
+                            new_state = OrderState.FILLED
+                        else:
+                            new_state = OrderState.CANCELED
+                    else:
+                        new_state = CONSTANTS.ORDER_STATE.get(event_type, OrderState.FAILED)
+
                     order_update = OrderUpdate(
                         trading_pair=tracked_order.trading_pair,
                         update_timestamp=float(event_message.get("timestampms", 0)) * 1e-3,
@@ -416,9 +441,12 @@ class GeminiExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             trading_pair = order.trading_pair
             try:
+                trades_params = {"symbol": self.exchange_symbol_associated_to_pair(trading_pair)}
+                if self._is_master_key:
+                    trades_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
                 all_fills_response = await self._api_post(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    data={"symbol": self.exchange_symbol_associated_to_pair(trading_pair)},
+                    data=trades_params,
                     is_auth_required=True)
 
                 for trade in all_fills_response:
@@ -451,9 +479,12 @@ class GeminiExchange(ExchangePyBase):
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        status_params = {"order_id": int(tracked_order.exchange_order_id)}
+        if self._is_master_key:
+            status_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
         updated_order_data = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
-            data={"order_id": int(tracked_order.exchange_order_id)},
+            data=status_params,
             is_auth_required=True)
 
         is_live = updated_order_data.get("is_live", False)
@@ -485,9 +516,12 @@ class GeminiExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
+        balance_params = {}
+        if self._is_master_key:
+            balance_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
         account_info = await self._api_post(
             path_url=CONSTANTS.BALANCES_PATH_URL,
-            data={"account": CONSTANTS.DEFAULT_ACCOUNT},
+            data=balance_params,
             is_auth_required=True)
 
         if account_info:
