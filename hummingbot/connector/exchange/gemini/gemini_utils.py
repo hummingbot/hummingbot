@@ -77,6 +77,13 @@ class GeminiConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
+    gemini_account_name: str = Field(
+        default="primary",
+        json_schema_extra={
+            "prompt": lambda cm: "Enter the Gemini account name (only needed for master API keys)",
+            "prompt_on_new": False,
+        }
+    )
     model_config = ConfigDict(title="gemini")
 
 
@@ -106,6 +113,13 @@ class GeminiSandboxConfigMap(BaseConnectorConfigMap):
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
+        }
+    )
+    gemini_sandbox_account_name: str = Field(
+        default="primary",
+        json_schema_extra={
+            "prompt": lambda cm: "Enter the Gemini Sandbox account name (only needed for master API keys)",
+            "prompt_on_new": False,
         }
     )
     model_config = ConfigDict(title="gemini_sandbox")

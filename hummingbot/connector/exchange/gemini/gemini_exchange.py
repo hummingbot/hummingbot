@@ -38,6 +38,7 @@ class GeminiExchange(ExchangePyBase):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 gemini_account_name: str = CONSTANTS.DEFAULT_ACCOUNT,
                  ):
         self.api_key = gemini_api_key
         self.secret_key = gemini_api_secret
@@ -49,6 +50,7 @@ class GeminiExchange(ExchangePyBase):
         # Master API keys (prefixed "master-") require an "account" param on
         # every private endpoint.  Account-scoped keys do not.
         self._is_master_key = gemini_api_key.startswith("master-")
+        self._account_name = gemini_account_name
         super().__init__(balance_asset_limit, rate_limits_share_pct)
         # Gemini does not provide balance updates through websocket
         self.real_time_balance_update = False
@@ -288,7 +290,7 @@ class GeminiExchange(ExchangePyBase):
         }
 
         if self._is_master_key:
-            api_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+            api_params["account"] = self._account_name
 
         if order_type == OrderType.LIMIT_MAKER:
             api_params["options"] = ["maker-or-cancel"]
@@ -320,7 +322,7 @@ class GeminiExchange(ExchangePyBase):
             "order_id": int(tracked_order.exchange_order_id),
         }
         if self._is_master_key:
-            api_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+            api_params["account"] = self._account_name
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             data=api_params,
@@ -443,7 +445,7 @@ class GeminiExchange(ExchangePyBase):
             try:
                 trades_params = {"symbol": self.exchange_symbol_associated_to_pair(trading_pair)}
                 if self._is_master_key:
-                    trades_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+                    trades_params["account"] = self._account_name
                 all_fills_response = await self._api_post(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
                     data=trades_params,
@@ -481,7 +483,7 @@ class GeminiExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         status_params = {"order_id": int(tracked_order.exchange_order_id)}
         if self._is_master_key:
-            status_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+            status_params["account"] = self._account_name
         updated_order_data = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
             data=status_params,
@@ -518,7 +520,7 @@ class GeminiExchange(ExchangePyBase):
 
         balance_params = {}
         if self._is_master_key:
-            balance_params["account"] = CONSTANTS.DEFAULT_ACCOUNT
+            balance_params["account"] = self._account_name
         account_info = await self._api_post(
             path_url=CONSTANTS.BALANCES_PATH_URL,
             data=balance_params,
