@@ -64,4 +64,5 @@ async def get_current_server_time(
 ) -> float:
     # Gemini does not have a dedicated server time endpoint.
     # Auth uses monotonically increasing nonces, so time sync is not critical.
-    return time.time()
+    # Return milliseconds to match the TimeSynchronizer contract.
+    return time.time() * 1e3
