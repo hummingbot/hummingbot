@@ -30,6 +30,12 @@ class GeminiAuth(AuthBase):
         self._nonce_creator = NonceCreator.for_seconds()
 
     def _generate_nonce(self) -> int:
+        if self.time_provider is not None:
+            try:
+                synchronized_time = self.time_provider.time()
+                return self._nonce_creator.get_tracking_nonce(timestamp=synchronized_time)
+            except Exception:
+                pass
         return self._nonce_creator.get_tracking_nonce()
 
     def generate_rest_signature(self, payload_dict: dict) -> Tuple[str, str]:
