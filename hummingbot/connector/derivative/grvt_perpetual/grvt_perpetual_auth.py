@@ -181,6 +181,8 @@ class GrvtPerpetualAuth(AuthBase):
                     "client_order_id": str(client_order_id),
                     "broker": CONSTANTS.HBOT_BROKER_ID,
                 },
+                "builder": CONSTANTS.HBOT_BUILDER_ID,
+                "builder_fee": CONSTANTS.HBOT_BUILDER_FEE,
             }
         }
 

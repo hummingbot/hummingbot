@@ -697,6 +697,8 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         self.assertEqual(Decimal(str(order.price)), Decimal(payload["legs"][0]["limit_price"]))
         self.assertEqual(order.position == PositionAction.CLOSE, payload["reduce_only"])
         self.assertEqual(order.order_type == OrderType.LIMIT_MAKER, payload["post_only"])
+        self.assertEqual(CONSTANTS.HBOT_BUILDER_ID, payload["builder"])
+        self.assertEqual(CONSTANTS.HBOT_BUILDER_FEE, payload["builder_fee"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = self._request_json(request_call)
