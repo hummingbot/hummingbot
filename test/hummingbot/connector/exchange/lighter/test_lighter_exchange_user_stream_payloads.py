@@ -3,7 +3,7 @@ import sys
 import types
 import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 try:
     __import__("hummingbot.core.data_type.limit_order")
@@ -80,6 +80,27 @@ class LighterExchangeUserStreamPayloadTests(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(account_data_2)
         self.assertEqual(1, len(trades_2))
         self.assertEqual(0, len(orders_2))
+
+    def test_extract_private_stream_payloads_from_account_all_orders_data_payload(self):
+        dict_event = {
+            "type": "update/account_all_orders",
+            "channel": "account_all_orders:123",
+            "data": {"order_id": "o1", "order_status": "filled"},
+        }
+        list_event = {
+            "type": "update/account_all_orders",
+            "channel": "account_all_orders:123",
+            "data": [
+                {"order_id": "o2", "order_status": "open"},
+                {"order_id": "o3", "order_status": "canceled"},
+            ],
+        }
+
+        _, _, dict_orders = LighterExchange._extract_private_stream_payloads(dict_event)
+        _, _, list_orders = LighterExchange._extract_private_stream_payloads(list_event)
+
+        self.assertEqual([{"order_id": "o1", "order_status": "filled"}], dict_orders)
+        self.assertEqual(2, len(list_orders))
 
     def test_extract_private_stream_payloads_from_account_all_assets(self):
         event = {
@@ -158,15 +179,21 @@ class LighterExchangeUserStreamPayloadTests(IsolatedAsyncioWrapperTestCase):
             "orders": 0,
         }
 
+        _mock_trade_update = MagicMock()
+        _mock_trade_update.client_order_id = "HBOT-TEST"
+        _mock_trade_update.exchange_order_id = "1"
         exchange._process_balance_message_from_account = lambda _: captured.__setitem__("balances", captured["balances"] + 1)
-        exchange._trade_update_from_raw_message = lambda _: "TRADE_UPDATE"
-        exchange._order_update_from_raw_message = lambda _: "ORDER_UPDATE"
+        exchange._trade_update_from_raw_message = lambda _: _mock_trade_update
+        exchange._order_update_from_raw_message = lambda _: MagicMock(new_state=None, client_order_id="HBOT-TEST", exchange_order_id="1")
         exchange._order_tracker = type(
             "Tracker",
             (),
             {
                 "process_trade_update": lambda self, _: captured.__setitem__("trades", captured["trades"] + 1),
                 "process_order_update": lambda self, _: captured.__setitem__("orders", captured["orders"] + 1),
+                "all_fillable_orders": {},
+                "all_updatable_orders": {},
+                "all_fillable_orders_by_exchange_order_id": {},
             },
         )()
         exchange._sleep = AsyncMock()

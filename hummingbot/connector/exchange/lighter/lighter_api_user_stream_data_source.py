@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from hummingbot.connector.exchange.lighter import lighter_constants as CONSTANTS, lighter_web_utils as web_utils
@@ -29,6 +30,39 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._domain = domain
         self._ping_task: Optional[asyncio.Task] = None
+        self._last_listen_error_log_ts: float = 0.0
+        self._has_logged_subscription_info: bool = False
+
+    async def listen_for_user_stream(self, output: asyncio.Queue):
+        """Override base loop to throttle repeated reconnect exception logs."""
+        while True:
+            try:
+                self._ws_assistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(websocket_assistant=self._ws_assistant)
+                await self._send_ping(websocket_assistant=self._ws_assistant)
+                await self._process_websocket_messages(websocket_assistant=self._ws_assistant, queue=output)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                close_message = str(connection_exception)
+                if "close code = 1000" in close_message.lower():
+                    self.logger().debug(f"The websocket connection was closed ({connection_exception})")
+                else:
+                    self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception as ex:
+                now = time.time()
+                if now - self._last_listen_error_log_ts >= 30.0:
+                    self._last_listen_error_log_ts = now
+                    self.logger().exception("Unexpected error while listening to user stream. Retrying after 5 seconds...")
+                else:
+                    self.logger().debug(
+                        "Suppressing repeated user stream listener error during reconnect storm: %s",
+                        ex,
+                    )
+                await self._sleep(2.0)
+            finally:
+                await self._on_user_stream_interruption(websocket_assistant=self._ws_assistant)
+                self._ws_assistant = None
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
@@ -48,8 +82,6 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if message.get("type") != "connected":
             raise IOError("Private websocket connection did not acknowledge the session")
 
-        # Subscribe only to the proven valid spot private channel.
-        # Current spot environments reject account_all_assets with "Invalid Channel".
         account_identifiers = {
             str(self._auth.user_wallet_public_key),
             str(getattr(self._connector, "account_index", "") or ""),
@@ -57,30 +89,60 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         }
         account_identifiers.discard("")
 
-        private_channels = (
-            CONSTANTS.WS_ACCOUNT_ALL_CHANNEL,
-        )
-
         sent_channels: set = set()
-        for account_identifier in account_identifiers:
-            # Lighter spot uses colon-delimited channel names (e.g. account_all:693751).
-            # The slash format (account_all/693751) is rejected with "Invalid Channel".
-            for base_channel in private_channels:
-                channel = f"{base_channel}:{account_identifier}"
-                if channel in sent_channels:
-                    continue
-                await websocket_assistant.send(WSJSONRequest({
-                    "type": "subscribe",
-                    "channel": channel,
-                }))
-                sent_channels.add(channel)
+        auth_token = ""
+        try:
+            auth_token = str(self._connector._get_lighter_auth_token() or "")
+        except Exception:
+            auth_token = ""
 
-        self.logger().info(
-            "Subscribed to spot private channels=%s for identifiers=%s (%d subscriptions)",
-            list(private_channels),
-            sorted(account_identifiers),
+        # Subscribe SPOT private channels.
+        # • account_all            → full account snapshot (assets, orders, trades) on connect;
+        #                            incremental updates as orders change state.
+        # • account_all_assets     → real-time balance updates (auth token required).
+        # • account_all_orders     → full-JSON order history snapshot + incremental updates;
+        #                            populates client_order_index → order_id mapping and
+        #                            triggers fill-detection when FILLED/CANCELED state arrives.
+        # • account_all_trades
+        #   Real-time fill channel with ask_client_id/bid_client_id fields.
+        #
+        # Legacy channels account_trades/account_order_updates are not subscribed
+        # for SPOT because they are not consistently supported across environments.
+        #
+        # Delimiter format differs by deployment (":" vs "/").
+        # Subscribe using both formats and rely on Invalid Channel suppression.
+        spot_private_channels = (
+            CONSTANTS.WS_ACCOUNT_ALL_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_ASSETS_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_ORDERS_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_TRADES_CHANNEL,
+        )
+        for account_identifier in sorted(account_identifiers):  # sorted for deterministic test order
+            for base_channel in spot_private_channels:
+                # Prefer slash format first (validated on live SPOT channels), keep ':' as fallback.
+                for channel in (f"{base_channel}/{account_identifier}", f"{base_channel}:{account_identifier}"):
+                    if channel in sent_channels:
+                        continue
+                    payload = {"type": "subscribe", "channel": channel}
+                    if (
+                        base_channel in {
+                            CONSTANTS.WS_ACCOUNT_ALL_ASSETS_CHANNEL,
+                            CONSTANTS.WS_ACCOUNT_ALL_ORDERS_CHANNEL,
+                        }
+                        and auth_token
+                    ):
+                        payload["auth"] = auth_token
+                    await websocket_assistant.send(WSJSONRequest(payload))
+                    sent_channels.add(channel)
+
+        log_method = self.logger().debug
+        log_method(
+            "Subscribed to spot private channels=%s for %d account identifier(s) (%d subscriptions)",
+            [c for c in spot_private_channels],
+            len(account_identifiers),
             len(sent_channels),
         )
+        self._has_logged_subscription_info = True
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         async for ws_response in websocket_assistant.iter_messages():
@@ -104,8 +166,14 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         message_type = str(event_message.get("type", ""))
         channel = str(event_message.get("channel", ""))
         event_type_name = message_type.split("/", 1)[1] if "/" in message_type else message_type
+        # Forward events from all SPOT private channels plus optional compatibility
+        # channels used by some backend deployments.
         account_channels = (
             CONSTANTS.WS_ACCOUNT_ALL_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_ASSETS_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_TX_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_ORDERS_CHANNEL,
+            CONSTANTS.WS_ACCOUNT_ALL_TRADES_CHANNEL,
         )
         if (
             event_type_name in account_channels

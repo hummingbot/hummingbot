@@ -39,6 +39,42 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._domain = domain
         self._market_id_to_trading_pair: Dict[int, str] = {}
         self._ping_task: Optional[asyncio.Task] = None
+        self._last_listen_error_log_ts: float = 0.0
+        self._has_logged_subscription_info: bool = False
+
+    async def listen_for_subscriptions(self):
+        """Override base loop to throttle repeated reconnect exception logs."""
+        ws: Optional[WSAssistant] = None
+        while True:
+            try:
+                ws = await self._connected_websocket_assistant()
+                self._ws_assistant = ws
+                await self._subscribe_channels(ws)
+                await self._process_websocket_messages(websocket_assistant=ws)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                close_message = str(connection_exception)
+                if "close code = 1000" in close_message.lower():
+                    self.logger().debug(f"The websocket connection was closed ({connection_exception})")
+                else:
+                    self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception as ex:
+                now = time.time()
+                if now - self._last_listen_error_log_ts >= 30.0:
+                    self._last_listen_error_log_ts = now
+                    self.logger().exception(
+                        "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    )
+                else:
+                    self.logger().debug(
+                        "Suppressing repeated order book listener error during reconnect storm: %s",
+                        ex,
+                    )
+                await self._sleep(2.0)
+            finally:
+                self._ws_assistant = None
+                await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -231,7 +267,9 @@ class LighterPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 await ws.send(WSJSONRequest(payload={"type": "subscribe", "channel": f"order_book/{market_id}"}))
                 await ws.send(WSJSONRequest(payload={"type": "subscribe", "channel": f"trade/{market_id}"}))
                 await ws.send(WSJSONRequest(payload={"type": "subscribe", "channel": f"market_stats/{market_id}"}))
-            self.logger().info("Subscribed to public order book, trade, and market_stats channels...")
+            log_method = self.logger().debug
+            log_method("Subscribed to public order book, trade, and market_stats channels...")
+            self._has_logged_subscription_info = True
         except asyncio.CancelledError:
             raise
         except Exception:

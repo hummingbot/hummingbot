@@ -76,6 +76,8 @@ WS_ACCOUNT_POSITIONS_CHANNEL = "account_positions"
 WS_ACCOUNT_INFO_CHANNEL = "account_info"
 WS_ACCOUNT_TRADES_CHANNEL = "account_trades"
 WS_ACCOUNT_ALL_CHANNEL = "account_all"
+WS_ACCOUNT_ALL_ORDERS_CHANNEL = "account_all_orders"
+WS_USER_STATS_CHANNEL = "user_stats"
 
 WS_PING_INTERVAL = 30  # Keep connection alive
 

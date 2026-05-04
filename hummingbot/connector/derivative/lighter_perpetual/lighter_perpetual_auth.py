@@ -12,8 +12,8 @@ class LighterPerpetualAuth(AuthBase):
         headers = dict(request.headers or {})
         headers["accept"] = "application/json"
         headers["Content-Type"] = "application/json"
-        if self.api_key:
-            headers["X-Api-Key"] = self.api_key
+        # Do not expose the API key or index in headers — auth token is used
+        # for restricted endpoints via 'auth' query param; public endpoints need no key header.
         request.headers = headers
 
         return request

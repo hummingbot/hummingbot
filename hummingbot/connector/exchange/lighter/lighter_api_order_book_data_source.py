@@ -32,6 +32,41 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._domain = domain
         self._market_id_to_trading_pair: Dict[int, str] = {}
         self._ping_task: Optional[asyncio.Task] = None
+        self._last_listen_error_log_ts: float = 0.0
+
+    async def listen_for_subscriptions(self):
+        """Override base loop to throttle repeated reconnect exception logs."""
+        ws: Optional[WSAssistant] = None
+        while True:
+            try:
+                ws = await self._connected_websocket_assistant()
+                self._ws_assistant = ws
+                await self._subscribe_channels(ws)
+                await self._process_websocket_messages(websocket_assistant=ws)
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                close_message = str(connection_exception)
+                if "close code = 1000" in close_message.lower():
+                    self.logger().debug(f"The websocket connection was closed ({connection_exception})")
+                else:
+                    self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception as ex:
+                now = time.time()
+                if now - self._last_listen_error_log_ts >= 30.0:
+                    self._last_listen_error_log_ts = now
+                    self.logger().exception(
+                        "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    )
+                else:
+                    self.logger().debug(
+                        "Suppressing repeated order book listener error during reconnect storm: %s",
+                        ex,
+                    )
+                await self._sleep(2.0)
+            finally:
+                self._ws_assistant = None
+                await self._on_order_stream_interruption(websocket_assistant=ws)
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -140,9 +175,25 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self.remove_trading_pair(trading_pair)
         return True
 
+    @staticmethod
+    def _extract_market_id_from_channel(channel: str) -> Optional[int]:
+        """Accept both 'prefix:123' and 'prefix/123' channel formats."""
+        if not channel:
+            return None
+        try:
+            if ":" in channel:
+                return int(channel.rsplit(":", 1)[1])
+            if "/" in channel:
+                return int(channel.rsplit("/", 1)[1])
+        except Exception:
+            return None
+        return None
+
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._extract_market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -166,7 +217,9 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._extract_market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -184,7 +237,9 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         channel = str(raw_message.get("channel", ""))
-        market_id = int(channel.split(":")[-1])
+        market_id = self._extract_market_id_from_channel(channel)
+        if market_id is None:
+            return
         trading_pair = self._market_id_to_trading_pair.get(market_id)
         if trading_pair is None:
             return
@@ -211,12 +266,18 @@ class LighterAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return ""
         event_channel = str(event_message.get("channel"))
         event_type = str(event_message.get("type", ""))
-        if event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}:"):
+        if (
+            event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}:")
+            or event_channel.startswith(f"{CONSTANTS.WS_ORDER_BOOK_SNAPSHOT_CHANNEL}/")
+        ):
             if event_type in {"subscribed/order_book", "snapshot/order_book"}:
                 return self._snapshot_messages_queue_key
             if event_type in {"update/order_book"}:
                 return self._diff_messages_queue_key
             return self._snapshot_messages_queue_key
-        if event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}:"):
+        if (
+            event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}:")
+            or event_channel.startswith(f"{CONSTANTS.WS_TRADES_CHANNEL}/")
+        ):
             return self._trade_messages_queue_key
         return ""

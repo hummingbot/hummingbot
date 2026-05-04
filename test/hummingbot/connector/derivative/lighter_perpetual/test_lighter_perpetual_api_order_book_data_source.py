@@ -670,3 +670,127 @@ class LighterPerpetualAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCa
             await self.data_source.listen_for_funding_info(output=asyncio.Queue())
 
         log_mock.exception.assert_called()
+
+    # ------------------------------------------------------------------
+    # _market_id_from_channel
+    # ------------------------------------------------------------------
+
+    def test_market_id_from_channel_with_colon_separator(self):
+        result = self.data_source_cls._market_id_from_channel("order_book:1001")
+        self.assertEqual(1001, result)
+
+    def test_market_id_from_channel_with_slash_separator(self):
+        result = self.data_source_cls._market_id_from_channel("order_book/1001")
+        self.assertEqual(1001, result)
+
+    def test_market_id_from_channel_no_separator_returns_none(self):
+        result = self.data_source_cls._market_id_from_channel("order_book")
+        self.assertIsNone(result)
+
+    def test_market_id_from_channel_non_int_tail_returns_none(self):
+        result = self.data_source_cls._market_id_from_channel("order_book:abc")
+        self.assertIsNone(result)
+
+    # ------------------------------------------------------------------
+    # _parse_order_book_snapshot_message
+    # ------------------------------------------------------------------
+
+    async def test_parse_ob_snapshot_unknown_market_id_returns_early(self):
+        q = asyncio.Queue()
+        await self.data_source._parse_order_book_snapshot_message(
+            {"channel": "order_book:9999", "order_book": {"bids": [], "asks": []}},
+            q,
+        )
+        self.assertTrue(q.empty())
+
+    async def test_parse_ob_snapshot_no_channel_returns_early(self):
+        q = asyncio.Queue()
+        await self.data_source._parse_order_book_snapshot_message({"order_book": {}}, q)
+        self.assertTrue(q.empty())
+
+    async def test_parse_ob_snapshot_puts_message_when_known(self):
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+        q = asyncio.Queue()
+        await self.data_source._parse_order_book_snapshot_message({
+            "channel": "order_book:1001",
+            "order_book": {"nonce": 42, "bids": [{"price": "100", "size": "1"}], "asks": []},
+            "timestamp": 1700000000000,
+        }, q)
+        self.assertFalse(q.empty())
+        msg = q.get_nowait()
+        self.assertEqual("BTC-USDC", msg.content["trading_pair"])
+
+    # ------------------------------------------------------------------
+    # _parse_order_book_diff_message
+    # ------------------------------------------------------------------
+
+    async def test_parse_ob_diff_unknown_market_returns_early(self):
+        q = asyncio.Queue()
+        await self.data_source._parse_order_book_diff_message(
+            {"channel": "order_book:9999", "order_book": {}},
+            q,
+        )
+        self.assertTrue(q.empty())
+
+    async def test_parse_ob_diff_puts_diff_when_known(self):
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+        q = asyncio.Queue()
+        await self.data_source._parse_order_book_diff_message({
+            "channel": "order_book:1001",
+            "order_book": {"nonce": 7, "begin_nonce": 6, "bids": [], "asks": [{"price": "101", "size": "2"}]},
+            "timestamp": 1700000000000,
+        }, q)
+        self.assertFalse(q.empty())
+        msg = q.get_nowait()
+        self.assertEqual("BTC-USDC", msg.content["trading_pair"])
+
+    # ------------------------------------------------------------------
+    # subscribe_to_trading_pair / unsubscribe_from_trading_pair
+    # ------------------------------------------------------------------
+
+    async def test_subscribe_to_trading_pair_returns_false_when_no_ws(self):
+        self.data_source._ws_assistant = None
+        result = await self.data_source.subscribe_to_trading_pair("BTC-USDC")
+        self.assertFalse(result)
+
+    async def test_subscribe_to_trading_pair_sends_subscriptions(self):
+        ws = AsyncMock()
+        self.data_source._ws_assistant = ws
+        result = await self.data_source.subscribe_to_trading_pair("BTC-USDC")
+        self.assertTrue(result)
+        self.assertEqual(3, ws.send.await_count)
+        self.assertEqual("BTC-USDC", self.data_source._market_id_to_trading_pair[1001])
+
+    async def test_unsubscribe_from_trading_pair_returns_false_when_no_ws(self):
+        self.data_source._ws_assistant = None
+        result = await self.data_source.unsubscribe_from_trading_pair("BTC-USDC")
+        self.assertFalse(result)
+
+    async def test_unsubscribe_from_trading_pair_sends_unsubscriptions(self):
+        ws = AsyncMock()
+        self.data_source._ws_assistant = ws
+        self.data_source._market_id_to_trading_pair[1001] = "BTC-USDC"
+        result = await self.data_source.unsubscribe_from_trading_pair("BTC-USDC")
+        self.assertTrue(result)
+        self.assertEqual(3, ws.send.await_count)
+        self.assertNotIn(1001, self.data_source._market_id_to_trading_pair)
+
+    # ------------------------------------------------------------------
+    # _ping_loop
+    # ------------------------------------------------------------------
+
+    async def test_ping_loop_cancels_on_cancelled_error(self):
+        ws = AsyncMock()
+        ws.send = AsyncMock(side_effect=asyncio.CancelledError())
+
+        with patch("asyncio.sleep", AsyncMock(return_value=None)):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.data_source._ping_loop(ws)
+
+    async def test_ping_loop_returns_on_ws_not_connected(self):
+        ws = AsyncMock()
+        ws.send = AsyncMock(side_effect=RuntimeError("WS is not connected"))
+
+        with patch("asyncio.sleep", AsyncMock(return_value=None)):
+            # Should return without raising
+            await self.data_source._ping_loop(ws)

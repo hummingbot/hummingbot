@@ -211,3 +211,21 @@ class LighterPerpetualUtilsTests(unittest.TestCase):
         """testnet migrate_legacy_fields must return non-dict data unchanged (covers line 241)."""
         result = utils.LighterPerpetualTestnetConfigMap.migrate_legacy_fields("not-a-dict")
         self.assertEqual("not-a-dict", result)
+
+    def test_mainnet_private_key_empty_string_accepted(self):
+        """Empty private key returns early (line 115: return v when raw == '')."""
+        config = utils.LighterPerpetualConfigMap(
+            lighter_perpetual_api_key_index="4",
+            lighter_perpetual_account_index="693751",
+            lighter_perpetual_api_key_private_key="",
+        )
+        self.assertEqual("", config.lighter_perpetual_api_key_private_key.get_secret_value())
+
+    def test_testnet_private_key_empty_string_accepted(self):
+        """Empty testnet private key returns early (line 250: return v when raw == '')."""
+        config = utils.LighterPerpetualTestnetConfigMap(
+            lighter_perpetual_testnet_api_key_index="4",
+            lighter_perpetual_testnet_account_index="693751",
+            lighter_perpetual_testnet_api_key_private_key="",
+        )
+        self.assertEqual("", config.lighter_perpetual_testnet_api_key_private_key.get_secret_value())

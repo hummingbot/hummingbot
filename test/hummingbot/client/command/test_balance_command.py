@@ -129,3 +129,40 @@ class BalanceCommandTest(IsolatedAsyncioWrapperTestCase):
                 msg=f"\n\nExchanges Total: {self.app.client_config_map.global_token.global_token_symbol} 20    "
             )
         )
+
+    def test_balance_limit_accepts_derivative_connector(self):
+        self.app.balance(option="limit", args=["lighter_perpetual", "USDC", "20"])
+
+        self.assertEqual(
+            20.0,
+            self.app.client_config_map.balance_asset_limit["lighter_perpetual"]["USDC"],
+        )
+        self.assertTrue(
+            self.cli_mock_assistant.check_log_called_with(
+                msg="Limit for USDC on lighter_perpetual exchange set to 20.0"
+            )
+        )
+
+    def test_balance_limit_normalizes_connector_name_case(self):
+        self.app.balance(option="limit", args=["LIGHTER_PERPETUAL", "USDC", "10"])
+
+        self.assertEqual(
+            10.0,
+            self.app.client_config_map.balance_asset_limit["lighter_perpetual"]["USDC"],
+        )
+
+    def test_balance_limit_accepts_hyperliquid_backpack_and_pacifica_perps(self):
+        derivative_connectors = ["hyperliquid_perpetual", "backpack_perpetual", "pacifica_perpetual"]
+
+        for connector in derivative_connectors:
+            self.app.balance(option="limit", args=[connector, "USDC", "7"])
+
+            self.assertEqual(
+                7.0,
+                self.app.client_config_map.balance_asset_limit[connector]["USDC"],
+            )
+            self.assertTrue(
+                self.cli_mock_assistant.check_log_called_with(
+                    msg=f"Limit for USDC on {connector} exchange set to 7.0"
+                )
+            )

@@ -18,6 +18,11 @@ OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().value
            if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() if cs.name != "probit_kr"}
 
 
+def _lighter_account_index(api_keys: Dict[str, str]) -> Optional[str]:
+    """Return the account index from stored Lighter credentials, used as a fallback identifier."""
+    return next((v for k, v in api_keys.items() if "account_index" in k and v), None)
+
+
 class ConnectCommand:
     def connect(self,  # type: HummingbotApplication
                 option: str):
@@ -41,20 +46,43 @@ class ConnectCommand:
         connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
-            api_key_config = [value for key, value in Security.api_keys(connector_name).items() if "api_key" in key]
-            if api_key_config:
-                api_key = api_key_config[0]
-                prompt = (
-                    f"Would you like to replace your existing {connector_name} API key {api_key} (Yes/No)? >>> "
-                )
+            stored_keys = Security.api_keys(connector_name)
+            # For Lighter connectors, show the derived public address rather than the key index.
+            is_lighter = connector_name.startswith("lighter")
+            if is_lighter:
+                from hummingbot.connector.lighter_common.lighter_key_utils import fetch_lighter_public_key
+                acct_idx = stored_keys.get(f"{connector_name}_account_index") or ""
+                key_idx = stored_keys.get(f"{connector_name}_api_key_index") or ""
+                public_key = await fetch_lighter_public_key(connector_name, acct_idx, key_idx)
+                if public_key:
+                    prompt = (
+                        f"Would you like to replace your existing {connector_name} key "
+                        f"(public key: {public_key}) (Yes/No)? >>> "
+                    )
+                else:
+                    account_id = _lighter_account_index(stored_keys)
+                    if account_id:
+                        prompt = (
+                            f"Would you like to replace your existing {connector_name} key "
+                            f"(account index: {account_id}) (Yes/No)? >>> "
+                        )
+                    else:
+                        prompt = f"Would you like to replace your existing {connector_name} key (Yes/No)? >>> "
             else:
-                prompt = f"Would you like to replace your existing {connector_name} key (Yes/No)? >>> "
+                api_key_config = [v for k, v in stored_keys.items() if "api_key" in k]
+                if api_key_config:
+                    prompt = (
+                        f"Would you like to replace your existing {connector_name} API key "
+                        f"{api_key_config[0]} (Yes/No)? >>> "
+                    )
+                else:
+                    prompt = f"Would you like to replace your existing {connector_name} key (Yes/No)? >>> "
             answer = await self.app.prompt(prompt=prompt)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
             if answer.lower() in ("yes", "y"):
-                previous_keys = Security.api_keys(connector_name)
+                previous_keys = stored_keys
                 await self._perform_connect(connector_config, previous_keys)
         else:
             await self._perform_connect(connector_config)
@@ -138,7 +166,23 @@ class ConnectCommand:
         Security.update_secure_config(connector_config)
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
-            self.notify(f"\nYou are now connected to {connector_name}.")
+            if connector_name.startswith("lighter"):
+                from hummingbot.connector.lighter_common.lighter_key_utils import fetch_lighter_public_key
+                new_keys = Security.api_keys(connector_name)
+                acct_idx = new_keys.get(f"{connector_name}_account_index") or ""
+                key_idx = new_keys.get(f"{connector_name}_api_key_index") or ""
+                public_key = await fetch_lighter_public_key(connector_name, acct_idx, key_idx)
+                if public_key:
+                    self.notify(f"\nYou are now connected to {connector_name} (public key: {public_key}).")
+                else:
+                    account_id = _lighter_account_index(new_keys)
+                    msg = (
+                        f"\nYou are now connected to {connector_name} (account index: {account_id})."
+                        if account_id else f"\nYou are now connected to {connector_name}."
+                    )
+                    self.notify(msg)
+            else:
+                self.notify(f"\nYou are now connected to {connector_name}.")
             safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
         else:
             self.notify(f"\nError: {err_msg}")

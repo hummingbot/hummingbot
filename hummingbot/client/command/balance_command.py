@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List
 
 import pandas as pd
 
-from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
+from hummingbot.client.config.config_validators import validate_decimal, validate_derivative, validate_exchange
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -40,11 +40,13 @@ class BalanceCommand:
                 if args is None or len(args) == 0:
                     safe_ensure_future(self.show_asset_limits())
                     return
-                if len(args) != 3 or validate_exchange(args[0]) is not None or validate_decimal(args[2]) is not None:
+                exchange = args[0].lower() if len(args) > 0 else ""
+                is_invalid_exchange = validate_exchange(exchange) is not None
+                is_invalid_derivative = validate_derivative(exchange) is not None
+                if len(args) != 3 or (is_invalid_exchange and is_invalid_derivative) or validate_decimal(args[2]) is not None:
                     self.notify("Error: Invalid command arguments")
                     self.notify_balance_limit_set()
                     return
-                exchange = args[0]
                 asset = args[1].upper()
                 amount = float(args[2])
                 if balance_asset_limit.get(exchange) is None:
