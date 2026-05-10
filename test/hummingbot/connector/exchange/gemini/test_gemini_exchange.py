@@ -2,7 +2,8 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.gemini.gemini_exchange import GeminiExchange
-from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee
 
 
 class GeminiExchangeTests(TestCase):
@@ -43,3 +44,43 @@ class GeminiExchangeTests(TestCase):
 
     def test_client_order_id_max_length(self):
         self.assertEqual(36, self.exchange.client_order_id_max_length)
+
+    # ------------------------------------------------------------------
+    # P0-2: LIMIT_MAKER must be classified as a maker order
+    # ------------------------------------------------------------------
+
+    def test_get_fee_limit_maker_uses_maker_fee(self):
+        fee = self.exchange._get_fee(
+            base_currency="BTC",
+            quote_currency="USD",
+            order_type=OrderType.LIMIT_MAKER,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+        )
+        self.assertIsInstance(fee, DeductedFromReturnsTradeFee)
+        # Default Gemini schema: maker = 0.002, taker = 0.004
+        self.assertEqual(Decimal("0.002"), fee.percent)
+
+    def test_get_fee_limit_uses_maker_fee(self):
+        fee = self.exchange._get_fee(
+            base_currency="BTC",
+            quote_currency="USD",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+        )
+        self.assertEqual(Decimal("0.002"), fee.percent)
+
+    def test_get_fee_explicit_is_maker_false_uses_taker(self):
+        fee = self.exchange._get_fee(
+            base_currency="BTC",
+            quote_currency="USD",
+            order_type=OrderType.LIMIT_MAKER,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            is_maker=False,
+        )
+        self.assertEqual(Decimal("0.004"), fee.percent)

@@ -145,7 +145,11 @@ class GeminiExchange(ExchangePyBase):
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = order_type is OrderType.LIMIT
+        # Honor caller-provided is_maker when given. Otherwise treat both LIMIT and
+        # LIMIT_MAKER as maker orders (PMM uses LIMIT_MAKER) so we don't misclassify
+        # post-only orders as takers.
+        if is_maker is None:
+            is_maker = order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _place_order(self,
