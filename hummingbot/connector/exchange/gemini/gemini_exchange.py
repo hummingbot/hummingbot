@@ -272,30 +272,42 @@ class GeminiExchange(ExchangePyBase):
                     order_status = event_message.get("X", "")
                     client_order_id = event_message.get("c", "")
 
-                    # When a fill occurs, extract fill details from WS event fields:
-                    # Z = fill quantity, L = fill price, t = trade ID
+                    # When a fill occurs, extract fill details from WS event fields.
+                    # Per Gemini Fast API docs:
+                    #   Z = CUMULATIVE executed base quantity for the order
+                    #   L = price of the most recent execution (last fill price)
+                    #   t = trade ID for the most recent execution
+                    # Because `update_with_trade_update` accumulates `fill_base_amount`,
+                    # we must convert the cumulative `Z` into a per-fill delta by
+                    # subtracting what we've already tracked for this order. We also
+                    # require a stable `t` to safely dedupe duplicate/stale events.
                     if order_status in ("PARTIALLY_FILLED", "FILLED"):
                         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
-                        if tracked_order is not None:
-                            fill_amount = Decimal(str(event_message["Z"]))
-                            fill_price = Decimal(str(event_message["L"]))
-                            trade_id = str(event_message["t"])
-                            fee = DeductedFromReturnsTradeFee(
-                                percent=self.estimate_fee_pct(
-                                    is_maker=tracked_order.order_type is OrderType.LIMIT))
-                            trade_update = TradeUpdate(
-                                trade_id=trade_id,
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(event_message.get("i", "")),
-                                trading_pair=tracked_order.trading_pair,
-                                fee=fee,
-                                fill_base_amount=fill_amount,
-                                fill_quote_amount=fill_amount * fill_price,
-                                fill_price=fill_price,
-                                fill_timestamp=CONSTANTS.convert_timestamp_to_seconds(
-                                    event_message.get("E", 0)),
-                            )
-                            self._order_tracker.process_trade_update(trade_update)
+                        trade_id_raw = event_message.get("t")
+                        if tracked_order is not None and trade_id_raw not in (None, ""):
+                            cumulative_z = Decimal(str(event_message.get("Z", "0")))
+                            prior_filled = tracked_order.executed_amount_base
+                            fill_amount = max(Decimal("0"), cumulative_z - prior_filled)
+                            if fill_amount > Decimal("0"):
+                                fill_price = Decimal(str(event_message["L"]))
+                                trade_id = str(trade_id_raw)
+                                is_maker = tracked_order.order_type in (
+                                    OrderType.LIMIT, OrderType.LIMIT_MAKER)
+                                fee = DeductedFromReturnsTradeFee(
+                                    percent=self.estimate_fee_pct(is_maker=is_maker))
+                                trade_update = TradeUpdate(
+                                    trade_id=trade_id,
+                                    client_order_id=client_order_id,
+                                    exchange_order_id=str(event_message.get("i", "")),
+                                    trading_pair=tracked_order.trading_pair,
+                                    fee=fee,
+                                    fill_base_amount=fill_amount,
+                                    fill_quote_amount=fill_amount * fill_price,
+                                    fill_price=fill_price,
+                                    fill_timestamp=CONSTANTS.convert_timestamp_to_seconds(
+                                        event_message.get("E", 0)),
+                                )
+                                self._order_tracker.process_trade_update(trade_update)
 
                     # Process order status update
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
