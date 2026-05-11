@@ -24,6 +24,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (
     get_token_from_changes,
     parse_offer_create_transaction,
 )
+from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
 
 
 class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
@@ -277,6 +278,38 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
         self.assertIn("BBRL-RLUSD", api_keys["custom_markets"])
         self.assertEqual(api_keys["custom_markets"]["BBRL-RLUSD"].base, "BBRL")
         self.assertEqual(api_keys["custom_markets"]["BBRL-RLUSD"].quote, "RLUSD")
+
+    def test_connector_configuration_custom_markets_are_used(self):
+        """Custom markets forwarded through connector_configuration should be usable at startup."""
+        from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
+
+        custom_market = XRPLMarket(
+            base="BBRL",
+            quote="RLUSD",
+            base_issuer="rBBRLissuerAddress",
+            quote_issuer="rRLUSDissuerAddress",
+            trading_pair_symbol="BBRL-RLUSD",
+        )
+        config_map = XRPLConfigMap(
+            xrpl_secret_key="test_secret_key",
+            wss_node_urls=["wss://xrplcluster.com/"],
+            custom_markets={"BBRL-RLUSD": custom_market},
+            max_request_per_minute=12,
+        )
+
+        exchange = XrplExchange(
+            xrpl_secret_key="test_secret_key",
+            wss_node_urls=["wss://xrplcluster.com/"],
+            max_request_per_minute=12,
+            trading_pairs=["BBRL-RLUSD"],
+            trading_required=False,
+            connector_configuration=config_map,
+        )
+
+        base_currency, quote_currency = exchange.get_currencies_from_trading_pair("BBRL-RLUSD")
+
+        self.assertEqual(base_currency.issuer, "rBBRLissuerAddress")
+        self.assertEqual(quote_currency.issuer, "rRLUSDissuerAddress")
 
     async def test_auto_fill(self):
         client = AsyncMock()
