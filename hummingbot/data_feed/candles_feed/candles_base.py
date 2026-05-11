@@ -53,6 +53,7 @@ class CandlesBase(NetworkBase):
         self.max_records = max_records
         self._candles = deque(maxlen=max_records)
         self._listen_candles_task: Optional[asyncio.Task] = None
+        self._fill_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         self._ws_candle_available = asyncio.Event()
@@ -79,6 +80,9 @@ class CandlesBase(NetworkBase):
         if self._listen_candles_task is not None:
             self._listen_candles_task.cancel()
             self._listen_candles_task = None
+        if self._fill_candles_task is not None:
+            self._fill_candles_task.cancel()
+            self._fill_candles_task = None
 
     async def initialize_exchange_data(self):
         """
@@ -326,6 +330,8 @@ class CandlesBase(NetworkBase):
         while not self.ready:
             await self._ws_candle_available.wait()
             try:
+                if len(self._candles) == 0:
+                    continue
                 end_time = self._round_timestamp_to_interval_multiple(self._candles[0][0])
                 missing_records = self._candles.maxlen - len(self._candles)
                 candles: np.ndarray = await self.fetch_candles(end_time=end_time, limit=missing_records)
@@ -421,7 +427,7 @@ class CandlesBase(NetworkBase):
                 if len(self._candles) == 0:
                     self._candles.append(candles_row)
                     self._ws_candle_available.set()
-                    safe_ensure_future(self.fill_historical_candles())
+                    self._fill_candles_task = safe_ensure_future(self.fill_historical_candles())
                 else:
                     latest_timestamp = int(self._candles[-1][0])
                     current_timestamp = int(parsed_message["timestamp"])
@@ -471,6 +477,10 @@ class CandlesBase(NetworkBase):
 
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         websocket_assistant and await websocket_assistant.disconnect()
+        if self._fill_candles_task is not None:
+            self._fill_candles_task.cancel()
+            self._fill_candles_task = None
+        self._ws_candle_available.clear()
         self._candles.clear()
 
     def get_seconds_from_interval(self, interval: str) -> int:
