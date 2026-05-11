@@ -437,6 +437,8 @@ class XRPLConfigMap(BaseConnectorConfigMap):
         },
     )
 
+    receive_connector_configuration: bool = Field(default=True)
+
     max_request_per_minute: int = Field(
         default=12,
         json_schema_extra={

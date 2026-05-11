@@ -62,6 +62,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_utils import (  # AddLiquidityReque
     PoolInfo,
     QuoteLiquidityResponse,
     RemoveLiquidityResponse,
+    XRPLConfigMap,
     XRPLMarket,
     XRPLNodePool,
     autofill,
@@ -107,6 +108,7 @@ class XrplExchange(ExchangePyBase):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         custom_markets: Optional[Dict[str, XRPLMarket]] = None,
+        connector_configuration: Optional[XRPLConfigMap] = None,
     ):
         self._xrpl_secret_key = xrpl_secret_key
 
@@ -136,7 +138,10 @@ class XrplExchange(ExchangePyBase):
         self._trading_pair_fee_rules: Dict[str, Dict[str, Any]] = {}
 
         self._nonce_creator = NonceCreator.for_milliseconds()
-        self._custom_markets = custom_markets or {}
+        if connector_configuration is not None:
+            self._custom_markets = connector_configuration.custom_markets or {}
+        else:
+            self._custom_markets = custom_markets or {}
         self._last_clients_refresh_time = 0
 
         # Order state locking to prevent concurrent status updates
