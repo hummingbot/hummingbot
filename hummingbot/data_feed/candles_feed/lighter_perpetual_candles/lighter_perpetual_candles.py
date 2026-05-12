@@ -3,6 +3,8 @@ import logging
 import time
 from typing import List, Optional
 
+import numpy as np
+
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -111,7 +113,7 @@ class LighterPerpetualCandles(CandlesBase):
         raw_candles = data.get("c", []) if isinstance(data, dict) else []
         result = []
         for c in raw_candles:
-            ts_seconds = self.ensure_timestamp_in_seconds(c["t"])
+            ts_seconds = c["t"] / 1000.0
             if end_time is not None and ts_seconds > end_time:
                 continue
             result.append([
@@ -137,14 +139,18 @@ class LighterPerpetualCandles(CandlesBase):
                 current_candle_end = self._round_timestamp_to_interval_multiple(now_s) + self.interval_in_seconds
                 candles = await self.fetch_candles(end_time=current_candle_end, limit=1)
                 if len(candles) > 0:
-                    candle_row = candles[-1].astype(float)
+                    row = candles[-1]
+                    candle_row = np.array([
+                        row[0], row[1], row[2], row[3], row[4],
+                        row[5], row[6], row[7], row[8], row[9],
+                    ]).astype(float)
                     if len(self._candles) == 0:
                         self._candles.append(candle_row)
                         self._ws_candle_available.set()
                         safe_ensure_future(self.fill_historical_candles())
                     else:
                         latest_ts = int(self._candles[-1][0])
-                        current_ts = int(candle_row[0])
+                        current_ts = int(row[0])
                         if current_ts > latest_ts:
                             self._candles.append(candle_row)
                         elif current_ts == latest_ts:
