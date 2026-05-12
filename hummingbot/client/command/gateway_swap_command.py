@@ -25,9 +25,23 @@ class GatewaySwapCommand:
             gateway swap ethereum-mainnet ETH-USDC SELL 0.5
         """
         # Parse arguments: [base-quote] [side] [amount]
-        pair = args[0] if args and len(args) > 0 else None
-        side = args[1] if args and len(args) > 1 else None
-        amount = args[2] if args and len(args) > 2 else None
+        # Also accept shorthand form: <side> <amount> (pair prompted interactively)
+        parsed = list(args) if args else []
+        pair: Optional[str] = None
+        side: Optional[str] = None
+        amount: Optional[str] = None
+
+        if parsed and parsed[0].upper() in ("BUY", "SELL"):
+            side = parsed[0]
+            if len(parsed) > 1:
+                amount = parsed[1]
+        else:
+            if len(parsed) > 0:
+                pair = parsed[0]
+            if len(parsed) > 1:
+                side = parsed[1]
+            if len(parsed) > 2:
+                amount = parsed[2]
 
         safe_ensure_future(self._gateway_swap(connector, pair, side, amount), loop=self.ev_loop)
 
@@ -98,6 +112,10 @@ class GatewaySwapCommand:
             # Convert side to uppercase for consistency
             if side:
                 side = side.upper()
+
+            if side not in ("BUY", "SELL"):
+                self.notify(f"Error: Invalid side '{side}'. Must be BUY or SELL.")
+                return
 
             # Construct trading pair
             trading_pair = f"{base_token}-{quote_token}"
