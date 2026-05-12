@@ -84,21 +84,22 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 if data is None:
                     continue
                 if data.get("type") == "ping":
-                    await websocket_assistant.send(WSJSONRequest(payload={"type": "pong"}))
+                    websocket_assistant.send(WSJSONRequest(payload={"type": "pong"}))
                     continue
                 await self._process_event_message(event_message=data, queue=queue)
         finally:
             ping_task.cancel()
 
     async def _app_ping_loop(self, websocket_assistant: WSAssistant):
-        try:
-            while True:
+        while True:
+            try:
+
                 await asyncio.sleep(CONSTANTS.PRIVATE_WS_PING_INTERVAL)
                 await websocket_assistant.send(WSJSONRequest(payload={"type": "ping"}))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            pass
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
