@@ -1596,30 +1596,35 @@ class GatewayHttpClient:
     async def get_pool(
         self,
         trading_pair: str,
-        dex: str,
+        chain: str,
         network: str,
-        trading_type: str = "amm"
+        trading_type: str = "amm",
+        connector: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get pool information for a specific trading pair.
 
         :param trading_pair: Trading pair (e.g., "SOL-USDC")
-        :param dex: DEX protocol name (e.g., "raydium", "orca", "meteora")
+        :param chain: Blockchain chain (e.g., "solana", "ethereum")
         :param network: Network name (e.g., "mainnet-beta")
         :param trading_type: Pool type ("amm" or "clmm"), defaults to "amm"
+        :param connector: Optional connector filter (e.g., "raydium", "orca", "uniswap")
         :return: Pool information including address
         """
         params = {
-            "connector": dex,
+            "chain": chain,
             "network": network,
             "type": trading_type
         }
+        if connector:
+            params["connector"] = connector
 
         response = await self.api_request("get", f"pools/{trading_pair}", params=params)
         return response
 
     async def add_pool(
         self,
+        chain: str,
         connector: str,
         network: str,
         pool_data: Dict[str, Any]
@@ -1627,6 +1632,7 @@ class GatewayHttpClient:
         """
         Add a new pool to tracking.
 
+        :param chain: Blockchain chain (e.g., "solana", "ethereum")
         :param connector: Connector name
         :param network: Network name
         :param pool_data: Pool configuration data. Required fields:
@@ -1641,6 +1647,7 @@ class GatewayHttpClient:
         :return: Response with status
         """
         params = {
+            "chain": chain,
             "connector": connector,
             "network": network,
             **pool_data
@@ -1650,7 +1657,7 @@ class GatewayHttpClient:
     async def remove_pool(
         self,
         address: str,
-        connector: str,
+        chain: str,
         network: str,
         pool_type: str = "amm"
     ) -> Dict[str, Any]:
@@ -1658,17 +1665,72 @@ class GatewayHttpClient:
         Remove a pool from tracking.
 
         :param address: Pool address to remove
-        :param connector: Connector name
+        :param chain: Blockchain chain (e.g., "solana", "ethereum")
         :param network: Network name
         :param pool_type: Pool type (amm or clmm)
         :return: Response with status
         """
         params = {
-            "connector": connector,
+            "chain": chain,
             "network": network,
             "type": pool_type
         }
         return await self.api_request("delete", f"pools/{address}", params=params)
+
+    async def list_pools(
+        self,
+        chain: str,
+        network: str,
+        search: Optional[str] = None,
+        connector: Optional[str] = None,
+        pool_type: Optional[str] = None,
+        fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        """
+        List pools for a chain/network with optional filtering.
+
+        :param chain: Blockchain chain (e.g., "solana", "ethereum")
+        :param network: Network name (e.g., "mainnet-beta")
+        :param search: Optional search term (trading pair or address)
+        :param connector: Optional connector filter (e.g., "raydium", "orca")
+        :param pool_type: Optional pool type filter ("amm" or "clmm")
+        :param fail_silently: If True, return error dict instead of raising
+        :return: List of pools
+        """
+        params = {
+            "chain": chain,
+            "network": network
+        }
+        if search:
+            params["search"] = search
+        if connector:
+            params["connector"] = connector
+        if pool_type:
+            params["type"] = pool_type
+
+        try:
+            response = await self.api_request("get", "pools", params=params)
+            return response
+        except Exception as e:
+            if fail_silently:
+                return {"error": str(e)}
+            raise
+
+    async def save_pool(
+        self,
+        chain_network: str,
+        address: str
+    ) -> Dict[str, Any]:
+        """
+        Save a pool by address using GeckoTerminal lookup.
+        This fetches pool info from GeckoTerminal and saves it.
+
+        :param chain_network: Chain-network string (e.g., "solana-mainnet-beta")
+        :param address: Pool contract address
+        :return: Response with saved pool info
+        """
+        # POST with query params - need to append to URL since api_request sends POST params as body
+        return await self.api_request("post", f"pools/save/{address}?chainNetwork={chain_network}")
 
     # ============================================
     # Gateway Command Utils - API Functions
