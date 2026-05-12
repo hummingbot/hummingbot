@@ -1058,7 +1058,7 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(CONSTANTS.BROKER_ID, self.exchange.client_order_id_prefix)
         self.assertEqual(CONSTANTS.EXCHANGE_INFO_PATH_URL, self.exchange.trading_rules_request_path)
         self.assertEqual(CONSTANTS.PING_PATH_URL, self.exchange.check_network_request_path)
-        self.assertTrue(self.exchange.is_cancel_request_in_exchange_synchronous)
+        self.assertFalse(self.exchange.is_cancel_request_in_exchange_synchronous)
         self.assertTrue(self.exchange.is_trading_required)
         self.assertEqual(120, self.exchange.funding_fee_poll_interval)
         self.assertIsNotNone(self.exchange.authenticator)
