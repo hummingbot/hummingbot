@@ -22,7 +22,7 @@ INTERVALS = {
     "1w": "1w",
 }
 
-ALL_ENDPOINTS_LIMIT = "lighter_candles_all"
+ALL_ENDPOINTS_LIMIT = "lighter_spot_candles_all"
 DEFAULT_REQUEST_LIMIT = 250
 
 RATE_LIMITS = [

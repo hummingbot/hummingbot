@@ -6,11 +6,11 @@ from typing import List, Optional
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.data_feed.candles_feed.lighter_perpetual_candles import constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.lighter_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
 
-class LighterPerpetualCandles(CandlesBase):
+class LighterSpotCandles(CandlesBase):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -25,7 +25,7 @@ class LighterPerpetualCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"lighter_perpetual_{self._trading_pair}"
+        return f"lighter_{self._trading_pair}"
 
     @property
     def rest_url(self):
@@ -95,8 +95,6 @@ class LighterPerpetualCandles(CandlesBase):
         now_ms = int(time.time() * 1000)
         start_ms = int(start_time * 1000) if start_time is not None else now_ms - self.interval_in_seconds * 1000
         end_ms = int(end_time * 1000) if end_time is not None else now_ms
-        # Lighter returns max(range_bars, count_back) bars — set count_back to match the range
-        # so we get exactly the bars from start_ms to end_ms.
         interval_ms = self.interval_in_seconds * 1000
         count_back = max(1, int((end_ms - start_ms) / interval_ms))
         return {
