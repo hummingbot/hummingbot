@@ -16,6 +16,7 @@ SUBCOMMANDS = ['start', 'stop', 'restart']
 class MQTTCommand:
     _mqtt_sleep_rate_connection_check: float = 1.0
     _mqtt_sleep_rate_autostart_retry: float = 10.0
+    _mqtt_max_sleep_rate_autostart_retry: float = 300.0
 
     def mqtt_start(self,  # type: HummingbotApplication
                    timeout: float = 30.0
@@ -47,6 +48,7 @@ class MQTTCommand:
                                timeout: float = 30.0
                                ):
         if self._mqtt is None:
+            retry_sleep = self._mqtt_sleep_rate_autostart_retry
             while True:
                 try:
                     start_t = time.time()
@@ -64,7 +66,7 @@ class MQTTCommand:
                     break
                 except Exception as e:
                     if self.client_config_map.mqtt_bridge.mqtt_autostart:
-                        s = self._mqtt_sleep_rate_autostart_retry
+                        s = retry_sleep
                         self.logger().error(
                             f'Failed to connect MQTT Bridge: {str(e)}. Retrying in {s} seconds.')
                         self.notify(
@@ -78,7 +80,11 @@ class MQTTCommand:
                     self._mqtt = None
 
                     if self.client_config_map.mqtt_bridge.mqtt_autostart:
-                        await asyncio.sleep(self._mqtt_sleep_rate_autostart_retry)
+                        await asyncio.sleep(retry_sleep)
+                        retry_sleep = min(
+                            retry_sleep * 2,
+                            self._mqtt_max_sleep_rate_autostart_retry,
+                        )
                     else:
                         break
 

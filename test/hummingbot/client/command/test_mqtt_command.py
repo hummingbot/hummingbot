@@ -135,3 +135,44 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         )
         mqtt_health_mock.side_effect = lambda: True
         await self.wait_for_logged("INFO", "MQTT Bridge connected with success.")
+
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_max_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.client.command.mqtt_command.MQTTCommand._mqtt_sleep_rate_autostart_retry', new_callable=PropertyMock)
+    @patch('hummingbot.remote_iface.mqtt.MQTTGateway.health', new_callable=PropertyMock)
+    async def test_start_mqtt_command_uses_exponential_backoff(
+        self,
+        mqtt_health_mock: PropertyMock,
+        autostart_retry_mock: PropertyMock,
+        autostart_max_retry_mock: PropertyMock,
+    ):
+        # Force several health-check failures so the retry loop runs multiple iterations.
+        # We expect each successive retry log to advertise a doubled sleep interval,
+        # capped at _mqtt_max_sleep_rate_autostart_retry. With initial=0.1 and cap=0.4,
+        # the advertised intervals should be 0.1, 0.2, 0.4, 0.4, ...
+        autostart_retry_mock.return_value = 0.1
+        autostart_max_retry_mock.return_value = 0.4
+        failure_count = {"n": 0}
+
+        def fail_then_succeed(*args, **kwargs):
+            failure_count["n"] += 1
+            if failure_count["n"] <= 3:
+                raise RuntimeError(self.fake_err_msg)
+            self.resume_test_event.set()
+            return True
+
+        mqtt_health_mock.side_effect = fail_then_succeed
+        self.client_config_map.mqtt_bridge.mqtt_autostart = True
+        self.hbapp.mqtt_start()
+        await self.async_run_with_timeout(self.resume_test_event.wait(), timeout=15)
+        await self.wait_for_logged(
+            "ERROR",
+            f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 0.1 seconds."
+        )
+        await self.wait_for_logged(
+            "ERROR",
+            f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 0.2 seconds."
+        )
+        await self.wait_for_logged(
+            "ERROR",
+            f"Failed to connect MQTT Bridge: {self.fake_err_msg}. Retrying in 0.4 seconds."
+        )
