@@ -416,3 +416,36 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             result = await self.data_feed.get_historical_candles(config)
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()
+
+    async def test_stop_network_cancels_fill_candles_task(self):
+        """Test that stop_network cancels _fill_candles_task when it exists (lines 83-85)"""
+        mock_task = MagicMock()
+        self.data_feed._fill_candles_task = mock_task
+        self.data_feed._listen_candles_task = None
+
+        await self.data_feed.stop_network()
+
+        mock_task.cancel.assert_called_once()
+        self.assertIsNone(self.data_feed._fill_candles_task)
+
+    async def test_fill_historical_candles_skips_when_candles_empty(self):
+        """Test that fill_historical_candles continues when _candles is empty (lines 333-334)"""
+        self.data_feed._candles = deque(maxlen=4)
+        self.data_feed._ws_candle_available = asyncio.Event()
+        self.data_feed._ws_candle_available.set()
+
+        # First call: candles empty -> ready is False, hits continue (lines 333-334)
+        # Second call: we add candles -> ready becomes True, exits loop
+        call_count = 0
+
+        def mock_ready(self_inner):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False  # First check: not ready, enter loop
+            # After the continue, add candles and return True to exit
+            return True
+
+        with patch.object(type(self.data_feed), 'ready', new_callable=lambda: property(mock_ready)):
+            with patch.object(self.data_feed, 'check_candles_sorted_and_equidistant'):
+                await asyncio.wait_for(self.data_feed.fill_historical_candles(), timeout=5)
