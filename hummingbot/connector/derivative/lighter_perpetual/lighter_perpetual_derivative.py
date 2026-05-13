@@ -425,7 +425,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         account = extract_account_snapshot(
             account_response, account_index=self._account_index, l1_address=self._l1_address
         )
-        available_balance = self._safe_decimal(account["available_balance"])
+        available_balance = self._safe_decimal(account.get("available_balance", "0"))
         self._set_account_index_from_account(account)
 
         for asset in account.get("assets", []):
@@ -546,10 +546,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_TRADES_CHANNEL}:"):
                     self._process_trade_events(event_message.get("trades", {}))
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_ASSETS_CHANNEL}:"):
-                    self._process_balance_events(
-                        event_message.get("assets", {}),
-                        event_message.get("available_balance"),
-                    )
+                    self._process_balance_events(event_message.get("assets", {}))
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_POSITIONS_CHANNEL}:"):
                     self._process_position_events(event_message.get("positions", {}))
             except asyncio.CancelledError:
@@ -851,7 +848,15 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
     @staticmethod
     def _safe_decimal(value: Any) -> Decimal:
-        return Decimal(str(value))
+        if value is None or value == "":
+            return Decimal("0")
+        try:
+            result = Decimal(str(value))
+        except Exception:
+            return Decimal("0")
+        if result.is_nan() or result.is_infinite():
+            return Decimal("0")
+        return result
 
     @staticmethod
     def _extract_tx_code(tx_response: Any) -> Optional[int]:
