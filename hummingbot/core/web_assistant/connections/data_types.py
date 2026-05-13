@@ -2,6 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 import aiohttp
@@ -15,6 +16,7 @@ class RESTMethod(Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
+    PATCH = "PATCH"
     DELETE = "DELETE"
 
     def __str__(self):
@@ -67,16 +69,16 @@ class EndpointRESTRequest(RESTRequest, ABC):
                 self.url = f"{self.base_url}/{self.endpoint}"
 
     def _ensure_params(self):
-        if self.method == RESTMethod.POST:
+        if self.method in [RESTMethod.POST, RESTMethod.PUT, RESTMethod.PATCH]:
             if self.params is not None:
-                raise ValueError("POST requests should not use `params`. Use `data` instead.")
+                raise ValueError(f"{self.method.value} requests should not use `params`. Use `data` instead.")
 
     def _ensure_data(self):
-        if self.method == RESTMethod.POST:
+        if self.method in [RESTMethod.POST, RESTMethod.PUT, RESTMethod.PATCH]:
             if self.data is not None:
                 self.data = ujson.dumps(self.data)
         elif self.data is not None:
-            raise ValueError("The `data` field should be used only for POST requests. Use `params` instead.")
+            raise ValueError("The `data` field should be used only for POST, PUT, or PATCH requests. Use `params` instead.")
 
 
 @dataclass(init=False)
@@ -117,7 +119,10 @@ class RESTResponse:
             byte_string = await self._aiohttp_response.read()
             if isinstance(byte_string, bytes):
                 decoded_string = byte_string.decode('utf-8')
-                json_ = json.loads(decoded_string)
+                try:
+                    json_ = json.loads(decoded_string)
+                except JSONDecodeError:
+                    json_ = decoded_string
             else:
                 json_ = await self._aiohttp_response.json()
         else:

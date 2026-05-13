@@ -1,9 +1,5 @@
 from decimal import Decimal
-from typing import List
 
-from pydantic import Field
-
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -13,8 +9,6 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 
 class PMMSimpleConfig(MarketMakingControllerConfigBase):
     controller_name: str = "pmm_simple"
-    # As this controller is a simple version of the PMM, we are not using the candles feed
-    candles_config: List[CandlesConfig] = Field(default=[])
 
 
 class PMMSimpleController(MarketMakingControllerBase):

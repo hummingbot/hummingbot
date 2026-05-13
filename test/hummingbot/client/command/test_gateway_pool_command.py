@@ -20,12 +20,12 @@ class GatewayPoolCommandTest(unittest.TestCase):
             'ev_loop': None,
         })()
 
-    def test_display_pool_info_with_new_fields(self):
-        """Test display of pool information with new fields (baseTokenAddress, quoteTokenAddress, feePct)"""
+    def test_display_single_pool_with_all_fields(self):
+        """Test display of pool information with all fields"""
         # Real data fetched from Raydium CLMM gateway
         pool_info = {
+            'connector': 'raydium',
             'type': 'clmm',
-            'network': 'mainnet-beta',
             'baseSymbol': 'SOL',
             'quoteSymbol': 'USDC',
             'baseTokenAddress': 'So11111111111111111111111111111111111111112',
@@ -34,36 +34,31 @@ class GatewayPoolCommandTest(unittest.TestCase):
             'address': '3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv'
         }
 
-        self.command._display_pool_info(pool_info, "raydium/clmm", "SOL-USDC")
+        self.command._display_single_pool(pool_info, "solana", "mainnet-beta")
 
         # Verify all fields are displayed
-        self.app.notify.assert_any_call("\n=== Pool Information ===")
-        self.app.notify.assert_any_call("Connector: raydium/clmm")
-        self.app.notify.assert_any_call("Trading Pair: SOL-USDC")
-        self.app.notify.assert_any_call("Pool Type: clmm")
+        self.app.notify.assert_any_call("\nChain: solana")
         self.app.notify.assert_any_call("Network: mainnet-beta")
+        self.app.notify.assert_any_call("Connector: raydium")
+        self.app.notify.assert_any_call("Type: clmm")
         self.app.notify.assert_any_call("Base Token: SOL")
         self.app.notify.assert_any_call("Quote Token: USDC")
-        self.app.notify.assert_any_call("Base Token Address: So11111111111111111111111111111111111111112")
-        self.app.notify.assert_any_call("Quote Token Address: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        self.app.notify.assert_any_call("Address: 3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
         self.app.notify.assert_any_call("Fee: 0.04%")
-        self.app.notify.assert_any_call("Pool Address: 3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
 
-    def test_display_pool_info_missing_new_fields(self):
-        """Test display handles missing new fields gracefully"""
+    def test_display_single_pool_missing_fields(self):
+        """Test display handles missing fields gracefully"""
         pool_info = {
             'type': 'amm',
-            'network': 'mainnet',
             'baseSymbol': 'ETH',
             'quoteSymbol': 'USDC',
             'address': '0x123abc'
         }
 
-        self.command._display_pool_info(pool_info, "uniswap/amm", "ETH-USDC")
+        self.command._display_single_pool(pool_info, "ethereum", "mainnet")
 
         # Verify N/A is shown for missing fields
-        self.app.notify.assert_any_call("Base Token Address: N/A")
-        self.app.notify.assert_any_call("Quote Token Address: N/A")
+        self.app.notify.assert_any_call("Connector: N/A")
         self.app.notify.assert_any_call("Fee: N/A%")
 
     @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_connector_chain_network')
@@ -73,6 +68,7 @@ class GatewayPoolCommandTest(unittest.TestCase):
         mock_chain_network.return_value = ("solana", "mainnet-beta", None)
         # Real data fetched from Raydium CLMM gateway
         mock_get_pool.return_value = {
+            'connector': 'raydium',
             'type': 'clmm',
             'network': 'mainnet-beta',
             'baseSymbol': 'SOL',
@@ -260,12 +256,12 @@ class GatewayPoolCommandTest(unittest.TestCase):
         self.assertEqual(pool_data['quoteSymbol'], "USDC")
         self.assertEqual(pool_data['feePct'], 0.05)
 
-    def test_display_pool_info_uniswap_clmm(self):
+    def test_display_single_pool_uniswap_clmm(self):
         """Test display of Uniswap V3 CLMM pool information with real data from EVM chain"""
         # Real data fetched from Uniswap V3 CLMM gateway on Ethereum
         pool_info = {
+            'connector': 'uniswap',
             'type': 'clmm',
-            'network': 'mainnet',
             'baseSymbol': 'USDC',
             'quoteSymbol': 'WETH',
             'baseTokenAddress': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -274,27 +270,24 @@ class GatewayPoolCommandTest(unittest.TestCase):
             'address': '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640'
         }
 
-        self.command._display_pool_info(pool_info, "uniswap/clmm", "USDC-WETH")
+        self.command._display_single_pool(pool_info, "ethereum", "mainnet")
 
         # Verify all fields are displayed
-        self.app.notify.assert_any_call("\n=== Pool Information ===")
-        self.app.notify.assert_any_call("Connector: uniswap/clmm")
-        self.app.notify.assert_any_call("Trading Pair: USDC-WETH")
-        self.app.notify.assert_any_call("Pool Type: clmm")
+        self.app.notify.assert_any_call("\nChain: ethereum")
         self.app.notify.assert_any_call("Network: mainnet")
+        self.app.notify.assert_any_call("Connector: uniswap")
+        self.app.notify.assert_any_call("Type: clmm")
         self.app.notify.assert_any_call("Base Token: USDC")
         self.app.notify.assert_any_call("Quote Token: WETH")
-        self.app.notify.assert_any_call("Base Token Address: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
-        self.app.notify.assert_any_call("Quote Token Address: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+        self.app.notify.assert_any_call("Address: 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640")
         self.app.notify.assert_any_call("Fee: 0.05%")
-        self.app.notify.assert_any_call("Pool Address: 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640")
 
-    def test_display_pool_info_uniswap_amm(self):
+    def test_display_single_pool_uniswap_amm(self):
         """Test display of Uniswap V2 AMM pool information with real data from EVM chain"""
         # Real data fetched from Uniswap V2 AMM gateway on Ethereum
         pool_info = {
+            'connector': 'uniswap',
             'type': 'amm',
-            'network': 'mainnet',
             'baseSymbol': 'USDC',
             'quoteSymbol': 'WETH',
             'baseTokenAddress': '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -303,20 +296,17 @@ class GatewayPoolCommandTest(unittest.TestCase):
             'address': '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc'
         }
 
-        self.command._display_pool_info(pool_info, "uniswap/amm", "USDC-WETH")
+        self.command._display_single_pool(pool_info, "ethereum", "mainnet")
 
         # Verify all fields are displayed
-        self.app.notify.assert_any_call("\n=== Pool Information ===")
-        self.app.notify.assert_any_call("Connector: uniswap/amm")
-        self.app.notify.assert_any_call("Trading Pair: USDC-WETH")
-        self.app.notify.assert_any_call("Pool Type: amm")
+        self.app.notify.assert_any_call("\nChain: ethereum")
         self.app.notify.assert_any_call("Network: mainnet")
+        self.app.notify.assert_any_call("Connector: uniswap")
+        self.app.notify.assert_any_call("Type: amm")
         self.app.notify.assert_any_call("Base Token: USDC")
         self.app.notify.assert_any_call("Quote Token: WETH")
-        self.app.notify.assert_any_call("Base Token Address: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
-        self.app.notify.assert_any_call("Quote Token Address: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+        self.app.notify.assert_any_call("Address: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc")
         self.app.notify.assert_any_call("Fee: 0.3%")
-        self.app.notify.assert_any_call("Pool Address: 0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc")
 
 
 if __name__ == "__main__":

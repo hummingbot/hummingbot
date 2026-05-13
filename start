@@ -3,28 +3,35 @@
 PASSWORD=""
 FILENAME=""
 CONFIG=""
+V2_CONF=""
 
-# Argument parsing
-while getopts ":p:f:c:" opt; do
-  case $opt in
-    p)
-      PASSWORD="$OPTARG"
-      ;;
-    f)
-      FILENAME="$OPTARG"
-      ;;
-    c)
-      CONFIG="$OPTARG"
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument." >&2
-      exit 1
-      ;;
-  esac
+# Parse arguments manually to handle --v2
+ARGS=("$@")
+i=0
+while [ $i -lt ${#ARGS[@]} ]; do
+    case "${ARGS[$i]}" in
+        -p)
+            i=$((i+1))
+            PASSWORD="${ARGS[$i]}"
+            ;;
+        -f)
+            i=$((i+1))
+            FILENAME="${ARGS[$i]}"
+            ;;
+        -c)
+            i=$((i+1))
+            CONFIG="${ARGS[$i]}"
+            ;;
+        --v2)
+            i=$((i+1))
+            V2_CONF="${ARGS[$i]}"
+            ;;
+        *)
+            echo "Invalid option: ${ARGS[$i]}" >&2
+            exit 1
+            ;;
+    esac
+    i=$((i+1))
 done
 
 # Check if bin/hummingbot_quickstart.py exists
@@ -61,6 +68,15 @@ if [[ ! -z "$CONFIG" ]]; then
     else
         echo "Error: Config file must be a .yml file."
         exit 3
+    fi
+fi
+
+if [[ ! -z "$V2_CONF" ]]; then
+    if [[ $V2_CONF == *.yml ]]; then
+        CMD="$CMD --v2 \"$V2_CONF\""
+    else
+        echo "Error: V2 config file must be a .yml file."
+        exit 5
     fi
 fi
 
