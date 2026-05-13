@@ -13,7 +13,6 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 class SuperTrendConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "supertrend_v1"
-    candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
@@ -56,13 +55,6 @@ class SuperTrend(DirectionalTradingControllerBase):
     def __init__(self, config: SuperTrendConfig, *args, **kwargs):
         self.config = config
         self.max_records = config.length + 10
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
@@ -86,3 +78,11 @@ class SuperTrend(DirectionalTradingControllerBase):
         # Update processed data
         self.processed_data["signal"] = df["signal"].iloc[-1]
         self.processed_data["features"] = df
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]

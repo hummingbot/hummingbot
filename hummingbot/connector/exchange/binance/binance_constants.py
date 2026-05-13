@@ -9,6 +9,7 @@ MAX_ORDER_ID_LEN = 32
 # Base URL
 REST_URL = "https://api.binance.{}/api/"
 WSS_URL = "wss://stream.binance.{}:9443/ws"
+WSS_API_URL = "wss://ws-api.binance.{}:443/ws-api/v3"
 
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"
@@ -26,8 +27,6 @@ SERVER_TIME_PATH_URL = "/time"
 ACCOUNTS_PATH_URL = "/account"
 MY_TRADES_PATH_URL = "/myTrades"
 ORDER_PATH_URL = "/order"
-BINANCE_USER_STREAM_PATH_URL = "/userDataStream"
-
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Binance params
@@ -90,9 +89,6 @@ RATE_LIMITS = [
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 100),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=BINANCE_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),

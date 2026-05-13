@@ -48,8 +48,7 @@ class UIStartListener(EventListener):
             if not self._is_script:
                 write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
             hb.start(log_level=hb.client_config_map.log_level,
-                     script=hb.strategy_name if self._is_script else None,
-                     conf=self._script_config,
+                     v2_conf=self._script_config if self._is_script else None,
                      is_quickstart=self._is_quickstart)
 
 

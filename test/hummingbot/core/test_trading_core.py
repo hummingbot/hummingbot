@@ -5,6 +5,7 @@ from pathlib import Path
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -12,11 +13,12 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.connector_metrics_collector import DummyMetricsCollector, MetricsCollector
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.common import MarketDict
 from hummingbot.core.trading_core import StrategyType, TradingCore
 from hummingbot.exceptions import InvalidScriptModule
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
 class MockStrategy(StrategyBase):
@@ -27,12 +29,18 @@ class MockStrategy(StrategyBase):
         self.tick = Mock()
 
 
-class MockScriptStrategy(ScriptStrategyBase):
-    """Mock script strategy for testing"""
-    markets = {"binance": {"BTC-USDT", "ETH-USDT"}}
+class MockScriptConfig(StrategyV2ConfigBase):
+    """Mock config for testing"""
+    script_file_name: str = "mock_script.py"
+    markets: MarketDict = Field(default={"binance": {"BTC-USDT", "ETH-USDT"}})
 
-    def __init__(self, connectors, config=None):
+
+class MockScriptStrategy(StrategyV2Base):
+    """Mock script strategy for testing"""
+
+    def __init__(self, connectors, config: MockScriptConfig):
         super().__init__(connectors, config)
+        self.config = config
         self.on_tick = Mock()
 
 
@@ -146,12 +154,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         with patch.object(Path, 'exists') as mock_exists:
             # Test script strategy
             mock_exists.return_value = True
-            with patch.object(TradingCore, '_is_v2_script_strategy', return_value=False):
-                self.assertEqual(self.trading_core.detect_strategy_type("test_script"), StrategyType.SCRIPT)
-
-            # Test V2 script strategy
-            with patch.object(TradingCore, '_is_v2_script_strategy', return_value=True):
-                self.assertEqual(self.trading_core.detect_strategy_type("test_v2"), StrategyType.V2)
+            self.assertEqual(self.trading_core.detect_strategy_type("test_script"), StrategyType.V2)
 
             # Test regular strategy
             mock_exists.return_value = False
@@ -162,14 +165,14 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
             with self.assertRaises(ValueError):
                 self.trading_core.detect_strategy_type("unknown_strategy")
 
-    def test_is_script_strategy(self):
-        """Test script strategy detection"""
+    def test_is_v2_strategy(self):
+        """Test V2 strategy detection"""
         with patch.object(Path, 'exists') as mock_exists:
             mock_exists.return_value = True
-            self.assertTrue(self.trading_core.is_script_strategy("test_script"))
+            self.assertTrue(self.trading_core.is_v2_strategy("test_script"))
 
             mock_exists.return_value = False
-            self.assertFalse(self.trading_core.is_script_strategy("not_a_script"))
+            self.assertFalse(self.trading_core.is_v2_strategy("not_a_script"))
 
     @patch("hummingbot.core.trading_core.MarketsRecorder")
     @patch("hummingbot.core.trading_core.SQLConnectionManager")
@@ -206,56 +209,58 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_importlib.import_module.return_value = mock_module
         mock_sys.modules = {}
 
-        # Mock inspect to return our test class
+        # Mock inspect to return our test class and config class
         mock_inspect.getmembers.return_value = [
             ("MockScriptStrategy", MockScriptStrategy),
+            ("MockScriptConfig", MockScriptConfig),
             ("SomeOtherClass", Mock())
         ]
-        mock_inspect.isclass.side_effect = lambda x: x in [MockScriptStrategy, Mock]
+        mock_inspect.isclass.side_effect = lambda x: isinstance(x, type)
 
-        # Test loading without config
+        # Test loading with config (always loaded now)
         self.trading_core.strategy_name = "test_script"
         self.trading_core._strategy_file_name = "test_script"
 
-        strategy_class, config = self.trading_core.load_script_class("test_script")
+        strategy_class, config = self.trading_core.load_v2_class("test_script")
 
         self.assertEqual(strategy_class, MockScriptStrategy)
-        self.assertIsNone(config)
+        self.assertIsNotNone(config)
+        self.assertIsInstance(config, MockScriptConfig)
 
         # Test loading with non-existent script class
         mock_inspect.getmembers.return_value = []
         with self.assertRaises(InvalidScriptModule):
-            self.trading_core.load_script_class("bad_script")
+            self.trading_core.load_v2_class("bad_script")
 
     @patch("yaml.safe_load")
     @patch("builtins.open", create=True)
     @patch.object(Path, "exists", return_value=True)
-    def test_load_script_yaml_config(self, mock_exists, mock_open, mock_yaml):
+    def test_load_v2_yaml_config(self, mock_exists, mock_open, mock_yaml):
         """Test loading YAML config"""
         # Set up mock
         mock_yaml.return_value = {"key": "value"}
 
         # Test loading config
-        config = self.trading_core._load_script_yaml_config("test_config.yml")
+        config = self.trading_core._load_v2_yaml_config("test_config.yml")
 
         self.assertEqual(config, {"key": "value"})
         mock_open.assert_called_once()
 
         # Test loading with exception
         mock_open.side_effect = Exception("File not found")
-        config = self.trading_core._load_script_yaml_config("bad_config.yml")
+        config = self.trading_core._load_v2_yaml_config("bad_config.yml")
         self.assertEqual(config, {})
 
     @patch.object(TradingCore, "start_clock")
     @patch.object(TradingCore, "_start_strategy_execution")
-    @patch.object(TradingCore, "_initialize_script_strategy")
+    @patch.object(TradingCore, "_initialize_v2_strategy")
     @patch.object(TradingCore, "detect_strategy_type")
     @patch("hummingbot.core.trading_core.RateOracle")
     async def test_start_strategy(self, mock_rate_oracle, mock_detect, mock_init_script,
                                   mock_start_exec, mock_start_clock):
         """Test starting a strategy"""
         # Set up mocks
-        mock_detect.return_value = StrategyType.SCRIPT
+        mock_detect.return_value = StrategyType.V2
         mock_init_script.return_value = None
         mock_start_exec.return_value = None
         mock_start_clock.return_value = True
@@ -350,14 +355,14 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         mock_connector_status = {"binance": {"ready": True, "trading_pairs": ["BTC-USDT"]}}
 
         with patch.object(self.trading_core.connector_manager, "get_status", return_value=mock_connector_status):
-            with patch.object(TradingCore, "detect_strategy_type", return_value=StrategyType.SCRIPT):
+            with patch.object(TradingCore, "detect_strategy_type", return_value=StrategyType.V2):
                 # Simply test the status without the problematic kill switch check
                 status = {
                     'clock_running': self.trading_core._is_running,
                     'strategy_running': self.trading_core._strategy_running,
                     'strategy_name': self.trading_core.strategy_name,
                     'strategy_file_name': self.trading_core._strategy_file_name,
-                    'strategy_type': "script",  # Mock the strategy type
+                    'strategy_type': "v2",  # Mock the strategy type
                     'start_time': self.trading_core.start_time,
                     'uptime': (time.time() * 1e3 - self.trading_core.start_time) if self.trading_core.start_time else 0,
                     'connectors': mock_connector_status,
@@ -369,7 +374,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(status["strategy_running"])
         self.assertEqual(status["strategy_name"], "test_strategy")
         self.assertEqual(status["strategy_file_name"], "test_config.yml")
-        self.assertEqual(status["strategy_type"], "script")
+        self.assertEqual(status["strategy_type"], "v2")
         self.assertIn("uptime", status)
 
     def test_add_notifier(self):

@@ -9,7 +9,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.model.position import Position
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -46,7 +46,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         connector = MagicMock(spec=ExchangePyBase)
@@ -226,6 +226,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("50"),
+            realized_pnl_quote=Decimal("25"),
             cum_fees_quote=Decimal("5"),
             volume_traded_quote=Decimal("1000")
         )
@@ -240,6 +241,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("-100"),
+            realized_pnl_quote=Decimal("-50"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("5000")
         )
@@ -306,6 +308,42 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.store_all_positions()
         self.assertEqual(len(self.orchestrator.positions_held), 0)
 
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_store_all_positions_with_nan_mid_price(self, markets_recorder_mock):
+        """Test store_all_positions handles NaN mid_price correctly."""
+        markets_recorder_mock.return_value = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.update_or_store_position = MagicMock(return_value=None)
+
+        # Create a NaN decimal for mid_price
+        nan_decimal = Decimal("NaN")
+        self.orchestrator.strategy.market_data_provider.get_price_by_type = MagicMock(
+            return_value=nan_decimal
+        )
+        # Add SOL-USDT to the mocked markets so it passes the check
+        self.orchestrator.strategy.markets = {"binance": {"ETH-USDT", "BTC-USDT", "SOL-USDT"}}
+
+        position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)
+        executor_info = ExecutorInfo(
+            id="123", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=PositionExecutorConfig(
+                timestamp=1234, trading_pair="SOL-USDT", connector_name="binance",
+                side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            ), net_pnl_pct=Decimal(0), net_pnl_quote=Decimal(0), cum_fees_quote=Decimal(0),
+            filled_amount_quote=Decimal(100), is_active=False, is_trading=False,
+            custom_info={"held_position_orders": [
+                {"order_id": "123", "amount": Decimal(10), "trade_type": "BUY",
+                 "executed_amount_base": Decimal("10"), "executed_amount_quote": Decimal("2300"),
+                 "cumulative_fee_paid_quote": Decimal(0)}]},
+            controller_id="main"
+        )
+        position_held.add_orders_from_executor(executor_info)
+        self.orchestrator.positions_held = {
+            "main": [position_held]
+        }
+        # Should use 0 as mid_price when NaN
+        self.orchestrator.store_all_positions()
+        self.assertEqual(len(self.orchestrator.positions_held), 0)
+
     def test_get_positions_report(self):
         position_held = PositionHold("binance", "SOL-USDT", side=TradeType.BUY)
         executor_info = ExecutorInfo(
@@ -344,14 +382,17 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(self.orchestrator.active_executors, {})
 
     @patch.object(ExecutorOrchestrator, "store_all_positions")
-    def test_stop(self, store_all_positions):
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop(self, store_all_executors, store_all_positions):
         async def test_async():
             store_all_positions.return_value = None
+            store_all_executors.return_value = None
             position_executor = MagicMock(spec=PositionExecutor)
             position_executor.is_closed = False
             position_executor.early_stop = MagicMock(return_value=None)
             position_executor.executor_info = MagicMock()
             position_executor.executor_info.is_done = True
+            position_executor.config = MagicMock()
             self.orchestrator.active_executors["test"] = [position_executor]
             await self.orchestrator.stop()
             position_executor.early_stop.assert_called_once()
@@ -384,6 +425,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("2"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("100"),
+            realized_pnl_quote=Decimal("50"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("2000")
         )
@@ -429,6 +471,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             amount=Decimal("5"),
             breakeven_price=Decimal("2000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10000")
         )
@@ -477,7 +520,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(eth_position.trading_pair, "ETH-USDT")
         self.assertEqual(eth_position.side, TradeType.BUY)
         self.assertEqual(eth_position.buy_amount_base, Decimal("2"))
-        self.assertTrue(eth_position.buy_amount_quote.is_nan())  # Initially NaN
+        # Quote amount is calculated from amount * mid_price (230)
+        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))
         self.assertEqual(eth_position.volume_traded_quote, Decimal("0"))  # Fresh start
         self.assertEqual(eth_position.cum_fees_quote, Decimal("0"))  # Fresh start
 
@@ -487,17 +531,18 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(btc_position.trading_pair, "BTC-USDT")
         self.assertEqual(btc_position.side, TradeType.SELL)
         self.assertEqual(btc_position.sell_amount_base, Decimal("0.1"))
-        self.assertTrue(btc_position.sell_amount_quote.is_nan())  # Initially NaN
+        # Quote amount is calculated from amount * mid_price (230)
+        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))
         self.assertEqual(btc_position.volume_traded_quote, Decimal("0"))  # Fresh start
         self.assertEqual(btc_position.cum_fees_quote, Decimal("0"))  # Fresh start
 
-        # Test that lazy calculation works when getting position summary
+        # Test position summary calculation
         eth_summary = eth_position.get_position_summary(Decimal("230"))
-        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))  # Now calculated
+        self.assertEqual(eth_position.buy_amount_quote, Decimal("2") * Decimal("230"))
         self.assertEqual(eth_summary.breakeven_price, Decimal("230"))
 
         btc_summary = btc_position.get_position_summary(Decimal("230"))
-        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))  # Now calculated
+        self.assertEqual(btc_position.sell_amount_quote, Decimal("0.1") * Decimal("230"))
         self.assertEqual(btc_summary.breakeven_price, Decimal("230"))
 
     def test_get_all_reports_with_done_position_hold_executors(self):

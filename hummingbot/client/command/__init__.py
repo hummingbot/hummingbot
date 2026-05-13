@@ -13,6 +13,7 @@ from .gateway_token_command import GatewayTokenCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
 from .import_command import ImportCommand
+from .lphistory_command import LPHistoryCommand
 from .mqtt_command import MQTTCommand
 from .order_book_command import OrderBookCommand
 from .rate_command import RateCommand
@@ -38,6 +39,7 @@ __all__ = [
     HelpCommand,
     HistoryCommand,
     ImportCommand,
+    LPHistoryCommand,
     OrderBookCommand,
     RateCommand,
     SillyCommands,
