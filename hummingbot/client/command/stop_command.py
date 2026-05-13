@@ -3,7 +3,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -28,7 +28,7 @@ class StopCommand:
             appnope.nap()
 
         # Handle script strategy specific cleanup first
-        if self.trading_core.strategy and isinstance(self.trading_core.strategy, ScriptStrategyBase):
+        if self.trading_core.strategy and isinstance(self.trading_core.strategy, StrategyV2Base):
             await self.trading_core.strategy.on_stop()
 
         # Stop strategy if running

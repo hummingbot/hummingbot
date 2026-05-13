@@ -29,10 +29,7 @@ class MarketEvent(Enum):
     FundingInfo = 203
     RangePositionLiquidityAdded = 300
     RangePositionLiquidityRemoved = 301
-    RangePositionUpdate = 302
     RangePositionUpdateFailure = 303
-    RangePositionFeeCollected = 304
-    RangePositionClosed = 305
 
 
 class OrderBookEvent(int, Enum):
@@ -260,6 +257,12 @@ class RangePositionLiquidityAddedEvent:
     creation_timestamp: float
     trade_fee: TradeFeeBase
     token_id: Optional[int] = 0
+    # P&L tracking fields
+    position_address: Optional[str] = ""
+    mid_price: Optional[Decimal] = s_decimal_0
+    base_amount: Optional[Decimal] = s_decimal_0
+    quote_amount: Optional[Decimal] = s_decimal_0
+    position_rent: Optional[Decimal] = s_decimal_0  # SOL rent paid to create position
 
 
 @dataclass
@@ -271,21 +274,16 @@ class RangePositionLiquidityRemovedEvent:
     token_id: str
     trade_fee: TradeFeeBase
     creation_timestamp: float
-
-
-@dataclass
-class RangePositionUpdateEvent:
-    timestamp: float
-    order_id: str
-    exchange_order_id: str
-    order_action: LPType
-    trading_pair: Optional[str] = ""
-    fee_tier: Optional[str] = ""
+    # P&L tracking fields
+    position_address: Optional[str] = ""
     lower_price: Optional[Decimal] = s_decimal_0
     upper_price: Optional[Decimal] = s_decimal_0
-    amount: Optional[Decimal] = s_decimal_0
-    creation_timestamp: float = 0
-    token_id: Optional[int] = 0
+    mid_price: Optional[Decimal] = s_decimal_0
+    base_amount: Optional[Decimal] = s_decimal_0
+    quote_amount: Optional[Decimal] = s_decimal_0
+    base_fee: Optional[Decimal] = s_decimal_0
+    quote_fee: Optional[Decimal] = s_decimal_0
+    position_rent_refunded: Optional[Decimal] = s_decimal_0  # SOL rent refunded on close
 
 
 @dataclass
@@ -293,27 +291,6 @@ class RangePositionUpdateFailureEvent:
     timestamp: float
     order_id: str
     order_action: LPType
-
-
-@dataclass
-class RangePositionClosedEvent:
-    timestamp: float
-    token_id: int
-    token_0: str
-    token_1: str
-    claimed_fee_0: Decimal = s_decimal_0
-    claimed_fee_1: Decimal = s_decimal_0
-
-
-@dataclass
-class RangePositionFeeCollectedEvent:
-    timestamp: float
-    order_id: str
-    exchange_order_id: str
-    trading_pair: str
-    trade_fee: TradeFeeBase
-    creation_timestamp: float
-    token_id: int = None
 
 
 class LimitOrderStatus(Enum):

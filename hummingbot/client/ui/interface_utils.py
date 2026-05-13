@@ -110,9 +110,12 @@ def format_df_for_printout(
         df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
 
     original_preserve_whitespace = tabulate.PRESERVE_WHITESPACE
+    original_wide_chars_mode = tabulate.WIDE_CHARS_MODE
     tabulate.PRESERVE_WHITESPACE = True
+    tabulate.WIDE_CHARS_MODE = False  # Use len() for column widths for consistent cross-platform behavior
     try:
         formatted_df = tabulate.tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
     finally:
         tabulate.PRESERVE_WHITESPACE = original_preserve_whitespace
+        tabulate.WIDE_CHARS_MODE = original_wide_chars_mode
     return formatted_df

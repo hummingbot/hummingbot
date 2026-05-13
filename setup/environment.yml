@@ -51,16 +51,20 @@ dependencies:
   - scalecodec
   - scipy>=1.11.1
   - six>=1.16.0
+  - base58>=2.1.1
   - sqlalchemy>=1.4.49
   - ta-lib>=0.6.4
-  - tabulate>=0.9.0
+  - tabulate==0.9.0
   - tqdm>=4.67.1
   - ujson>=5.7.0
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - web3
-  - xrpl-py==4.1.0
+  - xrpl-py==4.4.0
   - yaml>=0.2.5
   - zlib>=1.2.13
   - pip:
-    - injective-py==1.12.*
+    - injective-py==1.13.*
+    - decibel-python-sdk==0.2.1
+    - aptos-sdk>=0.8.0
+    - solders>=0.19.0

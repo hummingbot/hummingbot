@@ -14,10 +14,7 @@ from hummingbot.core.event.events import (
     PositionModeChangeEvent,
     RangePositionLiquidityAddedEvent,
     RangePositionLiquidityRemovedEvent,
-    RangePositionUpdateEvent,
     RangePositionUpdateFailureEvent,
-    RangePositionFeeCollectedEvent,
-    RangePositionClosedEvent
 )
 
 
@@ -124,26 +121,8 @@ cdef class StrategyPyBase(StrategyBase):
     def did_remove_liquidity(self, remove_liquidity_event: RangePositionLiquidityRemovedEvent):
         pass
 
-    cdef c_did_update_lp_order(self, object update_lp_event):
-        self.did_update_lp_order(update_lp_event)
-
-    def did_update_lp_order(self, update_lp_event: RangePositionUpdateEvent):
-        pass
-
     cdef c_did_fail_lp_update(self, object fail_lp_update_event):
         self.did_fail_lp_update(fail_lp_update_event)
 
     def did_fail_lp_update(self, fail_lp_update_event: RangePositionUpdateFailureEvent):
-        pass
-
-    cdef c_did_collect_fee(self, object collect_fee_event):
-        self.did_collect_fee(collect_fee_event)
-
-    def did_collect_fee(self, collect_fee_event: RangePositionFeeCollectedEvent):
-        pass
-
-    cdef c_did_close_position(self, object closed_position_event):
-        self.did_close_position(closed_position_event)
-
-    def did_close_position(self, closed_position_event: RangePositionClosedEvent):
         pass

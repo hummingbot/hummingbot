@@ -45,6 +45,7 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._diff_messages_queue_key = CONSTANTS.DIFF_STREAM_ID
         self._funding_info_messages_queue_key = CONSTANTS.FUNDING_INFO_STREAM_ID
         self._snapshot_messages_queue_key = "order_book_snapshot"
+        self._market_ws_assistant: Optional[WSAssistant] = None
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -93,18 +94,38 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
         return ws
 
-    async def _subscribe_channels(self, ws: WSAssistant):
-        """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-        :param ws: the websocket assistant used to connect to the exchange
-        """
+    async def _connected_market_websocket_assistant(self) -> WSAssistant:
+        url = f"{web_utils.wss_url(CONSTANTS.MARKET_WS_ENDPOINT, self._domain)}"
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+        return ws
+
+    async def _subscribe_public_channels(self, ws: WSAssistant):
         try:
-            stream_id_channel_pairs = [
-                (CONSTANTS.DIFF_STREAM_ID, "@depth"),
+            params = []
+            for trading_pair in self._trading_pairs:
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                params.append(f"{symbol.lower()}@depth")
+            payload = {
+                "method": "SUBSCRIBE",
+                "params": params,
+                "id": CONSTANTS.DIFF_STREAM_ID,
+            }
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload)
+            await ws.send(subscribe_request)
+            self.logger().info("Subscribed to public order book channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to order book streams...")
+            raise
+
+    async def _subscribe_market_channels(self, ws: WSAssistant):
+        try:
+            for stream_id, channel in [
                 (CONSTANTS.TRADE_STREAM_ID, "@aggTrade"),
                 (CONSTANTS.FUNDING_INFO_STREAM_ID, "@markPrice"),
-            ]
-            for stream_id, channel in stream_id_channel_pairs:
+            ]:
                 params = []
                 for trading_pair in self._trading_pairs:
                     symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -116,12 +137,19 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 }
                 subscribe_request: WSJSONRequest = WSJSONRequest(payload)
                 await ws.send(subscribe_request)
-            self.logger().info("Subscribed to public order book, trade and funding info channels...")
+            self.logger().info("Subscribed to market trade and funding info channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().exception("Unexpected error occurred subscribing to order book trading and delta streams...")
+            self.logger().exception("Unexpected error occurred subscribing to market streams...")
             raise
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to depth channels on the public WS connection.
+        :param ws: the websocket assistant used to connect to the exchange
+        """
+        await self._subscribe_public_channels(ws)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
@@ -134,6 +162,48 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             elif "@markPrice" in stream_name:
                 channel = self._funding_info_messages_queue_key
         return channel
+
+    async def listen_for_subscriptions(self):
+        public_ws: Optional[WSAssistant] = None
+        market_ws: Optional[WSAssistant] = None
+        while True:
+            try:
+                public_ws = await self._connected_websocket_assistant()
+                self._ws_assistant = public_ws
+                await self._subscribe_public_channels(public_ws)
+
+                market_ws = await self._connected_market_websocket_assistant()
+                self._market_ws_assistant = market_ws
+                await self._subscribe_market_channels(market_ws)
+
+                public_task = asyncio.ensure_future(
+                    self._process_websocket_messages(websocket_assistant=public_ws))
+                market_task = asyncio.ensure_future(
+                    self._process_websocket_messages(websocket_assistant=market_ws))
+
+                done, pending = await asyncio.wait(
+                    [public_task, market_task],
+                    return_when=asyncio.FIRST_EXCEPTION,
+                )
+                for task in pending:
+                    task.cancel()
+                for task in done:
+                    task.result()
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                )
+                await self._sleep(1.0)
+            finally:
+                self._ws_assistant = None
+                self._market_ws_assistant = None
+                await self._on_order_stream_interruption(websocket_assistant=public_ws)
+                if market_ws is not None:
+                    await market_ws.disconnect()
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = time.time()
@@ -208,12 +278,12 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
         """
         Subscribes to order book, trade, and funding info channels for a single trading pair
-        on the existing WebSocket connection.
+        on the existing WebSocket connections.
 
         :param trading_pair: the trading pair to subscribe to
         :return: True if subscription was successful, False otherwise
         """
-        if self._ws_assistant is None:
+        if self._ws_assistant is None or self._market_ws_assistant is None:
             self.logger().warning(
                 f"Cannot subscribe to {trading_pair}: WebSocket not connected"
             )
@@ -222,20 +292,22 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            stream_id_channel_pairs = [
-                (self._get_next_subscribe_id(), "@depth"),
-                (self._get_next_subscribe_id(), "@aggTrade"),
-                (self._get_next_subscribe_id(), "@markPrice"),
-            ]
+            # Subscribe to @depth on public WS
+            depth_payload = {
+                "method": "SUBSCRIBE",
+                "params": [f"{symbol.lower()}@depth"],
+                "id": self._get_next_subscribe_id(),
+            }
+            await self._ws_assistant.send(WSJSONRequest(depth_payload))
 
-            for stream_id, channel in stream_id_channel_pairs:
-                payload = {
+            # Subscribe to @aggTrade and @markPrice on market WS
+            for channel in ["@aggTrade", "@markPrice"]:
+                market_payload = {
                     "method": "SUBSCRIBE",
                     "params": [f"{symbol.lower()}{channel}"],
-                    "id": stream_id,
+                    "id": self._get_next_subscribe_id(),
                 }
-                subscribe_request: WSJSONRequest = WSJSONRequest(payload)
-                await self._ws_assistant.send(subscribe_request)
+                await self._market_ws_assistant.send(WSJSONRequest(market_payload))
 
             self.add_trading_pair(trading_pair)
             self.logger().info(f"Subscribed to {trading_pair} order book, trade and funding info channels")
@@ -250,12 +322,12 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
         """
         Unsubscribes from order book, trade, and funding info channels for a single trading pair
-        on the existing WebSocket connection.
+        on the existing WebSocket connections.
 
         :param trading_pair: the trading pair to unsubscribe from
         :return: True if unsubscription was successful, False otherwise
         """
-        if self._ws_assistant is None:
+        if self._ws_assistant is None or self._market_ws_assistant is None:
             self.logger().warning(
                 f"Cannot unsubscribe from {trading_pair}: WebSocket not connected"
             )
@@ -264,19 +336,24 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-            unsubscribe_params = [
-                f"{symbol.lower()}@depth",
-                f"{symbol.lower()}@aggTrade",
-                f"{symbol.lower()}@markPrice",
-            ]
-
-            payload = {
+            # Unsubscribe @depth from public WS
+            depth_payload = {
                 "method": "UNSUBSCRIBE",
-                "params": unsubscribe_params,
+                "params": [f"{symbol.lower()}@depth"],
                 "id": self._get_next_subscribe_id(),
             }
-            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload)
-            await self._ws_assistant.send(unsubscribe_request)
+            await self._ws_assistant.send(WSJSONRequest(depth_payload))
+
+            # Unsubscribe @aggTrade and @markPrice from market WS
+            market_payload = {
+                "method": "UNSUBSCRIBE",
+                "params": [
+                    f"{symbol.lower()}@aggTrade",
+                    f"{symbol.lower()}@markPrice",
+                ],
+                "id": self._get_next_subscribe_id(),
+            }
+            await self._market_ws_assistant.send(WSJSONRequest(market_payload))
 
             self.remove_trading_pair(trading_pair)
             self.logger().info(f"Unsubscribed from {trading_pair} order book, trade and funding info channels")

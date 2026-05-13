@@ -2,24 +2,25 @@ import logging
 import math
 import os
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, List
 
 from pydantic import Field
 
-from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
+from hummingbot.core.data_type.common import MarketDict
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
-class VWAPConfig(BaseClientModel):
+class VWAPConfig(StrategyV2ConfigBase):
     """
     Configuration parameters for the VWAP strategy.
     """
 
     script_file_name: str = os.path.basename(__file__)
+    controllers_config: List[str] = []
     connector_name: str = Field("binance_paper_trade", json_schema_extra={
         "prompt": lambda mi: "Exchange where the bot will place orders",
         "prompt_on_new": True})
@@ -42,8 +43,12 @@ class VWAPConfig(BaseClientModel):
         "prompt": lambda mi: "Delay time between orders (in seconds)",
         "prompt_on_new": True})
 
+    def update_markets(self, markets: MarketDict) -> MarketDict:
+        markets[self.connector_name] = markets.get(self.connector_name, set()) | {self.trading_pair}
+        return markets
 
-class VWAPExample(ScriptStrategyBase):
+
+class VWAPExample(StrategyV2Base):
     """
     BotCamp Cohort: 7 (Apr 2024)
     Description:
@@ -53,12 +58,8 @@ class VWAPExample(ScriptStrategyBase):
     - Use of the rate oracle has been removed
     """
 
-    @classmethod
-    def init_markets(cls, config: VWAPConfig):
-        cls.markets = {config.connector_name: {config.trading_pair}}
-
     def __init__(self, connectors: Dict[str, ConnectorBase], config: VWAPConfig):
-        super().__init__(connectors)
+        super().__init__(connectors, config)
         self.config = config
         self.initialized = False
         self.vwap: Dict = {"connector_name": self.config.connector_name,

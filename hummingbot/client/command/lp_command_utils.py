@@ -8,12 +8,12 @@ import pandas as pd
 from hummingbot.client.command.command_utils import GatewayCommandUtils
 
 if TYPE_CHECKING:
-    from hummingbot.connector.gateway.gateway_lp import (
+    from hummingbot.connector.gateway.gateway import (
         AMMPoolInfo,
         AMMPositionInfo,
         CLMMPoolInfo,
         CLMMPositionInfo,
-        GatewayLp,
+        Gateway,
     )
 
 
@@ -23,27 +23,29 @@ class LPCommandUtils:
     @staticmethod
     async def fetch_and_display_pool_info(
         app: Any,  # HummingbotApplication
-        lp_connector: "GatewayLp",
+        lp_connector: "Gateway",
         user_trading_pair: str,
-        is_clmm: bool
+        dex_name: str,
+        trading_type: str = "clmm"
     ) -> Optional[Tuple[Any, str, str, str, str]]:
         """
         Fetch pool info and display enhanced notification with pool details.
 
         :param app: HummingbotApplication instance
-        :param lp_connector: GatewayLp connector instance
+        :param lp_connector: Gateway connector instance
         :param user_trading_pair: Trading pair entered by user
-        :param is_clmm: Whether the connector is CLMM type
+        :param dex_name: DEX protocol name (e.g., "orca", "meteora")
+        :param trading_type: Trading type (e.g., "clmm", "amm")
         :return: Tuple of (pool_info, pool_address, base_token, quote_token, trading_pair) or None if error
         """
         # Get pool address for the trading pair
-        pool_address = await lp_connector.get_pool_address(user_trading_pair)
+        pool_address = await lp_connector.get_pool_address(user_trading_pair, dex_name, trading_type)
         if not pool_address:
             app.notify(f"No pool found for {user_trading_pair}")
             return None
 
         # Fetch pool info to get token details and fee tier
-        pool_info = await lp_connector.get_pool_info(user_trading_pair)
+        pool_info = await lp_connector.get_pool_info(user_trading_pair, dex_name, trading_type)
         if not pool_info:
             app.notify(f"Error: Could not get pool info for {user_trading_pair}")
             return None
@@ -56,7 +58,7 @@ class LPCommandUtils:
         quote_token = quote_token_info.get("symbol") if quote_token_info else "Unknown"
 
         # Display enhanced pool notification in list format
-        pool_type = "CLMM" if is_clmm else "AMM"
+        pool_type = "CLMM" if trading_type == "clmm" else "AMM"
         app.notify("Pool found:")
         app.notify(f"  Address: {GatewayCommandUtils.format_address_display(pool_address)}")
         app.notify(f"  Base Token: {base_token} ({GatewayCommandUtils.format_address_display(pool_info.base_token_address)})")
