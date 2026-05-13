@@ -425,7 +425,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         account = extract_account_snapshot(
             account_response, account_index=self._account_index, l1_address=self._l1_address
         )
-        available_balance = self._safe_decimal(account.get("available_balance", "0"))
+        # available_balance = self._safe_decimal(account.get("available_balance", "0"))
         self._set_account_index_from_account(account)
 
         for asset in account.get("assets", []):
@@ -433,7 +433,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             spot_balance = self._safe_decimal(asset.get("balance", "0"))
             total_balance = self._safe_decimal(asset.get("margin_balance", "0")) + spot_balance
             self._account_balances[asset_name] = total_balance
-            self._account_available_balances[asset_name] = available_balance
+            # self._account_available_balances[asset_name] = available_balance  # API balance update from Lighter is currently incorrect
             remote_asset_names.add(asset_name)
 
         for asset_name in local_asset_names.difference(remote_asset_names):

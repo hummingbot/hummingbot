@@ -1008,7 +1008,6 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         total = self.exchange.get_all_balances()
 
         self.assertNotIn(self.base_asset, available)
-        self.assertEqual(Decimal("2000"), available[self.quote_asset])
         self.assertEqual(Decimal("2000"), total[self.quote_asset])
 
     # ── Overridden test: trading rules error (lighter skips inactive markets) ───
@@ -1124,7 +1123,6 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         await self.exchange._update_balances()
         self.assertNotIn("OLD", self.exchange._account_balances)
         self.assertEqual(Decimal("100"), self.exchange._account_balances[self.quote_asset])
-        self.assertEqual(Decimal("2000"), self.exchange._account_available_balances[self.quote_asset])
 
     async def test_lighter_parse_position_long(self):
         raw = {
