@@ -10,7 +10,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig, TWAPMode
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -29,7 +29,7 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         type(strategy).current_timestamp = PropertyMock(side_effect=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -166,6 +166,21 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._status = RunnableStatus.RUNNING
         executor.early_stop()
         self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+
+    async def test_early_stop_keep_position_true(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = RunnableStatus.RUNNING
+        executor.early_stop(keep_position=True)
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_early_stop_keep_position_false(self):
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = RunnableStatus.RUNNING
+        executor.early_stop(keep_position=False)
+        self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
     @patch.object(TWAPExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, mock_get_in_flight_order):

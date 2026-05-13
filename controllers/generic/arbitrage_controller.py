@@ -6,7 +6,6 @@ import pandas as pd
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import MarketDict
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -16,7 +15,6 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 class ArbitrageControllerConfig(ControllerConfigBase):
     controller_name: str = "arbitrage_controller"
-    candles_config: List[CandlesConfig] = []
     exchange_pair_1: ConnectorPair = ConnectorPair(connector_name="binance", trading_pair="SOL-USDT")
     exchange_pair_2: ConnectorPair = ConnectorPair(connector_name="jupiter/router", trading_pair="SOL-USDC")
     min_profitability: Decimal = Decimal("0.01")

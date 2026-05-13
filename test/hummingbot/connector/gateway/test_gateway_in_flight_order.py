@@ -13,7 +13,8 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
+        cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
 
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"

@@ -14,6 +14,7 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import (
     TripleBarrierConfig,
 )
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.strategy_v2.utils.common import parse_enum_value
 
 
 class DirectionalTradingControllerConfigBase(ControllerConfigBase):
@@ -109,29 +110,16 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
     @field_validator('take_profit_order_type', mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
-        if isinstance(v, OrderType):
-            return v
-        elif v is None:
+        if v is None:
             return OrderType.MARKET
-        elif isinstance(v, str):
-            cleaned_str = v.replace("OrderType.", "").upper()
-            if cleaned_str in OrderType.__members__:
-                return OrderType[cleaned_str]
-        elif isinstance(v, int):
-            try:
-                return OrderType(v)
-            except ValueError:
-                pass
-        raise ValueError(f"Invalid order type: {v}. Valid options are: {', '.join(OrderType.__members__)}")
+        if isinstance(v, str):
+            v = v.replace("OrderType.", "")
+        return parse_enum_value(OrderType, v, "take_profit_order_type")
 
     @field_validator('position_mode', mode="before")
     @classmethod
     def validate_position_mode(cls, v: str) -> PositionMode:
-        if isinstance(v, str):
-            if v.upper() in PositionMode.__members__:
-                return PositionMode[v.upper()]
-            raise ValueError(f"Invalid position mode: {v}. Valid options are: {', '.join(PositionMode.__members__)}")
-        return v
+        return parse_enum_value(PositionMode, v, "position_mode")
 
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:

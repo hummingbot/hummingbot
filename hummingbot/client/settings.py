@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Un
 from pydantic import SecretStr
 
 from hummingbot import get_strategy_list, root_path
-from hummingbot.connector.gateway.common_types import ConnectorType as GatewayConnectorType, get_connector_type
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
@@ -102,11 +101,8 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            connector_type = get_connector_type(self.name)
-            if connector_type in [GatewayConnectorType.AMM, GatewayConnectorType.CLMM]:
-                return "gateway.gateway_lp"
-            # Default to swap for all other types
-            return "gateway.gateway_swap"
+            # All gateway connectors use the unified Gateway class
+            return "gateway.gateway"
 
         return f"{self.base_name()}_{self._get_module_package()}"
 
@@ -381,13 +377,13 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        # Gateway connectors are now stored in GATEWAY_CONNECTORS
-        return set(GATEWAY_CONNECTORS)
+        # Gateway connectors are now stored in GATEWAY_DEXS
+        return set(GATEWAY_DEXS)
 
     @classmethod
     def get_gateway_ethereum_connector_names(cls) -> Set[str]:
         # Return Ethereum-based gateway connectors
-        return set(GATEWAY_ETH_CONNECTORS)
+        return set(GATEWAY_ETH_DEXS)
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
@@ -433,7 +429,7 @@ MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 STRATEGIES: List[str] = get_strategy_list()
-GATEWAY_CONNECTORS: List[str] = []
-GATEWAY_ETH_CONNECTORS: List[str] = []
+GATEWAY_DEXS: List[str] = []
+GATEWAY_ETH_DEXS: List[str] = []
 GATEWAY_NAMESPACES: List[str] = []
 GATEWAY_CHAINS: List[str] = []

@@ -1,5 +1,6 @@
 from typing import Dict, Type
 
+from hummingbot.data_feed.candles_feed.aevo_perpetual_candles import AevoPerpetualCandles
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
@@ -13,9 +14,12 @@ from hummingbot.data_feed.candles_feed.bybit_perpetual_candles.bybit_perpetual_c
 from hummingbot.data_feed.candles_feed.bybit_spot_candles.bybit_spot_candles import BybitSpotCandles
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.data_feed.candles_feed.decibel_perpetual_candles import DecibelPerpetualCandles
 from hummingbot.data_feed.candles_feed.dexalot_spot_candles.dexalot_spot_candles import DexalotSpotCandles
+from hummingbot.data_feed.candles_feed.evedex_perpetual_candles import EvedexPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
+from hummingbot.data_feed.candles_feed.grvt_perpetual_candles import GrvtPerpetualCandles
 from hummingbot.data_feed.candles_feed.hyperliquid_perpetual_candles.hyperliquid_perpetual_candles import (
     HyperliquidPerpetualCandles,
 )
@@ -27,6 +31,7 @@ from hummingbot.data_feed.candles_feed.mexc_perpetual_candles.mexc_perpetual_can
 from hummingbot.data_feed.candles_feed.mexc_spot_candles.mexc_spot_candles import MexcSpotCandles
 from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
 from hummingbot.data_feed.candles_feed.okx_spot_candles.okx_spot_candles import OKXSpotCandles
+from hummingbot.data_feed.candles_feed.pacifica_perpetual_candles import PacificaPerpetualCandles
 
 
 class UnsupportedConnectorException(Exception):
@@ -46,12 +51,14 @@ class CandlesFactory:
     """
 
     _candles_map: Dict[str, Type[CandlesBase]] = {
+        "aevo_perpetual": AevoPerpetualCandles,
         "binance_perpetual": BinancePerpetualCandles,
         "binance": BinanceSpotCandles,
         "bitget": BitgetSpotCandles,
         "bitget_perpetual": BitgetPerpetualCandles,
         "gate_io": GateioSpotCandles,
         "gate_io_perpetual": GateioPerpetualCandles,
+        "grvt_perpetual": GrvtPerpetualCandles,
         "kucoin": KucoinSpotCandles,
         "kucoin_perpetual": KucoinPerpetualCandles,
         "ascend_ex": AscendExSpotCandles,
@@ -65,8 +72,11 @@ class CandlesFactory:
         "hyperliquid": HyperliquidSpotCandles,
         "hyperliquid_perpetual": HyperliquidPerpetualCandles,
         "dexalot": DexalotSpotCandles,
+        "evedex_perpetual": EvedexPerpetualCandles,
         "bitmart_perpetual": BitmartPerpetualCandles,
         "btc_markets": BtcMarketsSpotCandles,
+        "pacifica_perpetual": PacificaPerpetualCandles,
+        "decibel_perpetual": DecibelPerpetualCandles,
     }
 
     @classmethod

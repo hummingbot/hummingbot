@@ -1,11 +1,10 @@
 import os
 from decimal import Decimal
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -13,8 +12,6 @@ from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction,
 
 class V2WithControllersConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
-    candles_config: List[CandlesConfig] = []
-    markets: Dict[str, Set[str]] = {}
     max_global_drawdown_quote: Optional[float] = None
     max_controller_drawdown_quote: Optional[float] = None
 

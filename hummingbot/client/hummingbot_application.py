@@ -190,6 +190,7 @@ class HummingbotApplication(*commands):
 
                 args = self.parser.parse_args(args=command_split)
                 kwargs = vars(args)
+
                 if not hasattr(args, "func"):
                     if not self.headless_mode:
                         self.app.handle_tab_command(self, command_split[0], kwargs)

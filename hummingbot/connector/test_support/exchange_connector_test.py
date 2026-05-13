@@ -751,7 +751,7 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id = self.place_buy_order()
-            await (request_sent_event.wait())
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
             await asyncio.sleep(0.1)
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -952,7 +952,7 @@ class AbstractExchangeConnectorTests:
             )
 
             self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
-            await (request_sent_event.wait())
+            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
 
             self.assertFalse(order.is_done)
             self.assertFalse(order.is_failure)

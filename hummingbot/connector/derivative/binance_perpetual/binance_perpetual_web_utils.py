@@ -93,7 +93,7 @@ def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
-    if rule["contractType"] == "PERPETUAL" and rule["status"] == "TRADING":
+    if rule["contractType"] in ("PERPETUAL", "TRADIFI_PERPETUAL") and rule["status"] == "TRADING":
         valid = True
     else:
         valid = False
