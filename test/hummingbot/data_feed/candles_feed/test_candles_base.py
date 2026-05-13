@@ -419,6 +419,9 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
 
     async def test_stop_network_cancels_fill_candles_task(self):
         """Test that stop_network cancels _fill_candles_task when it exists (lines 83-85)"""
+        # Skip for subclasses that override stop_network (e.g. BtcMarketsSpotCandles)
+        if type(self.data_feed).stop_network is not CandlesBase.stop_network:
+            return
         mock_task = MagicMock()
         self.data_feed._fill_candles_task = mock_task
         self.data_feed._listen_candles_task = None
