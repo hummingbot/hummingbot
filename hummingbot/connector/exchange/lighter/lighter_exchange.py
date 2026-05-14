@@ -510,7 +510,7 @@ class LighterExchange(ExchangePyBase):
             params={
                 "account_index": self._account_index,
                 "market_id": market.market_id,
-                "limit": 200,
+                "limit": 100,
             },
             is_auth_required=True,
         )
