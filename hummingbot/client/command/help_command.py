@@ -2,7 +2,7 @@ import argparse
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class HelpCommand:

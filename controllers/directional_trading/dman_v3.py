@@ -18,7 +18,6 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Traili
 
 class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "dman_v3"
-    candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
@@ -147,13 +146,6 @@ class DManV3Controller(DirectionalTradingControllerBase):
     def __init__(self, config: DManV3ControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = config.bb_length
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
@@ -217,3 +209,11 @@ class DManV3Controller(DirectionalTradingControllerBase):
             leverage=self.config.leverage,
             activation_bounds=self.config.activation_bounds,
         )
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]

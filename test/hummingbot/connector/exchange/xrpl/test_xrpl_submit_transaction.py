@@ -1,13 +1,19 @@
+"""
+Tests for XRPL transaction submission functionality.
+Tests the _submit_transaction method which uses the transaction worker pool.
+"""
 from unittest.async_case import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from xrpl.models import Response, Transaction
 from xrpl.models.response import ResponseStatus
 
 from hummingbot.connector.exchange.xrpl.xrpl_exchange import XrplExchange
+from hummingbot.connector.exchange.xrpl.xrpl_worker_pool import TransactionSubmitResult
 
 
 class TestXRPLSubmitTransaction(IsolatedAsyncioTestCase):
+    """Tests for the XrplExchange._submit_transaction method."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -18,20 +24,12 @@ class TestXRPLSubmitTransaction(IsolatedAsyncioTestCase):
             trading_pairs=["SOLO-XRP"],
             trading_required=False,
         )
-        self.exchange._sleep = AsyncMock()
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
-    async def test_submit_transaction_success(self, mock_client_class):
-        """Test successful transaction submission with proper mocking."""
-        # Setup client mock
-        mock_client_instance = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
-
-        # Setup transaction mocks
+    async def test_submit_transaction_success(self):
+        """Test successful transaction submission using tx_pool."""
+        # Setup transaction mock
         mock_transaction = MagicMock(spec=Transaction)
-        mock_filled_tx = MagicMock(spec=Transaction)
         mock_signed_tx = MagicMock(spec=Transaction)
-        mock_wallet = MagicMock()
 
         # Setup successful response
         mock_response = Response(
@@ -45,95 +43,180 @@ class TestXRPLSubmitTransaction(IsolatedAsyncioTestCase):
             },
         )
 
-        # Mock necessary methods
-        self.exchange.tx_autofill = AsyncMock(return_value=mock_filled_tx)
-        self.exchange._xrpl_auth = MagicMock()
-        self.exchange._xrpl_auth.get_wallet.return_value = mock_wallet
-
-        # Patch sign and submit_and_wait methods
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.sign", return_value=mock_signed_tx) as mock_sign:
-            with patch(
-                "hummingbot.connector.exchange.xrpl.xrpl_exchange.async_submit_and_wait", return_value=mock_response
-            ) as mock_submit_and_wait:
-                # Execute the method
-                result = await self.exchange._submit_transaction(mock_transaction)
-
-                # Verify results
-                self.assertEqual(result, mock_response)
-
-                # Verify method calls
-                self.exchange.tx_autofill.assert_awaited_once_with(mock_transaction, mock_client_instance)
-                self.exchange._xrpl_auth.get_wallet.assert_called_once()
-                mock_sign.assert_called_once_with(mock_filled_tx, mock_wallet)
-                mock_submit_and_wait.assert_awaited_once_with(
-                    mock_signed_tx, mock_client_instance, mock_wallet, autofill=False, fail_hard=True
-                )
-
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_constants.PLACE_ORDER_MAX_RETRY", 1)
-    async def test_submit_transaction_error_response(self, mock_client_class):
-        """Test transaction submission with error response."""
-        # Setup client mock
-        mock_client_instance = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
-
-        # Setup transaction mocks
-        mock_transaction = MagicMock(spec=Transaction)
-        mock_filled_tx = MagicMock(spec=Transaction)
-        mock_signed_tx = MagicMock(spec=Transaction)
-        mock_wallet = MagicMock()
-
-        # Setup error response
-        error_response = Response(
-            status=ResponseStatus.ERROR,
-            result={"error": "test error message"},
+        # Create a successful TransactionSubmitResult
+        submit_result = TransactionSubmitResult(
+            success=True,
+            signed_tx=mock_signed_tx,
+            response=mock_response,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="12345-67890",
+            error=None,
+            tx_hash="ABCD1234",
         )
 
-        # Mock necessary methods
-        self.exchange.tx_autofill = AsyncMock(return_value=mock_filled_tx)
-        self.exchange._xrpl_auth = MagicMock()
-        self.exchange._xrpl_auth.get_wallet.return_value = mock_wallet
+        # Mock the tx_pool
+        mock_tx_pool = MagicMock()
+        mock_tx_pool.submit_transaction = AsyncMock(return_value=submit_result)
+        self.exchange._tx_pool = mock_tx_pool
 
-        # Patch sign and submit_and_wait methods
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.sign", return_value=mock_signed_tx):
-            with patch(
-                "hummingbot.connector.exchange.xrpl.xrpl_exchange.async_submit_and_wait", return_value=error_response
-            ):
-                # Execute the method and expect ValueError
-                with self.assertRaises(ValueError) as context:
-                    await self.exchange._submit_transaction(mock_transaction)
+        # Execute the method
+        result = await self.exchange._submit_transaction(mock_transaction)
 
-                # Verify error message
-                self.assertIn("Transaction failed after 1 attempts", str(context.exception))
+        # Verify results
+        self.assertEqual(result["signed_tx"], mock_signed_tx)
+        self.assertEqual(result["response"], mock_response)
+        self.assertEqual(result["prelim_result"], "tesSUCCESS")
+        self.assertEqual(result["exchange_order_id"], "12345-67890")
 
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.AsyncWebsocketClient")
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_constants.PLACE_ORDER_MAX_RETRY", 1)
-    async def test_submit_transaction_exception(self, mock_client_class):
-        """Test transaction submission with exception."""
-        # Setup client mock
-        mock_client_instance = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+        # Verify tx_pool was called correctly
+        mock_tx_pool.submit_transaction.assert_awaited_once_with(
+            transaction=mock_transaction,
+            fail_hard=True,
+            max_retries=3,
+        )
 
-        # Setup transaction mocks
+    async def test_submit_transaction_with_fail_hard_false(self):
+        """Test transaction submission with fail_hard=False."""
         mock_transaction = MagicMock(spec=Transaction)
-        mock_filled_tx = MagicMock(spec=Transaction)
         mock_signed_tx = MagicMock(spec=Transaction)
-        mock_wallet = MagicMock()
 
-        # Mock necessary methods
-        self.exchange.tx_autofill = AsyncMock(return_value=mock_filled_tx)
-        self.exchange._xrpl_auth = MagicMock()
-        self.exchange._xrpl_auth.get_wallet.return_value = mock_wallet
+        submit_result = TransactionSubmitResult(
+            success=True,
+            signed_tx=mock_signed_tx,
+            response=None,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="12345-67890",
+        )
 
-        # Patch sign and submit_and_wait methods
-        with patch("hummingbot.connector.exchange.xrpl.xrpl_exchange.sign", return_value=mock_signed_tx):
-            with patch(
-                "hummingbot.connector.exchange.xrpl.xrpl_exchange.async_submit_and_wait",
-                side_effect=Exception("Network error"),
-            ):
-                # Execute the method and expect ValueError
-                with self.assertRaises(ValueError) as context:
-                    await self.exchange._submit_transaction(mock_transaction)
+        mock_tx_pool = MagicMock()
+        mock_tx_pool.submit_transaction = AsyncMock(return_value=submit_result)
+        self.exchange._tx_pool = mock_tx_pool
 
-                # Verify error message
-                self.assertIn("Transaction failed after 1 attempts", str(context.exception))
+        # Execute with fail_hard=False
+        result = await self.exchange._submit_transaction(mock_transaction, fail_hard=False)
+
+        # Verify tx_pool was called with fail_hard=False
+        mock_tx_pool.submit_transaction.assert_awaited_once_with(
+            transaction=mock_transaction,
+            fail_hard=False,
+            max_retries=3,
+        )
+
+        self.assertEqual(result["prelim_result"], "tesSUCCESS")
+
+    async def test_submit_transaction_queued(self):
+        """Test transaction submission that gets queued."""
+        mock_transaction = MagicMock(spec=Transaction)
+        mock_signed_tx = MagicMock(spec=Transaction)
+
+        # Create a queued TransactionSubmitResult
+        submit_result = TransactionSubmitResult(
+            success=True,
+            signed_tx=mock_signed_tx,
+            response=None,
+            prelim_result="terQUEUED",
+            exchange_order_id="12345-67890",
+        )
+
+        mock_tx_pool = MagicMock()
+        mock_tx_pool.submit_transaction = AsyncMock(return_value=submit_result)
+        self.exchange._tx_pool = mock_tx_pool
+
+        result = await self.exchange._submit_transaction(mock_transaction)
+
+        self.assertEqual(result["prelim_result"], "terQUEUED")
+        self.assertTrue(submit_result.is_queued)
+        self.assertTrue(submit_result.is_accepted)
+
+    async def test_submit_transaction_error_result(self):
+        """Test transaction submission that returns an error result."""
+        mock_transaction = MagicMock(spec=Transaction)
+
+        # Create a failed TransactionSubmitResult
+        submit_result = TransactionSubmitResult(
+            success=False,
+            signed_tx=None,
+            response=None,
+            prelim_result="tecNO_DST",
+            exchange_order_id=None,
+            error="Destination account does not exist",
+        )
+
+        mock_tx_pool = MagicMock()
+        mock_tx_pool.submit_transaction = AsyncMock(return_value=submit_result)
+        self.exchange._tx_pool = mock_tx_pool
+
+        result = await self.exchange._submit_transaction(mock_transaction)
+
+        # The method returns the result dict even on failure
+        # Caller is responsible for checking success
+        self.assertIsNone(result["signed_tx"])
+        self.assertEqual(result["prelim_result"], "tecNO_DST")
+
+    async def test_submit_transaction_returns_correct_dict_structure(self):
+        """Test that _submit_transaction returns the expected dict structure."""
+        mock_transaction = MagicMock(spec=Transaction)
+        mock_signed_tx = MagicMock(spec=Transaction)
+        mock_response = MagicMock(spec=Response)
+
+        submit_result = TransactionSubmitResult(
+            success=True,
+            signed_tx=mock_signed_tx,
+            response=mock_response,
+            prelim_result="tesSUCCESS",
+            exchange_order_id="order-123",
+        )
+
+        mock_tx_pool = MagicMock()
+        mock_tx_pool.submit_transaction = AsyncMock(return_value=submit_result)
+        self.exchange._tx_pool = mock_tx_pool
+
+        result = await self.exchange._submit_transaction(mock_transaction)
+
+        # Verify the result has exactly the expected keys
+        expected_keys = {"signed_tx", "response", "prelim_result", "exchange_order_id"}
+        self.assertEqual(set(result.keys()), expected_keys)
+
+
+class TestTransactionSubmitResult(IsolatedAsyncioTestCase):
+    """Tests for TransactionSubmitResult dataclass."""
+
+    def test_is_queued_true(self):
+        """Test is_queued property returns True for terQUEUED."""
+        result = TransactionSubmitResult(
+            success=True,
+            prelim_result="terQUEUED",
+        )
+        self.assertTrue(result.is_queued)
+
+    def test_is_queued_false(self):
+        """Test is_queued property returns False for non-queued results."""
+        result = TransactionSubmitResult(
+            success=True,
+            prelim_result="tesSUCCESS",
+        )
+        self.assertFalse(result.is_queued)
+
+    def test_is_accepted_success(self):
+        """Test is_accepted property returns True for tesSUCCESS."""
+        result = TransactionSubmitResult(
+            success=True,
+            prelim_result="tesSUCCESS",
+        )
+        self.assertTrue(result.is_accepted)
+
+    def test_is_accepted_queued(self):
+        """Test is_accepted property returns True for terQUEUED."""
+        result = TransactionSubmitResult(
+            success=True,
+            prelim_result="terQUEUED",
+        )
+        self.assertTrue(result.is_accepted)
+
+    def test_is_accepted_false(self):
+        """Test is_accepted property returns False for error results."""
+        result = TransactionSubmitResult(
+            success=False,
+            prelim_result="tecNO_DST",
+        )
+        self.assertFalse(result.is_accepted)

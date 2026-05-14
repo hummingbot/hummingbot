@@ -13,4 +13,3 @@
 
 
 **Tips for QA testing**:
-

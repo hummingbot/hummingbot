@@ -376,3 +376,153 @@ class BinanceAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(1027024, msg.update_id)
+
+    # Dynamic subscription tests for subscribe_to_trading_pair and unsubscribe_from_trading_pair
+
+    async def test_subscribe_to_trading_pair_successful(self):
+        """Test successful subscription to a new trading pair."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        # Set up the symbol map for the new pair
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        # Create a mock WebSocket assistant
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        self.assertEqual(2, mock_ws.send.call_count)
+
+        # Verify trade subscription message
+        trade_call = mock_ws.send.call_args_list[0]
+        trade_payload = trade_call[0][0].payload
+        self.assertEqual("SUBSCRIBE", trade_payload["method"])
+        self.assertIn(f"{ex_new_pair.lower()}@trade", trade_payload["params"])
+
+        # Verify depth subscription message
+        depth_call = mock_ws.send.call_args_list[1]
+        depth_payload = depth_call[0][0].payload
+        self.assertEqual("SUBSCRIBE", depth_payload["method"])
+        self.assertIn(f"{ex_new_pair.lower()}@depth@100ms", depth_payload["params"])
+
+        # Verify pair was added to trading pairs
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to {new_pair} order book and trade channels")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription fails when WebSocket is not connected."""
+        new_pair = "ETH-USDT"
+
+        # Ensure ws_assistant is None
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly raised during subscription."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(new_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that exceptions during subscription are logged and return False."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error subscribing to {new_pair} channels")
+        )
+
+    async def test_unsubscribe_from_trading_pair_successful(self):
+        """Test successful unsubscription from a trading pair."""
+        # The trading pair is already added in setup
+        self.assertIn(self.trading_pair, self.data_source._trading_pairs)
+
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertEqual(1, mock_ws.send.call_count)
+
+        # Verify unsubscribe message
+        unsubscribe_call = mock_ws.send.call_args_list[0]
+        unsubscribe_payload = unsubscribe_call[0][0].payload
+        self.assertEqual("UNSUBSCRIBE", unsubscribe_payload["method"])
+        self.assertIn(f"{self.ex_trading_pair.lower()}@trade", unsubscribe_payload["params"])
+        self.assertIn(f"{self.ex_trading_pair.lower()}@depth@100ms", unsubscribe_payload["params"])
+
+        # Verify pair was removed from trading pairs
+        self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription fails when WebSocket is not connected."""
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket not connected")
+        )
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly raised during unsubscription."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self):
+        """Test that exceptions during unsubscription are logged and return False."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error unsubscribing from {self.trading_pair} channels")
+        )

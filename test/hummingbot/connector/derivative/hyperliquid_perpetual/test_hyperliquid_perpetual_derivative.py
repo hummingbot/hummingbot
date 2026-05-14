@@ -199,36 +199,205 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        mock_response = {'assetPositions': [{'position': {'coin': 'ETH', 'cumFunding': {'allTime': '-0.442044',
-                                                                                        'sinceChange': '0.036699',
-                                                                                        'sinceOpen': '0.036699'},
-                                                          'entryPx': '2059.6',
-                                                          'leverage': {'type': 'cross', 'value': 21},
-                                                          'liquidationPx': None, 'marginUsed': '0.990428',
-                                                          'maxLeverage': 50, 'positionValue': '20.797',
-                                                          'returnOnEquity': '0.20294257', 'szi': '0.01',
-                                                          'unrealizedPnl': '0.201'}, 'type': 'oneWay'}],
-                         'crossMaintenanceMarginUsed': '0.20799',
-                         'crossMarginSummary': {'accountValue': '2000', 'totalMarginUsed': '0.990428',
-                                                'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
-                         'marginSummary': {'accountValue': '84.241322', 'totalMarginUsed': '0.990428',
-                                           'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
-                         'withdrawable': '2000'}
+        mock_response = {
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "ETH",
+                        "cumFunding": {
+                            "allTime": "514.085417",
+                            "sinceChange": "0.0",
+                            "sinceOpen": "0.0",
+                        },
+                        "entryPx": "2986.3",
+                        "leverage": {
+                            "rawUsd": "-95.059824",
+                            "type": "isolated",
+                            "value": 20,
+                        },
+                        "liquidationPx": "2866.26936529",
+                        "marginUsed": "4.967826",
+                        "maxLeverage": 50,
+                        "positionValue": "100.02765",
+                        "returnOnEquity": "-0.0026789",
+                        "szi": "0.0335",
+                        "unrealizedPnl": "-0.0134",
+                    },
+                    "type": "oneWay",
+                }
+            ],
+            "crossMaintenanceMarginUsed": "0.0",
+            "crossMarginSummary": {
+                "accountValue": "13104.514502",
+                "totalMarginUsed": "0.0",
+                "totalNtlPos": "0.0",
+                "totalRawUsd": "13104.514502",
+            },
+            "marginSummary": {
+                "accountValue": "13109.482328",
+                "totalMarginUsed": "4.967826",
+                "totalNtlPos": "100.02765",
+                "totalRawUsd": "13009.454678",
+            },
+            "time": 1708622398623,
+            "withdrawable": "13104.514502",
+        }
 
         return mock_response
 
+    @property
+    def spot_balance_request_mock_response(self):
+        return {
+            "balances": [
+                {
+                    "coin": "USDC",
+                    "token": 0,
+                    "hold": "0.0",
+                    "total": "14.625485",
+                    "entryNtl": "0.0",
+                },
+                {
+                    "coin": "PURR",
+                    "token": 1,
+                    "hold": "0",
+                    "total": "2000",
+                    "entryNtl": "1234.56",
+                },
+            ]
+        }
+
     @aioresponses()
     def test_update_balances(self, mock_api):
-        response = self.balance_request_mock_response_for_base_and_quote
-        self._configure_balance_response(response=response, mock_api=mock_api)
+        account_response = self.balance_request_mock_response_for_base_and_quote
+        url = self._configure_balance_response(
+            response=account_response,
+            abstraction_response="default",
+            mock_api=mock_api,
+        )
 
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
 
-        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
-        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+        self.assertEqual(Decimal("13104.514502"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("13104.514502"), total_balances[self.quote_asset])
+
+        request_calls = self._all_executed_requests(api_mock=mock_api, url=url)
+        self.assertEqual(2, len(request_calls))
+        request_payloads = [json.loads(request_call.kwargs["data"]) for request_call in request_calls]
+        self.assertEqual(CONSTANTS.USER_STATE_TYPE, request_payloads[0]["type"])
+        self.assertEqual(CONSTANTS.USER_ABSTRACTION_TYPE, request_payloads[1]["type"])
+
+    def test_get_user_abstraction_mode_refreshes_without_restart(self):
+        api_post_mock = AsyncMock(side_effect=["default", "unifiedAccount"])
+        self.exchange._api_post = api_post_mock
+
+        first_mode = self.async_run_with_timeout(self.exchange._get_user_abstraction_mode())
+        second_mode = self.async_run_with_timeout(self.exchange._get_user_abstraction_mode())
+
+        self.assertEqual("default", first_mode)
+        self.assertEqual("unifiedAccount", second_mode)
+        self.assertEqual("unifiedAccount", self.exchange._user_abstraction_mode)
+        self.assertEqual(2, api_post_mock.await_count)
+        request_payloads = [call.kwargs["data"] for call in api_post_mock.await_args_list]
+        self.assertEqual(CONSTANTS.USER_ABSTRACTION_TYPE, request_payloads[0]["type"])
+        self.assertEqual(CONSTANTS.USER_ABSTRACTION_TYPE, request_payloads[1]["type"])
+
+    @aioresponses()
+    def test_update_balances_uses_spot_balances_for_unified_account(self, mock_api):
+        account_response = deepcopy(self.balance_request_mock_response_for_base_and_quote)
+        account_response["withdrawable"] = "0.0"
+        spot_response = self.spot_balance_request_mock_response
+        self.exchange._account_balances = {"OLD": Decimal("10")}
+        self.exchange._account_available_balances = {"OLD": Decimal("5")}
+
+        self._configure_balance_response(
+            response=account_response,
+            abstraction_response="unifiedAccount",
+            spot_response=spot_response,
+            mock_api=mock_api,
+        )
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("14.625485"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("14.625485"), total_balances[self.quote_asset])
+        self.assertNotIn("PURR", available_balances)
+        self.assertNotIn("PURR", total_balances)
+        self.assertNotIn("OLD", available_balances)
+        self.assertNotIn("OLD", total_balances)
+
+        request_calls = self._all_executed_requests(api_mock=mock_api, url=self.balance_url)
+        self.assertEqual(3, len(request_calls))
+        request_payloads = [json.loads(request_call.kwargs["data"]) for request_call in request_calls]
+        self.assertEqual(CONSTANTS.USER_STATE_TYPE, request_payloads[0]["type"])
+        self.assertEqual(CONSTANTS.USER_ABSTRACTION_TYPE, request_payloads[1]["type"])
+        self.assertEqual(CONSTANTS.SPOT_USER_STATE_TYPE, request_payloads[2]["type"])
+
+    @aioresponses()
+    def test_update_balances_uses_spot_balances_for_unified_account_with_non_zero_withdrawable(self, mock_api):
+        account_response = deepcopy(self.balance_request_mock_response_for_base_and_quote)
+        account_response["crossMarginSummary"]["accountValue"] = "8.6"
+        account_response["withdrawable"] = "8.6"
+        spot_response = {
+            "balances": [
+                {
+                    "coin": "USDC",
+                    "token": 0,
+                    "hold": "1.5",
+                    "total": "300.0",
+                    "entryNtl": "0.0",
+                }
+            ]
+        }
+
+        self._configure_balance_response(
+            response=account_response,
+            abstraction_response="unifiedAccount",
+            spot_response=spot_response,
+            mock_api=mock_api,
+        )
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("298.5"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("300.0"), total_balances[self.quote_asset])
+
+        request_calls = self._all_executed_requests(api_mock=mock_api, url=self.balance_url)
+        self.assertEqual(3, len(request_calls))
+        request_payloads = [json.loads(request_call.kwargs["data"]) for request_call in request_calls]
+        self.assertEqual(CONSTANTS.USER_STATE_TYPE, request_payloads[0]["type"])
+        self.assertEqual(CONSTANTS.USER_ABSTRACTION_TYPE, request_payloads[1]["type"])
+        self.assertEqual(CONSTANTS.SPOT_USER_STATE_TYPE, request_payloads[2]["type"])
+
+    @aioresponses()
+    def test_update_balances_removes_stale_quote_when_spot_usdc_is_missing(self, mock_api):
+        account_response = deepcopy(self.balance_request_mock_response_for_base_and_quote)
+        account_response["withdrawable"] = "0.0"
+        spot_response = {"balances": [{"coin": "PURR", "hold": "0", "total": "2000"}]}
+        self.exchange._account_balances = {self.quote_asset: Decimal("10"), "OLD": Decimal("5")}
+        self.exchange._account_available_balances = {self.quote_asset: Decimal("8"), "OLD": Decimal("4")}
+
+        self._configure_balance_response(
+            response=account_response,
+            abstraction_response="unifiedAccount",
+            spot_response=spot_response,
+            mock_api=mock_api,
+        )
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertNotIn(self.quote_asset, self.exchange.available_balances)
+        self.assertNotIn(self.quote_asset, self.exchange.get_all_balances())
+        self.assertNotIn("OLD", self.exchange.available_balances)
+        self.assertNotIn("OLD", self.exchange.get_all_balances())
 
     def configure_failed_set_position_mode(
             self,
@@ -327,12 +496,13 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
         price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
-        _min_order_size = Decimal(str(10 ** -len(price_info.get("openInterest").split('.')[1])))
+        min_order_size = step_size
 
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
                            min_price_increment=price_size,
-                           min_order_size=_min_order_size,
+                           min_order_size=min_order_size,
+                           min_notional_size=Decimal(str(CONSTANTS.MIN_NOTIONAL_SIZE)),
                            buy_order_collateral_token=collateral_token,
                            sell_order_collateral_token=collateral_token,
                            )
@@ -1487,13 +1657,26 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self,
             response,
             mock_api: aioresponses,
+            abstraction_response=None,
+            spot_response=None,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
 
         url = self.balance_url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.post(
-            re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")),
+            regex_url,
             body=json.dumps(response),
             callback=callback)
+        if abstraction_response is not None:
+            mock_api.post(
+                regex_url,
+                body=json.dumps(abstraction_response),
+                callback=callback)
+        if spot_response is not None:
+            mock_api.post(
+                regex_url,
+                body=json.dumps(spot_response),
+                callback=callback)
         return url
 
     @aioresponses()
@@ -2009,22 +2192,33 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
 
-        # Mock DEX markets response with perpMeta
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{
-                "name": "xyz:XYZ100",
-                "szDecimals": 3
-            }, {
-                "name": "xyz:TSLA",
-                "szDecimals": 2
-            }]
+        # Mock allPerpMetas response (meta-only payloads; assetCtxs fetched per dex)
+        dex_perp_meta = [{
+            "name": "xyz:XYZ100",
+            "szDecimals": 3
+        }, {
+            "name": "xyz:TSLA",
+            "szDecimals": 2
         }]
+        dex_asset_ctxs = [{
+            "markPx": "100.0",
+            "openInterest": "1.0",
+        }, {
+            "markPx": "200.0",
+            "openInterest": "1.0",
+        }]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-
-        # Mock meta endpoint for DEX
-        dex_meta_response = [{"universe": dex_response[0]["perpMeta"]}, {}]
-        mock_api.post(self.trading_rules_url, body=json.dumps(dex_meta_response))
+        mock_api.post(
+            self.trading_rules_url,
+            body=json.dumps([
+                {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+                dex_asset_ctxs,
+            ]),
+        )
 
         self.async_run_with_timeout(self.exchange._update_trading_rules())
 
@@ -2044,12 +2238,19 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         base_response = self.trading_rules_request_mock_response
         mock_api.post(self.trading_rules_url, body=json.dumps(base_response))
 
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}]
-        }]
+        dex_perp_meta = [{"name": "xyz:XYZ100", "szDecimals": 3}]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(self.trading_rules_url, body=json.dumps(dex_response))
-        mock_api.post(self.trading_rules_url, body=json.dumps([{"universe": dex_response[0]["perpMeta"]}]))
+        mock_api.post(
+            self.trading_rules_url,
+            body=json.dumps([
+                {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+                [{"markPx": "100.0", "openInterest": "1.0"}],
+            ]),
+        )
 
         self.async_run_with_timeout(self.exchange._initialize_trading_pair_symbol_map())
 
@@ -2364,17 +2565,17 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         ]
         mock_api.post(url, body=json.dumps(base_response))
 
-        # Mock DEX markets response
-        dex_response = [{
-            "name": "xyz",
-            "perpMeta": [{"name": "xyz:XYZ100", "szDecimals": 3}],
-            "assetCtxs": [{"markPx": "25349.0"}]
-        }]
+        # Mock allPerpMetas meta-only response (assetCtxs will be fetched per dex)
+        dex_perp_meta = [{"name": "xyz:XYZ100", "szDecimals": 3}]
+        dex_response = [
+            {"universe": [{"name": "BTC", "szDecimals": 5}], "collateralToken": 0, "marginTables": []},
+            {"universe": dex_perp_meta, "collateralToken": 0, "marginTables": []},
+        ]
         mock_api.post(url, body=json.dumps(dex_response))
 
         # Mock metaAndAssetCtxs for DEX
         dex_meta_response = [
-            {"universe": [{"name": "xyz:XYZ100", "szDecimals": 3}]},
+            {"universe": dex_perp_meta},
             [{"markPx": "25349.0"}]
         ]
         mock_api.post(url, body=json.dumps(dex_meta_response))
@@ -2510,7 +2711,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0.5",
+                "usdc": "0.5",
                 "fundingRate": "0.0001"
             }
         }]
@@ -2537,7 +2738,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             "time": 1640780000000,
             "delta": {
                 "coin": "BTC",
-                "USD": "0",  # Zero payment
+                "usdc": "0",  # Zero payment
                 "fundingRate": "0.0001"
             }
         }]
@@ -2889,6 +3090,66 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertLess(pos.amount, 0)
 
     @aioresponses()
+    def test_update_positions_removes_stale_on_partial_close(self, mock_api):
+        """Closed positions must be evicted from the cache even when other positions remain open.
+
+        Hyperliquid omits closed positions from assetPositions entirely — it does not return
+        them with szi=0.  If only some positions are closed the response is non-empty, so the
+        previous 'if not all_positions' guard was never triggered and stale entries remained in
+        account_positions indefinitely.
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # First poll: two open positions (BTC and ETH).
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "100.0",
+                        "leverage": {"value": 10},
+                    }
+                },
+                {
+                    "position": {
+                        "coin": "ETH",
+                        "szi": "2.0",
+                        "entryPx": "3000.0",
+                        "unrealizedPnl": "50.0",
+                        "leverage": {"value": 5},
+                    }
+                },
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(2, len(self.exchange.account_positions))
+
+        # Second poll: ETH position closed — exchange returns only BTC.
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "120.0",
+                        "leverage": {"value": 10},
+                    }
+                }
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions), "Stale ETH position was not removed after it closed on exchange")
+        pos = list(positions.values())[0]
+        self.assertEqual("BTC-USD", pos.trading_pair)
+
+    @aioresponses()
     def test_get_last_traded_price_for_hip3_market(self, mock_api):
         """Test _get_last_traded_price for HIP-3 market includes dex param."""
         self._simulate_trading_rules_initialized()
@@ -2969,7 +3230,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
     def test_format_trading_rules_with_hip3_markets(self):
-        """Test _format_trading_rules processes HIP-3 DEX markets from hip_3_result (lines 300, 321, 329, 335)."""
+        """Test _format_trading_rules processes HIP-3 DEX markets from _dex_markets."""
         # Initialize trading rules first to setup symbol mapping
         self._simulate_trading_rules_initialized()
 
@@ -3371,13 +3632,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         """Test _format_trading_rules HIP-3 exception path (lines 855-856)."""
         self._simulate_trading_rules_initialized()
 
-        # Setup HIP-3 market data with missing required fields
-        self.exchange.hip_3_result = [
-            {
-                "name": "xyz:AAPL",
-                # Missing markPx, openInterest - will cause exception
-            }
-        ]
+        # Setup HIP-3 market data with missing required ctx fields
+        self.exchange._dex_markets = [{
+            "name": "xyz",
+            "perpMeta": [{"name": "xyz:AAPL", "szDecimals": 3}],
+            "assetCtxs": [{}],  # Missing markPx/openInterest after merge -> triggers exception path
+        }]
 
         # Setup symbol mapping for HIP-3 market
         from bidict import bidict
@@ -3437,3 +3697,111 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         )
 
         self.assertGreaterEqual(len(rules), 1)
+
+    def test_infer_hip3_dex_name_handles_non_dict_and_multi_prefix(self):
+        result = self.exchange._infer_hip3_dex_name([
+            None,
+            {"name": "xyz:AAPL"},
+            {"name": "flx:TSLA"},
+        ])
+
+        self.assertIsNone(result)
+
+    def test_parse_all_perp_metas_response_handles_invalid_entries_and_mismatch(self):
+        parsed = self.exchange._parse_all_perp_metas_response([
+            "invalid-entry",  # ignored
+            [{"universe": []}],  # no markets
+            [
+                {"universe": [{"name": "xyz:AAPL", "szDecimals": 3}]},
+                [{"markPx": "100.0"}, {"markPx": "101.0"}],  # mismatch length
+            ],
+        ])
+
+        self.assertEqual(1, len(parsed))
+        self.assertEqual("xyz", parsed[0]["name"])
+        self.assertEqual(2, len(parsed[0]["assetCtxs"]))
+
+    def test_extract_asset_ctxs_from_meta_and_ctxs_response_returns_none_for_malformed_response(self):
+        self.assertIsNone(self.exchange._extract_asset_ctxs_from_meta_and_ctxs_response({"unexpected": "shape"}))
+
+    def test_iter_hip3_merged_markets_skips_invalid_rows(self):
+        markets = list(self.exchange._iter_hip3_merged_markets(dex_markets=[{
+            "name": "xyz",
+            "perpMeta": [
+                None,  # invalid perp_meta
+                {"name": "xyz:AAPL", "szDecimals": 3},  # invalid asset_ctx type
+                {"name": "BTC", "szDecimals": 5},  # not HIP-3
+                {"name": "xyz:TSLA", "szDecimals": 2},  # valid
+            ],
+            "assetCtxs": [
+                {},
+                "invalid-ctx",
+                {"markPx": "50000.0", "openInterest": "1.0"},
+                {"markPx": "200.0", "openInterest": "1.0"},
+            ],
+        }]))
+
+        self.assertEqual(1, len(markets))
+        self.assertEqual("xyz:TSLA", markets[0]["name"])
+
+    def test_fetch_and_cache_hip3_market_data_returns_empty_when_disabled_or_non_list(self):
+        self.exchange._enable_hip3_markets = False
+        result_disabled = self.async_run_with_timeout(self.exchange._fetch_and_cache_hip3_market_data())
+        self.assertEqual([], result_disabled)
+
+        self.exchange._enable_hip3_markets = True
+        self.exchange._api_post = AsyncMock(return_value={"unexpected": "shape"})
+        result_non_list = self.async_run_with_timeout(self.exchange._fetch_and_cache_hip3_market_data())
+        self.assertEqual([], result_non_list)
+
+    def test_hydrate_dex_markets_asset_ctxs_handles_skip_malformed_mismatch_and_exception(self):
+        async def api_post_side_effect(*args, **kwargs):
+            dex_name = kwargs["data"]["dex"]
+            if dex_name == "badshape":
+                return {"unexpected": "shape"}
+            if dex_name == "mismatch":
+                return [
+                    {"universe": [{"name": "mismatch:A"}, {"name": "mismatch:B"}]},
+                    [{"markPx": "1.0", "openInterest": "1.0"}],  # mismatch
+                ]
+            if dex_name == "boom":
+                raise RuntimeError("boom")
+            raise AssertionError(f"Unexpected dex requested: {dex_name}")
+
+        self.exchange._api_post = AsyncMock(side_effect=api_post_side_effect)
+
+        dex_markets = [
+            None,  # skipped (non-dict)
+            {  # already complete -> pass through
+                "name": "complete",
+                "perpMeta": [{"name": "complete:A"}],
+                "assetCtxs": [{"markPx": "1.0", "openInterest": "1.0"}],
+            },
+            {  # no dex name -> pass through
+                "perpMeta": [{"name": "xyz:NO_NAME"}],
+                "assetCtxs": [],
+            },
+            {  # malformed response
+                "name": "malformed",
+                "perpMeta": [{"name": "malformed:A"}],
+                "assetCtxs": [],
+            },
+            {  # mismatched hydrated ctxs
+                "name": "mismatch",
+                "perpMeta": [{"name": "mismatch:A"}, {"name": "mismatch:B"}],
+                "assetCtxs": [],
+            },
+            {  # exception while fetching
+                "name": "exception",
+                "perpMeta": [{"name": "exception:A"}],
+                "assetCtxs": [],
+            },
+        ]
+
+        hydrated = self.async_run_with_timeout(self.exchange._hydrate_dex_markets_asset_ctxs(dex_markets))
+
+        self.assertEqual(5, len(hydrated))
+        self.assertEqual("complete", hydrated[0]["name"])
+        self.assertEqual("malformed", hydrated[2]["name"])
+        self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
+        self.assertEqual("exception", hydrated[4]["name"])

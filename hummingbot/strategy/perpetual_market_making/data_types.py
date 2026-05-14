@@ -1,8 +1,5 @@
 from decimal import Decimal
-from typing import (
-    List,
-    NamedTuple,
-)
+from typing import List, NamedTuple
 
 from hummingbot.core.data_type.common import OrderType
 

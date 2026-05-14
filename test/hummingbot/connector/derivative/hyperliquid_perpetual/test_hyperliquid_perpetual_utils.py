@@ -90,26 +90,3 @@ class HyperliquidPerpetualUtilsTests(TestCase):
         corrected_address = HyperliquidPerpetualTestnetConfigMap.validate_address("HL:zzz8z8z")
 
         self.assertEqual(corrected_address, "zzz8z8z")
-
-    def test_cls_validate_enable_hip3_markets_succeed(self):
-        """Test enable_hip3_markets validation with valid values."""
-        truthy = {"yes", "y", "true", "1"}
-        falsy = {"no", "n", "false", "0"}
-        true_validations = [HyperliquidPerpetualConfigMap.validate_enable_hip3_markets(value) for value in truthy]
-        false_validations = [HyperliquidPerpetualConfigMap.validate_enable_hip3_markets(value) for value in falsy]
-
-        for validation in true_validations:
-            self.assertTrue(validation)
-
-        for validation in false_validations:
-            self.assertFalse(validation)
-
-    def test_cls_testnet_validate_enable_hip3_markets_succeed(self):
-        """Test enable_hip3_markets validation for testnet config."""
-        self.assertTrue(HyperliquidPerpetualTestnetConfigMap.validate_enable_hip3_markets("yes"))
-        self.assertFalse(HyperliquidPerpetualTestnetConfigMap.validate_enable_hip3_markets("no"))
-
-    def test_enable_hip3_markets_default_is_false(self):
-        """Test that enable_hip3_markets defaults to False."""
-        config = HyperliquidPerpetualConfigMap.model_construct()
-        self.assertFalse(config.enable_hip3_markets)

@@ -509,3 +509,105 @@ class HyperliquidAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(4, len(asks))
         self.assertEqual(2080.5, asks[0].price)
         self.assertEqual(73.018, asks[0].amount)
+
+    # Dynamic subscription tests
+    async def test_subscribe_to_trading_pair_successful(self):
+        """Test successful subscription to a new trading pair."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertIn(self.trading_pair, self.data_source._trading_pairs)
+        self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to {self.trading_pair} order book and trade channels")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription when websocket is not connected."""
+        new_pair = "ETH-USDC"
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(self.trading_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error subscribing to {self.trading_pair}")
+        )
+
+    async def test_unsubscribe_from_trading_pair_successful(self):
+        """Test successful unsubscription from a trading pair."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
+        self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: orderbook, trades
+        self.assertTrue(
+            self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book and trade channels")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription when websocket is not connected."""
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket not connected")
+        )
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated during unsubscription."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged during unsubscription."""
+        self._simulate_trading_rules_initialized()
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}")
+        )

@@ -2,8 +2,10 @@
 
 import logging
 import unittest
-from hummingbot.core.data_type.order_book import OrderBook
+
 import numpy as np
+
+from hummingbot.core.data_type.order_book import OrderBook
 
 
 class OrderBookUnitTest(unittest.TestCase):

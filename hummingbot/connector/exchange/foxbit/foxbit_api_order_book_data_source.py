@@ -30,6 +30,8 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _trading_pair_exc_id = {}
     _trading_pair_hb_dict = {}
     _ORDER_BOOK_INTERVAL = 1.0
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -208,3 +210,87 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if traiding_pair not in self._trading_pair_exc_id:
             await self._load_exchange_instrument_id()
         return self._trading_pair_exc_id[traiding_pair]
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to subscribe to
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot subscribe: WebSocket connection not established")
+            return False
+
+        try:
+            instrument_id = await self._get_instrument_id_from_trading_pair(trading_pair)
+
+            # Subscribe OrderBook
+            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_ORDER_BOOK,
+                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                                                payload={"OMSId": 1, "InstrumentId": instrument_id, "Depth": CONSTANTS.ORDER_BOOK_DEPTH})
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
+            await self._ws_assistant.send(subscribe_request)
+
+            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_SUBSCRIBE_TRADES,
+                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Subscribe"],
+                                                payload={"InstrumentId": instrument_id})
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
+            await self._ws_assistant.send(subscribe_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred subscribing to {trading_pair}...",
+                exc_info=True
+            )
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book and trade channels for a single trading pair.
+
+        :param trading_pair: the trading pair to unsubscribe from
+        :return: True if successful, False otherwise
+        """
+        if self._ws_assistant is None:
+            self.logger().warning("Cannot unsubscribe: WebSocket connection not established")
+            return False
+
+        try:
+            instrument_id = await self._get_instrument_id_from_trading_pair(trading_pair)
+
+            # Unsubscribe OrderBook
+            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_UNSUBSCRIBE_ORDER_BOOK,
+                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
+                                                payload={"OMSId": 1, "InstrumentId": instrument_id})
+            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
+            await self._ws_assistant.send(unsubscribe_request)
+
+            header = utils.get_ws_message_frame(endpoint=CONSTANTS.WS_UNSUBSCRIBE_TRADES,
+                                                msg_type=CONSTANTS.WS_MESSAGE_FRAME_TYPE["Unsubscribe"],
+                                                payload={"InstrumentId": instrument_id})
+            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header))
+            await self._ws_assistant.send(unsubscribe_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Unsubscribed from public order book and trade channels of {trading_pair}...")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Unexpected error occurred unsubscribing from {trading_pair}...",
+                exc_info=True
+            )
+            return False

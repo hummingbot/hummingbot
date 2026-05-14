@@ -1,14 +1,10 @@
+import warnings
 from decimal import Decimal
 from typing import List, Optional
-import warnings
 
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
-from hummingbot.core.data_type.trade_fee import (
-    TradeFeeBase,
-    TokenAmount,
-    TradeFeeSchema
-)
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 
 
 def build_trade_fee(

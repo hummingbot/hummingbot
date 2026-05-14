@@ -70,3 +70,17 @@ class InjectiveV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _process_public_trade_event(self, trade_update: OrderBookMessage):
         self._message_queue[self._trade_messages_queue_key].put_nowait(trade_update)
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic subscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic subscription not supported for {self.__class__.__name__}"
+        )
+        return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """Dynamic unsubscription not supported for this connector."""
+        self.logger().warning(
+            f"Dynamic unsubscription not supported for {self.__class__.__name__}"
+        )
+        return False

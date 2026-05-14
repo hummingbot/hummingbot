@@ -14,8 +14,9 @@ TESTNET_BASE_URL = "https://testnet.binancefuture.com/fapi/"
 PERPETUAL_WS_URL = "wss://fstream.binance.com/"
 TESTNET_WS_URL = "wss://stream.binancefuture.com/"
 
-PUBLIC_WS_ENDPOINT = "stream"
-PRIVATE_WS_ENDPOINT = "ws"
+PUBLIC_WS_ENDPOINT = "public/stream"   # For @depth (combined stream, wrapped {stream,data} messages)
+MARKET_WS_ENDPOINT = "market/stream"   # For @aggTrade, @markPrice (combined stream)
+PRIVATE_WS_ENDPOINT = "private/ws"     # For user stream; listenKey is passed as ?listenKey= query param
 
 TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
 TIME_IN_FORCE_GTX = "GTX"  # Good Till Crossing

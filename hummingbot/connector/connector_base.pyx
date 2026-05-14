@@ -34,9 +34,7 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.FundingPaymentCompleted,
         MarketEvent.RangePositionLiquidityAdded,
         MarketEvent.RangePositionLiquidityRemoved,
-        MarketEvent.RangePositionUpdate,
         MarketEvent.RangePositionUpdateFailure,
-        MarketEvent.RangePositionFeeCollected,
     ]
 
     def __init__(self, balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None):

@@ -26,6 +26,12 @@ class MockOrderBookTrackerDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         pass
 
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        return True
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        return True
+
 
 class MockOrderTracker(OrderBookTracker):
     def __init__(self):

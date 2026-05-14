@@ -13,6 +13,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -26,10 +27,6 @@ from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 
 class MarketDataProvider:
     _logger: Optional[HummingbotLogger] = None
-    gateway_price_provider_by_chain: Dict = {
-        "ethereum": "uniswap/router",
-        "solana": "jupiter/router",
-    }
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -46,6 +43,7 @@ class MarketDataProvider:
         self._rates_update_interval = rates_update_interval
         self._rates = {}
         self._non_trading_connectors = LazyDict[str, ConnectorBase](self._create_non_trading_connector)
+        self._non_trading_connectors_started: Dict[str, bool] = {}  # Track which connectors have been started
         self._rates_required = GroupedSetDict[str, ConnectorPair]()
         self.conn_settings = AllConnectorSettings.get_connector_settings()
 
@@ -57,6 +55,11 @@ class MarketDataProvider:
             self._rates_update_task = None
         self.candles_feeds.clear()
         self._rates_required.clear()
+        # Stop non-trading connectors that were started for public data access
+        for connector in self._non_trading_connectors.values():
+            safe_ensure_future(connector.stop_network())
+        self._non_trading_connectors.clear()
+        self._non_trading_connectors_started.clear()
 
     @property
     def ready(self) -> bool:
@@ -108,38 +111,24 @@ class MarketDataProvider:
                 non_gateway_connectors = {}
 
                 for connector, connector_pairs in self._rates_required.items():
-                    # Detect gateway connectors: either new format (contains "/") or old format (contains "gateway")
-                    is_gateway = "/" in connector or "gateway" in connector
+                    # Gateway connectors use network format: "chain-network" (e.g., "solana-mainnet-beta")
+                    # Only query Gateway for connectors that start with known chain names
+                    known_chains = tuple(c.chain for c in Chain)
+                    is_gateway_network = connector.startswith(known_chains)
 
-                    if is_gateway:
+                    swap_provider = None
+                    if is_gateway_network:
                         gateway_client = GatewayHttpClient.get_instance()
+                        swap_provider = await gateway_client.get_default_swap_provider(connector)
 
+                    if swap_provider:
+                        # Gateway connector - get_price will auto-fetch dex/trading_type from network config
                         for connector_pair in connector_pairs:
                             try:
                                 base, quote = connector_pair.trading_pair.split("-")
 
-                                # Parse connector format to extract chain/network
-                                if "/" in connector:
-                                    # New format: "jupiter/router" or "uniswap/amm"
-                                    # Need to get chain/network from the connector instance or Gateway
-                                    chain, network, error = await gateway_client.get_connector_chain_network(connector)
-                                    if error:
-                                        self.logger().warning(f"Failed to get chain/network for {connector}: {error}")
-                                        continue
-                                    connector_name = connector  # Use the connector as-is for new format
-                                else:
-                                    # Old format: "gateway_chain-network"
-                                    gateway, chain_network = connector.split("_", 1)
-                                    chain, network = chain_network.split("-", 1)
-                                    connector_name = self.gateway_price_provider_by_chain.get(chain)
-                                    if not connector_name:
-                                        self.logger().warning(f"No gateway price provider found for chain {chain}")
-                                        continue
-
                                 task = gateway_client.get_price(
-                                    chain=chain,
-                                    network=network,
-                                    connector=connector_name,
+                                    network=connector,
                                     base_asset=base,
                                     quote_asset=quote,
                                     amount=Decimal("1"),
@@ -285,6 +274,8 @@ class MarketDataProvider:
         """
         Creates a new non-trading connector instance.
         This is the factory method used by the LazyDict cache.
+        Note: The connector is NOT started automatically. Call _ensure_non_trading_connector_started()
+        to start it with at least one trading pair.
         :param connector_name: str
         :return: ConnectorBase
         """
@@ -301,6 +292,50 @@ class MarketDataProvider:
         connector_class = get_connector_class(connector_name)
         connector = connector_class(**init_params)
         return connector
+
+    async def _ensure_non_trading_connector_started(
+        self, connector: ConnectorBase, connector_name: str, trading_pair: str
+    ) -> bool:
+        """
+        Ensures a non-trading connector is started with at least one trading pair.
+        This is needed because exchanges like Binance close WebSocket connections
+        that have no subscriptions.
+
+        :param connector: ConnectorBase
+        :param connector_name: str
+        :param trading_pair: str - The first trading pair to subscribe to
+        :return: True if connector was started or already running, False on error
+        """
+        if self._non_trading_connectors_started.get(connector_name, False):
+            return True
+
+        try:
+            # Add the trading pair to the connector BEFORE starting the network
+            # This ensures the WebSocket has something to subscribe to
+            if trading_pair not in connector._trading_pairs:
+                connector._trading_pairs.append(trading_pair)
+
+            # Start the network - this will initialize order book tracker with the trading pair
+            await connector.start_network()
+            self._non_trading_connectors_started[connector_name] = True
+            self.logger().info(f"Started non-trading connector: {connector_name} with initial pair {trading_pair}")
+
+            # Wait for order book tracker to be ready
+            max_wait = 30
+            waited = 0
+            tracker = connector.order_book_tracker
+            while waited < max_wait:
+                if tracker._order_book_stream_listener_task is not None:
+                    # Give WebSocket time to establish connection
+                    await asyncio.sleep(2.0)
+                    break
+                await asyncio.sleep(0.5)
+                waited += 0.5
+
+            return True
+        except Exception as e:
+            self.logger().error(f"Error starting non-trading connector {connector_name}: {e}")
+            return False
 
     @staticmethod
     def get_connector_config_map(connector_name: str):
@@ -333,6 +368,114 @@ class MarketDataProvider:
         """
         connector = self.get_connector_with_fallback(connector_name)
         return connector.get_order_book(trading_pair)
+
+    async def initialize_order_book(self, connector_name: str, trading_pair: str) -> bool:
+        """
+        Dynamically initializes order book for a trading pair on the specified connector.
+        This subscribes to the order book WebSocket channel and starts tracking the pair.
+
+        For perpetual connectors, this also initializes funding info and other perpetual-specific data.
+
+        :param connector_name: str
+        :param trading_pair: str
+        :return: True if successful, False otherwise
+        """
+        connector = self.get_connector_with_fallback(connector_name)
+        if not hasattr(connector, 'order_book_tracker'):
+            self.logger().warning(f"Connector {connector_name} does not have order_book_tracker")
+            return False
+
+        # For non-trading connectors, ensure the network is started with this trading pair
+        if connector_name not in self.connectors:
+            if not self._non_trading_connectors_started.get(connector_name, False):
+                # First time - start the connector with this trading pair as the initial subscription
+                success = await self._ensure_non_trading_connector_started(
+                    connector, connector_name, trading_pair
+                )
+                if not success:
+                    return False
+                # The trading pair was added during startup, so we're done
+                # Wait for order book to be initialized
+                await self._wait_for_order_book_initialized(connector, trading_pair)
+                return True
+
+        # Add trading pair dynamically via connector method
+        return await connector.add_trading_pair(trading_pair)
+
+    async def _wait_for_order_book_initialized(
+        self, connector: ConnectorBase, trading_pair: str, timeout: float = 30.0
+    ) -> bool:
+        """
+        Waits for an order book to be initialized for a trading pair.
+
+        :param connector: ConnectorBase
+        :param trading_pair: str
+        :param timeout: Maximum time to wait in seconds
+        :return: True if initialized, False if timeout
+        """
+        tracker = connector.order_book_tracker
+        waited = 0
+        interval = 0.5
+        while waited < timeout:
+            if trading_pair in tracker.order_books:
+                ob = tracker.order_books[trading_pair]
+                bids, asks = ob.snapshot
+                if len(bids) > 0 and len(asks) > 0:
+                    self.logger().info(f"Order book for {trading_pair} initialized successfully")
+                    return True
+            await asyncio.sleep(interval)
+            waited += interval
+        self.logger().warning(f"Timeout waiting for {trading_pair} order book to initialize")
+        return False
+
+    async def initialize_order_books(self, connector_name: str, trading_pairs: List[str]) -> Dict[str, bool]:
+        """
+        Dynamically initializes order books for multiple trading pairs in parallel.
+
+        :param connector_name: str
+        :param trading_pairs: List[str]
+        :return: Dict mapping trading pair to success status
+        """
+        tasks = [self.initialize_order_book(connector_name, tp) for tp in trading_pairs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return {
+            tp: (result is True) if not isinstance(result, Exception) else False
+            for tp, result in zip(trading_pairs, results)
+        }
+
+    async def remove_order_book(self, connector_name: str, trading_pair: str) -> bool:
+        """
+        Removes order book tracking for a trading pair from the specified connector.
+        This unsubscribes from the WebSocket channel and stops tracking the pair.
+
+        For perpetual connectors, this also cleans up funding info and other perpetual-specific data.
+
+        :param connector_name: str
+        :param trading_pair: str
+        :return: True if successful, False otherwise
+        """
+        connector = self.get_connector_with_fallback(connector_name)
+        if not hasattr(connector, 'order_book_tracker'):
+            self.logger().warning(f"Connector {connector_name} does not have order_book_tracker")
+            return False
+
+        # Remove trading pair via connector method
+        return await connector.remove_trading_pair(trading_pair)
+
+    async def remove_order_books(self, connector_name: str, trading_pairs: List[str]) -> Dict[str, bool]:
+        """
+        Removes order book tracking for multiple trading pairs in parallel.
+
+        :param connector_name: str
+        :param trading_pairs: List[str]
+        :return: Dict mapping trading pair to success status
+        """
+        tasks = [self.remove_order_book(connector_name, tp) for tp in trading_pairs]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return {
+            tp: (result is True) if not isinstance(result, Exception) else False
+            for tp, result in zip(trading_pairs, results)
+        }
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType = PriceType.MidPrice):
         """
@@ -632,7 +775,8 @@ class MarketDataProvider:
         try:
             tasks = [self._safe_get_last_traded_price(connector, trading_pair) for trading_pair in trading_pairs]
             prices = await asyncio.wait_for(asyncio.gather(*tasks), timeout=timeout)
-            return {pair: Decimal(rate) for pair, rate in zip(trading_pairs, prices)}
+            # Filter out None values (failed price fetches) to avoid setting invalid prices
+            return {pair: rate for pair, rate in zip(trading_pairs, prices) if rate is not None}
         except Exception as e:
             logging.error(f"Error getting last traded prices in connector {connector} for trading pairs {trading_pairs}: {e}")
             return {}
@@ -640,7 +784,11 @@ class MarketDataProvider:
     async def _safe_get_last_traded_price(self, connector, trading_pair):
         try:
             last_traded = await connector._get_last_traded_price(trading_pair=trading_pair)
-            return Decimal(last_traded)
-        except Exception as e:
-            logging.error(f"Error getting last traded price in connector {connector} for trading pair {trading_pair}: {e}")
-            return Decimal(0)
+            price = Decimal(last_traded)
+            # Return None for zero or negative prices - these are invalid
+            return price if price > Decimal("0") else None
+        except Exception:
+            logging.exception(
+                f"Error getting last traded price in connector {connector} for trading pair {trading_pair}."
+            )
+            return None

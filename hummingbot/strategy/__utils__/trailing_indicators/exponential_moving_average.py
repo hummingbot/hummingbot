@@ -1,5 +1,5 @@
-from base_trailing_indicator import BaseTrailingIndicator
 import pandas as pd
+from base_trailing_indicator import BaseTrailingIndicator
 
 
 class ExponentialMovingAverageIndicator(BaseTrailingIndicator):

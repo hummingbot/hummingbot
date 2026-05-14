@@ -725,6 +725,32 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._lost_orders_update_task.cancel()
             self._lost_orders_update_task = None
 
+    async def add_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically adds a trading pair to the connector.
+        This method handles order book subscription and tracking.
+
+        Subclasses (e.g., perpetual connectors) may override this to add
+        additional initialization like funding info.
+
+        :param trading_pair: the trading pair to add (e.g., "BTC-USDT")
+        :return: True if successfully added, False otherwise
+        """
+        return await self.order_book_tracker.add_trading_pair(trading_pair)
+
+    async def remove_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Dynamically removes a trading pair from the connector.
+        This method handles order book unsubscription and cleanup.
+
+        Subclasses (e.g., perpetual connectors) may override this to add
+        additional cleanup like funding info.
+
+        :param trading_pair: the trading pair to remove (e.g., "BTC-USDT")
+        :return: True if successfully removed, False otherwise
+        """
+        return await self.order_book_tracker.remove_trading_pair(trading_pair)
+
     # === loops and sync related methods ===
     #
     async def _trading_rules_polling_loop(self):

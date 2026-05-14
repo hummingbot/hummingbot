@@ -1,6 +1,7 @@
-from prompt_toolkit.layout.containers import Window
-from prompt_toolkit.buffer import Buffer
 from typing import Optional
+
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.layout.containers import Window
 
 
 def scroll_down(event, window: Optional[Window] = None, buffer: Optional[Buffer] = None):

@@ -1,20 +1,10 @@
 #!/usr/bin/env python
-import pandas as pd
-from typing import (
-    List,
-    Optional,
-)
-from sqlalchemy import (
-    Column,
-    Text,
-    Index,
-    BigInteger,
-    Float,
-)
-from sqlalchemy.orm import (
-    Session
-)
 from datetime import datetime
+from typing import List, Optional
+
+import pandas as pd
+from sqlalchemy import BigInteger, Column, Float, Index, Text
+from sqlalchemy.orm import Session
 
 from . import HummingbotBase
 

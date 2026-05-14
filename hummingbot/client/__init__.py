@@ -1,7 +1,7 @@
+import decimal
 import logging
 
 import pandas as pd
-import decimal
 
 FLOAT_PRINTOUT_PRECISION = 8
 

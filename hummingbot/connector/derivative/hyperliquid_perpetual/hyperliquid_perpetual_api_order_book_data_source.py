@@ -26,6 +26,9 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
 
+    _DYNAMIC_SUBSCRIBE_ID_START = 100
+    _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+
     def __init__(
             self,
             trading_pairs: List[str],
@@ -299,3 +302,106 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         Funding settlement occurs every 1 hours as mentioned in https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding
         """
         return int(((time.time() // 3600) + 1) * 3600)
+
+    @classmethod
+    def _get_next_subscribe_id(cls) -> int:
+        """Get the next subscription ID and increment the counter."""
+        subscribe_id = cls._next_subscribe_id
+        cls._next_subscribe_id += 1
+        return subscribe_id
+
+    async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Subscribe to order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to subscribe to.
+        :return: True if subscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot subscribe to {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            coin = symbol.split("-")[0]
+
+            trades_payload = {
+                "method": "subscribe",
+                "subscription": {
+                    "type": CONSTANTS.TRADES_ENDPOINT_NAME,
+                    "coin": coin,
+                }
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            order_book_payload = {
+                "method": "subscribe",
+                "subscription": {
+                    "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
+                    "coin": coin,
+                }
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
+
+            await self._ws_assistant.send(subscribe_trade_request)
+            await self._ws_assistant.send(subscribe_orderbook_request)
+
+            self.add_trading_pair(trading_pair)
+            self.logger().info(f"Successfully subscribed to {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error subscribing to {trading_pair}: {e}")
+            return False
+
+    async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Unsubscribe from order book channels for a single trading pair dynamically.
+
+        :param trading_pair: The trading pair to unsubscribe from.
+        :return: True if unsubscription was successful, False otherwise.
+        """
+        if self._ws_assistant is None:
+            self.logger().warning(
+                f"Cannot unsubscribe from {trading_pair}: WebSocket connection not established."
+            )
+            return False
+
+        try:
+            symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            coin = symbol.split("-")[0]
+
+            trades_payload = {
+                "method": "unsubscribe",
+                "subscription": {
+                    "type": CONSTANTS.TRADES_ENDPOINT_NAME,
+                    "coin": coin,
+                }
+            }
+            unsubscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            order_book_payload = {
+                "method": "unsubscribe",
+                "subscription": {
+                    "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
+                    "coin": coin,
+                }
+            }
+            unsubscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=order_book_payload)
+
+            await self._ws_assistant.send(unsubscribe_trade_request)
+            await self._ws_assistant.send(unsubscribe_orderbook_request)
+
+            self.remove_trading_pair(trading_pair)
+            self.logger().info(f"Successfully unsubscribed from {trading_pair}")
+            return True
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Error unsubscribing from {trading_pair}: {e}")
+            return False

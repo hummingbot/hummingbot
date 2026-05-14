@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import unittest
 from decimal import Decimal
+
 from hummingbot.strategy.pure_market_making.moving_price_band import MovingPriceBand
 
 

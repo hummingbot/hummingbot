@@ -122,10 +122,12 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         return f"Error: {code} - {message}"
 
     async def start_network(self):
+        # Initialize symbol mappings before starting network
+        # This ensures get_funding_info can convert trading pairs to exchange symbols
+        await self._initialize_trading_pair_symbol_map()
         await super().start_network()
-        await self.set_margin_mode(self._margin_mode)
-
         if self.is_trading_required:
+            await self.set_margin_mode(self._margin_mode)
             self.set_position_mode(PositionMode.HEDGE)
 
     def supported_order_types(self) -> List[OrderType]:

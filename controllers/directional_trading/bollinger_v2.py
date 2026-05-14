@@ -17,7 +17,6 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
 
 class BollingerV2ControllerConfig(DirectionalTradingControllerConfigBase):
     controller_name: str = "bollinger_v2"
-    candles_config: List[CandlesConfig] = []
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
@@ -59,14 +58,15 @@ class BollingerV2Controller(DirectionalTradingControllerBase):
     def __init__(self, config: BollingerV2ControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = self.config.bb_length * 5
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]
 
     def non_zero_range(self, x: pd.Series, y: pd.Series) -> pd.Series:
         """Non-Zero Range

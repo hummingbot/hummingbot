@@ -1,5 +1,6 @@
-from .base_trailing_indicator import BaseTrailingIndicator
 import numpy as np
+
+from .base_trailing_indicator import BaseTrailingIndicator
 
 
 class HistoricalVolatilityIndicator(BaseTrailingIndicator):

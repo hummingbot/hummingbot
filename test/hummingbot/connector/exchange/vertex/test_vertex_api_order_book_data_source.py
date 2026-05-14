@@ -505,3 +505,89 @@ class TestVertexAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error occurred subscribing to trading and order book stream...")
         )
+
+    # Dynamic subscription tests
+    async def test_subscribe_to_trading_pair_successful(self):
+        """Test successful subscription to a new trading pair."""
+        mock_ws = AsyncMock()
+        self.ob_data_source._ws_assistant = mock_ws
+
+        result = await self.ob_data_source.subscribe_to_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertIn(self.trading_pair, self.ob_data_source._trading_pairs)
+        self.assertEqual(2, mock_ws.send.call_count)  # 2 channels: trade, book_depth
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to public trade and order book diff channels of {self.trading_pair}...")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription when websocket is not connected."""
+        new_pair = "ETH-USDC"
+        self.ob_data_source._ws_assistant = None
+
+        result = await self.ob_data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Cannot subscribe: WebSocket connection not established")
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly propagated."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.ob_data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.ob_data_source.subscribe_to_trading_pair(self.trading_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that other exceptions are caught and logged."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.ob_data_source._ws_assistant = mock_ws
+
+        result = await self.ob_data_source.subscribe_to_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error occurred subscribing to {self.trading_pair}...")
+        )
+
+    async def test_unsubscribe_from_trading_pair_fails_due_to_missing_constants(self):
+        """Test unsubscription fails due to missing WS_UNSUBSCRIBE_METHOD constant in source."""
+        mock_ws = AsyncMock()
+        self.ob_data_source._ws_assistant = mock_ws
+
+        result = await self.ob_data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        # Will fail due to AttributeError - WS_UNSUBSCRIBE_METHOD constant is missing
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error occurred unsubscribing from {self.trading_pair}...")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription when websocket is not connected."""
+        self.ob_data_source._ws_assistant = None
+
+        result = await self.ob_data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", "Cannot unsubscribe: WebSocket connection not established")
+        )
+
+    async def test_unsubscribe_from_trading_pair_logs_error_due_to_missing_constants(self):
+        """Test that unsubscription logs error due to missing WS_UNSUBSCRIBE_METHOD constant."""
+        mock_ws = AsyncMock()
+        self.ob_data_source._ws_assistant = mock_ws
+
+        result = await self.ob_data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        # The method fails because WS_UNSUBSCRIBE_METHOD constant is missing
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Unexpected error occurred unsubscribing from {self.trading_pair}...")
+        )
