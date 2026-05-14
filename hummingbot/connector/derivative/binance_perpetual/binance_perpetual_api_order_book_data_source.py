@@ -27,6 +27,7 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _mapping_initialization_lock = asyncio.Lock()
     _DYNAMIC_SUBSCRIBE_ID_START = 100
     _next_subscribe_id: int = _DYNAMIC_SUBSCRIBE_ID_START
+    _FUNDING_INTERVAL_REFRESH_SECONDS = 3600
 
     def __init__(
             self,
@@ -280,6 +281,23 @@ class BinancePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             params={"symbol": ex_trading_pair},
             is_auth_required=True)
         return data
+
+    async def listen_for_funding_info(self, output: asyncio.Queue):
+        await asyncio.gather(
+            super().listen_for_funding_info(output),
+            self._funding_interval_hours_refresh_loop(),
+        )
+
+    async def _funding_interval_hours_refresh_loop(self):
+        # Binance can change a pair's funding interval at runtime (e.g. 8h -> 4h), so keep the cache warm.
+        while True:
+            try:
+                await self._sleep(self._FUNDING_INTERVAL_REFRESH_SECONDS)
+                await self._refresh_funding_interval_hours_map()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in funding interval hours refresh loop")
 
     async def _get_funding_interval_hours(self, trading_pair: str) -> Optional[int]:
         if trading_pair not in self._funding_interval_hours_map:
