@@ -585,26 +585,12 @@ class TestBybitAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             "data": {
                 "s": f"{self.ex_trading_pair}",
                 "b": [
-                    ...,
-                    [
-                        "16493.50",
-                        "0.006"
-                    ],
-                    [
-                        "16493.00",
-                        "0.100"
-                    ]
+                    ["16493.50", "0.006"],
+                    ["16493.00", "0.100"],
                 ],
                 "a": [
-                    [
-                        "16611.00",
-                        "0.029"
-                    ],
-                    [
-                        "16612.00",
-                        "0.213"
-                    ],
-                    ...,
+                    ["16611.00", "0.029"],
+                    ["16612.00", "0.213"],
                 ],
                 "u": 18521288,
                 "seq": 7961638724
@@ -612,20 +598,23 @@ class TestBybitAPIOrderBookDataSource(IsolatedAsyncioWrapperTestCase):
             "cts": 1672304484976
         }
         mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
-        self.ob_data_source._message_queue["order_book_diff"] = mock_queue
+        self.ob_data_source._message_queue["order_book_snapshot"] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         try:
             self.listening_task = self.local_event_loop.create_task(
-                self.ob_data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
+                self.ob_data_source._process_ob_snapshot(snapshot_queue=msg_queue)
             )
         except asyncio.CancelledError:
             pass
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        self.assertTrue(snapshot_event["data"]["u"], msg.update_id)
+        self.assertEqual(snapshot_event["data"]["u"], msg.update_id)
+        # ts is delivered by Bybit V5 in milliseconds; the message timestamp must be in seconds
+        # to stay consistent with REST snapshots and WS diffs (which already apply 1e-3).
+        self.assertEqual(snapshot_event["ts"] * 1e-3, msg.timestamp)
 
     # Dynamic subscription tests
     async def test_subscribe_to_trading_pair_successful(self):
