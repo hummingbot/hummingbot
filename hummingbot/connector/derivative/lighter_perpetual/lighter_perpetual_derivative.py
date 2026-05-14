@@ -728,7 +728,6 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         if not isinstance(assets, dict) or not assets:
             return
         available = self._safe_decimal(available_balance) if available_balance is not None else None
-
         for asset in assets.values():
             if not isinstance(asset, dict) or "symbol" not in asset:
                 continue
