@@ -291,7 +291,14 @@ class LighterExchangeTests(TestCase):
         self.connector._order_tracker.process_trade_update.assert_called_once_with("trade-update")
 
     def test_request_order_status(self):
-        tracked_order = SimpleNamespace(client_order_id="cid", trading_pair="ETH-USDC")
+        self.connector._set_current_timestamp(1_000_000.0)
+        tracked_order = SimpleNamespace(
+            client_order_id="cid",
+            trading_pair="ETH-USDC",
+            creation_timestamp=1_000_000.0,
+            current_state=OrderState.OPEN,
+            exchange_order_id="999",
+        )
         self.connector._find_order = AsyncMock(
             return_value={
                 "status": "open",
@@ -307,7 +314,14 @@ class LighterExchangeTests(TestCase):
         self.assertEqual("999", order_update.exchange_order_id)
         self.assertEqual(OrderState.OPEN, order_update.new_state)
 
+        # Not found within the grace window → treated as still open, not an error.
         self.connector._find_order = AsyncMock(return_value=None)
+        order_update = asyncio.run(self.connector._request_order_status(tracked_order))
+        self.assertEqual(OrderState.OPEN, order_update.new_state)
+        self.assertEqual("cid", order_update.client_order_id)
+
+        # Not found past the grace window → raises.
+        tracked_order.creation_timestamp = 1_000_000.0 - CONSTANTS.ORDER_NOT_FOUND_GRACE_PERIOD - 1
         with self.assertRaises(IOError):
             asyncio.run(self.connector._request_order_status(tracked_order))
 

@@ -31,6 +31,9 @@ ORDER_BOOK_SNAPSHOT_LIMIT = 250
 PUBLIC_WS_PING_INTERVAL = 30.0
 PRIVATE_WS_PING_INTERVAL = 30.0
 MARKET_ID_ALL = 255
+# Grace window after order creation during which a "not found" REST lookup is treated
+# as "still pending" rather than an error — the on-chain tx may not be indexed yet.
+ORDER_NOT_FOUND_GRACE_PERIOD = 10.0
 
 ACCOUNT_LOOKUP_BY_INDEX = "index"
 ACCOUNT_LOOKUP_BY_L1_ADDRESS = "l1_address"

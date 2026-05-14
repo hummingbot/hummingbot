@@ -1032,6 +1032,57 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         # does not fire fill events, so this test is not applicable.
         pass
 
+    @aioresponses()
+    async def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
+        # lighter treats a "not found" REST lookup within ORDER_NOT_FOUND_GRACE_PERIOD as
+        # "still pending" (REST indexing lag); the order must be older than the grace window
+        # for the not-found escalation to apply.
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        self.exchange._set_current_timestamp(
+            1640780000 + CONSTANTS.ORDER_NOT_FOUND_GRACE_PERIOD + 1
+        )
+
+        self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
+        await self.exchange._update_order_status()
+
+        self.assertTrue(order.is_open)
+        self.assertFalse(order.is_filled)
+        self.assertFalse(order.is_done)
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    @aioresponses()
+    async def test_update_order_status_not_found_within_grace_period_keeps_order_open(self, mock_api):
+        # A just-created order missing from the REST lookup should not be flagged not-found.
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
+        await self.exchange._update_order_status()
+
+        self.assertTrue(order.is_open)
+        self.assertNotIn(
+            order.client_order_id, self.exchange._order_tracker._order_not_found_records
+        )
+
     async def test_user_stream_balance_update(self):
         # lighter only holds USDC collateral, not the base asset
         self.exchange._set_current_timestamp(1640780000)

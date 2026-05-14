@@ -403,6 +403,18 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         order_data = await self._find_order(tracked_order=tracked_order, include_inactive=True)
         if order_data is None:
+            # Lighter's REST endpoints may not have indexed a just-submitted order yet.
+            # Within the grace window, report it as still open rather than not-found, so the
+            # order tracker doesn't escalate a live order to "lost".
+            age = self.current_timestamp - tracked_order.creation_timestamp
+            if age < CONSTANTS.ORDER_NOT_FOUND_GRACE_PERIOD:
+                return OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=tracked_order.current_state,
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=tracked_order.exchange_order_id,
+                )
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {tracked_order.client_order_id}")
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
