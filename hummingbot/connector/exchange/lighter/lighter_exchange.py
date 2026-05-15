@@ -54,8 +54,8 @@ class LighterExchange(ExchangePyBase):
         domain: str = CONSTANTS.DOMAIN,
     ):
         self._l1_address = lighter_l1_address
-        self._account_index = int(lighter_account_index) if lighter_account_index is not None else None
-        self._api_key_index = int(lighter_api_key_index) if lighter_api_key_index is not None else None
+        self._account_index = int(lighter_account_index) if lighter_account_index not in (None, "") else None
+        self._api_key_index = int(lighter_api_key_index) if lighter_api_key_index not in (None, "") else None
         self._api_private_key = lighter_api_private_key
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs or []

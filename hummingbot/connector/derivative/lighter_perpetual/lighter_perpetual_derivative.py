@@ -82,7 +82,6 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self._tx_lock = asyncio.Lock()
         self._signer_client = self._create_signer_client() if trading_required and self._account_index is not None else None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
-        self.real_time_balance_update = False
 
     @property
     def account_index(self) -> int:
@@ -437,15 +436,16 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         account = extract_account_snapshot(
             account_response, account_index=self._account_index, l1_address=self._l1_address
         )
-        # available_balance = self._safe_decimal(account.get("available_balance", "0"))
         self._set_account_index_from_account(account)
+        available = self._safe_decimal(account.get("available_balance", "0"))
 
         for asset in account.get("assets", []):
             asset_name = str(asset["symbol"]).upper()
             spot_balance = self._safe_decimal(asset.get("balance", "0"))
+            locked_balance = self._safe_decimal(asset.get("locked_balance", "0"))
             total_balance = self._safe_decimal(asset.get("margin_balance", "0")) + spot_balance
             self._account_balances[asset_name] = total_balance
-            # self._account_available_balances[asset_name] = available_balance  # API balance update from Lighter is currently incorrect
+            self._account_available_balances[asset_name] = available + spot_balance if asset_name == CONSTANTS.COLLATERAL_TOKEN else total_balance - locked_balance
             remote_asset_names.add(asset_name)
 
         for asset_name in local_asset_names.difference(remote_asset_names):

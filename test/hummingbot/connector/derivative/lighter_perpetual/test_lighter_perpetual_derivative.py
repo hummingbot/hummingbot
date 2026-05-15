@@ -373,7 +373,7 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
                         "filled_base_amount": str(order.amount) if status == "filled" else "0",
                         "base_amount": str(order.amount),
                         "price": str(order.price),
-                        "transaction_time": "1640780000000000",
+                        "transaction_time": "1640780000000",
                     }
                 ]
             },
@@ -1162,7 +1162,7 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
                 "accounts": [
                     {
                         "index": self.ACCOUNT_INDEX,
-                        "available_balance": "2000",
+                        "available_balance": "80",
                         "assets": [
                             {"symbol": "USDC", "margin_balance": "100", "locked_balance": "20"}
                         ],
@@ -1173,7 +1173,9 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         )
         await self.exchange._update_balances()
         self.assertNotIn("OLD", self.exchange._account_balances)
+        self.assertNotIn("OLD", self.exchange._account_available_balances)
         self.assertEqual(Decimal("100"), self.exchange._account_balances[self.quote_asset])
+        self.assertEqual(Decimal("80"), self.exchange._account_available_balances[self.quote_asset])
 
     async def test_lighter_parse_position_long(self):
         raw = {
@@ -1205,7 +1207,7 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.exchange._account_balances = {}
         self.exchange._account_available_balances = {}
         self.exchange._process_balance_events(
-            {"usdc": {"symbol": "USDC", "balance": "100", "locked_balance": "20"}}
+            {"usdc": {"symbol": "USDC", "margin_balance": "100", "locked_balance": "20"}}
         )
         self.assertEqual(Decimal("100"), self.exchange._account_balances["USDC"])
         self.assertEqual(Decimal("80"), self.exchange._account_available_balances["USDC"])
