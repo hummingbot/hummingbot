@@ -469,6 +469,43 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_funding_info(mock_queue)
 
+    async def test_listen_for_funding_info_runs_refresh_loop(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
+        refresh_loop_mock = AsyncMock(side_effect=asyncio.CancelledError)
+        self.data_source._funding_interval_hours_refresh_loop = refresh_loop_mock
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_funding_info(mock_queue)
+
+        refresh_loop_mock.assert_called_once()
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    async def test_funding_interval_hours_refresh_loop_periodically_refreshes(self, mock_sleep):
+        mock_sleep.side_effect = [None, None, asyncio.CancelledError]
+        refresh_mock = AsyncMock()
+        self.data_source._refresh_funding_interval_hours_map = refresh_mock
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source._funding_interval_hours_refresh_loop()
+
+        self.assertEqual(2, refresh_mock.await_count)
+        mock_sleep.assert_called_with(self.data_source._FUNDING_INTERVAL_REFRESH_SECONDS)
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    async def test_funding_interval_hours_refresh_loop_logs_unexpected_exception(self, mock_sleep):
+        mock_sleep.side_effect = [None, asyncio.CancelledError]
+        refresh_mock = AsyncMock(side_effect=Exception("boom"))
+        self.data_source._refresh_funding_interval_hours_map = refresh_mock
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source._funding_interval_hours_refresh_loop()
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error in funding interval hours refresh loop")
+        )
+
     # Dynamic subscription tests for subscribe_to_trading_pair and unsubscribe_from_trading_pair
 
     async def test_subscribe_to_trading_pair_successful(self):
