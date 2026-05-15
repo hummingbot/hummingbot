@@ -57,6 +57,11 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        # Per-trading-pair cache of the exchange-side margin mode ("ISOLATED" or "CROSS").
+        # Populated lazily by _get_margin_mode() on first order placement so the order
+        # payload's marginMode field matches the user's configured mode and avoids the
+        # 330005 "order's margin mode does not match" rejection.
+        self._margin_mode_cache: Dict[str, str] = {}
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -195,6 +200,14 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
         }
+        # marginMode is an optional field on the Place Order endpoint, but when omitted
+        # KuCoin applies an account-level default that may not match the per-contract
+        # margin mode the user configured on the exchange — producing error 330005.
+        # _get_margin_mode caches the value per trading pair after the first lookup;
+        # if the lookup fails we fall back to the legacy omit-the-field behaviour.
+        margin_mode = await self._get_margin_mode(trading_pair)
+        if margin_mode is not None:
+            data["marginMode"] = margin_mode
         if order_type.is_limit_type():
             data["price"] = float(price)
             if order_type is OrderType.LIMIT_MAKER:
@@ -862,6 +875,59 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
             return False, f"Max leverage for {trading_pair} is {max_leverage}."
         return True, ""
+
+    async def _get_margin_mode(self, trading_pair: str) -> Optional[str]:
+        """
+        Look up the exchange-side margin mode ("ISOLATED" or "CROSS") for the given
+        trading pair, with an in-memory cache that fills on first call.
+
+        The value is returned for inclusion in the Place Order payload so the order's
+        marginMode field matches the user's per-contract setting on KuCoin, avoiding
+        error 330005 ("The order's margin mode does not match the selected one").
+
+        Returns None on any failure (HTTP error, unexpected response shape, missing
+        field). The caller treats None as "omit marginMode from the order payload",
+        which reproduces the pre-fix behaviour and avoids regressing accounts where
+        the absent-field default already matches.
+        """
+        cached = self._margin_mode_cache.get(trading_pair)
+        if cached is not None:
+            return cached
+        try:
+            exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+            resp: Dict[str, Any] = await self._api_get(
+                path_url=CONSTANTS.GET_MARGIN_MODE_PATH_URL,
+                params={"symbol": exchange_symbol},
+                is_auth_required=True,
+                trading_pair=trading_pair,
+                limit_id=CONSTANTS.GET_MARGIN_MODE_PATH_URL,
+            )
+        except Exception as e:
+            self.logger().warning(
+                f"Failed to fetch margin mode for {trading_pair}: {e}. "
+                f"Order will be submitted without an explicit marginMode field."
+            )
+            return None
+        if not isinstance(resp, dict) or resp.get("code") != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(
+                resp.get("code") if isinstance(resp, dict) else "unknown"
+            )
+            self.logger().warning(
+                f"Unexpected response when fetching margin mode for {trading_pair}: "
+                f"{formatted_ret_code}. Order will be submitted without an explicit "
+                f"marginMode field."
+            )
+            return None
+        margin_mode = (resp.get("data") or {}).get("marginMode")
+        if margin_mode not in (CONSTANTS.MARGIN_MODE_ISOLATED, CONSTANTS.MARGIN_MODE_CROSS):
+            self.logger().warning(
+                f"KuCoin returned unrecognised margin mode {margin_mode!r} for "
+                f"{trading_pair}. Order will be submitted without an explicit "
+                f"marginMode field."
+            )
+            return None
+        self._margin_mode_cache[trading_pair] = margin_mode
+        return margin_mode
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)

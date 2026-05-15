@@ -14,6 +14,7 @@ REST_URLS = {"kucoin_perpetual_main": "https://api-futures.kucoin.com/"}
 WSS_PUBLIC_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_public"}
 WSS_PRIVATE_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_private"}
 REST_API_VERSION = "api/v1"
+REST_API_VERSION_V2 = "api/v2"
 
 HB_PARTNER_ID = "Hummingbot"
 HB_PARTNER_KEY = "8fb50686-81a8-408a-901c-07c5ac5bd758"
@@ -54,6 +55,7 @@ QUERY_ORDER_BY_EXCHANGE_ORDER_ID_PATH_URL = f"{REST_API_VERSION}/orders/{{orderi
 QUERY_ORDER_BY_CLIENT_ORDER_ID_PATH_URL = f"{REST_API_VERSION}/orders/byClientOid?clientOid={{clientorderid}}"
 GET_RISK_LIMIT_LEVEL_PATH_URL = f"{REST_API_VERSION}/contracts/risk-limit/{{symbol}}"
 SET_LEVERAGE_PATH_URL = f"{REST_API_VERSION}/position/risk-limit-level/change"
+GET_MARGIN_MODE_PATH_URL = f"{REST_API_VERSION_V2}/position/getMarginMode"
 GET_RECENT_FILLS_INFO_PATH_URL = f"{REST_API_VERSION}/recentFills"
 GET_FILL_INFO_PATH_URL = f"{REST_API_VERSION}/fills?orderId={{orderid}}"
 GET_WALLET_BALANCE_PATH_URL = f"{REST_API_VERSION}/account-overview?currency={{currency}}"
@@ -94,6 +96,10 @@ ORDER_STATE = {
     "cancelExist": OrderState.CANCELED,
 }
 
+# Margin mode values accepted by the Place Order endpoint's marginMode field
+MARGIN_MODE_ISOLATED = "ISOLATED"
+MARGIN_MODE_CROSS = "CROSS"
+
 # Request error codes
 RET_CODE_OK = "200000"
 RET_CODE_PARAMS_ERROR = "100001"
@@ -104,6 +110,7 @@ RET_CODE_MODE_NOT_MODIFIED = "300010"
 RET_CODE_LEVERAGE_NOT_MODIFIED = "300016"
 RET_CODE_POSITION_ZERO = "300009"
 RET_CODE_AUTH_TIMESTAMP_ERROR = "400002"
+RET_CODE_MARGIN_MODE_MISMATCH = "330005"
 
 NO_LIMIT = sys.maxsize
 RATE_LIMITS = [
@@ -116,6 +123,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDER_BOOK_ENDPOINT, limit=30, time_interval=3),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=SET_LEVERAGE_PATH_URL, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=GET_MARGIN_MODE_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_LAST_FUNDING_RATE_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_POSITIONS_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=QUERY_ORDER_BY_EXCHANGE_ORDER_ID_PATH_URL, limit=30, time_interval=3),

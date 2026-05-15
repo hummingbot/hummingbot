@@ -1779,3 +1779,123 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 message=f"Error setting leverage {target_leverage} for {self.trading_pair}: Max leverage for {self.trading_pair} is {max_leverage}.",
             )
         )
+
+    def _margin_mode_url_regex(self):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.GET_MARGIN_MODE_PATH_URL)
+        return re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+
+    def _mock_margin_mode_response(self, mock_api: aioresponses, margin_mode: str):
+        mock_response = {
+            "code": "200000",
+            "data": {
+                "symbol": self.exchange_trading_pair,
+                "marginMode": margin_mode,
+            },
+        }
+        mock_api.get(self._margin_mode_url_regex(), body=json.dumps(mock_response))
+
+    @aioresponses()
+    def test_place_order_includes_margin_mode_isolated(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self._mock_margin_mode_response(mock_api, CONSTANTS.MARGIN_MODE_ISOLATED)
+        request_sent_event = asyncio.Event()
+        mock_api.post(
+            self.order_creation_url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_limit_maker_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, self.order_creation_url)[0]
+        request_data = json.loads(order_request.kwargs["data"])
+        self.assertEqual(CONSTANTS.MARGIN_MODE_ISOLATED, request_data["marginMode"])
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+    @aioresponses()
+    def test_place_order_includes_margin_mode_cross(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self._mock_margin_mode_response(mock_api, CONSTANTS.MARGIN_MODE_CROSS)
+        request_sent_event = asyncio.Event()
+        mock_api.post(
+            self.order_creation_url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_limit_maker_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, self.order_creation_url)[0]
+        request_data = json.loads(order_request.kwargs["data"])
+        self.assertEqual(CONSTANTS.MARGIN_MODE_CROSS, request_data["marginMode"])
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+    @aioresponses()
+    def test_place_order_caches_margin_mode_per_pair(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self._mock_margin_mode_response(mock_api, CONSTANTS.MARGIN_MODE_ISOLATED)
+        pending_events = [asyncio.Event(), asyncio.Event()]
+
+        def order_callback(*args, **kwargs):
+            pending_events.pop(0).set()
+
+        mock_api.post(
+            self.order_creation_url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=order_callback,
+            repeat=True,
+        )
+
+        first_event, second_event = pending_events[0], pending_events[1]
+        self.place_buy_limit_maker_order()
+        self.async_run_with_timeout(first_event.wait())
+        self.place_buy_limit_maker_order(amount=Decimal("200"))
+        self.async_run_with_timeout(second_event.wait())
+
+        margin_mode_requests = self._all_executed_requests(mock_api, self._margin_mode_url_regex())
+        self.assertEqual(
+            1,
+            len(margin_mode_requests),
+            "Margin mode endpoint should only be hit once because the value is cached per trading pair.",
+        )
+        order_requests = self._all_executed_requests(mock_api, self.order_creation_url)
+        self.assertEqual(2, len(order_requests))
+        for order_request in order_requests:
+            request_data = json.loads(order_request.kwargs["data"])
+            self.assertEqual(CONSTANTS.MARGIN_MODE_ISOLATED, request_data["marginMode"])
+
+    @aioresponses()
+    def test_place_order_graceful_when_margin_mode_query_fails(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        mock_api.get(
+            self._margin_mode_url_regex(),
+            body=json.dumps({"code": "500001", "msg": "internal error"}),
+        )
+        request_sent_event = asyncio.Event()
+        mock_api.post(
+            self.order_creation_url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_limit_maker_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, self.order_creation_url)[0]
+        request_data = json.loads(order_request.kwargs["data"])
+        self.assertNotIn(
+            "marginMode",
+            request_data,
+            "marginMode must be omitted when the query fails so behaviour matches the pre-fix legacy path.",
+        )
+        self.assertIn(order_id, self.exchange.in_flight_orders)
