@@ -313,7 +313,12 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         order_book = await self.data_source.get_new_order_book(self.trading_pair)
 
-        expected_update_id = float(snapshot_data["ts"] * 1e6)
+        # NonceCreator.for_microseconds().get_tracking_nonce(timestamp=seconds)
+        # returns int(seconds * 1e6). With the REST snapshot ts now correctly
+        # converted from milliseconds to seconds before being passed to the
+        # nonce provider (ts_ms * 1e-3 * 1e6 == ts_ms * 1e3), the expected nonce
+        # is ts_ms * 1000, not the pre-fix ts_ms * 1e6 which conflated units.
+        expected_update_id = int(snapshot_data["ts"]) * 1000
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
@@ -326,6 +331,29 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(65557.7, asks[0].price)
         self.assertEqual(16.606555, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
+
+    @aioresponses()
+    async def test_order_book_snapshot_timestamp_is_scaled_to_seconds(self, mock_api):
+        """Regression: REST snapshot path used to pass `snapshot_data["ts"]`
+        (milliseconds per Bybit V5) directly as the OrderBookMessage timestamp,
+        leaving the value ~1000x larger than the WS diff path which already
+        scaled by 1e-3. The fix multiplies by 1e-3 to match the other paths
+        and to keep the timestamp comparable across REST and WS sources.
+        """
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_rest_snapshot_msg()
+        raw_ts_ms = resp["result"]["ts"]
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        snapshot_msg = await self.data_source._order_book_snapshot(self.trading_pair)
+
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_msg.type)
+        self.assertAlmostEqual(raw_ts_ms / 1000.0, snapshot_msg.timestamp, places=3)
+        # Sanity-check: the timestamp is plausibly a recent Unix second, not a
+        # 13-digit millisecond value that would land beyond the year 56000.
+        self.assertLess(snapshot_msg.timestamp, 10 ** 11)
 
     @aioresponses()
     async def test_get_new_order_book_raises_exception(self, mock_api):
