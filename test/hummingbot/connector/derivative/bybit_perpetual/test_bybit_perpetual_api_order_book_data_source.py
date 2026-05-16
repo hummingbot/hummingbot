@@ -642,8 +642,13 @@ class BybitPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(float(resp["result"]["ts"]), msg.timestamp)
-        expected_update_id = float(resp["result"]["ts"]) * 1e6
+        # Bybit V5 `ts` is milliseconds; the snapshot path now scales it to
+        # seconds (* 1e-3) to match every other source. assertAlmostEqual
+        # because the 1e-3 multiply introduces float-rounding noise.
+        self.assertAlmostEqual(float(resp["result"]["ts"]) * 1e-3, msg.timestamp, places=3)
+        # update_id = NonceCreator.for_microseconds nonce of the seconds
+        # timestamp: int(seconds * 1e6) == ts_ms * 1e3.
+        expected_update_id = int(float(resp["result"]["ts"]) * 1e3)
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
