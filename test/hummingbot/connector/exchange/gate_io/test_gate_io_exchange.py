@@ -1791,3 +1791,23 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         exception = IOError("HTTP status is 403. "
                             "Error: {'label':'REQUEST_EXPIRED','message':'gap between request Timestamp and server time exceeds 60'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+
+    def test_create_trade_update_handles_string_fill_timestamp(self):
+        # Regression for #8199-class: Gate.io returns create_time as a
+        # numeric string. It must be coerced to float so
+        # InFlightOrder.last_update_timestamp keeps its declared float type
+        # and downstream cross-executor aggregation does not crash with
+        # "'>' not supported between instances of 'str' and 'float'".
+        order = self.get_in_flight_order(client_order_id="OID1")
+        order_fill = {
+            "id": 5736713,
+            "fee": "0.00200000",
+            "fee_currency": self.quote_asset,
+            "amount": "1",
+            "price": "5.00032",
+            "create_time": "1548000000",
+        }
+        trade_update = self.exchange._create_trade_update_with_order_fill_data(
+            order_fill=order_fill, order=order)
+        self.assertIsInstance(trade_update.fill_timestamp, float)
+        self.assertEqual(trade_update.fill_timestamp, 1548000000.0)
