@@ -80,6 +80,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self._markets_by_trading_pair = {}
         self._markets_by_exchange_symbol = {}
         self._tx_lock = asyncio.Lock()
+        # Single-flight task for WS-triggered balance refresh: Lighter's account_all_assets
+        # event lacks `available_balance`, so we use the event as a trigger to refresh from REST.
+        self._balance_refresh_task: Optional[asyncio.Task] = None
         self._signer_client = self._create_signer_client() if trading_required and self._account_index is not None else None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -452,6 +455,19 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             del self._account_balances[asset_name]
             del self._account_available_balances[asset_name]
 
+    def _schedule_balance_refresh(self):
+        # Trigger an out-of-band `_update_balances` REST call. Single-flight: if a
+        # refresh is already in progress, this is a no-op (the running task will pick
+        # up the latest state).
+        if self._balance_refresh_task is None or self._balance_refresh_task.done():
+            self._balance_refresh_task = safe_ensure_future(self._safe_update_balances())
+
+    async def _safe_update_balances(self):
+        try:
+            await self._update_balances()
+        except Exception:
+            self.logger().exception("WS-triggered balance refresh failed.")
+
     async def _update_positions(self):
         account_response = await self._api_get(
             path_url=CONSTANTS.BALANCE_PATH_URL,
@@ -558,7 +574,9 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_TRADES_CHANNEL}:"):
                     self._process_trade_events(event_message.get("trades", {}))
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_ASSETS_CHANNEL}:"):
-                    self._process_balance_events(event_message.get("assets", {}))
+                    # Lighter's assets event has no `available_balance` — use it as a
+                    # signal to fetch the authoritative balance snapshot from REST.
+                    self._schedule_balance_refresh()
                 elif channel.startswith(f"{CONSTANTS.ACCOUNT_ALL_POSITIONS_CHANNEL}:"):
                     self._process_position_events(event_message.get("positions", {}))
             except asyncio.CancelledError:
@@ -735,22 +753,6 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                 trade_update = self._trade_update_from_trade(trade)
                 if trade_update is not None:
                     self._order_tracker.process_trade_update(trade_update)
-
-    def _process_balance_events(self, assets: Dict[str, Dict[str, Any]], available_balance: Any = None):
-        if not isinstance(assets, dict) or not assets:
-            return
-        available = self._safe_decimal(available_balance) if available_balance is not None else None
-        for asset in assets.values():
-            if not isinstance(asset, dict) or "symbol" not in asset:
-                continue
-            asset_name = str(asset["symbol"]).upper()
-            spot_balance = self._safe_decimal(asset.get("balance", "0"))
-            total_balance = self._safe_decimal(asset.get("margin_balance", "0")) + spot_balance
-            locked_balance = self._safe_decimal(asset.get("locked_balance", "0"))
-            self._account_balances[asset_name] = total_balance
-            self._account_available_balances[asset_name] = (
-                available if available is not None else total_balance - locked_balance
-            )
 
     def _process_position_events(self, position_payload: Any):
         # WS sends delta updates — only add/update positions present in the event.

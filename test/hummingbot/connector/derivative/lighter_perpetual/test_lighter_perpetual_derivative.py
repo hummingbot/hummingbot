@@ -1084,22 +1084,22 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         )
 
     async def test_user_stream_balance_update(self):
-        # lighter only holds USDC collateral, not the base asset
+        # Lighter's WS account_all_assets event has no `available_balance`; the connector
+        # uses it as a trigger to fire an out-of-band REST `_update_balances` refresh.
         self.exchange._set_current_timestamp(1640780000)
-        balance_event = self.balance_event_websocket_update
+        self.exchange._update_balances = AsyncMock()
 
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
+        mock_queue.get.side_effect = [self.balance_event_websocket_update, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         try:
-            await (self.exchange._user_stream_event_listener())
+            await self.exchange._user_stream_event_listener()
         except asyncio.CancelledError:
             pass
         await asyncio.sleep(0.1)
 
-        self.assertEqual(Decimal("2000"), self.exchange.available_balances[self.quote_asset])
-        self.assertEqual(Decimal("2000"), self.exchange.get_balance(self.quote_asset))
+        self.exchange._update_balances.assert_awaited()
 
     # ── Lighter-specific tests ─────────────────────────────────────────────────
 
@@ -1203,11 +1203,21 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertIsNone(self.exchange._extract_tx_code(None))
         self.assertIsNone(self.exchange._extract_tx_code({"message": "ok"}))
 
-    async def test_lighter_process_balance_events(self):
-        self.exchange._account_balances = {}
-        self.exchange._account_available_balances = {}
-        self.exchange._process_balance_events(
-            {"usdc": {"symbol": "USDC", "margin_balance": "100", "locked_balance": "20"}}
-        )
-        self.assertEqual(Decimal("100"), self.exchange._account_balances["USDC"])
-        self.assertEqual(Decimal("80"), self.exchange._account_available_balances["USDC"])
+    async def test_lighter_schedule_balance_refresh_is_single_flight(self):
+        # If a refresh is already in flight, additional WS triggers should be no-ops.
+        event = asyncio.Event()
+
+        async def _hold():
+            await event.wait()
+
+        self.exchange._update_balances = AsyncMock(side_effect=_hold)
+        self.exchange._schedule_balance_refresh()
+        first_task = self.exchange._balance_refresh_task
+        self.exchange._schedule_balance_refresh()
+        self.assertIs(first_task, self.exchange._balance_refresh_task)
+        event.set()
+        await first_task
+        # After completion, another trigger spawns a new task.
+        self.exchange._schedule_balance_refresh()
+        self.assertIsNot(self.exchange._balance_refresh_task, first_task)
+        await self.exchange._balance_refresh_task
