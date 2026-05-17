@@ -75,9 +75,19 @@ WS_CHANNEL_ORDERS = "orders"          # OrderCreate / OrderCancel / OrderExpire 
 WS_CHANNEL_FILLS = "fills"            # trade execution w/ maker/taker
 WS_CHANNEL_FUNDING = "funding"        # funding payment settlements (perps)
 
-# DLOB WS (order book stream)
+# DLOB WS (order book stream).
+# Verified subscribe shape (drift-labs/dlob-server example/wsClient.ts):
+#   {"type":"subscribe","marketType":"perp","channel":"orderbook","market":"SOL-PERP"}
+WS_DLOB_TYPE_SUBSCRIBE = "subscribe"
 WS_DLOB_CHANNEL_ORDERBOOK = "orderbook"
 WS_DLOB_CHANNEL_TRADES = "trades"
+
+# --- Numeric precision (verified: driftpy constants/numeric_constants.py) ---
+# DLOB L2 levels and on-chain figures are integers scaled by these.
+PRICE_PRECISION = 1_000_000           # 1e6
+BASE_PRECISION = 1_000_000_000        # 1e9
+QUOTE_PRECISION = 1_000_000           # 1e6
+FUNDING_RATE_PRECISION = 1_000_000_000  # 1e9 (PRICE_PRECISION * 1e3)
 
 # --- Order semantics ---
 ORDER_TYPE_MAP = {
