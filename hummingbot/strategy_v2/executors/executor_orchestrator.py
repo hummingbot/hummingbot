@@ -441,21 +441,24 @@ class ExecutorOrchestrator:
         Executors with POSITION_HOLD close type are excluded as they are handled by position tracking.
         """
         for controller_id, executors_list in list(self.active_executors.items()):
-            executors_to_store = [
-                executor for executor in executors_list
-                if (executor.executor_info.is_done and
-                    executor.executor_info.close_type is not None and
-                    executor.executor_info.close_type != CloseType.POSITION_HOLD)
-            ]
-            for executor in executors_to_store:
+            stored = []
+            for executor in executors_list:
+                try:
+                    if not executor.is_closed:
+                        continue
+                    if executor.close_type is None or executor.close_type == CloseType.POSITION_HOLD:
+                        continue
+                except Exception as e:
+                    self.logger().debug(f"Error checking executor state for {executor.config.id}: {e}")
+                    continue
                 try:
                     MarketsRecorder.get_instance().store_or_update_executor(executor)
                     self._update_cached_performance(controller_id, executor.executor_info)
+                    stored.append(executor)
                 except Exception as e:
                     self.logger().error(f"Error auto-storing terminated executor {executor.config.id}: {str(e)}")
-                    continue
+            for executor in stored:
                 executors_list.remove(executor)
-                del executor
 
     def _update_positions_from_done_executors(self):
         """

@@ -320,6 +320,7 @@ class StrategyV2Base(StrategyPyBase):
                 executor_actions: List[ExecutorAction] = self.determine_executor_actions()
                 for action in executor_actions:
                     self.executor_orchestrator.execute_action(action)
+                self.executor_orchestrator._auto_store_terminated_executors()
 
     async def on_stop(self):
         """
