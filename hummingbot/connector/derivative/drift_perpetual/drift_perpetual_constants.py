@@ -65,7 +65,20 @@ PATH_DLOB_TOP_MAKERS = "/topMakers"
 PATH_DLOB_AUCTION_PARAMS = "/auctionParams"
 
 # --- Data API paths (relative to DRIFT_DATA_API_URL) ---
-PATH_FUNDING_RATES = "/fundingRates"
+# VERIFIED 2026-05-17 against the live Data API: the docs' documented
+# `/fundingRates?marketName=` route 404s ("Cannot GET /fundingRates");
+# the real route is market-scoped path-param style. Response envelope:
+#   {"success": true, "records": [ {...}, ... ]}   (records newest-first)
+# Each record carries ALREADY-DESCALED decimal strings, e.g.
+# fundingRate="-0.001024958", oraclePriceTwap="84.69" — the on-chain
+# *_PRECISION scales below are NOT applied to Data API responses (they
+# apply only to raw on-chain / DLOB integers).
+PATH_FUNDING_RATES_TEMPLATE = "/market/{market}/fundingRates"
+
+# Drift perp funding settles hourly (verified: live record interval
+# ~3600s). The DLOB stream carries no funding channel, so market funding
+# info is REST-polled from the Data API at this cadence.
+FUNDING_RATE_POLL_INTERVAL = 600
 
 # --- Gateway WebSocket channels ---
 # Subscribe shape: {"method": "subscribe", "subAccountId": 0}

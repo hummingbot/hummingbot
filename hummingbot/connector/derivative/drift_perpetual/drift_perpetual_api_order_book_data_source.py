@@ -9,7 +9,7 @@ from hummingbot.connector.derivative.drift_perpetual import (
     drift_perpetual_web_utils as web_utils,
 )
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.utils.tracking_nonce import NonceCreator
@@ -45,7 +45,11 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     integration — same gate as the project's other connector PRs):
       [A1] exact nesting of the L2 book inside `message["data"]`
       [A2] trades payload shape inside `data` for channel "trades"
-      [A3] Data API base/path for historical funding (see get_funding_info)
+
+    Funding: market funding rate/mark/index come from the Data API
+    (endpoint VERIFIED 2026-05-17 — GET /market/{symbol}/fundingRates,
+    see get_funding_info). DLOB has no funding WS channel, so it is
+    REST-polled hourly in listen_for_funding_info.
     """
 
     FULL_ORDER_BOOK_RESET_DELTA_SECONDS = sys.maxsize
@@ -183,20 +187,70 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             timestamp=timestamp,
         )
 
-    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        # [A3] SCHEMA-UNVERIFIED: the Data API base/path for historical &
-        # predicted funding is not documented in gateway/dlob-server READMEs
-        # and data.api.drift.trade returned "Cannot GET" for every probed
-        # path (2026-05-17). This single method is the isolated unresolved
-        # seam — to be wired against the confirmed Data API funding endpoint
-        # at integration (same maintainer-CI/integration gate the project's
-        # other connector PRs rely on). Mark/Index price + rate come from
-        # the perp marketInfo/oracle once the funding path is confirmed.
-        raise NotImplementedError(
-            "Drift funding-info endpoint pending schema confirmation "
-            "(Data API funding path unverified — see [A3])."
+    async def _request_latest_funding(self, trading_pair: str) -> Dict[str, Any]:
+        ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        url = web_utils.data_api_url(CONSTANTS.PATH_FUNDING_RATES_TEMPLATE.format(market=ex_symbol))
+        resp = await rest_assistant.execute_request(
+            url=url,
+            throttler_limit_id=CONSTANTS.RATE_LIMIT_ID_ALL,
+            method=RESTMethod.GET,
+        )
+        records = resp.get("records") or []
+        if not records:
+            raise IOError(f"Drift Data API returned no funding records for {ex_symbol}.")
+        return records[0]  # records are newest-first
+
+    @staticmethod
+    def _funding_rate_from_record(record: Dict[str, Any]) -> Decimal:
+        # Data API returns descaled decimal strings. fundingRate is in
+        # quote/base units; the rate as a fraction of notional is
+        # fundingRate / oraclePriceTwap (the Data API glossary formula
+        # with the on-chain 1e9/1e6 scales already applied upstream).
+        oracle_twap = Decimal(str(record.get("oraclePriceTwap", "0")))
+        funding = Decimal(str(record.get("fundingRate", "0")))
+        return funding / oracle_twap if oracle_twap != 0 else Decimal("0")
+
+    @staticmethod
+    def _next_funding_time() -> int:
+        # Drift perp funding settles hourly (verified live record interval).
+        return int(((time.time() // 3600) + 1) * 3600)
+
+    def _funding_info_from_record(self, trading_pair: str, record: Dict[str, Any]) -> FundingInfo:
+        return FundingInfo(
+            trading_pair=trading_pair,
+            index_price=Decimal(str(record.get("oraclePriceTwap", "0"))),
+            mark_price=Decimal(str(record.get("markPriceTwap", "0"))),
+            next_funding_utc_timestamp=self._next_funding_time(),
+            rate=self._funding_rate_from_record(record),
         )
 
-    async def listen_for_funding_info(self, output: asyncio.Queue):
-        # Held until get_funding_info / Data API funding path is confirmed.
+    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
+        record = await self._request_latest_funding(trading_pair)
+        return self._funding_info_from_record(trading_pair, record)
+
+    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        # Drift DLOB exposes no funding WS channel; funding info is
+        # REST-polled in listen_for_funding_info (which emits
+        # FundingInfoUpdate directly). This abstract hook is unused but
+        # required by PerpetualAPIOrderBookDataSource.
         return
+
+    async def listen_for_funding_info(self, output: asyncio.Queue):
+        while True:
+            try:
+                for trading_pair in self._trading_pairs:
+                    record = await self._request_latest_funding(trading_pair)
+                    info = self._funding_info_from_record(trading_pair, record)
+                    output.put_nowait(FundingInfoUpdate(
+                        trading_pair=trading_pair,
+                        index_price=info.index_price,
+                        mark_price=info.mark_price,
+                        next_funding_utc_timestamp=info.next_funding_utc_timestamp,
+                        rate=info.rate,
+                    ))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error fetching Drift funding info; retrying.")
+            await self._sleep(CONSTANTS.FUNDING_RATE_POLL_INTERVAL)

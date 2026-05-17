@@ -445,11 +445,15 @@ class DriftPerpetualDerivative(PerpetualDerivativePyBase):
             return False, str(e)
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        # [A3] SCHEMA-UNVERIFIED: Data API funding-rate path is undocumented
-        # and data.api.drift.trade rejected every probed path (2026-05-17).
-        # Realized funding arrives via the WS `funding` channel; the
-        # predicted-rate / next-funding-time wiring is the single isolated
-        # unresolved seam, to be completed at integration (same gate as the
-        # project's other connector PRs). Returning a no-op tuple keeps the
-        # poll loop safe until the funding endpoint is confirmed.
-        return 0, Decimal("0"), Decimal("0")
+        # Market funding rate/mark/index are served by the Data API and
+        # surfaced via the order-book data source's get_funding_info
+        # (endpoint VERIFIED 2026-05-17: GET /market/{symbol}/fundingRates).
+        # Per-USER realized funding *settlements* arrive only on the
+        # gateway WS `funding` channel — there is no per-user Data API
+        # endpoint — so that single wiring is the isolated seam deferred to
+        # the integration/CI gate the project's other connector PRs rely
+        # on. Until then return the base-class-documented "no realized
+        # payment" sentinel (0, -1, -1) so the funding-payment poll loop
+        # stays quiet instead of emitting spurious zero-value
+        # FundingPaymentCompletedEvents.
+        return 0, Decimal("-1"), Decimal("-1")
