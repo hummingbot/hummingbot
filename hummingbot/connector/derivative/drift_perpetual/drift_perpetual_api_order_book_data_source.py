@@ -84,8 +84,9 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _levels(cls, entries: List[Dict[str, Any]]) -> List[Tuple[Decimal, Decimal]]:
         return [(cls._scaled_price(e["price"]), cls._scaled_size(e["size"])) for e in entries or []]
 
-    def _get_bids_and_asks(self, book: Dict[str, Any]) -> Tuple[List[Tuple[Decimal, Decimal]],
-                                                                 List[Tuple[Decimal, Decimal]]]:
+    def _get_bids_and_asks(
+        self, book: Dict[str, Any]
+    ) -> Tuple[List[Tuple[Decimal, Decimal]], List[Tuple[Decimal, Decimal]]]:
         return self._levels(book.get("bids", [])), self._levels(book.get("asks", []))
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
