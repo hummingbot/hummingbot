@@ -230,6 +230,15 @@ class DriftPerpetualDerivative(PerpetualDerivativePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         market_index = self._market_index_map.get(trading_pair)
+        if market_index is None:
+            # Never POST {"marketIndex": null} — the gateway would mis-route
+            # or reject ambiguously. Fail the order cleanly so the base
+            # order tracker marks it FAILED (map not yet populated from
+            # /v2/markets, or an unknown pair). NB: index 0 is valid.
+            raise ValueError(
+                f"Drift marketIndex unknown for {trading_pair} "
+                f"(trading rules not initialized?) — order not placed."
+            )
         # amount is SIGNED on Drift: + = buy/long, - = sell/short.
         signed_amount = amount if trade_type == TradeType.BUY else -amount
         user_order_id = self._client_order_id_to_user_order_id(order_id)

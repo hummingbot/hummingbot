@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.derivative.drift_perpetual import (
@@ -77,16 +77,36 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     # --- scaling helpers (driftpy-verified precision) ---
     @staticmethod
-    def _scaled_price(raw: Any) -> Decimal:
-        return Decimal(str(raw)) / Decimal(CONSTANTS.PRICE_PRECISION)
+    def _to_dec(raw: Any) -> Optional[Decimal]:
+        # [A1/A2 robustness] DLOB sends ints / decimal-strings. A schema drift
+        # (None, "", non-numeric) returns None so the caller skips that level
+        # or trade rather than raising into — and tearing down — the stream.
+        try:
+            return Decimal(str(raw))
+        except (InvalidOperation, ValueError, TypeError):
+            return None
 
-    @staticmethod
-    def _scaled_size(raw: Any) -> Decimal:
-        return Decimal(str(raw)) / Decimal(CONSTANTS.BASE_PRECISION)
+    @classmethod
+    def _scaled_price(cls, raw: Any) -> Optional[Decimal]:
+        d = cls._to_dec(raw)
+        return None if d is None else d / Decimal(CONSTANTS.PRICE_PRECISION)
+
+    @classmethod
+    def _scaled_size(cls, raw: Any) -> Optional[Decimal]:
+        d = cls._to_dec(raw)
+        return None if d is None else d / Decimal(CONSTANTS.BASE_PRECISION)
 
     @classmethod
     def _levels(cls, entries: List[Dict[str, Any]]) -> List[Tuple[Decimal, Decimal]]:
-        return [(cls._scaled_price(e["price"]), cls._scaled_size(e["size"])) for e in entries or []]
+        out: List[Tuple[Decimal, Decimal]] = []
+        for e in entries or []:
+            if not isinstance(e, dict):
+                continue
+            p, s = cls._scaled_price(e.get("price")), cls._scaled_size(e.get("size"))
+            if p is None or s is None:
+                continue  # [A1] malformed level — skip, never crash the book
+            out.append((p, s))
+        return out
 
     def _get_bids_and_asks(
         self, book: Dict[str, Any]
@@ -129,44 +149,75 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return ""
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # [A1] book is at message["data"]; treat as full snapshot.
-        data = raw_message.get("data") or {}
-        market = data.get("market") or raw_message.get("market")
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market)
-        bids, asks = self._get_bids_and_asks(data)
-        timestamp = self._time()
-        update_id = data.get("slot") or self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
-        message_queue.put_nowait(OrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content={"trading_pair": trading_pair, "update_id": update_id, "bids": bids, "asks": asks},
-            timestamp=timestamp,
-        ))
+        # [A1] book is at message["data"]; treat as full snapshot. Any schema
+        # drift (missing data / unresolvable market) is logged and skipped —
+        # never raised — so one malformed frame can't kill the book stream.
+        try:
+            data = raw_message.get("data") or {}
+            market = data.get("market") or raw_message.get("market")
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market)
+            bids, asks = self._get_bids_and_asks(data)
+            timestamp = self._time()
+            update_id = data.get("slot") or self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
+            message_queue.put_nowait(OrderBookMessage(
+                message_type=OrderBookMessageType.SNAPSHOT,
+                content={"trading_pair": trading_pair, "update_id": update_id, "bids": bids, "asks": asks},
+                timestamp=timestamp,
+            ))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Skipping malformed Drift DLOB orderbook snapshot.")
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         # Drift DLOB is snapshot-only; no diff protocol. Intentionally a no-op.
         return
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # [A2] trades payload shape inside data — confirm at integration.
-        data = raw_message.get("data") or {}
-        market = data.get("market") or raw_message.get("market")
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market)
+        # [A2] trades payload shape inside data — confirm at integration. Each
+        # trade is parsed in isolation: one malformed entry is skipped, the
+        # rest of the batch still flows, and the stream never raises.
+        try:
+            data = raw_message.get("data") or {}
+            market = data.get("market") or raw_message.get("market")
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=market)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Skipping Drift trade frame (unresolvable market).")
+            return
         trades = data.get("trades", data if isinstance(data, list) else [])
+        if not isinstance(trades, (list, tuple)):
+            return
         for t in trades:
-            ts = float(t.get("ts", self._time()))
-            side = str(t.get("side", "")).lower()
-            trade_type = float(TradeType.BUY.value) if side in ("buy", "long") else float(TradeType.SELL.value)
-            message_queue.put_nowait(OrderBookMessage(
-                message_type=OrderBookMessageType.TRADE,
-                content={
-                    "trading_pair": trading_pair,
-                    "trade_id": t.get("ts", ts),
-                    "trade_type": trade_type,
-                    "amount": self._scaled_size(t.get("size", 0)),
-                    "price": self._scaled_price(t.get("price", 0)),
-                },
-                timestamp=ts,
-            ))
+            try:
+                if not isinstance(t, dict):
+                    continue
+                amount = self._scaled_size(t.get("size", 0))
+                price = self._scaled_price(t.get("price", 0))
+                if amount is None or price is None:
+                    continue  # [A2] malformed trade — skip
+                try:
+                    ts = float(t.get("ts", self._time()))
+                except (TypeError, ValueError):
+                    ts = self._time()
+                side = str(t.get("side", "")).lower()
+                trade_type = float(TradeType.BUY.value) if side in ("buy", "long") else float(TradeType.SELL.value)
+                message_queue.put_nowait(OrderBookMessage(
+                    message_type=OrderBookMessageType.TRADE,
+                    content={
+                        "trading_pair": trading_pair,
+                        "trade_id": t.get("ts", ts),
+                        "trade_type": trade_type,
+                        "amount": amount,
+                        "price": price,
+                    },
+                    timestamp=ts,
+                ))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Skipping malformed Drift trade entry.")
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -201,14 +252,16 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             raise IOError(f"Drift Data API returned no funding records for {ex_symbol}.")
         return records[0]  # records are newest-first
 
-    @staticmethod
-    def _funding_rate_from_record(record: Dict[str, Any]) -> Decimal:
+    @classmethod
+    def _funding_rate_from_record(cls, record: Dict[str, Any]) -> Decimal:
         # Data API returns descaled decimal strings. fundingRate is in
         # quote/base units; the rate as a fraction of notional is
         # fundingRate / oraclePriceTwap (the Data API glossary formula
         # with the on-chain 1e9/1e6 scales already applied upstream).
-        oracle_twap = Decimal(str(record.get("oraclePriceTwap", "0")))
-        funding = Decimal(str(record.get("fundingRate", "0")))
+        # Non-numeric drift coerces to 0 (rate 0) instead of raising into
+        # the funding poll loop.
+        oracle_twap = cls._to_dec(record.get("oraclePriceTwap", "0")) or Decimal("0")
+        funding = cls._to_dec(record.get("fundingRate", "0")) or Decimal("0")
         return funding / oracle_twap if oracle_twap != 0 else Decimal("0")
 
     @staticmethod
@@ -219,8 +272,8 @@ class DriftPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _funding_info_from_record(self, trading_pair: str, record: Dict[str, Any]) -> FundingInfo:
         return FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(record.get("oraclePriceTwap", "0"))),
-            mark_price=Decimal(str(record.get("markPriceTwap", "0"))),
+            index_price=self._to_dec(record.get("oraclePriceTwap", "0")) or Decimal("0"),
+            mark_price=self._to_dec(record.get("markPriceTwap", "0")) or Decimal("0"),
             next_funding_utc_timestamp=self._next_funding_time(),
             rate=self._funding_rate_from_record(record),
         )
