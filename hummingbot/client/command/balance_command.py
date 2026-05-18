@@ -7,7 +7,7 @@ import pandas as pd
 
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, split_connector_account_name
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.user.user_balances import UserBalances
@@ -115,7 +115,8 @@ class BalanceCommand:
                                          exchange: str,
                                          ex_balances: Dict[str, Decimal],
                                          ex_avai_balances: Dict[str, Decimal]):
-        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
+        connector_name, _ = split_connector_account_name(exchange)
+        conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
         global_token_symbol = self.client_config_map.global_token.global_token_symbol
         total_col_name = f"Total ({global_token_symbol})"
         allocated_total = Decimal("0")

@@ -1,7 +1,6 @@
 import argparse
 from typing import TYPE_CHECKING, List
 
-from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.exceptions import ArgumentParserError
 
 if TYPE_CHECKING:
@@ -42,7 +41,10 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     subparsers = parser.add_subparsers()
 
     connect_parser = subparsers.add_parser("connect", help="List available exchanges and add API keys to them")
-    connect_parser.add_argument("option", nargs="?", choices=CONNECT_OPTIONS, help="Name of the exchange that you want to connect")
+    connect_parser.add_argument("option", nargs="?", help="Name of the exchange that you want to connect")
+    connect_parser.add_argument("account_type", nargs="?", choices=["master", "sub"], help="Credential account type")
+    connect_parser.add_argument("account_name", nargs="?", help="Credential account name")
+    connect_parser.add_argument("parent_account", nargs="?", help="Master account name for sub-account credentials")
     connect_parser.set_defaults(func=hummingbot.connect)
 
     create_parser = subparsers.add_parser("create", help="Create a new bot")

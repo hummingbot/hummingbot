@@ -139,6 +139,36 @@ class SecurityTest(unittest.TestCase):
 
         self.assertEqual(binance_config, binance_loaded_config)
 
+    def test_update_secure_config_for_named_account(self):
+        password = "som-password"
+        secrets_manager = ETHKeyFileSecretManger(password)
+        store_password_verification(secrets_manager)
+
+        Security.login(secrets_manager)
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+
+        account_name = "sub_1"
+        binance_config = ClientConfigAdapter(
+            BinanceConfigMap(binance_api_key=self.api_key, binance_api_secret=self.api_secret)
+        )
+        Security.update_secure_config(binance_config, account_name=account_name)
+
+        account_key = f"{self.connector}:{account_name}"
+        self.assertTrue(Security.connector_config_file_exists(self.connector, account_name))
+        self.assertTrue(Security.connector_config_file_exists(account_key))
+        self.assertEqual([account_key], Security.configured_connector_keys(self.connector))
+
+        self.reset_decryption_done()
+        Security.decrypt_all()
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+
+        binance_loaded_config = Security.decrypted_value(account_key)
+        self.assertEqual(binance_config, binance_loaded_config)
+        self.assertEqual(
+            api_keys_from_connector_config_map(binance_config),
+            Security.api_keys(account_key),
+        )
+
         binance_config.binance_api_key = "someOtherApiKey"
         Security.update_secure_config(binance_config)
 

@@ -55,6 +55,15 @@ GATEAWAY_CLIENT_KEY_PATH = DEFAULT_GATEWAY_CERTS_PATH / "client_key.pem"
 CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES = ["test_support", "utilities", "gateway"]
 
 
+def split_connector_account_name(connector_name: str) -> tuple[str, Optional[str]]:
+    connector, separator, account_name = connector_name.partition(":")
+    return connector, account_name if separator else None
+
+
+def connector_account_key(connector_name: str, account_name: Optional[str] = None) -> str:
+    return f"{connector_name}:{account_name}" if account_name else connector_name
+
+
 class ConnectorType(Enum):
     """
     The types of exchanges that hummingbot client can communicate with.
@@ -340,10 +349,12 @@ class AllConnectorSettings:
 
     @classmethod
     def get_connector_config_keys(cls, connector: str) -> Optional["BaseConnectorConfigMap"]:
+        connector, _ = split_connector_account_name(connector)
         return cls.get_connector_settings()[connector].config_keys
 
     @classmethod
     def reset_connector_config_keys(cls, connector: str):
+        connector, _ = split_connector_account_name(connector)
         current_settings = cls.get_connector_settings()[connector]
         current_keys = current_settings.config_keys
         new_keys = (
@@ -369,7 +380,10 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]}
+        return {
+            cs.name for cs in cls.get_connector_settings().values()
+            if cs.type in [ConnectorType.Derivative, ConnectorType.CLOB_PERP]
+        }
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
@@ -422,8 +436,9 @@ def gateway_connector_trading_pairs(connector: str) -> List[str]:
     """
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
-        if AllConnectorSettings.get_connector_settings()[conn].uses_gateway_generic_connector() and \
-           conn == connector:
+        conn_base, _ = split_connector_account_name(conn)
+        if AllConnectorSettings.get_connector_settings()[conn_base].uses_gateway_generic_connector() and \
+           conn_base == connector:
             ret_val += t_pair
     return ret_val
 

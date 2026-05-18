@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_class
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, split_connector_account_name
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
 
@@ -57,15 +57,18 @@ class ConnectorManager:
                 return self.connectors[connector_name]
 
             # Handle paper trading connector names
-            if connector_name.endswith("_paper_trade"):
-                base_connector_name = connector_name.replace("_paper_trade", "")
+            connector_config_key = connector_name
+            connector_base_name, _ = split_connector_account_name(connector_name)
+
+            if connector_base_name.endswith("_paper_trade"):
+                base_connector_name = connector_base_name.replace("_paper_trade", "")
                 conn_setting = AllConnectorSettings.get_connector_settings()[base_connector_name]
             else:
-                base_connector_name = connector_name
-                conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
+                base_connector_name = connector_base_name
+                conn_setting = AllConnectorSettings.get_connector_settings()[connector_base_name]
 
             # Handle paper trading
-            if connector_name.endswith("paper_trade"):
+            if connector_base_name.endswith("paper_trade"):
 
                 base_connector = base_connector_name
                 connector = create_paper_trade_market(
@@ -80,7 +83,7 @@ class ConnectorManager:
                         connector.set_balance(asset, balance)
             else:
                 # Create live connector
-                keys = api_keys or Security.api_keys(connector_name)
+                keys = api_keys or Security.api_keys(connector_config_key)
                 if not keys and not conn_setting.uses_gateway_generic_connector():
                     raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
                                      f"Either provide API keys or use a paper trade connector.")
@@ -94,7 +97,7 @@ class ConnectorManager:
                     gateway_config=self.client_config_map.hb_config.gateway,
                 )
 
-                connector_class = get_connector_class(connector_name)
+                connector_class = get_connector_class(connector_base_name)
                 connector = connector_class(**init_params)
 
             # Add to active connectors

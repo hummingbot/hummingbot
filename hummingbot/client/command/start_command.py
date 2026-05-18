@@ -35,7 +35,7 @@ class StartCommand(GatewayChainApiManager):
 
     def _strategy_uses_gateway_connector(self, required_exchanges: Set[str]) -> bool:
         exchange_settings: List[settings.ConnectorSetting] = [
-            settings.AllConnectorSettings.get_connector_settings().get(e, None)
+            settings.AllConnectorSettings.get_connector_settings().get(settings.split_connector_account_name(e)[0], None)
             for e in required_exchanges
         ]
         return any([s.uses_gateway_generic_connector()

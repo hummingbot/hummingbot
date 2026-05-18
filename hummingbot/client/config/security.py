@@ -7,7 +7,7 @@ from hummingbot.client.config.config_crypt import PASSWORD_VERIFICATION_PATH, Ba
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     api_keys_from_connector_config_map,
-    connector_name_from_file,
+    connector_config_key_from_file,
     get_connector_config_yml_path,
     list_connector_configs,
     load_connector_config_map_from_file,
@@ -15,6 +15,7 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
     update_connector_hb_config,
 )
+from hummingbot.client.settings import connector_account_key
 
 # from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 # from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -44,8 +45,8 @@ class Security:
         return len(cls._secure_configs) > 0
 
     @staticmethod
-    def connector_config_file_exists(connector_name: str) -> bool:
-        connector_configs_path = get_connector_config_yml_path(connector_name)
+    def connector_config_file_exists(connector_name: str, account_name: Optional[str] = None) -> bool:
+        connector_configs_path = get_connector_config_yml_path(connector_account_key(connector_name, account_name))
         return connector_configs_path.exists()
 
     @classmethod
@@ -69,21 +70,22 @@ class Security:
 
     @classmethod
     def decrypt_connector_config(cls, file_path: Path):
-        connector_name = connector_name_from_file(file_path)
+        connector_name = connector_config_key_from_file(file_path)
         connector_config = load_connector_config_map_from_file(file_path)
         cls._secure_configs[connector_name] = connector_config
         update_connector_hb_config(connector_config)
 
     @classmethod
-    def update_secure_config(cls, connector_config: ClientConfigAdapter):
-        connector_name = connector_config.connector
+    def update_secure_config(cls, connector_config: ClientConfigAdapter, account_name: Optional[str] = None):
+        connector_name = connector_account_key(connector_config.connector, account_name)
         file_path = get_connector_config_yml_path(connector_name)
         save_to_yml(file_path, connector_config)
         update_connector_hb_config(connector_config)
         cls._secure_configs[connector_name] = connector_config
 
     @classmethod
-    def remove_secure_config(cls, connector_name: str):
+    def remove_secure_config(cls, connector_name: str, account_name: Optional[str] = None):
+        connector_name = connector_account_key(connector_name, account_name)
         file_path = get_connector_config_yml_path(connector_name)
         file_path.unlink(missing_ok=True)
         reset_connector_hb_config(connector_name)
@@ -100,6 +102,12 @@ class Security:
     @classmethod
     def all_decrypted_values(cls) -> Dict[str, ClientConfigAdapter]:
         return cls._secure_configs.copy()
+
+    @classmethod
+    def configured_connector_keys(cls, connector_name: Optional[str] = None):
+        if connector_name is None:
+            return sorted(cls._secure_configs.keys())
+        return sorted(key for key in cls._secure_configs if key == connector_name or key.startswith(f"{connector_name}:"))
 
     @classmethod
     async def wait_til_decryption_done(cls):

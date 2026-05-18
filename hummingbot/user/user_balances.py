@@ -6,7 +6,11 @@ from typing import Dict, List, Optional
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
+from hummingbot.client.settings import (
+    AllConnectorSettings,
+    gateway_connector_trading_pairs,
+    split_connector_account_name,
+)
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.market_price import get_last_price
 
@@ -17,9 +21,10 @@ class UserBalances:
     @staticmethod
     def connect_market(exchange, client_config_map: ClientConfigMap, **api_details):
         connector = None
-        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
+        connector_name, _ = split_connector_account_name(exchange)
+        conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
         if api_details or conn_setting.uses_gateway_generic_connector():
-            connector_class = get_connector_class(exchange)
+            connector_class = get_connector_class(connector_name)
             init_params = conn_setting.conn_init_parameters(
                 trading_pairs=gateway_connector_trading_pairs(conn_setting.name),
                 api_keys=api_details,
@@ -54,6 +59,7 @@ class UserBalances:
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(exchange_name: str) -> bool:
+        exchange_name, _ = split_connector_account_name(exchange_name)
         return (
             exchange_name in sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names()
@@ -108,13 +114,19 @@ class UserBalances:
         tasks = []
         # Update user balances
         if len(exchanges) == 0:
-            exchanges = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
+            await Security.wait_til_decryption_done()
+            exchanges = Security.configured_connector_keys()
+            gateway_exchanges = [
+                cs.name for cs in AllConnectorSettings.get_connector_settings().values()
+                if cs.uses_gateway_generic_connector()
+            ]
+            exchanges.extend(gateway_exchanges)
         exchanges: List[str] = [
-            cs.name
-            for cs in AllConnectorSettings.get_connector_settings().values()
-            if not cs.use_ethereum_wallet
-            and cs.name in exchanges
-            and not cs.name.endswith("paper_trade")
+            exchange
+            for exchange in exchanges
+            if split_connector_account_name(exchange)[0] in AllConnectorSettings.get_connector_settings()
+            and not AllConnectorSettings.get_connector_settings()[split_connector_account_name(exchange)[0]].use_ethereum_wallet
+            and not split_connector_account_name(exchange)[0].endswith("paper_trade")
         ]
 
         if reconnect:

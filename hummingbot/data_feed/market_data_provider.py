@@ -11,7 +11,7 @@ from hummingbot.client.config.config_helpers import (
     api_keys_from_connector_config_map,
     get_connector_class,
 )
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, split_connector_account_name
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import GroupedSetDict, LazyDict, PriceType, TradeType
 from hummingbot.core.data_type.order_book_query_result import OrderBookQueryResult
@@ -288,6 +288,7 @@ class MarketDataProvider:
         :param connector_name: str
         :return: ConnectorBase
         """
+        connector_name, _ = split_connector_account_name(connector_name)
         conn_setting = self.conn_settings.get(connector_name)
         if conn_setting is None:
             self.logger().error(f"Connector {connector_name} not found")

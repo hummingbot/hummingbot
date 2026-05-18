@@ -36,6 +36,7 @@ from hummingbot.client.settings import (
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
     AllConnectorSettings,
+    split_connector_account_name,
 )
 
 
@@ -536,6 +537,7 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
+    connector_name, _ = split_connector_account_name(connector_name)
     conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
@@ -588,6 +590,10 @@ def connector_name_from_file(file_path: Path) -> str:
     data = read_yml_file(file_path)
     connector = data["connector"]
     return connector
+
+
+def connector_config_key_from_file(file_path: Path) -> str:
+    return file_path.stem
 
 
 def validate_strategy_file(file_path: Path) -> Optional[str]:

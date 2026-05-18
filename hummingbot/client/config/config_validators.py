@@ -15,8 +15,11 @@ def validate_exchange(value: str) -> Optional[str]:
     """
     Restrict valid connectors to spot connectors
     """
-    from hummingbot.client.settings import AllConnectorSettings
-    if value not in AllConnectorSettings.get_exchange_names():
+    from hummingbot.client.settings import AllConnectorSettings, split_connector_account_name
+    connector_name, account_name = split_connector_account_name(value)
+    if account_name == "":
+        return "Connector account name cannot be empty."
+    if connector_name not in AllConnectorSettings.get_exchange_names():
         return f"Invalid exchange, please choose value from {AllConnectorSettings.get_exchange_names()}"
 
 
@@ -24,8 +27,11 @@ def validate_derivative(value: str) -> Optional[str]:
     """
     Restrict valid connectors to perpetual connectors
     """
-    from hummingbot.client.settings import AllConnectorSettings
-    if value not in AllConnectorSettings.get_derivative_names():
+    from hummingbot.client.settings import AllConnectorSettings, split_connector_account_name
+    connector_name, account_name = split_connector_account_name(value)
+    if account_name == "":
+        return "Connector account name cannot be empty."
+    if connector_name not in AllConnectorSettings.get_derivative_names():
         return f"Invalid derivative, please choose value from {AllConnectorSettings.get_derivative_names()}"
 
 
@@ -33,12 +39,15 @@ def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid connectors to ALL spot connectors, including paper trade and Gateway
     """
-    from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings
+    from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings, split_connector_account_name
+    connector_name, account_name = split_connector_account_name(value)
+    if account_name == "":
+        return "Connector account name cannot be empty."
     valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
     valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
     valid_connectors.update(GATEWAY_CONNECTORS)
 
-    if value not in valid_connectors:
+    if connector_name not in valid_connectors:
         all_options = sorted(valid_connectors)
         return f"Invalid connector, please choose value from {all_options}"
 

@@ -5,7 +5,7 @@ import pandas as pd
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, connector_account_key, split_connector_account_name
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
@@ -20,14 +20,35 @@ OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().value
 
 class ConnectCommand:
     def connect(self,  # type: HummingbotApplication
-                option: str):
+                option: str,
+                account_type: Optional[str] = None,
+                account_name: Optional[str] = None,
+                parent_account: Optional[str] = None):
         if option is None:
             safe_ensure_future(self.show_connections())
         else:
-            safe_ensure_future(self.connect_exchange(option))
+            safe_ensure_future(self.connect_exchange(option, account_type, account_name, parent_account))
 
     async def connect_exchange(self,  # type: HummingbotApplication
-                               connector_name):
+                               connector_name: str,
+                               account_type: Optional[str] = None,
+                               account_name: Optional[str] = None,
+                               parent_account: Optional[str] = None):
+        connector_name, parsed_account_name = split_connector_account_name(connector_name)
+        account_name = account_name or parsed_account_name
+        if account_name == "":
+            self.notify("Account name cannot be empty.")
+            return
+        account_key = connector_account_key(connector_name, account_name)
+        if account_type is not None and account_type not in {"master", "sub"}:
+            self.notify("Account type must be either 'master' or 'sub'.")
+            return
+        if account_type == "sub" and parent_account is None:
+            self.notify("Sub-account credentials require a master account name.")
+            return
+        if connector_name not in AllConnectorSettings.get_connector_settings():
+            self.notify(f"Invalid connector: {connector_name}")
+            return
         # instruct users to use gateway connect if connector is a gateway connector
         if AllConnectorSettings.get_connector_settings()[connector_name].uses_gateway_generic_connector():
             self.notify("This is a gateway connector. Use `gateway connect` command instead.")
@@ -39,25 +60,25 @@ class ConnectCommand:
         if connector_name == "kraken":
             self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
-        if Security.connector_config_file_exists(connector_name):
+        if Security.connector_config_file_exists(account_key):
             await Security.wait_til_decryption_done()
-            api_key_config = [value for key, value in Security.api_keys(connector_name).items() if "api_key" in key]
+            api_key_config = [value for key, value in Security.api_keys(account_key).items() if "api_key" in key]
             if api_key_config:
                 api_key = api_key_config[0]
                 prompt = (
-                    f"Would you like to replace your existing {connector_name} API key {api_key} (Yes/No)? >>> "
+                    f"Would you like to replace your existing {account_key} API key {api_key} (Yes/No)? >>> "
                 )
             else:
-                prompt = f"Would you like to replace your existing {connector_name} key (Yes/No)? >>> "
+                prompt = f"Would you like to replace your existing {account_key} key (Yes/No)? >>> "
             answer = await self.app.prompt(prompt=prompt)
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
             if answer.lower() in ("yes", "y"):
-                previous_keys = Security.api_keys(connector_name)
-                await self._perform_connect(connector_config, previous_keys)
+                previous_keys = Security.api_keys(account_key)
+                await self._perform_connect(connector_config, previous_keys, account_name)
         else:
-            await self._perform_connect(connector_config)
+            await self._perform_connect(connector_config, account_name=account_name)
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -91,14 +112,15 @@ class ConnectCommand:
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = "No"
+            configured_keys = Security.configured_connector_keys(option)
             api_keys = (
-                Security.api_keys(option).values()
+                [value for key in configured_keys for value in Security.api_keys(key).values()]
                 if not UserBalances.instance().is_gateway_market(option)
                 else {}
             )
             if len(api_keys) > 0:
                 keys_added = "Yes"
-                err_msg = err_msgs.get(option)
+                err_msg = next((err_msgs.get(key) for key in configured_keys if err_msgs.get(key) is not None), None)
                 if err_msg is not None:
                     failed_msgs[option] = err_msg
                 else:
@@ -109,13 +131,15 @@ class ConnectCommand:
     async def validate_n_connect_connector(
         self,  # type: HummingbotApplication
         connector_name: str,
+        account_name: Optional[str] = None,
     ) -> Optional[str]:
         await Security.wait_til_decryption_done()
-        api_keys = Security.api_keys(connector_name)
+        account_key = connector_account_key(connector_name, account_name)
+        api_keys = Security.api_keys(account_key)
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
             err_msg = await asyncio.wait_for(
-                UserBalances.instance().add_exchange(connector_name, self.client_config_map, **api_keys),
+                UserBalances.instance().add_exchange(account_key, self.client_config_map, **api_keys),
                 network_timeout,
             )
         except asyncio.TimeoutError:
@@ -127,20 +151,26 @@ class ConnectCommand:
             raise
         return err_msg
 
-    async def _perform_connect(self, connector_config: ClientConfigAdapter, previous_keys: Optional[Dict] = None):
+    async def _perform_connect(
+        self,
+        connector_config: ClientConfigAdapter,
+        previous_keys: Optional[Dict] = None,
+        account_name: Optional[str] = None,
+    ):
         connector_name = connector_config.connector
+        account_key = connector_account_key(connector_name, account_name)
         original_config = connector_config.full_copy()
         await self.prompt_for_model_config(connector_config)
         self.app.change_prompt(prompt=">>> ")
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
-        Security.update_secure_config(connector_config)
-        err_msg = await self.validate_n_connect_connector(connector_name)
+        Security.update_secure_config(connector_config, account_name=account_name)
+        err_msg = await self.validate_n_connect_connector(connector_name, account_name=account_name)
         if err_msg is None:
-            self.notify(f"\nYou are now connected to {connector_name}.")
+            self.notify(f"\nYou are now connected to {account_key}.")
             safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
         else:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:
-                Security.update_secure_config(original_config)
+                Security.update_secure_config(original_config, account_name=account_name)
