@@ -710,6 +710,42 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(len(positions_in_report), 1)
         self.assertEqual(positions_in_report[0].amount, Decimal("5"))
 
+    @patch("hummingbot.strategy_v2.executors.executor_orchestrator.MarketsRecorder.get_instance")
+    def test_initialize_initial_positions_idempotent(self, mock_get_instance: MagicMock):
+        """Test that initialize_initial_positions only creates positions once"""
+        mock_markets_recorder = MagicMock(spec=MarketsRecorder)
+        mock_get_instance.return_value = mock_markets_recorder
+        mock_markets_recorder.get_all_executors.return_value = []
+        mock_markets_recorder.get_all_positions.return_value = []
+
+        from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
+
+        initial_positions = {
+            "test_controller": [
+                InitialPositionConfig(
+                    connector_name="binance",
+                    trading_pair="ETH-USDT",
+                    amount=Decimal("2"),
+                    side=TradeType.BUY
+                ),
+            ]
+        }
+
+        self.mock_strategy.controllers = {"test_controller": MagicMock()}
+
+        orchestrator = ExecutorOrchestrator(
+            strategy=self.mock_strategy,
+            initial_positions_by_controller=initial_positions
+        )
+
+        # First call creates positions
+        orchestrator.initialize_initial_positions()
+        self.assertEqual(len(orchestrator.positions_held["test_controller"]), 1)
+
+        # Second call should be a no-op (early return on line 254)
+        orchestrator.initialize_initial_positions()
+        self.assertEqual(len(orchestrator.positions_held["test_controller"]), 1)
+
     def test_get_all_reports_comprehensive_controller_aggregation(self):
         """Test get_all_reports aggregating controllers from different sources"""
         # This tests lines 545,548-549,552,557 comprehensively
