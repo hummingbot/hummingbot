@@ -510,6 +510,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
             initial_positions_by_controller=initial_positions
         )
 
+        # Simulate connectors becoming ready (triggers initial position creation)
+        orchestrator.initialize_initial_positions()
+
         # Verify that the database position was NOT loaded
         # and instead the initial positions were created
         self.assertEqual(len(orchestrator.positions_held["test_controller"]), 2)
