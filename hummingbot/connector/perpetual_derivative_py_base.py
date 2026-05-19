@@ -96,6 +96,8 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._perpetual_trading.start()
         self._funding_info_listener_task = safe_ensure_future(self._listen_for_funding_info())
         if self.is_trading_required:
+            if len(self.supported_position_modes()) > 1:
+                await self._initialize_position_mode()
             self._funding_fee_polling_task = safe_ensure_future(self._funding_payment_polling_loop())
 
     def set_position_mode(self, mode: PositionMode):
@@ -108,6 +110,32 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             safe_ensure_future(self._execute_set_position_mode(mode))
         else:
             self.logger().error(f"Position mode {mode} is not supported. Mode not set.")
+
+    async def _initialize_position_mode(self):
+        """
+        Fetches the current position mode from the exchange and syncs local state.
+        Called during start_network to ensure the local position mode reflects reality.
+        """
+        try:
+            mode = await self._fetch_account_position_mode()
+            if mode is not None:
+                self._perpetual_trading.set_position_mode(mode)
+                self.logger().debug(f"Initialized position mode to {mode} from exchange.")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().warning(
+                "Could not fetch position mode from exchange. Using default.",
+                exc_info=True,
+            )
+
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        """
+        Fetches the current position mode from the exchange account.
+        Connectors should override this to query their exchange API.
+        Returns None if the exchange does not support querying position mode.
+        """
+        return None
 
     def get_leverage(self, trading_pair: str) -> int:
         return self._perpetual_trading.get_leverage(trading_pair)
@@ -341,7 +369,8 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         msg = ""
 
         for trading_pair in trading_pairs:
-            success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
+            if mode != self._perpetual_trading.position_mode:
+                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
             if success:
                 successful_pairs.append(trading_pair)
             else:
