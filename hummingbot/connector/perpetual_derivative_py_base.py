@@ -341,8 +341,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         msg = ""
 
         for trading_pair in trading_pairs:
-            if mode != self._perpetual_trading.position_mode:
-                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
+            success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
             if success:
                 successful_pairs.append(trading_pair)
             else:
