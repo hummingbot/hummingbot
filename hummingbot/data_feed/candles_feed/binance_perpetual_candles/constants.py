@@ -6,7 +6,7 @@ REST_URL = "https://fapi.binance.com"
 HEALTH_CHECK_ENDPOINT = "/fapi/v1/ping"
 CANDLES_ENDPOINT = "/fapi/v1/klines"
 
-WSS_URL = "wss://fstream.binance.com/market/stream"
+WSS_URL = "wss://fstream.binance.com/market/ws"
 
 INTERVALS = bidict({
     "1s": 1,

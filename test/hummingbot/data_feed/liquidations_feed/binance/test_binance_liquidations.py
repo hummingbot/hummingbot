@@ -34,6 +34,10 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
 
+    def test_wss_url_uses_binance_market_ws_endpoint(self):
+        self.assertEqual("wss://fstream.binance.com/market/ws", CONSTANTS.WSS_URL)
+        self.assertEqual(CONSTANTS.WSS_URL, self.liquidations_feed.wss_url)
+
     def handle(self, record):
         self.log_records.append(record)
 

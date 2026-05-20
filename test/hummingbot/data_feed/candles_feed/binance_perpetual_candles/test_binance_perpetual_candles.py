@@ -3,6 +3,7 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
+from hummingbot.data_feed.candles_feed.binance_perpetual_candles import constants as CONSTANTS
 
 
 class TestBinancePerpetualCandles(TestCandlesBase):
@@ -31,6 +32,10 @@ class TestBinancePerpetualCandles(TestCandlesBase):
         await super().asyncSetUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
+
+    def test_wss_url_uses_binance_market_ws_endpoint(self):
+        self.assertEqual("wss://fstream.binance.com/market/ws", CONSTANTS.WSS_URL)
+        self.assertEqual(CONSTANTS.WSS_URL, self.data_feed.wss_url)
 
     def get_candles_rest_data_mock(self):
         data = [

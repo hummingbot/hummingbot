@@ -4,7 +4,7 @@ REST_URL = "https://fapi.binance.com"
 HEALTH_CHECK_ENDPOINT = "/fapi/v1/ping"
 EXCHANGE_INFO = "/fapi/v1/exchangeInfo"
 
-WSS_URL = "wss://fstream.binance.com/market/stream"
+WSS_URL = "wss://fstream.binance.com/market/ws"
 
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 
