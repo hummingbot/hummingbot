@@ -624,6 +624,30 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
         self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
+        self.assertEqual(Decimal(str(future_info_response["data"]["predictedFundingFeeRate"])), funding_info.rate)
+
+    @aioresponses()
+    async def test_get_funding_info_falls_back_to_current_rate_when_predicted_rate_is_missing(self, mock_api):
+        future_info_url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
+        )
+        future_info_regex_url = re.compile(f"^{future_info_url}".replace(".", r"\.").replace("?", r"\?"))
+        future_info_response = {
+            "code": "200000",
+            "data": {
+                "symbol": self.ex_trading_pair,
+                "fundingFeeRate": -0.000019,
+                "predictedFundingFeeRate": None,
+                "markPrice": 101.6,
+                "indexPrice": 101.59,
+                "nextFundingRateTime": 22646889,
+            }
+        }
+        mock_api.get(future_info_regex_url, body=json.dumps(future_info_response))
+
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
+
+        self.assertEqual(Decimal(str(future_info_response["data"]["fundingFeeRate"])), funding_info.rate)
 
     def _simulate_trading_rules_initialized(self):
         self.connector._trading_rules = {

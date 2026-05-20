@@ -1,6 +1,6 @@
 import asyncio
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -48,14 +48,29 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol_info = funding_info_response["data"]
         else:
             symbol_info = funding_info_response["data"][0]
+        funding_rate = self._decimal_or_none(symbol_info.get("predictedFundingFeeRate"))
+        if funding_rate is None:
+            funding_rate = self._decimal_or_none(symbol_info.get("fundingFeeRate")) or Decimal("0")
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=Decimal(str(symbol_info["indexPrice"])),
             mark_price=Decimal(str(symbol_info["markPrice"])),
             next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["nextFundingRateTime"]).timestamp()),
-            rate=Decimal(str(symbol_info["predictedFundingFeeRate"])),
+            rate=funding_rate,
         )
         return funding_info
+
+    @staticmethod
+    def _decimal_or_none(value: Any) -> Optional[Decimal]:
+        if value is None:
+            return None
+        value_as_str = str(value).strip()
+        if value_as_str == "":
+            return None
+        try:
+            return Decimal(value_as_str)
+        except (InvalidOperation, ValueError):
+            return None
 
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
