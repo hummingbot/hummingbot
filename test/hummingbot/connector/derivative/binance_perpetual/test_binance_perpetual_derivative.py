@@ -505,6 +505,29 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
+    @aioresponses()
+    async def test_initialize_position_mode_success(self, mock_api):
+        url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps({"dualSidePosition": True}))
+
+        await self.exchange._initialize_position_mode()
+
+        self.assertEqual(PositionMode.HEDGE, self.exchange._position_mode)
+
+    @aioresponses()
+    async def test_initialize_position_mode_exception(self, mock_api):
+        url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, exception=Exception("API error"))
+
+        await self.exchange._initialize_position_mode()
+
+        self.assertIsNone(self.exchange._position_mode)
+        self.assertTrue(
+            self._is_logged("WARNING", "Could not fetch position mode from exchange. Using default.")
+        )
+
     async def test_format_trading_rules(self):
         margin_asset = self.quote_asset
         min_order_size = 1
