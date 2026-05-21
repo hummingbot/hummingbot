@@ -726,7 +726,6 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
             is_auth_required=True,
             limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
-            return_err=True
         )
         self._position_mode = PositionMode.HEDGE if response.get("dualSidePosition") else PositionMode.ONEWAY
         return self._position_mode
