@@ -33,7 +33,7 @@ class GatewayCommandUtils:
         pending_msg_delay: float = 3.0
     ) -> Dict[str, Any]:
         """
-        Monitor a transaction until completion or timeout.
+        Monitor a transaction until completion or timeout by polling order status.
 
         :param app: HummingbotApplication instance (for notify method)
         :param connector: GatewayBase connector instance
@@ -48,31 +48,22 @@ class GatewayCommandUtils:
         hardware_wallet_msg_shown = False
 
         while elapsed < timeout:
+            # Directly update order status for temporary connectors (not on clock)
+            tracked_orders = connector.gateway_orders
+            if tracked_orders:
+                await connector.update_order_status(tracked_orders)
+
             order = connector.get_order(order_id)
 
             # Check if transaction is complete (success, failed, or cancelled)
             if order and order.is_done:
-                # Re-fetch the order to get the latest state
-                order = connector.get_order(order_id)
-
-                # Special case: if is_done but state is PENDING_CREATE, treat as success
-                # This occurs when the transaction is confirmed immediately after submission
-                is_pending_create = (
-                    order and
-                    hasattr(order, 'current_state') and
-                    str(order.current_state) == "OrderState.PENDING_CREATE"
-                )
-                # Special case: for approval transactions, PENDING_APPROVAL with confirmed tx is success
-                is_pending_approval = (
-                    order and
-                    hasattr(order, 'current_state') and
-                    str(order.current_state) == "OrderState.PENDING_APPROVAL" and
-                    order.exchange_order_id  # Transaction hash exists (confirmed on-chain)
-                )
+                # For LP operations (RANGE orders), is_done=True with state=OPEN means success
+                # For swap orders, check is_filled
+                is_success = order.is_filled or (not order.is_failure and not order.is_cancelled)
 
                 result = {
                     "completed": True,
-                    "success": order.is_filled or is_pending_create or is_pending_approval if order else False,
+                    "success": is_success,
                     "failed": order.is_failure if order else False,
                     "cancelled": order.is_cancelled if order else False,
                     "order": order,
@@ -80,24 +71,20 @@ class GatewayCommandUtils:
                 }
 
                 # Show appropriate message
-                if order and (order.is_filled or is_pending_create or is_pending_approval):
+                if is_success:
                     app.notify("\n✓ Transaction completed successfully!")
                     if order.exchange_order_id:
                         app.notify(f"Transaction hash: {order.exchange_order_id}")
-                elif order and order.is_failure:
+                elif order.is_failure:
                     app.notify("\n✗ Transaction failed")
-                elif order and order.is_cancelled:
+                elif order.is_cancelled:
                     app.notify("\n✗ Transaction cancelled")
-                else:
-                    # Log the actual order state for debugging
-                    state = order.current_state if order else "No order"
-                    app.notify(f"\n⚠ Transaction completed with state: {state}")
 
                 return result
 
-            # Special handling for PENDING_CREATE state
+            # Special handling for PENDING_CREATE state (hardware wallet approval)
             if order and hasattr(order, 'current_state') and str(order.current_state) == "OrderState.PENDING_CREATE":
-                if elapsed > 10 and not hardware_wallet_msg_shown:  # After 10 seconds, provide more guidance
+                if elapsed > 10 and not hardware_wallet_msg_shown:
                     app.notify("If using a hardware wallet, please approve the transaction on your device.")
                     hardware_wallet_msg_shown = True
 
@@ -123,6 +110,35 @@ class GatewayCommandUtils:
             app.notify(f"You can check the transaction manually: {order.exchange_order_id}")
 
         return result
+
+    @staticmethod
+    def handle_transaction_result(
+        app: Any,
+        result: Dict[str, Any],
+        success_msg: str = "Transaction completed successfully!",
+        failure_msg: str = "Transaction failed. Please try again.",
+        timeout_msg: str = "Transaction timed out. Check your wallet for status."
+    ) -> bool:
+        """
+        Handle transaction result and show appropriate message.
+
+        :param app: HummingbotApplication instance (for notify method)
+        :param result: Result dict from monitor_transaction_with_timeout
+        :param success_msg: Message to show on success
+        :param failure_msg: Message to show on failure
+        :param timeout_msg: Message to show on timeout
+        :return: True if successful, False otherwise
+        """
+        if result.get("completed") and result.get("success"):
+            app.notify(f"\n✓ {success_msg}")
+            return True
+        elif result.get("failed") or (result.get("completed") and not result.get("success")):
+            app.notify(f"\n✗ {failure_msg}")
+            return False
+        elif result.get("timeout"):
+            app.notify(f"\n⚠️  {timeout_msg}")
+            return False
+        return False
 
     @staticmethod
     def format_address_display(address: str) -> str:

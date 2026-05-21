@@ -549,9 +549,7 @@ Use 'gateway <command> --help' for more information about a command.""")
 
             # Get chain and network from the connector
             gateway = self._get_gateway_instance()
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
+            dex_name, trading_type, chain, network, error = await gateway.get_dex_info(connector)
 
             if error:
                 self.logger().warning(f"Error getting chain/network for {exchange}: {error}")
@@ -635,17 +633,12 @@ Use 'gateway <command> --help' for more information about a command.""")
         try:
             # If specific connector requested
             if connector is not None:
-                # Parse connector format (e.g., "uniswap/amm")
-                if "/" not in connector:
-                    self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                    return
-
-                # Get chain and network from connector
-                chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                # Get DEX info (dex_name, trading_type, chain, network)
+                dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
                     connector
                 )
                 if error:
-                    self.notify(error)
+                    self.notify(f"Error: {error}")
                     return
 
                 if chain.lower() != "ethereum":

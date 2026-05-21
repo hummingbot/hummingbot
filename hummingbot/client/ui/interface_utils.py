@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 import pandas as pd
 import psutil
@@ -100,17 +100,22 @@ def format_df_for_printout(
 ) -> str:
     if max_col_width is not None:  # in anticipation of the next release of tabulate which will include maxcolwidth
         max_col_width = max(max_col_width, 4)
-        df = df.astype(str).apply(
-            lambda s: s.apply(
-                lambda e: e if len(e) < max_col_width else f"{e[:max_col_width - 3]}..."
-            )
-        )
+
+        def _truncate(value: Any) -> str:
+            """Ensure all cells are strings before enforcing width limits."""
+            value_str = "" if value is None else str(value)
+            return value_str if len(value_str) < max_col_width else f"{value_str[:max_col_width - 3]}..."
+
+        df = df.apply(lambda s: s.apply(_truncate))
         df.columns = [c if len(c) < max_col_width else f"{c[:max_col_width - 3]}..." for c in df.columns]
 
     original_preserve_whitespace = tabulate.PRESERVE_WHITESPACE
+    original_wide_chars_mode = tabulate.WIDE_CHARS_MODE
     tabulate.PRESERVE_WHITESPACE = True
+    tabulate.WIDE_CHARS_MODE = False  # Use len() for column widths for consistent cross-platform behavior
     try:
         formatted_df = tabulate.tabulate(df, tablefmt=table_format, showindex=index, headers="keys")
     finally:
         tabulate.PRESERVE_WHITESPACE = original_preserve_whitespace
+        tabulate.WIDE_CHARS_MODE = original_wide_chars_mode
     return formatted_df

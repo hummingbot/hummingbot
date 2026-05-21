@@ -46,7 +46,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     connect_parser.set_defaults(func=hummingbot.connect)
 
     create_parser = subparsers.add_parser("create", help="Create a new bot")
-    create_parser.add_argument("--script-config", dest="script_to_config", nargs="?", default=None, help="Name of the v2 strategy")
+    create_parser.add_argument("--v2-config", dest="script_to_config", nargs="?", default=None, help="Name of the v2 strategy (from conf/scripts/)")
     create_parser.add_argument("--controller-config", dest="controller_name", nargs="?", default=None, help="Name of the controller")
     create_parser.set_defaults(func=hummingbot.create)
 
@@ -70,9 +70,8 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     config_parser.set_defaults(func=hummingbot.config)
 
     start_parser = subparsers.add_parser("start", help="Start the current bot")
-    # start_parser.add_argument("--log-level", help="Level of logging")
-    start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
-    start_parser.add_argument("--conf", type=str, dest="conf", help="Script config file name")
+    start_parser.add_argument("--v2", type=str, dest="v2_conf",
+                              help="V2 strategy config file name (from conf/scripts/)")
 
     start_parser.set_defaults(func=hummingbot.start)
 
@@ -91,6 +90,15 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     history_parser.add_argument("-p", "--precision", default=None, type=int,
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
+
+    lphistory_parser = subparsers.add_parser("lphistory", help="See LP position history and performance")
+    lphistory_parser.add_argument("-d", "--days", type=float, default=0, dest="days",
+                                  help="How many days in the past (can be decimal value)")
+    lphistory_parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                                  dest="verbose", help="List all LP position updates")
+    lphistory_parser.add_argument("-p", "--precision", default=None, type=int,
+                                  dest="precision", help="Level of precision for values displayed")
+    lphistory_parser.set_defaults(func=hummingbot.lphistory)
 
     gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
     gateway_parser.set_defaults(func=hummingbot.gateway)
@@ -127,7 +135,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
     gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions")
-    gateway_lp_parser.add_argument("connector", nargs="?", type=str, help="Connector name/type (e.g., raydium/amm)")
+    gateway_lp_parser.add_argument("dex_type", nargs="?", type=str, help="DEX type (e.g., raydium/amm, orca/clmm)")
     gateway_lp_parser.add_argument("action", nargs="?", type=str, choices=["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], help="LP action to perform")
     gateway_lp_parser.add_argument("trading_pair", nargs="?", default=None, help="Trading pair (e.g., WETH-USDC)")
     gateway_lp_parser.set_defaults(func=hummingbot.gateway_lp)
@@ -147,11 +155,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
         "swap",
         help="Swap tokens")
     gateway_swap_parser.add_argument("connector", nargs="?", default=None,
-                                     help="Connector name/type (e.g., jupiter/router)")
+                                     help="Network (e.g., solana-mainnet-beta, ethereum-mainnet)")
     gateway_swap_parser.add_argument("args", nargs="*",
                                      help="Arguments: [base-quote] [side] [amount]. "
                                           "Interactive mode if not all provided. "
-                                          "Example: gateway swap uniswap ETH-USDC BUY 0.1")
+                                          "Example: gateway swap solana-mainnet-beta SOL-USDC BUY 0.1")
     gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
 
     gateway_token_parser = gateway_subparsers.add_parser("token", help="View or update token information")

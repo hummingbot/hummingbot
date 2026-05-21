@@ -28,7 +28,7 @@ from hummingbot.model.order import Order
 from hummingbot.model.position import Position
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.models.base import RunnableStatus
@@ -43,7 +43,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
         market_info = MagicMock()
         market_info.market = market
 
-        strategy = MagicMock(spec=ScriptStrategyBase)
+        strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
@@ -457,7 +457,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
 
         position = Position(id="123", timestamp=123, controller_id="test_controller", connector_name="binance",
                             trading_pair="ETH-USDT", side=TradeType.BUY.name, amount=Decimal("1"), breakeven_price=Decimal("1000"),
-                            unrealized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
+                            unrealized_pnl_quote=Decimal("0"), realized_pnl_quote=Decimal("0"), cum_fees_quote=Decimal("0"),
                             volume_traded_quote=Decimal("10"))
         recorder.store_position(position)
         with self.manager.get_new_session() as session:
@@ -489,6 +489,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10")
         )
@@ -513,6 +514,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("2"),  # Updated amount
             breakeven_price=Decimal("1100"),  # Updated price
             unrealized_pnl_quote=Decimal("100"),  # Updated PnL
+            realized_pnl_quote=Decimal("50"),  # Updated realized PnL
             cum_fees_quote=Decimal("5"),  # Updated fees
             volume_traded_quote=Decimal("30")  # Updated volume
         )
@@ -541,6 +543,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.5"),
             breakeven_price=Decimal("1200"),
             unrealized_pnl_quote=Decimal("-50"),
+            realized_pnl_quote=Decimal("-20"),
             cum_fees_quote=Decimal("2"),
             volume_traded_quote=Decimal("15")
         )
@@ -563,6 +566,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("500"),
+            realized_pnl_quote=Decimal("200"),
             cum_fees_quote=Decimal("10"),
             volume_traded_quote=Decimal("5000")
         )
@@ -598,6 +602,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("1"),
             breakeven_price=Decimal("1000"),
             unrealized_pnl_quote=Decimal("0"),
+            realized_pnl_quote=Decimal("0"),
             cum_fees_quote=Decimal("0"),
             volume_traded_quote=Decimal("10")
         )
@@ -611,6 +616,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("0.1"),
             breakeven_price=Decimal("50000"),
             unrealized_pnl_quote=Decimal("100"),
+            realized_pnl_quote=Decimal("50"),
             cum_fees_quote=Decimal("5"),
             volume_traded_quote=Decimal("5000")
         )
@@ -624,6 +630,7 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
             amount=Decimal("2"),
             breakeven_price=Decimal("1100"),
             unrealized_pnl_quote=Decimal("-50"),
+            realized_pnl_quote=Decimal("-25"),
             cum_fees_quote=Decimal("2"),
             volume_traded_quote=Decimal("20")
         )
@@ -970,3 +977,120 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("integration_test_market", orders[0].market)
         self.assertEqual("BTC-USDT", orders[0].symbol)
         self.assertEqual("NEW_MARKET_OID1", orders[0].id)
+
+    def test_did_update_range_position_add_liquidity(self):
+        """Test _did_update_range_position records ADD liquidity event"""
+        from hummingbot.core.event.events import RangePositionLiquidityAddedEvent
+
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        event = RangePositionLiquidityAddedEvent(
+            timestamp=int(time.time()),
+            order_id="range-SOL-USDC-001",
+            exchange_order_id="tx_sig_123",
+            trading_pair="SOL-USDC",
+            lower_price=Decimal("95.0"),
+            upper_price=Decimal("105.0"),
+            amount=Decimal("10.0"),
+            fee_tier="pool123",
+            creation_timestamp=int(time.time()),
+            trade_fee=AddedToCostTradeFee(),
+            position_address="pos_addr_123",
+            base_amount=Decimal("5.0"),
+            quote_amount=Decimal("500.0"),
+            mid_price=Decimal("100.0"),
+            position_rent=Decimal("0.002"),
+        )
+
+        recorder._did_update_range_position(
+            MarketEvent.RangePositionLiquidityAdded.value,
+            self,
+            event
+        )
+
+        from hummingbot.model.range_position_update import RangePositionUpdate
+        with self.manager.get_new_session() as session:
+            query = session.query(RangePositionUpdate)
+            records = query.all()
+
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual("range-SOL-USDC-001", record.hb_id)
+        self.assertEqual("tx_sig_123", record.tx_hash)
+        self.assertEqual("ADD", record.order_action)
+        self.assertEqual("SOL-USDC", record.trading_pair)
+        self.assertEqual("pos_addr_123", record.position_address)
+        self.assertEqual(95.0, record.lower_price)
+        self.assertEqual(105.0, record.upper_price)
+        self.assertEqual(100.0, record.mid_price)
+        self.assertEqual(5.0, record.base_amount)
+        self.assertEqual(500.0, record.quote_amount)
+        self.assertEqual(0.002, record.position_rent)
+
+    def test_did_update_range_position_remove_liquidity(self):
+        """Test _did_update_range_position records REMOVE liquidity event"""
+        from hummingbot.core.event.events import RangePositionLiquidityRemovedEvent
+
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        event = RangePositionLiquidityRemovedEvent(
+            timestamp=int(time.time()),
+            order_id="range-SOL-USDC-002",
+            exchange_order_id="tx_sig_456",
+            trading_pair="SOL-USDC",
+            token_id="0",
+            creation_timestamp=int(time.time()),
+            trade_fee=AddedToCostTradeFee(),
+            position_address="pos_addr_456",
+            lower_price=Decimal("95.0"),
+            upper_price=Decimal("105.0"),
+            mid_price=Decimal("102.0"),
+            base_amount=Decimal("4.8"),
+            quote_amount=Decimal("520.0"),
+            base_fee=Decimal("0.05"),
+            quote_fee=Decimal("5.0"),
+            position_rent_refunded=Decimal("0.002"),
+        )
+
+        recorder._did_update_range_position(
+            MarketEvent.RangePositionLiquidityRemoved.value,
+            self,
+            event
+        )
+
+        from hummingbot.model.range_position_update import RangePositionUpdate
+        with self.manager.get_new_session() as session:
+            query = session.query(RangePositionUpdate)
+            records = query.all()
+
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertEqual("range-SOL-USDC-002", record.hb_id)
+        self.assertEqual("tx_sig_456", record.tx_hash)
+        self.assertEqual("REMOVE", record.order_action)
+        self.assertEqual("pos_addr_456", record.position_address)
+        self.assertEqual(4.8, record.base_amount)
+        self.assertEqual(520.0, record.quote_amount)
+        self.assertEqual(0.05, record.base_fee)
+        self.assertEqual(5.0, record.quote_fee)
+        self.assertEqual(0.002, record.position_rent_refunded)

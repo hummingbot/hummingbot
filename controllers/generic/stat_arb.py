@@ -19,7 +19,6 @@ class StatArbConfig(ControllerConfigBase):
     """
     controller_type: str = "generic"
     controller_name: str = "stat_arb"
-    candles_config: List[CandlesConfig] = []
     connector_pair_dominant: ConnectorPair = ConnectorPair(connector_name="binance_perpetual", trading_pair="SOL-USDT")
     connector_pair_hedge: ConnectorPair = ConnectorPair(connector_name="binance_perpetual", trading_pair="POPCAT-USDT")
     interval: str = "1m"
@@ -88,24 +87,9 @@ class StatArb(ControllerBase):
             "signal": 0  # 0: no signal, 1: long dominant/short hedge, -1: short dominant/long hedge
         }
 
-        # Setup candles config if not already set
-        if len(self.config.candles_config) == 0:
-            max_records = self.config.lookback_period + 20  # extra records for safety
-            self.max_records = max_records
-            self.config.candles_config = [
-                CandlesConfig(
-                    connector=self.config.connector_pair_dominant.connector_name,
-                    trading_pair=self.config.connector_pair_dominant.trading_pair,
-                    interval=self.config.interval,
-                    max_records=max_records
-                ),
-                CandlesConfig(
-                    connector=self.config.connector_pair_hedge.connector_name,
-                    trading_pair=self.config.connector_pair_hedge.trading_pair,
-                    interval=self.config.interval,
-                    max_records=max_records
-                )
-            ]
+        # Setup max records for safety
+        max_records = self.config.lookback_period + 20
+        self.max_records = max_records
         if "_perpetual" in self.config.connector_pair_dominant.connector_name:
             connector = self.market_data_provider.get_connector(self.config.connector_pair_dominant.connector_name)
             connector.set_position_mode(self.config.position_mode)
@@ -473,3 +457,20 @@ Alpha : {self.processed_data['alpha']:.2f} | Beta: {self.processed_data['beta']:
 Pair PnL PCT: {self.processed_data['pair_pnl_pct'] * 100:.2f} %
 """)
         return status_lines
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        max_records = self.config.lookback_period + 20
+        return [
+            CandlesConfig(
+                connector=self.config.connector_pair_dominant.connector_name,
+                trading_pair=self.config.connector_pair_dominant.trading_pair,
+                interval=self.config.interval,
+                max_records=max_records
+            ),
+            CandlesConfig(
+                connector=self.config.connector_pair_hedge.connector_name,
+                trading_pair=self.config.connector_pair_hedge.trading_pair,
+                interval=self.config.interval,
+                max_records=max_records
+            )
+        ]

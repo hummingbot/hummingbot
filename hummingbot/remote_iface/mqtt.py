@@ -382,10 +382,7 @@ class MQTTMarketEventForwarder:
             (events.MarketEvent.FundingPaymentCompleted, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityAdded, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityRemoved, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionUpdate, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionUpdateFailure, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionFeeCollected, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
 
         self.event_fw_pub = self._node.create_publisher(
@@ -415,10 +412,7 @@ class MQTTMarketEventForwarder:
                 events.MarketEvent.FundingPaymentCompleted.value: "FundingPaymentCompleted",
                 events.MarketEvent.RangePositionLiquidityAdded.value: "RangePositionLiquidityAdded",
                 events.MarketEvent.RangePositionLiquidityRemoved.value: "RangePositionLiquidityRemoved",
-                events.MarketEvent.RangePositionUpdate.value: "RangePositionUpdate",
                 events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
-                events.MarketEvent.RangePositionFeeCollected.value: "RangePositionFeeCollected",
-                events.MarketEvent.RangePositionClosed.value: "RangePositionClosed",
             }
             event_type = event_types[event_tag]
         except KeyError:
