@@ -116,6 +116,8 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
     def test_validate_target(self):
         self.assertEqual(None, self.mock_controller_config.validate_target(""))
         self.assertEqual(Decimal("2.0"), self.mock_controller_config.validate_target("2.0"))
+        self.assertEqual(None, self.mock_controller_config.validate_target("None"))
+        self.assertEqual(None, self.mock_controller_config.validate_target("none"))
 
     def test_parse_trailing_stop(self):
         self.assertEqual(None, self.mock_controller_config.parse_trailing_stop(""))
@@ -436,3 +438,87 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
 
         # Should not include any rebalance actions
         self.assertEqual(len(actions), 0)
+
+    def test_config_with_disabled_stop_loss(self):
+        config = MarketMakingControllerConfigBase(
+            id="test",
+            controller_name="test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100),
+            buy_spreads=[0.01],
+            sell_spreads=[0.01],
+            stop_loss=None,
+            take_profit=Decimal("0.02"),
+        )
+        self.assertIsNone(config.stop_loss)
+        self.assertEqual(config.take_profit, Decimal("0.02"))
+        triple_barrier = config.triple_barrier_config
+        self.assertIsNone(triple_barrier.stop_loss)
+        self.assertEqual(triple_barrier.take_profit, Decimal("0.02"))
+
+    def test_config_with_disabled_take_profit(self):
+        config = MarketMakingControllerConfigBase(
+            id="test",
+            controller_name="test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100),
+            buy_spreads=[0.01],
+            sell_spreads=[0.01],
+            stop_loss=Decimal("0.03"),
+            take_profit=None,
+        )
+        self.assertEqual(config.stop_loss, Decimal("0.03"))
+        self.assertIsNone(config.take_profit)
+        triple_barrier = config.triple_barrier_config
+        self.assertEqual(triple_barrier.stop_loss, Decimal("0.03"))
+        self.assertIsNone(triple_barrier.take_profit)
+
+    def test_config_with_both_disabled(self):
+        config = MarketMakingControllerConfigBase(
+            id="test",
+            controller_name="test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100),
+            buy_spreads=[0.01],
+            sell_spreads=[0.01],
+            stop_loss=None,
+            take_profit=None,
+        )
+        self.assertIsNone(config.stop_loss)
+        self.assertIsNone(config.take_profit)
+        triple_barrier = config.triple_barrier_config
+        self.assertIsNone(triple_barrier.stop_loss)
+        self.assertIsNone(triple_barrier.take_profit)
+
+    def test_config_stop_loss_from_empty_string(self):
+        config = MarketMakingControllerConfigBase(
+            id="test",
+            controller_name="test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100),
+            buy_spreads=[0.01],
+            sell_spreads=[0.01],
+            stop_loss="",
+            take_profit="",
+        )
+        self.assertIsNone(config.stop_loss)
+        self.assertIsNone(config.take_profit)
+
+    def test_config_stop_loss_from_none_string(self):
+        config = MarketMakingControllerConfigBase(
+            id="test",
+            controller_name="test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100),
+            buy_spreads=[0.01],
+            sell_spreads=[0.01],
+            stop_loss="None",
+            take_profit="none",
+        )
+        self.assertIsNone(config.stop_loss)
+        self.assertIsNone(config.take_profit)
