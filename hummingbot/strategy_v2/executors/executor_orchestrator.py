@@ -487,6 +487,8 @@ class ExecutorOrchestrator:
     def _determine_position_side(self, executor_info: ExecutorInfo) -> Optional[TradeType]:
         """
         Determine the position side for an executor, handling perpetual markets.
+        In ONEWAY mode, returns None so all orders (buy/sell) are netted into a single position.
+        In HEDGE mode, returns the appropriate side based on position_action.
         """
         is_perpetual = "_perpetual" in executor_info.connector_name
         if not is_perpetual:
@@ -497,11 +499,14 @@ class ExecutorOrchestrator:
             return None
 
         position_mode = market.position_mode
-        if hasattr(executor_info.config, "position_action") and position_mode == PositionMode.HEDGE:
-            opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
-            return opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
+        if position_mode == PositionMode.HEDGE:
+            if hasattr(executor_info.config, "position_action"):
+                opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
+                return opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
+            return executor_info.config.side
 
-        return executor_info.config.side
+        # ONEWAY: all orders net into a single position, no side filtering
+        return None
 
     def _find_existing_position(self, positions: List[PositionHold],
                                 executor_info: ExecutorInfo,
