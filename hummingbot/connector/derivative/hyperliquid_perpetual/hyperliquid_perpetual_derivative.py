@@ -1194,6 +1194,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Process all positions
         processed_coins = set()  # Track processed coins to avoid duplicates
+        seen_keys = set()
         for position in all_positions:
             position = position.get("position")
             ex_trading_pair = position.get("coin")
@@ -1215,6 +1216,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             amount = Decimal(position.get("szi", 0))
             leverage = Decimal(position.get("leverage").get("value"))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            seen_keys.add(pos_key)
             if amount != 0:
                 _position = Position(
                     trading_pair=hb_trading_pair,
@@ -1227,9 +1229,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_position(pos_key, _position)
             else:
                 self._perpetual_trading.remove_position(pos_key)
-        if not all_positions:
-            keys = list(self._perpetual_trading.account_positions.keys())
-            for key in keys:
+
+        # Remove any cached position that the exchange no longer reports.
+        # Hyperliquid omits closed positions from assetPositions entirely, so the old
+        # "only clean up when list is empty" guard left stale entries in the cache forever.
+        for key in list(self._perpetual_trading.account_positions.keys()):
+            if key not in seen_keys:
                 self._perpetual_trading.remove_position(key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
