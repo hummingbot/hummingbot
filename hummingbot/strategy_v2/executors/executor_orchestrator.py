@@ -163,6 +163,7 @@ class ExecutorOrchestrator:
         self.executors_ids_position_held = deque(maxlen=50)
         self.cached_performance = {}
         self.initial_positions_by_controller = initial_positions_by_controller or {}
+        self._initial_positions_initialized = False
         self._initialize_cached_performance()
 
     def _initialize_cached_performance(self):
@@ -181,9 +182,6 @@ class ExecutorOrchestrator:
             if controller_id not in self.strategy.controllers:
                 continue
             self._update_cached_performance(controller_id, executor)
-
-        # Create initial positions from config overrides first
-        self._create_initial_positions()
 
         # Load positions from database only for controllers without initial position overrides
         db_positions = MarketsRecorder.get_instance().get_all_positions()
@@ -246,6 +244,16 @@ class ExecutorOrchestrator:
 
         # Add to positions held
         self.positions_held[controller_id].append(position_hold)
+
+    def initialize_initial_positions(self):
+        """
+        Initialize initial positions from config overrides.
+        Must be called after connectors are ready (order books available).
+        """
+        if self._initial_positions_initialized:
+            return
+        self._initial_positions_initialized = True
+        self._create_initial_positions()
 
     def _create_initial_positions(self):
         """

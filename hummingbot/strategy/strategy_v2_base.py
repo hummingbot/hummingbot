@@ -305,6 +305,7 @@ class StrategyV2Base(StrategyPyBase):
                 for con in [c for c in self.connectors.values() if not c.ready]:
                     self.logger().warning(f"{con.name} is not ready. Please wait...")
                 return
+            self.executor_orchestrator.initialize_initial_positions()
         else:
             self.on_tick()
 
