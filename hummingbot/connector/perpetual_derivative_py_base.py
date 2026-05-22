@@ -121,7 +121,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             mode = await self._fetch_account_position_mode()
             if mode is not None:
                 self._perpetual_trading.set_position_mode(mode)
-                self.logger().debug(f"Initialized position mode to {mode} from exchange.")
+                self.logger().info(f"Position mode initialized to {mode} from exchange.")
+            else:
+                self.logger().warning("Exchange returned None for position mode. Using default.")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -332,10 +334,27 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     async def _execute_set_position_mode(self, mode: PositionMode):
         async with self._set_position_mode_lock:
-            if mode == self._perpetual_trading.position_mode:
+            current_mode = self._perpetual_trading.position_mode
+            self.logger().info(
+                f"Setting position mode: requested={mode}, current_local={current_mode}")
+
+            try:
+                exchange_mode = await self._fetch_account_position_mode()
+                self.logger().info(f"Position mode on exchange: {exchange_mode}")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().warning(f"Could not fetch position mode from exchange: {e}")
+                exchange_mode = None
+
+            if exchange_mode == mode:
+                self._perpetual_trading.set_position_mode(mode)
+                self._fire_position_mode_events(mode, success=True)
+                self.logger().info(f"Position mode already set to {mode} on exchange.")
                 return
 
             if not self.trading_pairs:
+                self.logger().warning("No trading pairs configured, cannot set position mode.")
                 return
 
             success, msg = await self._trading_pair_position_mode_set(mode, self.trading_pairs[0])
@@ -346,7 +365,8 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                 self.logger().info(f"Position mode switched to {mode}.")
             else:
                 self._fire_position_mode_events(mode, success=False, message=msg)
-                self.logger().error(f"Failed to set position mode to {mode}: {msg}")
+                self.logger().error(
+                    f"Failed to set position mode to {mode} (exchange is {exchange_mode}): {msg}")
 
     def _fire_position_mode_events(self, mode: PositionMode, success: bool, message: str = ""):
         event_tag = (
