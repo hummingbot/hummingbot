@@ -38,6 +38,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
+        self._set_position_mode_lock = asyncio.Lock()
 
     @property
     @abstractmethod
@@ -330,31 +331,22 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         )
 
     async def _execute_set_position_mode(self, mode: PositionMode):
-        try:
-            current_mode = await self._fetch_account_position_mode()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            current_mode = None
+        async with self._set_position_mode_lock:
+            if mode == self._perpetual_trading.position_mode:
+                return
 
-        if current_mode == mode:
-            self._perpetual_trading.set_position_mode(mode)
-            self._fire_position_mode_events(mode, success=True)
-            self.logger().info(f"Position mode already set to {mode}.")
-            return
+            if not self.trading_pairs:
+                return
 
-        if not self.trading_pairs:
-            return
+            success, msg = await self._trading_pair_position_mode_set(mode, self.trading_pairs[0])
 
-        success, msg = await self._trading_pair_position_mode_set(mode, self.trading_pairs[0])
-
-        if success:
-            self._perpetual_trading.set_position_mode(mode)
-            self._fire_position_mode_events(mode, success=True)
-            self.logger().info(f"Position mode switched to {mode}.")
-        else:
-            self._fire_position_mode_events(mode, success=False, message=msg)
-            self.logger().error(f"Failed to set position mode to {mode}: {msg}")
+            if success:
+                self._perpetual_trading.set_position_mode(mode)
+                self._fire_position_mode_events(mode, success=True)
+                self.logger().info(f"Position mode switched to {mode}.")
+            else:
+                self._fire_position_mode_events(mode, success=False, message=msg)
+                self.logger().error(f"Failed to set position mode to {mode}: {msg}")
 
     def _fire_position_mode_events(self, mode: PositionMode, success: bool, message: str = ""):
         event_tag = (

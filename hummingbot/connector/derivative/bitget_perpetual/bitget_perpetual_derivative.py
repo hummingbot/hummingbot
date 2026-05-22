@@ -664,21 +664,25 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _execute_set_position_mode(self, mode: PositionMode):
         """Bitget derives productType from trading_pair, so we must loop over all trading pairs."""
-        all_success = True
-        msg = ""
-        for trading_pair in self.trading_pairs:
-            success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
-            if not success:
-                all_success = False
-                self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
-                break
+        async with self._set_position_mode_lock:
+            if mode == self._perpetual_trading.position_mode:
+                return
 
-        if all_success:
-            self._perpetual_trading.set_position_mode(mode)
-            self.logger().info(f"Position mode switched to {mode}.")
-        else:
-            self.logger().error(f"Failed to set position mode to {mode}: {msg}")
-        self._fire_position_mode_events(mode, success=all_success, message=msg)
+            all_success = True
+            msg = ""
+            for trading_pair in self.trading_pairs:
+                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
+                if not success:
+                    all_success = False
+                    self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
+                    break
+
+            if all_success:
+                self._perpetual_trading.set_position_mode(mode)
+                self.logger().info(f"Position mode switched to {mode}.")
+            else:
+                self.logger().error(f"Failed to set position mode to {mode}: {msg}")
+            self._fire_position_mode_events(mode, success=all_success, message=msg)
 
     async def _trading_pair_position_mode_set(
         self,
