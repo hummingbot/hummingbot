@@ -5,10 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.gemini import (
-    gemini_constants as CONSTANTS,
-    gemini_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS, gemini_web_utils as web_utils
 from hummingbot.connector.exchange.gemini.gemini_api_order_book_data_source import GeminiAPIOrderBookDataSource
 from hummingbot.connector.exchange.gemini.gemini_api_user_stream_data_source import GeminiAPIUserStreamDataSource
 from hummingbot.connector.exchange.gemini.gemini_auth import GeminiAuth

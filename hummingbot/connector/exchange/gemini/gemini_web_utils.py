@@ -5,7 +5,6 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
@@ -59,8 +58,9 @@ async def get_current_server_time(
     logger = logging.getLogger(__name__)
     for attempt in range(3):
         try:
-            import aiohttp
             from email.utils import parsedate_to_datetime
+
+            import aiohttp
             async with aiohttp.ClientSession() as session:
                 async with session.head(CONSTANTS.REST_URL + "/v1/symbols", timeout=aiohttp.ClientTimeout(total=5)) as response:
                     date_str = response.headers.get("Date", "")

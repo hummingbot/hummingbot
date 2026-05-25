@@ -3,8 +3,8 @@ from unittest import TestCase
 from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS
 from hummingbot.connector.exchange.gemini.gemini_web_utils import (
     create_throttler,
-    public_rest_url,
     private_rest_url,
+    public_rest_url,
     wss_url,
 )
 
