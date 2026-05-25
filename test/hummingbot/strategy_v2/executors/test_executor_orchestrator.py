@@ -825,12 +825,16 @@ class TestExecutorOrchestrator(unittest.TestCase):
         # Verify executor was removed from active_executors
         self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
 
+        # Verify executor was moved to recently_terminated_executors deque
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 1)
+        self.assertIs(self.orchestrator.recently_terminated_executors["test_controller"][0], executor)
+
         # Verify cached performance was updated
         self.assertEqual(self.orchestrator.cached_performance["test_controller"].realized_pnl_quote, Decimal(-50))
 
     @patch.object(MarketsRecorder, "get_instance")
-    def test_auto_store_skips_position_hold_executors(self, markets_recorder_mock):
-        """Test that POSITION_HOLD executors are NOT auto-stored (they are handled by position tracking) (Issue #8042)."""
+    def test_auto_store_includes_position_hold_executors(self, markets_recorder_mock):
+        """Test that POSITION_HOLD executors ARE auto-stored to the database (Issue #8042)."""
         mock_recorder = MagicMock(spec=MarketsRecorder)
         markets_recorder_mock.return_value = mock_recorder
 
@@ -862,14 +866,14 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.orchestrator.executors_ids_position_held = []
         self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
 
-        # Call _auto_store_terminated_executors directly
         self.orchestrator._auto_store_terminated_executors()
 
-        # Verify executor was NOT stored (POSITION_HOLD should be skipped)
-        mock_recorder.store_or_update_executor.assert_not_called()
+        # Verify executor WAS stored
+        mock_recorder.store_or_update_executor.assert_called_once_with(executor)
 
-        # Verify executor is still in active_executors
-        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 1)
+        # Verify executor was removed from active and moved to deque
+        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 1)
 
     @patch.object(MarketsRecorder, "get_instance")
     def test_auto_store_skips_active_executors(self, markets_recorder_mock):
@@ -948,6 +952,9 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         # All 3 should be removed from active
         self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
+
+        # All 3 should be in the recently terminated deque
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 3)
 
         # Cached performance should be updated with all 3
         self.assertEqual(self.orchestrator.cached_performance["test_controller"].realized_pnl_quote, Decimal(30))
