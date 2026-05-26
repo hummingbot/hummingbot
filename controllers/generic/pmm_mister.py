@@ -260,6 +260,7 @@ class PMMister(ControllerBase):
         self.processed_data = {}
         self._position_mode_verified = False
         self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
+        self._global_close_side: Optional[TradeType] = None  # Side of the position when TP/SL triggered
 
     def _verify_position_mode(self) -> bool:
         """Check that the connector's position mode matches the config. Blocks trading until confirmed."""
@@ -389,24 +390,47 @@ class PMMister(ControllerBase):
             if close_executors:
                 return []
 
-            position_amount = self.processed_data.get("position_amount", Decimal("0"))
-            if position_amount == Decimal("0"):
+            # Read LIVE position from positions_held (not processed_data snapshot)
+            position_held = next((p for p in self.positions_held if
+                                  p.trading_pair == self.config.trading_pair and
+                                  p.connector_name == self.config.connector_name), None)
+
+            if position_held is None or position_held.amount == Decimal("0"):
                 self.logger().info("Global close phase=closing: position is already 0. Done.")
                 self._global_close_phase = None
+                self._global_close_side = None
                 return []
 
+            # SAFETY: Detect position side flip — if position flipped direction, abort close
+            if self._global_close_side is not None and position_held.side != self._global_close_side:
+                self.logger().warning(
+                    f"=== GLOBAL CLOSE ABORTED: Position side flipped! ===\n"
+                    f"  Original side: {self._global_close_side.name} | "
+                    f"Current side: {position_held.side.name} | Amount: {position_held.amount}\n"
+                    f"  This indicates over-selling. Aborting global close to prevent further damage."
+                )
+                self._global_close_phase = None
+                self._global_close_side = None
+                return []
+
+            position_amount = position_held.amount
             quantized = self.market_data_provider.quantize_order_amount(
-                self.config.connector_name, self.config.trading_pair, abs(position_amount)
+                self.config.connector_name, self.config.trading_pair, position_amount
             )
             if quantized == Decimal("0"):
                 self._global_close_phase = None
+                self._global_close_side = None
                 return []
+
+            # Determine close side from the LIVE position side
+            close_side = TradeType.SELL if position_held.side == TradeType.BUY else TradeType.BUY
 
             self.logger().info(
                 f"=== GLOBAL CLOSE — PHASE 2: CLOSING POSITION ===\n"
-                f"  Position amount: {position_amount} | Creating close executor."
+                f"  Position side: {position_held.side.name} | Amount: {position_amount} | "
+                f"Close side: {close_side.name} | Creating close executor."
             )
-            close_action = self._create_close_action(position_amount)
+            close_action = self._create_close_action_with_side(close_side, position_amount)
             return [close_action] if close_action else []
 
         # --- No phase active: check if TP/SL should trigger ---
@@ -439,6 +463,11 @@ class PMMister(ControllerBase):
 
         # --- Trigger: enter stopping phase --- stop all active executors first
         self._global_close_phase = "stopping"
+        # Remember the position side at trigger time so we always close in the right direction
+        position_held = next((p for p in self.positions_held if
+                              p.trading_pair == self.config.trading_pair and
+                              p.connector_name == self.config.connector_name), None)
+        self._global_close_side = position_held.side if position_held else None
         active_executors = [
             e for e in self.executors_info
             if e.is_active and e.custom_info.get("level_id") != "global_close"
@@ -461,11 +490,18 @@ class PMMister(ControllerBase):
         return stop_actions
 
     def _create_close_action(self, position_amount: Decimal) -> Optional[CreateExecutorAction]:
-        if position_amount == Decimal("0"):
+        """Create a close action by inferring the side from position_held. Kept for backward compat."""
+        position_held = next((p for p in self.positions_held if
+                              p.trading_pair == self.config.trading_pair and
+                              p.connector_name == self.config.connector_name), None)
+        if position_held is None or position_amount == Decimal("0"):
             return None
+        close_side = TradeType.SELL if position_held.side == TradeType.BUY else TradeType.BUY
+        return self._create_close_action_with_side(close_side, abs(position_amount))
 
-        side = TradeType.SELL if position_amount > 0 else TradeType.BUY
-        amount = abs(position_amount)
+    def _create_close_action_with_side(self, side: TradeType, amount: Decimal) -> Optional[CreateExecutorAction]:
+        if amount == Decimal("0"):
+            return None
 
         self.logger().info(
             f"Creating close executor: side={side.name} amount={amount} "
