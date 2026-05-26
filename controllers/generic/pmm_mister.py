@@ -5,14 +5,18 @@ from typing import Dict, List, Optional, Tuple, Union
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.core.data_type.common import MarketDict, OrderType, PositionAction, PositionMode, PriceType, TradeType
+from hummingbot.core.data_type.common import (
+    MarketDict,
+    OrderType,
+    PositionAction,
+    PositionMode,
+    PositionSide,
+    PriceType,
+    TradeType,
+)
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
-from hummingbot.strategy_v2.executors.order_executor.data_types import (
-    ExecutionStrategy,
-    LimitChaserConfig,
-    OrderExecutorConfig,
-)
+from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.utils.common import parse_comma_separated_list, parse_enum_value
@@ -261,6 +265,7 @@ class PMMister(ControllerBase):
         self._position_mode_verified = False
         self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
         self._global_close_side: Optional[TradeType] = None  # Side of the position when TP/SL triggered
+        self._global_close_retries: int = 0  # Count how many times PHASE 2 has created a close executor
 
     def _verify_position_mode(self) -> bool:
         """Check that the connector's position mode matches the config. Blocks trading until confirmed."""
@@ -360,6 +365,27 @@ class PMMister(ControllerBase):
             return self.config.target_base_pct
         return self.config.max_base_pct
 
+    def _get_exchange_position(self) -> Tuple[Decimal, Optional[TradeType]]:
+        """Read the REAL position from the exchange connector (WebSocket-updated, no orchestrator delay).
+        Returns (abs_amount, side) where side is BUY for long, SELL for short, None if no position."""
+        try:
+            connector = self.market_data_provider.get_connector(self.config.connector_name)
+            if not hasattr(connector, '_perpetual_trading'):
+                return Decimal("0"), None
+            perp = connector._perpetual_trading
+            pos = perp.get_position(self.config.trading_pair, PositionSide.BOTH)
+            if pos is None or pos.amount == Decimal("0"):
+                return Decimal("0"), None
+            amount = pos.amount
+            # Binance ONEWAY: positive amount = long, negative = short
+            if amount > 0:
+                return amount, TradeType.BUY
+            else:
+                return abs(amount), TradeType.SELL
+        except Exception as e:
+            self.logger().warning(f"Failed to read exchange position: {e}")
+            return Decimal("0"), None
+
     def _check_global_tp_sl(self) -> List[ExecutorAction]:
         """Check global TP/SL using a two-phase approach:
         Phase 1 (stopping): Stop all active executors with keep_position=True.
@@ -390,47 +416,60 @@ class PMMister(ControllerBase):
             if close_executors:
                 return []
 
-            # Read LIVE position from positions_held (not processed_data snapshot)
-            position_held = next((p for p in self.positions_held if
-                                  p.trading_pair == self.config.trading_pair and
-                                  p.connector_name == self.config.connector_name), None)
-
-            if position_held is None or position_held.amount == Decimal("0"):
-                self.logger().info("Global close phase=closing: position is already 0. Done.")
+            # Guard: abort after too many failed close attempts (e.g. below min notional)
+            if self._global_close_retries >= 3:
+                self.logger().warning(
+                    f"=== GLOBAL CLOSE ABORTED: {self._global_close_retries} close attempts failed. ===\n"
+                    f"  Position may be below minimum notional. Aborting to prevent infinite loop."
+                )
                 self._global_close_phase = None
                 self._global_close_side = None
+                self._global_close_retries = 0
+                return []
+
+            # Read position from the EXCHANGE CONNECTOR (WebSocket-updated, no orchestrator delay)
+            # This avoids the race condition where positions_held is stale
+            exchange_amount, exchange_side = self._get_exchange_position()
+
+            if exchange_amount == Decimal("0") or exchange_side is None:
+                self.logger().info("Global close phase=closing: exchange position is 0. Done.")
+                self._global_close_phase = None
+                self._global_close_side = None
+                self._global_close_retries = 0
                 return []
 
             # SAFETY: Detect position side flip — if position flipped direction, abort close
-            if self._global_close_side is not None and position_held.side != self._global_close_side:
+            if self._global_close_side is not None and exchange_side != self._global_close_side:
                 self.logger().warning(
                     f"=== GLOBAL CLOSE ABORTED: Position side flipped! ===\n"
                     f"  Original side: {self._global_close_side.name} | "
-                    f"Current side: {position_held.side.name} | Amount: {position_held.amount}\n"
+                    f"Current side: {exchange_side.name} | Amount: {exchange_amount}\n"
                     f"  This indicates over-selling. Aborting global close to prevent further damage."
                 )
                 self._global_close_phase = None
                 self._global_close_side = None
+                self._global_close_retries = 0
                 return []
 
-            position_amount = position_held.amount
             quantized = self.market_data_provider.quantize_order_amount(
-                self.config.connector_name, self.config.trading_pair, position_amount
+                self.config.connector_name, self.config.trading_pair, exchange_amount
             )
             if quantized == Decimal("0"):
                 self._global_close_phase = None
                 self._global_close_side = None
+                self._global_close_retries = 0
                 return []
 
-            # Determine close side from the LIVE position side
-            close_side = TradeType.SELL if position_held.side == TradeType.BUY else TradeType.BUY
+            # Determine close side from the EXCHANGE position side
+            close_side = TradeType.SELL if exchange_side == TradeType.BUY else TradeType.BUY
 
+            self._global_close_retries += 1
             self.logger().info(
-                f"=== GLOBAL CLOSE — PHASE 2: CLOSING POSITION ===\n"
-                f"  Position side: {position_held.side.name} | Amount: {position_amount} | "
+                f"=== GLOBAL CLOSE — PHASE 2: CLOSING POSITION (attempt {self._global_close_retries}/3) ===\n"
+                f"  Exchange position: {exchange_side.name} {exchange_amount} | "
                 f"Close side: {close_side.name} | Creating close executor."
             )
-            close_action = self._create_close_action_with_side(close_side, position_amount)
+            close_action = self._create_close_action_with_side(close_side, exchange_amount)
             return [close_action] if close_action else []
 
         # --- No phase active: check if TP/SL should trigger ---
@@ -463,6 +502,7 @@ class PMMister(ControllerBase):
 
         # --- Trigger: enter stopping phase --- stop all active executors first
         self._global_close_phase = "stopping"
+        self._global_close_retries = 0
         # Remember the position side at trigger time so we always close in the right direction
         position_held = next((p for p in self.positions_held if
                               p.trading_pair == self.config.trading_pair and
@@ -505,8 +545,7 @@ class PMMister(ControllerBase):
 
         self.logger().info(
             f"Creating close executor: side={side.name} amount={amount} "
-            f"action=CLOSE chaser_dist={self.config.close_chaser_distance:.4%} "
-            f"chaser_refresh={self.config.close_chaser_refresh_threshold:.4%}"
+            f"action=CLOSE strategy=MARKET (reduceOnly on exchange)"
         )
 
         config = OrderExecutorConfig(
@@ -515,12 +554,8 @@ class PMMister(ControllerBase):
             connector_name=self.config.connector_name,
             side=side,
             amount=amount,
-            execution_strategy=ExecutionStrategy.LIMIT_CHASER,
+            execution_strategy=ExecutionStrategy.MARKET,
             position_action=PositionAction.CLOSE,
-            chaser_config=LimitChaserConfig(
-                distance=self.config.close_chaser_distance,
-                refresh_threshold=self.config.close_chaser_refresh_threshold,
-            ),
             leverage=self.config.leverage,
             level_id="global_close",
         )
