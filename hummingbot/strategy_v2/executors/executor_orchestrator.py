@@ -563,7 +563,7 @@ class ExecutorOrchestrator:
                     )
                 else:
                     # Create new position (handles both spot/perp and LP)
-                    assigned_side = position_side if position_side else executor_info.config.side
+                    assigned_side = position_side
                     self.logger().info(
                         f"  -> NO existing position found. Creating NEW PositionHold with side={assigned_side}"
                     )
@@ -583,11 +583,11 @@ class ExecutorOrchestrator:
         """
         is_perpetual = "_perpetual" in executor_info.connector_name
         if not is_perpetual:
-            return None
+            return executor_info.config.side
 
         market = self.strategy.connectors.get(executor_info.connector_name)
         if not market or not hasattr(market, 'position_mode'):
-            return None
+            return executor_info.config.side
 
         position_mode = market.position_mode
         if position_mode == PositionMode.HEDGE:

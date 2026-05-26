@@ -128,7 +128,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         await super().start_network()
         if self.is_trading_required:
             await self.set_margin_mode(self._margin_mode)
-            self.set_position_mode(PositionMode.HEDGE)
+            await self._initialize_position_mode()
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -161,10 +161,14 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         return collateral_token
 
-    async def get_exchange_position_mode(self, trading_pair: str) -> None:
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
         """
-        Returns the current exchange position mode.
+        Fetches the current position mode from the Bitget exchange account.
+        Uses the first trading pair to query the account info.
         """
+        if not self.trading_pairs:
+            return None
+        trading_pair = self.trading_pairs[0]
         product_type = await self.product_type_associated_to_trading_pair(trading_pair)
         account_info_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.ACCOUNT_INFO_ENDPOINT,
@@ -180,7 +184,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 account_info_response["code"],
                 f"Error getting position mode for {trading_pair}: {account_info_response['msg']}"
             ))
-            return
+            return None
 
         position_modes = {
             "one_way_mode": PositionMode.ONEWAY,
@@ -188,8 +192,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         }
 
         position_mode = position_modes[account_info_response["data"]["posMode"]]
-
         self.logger().info(f"Position mode for {trading_pair}: {position_mode}")
+        return position_mode
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules.get(trading_pair, None)
@@ -665,7 +669,21 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     async def _execute_set_position_mode(self, mode: PositionMode):
         """Bitget derives productType from trading_pair, so we must loop over all trading pairs."""
         async with self._set_position_mode_lock:
-            if mode == self._perpetual_trading.position_mode:
+            try:
+                exchange_mode = await self._fetch_account_position_mode()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().warning(f"Could not fetch position mode from exchange: {e}")
+                exchange_mode = None
+
+            self.logger().info(
+                f"Setting position mode: requested={mode}, current_exchange={exchange_mode}")
+
+            if exchange_mode == mode:
+                self._perpetual_trading.set_position_mode(mode)
+                self._fire_position_mode_events(mode, success=True)
+                self.logger().info(f"Position mode already set to {mode} on exchange.")
                 return
 
             all_success = True
