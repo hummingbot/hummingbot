@@ -117,20 +117,21 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         Fetches the current position mode from the exchange and syncs local state.
         Called during start_network to ensure the local position mode reflects reality.
         """
-        try:
-            mode = await self._fetch_account_position_mode()
-            if mode is not None:
-                self._perpetual_trading.set_position_mode(mode)
-                self.logger().info(f"Position mode initialized to {mode} from exchange.")
-            else:
-                self.logger().warning("Exchange returned None for position mode. Using default.")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().warning(
-                "Could not fetch position mode from exchange. Using default.",
-                exc_info=True,
-            )
+        async with self._set_position_mode_lock:
+            try:
+                mode = await self._fetch_account_position_mode()
+                if mode is not None:
+                    self._perpetual_trading.set_position_mode(mode)
+                    self.logger().info(f"Position mode initialized to {mode} from exchange.")
+                else:
+                    self.logger().warning("Exchange returned None for position mode. Using default.")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().warning(
+                    "Could not fetch position mode from exchange. Using default.",
+                    exc_info=True,
+                )
 
     async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
         """
@@ -334,18 +335,16 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
     async def _execute_set_position_mode(self, mode: PositionMode):
         async with self._set_position_mode_lock:
-            current_mode = self._perpetual_trading.position_mode
-            self.logger().info(
-                f"Setting position mode: requested={mode}, current_local={current_mode}")
-
             try:
                 exchange_mode = await self._fetch_account_position_mode()
-                self.logger().info(f"Position mode on exchange: {exchange_mode}")
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().warning(f"Could not fetch position mode from exchange: {e}")
                 exchange_mode = None
+
+            self.logger().info(
+                f"Setting position mode: requested={mode}, current_exchange={exchange_mode}")
 
             if exchange_mode == mode:
                 self._perpetual_trading.set_position_mode(mode)
