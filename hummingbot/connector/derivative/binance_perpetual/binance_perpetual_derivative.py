@@ -259,6 +259,10 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
+        elif position_action == PositionAction.CLOSE:
+            # In ONEWAY mode, reduceOnly ensures the order can only reduce the position,
+            # never open a new one or flip direction. This prevents over-selling.
+            api_params["reduceOnly"] = "true"
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_URL,
