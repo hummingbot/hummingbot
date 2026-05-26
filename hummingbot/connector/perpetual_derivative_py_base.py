@@ -366,7 +366,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             else:
                 self._fire_position_mode_events(mode, success=False, message=msg)
                 self.logger().error(
-                    f"Failed to set position mode to {mode} (exchange is {exchange_mode}): {msg}")
+                    f"Failed to set position mode to {mode}: {msg}")
 
     def _fire_position_mode_events(self, mode: PositionMode, success: bool, message: str = ""):
         event_tag = (
