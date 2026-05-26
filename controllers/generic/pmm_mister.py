@@ -50,10 +50,12 @@ class PMMisterConfig(ControllerConfigBase):
     tolerance_scaling: Decimal = Field(default=Decimal("1.2"), json_schema_extra={"is_updatable": True})
 
     leverage: int = Field(default=20, json_schema_extra={"is_updatable": True})
-    position_mode: PositionMode = Field(default="ONEWAY")
+    position_mode: PositionMode = Field(default=PositionMode.ONEWAY)
+    # LONG: buys accumulate, sells reduce. SHORT: sells accumulate, buys reduce.
+    position_side: TradeType = Field(default=TradeType.BUY)
     take_profit: Optional[Decimal] = Field(default=Decimal("0.0001"), gt=0, json_schema_extra={"is_updatable": True})
-    take_profit_order_type: Optional[OrderType] = Field(default="LIMIT_MAKER", json_schema_extra={"is_updatable": True})
-    open_order_type: Optional[OrderType] = Field(default="LIMIT_MAKER", json_schema_extra={"is_updatable": True})
+    take_profit_order_type: Optional[OrderType] = Field(default=OrderType.LIMIT_MAKER, json_schema_extra={"is_updatable": True})
+    open_order_type: Optional[OrderType] = Field(default=OrderType.LIMIT_MAKER, json_schema_extra={"is_updatable": True})
     max_active_executors_by_level: Optional[int] = Field(default=4, json_schema_extra={"is_updatable": True})
     tick_mode: bool = Field(default=False, json_schema_extra={"is_updatable": True})
     position_profit_protection: bool = Field(default=False, json_schema_extra={"is_updatable": True})
@@ -121,10 +123,21 @@ class PMMisterConfig(ControllerConfigBase):
     def validate_position_mode(cls, v) -> PositionMode:
         return parse_enum_value(PositionMode, v, "position_mode")
 
+    @field_validator('position_side', mode="before")
+    @classmethod
+    def validate_position_side(cls, v) -> TradeType:
+        if isinstance(v, TradeType):
+            return v
+        mapping = {"BUY": TradeType.BUY, "SELL": TradeType.SELL, "LONG": TradeType.BUY, "SHORT": TradeType.SELL}
+        upper = str(v).upper()
+        if upper in mapping:
+            return mapping[upper]
+        raise ValueError(f"position_side must be BUY/LONG or SELL/SHORT, got {v}")
+
     @field_validator('global_tp_activation_from', mode="before")
     @classmethod
     def validate_tp_activation_from(cls, v):
-        valid = {"min_base", "target_base"}
+        valid = {"always", "min_base", "target_base"}
         if v not in valid:
             raise ValueError(f"global_tp_activation_from must be one of {valid}")
         return v
@@ -154,6 +167,10 @@ class PMMisterConfig(ControllerConfigBase):
         if field_name == 'tolerance_scaling' and Decimal(str(v)) <= 0:
             raise ValueError(f"{field_name} must be greater than 0")
         return v
+
+    @property
+    def is_short(self) -> bool:
+        return self.position_side == TradeType.SELL
 
     @property
     def triple_barrier_config(self) -> TripleBarrierConfig:
@@ -241,8 +258,33 @@ class PMMister(ControllerBase):
         self.order_history = []
         self.max_order_history = 20
         self.processed_data = {}
-        self._closing_position = False
-        self._close_trigger_reason = None
+        self._position_mode_verified = False
+        self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
+
+    def _verify_position_mode(self) -> bool:
+        """Check that the connector's position mode matches the config. Blocks trading until confirmed."""
+        if self._position_mode_verified:
+            return True
+        try:
+            connector = self.market_data_provider.get_connector(self.config.connector_name)
+            # Only perpetual connectors have position_mode; skip check for spot connectors
+            if not hasattr(connector, 'position_mode'):
+                self._position_mode_verified = True
+                return True
+            exchange_mode = connector.position_mode
+            config_mode = self.config.position_mode
+            if exchange_mode != config_mode:
+                self.logger().warning(
+                    f"Position mode mismatch: exchange={exchange_mode}, config={config_mode}. "
+                    f"Waiting for position mode to be set correctly before trading.")
+                return False
+            self._position_mode_verified = True
+            self.logger().info(
+                f"Position mode verified: {exchange_mode} matches config. Trading enabled.")
+            return True
+        except Exception as e:
+            self.logger().warning(f"Could not verify position mode: {e}. Blocking trading.")
+            return False
 
     # ── Market data (called by framework) ─────────────────────────────────
 
@@ -281,20 +323,24 @@ class PMMister(ControllerBase):
     # ── Executor actions (called by framework) ────────────────────────────
 
     def determine_executor_actions(self) -> List[ExecutorAction]:
+        # Guard: verify position mode matches config before operating
+        if not self._verify_position_mode():
+            return []
+
         self._update_position_state()
-
-        # Handle active position closing
-        if self._closing_position:
-            return self._handle_closing_state()
-
-        # Check global TP/SL before normal logic
-        tp_sl_actions = self._check_global_tp_sl()
-        if tp_sl_actions is not None:
-            return tp_sl_actions
-
         self._compute_executor_analysis()
 
         actions = []
+
+        # Check global TP/SL — two-phase: stop executors, then close position
+        tp_sl_actions = self._check_global_tp_sl()
+        if tp_sl_actions:
+            actions.extend(tp_sl_actions)
+
+        # Block normal trading while global close is in progress
+        if self._global_close_phase is not None:
+            return actions
+
         actions.extend(self.create_actions_proposal())
         actions.extend(self.stop_actions_proposal())
         return actions
@@ -302,6 +348,8 @@ class PMMister(ControllerBase):
     # ── Global TP/SL ──────────────────────────────────────────────────────
 
     def _get_tp_activation_threshold(self) -> Decimal:
+        if self.config.global_tp_activation_from == "always":
+            return Decimal("0")
         if self.config.global_tp_activation_from == "min_base":
             return self.config.min_base_pct
         return self.config.target_base_pct
@@ -311,95 +359,106 @@ class PMMister(ControllerBase):
             return self.config.target_base_pct
         return self.config.max_base_pct
 
-    def _check_global_tp_sl(self) -> Optional[List[ExecutorAction]]:
+    def _check_global_tp_sl(self) -> List[ExecutorAction]:
+        """Check global TP/SL using a two-phase approach:
+        Phase 1 (stopping): Stop all active executors with keep_position=True.
+        Phase 2 (closing): Once no active executors remain, close the actual position."""
+
+        # --- Phase: stopping --- wait for all executors to finish, then transition to closing
+        if self._global_close_phase == "stopping":
+            active_non_close = [
+                e for e in self.executors_info
+                if e.is_active and e.custom_info.get("level_id") != "global_close"
+            ]
+            if active_non_close:
+                self.logger().debug(
+                    f"Global close phase=stopping: waiting for {len(active_non_close)} executors to finish"
+                )
+                return []
+            # All executors stopped — transition to closing phase
+            self._global_close_phase = "closing"
+            self.logger().info("Global close phase=stopping complete. All executors stopped. Transitioning to closing.")
+
+        # --- Phase: closing --- create close executor for the real position
+        if self._global_close_phase == "closing":
+            # If a close executor is already active, wait for it
+            close_executors = [
+                e for e in self.executors_info
+                if e.is_active and e.custom_info.get("level_id") == "global_close"
+            ]
+            if close_executors:
+                return []
+
+            position_amount = self.processed_data.get("position_amount", Decimal("0"))
+            if position_amount == Decimal("0"):
+                self.logger().info("Global close phase=closing: position is already 0. Done.")
+                self._global_close_phase = None
+                return []
+
+            quantized = self.market_data_provider.quantize_order_amount(
+                self.config.connector_name, self.config.trading_pair, abs(position_amount)
+            )
+            if quantized == Decimal("0"):
+                self._global_close_phase = None
+                return []
+
+            self.logger().info(
+                f"=== GLOBAL CLOSE — PHASE 2: CLOSING POSITION ===\n"
+                f"  Position amount: {position_amount} | Creating close executor."
+            )
+            close_action = self._create_close_action(position_amount)
+            return [close_action] if close_action else []
+
+        # --- No phase active: check if TP/SL should trigger ---
         current_base_pct = self.processed_data.get("current_base_pct", Decimal("0"))
         unrealized_pnl_pct = self.processed_data.get("unrealized_pnl_pct", Decimal("0"))
         position_amount = self.processed_data.get("position_amount", Decimal("0"))
 
         if position_amount == Decimal("0"):
-            return None
+            return []
 
         triggered = False
         trigger_reason = ""
 
         # Check take profit
-        if self.config.global_tp_enabled and current_base_pct >= self._get_tp_activation_threshold():
+        tp_threshold = self._get_tp_activation_threshold()
+        if self.config.global_tp_enabled and current_base_pct >= tp_threshold:
             if unrealized_pnl_pct >= self.config.global_take_profit:
                 triggered = True
                 trigger_reason = "take_profit"
 
         # Check stop loss
-        if not triggered and self.config.global_sl_enabled and current_base_pct >= self._get_sl_activation_threshold():
+        sl_threshold = self._get_sl_activation_threshold()
+        if not triggered and self.config.global_sl_enabled and current_base_pct >= sl_threshold:
             if unrealized_pnl_pct <= -self.config.global_stop_loss:
                 triggered = True
                 trigger_reason = "stop_loss"
 
         if not triggered:
-            return None
+            return []
+
+        # --- Trigger: enter stopping phase --- stop all active executors first
+        self._global_close_phase = "stopping"
+        active_executors = [
+            e for e in self.executors_info
+            if e.is_active and e.custom_info.get("level_id") != "global_close"
+        ]
 
         self.logger().info(
-            f"Global {trigger_reason} triggered! PnL: {unrealized_pnl_pct:.2%}, Position: {current_base_pct:.2%}"
+            f"=== GLOBAL {trigger_reason.upper()} TRIGGERED — PHASE 1: STOPPING EXECUTORS ===\n"
+            f"  PnL: {unrealized_pnl_pct:.4%} | Position: {position_amount} | Base%: {current_base_pct:.4%}\n"
+            f"  Stopping {len(active_executors)} active executors before closing position."
         )
-        self._closing_position = True
-        self._close_trigger_reason = trigger_reason
 
-        actions: List[ExecutorAction] = []
+        stop_actions = []
+        for executor in active_executors:
+            stop_actions.append(StopExecutorAction(
+                controller_id=self.config.id,
+                keep_position=True,
+                executor_id=executor.id,
+            ))
 
-        # Stop all active executors (keep positions intact for the close executor)
-        for executor in self.executors_info:
-            if executor.is_active:
-                actions.append(StopExecutorAction(
-                    controller_id=self.config.id,
-                    keep_position=True,
-                    executor_id=executor.id,
-                ))
-
-        # Create limit chaser to close the full position
-        close_action = self._create_close_action(position_amount)
-        if close_action:
-            actions.append(close_action)
-
-        return actions
-
-    def _handle_closing_state(self) -> List[ExecutorAction]:
-        position_amount = self.processed_data.get("position_amount", Decimal("0"))
-
-        # Check if position is effectively closed
-        quantized = self.market_data_provider.quantize_order_amount(
-            self.config.connector_name, self.config.trading_pair, abs(position_amount)
-        )
-        if quantized == Decimal("0"):
-            self.logger().info(
-                f"Global {self._close_trigger_reason} completed. Restarting market making."
-            )
-            self._closing_position = False
-            self._close_trigger_reason = None
-            return []
-
-        # Check if close executor is still active
-        close_executors = [
-            e for e in self.executors_info
-            if e.is_active and e.custom_info.get("level_id") == "global_close"
-        ]
-        if close_executors:
-            return []
-
-        # No close executor running but position remains — retry
-        actions: List[ExecutorAction] = []
-        for executor in self.executors_info:
-            if executor.is_active:
-                actions.append(StopExecutorAction(
-                    controller_id=self.config.id,
-                    keep_position=True,
-                    executor_id=executor.id,
-                ))
-
-        self.logger().info(f"Retrying position close. Remaining: {position_amount}")
-        close_action = self._create_close_action(position_amount)
-        if close_action:
-            actions.append(close_action)
-
-        return actions
+        return stop_actions
 
     def _create_close_action(self, position_amount: Decimal) -> Optional[CreateExecutorAction]:
         if position_amount == Decimal("0"):
@@ -407,6 +466,12 @@ class PMMister(ControllerBase):
 
         side = TradeType.SELL if position_amount > 0 else TradeType.BUY
         amount = abs(position_amount)
+
+        self.logger().info(
+            f"Creating close executor: side={side.name} amount={amount} "
+            f"action=CLOSE chaser_dist={self.config.close_chaser_distance:.4%} "
+            f"chaser_refresh={self.config.close_chaser_refresh_threshold:.4%}"
+        )
 
         config = OrderExecutorConfig(
             timestamp=self.market_data_provider.time(),
@@ -531,15 +596,23 @@ class PMMister(ControllerBase):
                     blocking.append("price_distance")
 
             # e) Position constraints
-            if current_pct < self.config.min_base_pct and not is_buy:
+            is_accumulation = self._is_accumulation_side(trade_type)
+            if current_pct < self.config.min_base_pct and not is_accumulation:
                 blocking.append("below_min_position")
-            elif current_pct > self.config.max_base_pct and is_buy:
+            elif current_pct > self.config.max_base_pct and is_accumulation:
                 blocking.append("above_max_position")
 
-            # f) Position profit protection
-            if (self.config.position_profit_protection and not is_buy
-                    and breakeven_price and breakeven_price > 0 and reference_price < breakeven_price):
-                blocking.append("position_profit_protection")
+            # f) Position profit protection — block the reduction side when price is unfavorable
+            is_reduction = not is_accumulation
+            if self.config.position_profit_protection and is_reduction and breakeven_price and breakeven_price > 0:
+                if self.config.is_short:
+                    # SHORT: buying to reduce — block if price > breakeven (would realize a loss)
+                    if reference_price > breakeven_price:
+                        blocking.append("position_profit_protection")
+                else:
+                    # LONG: selling to reduce — block if price < breakeven (would realize a loss)
+                    if reference_price < breakeven_price:
+                        blocking.append("position_profit_protection")
 
             # Execution-blocking conditions determine "working" levels
             execution_blocking = {"active_not_trading", "max_active_executors", "cooldown", "price_distance"}
@@ -687,28 +760,52 @@ class PMMister(ControllerBase):
         target_position = self.config.total_amount_quote * self.config.target_base_pct
 
         if position_held is not None:
-            current_base_pct = position_held.amount_quote / self.config.total_amount_quote
-            deviation = (target_position - position_held.amount_quote) / target_position
-            if self.config.global_pnl_reference == "portfolio":
-                unrealized_pnl_pct = (position_held.unrealized_pnl_quote / self.config.total_amount_quote
-                                      if self.config.total_amount_quote != 0 else Decimal("0"))
-            else:
-                unrealized_pnl_pct = (position_held.unrealized_pnl_quote / position_held.amount_quote
-                                      if position_held.amount_quote != 0 else Decimal("0"))
+            # Use abs(amount_quote) so current_base_pct is always positive for both long and short
+            current_base_pct = abs(position_held.amount_quote) / self.config.total_amount_quote
+            deviation = (target_position - abs(position_held.amount_quote)) / target_position
             breakeven_price = position_held.breakeven_price
             position_amount = position_held.amount
+            position_cum_fees = position_held.cum_fees_quote
+            position_realized_pnl = position_held.realized_pnl_quote
+            position_unrealized_pnl = position_held.unrealized_pnl_quote
+            position_volume = position_held.volume_traded_quote
+            if self.config.global_pnl_reference == "portfolio":
+                pnl_denominator = self.config.total_amount_quote
+            else:
+                # Use entry value (breakeven * amount) for stable PnL % instead of mark-price based amount_quote
+                pnl_denominator = (abs(position_amount) * breakeven_price
+                                   if breakeven_price and breakeven_price > 0
+                                   else abs(position_held.amount_quote))
+            unrealized_pnl_pct = (position_held.unrealized_pnl_quote / pnl_denominator
+                                  if pnl_denominator != 0 else Decimal("0"))
         else:
             current_base_pct = Decimal("0")
             deviation = Decimal("1")
             unrealized_pnl_pct = Decimal("0")
             breakeven_price = None
             position_amount = Decimal("0")
+            position_cum_fees = Decimal("0")
+            position_realized_pnl = Decimal("0")
+            position_unrealized_pnl = Decimal("0")
+            position_volume = Decimal("0")
+
+        # Executor fees (from active executors)
+        executor_fees = sum(
+            (e.cum_fees_quote for e in self.executors_info if e.is_active),
+            Decimal("0")
+        )
 
         min_pct = self.config.min_base_pct
         max_pct = self.config.max_base_pct
         if max_pct > min_pct:
-            buy_skew = (max_pct - current_base_pct) / (max_pct - min_pct)
-            sell_skew = (current_base_pct - min_pct) / (max_pct - min_pct)
+            if self.config.is_short:
+                # SHORT: sell accumulates → sell_skew high when position small, buy_skew high when position large
+                sell_skew = (max_pct - current_base_pct) / (max_pct - min_pct)
+                buy_skew = (current_base_pct - min_pct) / (max_pct - min_pct)
+            else:
+                # LONG: buy accumulates → buy_skew high when position small, sell_skew high when position large
+                buy_skew = (max_pct - current_base_pct) / (max_pct - min_pct)
+                sell_skew = (current_base_pct - min_pct) / (max_pct - min_pct)
             buy_skew = max(min(buy_skew, Decimal("1.0")), self.config.min_skew)
             sell_skew = max(min(sell_skew, Decimal("1.0")), self.config.min_skew)
         else:
@@ -722,6 +819,12 @@ class PMMister(ControllerBase):
             "position_amount": position_amount,
             "buy_skew": buy_skew,
             "sell_skew": sell_skew,
+            "position_cum_fees": position_cum_fees,
+            "position_realized_pnl": position_realized_pnl,
+            "position_unrealized_pnl": position_unrealized_pnl,
+            "position_volume": position_volume,
+            "executor_fees": executor_fees,
+            "total_fees": position_cum_fees + executor_fees,
         })
 
     # ── Create / stop proposals ───────────────────────────────────────────
@@ -763,11 +866,16 @@ class PMMister(ControllerBase):
                 self.logger().warning(f"The amount of the level {level_id} is 0. Skipping.")
                 continue
 
-            # Position profit protection: don't place sell orders below breakeven
-            if self.config.position_profit_protection and trade_type == TradeType.SELL:
+            # Position profit protection: block reduction-side orders at unfavorable prices
+            if self.config.position_profit_protection and not self._is_accumulation_side(trade_type):
                 breakeven_price = self.processed_data.get("breakeven_price")
-                if breakeven_price is not None and breakeven_price > 0 and price < breakeven_price:
-                    continue
+                if breakeven_price is not None and breakeven_price > 0:
+                    # LONG reduces by selling → skip if price < breakeven
+                    # SHORT reduces by buying → skip if price > breakeven
+                    if self.config.is_short and price > breakeven_price:
+                        continue
+                    elif not self.config.is_short and price < breakeven_price:
+                        continue
 
             executor_config = self.get_executor_config(level_id, price, amount)
             if executor_config is not None:
@@ -820,12 +928,22 @@ class PMMister(ControllerBase):
             if f"sell_{i}" not in working_levels
         ]
 
+        # Determine which side accumulates vs reduces based on position_side
+        if self.config.is_short:
+            accumulation_levels = sell_missing
+            reduction_levels = buy_missing
+        else:
+            accumulation_levels = buy_missing
+            reduction_levels = sell_missing
+
         current_pct = self.processed_data.get("current_base_pct", Decimal("0"))
 
+        # Below min → only accumulate
         if current_pct < self.config.min_base_pct:
-            return buy_missing
+            return accumulation_levels
+        # Above max → only reduce
         elif current_pct > self.config.max_base_pct:
-            return sell_missing
+            return reduction_levels
 
         if self.config.position_profit_protection:
             breakeven_price = self.processed_data.get("breakeven_price")
@@ -833,10 +951,20 @@ class PMMister(ControllerBase):
             target_pct = self.config.target_base_pct
 
             if breakeven_price is not None and breakeven_price > 0:
-                if current_pct < target_pct and reference_price < breakeven_price:
-                    return buy_missing
-                elif current_pct > target_pct and reference_price > breakeven_price:
-                    return sell_missing
+                if self.config.is_short:
+                    # SHORT: below target & price above breakeven → only accumulate (sell more)
+                    if current_pct < target_pct and reference_price > breakeven_price:
+                        return accumulation_levels
+                    # SHORT: above target & price below breakeven → only reduce (buy back)
+                    elif current_pct > target_pct and reference_price < breakeven_price:
+                        return reduction_levels
+                else:
+                    # LONG: below target & price below breakeven → only accumulate (buy more)
+                    if current_pct < target_pct and reference_price < breakeven_price:
+                        return accumulation_levels
+                    # LONG: above target & price above breakeven → only reduce (sell)
+                    elif current_pct > target_pct and reference_price > breakeven_price:
+                        return reduction_levels
 
         return buy_missing + sell_missing
 
@@ -881,6 +1009,13 @@ class PMMister(ControllerBase):
             side=trade_type,
         )
 
+    def _is_accumulation_side(self, trade_type: TradeType) -> bool:
+        """Returns True if trade_type is the side that accumulates position.
+        LONG: BUY accumulates. SHORT: SELL accumulates."""
+        if self.config.is_short:
+            return trade_type == TradeType.SELL
+        return trade_type == TradeType.BUY
+
     def get_level_id_from_side(self, trade_type: TradeType, level: int) -> str:
         return f"{trade_type.name.lower()}_{level}"
 
@@ -888,7 +1023,11 @@ class PMMister(ControllerBase):
         return TradeType.BUY if level_id.startswith("buy") else TradeType.SELL
 
     def get_level_from_level_id(self, level_id: str) -> int:
-        return int(level_id.split('_')[1])
+        parts = level_id.split('_')
+        try:
+            return int(parts[1])
+        except (ValueError, IndexError):
+            return -1
 
     # ── Custom info (MQTT / broker) ──────────────────────────────────────
 
@@ -926,8 +1065,8 @@ class PMMister(ControllerBase):
             "distance_to_sl": distance_to_sl,
             "global_tp_enabled": self.config.global_tp_enabled,
             "global_sl_enabled": self.config.global_sl_enabled,
-            "closing_position": self._closing_position,
-            "close_trigger_reason": self._close_trigger_reason,
+            "global_close_phase": self._global_close_phase,
+            "closing_position": self._global_close_phase is not None,
             "active_executors": executor_stats.get("total_active", 0),
             "trading_executors": executor_stats.get("total_trading", 0),
             "executable_buy_levels": can_buy,
@@ -947,26 +1086,6 @@ class PMMister(ControllerBase):
         if not hasattr(self, 'processed_data') or not self.processed_data:
             status.append("╒" + "═" * inner_width + "╕")
             status.append(f"│ {'Initializing controller... please wait':<{inner_width}} │")
-            status.append(f"╘{'═' * inner_width}╛")
-            return status
-
-        if self._closing_position:
-            reason = (self._close_trigger_reason or "unknown").upper().replace("_", " ")
-            pnl = self.processed_data.get('unrealized_pnl_pct', Decimal('0'))
-            pos_amt = self.processed_data.get('position_amount', Decimal('0'))
-            close_active = any(
-                e.is_active and e.custom_info.get("level_id") == "global_close"
-                for e in self.executors_info
-            )
-            close_status = "LIMIT CHASER ACTIVE" if close_active else "WAITING FOR CLOSE EXECUTOR..."
-            status.append("╒" + "═" * inner_width + "╕")
-            status.append(f"│ {'⚠️  CLOSING POSITION — ' + reason:<{inner_width}} │")
-            status.append(f"├{'─' * inner_width}┤")
-            status.append(f"│ {'Status: ' + close_status:<{inner_width}} │")
-            status.append(f"│ {'PnL: ' + f'{pnl:+.2%}':<{inner_width}} │")
-            status.append(f"│ {'Remaining amount: ' + f'{pos_amt}':<{inner_width}} │")
-            chaser_info = f"Chaser: dist={self.config.close_chaser_distance:.4%} refresh={self.config.close_chaser_refresh_threshold:.4%}"
-            status.append(f"│ {chaser_info:<{inner_width}} │")
             status.append(f"╘{'═' * inner_width}╛")
             return status
 
@@ -1113,11 +1232,15 @@ class PMMister(ControllerBase):
 
         skew = base_pct - target_pct
         skew_pct = skew / target_pct if target_pct != 0 else Decimal('0')
+        pos_side_label = "SHORT" if self.config.is_short else "LONG"
+        pos_amount = self.processed_data.get('position_amount', Decimal('0'))
         position_info = [
-            f"Current: {base_pct:.2%} (Target: {target_pct:.2%})",
+            f"Current: {base_pct:.2%} (Target: {target_pct:.2%}) [{pos_side_label}]",
             f"Range: {min_pct:.2%} - {max_pct:.2%}",
+            f"Amount: {pos_amount}",
             f"Skew: {skew_pct:+.2%} (min {self.config.min_skew:.2%})",
-            f"Buy Skew: {buy_skew:.2f} | Sell Skew: {sell_skew:.2f}"
+            f"Buy Skew: {buy_skew:.2f} | Sell Skew: {sell_skew:.2f}",
+            "",
         ]
 
         breakeven_str = f"{breakeven:.2f}" if breakeven is not None else "N/A"
@@ -1130,8 +1253,19 @@ class PMMister(ControllerBase):
         tp_status = "ACTIVE" if tp_active else ("OFF" if not self.config.global_tp_enabled else f"from {self.config.global_tp_activation_from}")
         sl_status = "ACTIVE" if sl_active else ("OFF" if not self.config.global_sl_enabled else f"from {self.config.global_sl_activation_from}")
 
+        # Fee and PnL data
+        position_fees = self.processed_data.get('position_cum_fees', Decimal('0'))
+        executor_fees = self.processed_data.get('executor_fees', Decimal('0'))
+        total_fees = self.processed_data.get('total_fees', Decimal('0'))
+        realized_pnl = self.processed_data.get('position_realized_pnl', Decimal('0'))
+        unrealized_pnl_quote = self.processed_data.get('position_unrealized_pnl', Decimal('0'))
+        volume = self.processed_data.get('position_volume', Decimal('0'))
+        quote = self.config.trading_pair.split("-")[1]
+
         pnl_info = [
-            f"Unrealized: {pnl_sign}{pnl:.2%}",
+            f"Unrealized: {pnl_sign}{pnl:.2%} ({unrealized_pnl_quote:+.4f} {quote})",
+            f"Realized: {realized_pnl:+.4f} {quote} | Vol: {volume:.2f} {quote}",
+            f"Fees: {total_fees:.4f} {quote} (pos:{position_fees:.4f} exec:{executor_fees:.4f})",
             f"TP: {self.config.global_take_profit:.2%} (Δ{distance_to_tp:.2%}) [{tp_status}]",
             f"SL: {-self.config.global_stop_loss:.2%} (Δ{distance_to_sl:.2%}) [{sl_status}]",
             f"Breakeven: {breakeven_str}"
@@ -1345,8 +1479,9 @@ class PMMister(ControllerBase):
         else:
             pnl_bar = "─" * bar_width
 
-        pnl_status = "PROFIT" if pnl > 0 else "LOSS" if pnl < 0 else "BREAK-EVEN"
-        lines.append(f"│ PnL:        [{pnl_bar}] {pnl_status} │")
+        pnl_sign = "+" if pnl > 0 else ""
+        pnl_status = f"{pnl_sign}{pnl:.2%}"
+        lines.append(f"│ Position PnL: [{pnl_bar}] {pnl_status} (S={-self.config.global_stop_loss:.2%} T={self.config.global_take_profit:.2%}) │")
 
         return lines
 
