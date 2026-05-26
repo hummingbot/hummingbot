@@ -116,6 +116,15 @@ class MarketDataProvider:
                     known_chains = tuple(c.chain for c in Chain)
                     is_gateway_network = connector.startswith(known_chains)
 
+                    # Guard: a CEX connector whose name happens to start with a known
+                    # chain prefix (e.g. "solana_paper_trade") must never be routed to
+                    # the Gateway.  AllConnectorSettings already tracks the connector
+                    # type, so we use uses_gateway_generic_connector() as the
+                    # authoritative check.  See: github.com/hummingbot/hummingbot/issues/8186
+                    if is_gateway_network and connector in self.conn_settings:
+                        if not self.conn_settings[connector].uses_gateway_generic_connector():
+                            is_gateway_network = False
+
                     swap_provider = None
                     if is_gateway_network:
                         gateway_client = GatewayHttpClient.get_instance()
