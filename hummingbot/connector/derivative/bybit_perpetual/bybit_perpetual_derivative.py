@@ -774,9 +774,6 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
     async def _execute_set_position_mode(self, mode: PositionMode):
         """Bybit sets position mode per-symbol, so we must loop over all trading pairs."""
         async with self._set_position_mode_lock:
-            if mode == self._perpetual_trading.position_mode:
-                return
-
             all_success = True
             msg = ""
             for trading_pair in self.trading_pairs:
