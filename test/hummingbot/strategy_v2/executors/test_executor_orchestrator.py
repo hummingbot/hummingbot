@@ -663,6 +663,8 @@ class TestExecutorOrchestrator(unittest.TestCase):
         existing_position = PositionHold("binance", "ETH-USDT", TradeType.BUY)
         existing_position.buy_amount_base = Decimal("2")
         existing_position.buy_amount_quote = Decimal("400")
+        existing_position.net_amount_base = Decimal("2")
+        existing_position.avg_entry_price = Decimal("200")
         existing_position.volume_traded_quote = Decimal("400")
 
         # Create executor that should add to existing position

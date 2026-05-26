@@ -40,25 +40,86 @@ class PositionHold:
         # Store only client order IDs
         self.order_ids = set()
 
-        # Pre-calculated metrics
+        # Net position tracking (positive = long, negative = short)
+        self.net_amount_base = Decimal("0")
+        self.avg_entry_price = Decimal("0")
+
+        # Accumulated metrics
+        self.realized_pnl_quote = Decimal("0")
         self.volume_traded_quote = Decimal("0")
         self.cum_fees_quote = Decimal("0")
 
-        # Separate tracking for buys and sells
+        # Separate tracking for buys and sells (for logging/diagnostics)
         self.buy_amount_base = Decimal("0")
         self.buy_amount_quote = Decimal("0")
         self.sell_amount_base = Decimal("0")
         self.sell_amount_quote = Decimal("0")
 
+    def _process_order(self, is_buy: bool, amount_base: Decimal, amount_quote: Decimal):
+        """
+        Process an order incrementally: realize PnL when reducing position,
+        update avg_entry_price when adding to position.
+        """
+        if amount_base == 0:
+            return
+
+        order_price = amount_quote / amount_base
+        is_reducing = (self.net_amount_base > 0 and not is_buy) or (self.net_amount_base < 0 and is_buy)
+
+        if is_reducing:
+            abs_net = abs(self.net_amount_base)
+            matched = min(amount_base, abs_net)
+
+            # Realize PnL on matched portion
+            if self.net_amount_base > 0:
+                self.realized_pnl_quote += (order_price - self.avg_entry_price) * matched
+            else:
+                self.realized_pnl_quote += (self.avg_entry_price - order_price) * matched
+
+            excess = amount_base - matched
+            if excess > 0:
+                # Position flipped to opposite side
+                self.net_amount_base = excess if is_buy else -excess
+                self.avg_entry_price = order_price
+            elif matched == abs_net:
+                # Position fully closed
+                self.net_amount_base = Decimal("0")
+                self.avg_entry_price = Decimal("0")
+            else:
+                # Position partially reduced, avg_entry_price stays the same
+                if self.net_amount_base > 0:
+                    self.net_amount_base -= matched
+                else:
+                    self.net_amount_base += matched
+        else:
+            # Adding to position or first order
+            if self.net_amount_base == 0:
+                self.net_amount_base = amount_base if is_buy else -amount_base
+                self.avg_entry_price = order_price
+            else:
+                abs_net = abs(self.net_amount_base)
+                total_cost = self.avg_entry_price * abs_net + amount_quote
+                new_abs = abs_net + amount_base
+                self.avg_entry_price = total_cost / new_abs
+                self.net_amount_base = new_abs if is_buy else -new_abs
+
     def add_orders_from_executor(self, executor: ExecutorInfo):
         custom_info = executor.custom_info
         if "held_position_orders" not in custom_info or len(custom_info["held_position_orders"]) == 0:
+            logging.getLogger(__name__).warning(
+                f"PositionHold.add_orders: executor {executor.id[:8]} has no held_position_orders. "
+                f"close_type={executor.close_type} side={executor.config.side} "
+                f"level_id={custom_info.get('level_id', 'N/A')}"
+            )
             return
 
         for order in custom_info["held_position_orders"]:
             # Skip if we've already processed this order
             order_id = order.get("client_order_id")
             if order_id in self.order_ids:
+                logging.getLogger(__name__).debug(
+                    f"PositionHold.add_orders: skipping duplicate order {order_id}"
+                )
                 continue
 
             # Add the order ID to our set
@@ -69,11 +130,16 @@ class PositionHold:
             executed_amount_quote = Decimal(str(order.get("executed_amount_quote", 0)))
 
             is_buy = order.get("trade_type") == "BUY"
+            order_type_label = order.get("order_type", "N/A")
+            position_action = order.get("position", "N/A")
+
+            # Snapshot before
+            prev_net = self.net_amount_base
 
             # Update volume traded in quote
             self.volume_traded_quote += executed_amount_quote
 
-            # Update buy/sell amounts
+            # Update buy/sell totals (for logging/diagnostics)
             if is_buy:
                 self.buy_amount_base += executed_amount_base
                 self.buy_amount_quote += executed_amount_quote
@@ -84,48 +150,51 @@ class PositionHold:
             # Update fees (tx fees paid)
             self.cum_fees_quote += Decimal(str(order.get("cumulative_fee_paid_quote", 0)))
 
+            # Process order for incremental PnL calculation
+            self._process_order(is_buy, executed_amount_base, executed_amount_quote)
+
+            logging.getLogger(__name__).info(
+                f"PositionHold.add_orders: {self.trading_pair} | "
+                f"order={order_id[:12] if order_id else 'N/A'} | "
+                f"trade_type={'BUY' if is_buy else 'SELL'} | "
+                f"order_type={order_type_label} | position_action={position_action} | "
+                f"amount_base={executed_amount_base} amount_quote={executed_amount_quote:.2f} | "
+                f"executor_side={executor.config.side} level={custom_info.get('level_id', 'N/A')} | "
+                f"net_before={prev_net} -> net_after={self.net_amount_base} | "
+                f"avg_entry={self.avg_entry_price:.4f} realized_pnl={self.realized_pnl_quote:.4f} | "
+                f"buy_total={self.buy_amount_base} sell_total={self.sell_amount_base}"
+            )
+
     def get_position_summary(self, mid_price: Decimal):
-        # Calculate buy and sell breakeven prices
-        buy_breakeven_price = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
-        sell_breakeven_price = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
+        abs_amount = abs(self.net_amount_base)
+        is_net_long = self.net_amount_base >= 0
 
-        # Calculate matched volume (minimum of buy and sell base amounts)
-        matched_amount_base = min(self.buy_amount_base, self.sell_amount_base)
-
-        # Calculate realized PnL from matched volume
-        realized_pnl_quote = (sell_breakeven_price - buy_breakeven_price) * matched_amount_base if matched_amount_base > 0 else Decimal("0")
-
-        # Calculate net position amount and direction
-        net_amount_base = self.buy_amount_base - self.sell_amount_base
-        is_net_long = net_amount_base >= 0
-
-        # Calculate unrealized PnL for the remaining unmatched volume
+        # Calculate unrealized PnL for remaining open position
         unrealized_pnl_quote = Decimal("0")
-        breakeven_price = Decimal("0")
-        if net_amount_base != 0:
+        if abs_amount > 0:
             if is_net_long:
-                # Long position: remaining buy amount
-                remaining_base = net_amount_base
-                remaining_quote = self.buy_amount_quote - (matched_amount_base * buy_breakeven_price)
-                breakeven_price = remaining_quote / remaining_base if remaining_base != 0 else Decimal("0")
-                unrealized_pnl_quote = (mid_price - breakeven_price) * remaining_base
+                unrealized_pnl_quote = (mid_price - self.avg_entry_price) * abs_amount
             else:
-                # Short position: remaining sell amount
-                remaining_base = abs(net_amount_base)
-                remaining_quote = self.sell_amount_quote - (matched_amount_base * sell_breakeven_price)
-                breakeven_price = remaining_quote / remaining_base if remaining_base != 0 else Decimal("0")
-                unrealized_pnl_quote = (breakeven_price - mid_price) * remaining_base
+                unrealized_pnl_quote = (self.avg_entry_price - mid_price) * abs_amount
 
-        return PositionSummary(
+        summary = PositionSummary(
             connector_name=self.connector_name,
             trading_pair=self.trading_pair,
             volume_traded_quote=self.volume_traded_quote,
-            amount=abs(net_amount_base),
+            amount=abs_amount,
             side=TradeType.BUY if is_net_long else TradeType.SELL,
-            breakeven_price=breakeven_price,
+            breakeven_price=self.avg_entry_price,
             unrealized_pnl_quote=unrealized_pnl_quote,
-            realized_pnl_quote=realized_pnl_quote,
+            realized_pnl_quote=self.realized_pnl_quote,
             cum_fees_quote=self.cum_fees_quote)
+
+        logging.getLogger(__name__).debug(
+            f"PositionHold.summary: {self.trading_pair} | "
+            f"net={'LONG' if is_net_long else 'SHORT'} {abs_amount} @ entry={self.avg_entry_price:.4f} | "
+            f"unrealized_pnl={unrealized_pnl_quote:.4f} realized_pnl={self.realized_pnl_quote:.4f} | "
+            f"mid_price={mid_price:.4f} orders={len(self.order_ids)}"
+        )
+        return summary
 
 
 class ExecutorOrchestrator:
@@ -227,20 +296,18 @@ class ExecutorOrchestrator:
         position_hold.volume_traded_quote = db_position.volume_traded_quote
         position_hold.cum_fees_quote = db_position.cum_fees_quote
 
-        # Since the database stores the net position, we need to reconstruct the buy/sell amounts
-        # We assume this represents the remaining unmatched position after any realized trades
+        # Restore net position and avg entry price from database
         if db_position.side == "BUY":
-            # This is a net long position
+            position_hold.net_amount_base = db_position.amount
             position_hold.buy_amount_base = db_position.amount
             position_hold.buy_amount_quote = db_position.amount * db_position.breakeven_price
-            position_hold.sell_amount_base = Decimal("0")
-            position_hold.sell_amount_quote = Decimal("0")
         else:
-            # This is a net short position
+            position_hold.net_amount_base = -db_position.amount
             position_hold.sell_amount_base = db_position.amount
             position_hold.sell_amount_quote = db_position.amount * db_position.breakeven_price
-            position_hold.buy_amount_base = Decimal("0")
-            position_hold.buy_amount_quote = Decimal("0")
+        position_hold.avg_entry_price = db_position.breakeven_price
+        # Restore realized PnL if available
+        position_hold.realized_pnl_quote = getattr(db_position, 'realized_pnl_quote', Decimal("0"))
 
         # Add to positions held
         self.positions_held[controller_id].append(position_hold)
@@ -280,21 +347,16 @@ class ExecutorOrchestrator:
                     position_config.side
                 )
 
-                # Set amounts based on side
+                # Set net position and avg entry price
                 if position_config.side == TradeType.BUY:
+                    position_hold.net_amount_base = position_config.amount
                     position_hold.buy_amount_base = position_config.amount
                     position_hold.buy_amount_quote = quote_amount
-                    position_hold.sell_amount_base = Decimal("0")
-                    position_hold.sell_amount_quote = Decimal("0")
                 else:
+                    position_hold.net_amount_base = -position_config.amount
                     position_hold.sell_amount_base = position_config.amount
                     position_hold.sell_amount_quote = quote_amount
-                    position_hold.buy_amount_base = Decimal("0")
-                    position_hold.buy_amount_quote = Decimal("0")
-
-                # Set fees and volume to 0 (as specified - this is a fresh start)
-                position_hold.volume_traded_quote = Decimal("0")
-                position_hold.cum_fees_quote = Decimal("0")
+                position_hold.avg_entry_price = mid_price
 
                 # Add to positions held
                 self.positions_held[controller_id].append(position_hold)
@@ -469,17 +531,46 @@ class ExecutorOrchestrator:
                 # Determine position side (handling perpetual markets)
                 position_side = self._determine_position_side(executor_info)
 
+                held_orders = executor_info.custom_info.get("held_position_orders", [])
+                held_summary = [
+                    f"{o.get('trade_type')}:{o.get('executed_amount_base')}@{o.get('position', 'N/A')}"
+                    for o in held_orders
+                ]
+
+                self.logger().info(
+                    f"Processing POSITION_HOLD executor: {executor_info.id[:8]} | "
+                    f"controller={controller_id} | side={executor_info.config.side} | "
+                    f"level={executor_info.custom_info.get('level_id', 'N/A')} | "
+                    f"position_side_resolved={position_side} | "
+                    f"held_orders({len(held_orders)}): {held_summary} | "
+                    f"existing_positions={len(positions)}"
+                )
+
                 # Find or create position
                 existing_position = self._find_existing_position(positions, executor_info, position_side)
 
                 if existing_position:
+                    prev_net = existing_position.net_amount_base
+                    self.logger().info(
+                        f"  -> MATCHED existing position: side={existing_position.side} "
+                        f"net_before={prev_net} avg_entry={existing_position.avg_entry_price:.4f}"
+                    )
                     existing_position.add_orders_from_executor(executor_info)
+                    self.logger().info(
+                        f"  -> After merge: net={existing_position.net_amount_base} "
+                        f"avg_entry={existing_position.avg_entry_price:.4f} "
+                        f"realized_pnl={existing_position.realized_pnl_quote:.4f}"
+                    )
                 else:
                     # Create new position (handles both spot/perp and LP)
+                    assigned_side = position_side if position_side else executor_info.config.side
+                    self.logger().info(
+                        f"  -> NO existing position found. Creating NEW PositionHold with side={assigned_side}"
+                    )
                     position = PositionHold(
                         executor_info.connector_name,
                         executor_info.trading_pair,
-                        position_side if position_side else executor_info.config.side
+                        assigned_side
                     )
                     position.add_orders_from_executor(executor_info)
                     positions.append(position)
