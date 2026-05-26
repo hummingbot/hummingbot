@@ -74,8 +74,8 @@ class PMMisterConfig(ControllerConfigBase):
     global_pnl_reference: str = Field(default="position", json_schema_extra={"is_updatable": True})
 
     # Limit chaser config for position closing (tight values for fast fills)
-    close_chaser_distance: Decimal = Field(default=Decimal("0.0003"), json_schema_extra={"is_updatable": True})
-    close_chaser_refresh_threshold: Decimal = Field(default=Decimal("0.0003"), json_schema_extra={"is_updatable": True})
+    close_chaser_distance: Decimal = Field(default=Decimal("0.0001"), json_schema_extra={"is_updatable": True})
+    close_chaser_refresh_threshold: Decimal = Field(default=Decimal("0.0005"), json_schema_extra={"is_updatable": True})
 
     @field_validator("take_profit", mode="before")
     @classmethod
