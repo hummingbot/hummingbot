@@ -153,7 +153,7 @@ class PositionHold:
             # Process order for incremental PnL calculation
             self._process_order(is_buy, executed_amount_base, executed_amount_quote)
 
-            logging.getLogger(__name__).info(
+            logging.getLogger(__name__).debug(
                 f"PositionHold.add_orders: {self.trading_pair} | "
                 f"order={order_id[:12] if order_id else 'N/A'} | "
                 f"trade_type={'BUY' if is_buy else 'SELL'} | "
@@ -537,7 +537,7 @@ class ExecutorOrchestrator:
                     for o in held_orders
                 ]
 
-                self.logger().info(
+                self.logger().debug(
                     f"Processing POSITION_HOLD executor: {executor_info.id[:8]} | "
                     f"controller={controller_id} | side={executor_info.config.side} | "
                     f"level={executor_info.custom_info.get('level_id', 'N/A')} | "
@@ -550,22 +550,16 @@ class ExecutorOrchestrator:
                 existing_position = self._find_existing_position(positions, executor_info, position_side)
 
                 if existing_position:
-                    prev_net = existing_position.net_amount_base
-                    self.logger().info(
-                        f"  -> MATCHED existing position: side={existing_position.side} "
-                        f"net_before={prev_net} avg_entry={existing_position.avg_entry_price:.4f}"
-                    )
                     existing_position.add_orders_from_executor(executor_info)
-                    self.logger().info(
-                        f"  -> After merge: net={existing_position.net_amount_base} "
-                        f"avg_entry={existing_position.avg_entry_price:.4f} "
-                        f"realized_pnl={existing_position.realized_pnl_quote:.4f}"
+                    self.logger().debug(
+                        f"Merged executor {executor_info.id[:8]} into existing position: "
+                        f"net={existing_position.net_amount_base} avg_entry={existing_position.avg_entry_price:.4f}"
                     )
                 else:
                     # Create new position (handles both spot/perp and LP)
                     assigned_side = position_side
-                    self.logger().info(
-                        f"  -> NO existing position found. Creating NEW PositionHold with side={assigned_side}"
+                    self.logger().debug(
+                        f"Creating new PositionHold for executor {executor_info.id[:8]} with side={assigned_side}"
                     )
                     position = PositionHold(
                         executor_info.connector_name,
