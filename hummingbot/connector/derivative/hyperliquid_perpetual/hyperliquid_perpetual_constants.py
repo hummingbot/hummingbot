@@ -90,6 +90,10 @@ ORDER_STATE = {
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
+# Max time to wait for a websocket message before assuming the connection is half-open (no data, no close
+# frame) and forcing a keepalive ping / reconnection. Set above HEARTBEAT_TIME_INTERVAL so the periodic ping
+# (and its pong) keeps a healthy connection from timing out.
+WS_MESSAGE_TIMEOUT = 60.0
 
 MAX_REQUEST = 1_200
 ALL_ENDPOINTS_LIMIT = "All"
