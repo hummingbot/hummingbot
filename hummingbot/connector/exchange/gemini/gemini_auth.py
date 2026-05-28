@@ -15,6 +15,7 @@ class GeminiAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
+        self._last_nonce: int = 0
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -104,8 +105,6 @@ class GeminiAuth(AuthBase):
             "X-GEMINI-SIGNATURE": signature,
         }
 
-    _last_nonce: int = 0
-
     def _get_nonce(self) -> int:
         """Nonce must be in seconds and within 30s of Gemini server time.
         We ensure monotonic increase to avoid collisions on rapid requests,
@@ -115,10 +114,10 @@ class GeminiAuth(AuthBase):
         else:
             nonce = int(time.time())
         # Reset counter if it drifted more than 15 seconds ahead of current time
-        if GeminiAuth._last_nonce > nonce + 15:
-            GeminiAuth._last_nonce = 0
+        if self._last_nonce > nonce + 15:
+            self._last_nonce = 0
         # Ensure strictly increasing nonce for rapid sequential requests
-        if nonce <= GeminiAuth._last_nonce:
-            nonce = GeminiAuth._last_nonce + 1
-        GeminiAuth._last_nonce = nonce
+        if nonce <= self._last_nonce:
+            nonce = self._last_nonce + 1
+        self._last_nonce = nonce
         return nonce
