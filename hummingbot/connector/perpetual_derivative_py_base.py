@@ -38,6 +38,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
+        self._set_position_mode_lock = asyncio.Lock()
 
     @property
     @abstractmethod
@@ -116,18 +117,21 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         Fetches the current position mode from the exchange and syncs local state.
         Called during start_network to ensure the local position mode reflects reality.
         """
-        try:
-            mode = await self._fetch_account_position_mode()
-            if mode is not None:
-                self._perpetual_trading.set_position_mode(mode)
-                self.logger().debug(f"Initialized position mode to {mode} from exchange.")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().warning(
-                "Could not fetch position mode from exchange. Using default.",
-                exc_info=True,
-            )
+        async with self._set_position_mode_lock:
+            try:
+                mode = await self._fetch_account_position_mode()
+                if mode is not None:
+                    self._perpetual_trading.set_position_mode(mode)
+                    self.logger().info(f"Position mode initialized to {mode} from exchange.")
+                else:
+                    self.logger().warning("Exchange returned None for position mode. Using default.")
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().warning(
+                    "Could not fetch position mode from exchange. Using default.",
+                    exc_info=True,
+                )
 
     async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
         """
@@ -330,54 +334,49 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         )
 
     async def _execute_set_position_mode(self, mode: PositionMode):
-        success, successful_pairs, msg = await self._execute_set_position_mode_for_pairs(
-            mode=mode, trading_pairs=self.trading_pairs
-        )
+        async with self._set_position_mode_lock:
+            try:
+                exchange_mode = await self._fetch_account_position_mode()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().warning(f"Could not fetch position mode from exchange: {e}")
+                exchange_mode = None
 
-        if not success:
-            await self._execute_set_position_mode_for_pairs(
-                mode=self._perpetual_trading.position_mode, trading_pairs=successful_pairs
-            )
-            for trading_pair in self.trading_pairs:
-                self.trigger_event(
-                    AccountEvent.PositionModeChangeFailed,
-                    PositionModeChangeEvent(
-                        self.current_timestamp,
-                        trading_pair,
-                        mode,
-                        msg,
-                    ),
-                )
-        else:
-            self._perpetual_trading.set_position_mode(mode)
-            for trading_pair in self.trading_pairs:
-                self.trigger_event(
-                    AccountEvent.PositionModeChangeSucceeded,
-                    PositionModeChangeEvent(
-                        self.current_timestamp,
-                        trading_pair,
-                        mode,
-                    )
-                )
-            self.logger().debug(f"Position mode switched to {mode}.")
+            self.logger().info(
+                f"Setting position mode: requested={mode}, current_exchange={exchange_mode}")
 
-    async def _execute_set_position_mode_for_pairs(
-        self, mode: PositionMode, trading_pairs: List[str]
-    ) -> Tuple[bool, List[str], str]:
-        successful_pairs = []
-        success = True
-        msg = ""
+            if exchange_mode == mode:
+                self._perpetual_trading.set_position_mode(mode)
+                self._fire_position_mode_events(mode, success=True)
+                self.logger().info(f"Position mode already set to {mode} on exchange.")
+                return
 
-        for trading_pair in trading_pairs:
-            if mode != self._perpetual_trading.position_mode:
-                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
+            if not self.trading_pairs:
+                self.logger().warning("No trading pairs configured, cannot set position mode.")
+                return
+
+            success, msg = await self._trading_pair_position_mode_set(mode, self.trading_pairs[0])
+
             if success:
-                successful_pairs.append(trading_pair)
+                self._perpetual_trading.set_position_mode(mode)
+                self._fire_position_mode_events(mode, success=True)
+                self.logger().info(f"Position mode switched to {mode}.")
             else:
-                self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
-                break
+                self._fire_position_mode_events(mode, success=False, message=msg)
+                self.logger().error(
+                    f"Failed to set position mode to {mode}: {msg}")
 
-        return success, successful_pairs, msg
+    def _fire_position_mode_events(self, mode: PositionMode, success: bool, message: str = ""):
+        event_tag = (
+            AccountEvent.PositionModeChangeSucceeded if success
+            else AccountEvent.PositionModeChangeFailed
+        )
+        for trading_pair in self.trading_pairs:
+            self.trigger_event(
+                event_tag,
+                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode, message),
+            )
 
     async def _execute_set_leverage(self, trading_pair: str, leverage: int):
         success, msg = await self._set_trading_pair_leverage(trading_pair, leverage)
