@@ -799,7 +799,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config.id = "terminated_executor_1"
 
         executor = MagicMock(spec=PositionExecutor)
-        executor.is_closed = True
+        executor.status = RunnableStatus.TERMINATED
         executor.close_type = CloseType.STOP_LOSS
         executor.executor_info = ExecutorInfo(
             id="terminated_executor_1", timestamp=1234, type="position_executor",
@@ -845,7 +845,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config.id = "position_hold_executor"
 
         executor = MagicMock(spec=PositionExecutor)
-        executor.is_closed = True
+        executor.status = RunnableStatus.TERMINATED
         executor.close_type = CloseType.POSITION_HOLD
         executor.executor_info = ExecutorInfo(
             id="position_hold_executor", timestamp=1234, type="position_executor",
@@ -888,7 +888,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
         config.id = "running_executor"
 
         executor = MagicMock(spec=PositionExecutor)
-        executor.is_closed = False
+        executor.status = RunnableStatus.RUNNING
         executor.close_type = None
         executor.executor_info = ExecutorInfo(
             id="running_executor", timestamp=1234, type="position_executor",
@@ -928,7 +928,7 @@ class TestExecutorOrchestrator(unittest.TestCase):
             )
             config.id = eid
             executor = MagicMock(spec=PositionExecutor)
-            executor.is_closed = True
+            executor.status = RunnableStatus.TERMINATED
             executor.close_type = close_type
             executor.executor_info = ExecutorInfo(
                 id=eid, timestamp=1234, type="position_executor",

@@ -28,6 +28,7 @@ from hummingbot.strategy_v2.models.executor_actions import (
     StopExecutorAction,
     StoreExecutorAction,
 )
+from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
 from hummingbot.strategy_v2.models.executors_info import ExecutorInfo, PerformanceReport
 
@@ -451,13 +452,7 @@ class ExecutorOrchestrator:
         for controller_id, executors_list in list(self.active_executors.items()):
             stored = []
             for executor in executors_list:
-                try:
-                    if not executor.is_closed:
-                        continue
-                    if executor.close_type is None:
-                        continue
-                except Exception as e:
-                    self.logger().debug(f"Error checking executor state for {executor.config.id}: {e}")
+                if executor.status != RunnableStatus.TERMINATED:
                     continue
                 try:
                     MarketsRecorder.get_instance().store_or_update_executor(executor)
