@@ -18,7 +18,7 @@ from hummingbot.connector.test_support.perpetual_derivative_test import Abstract
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TradeFeeBase
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 
@@ -971,7 +971,7 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.async_run_with_timeout(asyncio.sleep(0.2))
         self.assertTrue(
             self.is_logged(
-                log_level="DEBUG",
+                log_level="INFO",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )
@@ -1081,6 +1081,61 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertTrue(order.is_open)
         self.assertNotIn(
             order.client_order_id, self.exchange._order_tracker._order_not_found_records
+        )
+
+    @aioresponses()
+    async def test_update_order_status_failed_order_includes_failure_metadata(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(
+            mock_api,
+            self._inactive_order_payload(order, "canceled-post-only", filled="0"),
+        )
+
+        await self.exchange._update_order_status()
+        await asyncio.sleep(0.1)
+
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[-1]
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual("canceled-post-only", failure_event.error_type)
+        self.assertEqual("Exchange order status: canceled-post-only", failure_event.error_message)
+
+    async def test_process_order_events_failed_order_includes_failure_metadata(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT_MAKER,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order.current_state = OrderState.OPEN
+
+        self.exchange._process_order_events(self._order_ws_event(order, "canceled-not-enough-liquidity"))
+        await asyncio.sleep(0.1)
+
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[-1]
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+        self.assertEqual(OrderType.LIMIT_MAKER, failure_event.order_type)
+        self.assertEqual("canceled-not-enough-liquidity", failure_event.error_type)
+        self.assertEqual(
+            "Exchange order status: canceled-not-enough-liquidity",
+            failure_event.error_message,
         )
 
     async def test_user_stream_balance_update(self):

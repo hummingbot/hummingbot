@@ -35,7 +35,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -83,6 +83,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         # Single-flight task for WS-triggered balance refresh: Lighter's account_all_assets
         # event lacks `available_balance`, so we use the event as a trigger to refresh from REST.
         self._balance_refresh_task: Optional[asyncio.Task] = None
+        self._real_time_balance_update = False
         self._signer_client = self._create_signer_client() if trading_required and self._account_index is not None else None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -402,6 +403,18 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         return []
 
+    @staticmethod
+    def _order_misc_updates(order_data: Dict[str, Any], state: OrderState) -> Optional[Dict[str, Any]]:
+        if state != OrderState.FAILED:
+            return None
+
+        status = str(order_data.get("status", ""))
+        # Kept both fields populated for compatibility with existing failure-event logging.
+        return {
+            "error_type": status,
+            "error_message": f"Exchange order status: {status}",
+        }
+
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         order_data = await self._find_order(tracked_order=tracked_order, include_inactive=True)
         if order_data is None:
@@ -418,14 +431,16 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                     exchange_order_id=tracked_order.exchange_order_id,
                 )
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {tracked_order.client_order_id}")
+        new_state = order_state_from_order_data(order_data)
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=timestamp_us_to_seconds(
                 order_data.get("updated_at", order_data.get("transaction_time"))
             ),
-            new_state=order_state_from_order_data(order_data),
+            new_state=new_state,
             client_order_id=str(order_data["client_order_id"]),
             exchange_order_id=str(order_data["order_id"]),
+            misc_updates=self._order_misc_updates(order_data=order_data, state=new_state),
         )
 
     async def _update_balances(self):
@@ -444,11 +459,11 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
 
         for asset in account.get("assets", []):
             asset_name = str(asset["symbol"]).upper()
-            spot_balance = self._safe_decimal(asset.get("balance", "0"))
+            # spot_balance = self._safe_decimal(asset.get("balance", "0"))
             locked_balance = self._safe_decimal(asset.get("locked_balance", "0"))
-            total_balance = self._safe_decimal(asset.get("margin_balance", "0")) + spot_balance
+            total_balance = self._safe_decimal(asset.get("margin_balance", "0"))
             self._account_balances[asset_name] = total_balance
-            self._account_available_balances[asset_name] = available + spot_balance if asset_name == CONSTANTS.COLLATERAL_TOKEN else total_balance - locked_balance
+            self._account_available_balances[asset_name] = available if asset_name == CONSTANTS.COLLATERAL_TOKEN else total_balance - locked_balance
             remote_asset_names.add(asset_name)
 
         for asset_name in local_asset_names.difference(remote_asset_names):
@@ -712,32 +727,36 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         return None
 
     def _process_order_events(self, order_payload: Any):
-        if isinstance(order_payload, dict):
-            groups = order_payload.values()
-        else:
-            groups = [order_payload]
-        for group in groups:
-            if isinstance(group, dict):
-                group = [group]
-            if not isinstance(group, list):
+        def iter_orders(payload: Any):
+            if isinstance(payload, list):
+                for item in payload:
+                    yield from iter_orders(item)
+            elif isinstance(payload, dict):
+                if "client_order_id" in payload or "order_id" in payload:
+                    yield payload
+                    return
+                for value in payload.values():
+                    yield from iter_orders(value)
+
+        for order in iter_orders(order_payload):
+            client_order_id = str(order.get("client_order_id", ""))
+            if client_order_id == "":
                 continue
-            for order in group:
-                client_order_id = str(order.get("client_order_id", ""))
-                if client_order_id == "":
-                    continue
-                tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                if tracked_order is None:
-                    continue
-                order_update = OrderUpdate(
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=timestamp_us_to_seconds(
-                        order.get("updated_at", order.get("transaction_time"))
-                    ),
-                    new_state=order_state_from_order_data(order),
-                    client_order_id=client_order_id,
-                    exchange_order_id=str(order.get("order_id")),
-                )
-                self._order_tracker.process_order_update(order_update)
+            tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+            if tracked_order is None:
+                continue
+            new_state = order_state_from_order_data(order)
+            order_update = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=timestamp_us_to_seconds(
+                    order.get("updated_at", order.get("transaction_time"))
+                ),
+                new_state=new_state,
+                client_order_id=client_order_id,
+                exchange_order_id=str(order.get("order_id")),
+                misc_updates=self._order_misc_updates(order_data=order, state=new_state),
+            )
+            self._order_tracker.process_order_update(order_update)
 
     def _process_trade_events(self, trade_payload: Any):
         if isinstance(trade_payload, dict):
