@@ -434,7 +434,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_run_with_timeout(asyncio.sleep(0.5))
         self.assertTrue(
             self.is_logged(
-                log_level="DEBUG",
+                log_level="INFO",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )
