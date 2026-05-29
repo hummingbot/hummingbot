@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
+from hummingbot.connector.exchange.gemini.gemini_constants import convert_timestamp_to_seconds
 from hummingbot.connector.exchange.gemini.gemini_utils import (
     CENTRALIZED,
     DEFAULT_FEES,
@@ -31,3 +32,11 @@ class GeminiUtilsTests(TestCase):
         fields = GeminiConfigMap.model_fields
         self.assertIn("gemini_api_key", fields)
         self.assertIn("gemini_api_secret", fields)
+
+    def test_convert_timestamp_to_seconds(self):
+        # Nanoseconds (> 1e15) -> seconds
+        self.assertAlmostEqual(1700000000.0, convert_timestamp_to_seconds(1_700_000_000_000_000_000))
+        # Milliseconds (> 1e11) -> seconds
+        self.assertAlmostEqual(1700000000.0, convert_timestamp_to_seconds(1_700_000_000_000))
+        # Already in seconds -> unchanged
+        self.assertEqual(1700000000, convert_timestamp_to_seconds(1_700_000_000))

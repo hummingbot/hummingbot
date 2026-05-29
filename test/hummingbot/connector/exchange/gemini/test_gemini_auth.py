@@ -68,6 +68,55 @@ class GeminiAuthTests(TestCase):
         # Verify body is cleared (Gemini uses headers, not body)
         self.assertIsNone(configured_request.data)
 
+    def test_rest_authenticate_with_dict_data_and_existing_headers(self):
+        now = 1234567890.000
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.return_value = now
+
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+
+        request = RESTRequest(
+            method=RESTMethod.POST,
+            data={"request": "/v1/balances"},
+            headers={"X-Custom": "keep-me"},
+            is_auth_required=True,
+        )
+        configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
+
+        # Pre-existing headers must be preserved
+        self.assertEqual("keep-me", configured_request.headers["X-Custom"])
+        decoded_payload = json.loads(base64.b64decode(configured_request.headers["X-GEMINI-PAYLOAD"]))
+        self.assertEqual("/v1/balances", decoded_payload["request"])
+        self.assertEqual(int(now), decoded_payload["nonce"])
+
+    def test_nonce_is_monotonically_increasing(self):
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.return_value = 1234567890.000
+
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+
+        first = auth._get_nonce()
+        second = auth._get_nonce()
+        third = auth._get_nonce()
+        self.assertEqual(1234567890, first)
+        self.assertEqual(1234567891, second)
+        self.assertEqual(1234567892, third)
+
+    def test_nonce_resets_when_counter_drifts_ahead(self):
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.return_value = 1234567890.000
+
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+        # Simulate a counter that drifted far ahead of current time (e.g. clock correction)
+        auth._last_nonce = 1234567890 + 100
+        nonce = auth._get_nonce()
+        self.assertEqual(1234567890, nonce)
+
+    def test_nonce_uses_local_time_without_provider(self):
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=None)
+        nonce = auth._get_nonce()
+        self.assertGreater(nonce, 0)
+
     def test_ws_authenticate(self):
         now = 1234567890.000
         mock_time_provider = MagicMock()
