@@ -62,6 +62,14 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
+        # Builder code support (HGP-87). Defaults to the Foundation builder identity at a 0 fee
+        # (attribution only). Applications may override via _load_builder_override().
+        self._builder_address: Optional[str] = (
+            CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
+            if CONSTANTS.FOUNDATION_BUILDER_ADDRESS is not None
+            else None
+        )
+        self._builder_fee_tenths_bps: int = CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -370,6 +378,11 @@ class HyperliquidExchange(ExchangePyBase):
                 "cloid": order_id,
             }
         }
+        # Builder code attribution (HGP-87). Injected here so it is part of the action dict
+        # passed to the authenticator and therefore included in the EIP-712 signed payload.
+        builder_field = self._build_builder_field()
+        if builder_field is not None:
+            api_params["builder"] = builder_field
         order_result = await self._api_post(
             path_url = CONSTANTS.CREATE_ORDER_URL,
             data = api_params,
@@ -383,6 +396,103 @@ class HyperliquidExchange(ExchangePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
+
+    # === Builder code support (HGP-87) ===
+
+    @property
+    def _is_testnet(self) -> bool:
+        return self._domain == CONSTANTS.TESTNET_DOMAIN
+
+    @property
+    def _builder_fee_cap_tenths_bps(self) -> int:
+        return CONSTANTS.HYPERLIQUID_SPOT_BUILDER_FEE_CAP_TENTHS_BPS
+
+    @property
+    def _effective_builder_address(self) -> Optional[str]:
+        return self._builder_address
+
+    @property
+    def _effective_builder_fee_tenths_bps(self) -> int:
+        return self._builder_fee_tenths_bps
+
+    def _should_inject_builder(self) -> bool:
+        """
+        Connector-level invariants for builder attribution. Both omit cases (vault and testnet)
+        cannot be overridden by config: the venue rejects builder fields on vault orders (wallet
+        identity mismatch) and on testnet (stricter check, regardless of fee value).
+        """
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return False
+        if self._use_vault:
+            return False
+        if self._is_testnet:
+            return False
+        return self._effective_builder_address is not None
+
+    def _build_builder_field(self) -> Optional[Dict[str, Any]]:
+        """
+        Builds the Hyperliquid builder field ``{"b": <address>, "f": <tenths_of_bps>}`` to attach
+        to an order action, or ``None`` when builder attribution should be omitted. The address is
+        lowercased because Hyperliquid rejects mixed-case addresses in the builder field.
+        """
+        if not self._should_inject_builder():
+            return None
+        return {
+            "b": self._effective_builder_address.lower(),
+            "f": self._effective_builder_fee_tenths_bps,
+        }
+
+    def _load_builder_override(self, config: Optional[Dict[str, Any]]) -> None:
+        """
+        Applies an application-provided builder override (e.g. from the connector YAML config),
+        validating the fee against the Hyperliquid protocol cap. The venue would reject orders
+        whose fee exceeds the cap, so this fails fast at load time.
+        """
+        if not config:
+            return
+        builder = config.get("builder")
+        if builder is None:
+            return
+        address = builder["address"]
+        fee_bps = int(builder["fee_bps"])
+        fee_tenths_bps = fee_bps * 10
+        cap = self._builder_fee_cap_tenths_bps
+        if fee_tenths_bps > cap:
+            raise ValueError(
+                f"builder.fee_bps={fee_bps} exceeds Hyperliquid protocol cap "
+                f"of {cap // 10} bps. The venue would reject this order."
+            )
+        self._builder_address = address.lower()
+        self._builder_fee_tenths_bps = fee_tenths_bps
+
+    async def get_builder_info(self) -> Dict[str, Any]:
+        """
+        Returns the builder attribution state for this connector (the ``/builder-info`` handler).
+        On testnet, vault, or when no builder is configured, attribution is structurally
+        unavailable and the handler reports ``{"supported": False}``. Otherwise it queries the
+        user's approved max builder fee; at the Foundation 0-bps default ``approved`` is trivially
+        ``True`` since the approved max is >= 0 for any user.
+        """
+        if self._is_testnet or self._use_vault or self._effective_builder_address is None:
+            return {"supported": False}
+
+        response = await self._api_post(
+            path_url=CONSTANTS.EXCHANGE_INFO_URL,
+            data={
+                "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
+                "user": self.hyperliquid_address,
+                "builder": self._effective_builder_address,
+            },
+        )
+        approved_max_tenths_bps = int(response)
+
+        return {
+            "supported": True,
+            "builder_address": self._effective_builder_address,
+            "fee_bps": self._effective_builder_fee_tenths_bps // 10,
+            "approved": approved_max_tenths_bps >= self._effective_builder_fee_tenths_bps,
+            "approval_expiry_ms": None,  # Hyperliquid approvals do not expire
+        }
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())

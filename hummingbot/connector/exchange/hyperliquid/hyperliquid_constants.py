@@ -5,6 +5,28 @@ EXCHANGE_NAME = "hyperliquid"
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
 
+# === Builder code support (HGP-87) ===
+# Hyperliquid supports per-order builder codes. The connector attaches a Foundation
+# builder address at a zero fee rate to every mainnet order (attribution only), and
+# omits the field entirely on testnet and vault orders (see HyperliquidExchange).
+BUILDER_SUPPORTED = True
+
+# Foundation builder identity. Set after Foundation onboarding (deposit >= 100 USDC into a
+# Foundation-controlled wallet, then record the EVM address here). Left as ``None`` until then,
+# which makes the connector omit the builder field (no attribution) rather than sign an invalid one.
+FOUNDATION_BUILDER_ADDRESS = None
+
+# Foundation default fee. 0 means attribution only (no user-paid fee).
+# Unit: tenths of a basis point (Hyperliquid's ``f`` unit). ``f = 10`` is 1 bp; ``f = 100`` is 10 bps.
+FOUNDATION_BUILDER_FEE_TENTHS_BPS = 0
+
+# Protocol cap for override validation. Unit: tenths of a basis point.
+# Reference: Hyperliquid builder-codes docs. Spot cap is 100 bps.
+HYPERLIQUID_SPOT_BUILDER_FEE_CAP_TENTHS_BPS = 1000  # = 100 bps (spot cap)
+
+# Info-endpoint request type used to query a user's approved max builder fee for a builder.
+MAX_BUILDER_FEE_TYPE = "maxBuilderFee"
+
 MARKET_ORDER_SLIPPAGE = 0.05
 
 DOMAIN = EXCHANGE_NAME
