@@ -1,5 +1,6 @@
 import asyncio
 import json
+from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -7,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_auth import HyperliquidAuth
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_exchange import HyperliquidExchange
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
@@ -52,6 +54,20 @@ class HyperliquidBuilderCodeTests(TestCase):
         connector._builder_address = None
         self.assertIsNone(connector._build_builder_field())
 
+    def test_default_foundation_address_unset_so_field_omitted(self):
+        # Until Foundation onboarding sets the constant, the default connector attaches nothing.
+        self.assertIsNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
+        connector = self._build_connector()
+        self.assertIsNone(connector._builder_address)
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+        self.assertFalse(connector._should_inject_builder())
+
+    def test_builder_field_omitted_when_not_supported(self):
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            self.assertFalse(connector._should_inject_builder())
+
     # ----- omit cases -----
 
     def test_builder_field_omitted_on_vault(self):
@@ -71,6 +87,48 @@ class HyperliquidBuilderCodeTests(TestCase):
         connector._builder_address = self.builder_address
         self.assertTrue(connector._should_inject_builder())
         self.assertIsNotNone(connector._build_builder_field())
+
+    # ----- end-to-end order payload (the field actually reaches the order action) -----
+
+    def _capture_order_payload(self, connector) -> dict:
+        with patch.object(type(connector), "_api_post", new_callable=AsyncMock) as api_post_mock, \
+                patch.object(type(connector), "exchange_symbol_associated_to_pair", new_callable=AsyncMock) as sym_mock:
+            sym_mock.return_value = "HFUN"
+            api_post_mock.return_value = {
+                "status": "ok",
+                "response": {"data": {"statuses": [{"resting": {"oid": 123}}]}},
+            }
+            connector.coin_to_asset = {"HFUN": 10004}
+            self.async_run_with_timeout(connector._place_order(
+                order_id="0x000000000000000000000000000ee056",
+                trading_pair="HFUN-USDC",
+                amount=Decimal("0.01"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("1200"),
+            ))
+            return api_post_mock.call_args.kwargs["data"]
+
+    def test_order_payload_includes_builder_on_mainnet(self):
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address
+        self.assertEqual({"b": self.builder_address.lower(), "f": 0},
+                         self._capture_order_payload(connector)["builder"])
+
+    def test_order_payload_omits_builder_on_testnet(self):
+        connector = self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)
+        connector._builder_address = self.builder_address
+        self.assertNotIn("builder", self._capture_order_payload(connector))
+
+    def test_order_payload_omits_builder_on_vault(self):
+        connector = self._build_connector(use_vault=True)
+        connector._builder_address = self.builder_address
+        self.assertNotIn("builder", self._capture_order_payload(connector))
+
+    def test_order_payload_omits_builder_when_unconfigured(self):
+        connector = self._build_connector()
+        connector._builder_address = None
+        self.assertNotIn("builder", self._capture_order_payload(connector))
 
     # ----- override validation (spot cap is 100 bps) -----
 
