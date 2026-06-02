@@ -434,7 +434,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_run_with_timeout(asyncio.sleep(0.5))
         self.assertTrue(
             self.is_logged(
-                log_level="DEBUG",
+                log_level="INFO",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )
@@ -3088,6 +3088,66 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         from hummingbot.core.data_type.common import PositionSide
         self.assertEqual(PositionSide.SHORT, pos.position_side)
         self.assertLess(pos.amount, 0)
+
+    @aioresponses()
+    def test_update_positions_removes_stale_on_partial_close(self, mock_api):
+        """Closed positions must be evicted from the cache even when other positions remain open.
+
+        Hyperliquid omits closed positions from assetPositions entirely — it does not return
+        them with szi=0.  If only some positions are closed the response is non-empty, so the
+        previous 'if not all_positions' guard was never triggered and stale entries remained in
+        account_positions indefinitely.
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # First poll: two open positions (BTC and ETH).
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "100.0",
+                        "leverage": {"value": 10},
+                    }
+                },
+                {
+                    "position": {
+                        "coin": "ETH",
+                        "szi": "2.0",
+                        "entryPx": "3000.0",
+                        "unrealizedPnl": "50.0",
+                        "leverage": {"value": 5},
+                    }
+                },
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(2, len(self.exchange.account_positions))
+
+        # Second poll: ETH position closed — exchange returns only BTC.
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "120.0",
+                        "leverage": {"value": 10},
+                    }
+                }
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions), "Stale ETH position was not removed after it closed on exchange")
+        pos = list(positions.values())[0]
+        self.assertEqual("BTC-USD", pos.trading_pair)
 
     @aioresponses()
     def test_get_last_traded_price_for_hip3_market(self, mock_api):

@@ -71,7 +71,11 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         url = f"{web_utils.wss_url(self._domain)}"
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=url,
+            ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL,
+            message_timeout=CONSTANTS.WS_MESSAGE_TIMEOUT,
+        )
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
