@@ -540,6 +540,8 @@ class MarketsRecorder:
                                                             status=event_type.name)
                     session.add(order_status)
                     self.save_market_states(self._config_file_path, market, session=session)
+                    if order_record.exchange_order_id:
+                        market._exchange_order_ids.pop(order_record.exchange_order_id, None)
 
     def _did_cancel_order(self,
                           event_tag: int,
