@@ -123,6 +123,28 @@ class DecibelPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         mock_rest_assistant.execute_request.return_value = return_value
         return mock_rest_assistant
 
+    def _user_fee_rates_response(
+        self,
+        user_maker_rate: float = 0.00011,
+        user_taker_rate: float = 0.00034,
+        fee_tier: int = 0,
+        active_referral_discount: float = 0.0,
+    ) -> Dict[str, Any]:
+        return {
+            "account": "0xtest",
+            "user_maker_rate": user_maker_rate,
+            "user_taker_rate": user_taker_rate,
+            "fee_tier": fee_tier,
+            "active_referral_discount": active_referral_discount,
+            "fee_schedule": {
+                "maker": 0.00011,
+                "taker": 0.00034,
+                "referral_discount": 0.04,
+                "tiers": {"vip": [], "market_maker": []},
+            },
+            "daily_user_volume": [],
+        }
+
     def _get_exchange_info_mock_response(
             self,
             min_size: int = 1000,
@@ -299,28 +321,14 @@ class DecibelPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
     async def test_update_time_synchronizer_noop(self):
         await self.exchange._update_time_synchronizer()
 
-    def test_fees_for_30d_volume_matches_tier_schedule(self):
-        """Each documented tier threshold should map to its documented (maker, taker)."""
-        cases = [
-            (Decimal("0"), Decimal("0.00011"), Decimal("0.00034")),           # Tier 0
-            (Decimal("5000000"), Decimal("0.00011"), Decimal("0.00034")),     # Tier 0 (below 10M)
-            (Decimal("10000000"), Decimal("0.00009"), Decimal("0.0003")),     # Tier 1 boundary
-            (Decimal("50000000"), Decimal("0.00006"), Decimal("0.00025")),    # Tier 2 boundary
-            (Decimal("200000000"), Decimal("0.00003"), Decimal("0.00022")),   # Tier 3 boundary
-            (Decimal("1000000000"), Decimal("0"), Decimal("0.00021")),        # Tier 4 boundary
-            (Decimal("4000000000"), Decimal("0"), Decimal("0.00019")),        # Tier 5 boundary
-            (Decimal("15000000000"), Decimal("0"), Decimal("0.00018")),       # Tier 6 boundary
-            (Decimal("100000000000"), Decimal("0"), Decimal("0.00018")),      # Well above Tier 6
-        ]
-        for volume, expected_maker, expected_taker in cases:
-            maker, taker = self.exchange._fees_for_30d_volume(volume)
-            self.assertEqual(expected_maker, maker, f"maker mismatch at volume={volume}")
-            self.assertEqual(expected_taker, taker, f"taker mismatch at volume={volume}")
-
-    async def test_update_trading_fees_uses_30d_volume(self):
-        """Volume above $10M should land the user on Tier 1 fees."""
+    async def test_update_trading_fees_uses_api_rates(self):
+        """user_fee_rates returns the user's effective maker/taker rates."""
         self.exchange._trading_fees.clear()
-        self._mock_rest_assistant({"volume": 25000000})  # Tier 1 (>$10M)
+        self._mock_rest_assistant(self._user_fee_rates_response(
+            user_maker_rate=0.00009,
+            user_taker_rate=0.0003,
+            fee_tier=1,
+        ))
 
         await self.exchange._update_trading_fees()
 
@@ -328,10 +336,10 @@ class DecibelPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("0.00009"), schema.maker_percent_fee_decimal)
         self.assertEqual(Decimal("0.0003"), schema.taker_percent_fee_decimal)
 
-    async def test_update_trading_fees_handles_null_volume(self):
-        """New accounts have volume=null → default to Tier 0."""
+    async def test_update_trading_fees_handles_tier_0_rates(self):
+        """New accounts receive Tier 0 rates from the API."""
         self.exchange._trading_fees.clear()
-        self._mock_rest_assistant({"volume": None})
+        self._mock_rest_assistant(self._user_fee_rates_response())
 
         await self.exchange._update_trading_fees()
 
