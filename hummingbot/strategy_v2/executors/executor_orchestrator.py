@@ -571,26 +571,29 @@ class ExecutorOrchestrator:
 
     def _determine_position_side(self, executor_info: ExecutorInfo) -> Optional[TradeType]:
         """
-        Determine the position side for an executor, handling perpetual markets.
-        In ONEWAY mode, returns None so all orders (buy/sell) are netted into a single position.
-        In HEDGE mode, returns the appropriate side based on position_action.
+        Determine the position side used to bucket a position hold.
+
+        Only perpetual markets in HEDGE mode can hold a long and a short position
+        simultaneously, so only in that case do we return a specific side (allowing
+        a separate long and short position hold per trading pair). For spot markets
+        and perpetual markets in ONEWAY mode there can only be a single net position
+        per trading pair, so we return None and let all activity merge into one
+        PositionHold (whose net direction is derived from its buy/sell amounts).
         """
         is_perpetual = "_perpetual" in executor_info.connector_name
         if not is_perpetual:
-            return executor_info.config.side
+            return None
 
         market = self.strategy.connectors.get(executor_info.connector_name)
         if not market or not hasattr(market, 'position_mode'):
-            return executor_info.config.side
+            return None
 
         position_mode = market.position_mode
-        if position_mode == PositionMode.HEDGE:
-            if hasattr(executor_info.config, "position_action"):
-                opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
-                return opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
-            return executor_info.config.side
+        if hasattr(executor_info.config, "position_action") and position_mode == PositionMode.HEDGE:
+            opposite_side = TradeType.BUY if executor_info.config.side == TradeType.SELL else TradeType.SELL
+            return opposite_side if executor_info.config.position_action == PositionAction.CLOSE else executor_info.config.side
 
-        # ONEWAY: all orders net into a single position, no side filtering
+        # Spot or perpetual ONEWAY: a single net position per trading pair (one side at a time).
         return None
 
     def _find_existing_position(self, positions: List[PositionHold],
