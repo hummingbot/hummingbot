@@ -490,11 +490,16 @@ cdef class ConnectorBase(NetworkIterator):
     def available_balances(self) -> Dict[str, Decimal]:
         return self._account_available_balances
 
+    _TRADE_FILLS_CACHE_MAX_SIZE = 10_000
+
     def add_trade_fills_from_market_recorder(self, current_trade_fills: Set[TradeFillOrderDetails]):
         """
         Gets updates from new records in TradeFill table. This is used in method is_confirmed_new_order_filled_event
         """
         self._current_trade_fills.update(current_trade_fills)
+        if len(self._current_trade_fills) > self._TRADE_FILLS_CACHE_MAX_SIZE:
+            while len(self._current_trade_fills) > self._TRADE_FILLS_CACHE_MAX_SIZE // 2:
+                self._current_trade_fills.pop()
 
     def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids: Dict[str, str]):
         """
