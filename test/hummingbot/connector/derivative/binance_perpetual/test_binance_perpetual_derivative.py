@@ -448,62 +448,58 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
     @aioresponses()
-    async def test_set_position_mode_initial_mode_is_none(self, mock_api):
+    async def test_set_position_mode_change_successful(self, mock_api):
         self._simulate_trading_rules_initialized()
-        self.assertIsNone(self.exchange._position_mode)
 
         url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+        get_position_mode_response = {"dualSidePosition": False}  # One-way Mode
         post_position_mode_response = {"code": 200, "msg": "success"}
         mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
-        await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
 
-        self.assertEqual(PositionMode.HEDGE, self.exchange._position_mode)
+        self.assertTrue(success)
 
     @aioresponses()
     async def test_set_position_initial_mode_unchanged(self, mock_api):
-        self.exchange._position_mode = PositionMode.ONEWAY
         url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
-
+        get_position_mode_response = {"dualSidePosition": False}  # One-way Mode
         mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
-        await self.exchange._trading_pair_position_mode_set(PositionMode.ONEWAY, self.trading_pair)
 
-        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.ONEWAY, self.trading_pair)
+
+        self.assertTrue(success)
 
     @aioresponses()
     async def test_set_position_mode_diff_initial_mode_change_successful(self, mock_api):
-        self.exchange._position_mode = PositionMode.ONEWAY
         url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+        get_position_mode_response = {"dualSidePosition": False}  # One-way Mode
         post_position_mode_response = {"code": 200, "msg": "success"}
 
         mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
-        await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
 
-        self.assertEqual(PositionMode.HEDGE, self.exchange._position_mode)
+        self.assertTrue(success)
 
     @aioresponses()
     async def test_set_position_mode_diff_initial_mode_change_fail(self, mock_api):
-        self.exchange._position_mode = PositionMode.ONEWAY
         url = web_utils.private_rest_url(CONSTANTS.CHANGE_POSITION_MODE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        get_position_mode_response = {"dualSidePosition": False}  # True: Hedge Mode; False: One-way Mode
+        get_position_mode_response = {"dualSidePosition": False}  # One-way Mode
         post_position_mode_response = {"code": -4059, "msg": "No need to change position side."}
 
         mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
-        await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
 
-        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
+        self.assertFalse(success)
 
     @aioresponses()
     async def test_initialize_position_mode_success(self, mock_api):
@@ -513,7 +509,7 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         await self.exchange._initialize_position_mode()
 
-        self.assertEqual(PositionMode.HEDGE, self.exchange._position_mode)
+        self.assertEqual(PositionMode.HEDGE, self.exchange.position_mode)
 
     @aioresponses()
     async def test_initialize_position_mode_exception(self, mock_api):
@@ -523,7 +519,7 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         await self.exchange._initialize_position_mode()
 
-        self.assertIsNone(self.exchange._position_mode)
+        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
         self.assertTrue(
             self._is_logged("WARNING", "Could not fetch position mode from exchange. Using default.")
         )
