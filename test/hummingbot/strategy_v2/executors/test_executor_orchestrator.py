@@ -593,7 +593,12 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position = self.orchestrator.positions_held["test_controller"][0]
         self.assertEqual(position.connector_name, "binance")
         self.assertEqual(position.trading_pair, "ETH-USDT")
-        self.assertEqual(position.side, TradeType.BUY)
+        # Spot (and perpetual ONEWAY) markets bucket all activity into a single net
+        # position, so the bucketing side is None and the net direction is derived
+        # from the buy/sell amounts.
+        self.assertIsNone(position.side)
+        self.assertGreater(position.net_amount_base, 0)
+        self.assertEqual(position.get_position_summary(Decimal(100)).side, TradeType.BUY)
 
         # Verify report structure
         self.assertIn("test_controller", result)
