@@ -593,7 +593,12 @@ class TestExecutorOrchestrator(unittest.TestCase):
         position = self.orchestrator.positions_held["test_controller"][0]
         self.assertEqual(position.connector_name, "binance")
         self.assertEqual(position.trading_pair, "ETH-USDT")
-        self.assertEqual(position.side, TradeType.BUY)
+        # Spot (and perpetual ONEWAY) markets bucket all activity into a single net
+        # position, so the bucketing side is None and the net direction is derived
+        # from the buy/sell amounts.
+        self.assertIsNone(position.side)
+        self.assertGreater(position.net_amount_base, 0)
+        self.assertEqual(position.get_position_summary(Decimal(100)).side, TradeType.BUY)
 
         # Verify report structure
         self.assertIn("test_controller", result)
@@ -654,6 +659,122 @@ class TestExecutorOrchestrator(unittest.TestCase):
         # Verify the position side logic was applied (CLOSE action should use opposite side)
         position = self.orchestrator.positions_held["perp_controller"][0]
         self.assertEqual(position.side, TradeType.SELL)  # Opposite of BUY due to CLOSE action
+
+    def _build_position_hold_executor(self, executor_id, connector_name, trading_pair, side,
+                                      trade_type, base, quote, position_action=None):
+        """Helper to build a mock executor that ends as a POSITION_HOLD."""
+        from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
+
+        config_kwargs = dict(
+            timestamp=1234, trading_pair=trading_pair, connector_name=connector_name,
+            side=side, amount=base, execution_strategy=ExecutionStrategy.MARKET,
+        )
+        if position_action is not None:
+            config_kwargs["position_action"] = position_action
+        config = OrderExecutorConfig(**config_kwargs)
+        config.id = executor_id
+
+        executor = MagicMock()
+        executor.executor_info = ExecutorInfo(
+            id=executor_id, timestamp=1234, type="order_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=quote, net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0), is_trading=False, is_active=False,
+            custom_info={"held_position_orders": [
+                {"client_order_id": f"{executor_id}_order", "executed_amount_base": base,
+                 "executed_amount_quote": quote, "trade_type": trade_type,
+                 "cumulative_fee_paid_quote": Decimal(0)}
+            ]},
+            close_type=CloseType.POSITION_HOLD,
+            connector_name=connector_name,
+            trading_pair=trading_pair,
+        )
+        return executor
+
+    def test_oneway_perpetual_only_one_position_per_pair(self):
+        """In ONEWAY mode, opposite-side executors must merge into a single net position."""
+        from hummingbot.core.data_type.common import PositionAction, PositionMode
+
+        mock_market = MagicMock()
+        mock_market.position_mode = PositionMode.ONEWAY
+        self.mock_strategy.connectors = {"binance_perpetual": mock_market}
+
+        buy_executor = self._build_position_hold_executor(
+            "oneway_buy", "binance_perpetual", "ETH-USDT", TradeType.BUY, "BUY",
+            Decimal("5"), Decimal("1000"), position_action=PositionAction.OPEN)
+        # A reducing SELL executor (opposite side) on the same pair
+        sell_executor = self._build_position_hold_executor(
+            "oneway_sell", "binance_perpetual", "ETH-USDT", TradeType.SELL, "SELL",
+            Decimal("2"), Decimal("400"), position_action=PositionAction.CLOSE)
+
+        self.orchestrator.active_executors = {"oneway_controller": [buy_executor, sell_executor]}
+        self.orchestrator.positions_held = {"oneway_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"oneway_controller": PerformanceReport()}
+
+        self.orchestrator.get_all_reports()
+
+        # Both executors should collapse into a single net position
+        positions = self.orchestrator.positions_held["oneway_controller"]
+        self.assertEqual(len(positions), 1)
+        position = positions[0]
+        self.assertEqual(position.buy_amount_base, Decimal("5"))
+        self.assertEqual(position.sell_amount_base, Decimal("2"))
+        # Net is long 3 ETH
+        summary = position.get_position_summary(Decimal("230"))
+        self.assertEqual(summary.side, TradeType.BUY)
+        self.assertEqual(summary.amount, Decimal("3"))
+
+    def test_spot_only_one_position_per_pair(self):
+        """In spot markets, opposite-side executors must merge into a single net position."""
+        # Spot connector (no '_perpetual' suffix)
+        buy_executor = self._build_position_hold_executor(
+            "spot_buy", "binance", "ETH-USDT", TradeType.BUY, "BUY",
+            Decimal("4"), Decimal("800"))
+        sell_executor = self._build_position_hold_executor(
+            "spot_sell", "binance", "ETH-USDT", TradeType.SELL, "SELL",
+            Decimal("1"), Decimal("200"))
+
+        self.orchestrator.active_executors = {"spot_controller": [buy_executor, sell_executor]}
+        self.orchestrator.positions_held = {"spot_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"spot_controller": PerformanceReport()}
+
+        self.orchestrator.get_all_reports()
+
+        positions = self.orchestrator.positions_held["spot_controller"]
+        self.assertEqual(len(positions), 1)
+        self.assertEqual(positions[0].buy_amount_base, Decimal("4"))
+        self.assertEqual(positions[0].sell_amount_base, Decimal("1"))
+
+    def test_hedge_perpetual_allows_separate_long_and_short(self):
+        """In HEDGE mode, a long and a short position can coexist for the same pair."""
+        from hummingbot.core.data_type.common import PositionAction, PositionMode
+
+        mock_market = MagicMock()
+        mock_market.position_mode = PositionMode.HEDGE
+        self.mock_strategy.connectors = {"binance_perpetual": mock_market}
+
+        # Open long
+        long_executor = self._build_position_hold_executor(
+            "hedge_long", "binance_perpetual", "ETH-USDT", TradeType.BUY, "BUY",
+            Decimal("5"), Decimal("1000"), position_action=PositionAction.OPEN)
+        # Open short (independent position in hedge mode)
+        short_executor = self._build_position_hold_executor(
+            "hedge_short", "binance_perpetual", "ETH-USDT", TradeType.SELL, "SELL",
+            Decimal("3"), Decimal("600"), position_action=PositionAction.OPEN)
+
+        self.orchestrator.active_executors = {"hedge_controller": [long_executor, short_executor]}
+        self.orchestrator.positions_held = {"hedge_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"hedge_controller": PerformanceReport()}
+
+        self.orchestrator.get_all_reports()
+
+        positions = self.orchestrator.positions_held["hedge_controller"]
+        self.assertEqual(len(positions), 2)
+        sides = {p.side for p in positions}
+        self.assertEqual(sides, {TradeType.BUY, TradeType.SELL})
 
     def test_get_all_reports_with_existing_positions(self):
         """Test get_all_reports with existing positions to exercise find_existing_position logic"""
