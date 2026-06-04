@@ -455,7 +455,7 @@ class KrakenExchange(ExchangePyBase):
                         self._process_trade_message(results)
                     elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
                         self._process_order_message(event_message)
-                elif event_message is asyncio.CancelledError:
+                elif event_message is asyncio.CancelledError or isinstance(event_message, asyncio.CancelledError):
                     raise asyncio.CancelledError
                 else:
                     raise Exception(event_message)
