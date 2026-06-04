@@ -41,8 +41,9 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                       for trading_pair in self._trading_pairs]
+            # Subscribe to all trading pairs using the "!all" wildcard instead of the configured
+            # trading pairs, so events for any pair (e.g. manual orders) are also received.
+            symbols = ["!all"]
 
             orders_change_payload = {
                 "time": int(self._time()),

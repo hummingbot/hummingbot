@@ -132,7 +132,7 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": [self.ex_trading_pair],
+            "payload": ["!all"],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": '005d2e6996fa7783459453d36ff871d8d5cfe225a098f37ac234543811c79e3c'  # noqa: mock
@@ -144,7 +144,7 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": [self.ex_trading_pair],
+            "payload": ["!all"],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": '0f34bf79558905d2b5bc7790febf1099d38ff1aa39525a077db32bcbf9135268'  # noqa: mock
