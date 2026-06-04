@@ -350,7 +350,7 @@ class ExecutorBase(RunnableBase):
         :param trading_pair: The trading pair.
         :return: The order book.
         """
-        return self.connectors[connector_name].get_order_book(connector_name, trading_pair)
+        return self.connectors[connector_name].get_order_book(trading_pair)
 
     def get_balance(self, connector_name: str, asset: str):
         """

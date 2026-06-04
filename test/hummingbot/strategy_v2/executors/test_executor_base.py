@@ -160,6 +160,7 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def test_get_order_book(self):
         order_book = self.component.get_order_book("connector1", "ETH-USDT")
         self.assertEqual(order_book.last_diff_uid, 0)
+        self.strategy.connectors["connector1"].get_order_book.assert_called_once_with("ETH-USDT")
 
     def test_get_total_and_available_balance(self):
         balance = self.component.get_balance("connector1", "ETH")
