@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
@@ -70,6 +71,16 @@ class HyperliquidExchange(ExchangePyBase):
             else None
         )
         self._builder_fee_tenths_bps: int = CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS
+        # A deployment can set the builder fee/address at runtime via env (e.g. Condor sets 1 bps)
+        # without editing the connector baked into the Hummingbot API image. Absent env leaves the
+        # Foundation default untouched.
+        env_builder_fee_bps = os.getenv("HYPERLIQUID_BUILDER_CODE_FEE_BPS")
+        if env_builder_fee_bps is not None:
+            env_builder_address = os.getenv("HYPERLIQUID_BUILDER_CODE_ADDRESS") or self._builder_address
+            if env_builder_address is not None:
+                self._load_builder_override(
+                    {"builder": {"address": env_builder_address, "fee_bps": env_builder_fee_bps}}
+                )
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
