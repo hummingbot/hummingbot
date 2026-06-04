@@ -132,7 +132,7 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": ["!all"],
+            "payload": [self.ex_trading_pair],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": '005d2e6996fa7783459453d36ff871d8d5cfe225a098f37ac234543811c79e3c'  # noqa: mock
@@ -144,7 +144,7 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": ["!all"],
+            "payload": [self.ex_trading_pair],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": '0f34bf79558905d2b5bc7790febf1099d38ff1aa39525a077db32bcbf9135268'  # noqa: mock
@@ -168,6 +168,46 @@ class TestGateIoAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             "INFO",
             "Subscribed to private order changes and balance updates channels..."
         ))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source.GateIoAPIUserStreamDataSource"
+           "._time")
+    async def test_listen_for_user_stream_subscribes_to_all_pairs_when_no_trading_pairs(self, time_mock, ws_connect_mock):
+        time_mock.return_value = 1000
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        # Data source without configured trading pairs (e.g. hummingbot-api) should subscribe to "!all".
+        data_source = GateIoAPIUserStreamDataSource(
+            self.auth,
+            trading_pairs=[],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory)
+
+        for channel in (CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+                        CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+                        CONSTANTS.USER_BALANCE_ENDPOINT_NAME):
+            self.mocking_assistant.add_websocket_aiohttp_message(
+                websocket_mock=ws_connect_mock.return_value,
+                message=json.dumps({
+                    "time": 1611541000,
+                    "channel": channel,
+                    "event": "subscribe",
+                    "error": None,
+                    "result": {"status": "success"},
+                }))
+
+        output_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            data_source.listen_for_user_stream(output=output_queue))
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(["!all"], sent_subscription_messages[0]["payload"])
+        self.assertEqual(["!all"], sent_subscription_messages[1]["payload"])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source.GateIoAPIUserStreamDataSource"

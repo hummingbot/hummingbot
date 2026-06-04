@@ -41,9 +41,13 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-            # Subscribe to all trading pairs using the "!all" wildcard instead of the configured
-            # trading pairs, so events for any pair (e.g. manual orders) are also received.
-            symbols = ["!all"]
+            if not self._trading_pairs:
+                # No configured pairs (e.g. hummingbot-api): subscribe to all trading pairs using the
+                # "!all" wildcard, so events for any pair (e.g. manual orders) are also received.
+                symbols = ["!all"]
+            else:
+                symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                           for trading_pair in self._trading_pairs]
 
             orders_change_payload = {
                 "time": int(self._time()),
