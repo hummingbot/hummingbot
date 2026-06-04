@@ -15,7 +15,7 @@ BUILDER_SUPPORTED = True
 # Foundation builder identity. Set after Foundation onboarding (deposit >= 100 USDC into a
 # Foundation-controlled wallet, then record the EVM address here). Left as ``None`` until then,
 # which makes the connector omit the builder field (no attribution) rather than sign an invalid one.
-FOUNDATION_BUILDER_ADDRESS = None
+FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 
 # Foundation default fee. 0 means attribution only (no user-paid fee).
 # Unit: tenths of a basis point (Hyperliquid's ``f`` unit). ``f = 10`` is 1 bp; ``f = 100`` is 10 bps.

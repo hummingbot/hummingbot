@@ -61,13 +61,13 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         self.assertIsNone(connector._build_builder_field())
         self.assertFalse(connector._should_inject_builder())
 
-    def test_default_foundation_address_unset_so_field_omitted(self):
-        # Until Foundation onboarding sets the constant, the default connector attaches nothing.
-        self.assertIsNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
+    def test_default_foundation_address_configured_so_field_injected(self):
+        # Foundation onboarding has set the constant, so the default connector attributes orders.
+        self.assertIsNotNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
         connector = self._build_connector()
-        self.assertIsNone(connector._builder_address)
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
         self.assertEqual(0, connector._builder_fee_tenths_bps)
-        self.assertFalse(connector._should_inject_builder())
+        self.assertTrue(connector._should_inject_builder())
 
     def test_builder_field_omitted_when_not_supported(self):
         connector = self._build_connector()

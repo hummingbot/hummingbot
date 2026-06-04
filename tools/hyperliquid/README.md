@@ -48,8 +48,9 @@ Exit code is `0` when all checks pass, `1` otherwise.
 ## Recommended graduated rollout
 
 1. Run this pre-flight (offline, then `--live` with your address). Confirm all pass.
-2. Set `FOUNDATION_BUILDER_ADDRESS` (or a `builder` config override) to your real
-   builder address, keeping the fee at 0 bps.
+2. The connector ships with the Foundation `FOUNDATION_BUILDER_ADDRESS` configured at
+   0 bps (attribution only). To attribute to a different builder, set a `builder` config
+   override with your real builder address, keeping the fee within the per-venue cap.
 3. Place **one** tiny order on a liquid pair with your real wallet.
 4. Confirm attribution in `info` → `{"type":"userFills","user":"0x…"}` and in the
    daily dump `stats-data.hyperliquid.xyz/Mainnet/builder_fills/{builder}/{YYYYMMDD}.csv.lz4`.
