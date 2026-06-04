@@ -5,6 +5,7 @@ import re
 from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
+from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -3805,3 +3806,81 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual("malformed", hydrated[2]["name"])
         self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
         self.assertEqual("exception", hydrated[4]["name"])
+
+
+class HyperliquidPerpetualBuilderCodeTests(TestCase):
+    """Builder-code support (HGP-87) on the Hyperliquid perpetual connector."""
+
+    builder_address = "0xAbC0000000000000000000000000000000000001"
+    api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+
+    def async_run_with_timeout(self, coroutine, timeout: int = 1):
+        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        return HyperliquidPerpetualDerivative(
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_address="0x1111111111111111111111111111111111111111",
+            use_vault=use_vault,
+            trading_pairs=["BTC-USD"],
+            trading_required=False,
+            domain=domain,
+        )
+
+    def test_default_foundation_address_configured_so_field_injected(self):
+        self.assertIsNotNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
+        connector = self._build_connector()
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
+        self.assertTrue(connector._should_inject_builder())
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
+
+    def test_builder_field_omitted_when_not_supported(self):
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            self.assertFalse(connector._should_inject_builder())
+
+    def test_builder_field_omitted_on_vault_and_testnet(self):
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            connector._builder_address = self.builder_address
+            self.assertFalse(connector._should_inject_builder())
+            self.assertIsNone(connector._build_builder_field())
+
+    def test_override_absent_is_noop(self):
+        connector = self._build_connector()
+        original_address = connector._builder_address
+        connector._load_builder_override(None)
+        connector._load_builder_override({})
+        self.assertEqual(original_address, connector._builder_address)
+
+    def test_override_within_perp_cap_applied(self):
+        connector = self._build_connector()
+        connector._load_builder_override({"builder": {"address": self.builder_address, "fee_bps": 10}})
+        self.assertEqual(self.builder_address.lower(), connector._builder_address)
+        self.assertEqual(100, connector._builder_fee_tenths_bps)
+
+    def test_override_exceeding_perp_cap_raises(self):
+        connector = self._build_connector()
+        with self.assertRaises(ValueError):
+            connector._load_builder_override({"builder": {"address": self.builder_address, "fee_bps": 11}})
+
+    def test_builder_info_unsupported_on_testnet(self):
+        connector = self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)
+        self.assertEqual({"supported": False}, self.async_run_with_timeout(connector.get_builder_info()))
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_builder_info_supported_at_zero_bps_is_approved(self, api_post_mock):
+        api_post_mock.return_value = 0
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address.lower()
+        connector._builder_fee_tenths_bps = 0
+        info = self.async_run_with_timeout(connector.get_builder_info())
+        self.assertTrue(info["supported"])
+        self.assertEqual(self.builder_address.lower(), info["builder_address"])
+        self.assertEqual(0, info["fee_bps"])
+        self.assertTrue(info["approved"])
+        self.assertIsNone(info["approval_expiry_ms"])
