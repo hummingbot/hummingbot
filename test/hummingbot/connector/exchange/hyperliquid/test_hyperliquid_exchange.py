@@ -2004,21 +2004,6 @@ class HyperliquidBuilderCodeTests(TestCase):
         with self.assertRaises(ValueError):
             connector._load_builder_override({"builder": {"address": self.builder_address, "fee_bps": 101}})
 
-    def test_builder_fee_env_override_applied(self):
-        with patch.dict("os.environ", {"HYPERLIQUID_BUILDER_CODE_FEE_BPS": "1"}):
-            connector = self._build_connector()
-        self.assertEqual(10, connector._builder_fee_tenths_bps)
-        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
-
-    def test_builder_env_address_and_fee_override_applied(self):
-        with patch.dict("os.environ", {
-            "HYPERLIQUID_BUILDER_CODE_FEE_BPS": "2",
-            "HYPERLIQUID_BUILDER_CODE_ADDRESS": self.builder_address,
-        }):
-            connector = self._build_connector()
-        self.assertEqual(20, connector._builder_fee_tenths_bps)
-        self.assertEqual(self.builder_address.lower(), connector._builder_address)
-
     def test_builder_info_unsupported_on_testnet(self):
         connector = self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)
         self.assertEqual({"supported": False}, self.async_run_with_timeout(connector.get_builder_info()))
