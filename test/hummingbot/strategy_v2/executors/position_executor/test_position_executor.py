@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -883,3 +883,49 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.early_stop(keep_position=True)
         self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
+
+    # ── close position action (ONEWAY netting vs HEDGE reduce-only) ────────
+
+    def _make_perpetual_executor(self, position_mode: PositionMode) -> PositionExecutor:
+        connector = MagicMock()
+        connector.position_mode = position_mode
+        self.strategy.connectors["binance_perpetual"] = connector
+        config = PositionExecutorConfig(
+            id="perp", timestamp=1234567890, trading_pair="ETH-USDT", connector_name="binance_perpetual",
+            side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+            triple_barrier_config=TripleBarrierConfig(
+                stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
+        return self.get_position_executor_running_from_config(config)
+
+    def test_close_position_action_is_open_in_oneway_to_avoid_reduce_only(self):
+        # ONEWAY is a single netted position: closing with PositionAction.CLOSE would set reduce-only and get
+        # rejected when opposite-side level executors net against the shared position (issues #8269, #8283).
+        executor = self._make_perpetual_executor(PositionMode.ONEWAY)
+        self.assertEqual(executor.close_position_action, PositionAction.OPEN)
+
+    def test_close_position_action_is_close_in_hedge(self):
+        executor = self._make_perpetual_executor(PositionMode.HEDGE)
+        self.assertEqual(executor.close_position_action, PositionAction.CLOSE)
+
+    def test_close_position_action_is_close_for_spot(self):
+        # Spot connector (non-perpetual): position action is irrelevant, keep the historical CLOSE.
+        executor = self.get_position_executor_running_from_config(self.get_position_config_market_long())
+        self.assertEqual(executor.close_position_action, PositionAction.CLOSE)
+
+    def test_take_profit_limit_order_uses_open_action_in_oneway(self):
+        executor = self._make_perpetual_executor(PositionMode.ONEWAY)
+        with patch.object(PositionExecutor, "amount_to_close", new_callable=PropertyMock,
+                          return_value=Decimal("1")):
+            executor.place_take_profit_limit_order()
+        # A long position closes by selling; the TP must carry OPEN (no reduce-only) in ONEWAY.
+        self.strategy.sell.assert_called_once()
+        self.assertEqual(PositionAction.OPEN, self.strategy.sell.call_args.args[5])
+
+    def test_take_profit_limit_order_uses_close_action_in_hedge(self):
+        executor = self._make_perpetual_executor(PositionMode.HEDGE)
+        with patch.object(PositionExecutor, "amount_to_close", new_callable=PropertyMock,
+                          return_value=Decimal("1")):
+            executor.place_take_profit_limit_order()
+        self.strategy.sell.assert_called_once()
+        self.assertEqual(PositionAction.CLOSE, self.strategy.sell.call_args.args[5])
