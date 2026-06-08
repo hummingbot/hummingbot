@@ -698,11 +698,11 @@ class ExecutorOrchestrator:
         Generate a unified report containing executors, positions, and performance for all controllers.
         Returns a dictionary with controller_id as key and a dict containing all reports as value.
         """
-        # Auto-store terminated executors to the database
-        self._auto_store_terminated_executors()
-
         # Update any pending position holds from done executors
         self._update_positions_from_done_executors()
+
+        # Auto-store terminated executors to the database
+        self._auto_store_terminated_executors()
 
         # Generate all reports
         executors_report = self.get_executors_report()
