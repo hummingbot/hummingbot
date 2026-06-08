@@ -27,7 +27,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -662,28 +661,22 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         """
+        Backpack only supports the ONEWAY position mode. This method validates the requested mode and reports
+        success/failure back to the base ``_execute_set_position_mode`` flow, which is responsible for updating
+        the local perpetual trading state and firing the corresponding account events.
+
         :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
         """
         if mode != PositionMode.ONEWAY:
-            self.trigger_event(
-                AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(
-                    self.current_timestamp, trading_pair, mode, "Backpack only supports the ONEWAY position mode."
-                ),
-            )
             self.logger().debug(
                 f"Backpack encountered a problem switching position mode to "
                 f"{mode} for {trading_pair}"
                 f" (Backpack only supports the ONEWAY position mode)"
             )
-        else:
-            self._position_mode = PositionMode.ONEWAY
-            super().set_position_mode(PositionMode.ONEWAY)
-            self.trigger_event(
-                AccountEvent.PositionModeChangeSucceeded,
-                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
-            )
-            self.logger().debug(f"Backpack switching position mode to " f"{mode} for {trading_pair} succeeded.")
+            return False, "Backpack only supports the ONEWAY position mode."
+
+        self._position_mode = PositionMode.ONEWAY
+        self.logger().debug(f"Backpack switching position mode to " f"{mode} for {trading_pair} succeeded.")
         return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
