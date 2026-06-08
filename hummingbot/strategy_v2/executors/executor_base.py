@@ -315,7 +315,14 @@ class ExecutorBase(RunnableBase):
         :param position_action: The position action for the order.
         :param price: The price for the order.
         :return: The result of the order placement.
+        :raises ValueError: If a non-MARKET order is requested with a None or non-finite (NaN/Inf) price.
         """
+        if order_type != OrderType.MARKET:
+            if price is None or not Decimal(str(price)).is_finite():
+                raise ValueError(
+                    f"Cannot place {order_type.name} order for {trading_pair} with non-finite price={price}. "
+                    f"A finite numeric price is required for non-MARKET orders."
+                )
         if side == TradeType.BUY:
             return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action)
         else:

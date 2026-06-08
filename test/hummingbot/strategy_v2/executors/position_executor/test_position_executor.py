@@ -883,3 +883,47 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.early_stop(keep_position=True)
         self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
+
+    def test_place_order_rejects_nan_price_for_non_market_order(self):
+        # Regression for #7823: a NaN price (e.g. market data not ready during warmup)
+        # must NOT fall through to the exchange as an order. It is rejected for
+        # non-MARKET order types instead of being silently submitted.
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError):
+            position_executor.place_order(
+                connector_name="binance", trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT, side=TradeType.BUY,
+                amount=Decimal("1"), price=Decimal("NaN"))
+        self.strategy.buy.assert_not_called()
+
+    def test_place_order_rejects_none_price_for_non_market_order(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        with self.assertRaises(ValueError):
+            position_executor.place_order(
+                connector_name="binance", trading_pair="ETH-USDT",
+                order_type=OrderType.LIMIT, side=TradeType.SELL,
+                amount=Decimal("1"), price=None)
+        self.strategy.sell.assert_not_called()
+
+    def test_place_order_allows_market_order_with_nan_price(self):
+        # MARKET orders legitimately carry a NaN price sentinel and must be unaffected.
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        order_id = position_executor.place_order(
+            connector_name="binance", trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET, side=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+        self.assertEqual(order_id, "OID-BUY-1")
+        self.strategy.buy.assert_called_once()
+
+    def test_place_order_allows_valid_price_for_non_market_order(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(self.strategy, position_config)
+        order_id = position_executor.place_order(
+            connector_name="binance", trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT, side=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("100"))
+        self.assertEqual(order_id, "OID-BUY-1")
+        self.strategy.buy.assert_called_once()
