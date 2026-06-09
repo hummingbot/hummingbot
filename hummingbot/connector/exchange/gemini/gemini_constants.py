@@ -43,6 +43,12 @@ WS_TIME_IN_FORCE_MOC = "MOC"
 # Seconds to wait for the {id, status, result|error} ack of a WS order request
 # before treating the websocket path as failed and falling back to REST.
 WS_ORDER_REQUEST_TIMEOUT = 10.0
+# Seconds allowed for the trade websocket handshake. Connecting holds the trade WS
+# lock, so an un-timeboxed connect would head-of-line block order placement/cancels.
+WS_CONNECT_TIMEOUT = 10.0
+# After a failed trade websocket connect, route orders straight to REST for this many
+# seconds instead of letting every queued request serially retry the handshake.
+WS_CONNECT_COOLDOWN = 30.0
 
 # Fast API stream channels
 WS_DEPTH_STREAM = "{}@depth"

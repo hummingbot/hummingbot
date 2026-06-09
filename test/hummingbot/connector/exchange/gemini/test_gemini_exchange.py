@@ -8,6 +8,7 @@ from bidict import bidict
 from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS
 from hummingbot.connector.exchange.gemini.gemini_exchange import (
     GeminiExchange,
+    GeminiWSAmbiguousResponseError,
     GeminiWSRejectionError,
     GeminiWSTransportError,
 )
@@ -31,6 +32,39 @@ class _FakeTradeWS:
 
     async def disconnect(self):
         self.disconnected = True
+
+
+class _ScriptedWSAssistant:
+    """Fake WSAssistant that acks every sent request, for driving the real
+    _connected_trade_ws -> _trade_ws_listener -> pending-future plumbing."""
+
+    def __init__(self, result=None):
+        self.connect_calls = []
+        self.sent_payloads = []
+        self.disconnected = False
+        self._queue = None
+        self._result = {"orderId": 4242} if result is None else result
+
+    async def connect(self, ws_url, ping_timeout=None, ws_headers=None, **kwargs):
+        self.connect_calls.append({"ws_url": ws_url, "ws_headers": ws_headers})
+        self._queue = asyncio.Queue()
+
+    async def send(self, request):
+        self.sent_payloads.append(request.payload)
+        await self._queue.put(WSResponse(data={
+            "id": request.payload["id"], "status": 200, "result": dict(self._result)}))
+
+    async def iter_messages(self):
+        while not self.disconnected:
+            message = await self._queue.get()
+            if message is None:
+                return
+            yield message
+
+    async def disconnect(self):
+        self.disconnected = True
+        if self._queue is not None:
+            await self._queue.put(None)
 
 
 class GeminiExchangeTests(TestCase):
@@ -370,18 +404,96 @@ class GeminiExchangeTests(TestCase):
 
         self.assertEqual("777", o_id)
 
-    def test_place_order_ws_ack_without_id_and_untracked_raises(self):
+    def test_place_order_ws_ack_without_id_waits_for_user_stream_event(self):
+        # In production the order is tracked with exchange_order_id=None before
+        # placement; the id arrives later via the orders@account NEW event.
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+        self.exchange._trade_ws_request = AsyncMock(
+            return_value={"id": "1", "status": 200, "result": {}})
+        self.exchange._api_post = AsyncMock()
+
+        async def scenario():
+            async def deliver_new_event():
+                await asyncio.sleep(0.05)
+                order.update_exchange_order_id("777")
+
+            delivery_task = asyncio.get_running_loop().create_task(deliver_new_event())
+            placement = await self.exchange._place_order(
+                order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"))
+            await delivery_task
+            return placement
+
+        o_id, _ = self._async_run(scenario())
+
+        self.assertEqual("777", o_id)
+        self.exchange._api_post.assert_not_called()
+
+    def test_place_order_ws_ack_without_id_timeout_reconciles_via_rest(self):
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        self.exchange._trade_ws_request = AsyncMock(
+            return_value={"id": "1", "status": 200, "result": {}})
+        self.exchange._api_post = AsyncMock(
+            return_value={"order_id": 888, "timestampms": 1700000000000, "is_live": True})
+
+        with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
+            o_id, _ = self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.assertEqual("888", o_id)
+        # REST was used once, for the status reconcile — never for a second placement
+        self.exchange._api_post.assert_awaited_once()
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+        self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_place_order_ws_ack_without_id_unresolvable_raises_without_rest_placement(self):
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        self.exchange._trade_ws_request = AsyncMock(
+            return_value={"id": "1", "status": 200, "result": {}})
+        self.exchange._api_post = AsyncMock(side_effect=IOError("OrderNotFound: no such order"))
+
+        with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
+            with self.assertRaises(IOError):
+                self._async_run(self.exchange._place_order(
+                    order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        # The order was accepted on the WS — only the status lookup hit REST.
+        self.exchange._api_post.assert_awaited_once()
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+
+    def test_place_order_ws_ack_without_id_and_untracked_reconciles_then_raises(self):
         self._set_symbol_map()
         self.exchange._trade_ws_request = AsyncMock(
             return_value={"id": "1", "status": 200, "result": None})
-        self.exchange._api_post = AsyncMock()
+        self.exchange._api_post = AsyncMock(side_effect=IOError("OrderNotFound"))
 
         with self.assertRaises(IOError):
             self._async_run(self.exchange._place_order(
                 order_id="HBOT-untracked", trading_pair="BTC-USD", amount=Decimal("1"),
                 trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
-        # The order was accepted on the WS — a REST retry would duplicate it.
-        self.exchange._api_post.assert_not_called()
+
+        # The order was accepted on the WS — a REST re-placement would duplicate it,
+        # so REST is only hit for the status reconcile.
+        self.exchange._api_post.assert_awaited_once()
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
 
     def test_place_order_ws_rejection_does_not_fall_back_to_rest(self):
         self._set_symbol_map()
@@ -412,6 +524,61 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(CONSTANTS.SIDE_BUY, kwargs["data"]["side"])
         self.assertEqual(CONSTANTS.ORDER_TYPE_LIMIT, kwargs["data"]["type"])
         self.assertNotIn("options", kwargs["data"])
+
+    def test_place_order_ws_ambiguous_failure_reconciles_existing_order(self):
+        # Ack timeout / disconnect-after-send: the order may be live. If REST status
+        # finds an order with this client id, return it instead of re-placing.
+        self._set_symbol_map()
+        self.exchange._trade_ws_request = AsyncMock(
+            side_effect=GeminiWSAmbiguousResponseError("ack timeout"))
+        self.exchange._api_post = AsyncMock(
+            return_value={"order_id": 555, "timestampms": 1700000000000, "is_live": True})
+
+        o_id, ts = self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+            trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.assertEqual("555", o_id)
+        self.assertEqual(1700000000.0, ts)
+        self.exchange._api_post.assert_awaited_once()
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+        self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_place_order_ws_ambiguous_failure_places_via_rest_when_not_found(self):
+        self._set_symbol_map()
+        self.exchange._trade_ws_request = AsyncMock(
+            side_effect=GeminiWSAmbiguousResponseError("ack timeout"))
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("OrderNotFound"),
+            {"order_id": 9876, "timestampms": 1700000000000},
+        ])
+
+        o_id, _ = self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+            trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.assertEqual("9876", o_id)
+        self.assertEqual(2, self.exchange._api_post.await_count)
+        _, placement_kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.NEW_ORDER_PATH_URL, placement_kwargs["path_url"])
+
+    def test_place_order_ws_ambiguous_failure_unresolved_reconciliation_raises(self):
+        # If the reconcile itself fails for a reason other than not-found, the
+        # ambiguity stands: raise instead of risking a duplicate placement.
+        self._set_symbol_map()
+        self.exchange._trade_ws_request = AsyncMock(
+            side_effect=GeminiWSAmbiguousResponseError("ack timeout"))
+        self.exchange._api_post = AsyncMock(side_effect=IOError("503 Service Unavailable"))
+
+        with self.assertRaises(IOError):
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.exchange._api_post.assert_awaited_once()
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
 
     def test_place_order_ws_server_error_falls_back_to_rest(self):
         self._set_symbol_map()
@@ -456,6 +623,7 @@ class GeminiExchangeTests(TestCase):
         _, kwargs = self.exchange._trade_ws_request.call_args
         self.assertEqual(CONSTANTS.WS_METHOD_ORDER_CANCEL, kwargs["method"])
         self.assertEqual({"orderId": "123"}, kwargs["params"])
+        self.assertEqual(CONSTANTS.CANCEL_ORDER_PATH_URL, kwargs["throttler_limit_id"])
 
     def test_place_cancel_ws_not_found_raises_and_matches_predicate(self):
         self._set_symbol_map()
@@ -498,8 +666,9 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual("1", extract({"orderId": 1}))
         self.assertEqual("2", extract({"order_id": "2"}))
         self.assertEqual("3", extract({"i": 3}))
-        self.assertEqual("4", extract({"id": "4"}))
         self.assertEqual("5", extract({"order": {"orderId": 5}}))
+        # the generic "id" key may echo the request id — it must NOT be used
+        self.assertIsNone(extract({"id": "4"}))
         self.assertIsNone(extract({}))
         self.assertIsNone(extract(None))
         self.assertIsNone(extract({"orderId": ""}))
@@ -535,12 +704,14 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(200, response["status"])
         self.assertEqual({}, self.exchange._trade_ws_pending_requests)
 
-    def test_trade_ws_request_timeout_raises_transport_error(self):
+    def test_trade_ws_request_timeout_raises_ambiguous_error(self):
         mock_ws = AsyncMock()
         self.exchange._connected_trade_ws = AsyncMock(return_value=mock_ws)
 
         with patch.object(CONSTANTS, "WS_ORDER_REQUEST_TIMEOUT", 0.05):
-            with self.assertRaises(GeminiWSTransportError):
+            # An ack timeout means the request may have executed — must be the
+            # ambiguous subtype so _place_order reconciles instead of re-placing.
+            with self.assertRaises(GeminiWSAmbiguousResponseError):
                 self._async_run(self.exchange._trade_ws_request(
                     method=CONSTANTS.WS_METHOD_ORDER_PLACE, params={},
                     throttler_limit_id=CONSTANTS.NEW_ORDER_PATH_URL))
@@ -584,9 +755,10 @@ class GeminiExchangeTests(TestCase):
 
         self.assertEqual(200, ack_future.result()["status"])
         # The connection ended, so the listener must reset state and fail leftovers
+        # as ambiguous (their requests were already sent on the dying socket).
         self.assertIsNone(self.exchange._trade_ws)
         self.assertEqual({}, self.exchange._trade_ws_pending_requests)
-        self.assertIsInstance(unrelated_future.exception(), GeminiWSTransportError)
+        self.assertIsInstance(unrelated_future.exception(), GeminiWSAmbiguousResponseError)
         self.assertTrue(fake_ws.disconnected)
 
     def test_reset_trade_ws_ignores_stale_connection(self):
@@ -615,6 +787,117 @@ class GeminiExchangeTests(TestCase):
         mock_ws.disconnect.assert_awaited_once()
         self.assertIsNone(self.exchange._trade_ws)
         self.assertIsInstance(pending.exception(), GeminiWSTransportError)
+        self.assertTrue(self.exchange._trade_ws_stopped)
+
+    def test_start_network_clears_trade_ws_stop_state(self):
+        self.exchange._trade_ws_stopped = True
+        self.exchange._trade_ws_last_connect_failure = 12345.0
+
+        with patch.object(ExchangePyBase, "start_network", new_callable=AsyncMock):
+            self._async_run(self.exchange.start_network())
+
+        self.assertFalse(self.exchange._trade_ws_stopped)
+        self.assertEqual(0.0, self.exchange._trade_ws_last_connect_failure)
+
+    def test_connected_trade_ws_refuses_when_stopped(self):
+        self.exchange._trade_ws_stopped = True
+
+        with self.assertRaises(GeminiWSTransportError):
+            self._async_run(self.exchange._connected_trade_ws())
+
+    def test_connected_trade_ws_timeboxes_connect_and_sets_cooldown(self):
+        hanging_ws = AsyncMock()
+
+        async def hang(**kwargs):
+            await asyncio.sleep(10)
+
+        hanging_ws.connect = AsyncMock(side_effect=hang)
+        self.exchange._web_assistants_factory.get_ws_assistant = AsyncMock(return_value=hanging_ws)
+
+        with patch.object(CONSTANTS, "WS_CONNECT_TIMEOUT", 0.05):
+            with self.assertRaises(GeminiWSTransportError) as context:
+                self._async_run(self.exchange._trade_ws_request(
+                    method=CONSTANTS.WS_METHOD_ORDER_PLACE, params={},
+                    throttler_limit_id=CONSTANTS.NEW_ORDER_PATH_URL))
+
+        # A connect failure happens before anything is sent: it must be the plain
+        # (safe-to-retry) transport error, never the ambiguous subtype.
+        self.assertNotIsInstance(context.exception, GeminiWSAmbiguousResponseError)
+        self.assertGreater(self.exchange._trade_ws_last_connect_failure, 0)
+        hanging_ws.disconnect.assert_awaited()
+
+    def test_connected_trade_ws_cooldown_blocks_reconnect_attempts(self):
+        self.exchange._trade_ws_last_connect_failure = self.exchange._time()
+        factory_mock = AsyncMock()
+        self.exchange._web_assistants_factory.get_ws_assistant = factory_mock
+
+        with self.assertRaises(GeminiWSTransportError):
+            self._async_run(self.exchange._connected_trade_ws())
+
+        factory_mock.assert_not_called()
+
+    def test_trade_ws_round_trip_through_real_plumbing(self):
+        # Drives the real _connected_trade_ws -> _trade_ws_listener -> pending-future
+        # chain (only the WSAssistant itself is faked): handshake auth headers,
+        # connection reuse, lazy reconnect after a drop, and stop_network teardown.
+        self._set_symbol_map()
+        fake_ws_1 = _ScriptedWSAssistant()
+        fake_ws_2 = _ScriptedWSAssistant()
+        self.exchange._api_post = AsyncMock()
+
+        async def scenario():
+            self.exchange._web_assistants_factory.get_ws_assistant = AsyncMock(
+                side_effect=[fake_ws_1, fake_ws_2])
+            placement_1 = await self.exchange._place_order(
+                order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"))
+            placement_2 = await self.exchange._place_order(
+                order_id="HBOT2", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.SELL, order_type=OrderType.LIMIT, price=Decimal("101"))
+            connections_after_two = self.exchange._web_assistants_factory.get_ws_assistant.await_count
+            # simulate a dropped connection: the next request reconnects lazily
+            await self.exchange._reset_trade_ws(self.exchange._trade_ws)
+            placement_3 = await self.exchange._place_order(
+                order_id="HBOT3", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("99"))
+            await self.exchange.stop_network()
+            stopped_error = None
+            try:
+                await self.exchange._connected_trade_ws()
+            except GeminiWSTransportError as error:
+                stopped_error = error
+            await asyncio.sleep(0)  # let the cancelled listener task finish
+            return placement_1, placement_2, connections_after_two, placement_3, stopped_error
+
+        placement_1, placement_2, connections_after_two, placement_3, stopped_error = (
+            self._async_run(scenario()))
+
+        self.assertEqual("4242", placement_1[0])
+        self.assertEqual("4242", placement_2[0])
+        self.assertEqual(1, connections_after_two)  # second order reused the socket
+        self.assertEqual("4242", placement_3[0])  # third order reconnected lazily
+        self.assertIsNotNone(stopped_error)
+        self.exchange._api_post.assert_not_called()
+
+        # the handshake carried the header-based auth to the right url
+        self.assertEqual(1, len(fake_ws_1.connect_calls))
+        self.assertEqual(CONSTANTS.WSS_URL, fake_ws_1.connect_calls[0]["ws_url"])
+        headers = fake_ws_1.connect_calls[0]["ws_headers"]
+        for header in ("X-GEMINI-APIKEY", "X-GEMINI-NONCE",
+                       "X-GEMINI-PAYLOAD", "X-GEMINI-SIGNATURE"):
+            self.assertIn(header, headers)
+
+        # the order params flowed through the real request pipeline
+        sent = fake_ws_1.sent_payloads[0]
+        self.assertEqual(CONSTANTS.WS_METHOD_ORDER_PLACE, sent["method"])
+        self.assertEqual("HBOT1", sent["params"]["clientOrderId"])
+
+        # teardown left nothing behind
+        self.assertTrue(fake_ws_1.disconnected)
+        self.assertTrue(fake_ws_2.disconnected)
+        self.assertIsNone(self.exchange._trade_ws)
+        self.assertIsNone(self.exchange._trade_ws_listener_task)
+        self.assertEqual({}, self.exchange._trade_ws_pending_requests)
 
     # ------------------------------------------------------------------
     # Trading rules

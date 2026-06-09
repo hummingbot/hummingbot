@@ -24,8 +24,14 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class GeminiWSTransportError(ConnectionError):
-    """The WS request could not be completed (connect/send/timeout/disconnect).
-    The order request can be retried over REST."""
+    """The WS request was not executed by the exchange (connect failure, send failure,
+    or an error ack such as 401/429/500). The request can safely be retried over REST."""
+
+
+class GeminiWSAmbiguousResponseError(GeminiWSTransportError):
+    """The WS request was sent but never answered (ack timeout, or disconnect while
+    waiting). The exchange may or may not have executed it — a blind retry could
+    duplicate an order, so callers must reconcile before retrying."""
 
 
 class GeminiWSRejectionError(IOError):
@@ -58,6 +64,8 @@ class GeminiExchange(ExchangePyBase):
         self._trade_ws_pending_requests: Dict[str, asyncio.Future] = {}
         self._trade_ws_request_id: int = 0
         self._trade_ws_lock = asyncio.Lock()
+        self._trade_ws_stopped: bool = False
+        self._trade_ws_last_connect_failure: float = 0.0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -195,6 +203,17 @@ class GeminiExchange(ExchangePyBase):
             # The exchange examined and rejected the order (e.g. insufficient funds,
             # invalid params). REST would reject it identically — do not retry.
             raise
+        except GeminiWSAmbiguousResponseError as ws_error:
+            # The order.place request was sent but never answered — the order may be
+            # live on the exchange. A blind REST retry could double the position, so
+            # first ask REST whether an order with this client order id exists.
+            self.logger().warning(
+                f"No response to the websocket placement of order {order_id} ({ws_error}). "
+                f"Reconciling over REST before retrying.")
+            order_status = await self._get_order_via_rest_by_client_id(order_id)
+            if order_status is not None:
+                return str(order_status["order_id"]), order_status.get("timestampms", 0) * 1e-3
+            # The exchange has no order with this client id — safe to place over REST.
         except GeminiWSTransportError as ws_error:
             self.logger().warning(
                 f"Failed to place order {order_id} via websocket ({ws_error}). Falling back to REST.")
@@ -240,16 +259,58 @@ class GeminiExchange(ExchangePyBase):
         # event (which carries it in the "i" field) to populate the tracked order.
         exchange_order_id = self._extract_exchange_order_id(response.get("result"))
         if exchange_order_id is None:
-            tracked_order = self._order_tracker.active_orders.get(order_id)
-            if tracked_order is None:
-                # The order was accepted but we have no way to resolve its exchange id.
-                # Raise without REST fallback (a retry would place a duplicate order).
-                raise IOError(
-                    f"Order {order_id} was accepted via websocket but its exchange order id "
-                    f"could not be determined from the response: {response}")
-            exchange_order_id = await tracked_order.get_exchange_order_id()
+            exchange_order_id = await self._resolve_accepted_order_exchange_id(order_id)
 
         return str(exchange_order_id), transact_time
+
+    async def _resolve_accepted_order_exchange_id(self, order_id: str) -> str:
+        """Resolves the exchange order id of an order that was accepted with a 200 ack
+        whose result carried no recognizable id. Primary source: the orders@account NEW
+        event on the user stream (it carries the id in "i"). Backstop if the user stream
+        lags: REST order status by client order id. Raises IOError — deliberately not a
+        transport error, because a REST re-placement would duplicate the accepted order."""
+        # all_orders (not active_orders): an aggressively priced order can fill and reach
+        # a terminal state — leaving active_orders — before the ack coroutine resumes.
+        tracked_order = self._order_tracker.all_orders.get(order_id)
+        if tracked_order is not None:
+            try:
+                return await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                pass  # user stream lagging or reconnecting — reconcile over REST below
+
+        try:
+            order_status = await self._get_order_via_rest_by_client_id(order_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as status_error:
+            order_status = None
+            self.logger().warning(
+                f"Could not reconcile websocket-accepted order {order_id} over REST: {status_error}")
+        if order_status is not None and order_status.get("order_id") is not None:
+            return str(order_status["order_id"])
+
+        raise IOError(
+            f"Order {order_id} was accepted via websocket but its exchange order id could "
+            f"not be resolved from the response, the user stream, or REST order status.")
+
+    async def _get_order_via_rest_by_client_id(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """Looks an order up over REST by its client order id (supported by
+        /v1/order/status as an alternative to order_id). Returns None when the
+        exchange reports that no such order exists."""
+        try:
+            return await self._api_post(
+                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+                data={
+                    "request": CONSTANTS.ORDER_STATUS_PATH_URL,
+                    "client_order_id": order_id,
+                },
+                is_auth_required=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception as status_error:
+            if self._is_order_not_found_during_status_update_error(status_error):
+                return None
+            raise
 
     async def _place_order_via_rest(self,
                                     order_id: str,
@@ -341,14 +402,17 @@ class GeminiExchange(ExchangePyBase):
 
     @staticmethod
     def _extract_exchange_order_id(result: Any) -> Optional[str]:
-        """The order.place success payload is undocumented; probe the common id field
-        names on the result object (and a nested "order" object if present)."""
+        """The order.place success payload is undocumented; probe the order-id field
+        names on the result object (and a nested "order" object if present). The
+        generic "id" key is deliberately NOT probed — a result echoing the request id
+        under "id" would otherwise be mistaken for the exchange order id and poison
+        every later cancel and status poll for the order."""
         candidates = [result]
         if isinstance(result, dict) and isinstance(result.get("order"), dict):
             candidates.append(result["order"])
         for candidate in candidates:
             if isinstance(candidate, dict):
-                for key in ("orderId", "order_id", "i", "id"):
+                for key in ("orderId", "order_id", "i"):
                     value = candidate.get(key)
                     if value not in (None, ""):
                         return str(value)
@@ -385,11 +449,10 @@ class GeminiExchange(ExchangePyBase):
         except GeminiWSTransportError:
             raise
         except asyncio.TimeoutError:
-            # NOTE: the request may have reached the exchange even though the ack was
-            # lost; the REST fallback can then place a duplicate order. The duplicate
-            # carries the same clientOrderId, so user stream events still match the
-            # tracked order and the situation is visible/cancellable.
-            raise GeminiWSTransportError(
+            # The request reached the wire but was never answered — the exchange may
+            # have executed it. Signal ambiguity so _place_order reconciles instead of
+            # blindly re-placing over REST.
+            raise GeminiWSAmbiguousResponseError(
                 f"Timed out waiting {CONSTANTS.WS_ORDER_REQUEST_TIMEOUT}s for the response to "
                 f"the {method} websocket request.")
         except Exception as send_error:
@@ -402,16 +465,48 @@ class GeminiExchange(ExchangePyBase):
 
     async def _connected_trade_ws(self) -> WSAssistant:
         async with self._trade_ws_lock:
+            if self._trade_ws_stopped:
+                raise GeminiWSTransportError(
+                    "The connector is stopped — not opening a trade websocket.")
             if self._trade_ws is None:
+                if self._time() - self._trade_ws_last_connect_failure < CONSTANTS.WS_CONNECT_COOLDOWN:
+                    # Fail fast so queued order requests go straight to REST instead of
+                    # serially re-attempting the handshake while holding the lock.
+                    raise GeminiWSTransportError(
+                        "The trade websocket failed to connect recently — deferring to REST "
+                        "until the cooldown expires.")
                 ws = await self._web_assistants_factory.get_ws_assistant()
-                await ws.connect(
-                    ws_url=web_utils.wss_url(),
-                    ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
-                    ws_headers=self._auth.get_ws_auth_headers(),
-                )
+                try:
+                    # Time-boxed: this runs under the trade WS lock, and an un-bounded
+                    # handshake would head-of-line block every placement and cancel.
+                    await asyncio.wait_for(
+                        ws.connect(
+                            ws_url=web_utils.wss_url(),
+                            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                            ws_headers=self._auth.get_ws_auth_headers(),
+                        ),
+                        timeout=CONSTANTS.WS_CONNECT_TIMEOUT)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self._trade_ws_last_connect_failure = self._time()
+                    await self._safe_ws_disconnect(ws)
+                    raise
+                if self._trade_ws_stopped:
+                    # stop_network ran while the handshake was in flight
+                    await self._safe_ws_disconnect(ws)
+                    raise GeminiWSTransportError(
+                        "The connector was stopped while the trade websocket was connecting.")
                 self._trade_ws = ws
                 self._trade_ws_listener_task = safe_ensure_future(self._trade_ws_listener(ws))
             return self._trade_ws
+
+    @staticmethod
+    async def _safe_ws_disconnect(ws: WSAssistant):
+        try:
+            await ws.disconnect()
+        except Exception:
+            pass
 
     async def _trade_ws_listener(self, ws: WSAssistant):
         """Routes {id, status, ...} acks from the trade websocket to the futures of
@@ -434,24 +529,34 @@ class GeminiExchange(ExchangePyBase):
             await self._reset_trade_ws(ws)
 
     async def _reset_trade_ws(self, ws: Optional[WSAssistant]):
-        if ws is None or self._trade_ws is not ws:
+        if ws is None:
             return
-        self._trade_ws = None
-        listener_task = self._trade_ws_listener_task
-        self._trade_ws_listener_task = None
-        for response_future in self._trade_ws_pending_requests.values():
-            if not response_future.done():
-                response_future.set_exception(GeminiWSTransportError(
-                    "The trade websocket disconnected before a response was received."))
-        self._trade_ws_pending_requests.clear()
-        if listener_task is not None and listener_task is not asyncio.current_task():
-            listener_task.cancel()
-        try:
-            await ws.disconnect()
-        except Exception:
-            pass
+        async with self._trade_ws_lock:
+            if self._trade_ws is not ws:
+                return
+            self._trade_ws = None
+            listener_task = self._trade_ws_listener_task
+            self._trade_ws_listener_task = None
+            for response_future in self._trade_ws_pending_requests.values():
+                if not response_future.done():
+                    # The requests were already sent on the dying socket, so their
+                    # outcome is unknown — fail them as ambiguous, not retriable.
+                    response_future.set_exception(GeminiWSAmbiguousResponseError(
+                        "The trade websocket disconnected before a response was received."))
+            self._trade_ws_pending_requests.clear()
+            if listener_task is not None and listener_task is not asyncio.current_task():
+                listener_task.cancel()
+        await self._safe_ws_disconnect(ws)
+
+    async def start_network(self):
+        self._trade_ws_stopped = False
+        self._trade_ws_last_connect_failure = 0.0
+        await super().start_network()
 
     async def stop_network(self):
+        # Set the flag first: a connect that is mid-handshake when this runs re-checks
+        # it before installing the socket, and later requests refuse to reconnect.
+        self._trade_ws_stopped = True
         await super().stop_network()
         await self._reset_trade_ws(self._trade_ws)
 
