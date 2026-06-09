@@ -3,7 +3,10 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 # Base URLs
 REST_URL = "https://api.gemini.com"
-WSS_FAST_API_URL = "wss://wsapi.fast.gemini.com"
+# Production WebSocket host. Per Gemini's docs (developer.gemini.com/websocket) the
+# canonical host is wss://ws.gemini.com; it speaks the {id, method, params} subscribe
+# protocol with the @-separated stream names defined below.
+WSS_URL = "wss://ws.gemini.com"
 
 # REST API versions / paths
 # Public
