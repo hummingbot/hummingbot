@@ -1987,6 +1987,27 @@ class HyperliquidBuilderCodeTests(TestCase):
             self.assertIsNone(connector._build_builder_field())
 
     @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_place_order_omits_builder_key_on_vault_and_testnet(self, api_post_mock):
+        # The "builder" key must be entirely absent from the signed order action on vault and testnet
+        # orders (not present-but-null) — and present on mainnet. Drives the real _place_order path.
+        api_post_mock.return_value = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        for connector, expect_builder in ((self._build_connector(), True),
+                                          (self._build_connector(use_vault=True), False),
+                                          (self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN), False)):
+            connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
+            connector.coin_to_asset = {"HFUN": 0}
+            with patch.object(connector, "exchange_symbol_associated_to_pair",
+                              new_callable=AsyncMock, return_value="HFUN"):
+                self.async_run_with_timeout(connector._place_order(
+                    order_id="0xabc", trading_pair="HFUN-USDC", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                ))
+            sent = api_post_mock.call_args.kwargs["data"]
+            self.assertEqual(expect_builder, "builder" in sent)
+            if expect_builder:
+                self.assertEqual({"b": connector._builder_address, "f": 10}, sent["builder"])
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_applies_approved(self, api_post_mock):
         api_post_mock.return_value = 10  # user approved 0.01% = 1 bps
         connector = self._build_connector()
