@@ -48,12 +48,20 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol_info = funding_info_response["data"]
         else:
             symbol_info = funding_info_response["data"][0]
+
+        # KuCoin's contract-detail endpoint now returns "predictedFundingFeeRate": null; use the
+        # current "fundingFeeRate" instead. Parsing the null value raised decimal.InvalidOperation,
+        # which blocked funding-info init and left the connector stuck in "not ready" (issue #8256).
+        rate = symbol_info.get("predictedFundingFeeRate")
+        if rate is None:
+            rate = symbol_info["fundingFeeRate"]
+
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=Decimal(str(symbol_info["indexPrice"])),
             mark_price=Decimal(str(symbol_info["markPrice"])),
             next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["nextFundingRateTime"]).timestamp()),
-            rate=Decimal(str(symbol_info["predictedFundingFeeRate"])),
+            rate=Decimal(str(rate)),
         )
         return funding_info
 
