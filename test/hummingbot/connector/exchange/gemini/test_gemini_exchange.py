@@ -836,6 +836,81 @@ class GeminiExchangeTests(TestCase):
 
         factory_mock.assert_not_called()
 
+    def test_resolve_accepted_order_reconcile_error_logs_and_raises(self):
+        # Reconcile fails for a reason other than not-found while resolving an
+        # accepted order's id: log it and still raise (never re-place over REST).
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        self.exchange._trade_ws_request = AsyncMock(
+            return_value={"id": "1", "status": 200, "result": {}})
+        self.exchange._api_post = AsyncMock(side_effect=IOError("503 Service Unavailable"))
+
+        with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
+            with self.assertRaises(IOError):
+                self._async_run(self.exchange._place_order(
+                    order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.exchange._api_post.assert_awaited_once()
+
+    def test_place_cancel_without_exchange_order_id_times_out(self):
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+
+        # The framework's _execute_order_cancel treats this asyncio.TimeoutError as
+        # "order has no exchange id yet" and defers the cancel.
+        with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
+            with self.assertRaises(asyncio.TimeoutError):
+                self._async_run(self.exchange._place_cancel("HBOT1", order))
+
+    def test_connected_trade_ws_stopped_during_handshake_tears_down(self):
+        fake_ws = AsyncMock()
+
+        async def connect_then_stopped(**kwargs):
+            self.exchange._trade_ws_stopped = True
+
+        fake_ws.connect = AsyncMock(side_effect=connect_then_stopped)
+        fake_ws.disconnect = AsyncMock(side_effect=Exception("boom"))  # must be swallowed
+        self.exchange._web_assistants_factory.get_ws_assistant = AsyncMock(return_value=fake_ws)
+
+        with self.assertRaises(GeminiWSTransportError):
+            self._async_run(self.exchange._connected_trade_ws())
+
+        fake_ws.disconnect.assert_awaited_once()
+        self.assertIsNone(self.exchange._trade_ws)
+
+    def test_trade_ws_listener_resets_on_unexpected_error(self):
+        async def scenario():
+            class _ExplodingWS:
+                disconnected = False
+
+                async def iter_messages(self):
+                    raise RuntimeError("boom")
+                    yield  # pragma: no cover
+
+                async def disconnect(self):
+                    self.disconnected = True
+
+            exploding_ws = _ExplodingWS()
+            self.exchange._trade_ws = exploding_ws
+            await self.exchange._trade_ws_listener(exploding_ws)
+            return exploding_ws
+
+        exploding_ws = self._async_run(scenario())
+        self.assertIsNone(self.exchange._trade_ws)
+        self.assertTrue(exploding_ws.disconnected)
+
+    def test_reset_trade_ws_with_none_is_noop(self):
+        self._async_run(self.exchange._reset_trade_ws(None))
+        self.assertIsNone(self.exchange._trade_ws)
+
     def test_trade_ws_round_trip_through_real_plumbing(self):
         # Drives the real _connected_trade_ws -> _trade_ws_listener -> pending-future
         # chain (only the WSAssistant itself is faked): handshake auth headers,
