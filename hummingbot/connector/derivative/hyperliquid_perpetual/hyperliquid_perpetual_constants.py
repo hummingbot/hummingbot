@@ -7,28 +7,19 @@ MAX_ORDER_ID_LEN = None
 MIN_NOTIONAL_SIZE = 10
 
 # === Builder code support (HGP-87) ===
-# Hyperliquid supports per-order builder codes. The connector attaches a Foundation builder address
-# to every mainnet order and charges FOUNDATION_BUILDER_FEE_TENTHS_BPS when the user has approved the
-# builder on-chain, and 0 otherwise — resolved once at startup from the user's approveBuilderFee
-# approval (see HyperliquidPerpetualDerivative._initialize_builder_fee). The field is omitted entirely
-# on testnet and vault orders.
+# Attach a Foundation builder code to mainnet orders (omitted on testnet/vault), charged at the
+# user's approved rate. See HyperliquidPerpetualDerivative._initialize_builder_fee.
 BUILDER_SUPPORTED = True
 
-# Foundation builder identity. Set after Foundation onboarding (deposit >= 100 USDC into a
-# Foundation-controlled wallet, then record the EVM address here). Left as ``None`` until then,
-# which makes the connector omit the builder field (no attribution) rather than sign an invalid one.
+# Foundation builder address (None = omit the builder field entirely).
 FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 
-# The builder fee charged per order, in tenths of a basis point (Hyperliquid's ``f`` unit): ``f = 10``
-# is 1 bp = 0.01%. This is the single source of truth for the fee — it is hardcoded here in the
-# connector (baked into the image), NOT in any client, so it cannot be reduced by editing a frontend.
-# It is charged only when the user has approved the builder on-chain; an unapproved user pays 0
-# (Hyperliquid requires the approval before any builder fee can apply).
+# Fee charged per order, in tenths of a basis point (f=10 is 1 bp = 0.01%), only when the user has
+# approved the builder on-chain. Hardcoded here, not client-side.
 FOUNDATION_BUILDER_FEE_TENTHS_BPS = 10
 
-# Venue hard cap for the builder fee, used as a backstop so the connector never signs a fee the venue
-# would reject. Unit: tenths of a basis point. Reference: Hyperliquid builder-codes docs. Perp cap is 10 bps.
-HYPERLIQUID_PERP_BUILDER_FEE_CAP_TENTHS_BPS = 100  # = 10 bps (perp cap)
+# Venue cap (tenths of a bp) — backstop so we never sign a fee the venue rejects. Perp cap is 10 bps.
+HYPERLIQUID_PERP_BUILDER_FEE_CAP_TENTHS_BPS = 100
 
 # Info-endpoint request type used to query a user's approved max builder fee for a builder.
 MAX_BUILDER_FEE_TYPE = "maxBuilderFee"

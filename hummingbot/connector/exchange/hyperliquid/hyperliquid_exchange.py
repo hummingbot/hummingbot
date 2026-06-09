@@ -62,10 +62,7 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
-        # Builder code support (HGP-87). The builder identity and fee are the Foundation address and
-        # CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS (hardcoded in the connector). The per-order fee
-        # starts at 0 (charge nothing until startup confirms the user approved the builder) and is
-        # resolved once at startup in _initialize_builder_fee: the hardcoded fee if approved, else 0.
+        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
         self._builder_address: Optional[str] = (
             CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
             if CONSTANTS.FOUNDATION_BUILDER_ADDRESS is not None
@@ -385,8 +382,7 @@ class HyperliquidExchange(ExchangePyBase):
                 "cloid": order_id,
             }
         }
-        # Builder code attribution (HGP-87). Injected here so it is part of the action dict
-        # passed to the authenticator and therefore included in the EIP-712 signed payload.
+        # Builder code (HGP-87): part of the signed action dict.
         builder_field = self._build_builder_field()
         if builder_field is not None:
             api_params["builder"] = builder_field
@@ -415,11 +411,8 @@ class HyperliquidExchange(ExchangePyBase):
         return CONSTANTS.HYPERLIQUID_SPOT_BUILDER_FEE_CAP_TENTHS_BPS
 
     def _should_inject_builder(self) -> bool:
-        """
-        Connector-level invariants for builder attribution. Both omit cases (vault and testnet)
-        cannot be overridden by config: the venue rejects builder fields on vault orders (wallet
-        identity mismatch) and on testnet (stricter check, regardless of fee value).
-        """
+        """Builder attribution applies only on mainnet, non-vault orders — the venue rejects the
+        builder field on vault and testnet orders."""
         if not CONSTANTS.BUILDER_SUPPORTED:
             return False
         if self._use_vault or self._is_testnet:
@@ -427,27 +420,15 @@ class HyperliquidExchange(ExchangePyBase):
         return self._builder_address is not None
 
     def _build_builder_field(self) -> Optional[Dict[str, Any]]:
-        """
-        Builds the Hyperliquid builder field ``{"b": <address>, "f": <tenths_of_bps>}`` to attach
-        to an order action, or ``None`` when builder attribution should be omitted. The address is
-        lowercased because Hyperliquid rejects mixed-case addresses in the builder field.
-        """
+        """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
+        is lowercased (the venue rejects mixed-case)."""
         if not self._should_inject_builder():
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
     async def _initialize_builder_fee(self) -> None:
-        """
-        Resolve the per-order builder fee from the user's on-chain approval, once at startup.
-
-        The connector charges the hardcoded ``FOUNDATION_BUILDER_FEE_TENTHS_BPS`` (1 bps) when the
-        user has approved the builder, and 0 when they have not — implemented as
-        ``min(approved max, hardcoded fee, venue cap)``. So a user who never approved pays 0; a user
-        who approved (e.g. via Condor) pays the hardcoded 1 bps. The ``min`` against the approved max
-        also fails safe: if a user approved less than 1 bps the connector charges that lower amount
-        rather than signing a fee the venue would reject. If the lookup fails, charge 0 bps for the
-        session rather than block trading.
-        """
+        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee,
+        venue cap): the hardcoded fee if the user approved it, 0 if not (or if the lookup fails)."""
         if not self._should_inject_builder():
             return
         try:

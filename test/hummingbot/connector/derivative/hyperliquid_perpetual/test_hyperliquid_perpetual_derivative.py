@@ -3878,7 +3878,11 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         connector = self._build_connector()
         self.async_run_with_timeout(connector._initialize_builder_fee())
         self.assertEqual(10, connector._builder_fee_tenths_bps)
-        self.assertEqual({"b": connector._builder_address, "f": 10}, connector._build_builder_field())
+        # Charges 1 bps and attributes to the Foundation builder address.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 10},
+            connector._build_builder_field(),
+        )
 
     @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_zero_when_not_approved(self, api_post_mock):
@@ -3886,6 +3890,11 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         connector = self._build_connector()
         self.async_run_with_timeout(connector._initialize_builder_fee())
         self.assertEqual(0, connector._builder_fee_tenths_bps)
+        # Still attributes to the Foundation builder address, just at 0 bps.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
 
     @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
