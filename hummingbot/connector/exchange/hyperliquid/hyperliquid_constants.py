@@ -6,9 +6,11 @@ BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
 
 # === Builder code support (HGP-87) ===
-# Hyperliquid supports per-order builder codes. The connector attaches a Foundation
-# builder address at a zero fee rate to every mainnet order (attribution only), and
-# omits the field entirely on testnet and vault orders (see HyperliquidExchange).
+# Hyperliquid supports per-order builder codes. The connector attaches a Foundation builder address
+# to every mainnet order and charges FOUNDATION_BUILDER_FEE_TENTHS_BPS when the user has approved the
+# builder on-chain, and 0 otherwise — resolved once at startup from the user's approveBuilderFee
+# approval (see HyperliquidExchange._initialize_builder_fee). The field is omitted entirely on testnet
+# and vault orders.
 BUILDER_SUPPORTED = True
 
 # Foundation builder identity. Set after Foundation onboarding (deposit >= 100 USDC into a
@@ -16,12 +18,15 @@ BUILDER_SUPPORTED = True
 # which makes the connector omit the builder field (no attribution) rather than sign an invalid one.
 FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 
-# Foundation default fee. 0 means attribution only (no user-paid fee).
-# Unit: tenths of a basis point (Hyperliquid's ``f`` unit). ``f = 10`` is 1 bp; ``f = 100`` is 10 bps.
-FOUNDATION_BUILDER_FEE_TENTHS_BPS = 0
+# The builder fee charged per order, in tenths of a basis point (Hyperliquid's ``f`` unit): ``f = 10``
+# is 1 bp = 0.01%. This is the single source of truth for the fee — it is hardcoded here in the
+# connector (baked into the image), NOT in any client, so it cannot be reduced by editing a frontend.
+# It is charged only when the user has approved the builder on-chain; an unapproved user pays 0
+# (Hyperliquid requires the approval before any builder fee can apply).
+FOUNDATION_BUILDER_FEE_TENTHS_BPS = 10
 
-# Protocol cap for override validation. Unit: tenths of a basis point.
-# Reference: Hyperliquid builder-codes docs. Spot cap is 100 bps.
+# Venue hard cap for the builder fee, used as a backstop so the connector never signs a fee the venue
+# would reject. Unit: tenths of a basis point. Reference: Hyperliquid builder-codes docs. Spot cap is 100 bps.
 HYPERLIQUID_SPOT_BUILDER_FEE_CAP_TENTHS_BPS = 1000  # = 100 bps (spot cap)
 
 # Info-endpoint request type used to query a user's approved max builder fee for a builder.

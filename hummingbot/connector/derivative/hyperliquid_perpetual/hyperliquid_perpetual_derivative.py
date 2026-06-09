@@ -69,14 +69,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
-        # Builder code support (HGP-87). Defaults to the Foundation builder identity at a 0 fee
-        # (attribution only). Applications may override via _load_builder_override().
+        # Builder code support (HGP-87). The builder identity and fee are the Foundation address and
+        # CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS (hardcoded in the connector). The per-order fee
+        # starts at 0 (charge nothing until startup confirms the user approved the builder) and is
+        # resolved once at startup in _initialize_builder_fee: the hardcoded fee if approved, else 0.
         self._builder_address: Optional[str] = (
             CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
             if CONSTANTS.FOUNDATION_BUILDER_ADDRESS is not None
             else None
         )
-        self._builder_fee_tenths_bps: int = CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS
+        self._builder_fee_tenths_bps: int = 0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -140,6 +142,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
+
+    async def start_network(self):
+        await super().start_network()
+        if self._trading_required:
+            await self._initialize_builder_fee()
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -678,54 +685,40 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
-    def _load_builder_override(self, config: Optional[Dict[str, Any]]) -> None:
+    async def _initialize_builder_fee(self) -> None:
         """
-        Applies an application-provided builder override (e.g. from the connector YAML config),
-        validating the fee against the Hyperliquid protocol cap. The venue would reject orders
-        whose fee exceeds the cap, so this fails fast at load time. Updates the effective builder
-        address (lowercased) and fee used for subsequent orders.
+        Resolve the per-order builder fee from the user's on-chain approval, once at startup.
+
+        The connector charges the hardcoded ``FOUNDATION_BUILDER_FEE_TENTHS_BPS`` (1 bps) when the
+        user has approved the builder, and 0 when they have not — implemented as
+        ``min(approved max, hardcoded fee, venue cap)``. So a user who never approved pays 0; a user
+        who approved (e.g. via Condor) pays the hardcoded 1 bps. The ``min`` against the approved max
+        also fails safe: if a user approved less than 1 bps the connector charges that lower amount
+        rather than signing a fee the venue would reject. If the lookup fails, charge 0 bps for the
+        session rather than block trading.
         """
-        builder = (config or {}).get("builder")
-        if builder is None:
+        if not self._should_inject_builder():
             return
-        fee_bps = int(builder["fee_bps"])
-        fee_tenths_bps = fee_bps * 10
-        cap = self._builder_fee_cap_tenths_bps
-        if fee_tenths_bps > cap:
-            raise ValueError(
-                f"builder.fee_bps={fee_bps} exceeds Hyperliquid protocol cap "
-                f"of {cap // 10} bps. The venue would reject this order."
+        try:
+            approved_max_tenths_bps = int(await self._api_post(
+                path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                data={
+                    "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
+                    "user": self.hyperliquid_perpetual_address,
+                    "builder": self._builder_address,
+                },
+            ))
+        except Exception:
+            self.logger().exception(
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
             )
-        self._builder_address = builder["address"].lower()
-        self._builder_fee_tenths_bps = fee_tenths_bps
-
-    async def get_builder_info(self) -> Dict[str, Any]:
-        """
-        Returns the builder attribution state for this connector (the ``/builder-info`` handler).
-        On testnet, vault, or when no builder is configured, attribution is structurally
-        unavailable and the handler reports ``{"supported": False}``. Otherwise it queries the
-        user's approved max builder fee; at the Foundation 0-bps default ``approved`` is trivially
-        ``True`` since the approved max is >= 0 for any user.
-        """
-        if self._is_testnet or self._use_vault or self._builder_address is None:
-            return {"supported": False}
-
-        approved_max_tenths_bps = int(await self._api_post(
-            path_url=CONSTANTS.EXCHANGE_INFO_URL,
-            data={
-                "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
-                "user": self.hyperliquid_perpetual_address,
-                "builder": self._builder_address,
-            },
-        ))
-
-        return {
-            "supported": True,
-            "builder_address": self._builder_address,
-            "fee_bps": self._builder_fee_tenths_bps // 10,
-            "approved": approved_max_tenths_bps >= self._builder_fee_tenths_bps,
-            "approval_expiry_ms": None,  # Hyperliquid approvals do not expire
-        }
+            self._builder_fee_tenths_bps = 0
+            return
+        self._builder_fee_tenths_bps = min(
+            approved_max_tenths_bps,
+            CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS,
+            self._builder_fee_cap_tenths_bps,
+        )
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())

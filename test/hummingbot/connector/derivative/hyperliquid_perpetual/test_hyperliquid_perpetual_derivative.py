@@ -3850,37 +3850,49 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
             self.assertFalse(connector._should_inject_builder())
             self.assertIsNone(connector._build_builder_field())
 
-    def test_override_absent_is_noop(self):
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_applies_approved(self, api_post_mock):
+        api_post_mock.return_value = 10  # user approved 0.01% = 1 bps
         connector = self._build_connector()
-        original_address = connector._builder_address
-        connector._load_builder_override(None)
-        connector._load_builder_override({})
-        self.assertEqual(original_address, connector._builder_address)
-
-    def test_override_within_perp_cap_applied(self):
-        connector = self._build_connector()
-        connector._load_builder_override({"builder": {"address": self.builder_address, "fee_bps": 10}})
-        self.assertEqual(self.builder_address.lower(), connector._builder_address)
-        self.assertEqual(100, connector._builder_fee_tenths_bps)
-
-    def test_override_exceeding_perp_cap_raises(self):
-        connector = self._build_connector()
-        with self.assertRaises(ValueError):
-            connector._load_builder_override({"builder": {"address": self.builder_address, "fee_bps": 11}})
-
-    def test_builder_info_unsupported_on_testnet(self):
-        connector = self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)
-        self.assertEqual({"supported": False}, self.async_run_with_timeout(connector.get_builder_info()))
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        self.assertEqual({"b": connector._builder_address, "f": 10}, connector._build_builder_field())
 
     @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
-    def test_builder_info_supported_at_zero_bps_is_approved(self, api_post_mock):
-        api_post_mock.return_value = 0
+    def test_initialize_builder_fee_zero_when_not_approved(self, api_post_mock):
+        api_post_mock.return_value = 0  # no approval on record
         connector = self._build_connector()
-        connector._builder_address = self.builder_address.lower()
-        connector._builder_fee_tenths_bps = 0
-        info = self.async_run_with_timeout(connector.get_builder_info())
-        self.assertTrue(info["supported"])
-        self.assertEqual(self.builder_address.lower(), info["builder_address"])
-        self.assertEqual(0, info["fee_bps"])
-        self.assertTrue(info["approved"])
-        self.assertIsNone(info["approval_expiry_ms"])
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
+        api_post_mock.return_value = 10_000  # approval above our fee; charge only the hardcoded fee
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS, connector._builder_fee_tenths_bps)
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_below_configured_charges_approved(self, api_post_mock):
+        api_post_mock.return_value = 5  # user approved less than 1 bps; fail safe to the approved max
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(5, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_fails_safe_to_zero(self, api_post_mock):
+        api_post_mock.side_effect = Exception("info endpoint down")
+        connector = self._build_connector()
+        connector._builder_fee_tenths_bps = 99  # ensure it is reset
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_skipped_on_testnet_and_vault(self, api_post_mock):
+        api_post_mock.return_value = 10
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            self.async_run_with_timeout(connector._initialize_builder_fee())
+            self.assertEqual(0, connector._builder_fee_tenths_bps)
+            api_post_mock.assert_not_called()
