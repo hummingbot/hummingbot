@@ -655,10 +655,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_testnet(self) -> bool:
         return self._domain == CONSTANTS.TESTNET_DOMAIN
 
-    @property
-    def _builder_fee_cap_tenths_bps(self) -> int:
-        return CONSTANTS.HYPERLIQUID_PERP_BUILDER_FEE_CAP_TENTHS_BPS
-
     def _should_inject_builder(self) -> bool:
         """Builder attribution applies only on mainnet, non-vault orders — the venue rejects the
         builder field on vault and testnet orders."""
@@ -676,8 +672,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
     async def _initialize_builder_fee(self) -> None:
-        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee,
-        venue cap): the hardcoded fee if the user approved it, 0 if not (or if the lookup fails)."""
+        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user approved it, 0 if not (or if the lookup fails)."""
         if not self._should_inject_builder():
             return
         try:
@@ -695,11 +691,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             )
             self._builder_fee_tenths_bps = 0
             return
-        self._builder_fee_tenths_bps = min(
-            approved_max_tenths_bps,
-            CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS,
-            self._builder_fee_cap_tenths_bps,
-        )
+        self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())

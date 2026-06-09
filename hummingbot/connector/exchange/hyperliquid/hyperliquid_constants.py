@@ -13,12 +13,10 @@ BUILDER_SUPPORTED = True
 # Foundation builder address (None = omit the builder field entirely).
 FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 
-# Fee charged per order, in tenths of a basis point (f=10 is 1 bp = 0.01%), only when the user has
-# approved the builder on-chain. Hardcoded here, not client-side.
+# Builder fee charged per order, in tenths of a basis point (f=10 is 1 bp = 0.01%). Hardcoded here
+# (not client-side) and charged only when the user has approved this builder on-chain via Condor's
+# connect flow; an unapproved user pays 0.
 FOUNDATION_BUILDER_FEE_TENTHS_BPS = 10
-
-# Venue cap (tenths of a bp) — backstop so we never sign a fee the venue rejects. Spot cap is 100 bps.
-HYPERLIQUID_SPOT_BUILDER_FEE_CAP_TENTHS_BPS = 1000
 
 # Info-endpoint request type used to query a user's approved max builder fee for a builder.
 MAX_BUILDER_FEE_TYPE = "maxBuilderFee"
