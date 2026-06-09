@@ -32,6 +32,18 @@ WS_METHOD_ORDER_CANCEL_ALL = "order.cancel_all"
 WS_METHOD_PING = "ping"
 WS_METHOD_TIME = "time"
 
+# WebSocket order entry params (the WS API uses different enums than the v1 REST API:
+# side/type/timeInForce are uppercase, and maker-or-cancel is expressed as timeInForce=MOC)
+WS_SIDE_BUY = "BUY"
+WS_SIDE_SELL = "SELL"
+WS_ORDER_TYPE_LIMIT = "LIMIT"
+WS_TIME_IN_FORCE_GTC = "GTC"
+WS_TIME_IN_FORCE_MOC = "MOC"
+
+# Seconds to wait for the {id, status, result|error} ack of a WS order request
+# before treating the websocket path as failed and falling back to REST.
+WS_ORDER_REQUEST_TIMEOUT = 10.0
+
 # Fast API stream channels
 WS_DEPTH_STREAM = "{}@depth"
 WS_DEPTH_PARTIAL_STREAM = "{}@depth{}"  # depth5, depth10, depth20
@@ -86,6 +98,9 @@ ORDER_STATE = {
 # Error codes
 ORDER_NOT_FOUND_ERROR = "OrderNotFound"
 INVALID_ORDER_ERROR = "InvalidOrderId"
+# The WS API rejects cancels of unknown/filled orders with
+# "Invalid parameters - order not found or already filled" (code -1013)
+WS_ORDER_NOT_FOUND_MESSAGE = "order not found"
 
 
 def convert_timestamp_to_seconds(ts: float) -> float:
