@@ -49,6 +49,10 @@ WS_CONNECT_TIMEOUT = 10.0
 # After a failed trade websocket connect, route orders straight to REST for this many
 # seconds instead of letting every queued request serially retry the handshake.
 WS_CONNECT_COOLDOWN = 30.0
+# Poll interval of the maintenance loop that eagerly connects (and reconnects) the
+# trade websocket so order entry never has to pay the handshake and `ready` can
+# gate trading on the websocket path actually being usable.
+WS_MAINTENANCE_INTERVAL = 1.0
 
 # Fast API stream channels
 WS_DEPTH_STREAM = "{}@depth"
@@ -77,8 +81,18 @@ ORDER_TYPE_LIMIT = "exchange limit"
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Rate Limit IDs
-REQUEST_WEIGHT = "REQUEST_WEIGHT"
+# Per https://developer.gemini.com/rate-limit: public REST is limited to 120
+# requests/minute (recommended <= 1/sec); private REST to 600 requests/minute
+# (recommended <= 5/sec). Exceeding a group's limit returns HTTP 429.
+REQUEST_WEIGHT = "REQUEST_WEIGHT"  # private REST budget
+PRIVATE_REQUESTS_PER_SECOND = "PRIVATE_REQUESTS_PER_SECOND"
+PUBLIC_REQUEST_WEIGHT = "PUBLIC_REQUEST_WEIGHT"
+PUBLIC_REQUESTS_PER_SECOND = "PUBLIC_REQUESTS_PER_SECOND"
 ORDERS_RATE = "ORDERS_RATE"
+# WS order entry has its own (weight-based, 30000/min) budget on the exchange side,
+# so it gets dedicated limit ids instead of sharing the REST per-second pacing.
+WS_ORDER_PLACE_LIMIT_ID = "WSOrderPlace"
+WS_ORDER_CANCEL_LIMIT_ID = "WSOrderCancel"
 
 # Rate Limit intervals
 ONE_MINUTE = 60
@@ -86,6 +100,7 @@ ONE_SECOND = 1
 ONE_DAY = 86400
 
 MAX_REQUEST = 600
+MAX_PUBLIC_REQUEST = 120
 
 # Order States
 ORDER_STATE = {
@@ -119,29 +134,45 @@ def convert_timestamp_to_seconds(ts: float) -> float:
     return ts
 
 
+_PUBLIC_LINKS = [LinkedLimitWeightPair(PUBLIC_REQUEST_WEIGHT, 1),
+                 LinkedLimitWeightPair(PUBLIC_REQUESTS_PER_SECOND, 1)]
+_PRIVATE_LINKS = [LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+                  LinkedLimitWeightPair(PRIVATE_REQUESTS_PER_SECOND, 1)]
+
 RATE_LIMITS = [
-    RateLimit(limit_id=REQUEST_WEIGHT, limit=600, time_interval=ONE_MINUTE),
+    # Documented budgets (see comment above the limit ids)
+    RateLimit(limit_id=REQUEST_WEIGHT, limit=MAX_REQUEST, time_interval=ONE_MINUTE),
+    RateLimit(limit_id=PRIVATE_REQUESTS_PER_SECOND, limit=5, time_interval=ONE_SECOND),
+    RateLimit(limit_id=PUBLIC_REQUEST_WEIGHT, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE),
+    # 2/sec smooths bursts while keeping the full 120/min budget reachable
+    # (a hard 1/sec cap would throttle below the documented per-minute limit)
+    RateLimit(limit_id=PUBLIC_REQUESTS_PER_SECOND, limit=2, time_interval=ONE_SECOND),
     RateLimit(limit_id=ORDERS_RATE, limit=100, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=SYMBOLS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=SYMBOL_DETAILS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=TICKER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
-    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
+    # Public REST
+    RateLimit(limit_id=SYMBOLS_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=_PUBLIC_LINKS),
+    RateLimit(limit_id=SYMBOL_DETAILS_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=_PUBLIC_LINKS),
+    RateLimit(limit_id=TICKER_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=_PUBLIC_LINKS),
+    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=_PUBLIC_LINKS),
+    # Private REST
     RateLimit(limit_id=NEW_ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(ORDERS_RATE, 1)]),
+              linked_limits=_PRIVATE_LINKS + [LinkedLimitWeightPair(ORDERS_RATE, 1)]),
     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(ORDERS_RATE, 1)]),
+              linked_limits=_PRIVATE_LINKS + [LinkedLimitWeightPair(ORDERS_RATE, 1)]),
     RateLimit(limit_id=ORDER_STATUS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
+              linked_limits=_PRIVATE_LINKS),
     RateLimit(limit_id=ACTIVE_ORDERS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
+              linked_limits=_PRIVATE_LINKS),
     RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
+              linked_limits=_PRIVATE_LINKS),
     RateLimit(limit_id=BALANCES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1)]),
+              linked_limits=_PRIVATE_LINKS),
+    # WS order entry — shares the overall order budget but not the REST pacing
+    RateLimit(limit_id=WS_ORDER_PLACE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(ORDERS_RATE, 1)]),
+    RateLimit(limit_id=WS_ORDER_CANCEL_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(ORDERS_RATE, 1)]),
 ]

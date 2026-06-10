@@ -61,6 +61,7 @@ class GeminiExchange(ExchangePyBase):
         # by request id; any failure on this socket falls back to the REST endpoints.
         self._trade_ws: Optional[WSAssistant] = None
         self._trade_ws_listener_task: Optional[asyncio.Task] = None
+        self._trade_ws_maintenance_task: Optional[asyncio.Task] = None
         self._trade_ws_pending_requests: Dict[str, asyncio.Future] = {}
         self._trade_ws_request_id: int = 0
         self._trade_ws_lock = asyncio.Lock()
@@ -118,6 +119,16 @@ class GeminiExchange(ExchangePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        # Gate readiness on the order-entry websocket actually being connected, so
+        # strategies cannot start creating/cancelling orders before the WS path is
+        # usable (the maintenance loop establishes it during start_network).
+        status = super().status_dict
+        status["trade_websocket_connected"] = (not self.is_trading_required
+                                               or self._trade_ws is not None)
+        return status
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -250,7 +261,7 @@ class GeminiExchange(ExchangePyBase):
         response = await self._trade_ws_request(
             method=CONSTANTS.WS_METHOD_ORDER_PLACE,
             params=params,
-            throttler_limit_id=CONSTANTS.NEW_ORDER_PATH_URL)
+            throttler_limit_id=CONSTANTS.WS_ORDER_PLACE_LIMIT_ID)
         self._raise_for_ws_error(response)
         transact_time = self._time()
 
@@ -385,7 +396,7 @@ class GeminiExchange(ExchangePyBase):
         response = await self._trade_ws_request(
             method=CONSTANTS.WS_METHOD_ORDER_CANCEL,
             params={"orderId": str(exchange_order_id)},
-            throttler_limit_id=CONSTANTS.CANCEL_ORDER_PATH_URL)
+            throttler_limit_id=CONSTANTS.WS_ORDER_CANCEL_LIMIT_ID)
         self._raise_for_ws_error(response)
         return True
 
@@ -481,8 +492,9 @@ class GeminiExchange(ExchangePyBase):
                     raise GeminiWSTransportError(
                         "The trade websocket failed to connect recently — deferring to REST "
                         "until the cooldown expires.")
-                ws = await self._web_assistants_factory.get_ws_assistant()
+                ws: Optional[WSAssistant] = None
                 try:
+                    ws = await self._web_assistants_factory.get_ws_assistant()
                     # Time-boxed: this runs under the trade WS lock, and an un-bounded
                     # handshake would head-of-line block every placement and cancel.
                     await asyncio.wait_for(
@@ -496,7 +508,8 @@ class GeminiExchange(ExchangePyBase):
                     raise
                 except Exception:
                     self._trade_ws_last_connect_failure = self._time()
-                    await self._safe_ws_disconnect(ws)
+                    if ws is not None:
+                        await self._safe_ws_disconnect(ws)
                     raise
                 if self._trade_ws_stopped:
                     # stop_network ran while the handshake was in flight
@@ -554,15 +567,42 @@ class GeminiExchange(ExchangePyBase):
                 listener_task.cancel()
         await self._safe_ws_disconnect(ws)
 
+    async def _trade_ws_maintenance_loop(self):
+        """Eagerly connects the trade websocket and keeps it connected, so order entry
+        never pays the handshake on the order path and `status_dict` reflects the real
+        state of the order-entry rail. _connected_trade_ws is a no-op when connected
+        and enforces its own cooldown after failures."""
+        while True:
+            try:
+                await self._connected_trade_ws()
+            except asyncio.CancelledError:
+                raise
+            except GeminiWSTransportError:
+                pass  # expected while stopped or cooling down after a failed connect
+            except Exception:
+                self.logger().warning(
+                    "Failed to (re)connect the Gemini trade websocket. Will keep retrying; "
+                    "orders fall back to REST meanwhile.", exc_info=True)
+            await self._sleep(CONSTANTS.WS_MAINTENANCE_INTERVAL)
+
     async def start_network(self):
+        # ExchangePyBase.start_network's FIRST statement is `await self.stop_network()`,
+        # which dispatches to our override and sets _trade_ws_stopped. The trade-WS
+        # flags must therefore be cleared AFTER the base start — clearing them before
+        # would leave the connector permanently "stopped" for the trade websocket.
+        await super().start_network()
         self._trade_ws_stopped = False
         self._trade_ws_last_connect_failure = 0.0
-        await super().start_network()
+        if self.is_trading_required and self._trade_ws_maintenance_task is None:
+            self._trade_ws_maintenance_task = safe_ensure_future(self._trade_ws_maintenance_loop())
 
     async def stop_network(self):
         # Set the flag first: a connect that is mid-handshake when this runs re-checks
         # it before installing the socket, and later requests refuse to reconnect.
         self._trade_ws_stopped = True
+        if self._trade_ws_maintenance_task is not None:
+            self._trade_ws_maintenance_task.cancel()
+            self._trade_ws_maintenance_task = None
         await super().stop_network()
         await self._reset_trade_ws(self._trade_ws)
 
@@ -581,6 +621,12 @@ class GeminiExchange(ExchangePyBase):
                 try:
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
                 except KeyError:
+                    continue
+
+                # The symbol map contains every Gemini symbol (~300+). Fetch the
+                # per-symbol details only for the configured pairs — sweeping them all
+                # would burn ~3x Gemini's whole public budget (120 req/min) per update.
+                if self._trading_pairs and trading_pair not in self._trading_pairs:
                     continue
 
                 rest_assistant = await self._web_assistants_factory.get_rest_assistant()
@@ -843,6 +889,9 @@ class GeminiExchange(ExchangePyBase):
         resp_json = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PATH_URL.format(symbol),
+            # the formatted path is not a registered limit id — without this the
+            # throttler raises on the unknown id and the call bypasses the public budget
+            limit_id=CONSTANTS.TICKER_PATH_URL,
         )
 
         return float(resp_json.get("close", resp_json.get("last", 0)))

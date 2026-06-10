@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
@@ -368,7 +368,7 @@ class GeminiExchangeTests(TestCase):
         self.exchange._api_post.assert_not_called()
         _, kwargs = self.exchange._trade_ws_request.call_args
         self.assertEqual(CONSTANTS.WS_METHOD_ORDER_PLACE, kwargs["method"])
-        self.assertEqual(CONSTANTS.NEW_ORDER_PATH_URL, kwargs["throttler_limit_id"])
+        self.assertEqual(CONSTANTS.WS_ORDER_PLACE_LIMIT_ID, kwargs["throttler_limit_id"])
         params = kwargs["params"]
         self.assertEqual("btcusd", params["symbol"])
         self.assertEqual(CONSTANTS.WS_SIDE_BUY, params["side"])
@@ -627,7 +627,7 @@ class GeminiExchangeTests(TestCase):
         _, kwargs = self.exchange._trade_ws_request.call_args
         self.assertEqual(CONSTANTS.WS_METHOD_ORDER_CANCEL, kwargs["method"])
         self.assertEqual({"orderId": "123"}, kwargs["params"])
-        self.assertEqual(CONSTANTS.CANCEL_ORDER_PATH_URL, kwargs["throttler_limit_id"])
+        self.assertEqual(CONSTANTS.WS_ORDER_CANCEL_LIMIT_ID, kwargs["throttler_limit_id"])
 
     def test_place_cancel_ws_not_found_raises_and_matches_predicate(self):
         self._set_symbol_map()
@@ -802,6 +802,143 @@ class GeminiExchangeTests(TestCase):
 
         self.assertFalse(self.exchange._trade_ws_stopped)
         self.assertEqual(0.0, self.exchange._trade_ws_last_connect_failure)
+        # trading is not required on this exchange — no maintenance loop
+        self.assertIsNone(self.exchange._trade_ws_maintenance_task)
+
+    def test_status_dict_gates_on_trade_websocket(self):
+        trading_exchange = GeminiExchange(
+            gemini_api_key="test_key",
+            gemini_api_secret="test_secret",
+            trading_pairs=["BTC-USD"],
+            trading_required=True,
+        )
+        self.assertFalse(trading_exchange.status_dict["trade_websocket_connected"])
+        self.assertFalse(trading_exchange.ready)
+
+        trading_exchange._trade_ws = AsyncMock()
+        self.assertTrue(trading_exchange.status_dict["trade_websocket_connected"])
+
+        # non-trading connectors are not gated on the order-entry websocket
+        self.assertTrue(self.exchange.status_dict["trade_websocket_connected"])
+
+    def test_start_network_spawns_and_stop_network_cancels_maintenance(self):
+        trading_exchange = GeminiExchange(
+            gemini_api_key="test_key",
+            gemini_api_secret="test_secret",
+            trading_pairs=["BTC-USD"],
+            trading_required=True,
+        )
+        trading_exchange._web_assistants_factory.get_ws_assistant = AsyncMock(
+            side_effect=Exception("offline"))
+
+        async def scenario():
+            with patch.object(ExchangePyBase, "start_network", new_callable=AsyncMock), \
+                    patch.object(ExchangePyBase, "stop_network", new_callable=AsyncMock):
+                await trading_exchange.start_network()
+                spawned_task = trading_exchange._trade_ws_maintenance_task
+                await asyncio.sleep(0.05)  # let the loop attempt (and fail) a connect
+                await trading_exchange.stop_network()
+                remaining_task = trading_exchange._trade_ws_maintenance_task
+                await asyncio.sleep(0)  # let the cancellation land
+                return spawned_task, remaining_task
+
+        spawned_task, remaining_task = self._async_run(scenario())
+
+        self.assertIsNotNone(spawned_task)
+        self.assertIsNone(remaining_task)
+        self.assertTrue(spawned_task.done())
+        # the failed eager connect armed the cooldown
+        self.assertGreater(trading_exchange._trade_ws_last_connect_failure, 0)
+        self.assertTrue(trading_exchange._trade_ws_stopped)
+
+    def test_real_lifecycle_start_network_enables_trade_websocket(self):
+        # Regression for a live incident: ExchangePyBase.start_network's FIRST
+        # statement is `await self.stop_network()`, which dispatches to our override
+        # and sets the stop flag. If start_network cleared the flags before super()
+        # instead of after, the trade websocket stayed gated forever and every order
+        # silently fell back to REST. This test runs the REAL base lifecycle methods.
+        trading_exchange = GeminiExchange(
+            gemini_api_key="test_key",
+            gemini_api_secret="test_secret",
+            trading_pairs=["BTC-USD"],
+            trading_required=True,
+        )
+        fake_ws = _ScriptedWSAssistant()
+        trading_exchange._web_assistants_factory.get_ws_assistant = AsyncMock(return_value=fake_ws)
+        # stub the network-touching components the base lifecycle starts/stops
+        trading_exchange._order_book_tracker = MagicMock()
+        trading_exchange._user_stream_tracker = AsyncMock()
+        trading_exchange._user_stream_tracker.data_source.last_recv_time = 1.0
+        trading_exchange._create_user_stream_tracker_task = lambda: None
+        trading_exchange._trading_rules_polling_loop = AsyncMock()
+        trading_exchange._trading_fees_polling_loop = AsyncMock()
+        trading_exchange._status_polling_loop = AsyncMock()
+        trading_exchange._user_stream_event_listener = AsyncMock()
+        trading_exchange._lost_orders_update_polling_loop = AsyncMock()
+
+        async def scenario():
+            with patch.object(CONSTANTS, "WS_MAINTENANCE_INTERVAL", 0.01):
+                await trading_exchange.start_network()
+                stopped_after_start = trading_exchange._trade_ws_stopped
+                for _ in range(100):
+                    if trading_exchange._trade_ws is fake_ws:
+                        break
+                    await asyncio.sleep(0.01)
+                connected = trading_exchange._trade_ws is fake_ws
+                ws_ready = trading_exchange.status_dict["trade_websocket_connected"]
+                await trading_exchange.stop_network()
+                await asyncio.sleep(0)
+                return stopped_after_start, connected, ws_ready
+
+        stopped_after_start, connected, ws_ready = self._async_run(scenario())
+
+        self.assertFalse(stopped_after_start)
+        self.assertTrue(connected)
+        self.assertTrue(ws_ready)
+        self.assertTrue(trading_exchange._trade_ws_stopped)
+        self.assertIsNone(trading_exchange._trade_ws)
+        self.assertIsNone(trading_exchange._trade_ws_maintenance_task)
+        self.assertTrue(fake_ws.disconnected)
+
+    def test_trade_ws_maintenance_loop_connects_and_reconnects(self):
+        fake_ws_1 = _ScriptedWSAssistant()
+        fake_ws_2 = _ScriptedWSAssistant()
+
+        async def scenario():
+            self.exchange._web_assistants_factory.get_ws_assistant = AsyncMock(
+                side_effect=[fake_ws_1, fake_ws_2])
+            with patch.object(CONSTANTS, "WS_MAINTENANCE_INTERVAL", 0.01):
+                loop_task = asyncio.get_running_loop().create_task(
+                    self.exchange._trade_ws_maintenance_loop())
+                for _ in range(100):
+                    if self.exchange._trade_ws is fake_ws_1:
+                        break
+                    await asyncio.sleep(0.01)
+                self.assertIs(fake_ws_1, self.exchange._trade_ws)
+
+                # drop the connection: the loop must bring up a fresh one by itself
+                await self.exchange._reset_trade_ws(self.exchange._trade_ws)
+                for _ in range(100):
+                    if self.exchange._trade_ws is fake_ws_2:
+                        break
+                    await asyncio.sleep(0.01)
+                self.assertIs(fake_ws_2, self.exchange._trade_ws)
+
+                loop_task.cancel()
+                await self.exchange._reset_trade_ws(self.exchange._trade_ws)
+                await asyncio.sleep(0)
+
+        self._async_run(scenario())
+        self.assertTrue(fake_ws_1.disconnected)
+        self.assertTrue(fake_ws_2.disconnected)
+
+    def test_rate_limits_linked_ids_are_defined(self):
+        defined_ids = {limit.limit_id for limit in CONSTANTS.RATE_LIMITS}
+        for limit in CONSTANTS.RATE_LIMITS:
+            for linked in limit.linked_limits:
+                self.assertIn(linked.limit_id, defined_ids)
+        self.assertIn(CONSTANTS.WS_ORDER_PLACE_LIMIT_ID, defined_ids)
+        self.assertIn(CONSTANTS.WS_ORDER_CANCEL_LIMIT_ID, defined_ids)
 
     def test_connected_trade_ws_refuses_when_stopped(self):
         self.exchange._trade_ws_stopped = True
@@ -1000,6 +1137,26 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(Decimal("0.001"), rule.min_order_size)
         self.assertEqual(Decimal("0.01"), rule.min_price_increment)
 
+    def test_format_trading_rules_only_fetches_configured_pairs(self):
+        # The symbol map holds every Gemini symbol; the per-symbol details requests
+        # must be limited to the configured trading pairs to respect the 120/min
+        # public budget.
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({"btcusd": "BTC-USD", "ethusd": "ETH-USD", "solusd": "SOL-USD"}))
+        mock_assistant = AsyncMock()
+        mock_assistant.execute_request = AsyncMock(return_value={
+            "min_order_size": "0.001",
+            "tick_size": "0.000001",
+            "quote_increment": "0.01",
+        })
+        self.exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=mock_assistant)
+
+        rules = self._async_run(self.exchange._format_trading_rules(["btcusd", "ethusd", "solusd"]))
+
+        # SOL-USD maps but is not a configured pair — no details request for it
+        self.assertEqual(2, mock_assistant.execute_request.await_count)
+        self.assertEqual({"BTC-USD", "ETH-USD"}, {rule.trading_pair for rule in rules})
+
     def test_format_trading_rules_skips_on_error(self):
         self._set_symbol_map()
         mock_assistant = AsyncMock()
@@ -1099,6 +1256,10 @@ class GeminiExchangeTests(TestCase):
         self.exchange._api_request = AsyncMock(return_value={"close": "123.45"})
         price = self._async_run(self.exchange._get_last_traded_price("BTC-USD"))
         self.assertEqual(123.45, price)
+        # the formatted path is not a registered throttler id — the template must be
+        # passed explicitly or the real throttler raises on the unknown id
+        _, kwargs = self.exchange._api_request.call_args
+        self.assertEqual(CONSTANTS.TICKER_PATH_URL, kwargs["limit_id"])
 
     # ------------------------------------------------------------------
     # User stream — balance updates
