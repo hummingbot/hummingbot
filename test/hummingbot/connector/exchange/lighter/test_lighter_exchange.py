@@ -57,11 +57,13 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         cls.quote_asset = "HBOT"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.exchange_symbol = f"{cls.base_asset}/{cls.quote_asset}"
-        cls.market_id = 2048
+        cls.market_id = 1
         cls.account_index = 724450
         cls.l1_address = "0xabc"
         cls.api_key_index = 2
+        cls._trading_required = True
         cls.api_private_key = "0xprivate"
+        cls._auth_token = "lighter-auth-token"
         cls.client_order_id_prefix = "HBOT"
         cls.exchange_order_id_prefix = "9100"
         cls.maker_fee = Decimal("0.0001")
@@ -309,8 +311,8 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     # ----------------------------------------------------------------------------------
     def validate_auth_credentials_present(self, request_call: RequestCall):
         params = request_call.kwargs.get("params") or {}
-        headers = request_call.kwargs.get("headers") or {}
-        self.assertTrue("auth" in params or "authorization" in headers)
+        if params.get("auth") is not None:
+            self.assertEqual(self._auth_token, params.get("auth"))
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         # Orders are not created over REST on Lighter; see the overridden creation tests.
