@@ -63,6 +63,16 @@ class LighterConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         },
     )
+    lighter_account_limit: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Lighter account limit(Standard/Premium/Plus/Builder)",
+            "is_secure": False,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+            "default_value": "Standard",
+        },
+    )
     model_config = ConfigDict(title="lighter")
 
     @field_validator("lighter_account_index", "lighter_api_key_index", mode="before")
@@ -113,6 +123,15 @@ class LighterTestnetConfigMap(BaseConnectorConfigMap):
         json_schema_extra={
             "prompt": "Enter your Lighter Testnet API private key",
             "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True,
+        },
+    )
+    lighter_testnet_account_limit: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Lighter Testnet account limit(Standard)",
+            "is_secure": False,
             "is_connect_key": True,
             "prompt_on_new": True,
         },

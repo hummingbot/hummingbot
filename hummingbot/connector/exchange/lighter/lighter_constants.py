@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import List
 
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -82,20 +83,30 @@ ORDER_STATE = {
 # https://apidocs.lighter.xyz/docs/rate-limits
 
 # Endpoint weights (applied against the rolling-minute weighted bucket):
-#   sendTx / sendTxBatch / nextNonce   →   6
-#   accountInactiveOrders              →  100
-#   trades / recentTrades              →  600
-#   All other endpoints                →  300
+#   sendTx / sendTxBatch / nextNonce   →      6
+#   accountInactiveOrders              →    100
+#   trades / recentTrades              →    600
+#   All other endpoints                →    300
 
-# Standard account flat cap: 60 requests / rolling minute (unweighted).
-# Premium account weighted cap: 24,000 weighted requests / rolling minute.
-# Builder account weighted cap: 240,000 weighted requests / rolling minute.
+# REST read-only pool caps (weighted requests / rolling minute):
+#   Standard  →  60 unweighted req/min  (pool scaled to 60 × 300 = 18 000)
+#   Premium   →  24,000
+#   Plus      →  120,000
+#   Builder   →  240,000
+#
+# sendTx / sendTxBatch caps (requests / rolling minute):
+#   Standard  →  60 req/min  (shares the single Standard bucket; pool = 60 × 6 = 360)
+#   Premium   →  4,000–40,000 depending on staked LIT (default baseline: 4,000)
+#              INDEPENDENT of the read-only pool — getting tx-rate-limited does not
+#              affect read-only calls and vice versa.
+#   Plus      →  8,000  (independent of read-only pool)
+#   Builder   →  60 req/min  (Standard rules apply for sendTx; independent of read-only pool)
 
 # Endpoint weights (per single request)
-WEIGHT_DEFAULT = 300          # "Other endpoints"
-WEIGHT_SEND_TX = 6            # sendTx, sendTxBatch, nextNonce
+WEIGHT_DEFAULT = 300  # "Other endpoints"
+WEIGHT_SEND_TX = 6  # sendTx, sendTxBatch, nextNonce
 WEIGHT_INACTIVE_ORDERS = 100  # accountInactiveOrders
-WEIGHT_TRADES = 600           # trades, recentTrades
+WEIGHT_TRADES = 600  # trades, recentTrades
 
 # Standard account flat cap (unweighted)
 STANDARD_ACCOUNT_REQUEST_LIMIT = 60
@@ -110,101 +121,183 @@ ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18 000
 # Keep legacy alias
 TRADES_RECENT_TRADES_LIMIT = WEIGHT_TRADES  # 600
 
+# sendTx / sendTxBatch caps per account tier (requests / rolling minute).
+# Premium scales with staked LIT; the table below matches the docs exactly.
+# https://apidocs.lighter.xyz/docs/rate-limits#sendtx-and-sendtxbatch-limits-premium-accounts
+SEND_TX_LIMIT_STANDARD = STANDARD_ACCOUNT_REQUEST_LIMIT  # 60  — falls under single shared bucket
+SEND_TX_LIMIT_PLUS = 8_000  # fixed, independent bucket
+SEND_TX_LIMIT_BUILDER = STANDARD_ACCOUNT_REQUEST_LIMIT  # 60  — Standard rules apply for sendTx
+
+# Premium sendTx limit by staked-LIT tier (use get_premium_send_tx_limit() below).
+PREMIUM_SEND_TX_LIMITS_BY_STAKED_LIT = [
+    (500_000, 40_000),
+    (300_000, 24_000),
+    (100_000, 12_000),
+    (30_000, 8_000),
+    (10_000, 7_000),
+    (3_000, 6_000),
+    (1_000, 5_000),
+    (0, 4_000),  # baseline — no LIT staked
+]
+
+
+def get_premium_send_tx_limit(staked_lit: int = 0) -> int:
+    """Return the correct sendTx/sendTxBatch cap (req/min) for a Premium account
+    given the number of staked LIT tokens (fee credits count as staked LIT)."""
+    for threshold, cap in PREMIUM_SEND_TX_LIMITS_BY_STAKED_LIT:
+        if staked_lit >= threshold:
+            return cap
+    return 4_000  # unreachable, but safe fallback
+
+
 # WebSocket limits (per IP) — https://apidocs.lighter.xyz/docs/rate-limits#websocket-limits
 WS_MAX_CONNECTIONS = 200
 WS_MAX_SUBSCRIPTIONS_PER_CONNECTION = 500
 WS_MAX_UNIQUE_ACCOUNTS_PER_CONNECTION = 500
 WS_MAX_NEW_CONNECTIONS_PER_MINUTE = 80
-WS_MAX_MESSAGES_PER_MINUTE = 200   # sendTx/sendBatchTx excluded; follow REST limits
-WS_MAX_INFLIGHT_MESSAGES = 50      # sendTx/sendBatchTx excluded
+WS_MAX_MESSAGES_PER_MINUTE = 200  # sendTx/sendBatchTx excluded; follow REST limits
+WS_MAX_INFLIGHT_MESSAGES = 50  # sendTx/sendBatchTx excluded
 
 ALL_ENDPOINTS_LIMIT = "lighter_all"
 SEND_TX_LIMIT = "lighter_send_tx"
 
-RATE_LIMITS = [
+
+def generate_account_limit(account_type: str, staked_lit: int = 0) -> List[RateLimit]:
+    """Generate the full list of RateLimit objects for the given account tier.
+
+    Parameters
+    ----------
+    account_type:
+        One of "Standard", "Premium", "Plus", "Builder".
+    staked_lit:
+        Number of staked LIT tokens (only meaningful for Premium accounts).
+        Fee credits count as staked LIT per the docs.
+        Ignored for all other tiers.
+    """
     # ------------------------------------------------------------------
-    # Shared pool — all REST requests draw from this bucket.
-    # Sized for a standard account (60 unweighted req/min → 18 000 pts).
+    # Read-only (REST) pool sizes — weighted requests / rolling minute.
+    # Standard is unweighted (60 req/min); we scale to 60 × WEIGHT_DEFAULT
+    # so that one "Other endpoint" call correctly costs 300 out of 18 000,
+    # giving the equivalent of 60 calls/min.
     # ------------------------------------------------------------------
-    RateLimit(ALL_ENDPOINTS_LIMIT, limit=ALL_ENDPOINTS_POOL, time_interval=60),
+    read_only_pool_map = {
+        "Standard": STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT,  # 18,000
+        "Premium": 24_000,
+        "Plus": 120_000,
+        "Builder": 240_000,
+    }
+    all_endpoints_pool = read_only_pool_map.get(account_type, STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT)
 
     # ------------------------------------------------------------------
-    # sendTx / sendTxBatch — weight 6 per call.
-    # Standard accounts: 60 req/min flat → pool of 360 (60 × 6).
+    # sendTx / sendTxBatch pool sizes and linking rules.
+    #
+    # Standard : single shared bucket → sendTx IS linked to ALL_ENDPOINTS_LIMIT.
+    #            Pool = 60 × WEIGHT_SEND_TX = 360 (60 unweighted calls × weight-6).
+    #
+    # Premium  : INDEPENDENT bucket, NOT linked to ALL_ENDPOINTS_LIMIT.
+    #            Cap determined by staked LIT (4,000–40,000 req/min).
+    #
+    # Plus     : INDEPENDENT bucket, NOT linked to ALL_ENDPOINTS_LIMIT.
+    #            Fixed cap of 8,000 req/min.
+    #
+    # Builder  : INDEPENDENT bucket, NOT linked to ALL_ENDPOINTS_LIMIT.
+    #            Standard sendTx rules apply → 60 req/min.
     # ------------------------------------------------------------------
-    RateLimit(
-        SEND_TX_LIMIT,
-        limit=STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_SEND_TX,  # 360
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_SEND_TX)],
-    ),
+    if account_type == "Standard":
+        send_tx_pool = SEND_TX_LIMIT_STANDARD * WEIGHT_SEND_TX  # 360
+        send_tx_linked = [LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_SEND_TX)]
+    elif account_type == "Premium":
+        send_tx_pool = get_premium_send_tx_limit(staked_lit)  # 4,000–40,000
+        send_tx_linked = []  # independent bucket
+    elif account_type == "Plus":
+        send_tx_pool = SEND_TX_LIMIT_PLUS  # 8,000
+        send_tx_linked = []  # independent bucket
+    else:  # Builder (and any unknown type — fall back to Standard sendTx rules)
+        send_tx_pool = SEND_TX_LIMIT_BUILDER * WEIGHT_SEND_TX  # 360
+        send_tx_linked = []  # independent bucket
 
-    # ------------------------------------------------------------------
-    # Read-only endpoints — "Other endpoints" weight = 300
-    # ------------------------------------------------------------------
-    RateLimit(
-        ORDER_BOOK_DETAILS_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
-    RateLimit(
-        ORDER_BOOK_ORDERS_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
-    RateLimit(
-        ACCOUNT_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
-    RateLimit(
-        ACCOUNT_ACTIVE_ORDERS_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
-    RateLimit(
-        EXCHANGE_STATS_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
-    RateLimit(
-        CANDLES_PATH_URL,
-        limit=WEIGHT_DEFAULT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
-    ),
+    return [
+        # ------------------------------------------------------------------
+        # Shared read-only pool — all REST requests (except sendTx for
+        # non-Standard tiers) draw from this bucket.
+        # ------------------------------------------------------------------
+        RateLimit(ALL_ENDPOINTS_LIMIT, limit=all_endpoints_pool, time_interval=60),
+        # ------------------------------------------------------------------
+        # sendTx / sendTxBatch bucket.
+        # Standard: linked to ALL_ENDPOINTS_LIMIT (single shared pool).
+        # All other tiers: standalone independent pool.
+        # ------------------------------------------------------------------
+        RateLimit(
+            SEND_TX_LIMIT,
+            limit=send_tx_pool,
+            time_interval=60,
+            linked_limits=send_tx_linked,
+        ),
+        # ------------------------------------------------------------------
+        # Read-only endpoints — "Other endpoints" weight = 300
+        # ------------------------------------------------------------------
+        RateLimit(
+            ORDER_BOOK_DETAILS_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        RateLimit(
+            ORDER_BOOK_ORDERS_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        RateLimit(
+            ACCOUNT_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        RateLimit(
+            ACCOUNT_ACTIVE_ORDERS_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        RateLimit(
+            EXCHANGE_STATS_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        RateLimit(
+            CANDLES_PATH_URL,
+            limit=WEIGHT_DEFAULT,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+        ),
+        # ------------------------------------------------------------------
+        # accountInactiveOrders — weight 100
+        # ------------------------------------------------------------------
+        RateLimit(
+            ACCOUNT_INACTIVE_ORDERS_PATH_URL,
+            limit=WEIGHT_INACTIVE_ORDERS,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_INACTIVE_ORDERS)],
+        ),
+        # ------------------------------------------------------------------
+        # trades / recentTrades — weight 600
+        # ------------------------------------------------------------------
+        RateLimit(
+            TRADES_PATH_URL,
+            limit=WEIGHT_TRADES,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
+        ),
+        RateLimit(
+            RECENT_TRADES_PATH_URL,
+            limit=WEIGHT_TRADES,
+            time_interval=60,
+            linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
+        ),
+    ]
 
-    # ------------------------------------------------------------------
-    # accountInactiveOrders — weight 100
-    # ------------------------------------------------------------------
-    RateLimit(
-        ACCOUNT_INACTIVE_ORDERS_PATH_URL,
-        limit=WEIGHT_INACTIVE_ORDERS,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_INACTIVE_ORDERS)],
-    ),
-
-    # ------------------------------------------------------------------
-    # trades / recentTrades — weight 600
-    # ------------------------------------------------------------------
-    RateLimit(
-        TRADES_PATH_URL,
-        limit=WEIGHT_TRADES,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
-    ),
-    RateLimit(
-        RECENT_TRADES_PATH_URL,
-        limit=WEIGHT_TRADES,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
-    ),
-]
 
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = 19

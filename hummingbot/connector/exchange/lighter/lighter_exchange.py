@@ -50,6 +50,7 @@ class LighterExchange(ExchangePyBase):
         lighter_account_index: int = None,
         lighter_api_key_index: int = None,
         lighter_api_private_key: str = None,
+        lighter_account_limit: str = "Standard",
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DOMAIN,
@@ -58,6 +59,7 @@ class LighterExchange(ExchangePyBase):
         self._account_index = int(lighter_account_index) if lighter_account_index not in (None, "") else None
         self._api_key_index = int(lighter_api_key_index) if lighter_api_key_index not in (None, "") else None
         self._api_private_key = lighter_api_private_key
+        self._api_account_limit = lighter_account_limit
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs or []
         self._domain = domain
@@ -85,7 +87,7 @@ class LighterExchange(ExchangePyBase):
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
-        return CONSTANTS.RATE_LIMITS
+        return CONSTANTS.generate_account_limit(self._api_account_limit)
 
     @property
     def domain(self) -> str:
