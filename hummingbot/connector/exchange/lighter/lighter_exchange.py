@@ -10,13 +10,14 @@ from hummingbot.connector.exchange.lighter.lighter_api_utils import (
     account_index_from_account,
     decimal_to_exchange_int,
     extract_account_snapshot,
+    market_info_from_raw,
     markets_by_exchange_symbol,
     markets_by_id,
     markets_by_trading_pair,
+    normalize_timestamp_to_seconds,
     order_state_from_order_data,
     own_trade_details,
     spot_markets_from_exchange_info,
-    timestamp_us_to_seconds,
     trading_pair_symbol_map,
 )
 from hummingbot.connector.exchange.lighter.lighter_auth import LighterAuth
@@ -290,7 +291,6 @@ class LighterExchange(ExchangePyBase):
         market = self.market_info_for_trading_pair(tracked_order.trading_pair)
         order_data = await self._find_order(tracked_order=tracked_order, include_inactive=True)
         if order_data is None:
-            await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {order_id}")
 
         async with self._tx_lock:
@@ -375,7 +375,7 @@ class LighterExchange(ExchangePyBase):
             raise IOError(f"{CONSTANTS.ORDER_NOT_EXIST_MESSAGE}: {tracked_order.client_order_id}")
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=timestamp_us_to_seconds(
+            update_timestamp=normalize_timestamp_to_seconds(
                 order_data.get("updated_at", order_data.get("transaction_time"))
             ),
             new_state=order_state_from_order_data(order_data),
@@ -432,18 +432,27 @@ class LighterExchange(ExchangePyBase):
                 self.logger().error("Unexpected error in Lighter user stream listener.", exc_info=True)
                 await self._sleep(5.0)
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        markets = spot_markets_from_exchange_info(exchange_info_dict)
+    def _parse_spot_markets(self, exchange_info: Dict[str, Any], log_errors: bool) -> List[Any]:
+        markets = []
+        for raw_market in exchange_info.get("spot_order_book_details", []):
+            if not web_utils.is_exchange_information_valid(raw_market):
+                continue
+            try:
+                markets.append(market_info_from_raw(raw_market))
+            except Exception:
+                if log_errors:
+                    self.logger().exception(f"Error parsing the trading pair rule {raw_market}. Skipping.")
         self._markets_by_id = markets_by_id(markets)
         self._markets_by_trading_pair = markets_by_trading_pair(markets)
         self._markets_by_exchange_symbol = markets_by_exchange_symbol(markets)
+        return markets
+
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        markets = self._parse_spot_markets(exchange_info_dict, log_errors=True)
         return [market.trading_rule() for market in markets]
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        markets = spot_markets_from_exchange_info(exchange_info)
-        self._markets_by_id = markets_by_id(markets)
-        self._markets_by_trading_pair = markets_by_trading_pair(markets)
-        self._markets_by_exchange_symbol = markets_by_exchange_symbol(markets)
+        markets = self._parse_spot_markets(exchange_info, log_errors=False)
         self._set_trading_pair_symbol_map(trading_pair_symbol_map(markets))
 
     def market_info_for_trading_pair(self, trading_pair: str):
@@ -585,7 +594,7 @@ class LighterExchange(ExchangePyBase):
                     continue
                 order_update = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
-                    update_timestamp=timestamp_us_to_seconds(
+                    update_timestamp=normalize_timestamp_to_seconds(
                         order.get("updated_at", order.get("transaction_time"))
                     ),
                     new_state=order_state_from_order_data(order),
@@ -646,7 +655,7 @@ class LighterExchange(ExchangePyBase):
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=tracked_order.trading_pair,
-            fill_timestamp=timestamp_us_to_seconds(trade.get("transaction_time")),
+            fill_timestamp=normalize_timestamp_to_seconds(trade.get("transaction_time")),
             fill_price=price,
             fill_base_amount=size,
             fill_quote_amount=price * size,

@@ -26,7 +26,7 @@ class TestLighterSpotCandles(TestCandlesBase):
         cls.quote_asset = "USDC"
         cls.interval = "1m"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = cls.base_asset  # get_exchange_trading_pair returns "BTC"
+        cls.ex_trading_pair = f"{cls.base_asset}/{cls.quote_asset}"  # get_exchange_trading_pair returns "BTC/USDC"
         cls.max_records = 150
 
     def setUp(self) -> None:
@@ -179,10 +179,15 @@ class TestLighterSpotCandles(TestCandlesBase):
         mock_api.get(
             url=order_book_details_url,
             body=json.dumps({
+                # Perpetual markets (base-only symbols) must be ignored by the spot feed.
                 "order_book_details": [
-                    {"market_id": 1, "symbol": "BTC"},
-                    {"market_id": 2, "symbol": "ETH"},
-                ]
+                    {"market_id": 10, "symbol": "BTC"},
+                    {"market_id": 20, "symbol": "ETH"},
+                ],
+                "spot_order_book_details": [
+                    {"market_id": 1, "symbol": "BTC/USDC"},
+                    {"market_id": 2, "symbol": "ETH/USDC"},
+                ],
             }),
         )
         await self.data_feed.initialize_exchange_data()
@@ -197,8 +202,8 @@ class TestLighterSpotCandles(TestCandlesBase):
         mock_api.get(
             url=order_book_details_url,
             body=json.dumps({
-                "order_book_details": [
-                    {"market_id": 1, "symbol": "btc"},
+                "spot_order_book_details": [
+                    {"market_id": 1, "symbol": "btc/usdc"},
                 ]
             }),
         )
@@ -221,7 +226,7 @@ class TestLighterSpotCandles(TestCandlesBase):
         )
         mock_api.get(
             url=order_book_details_url,
-            body=json.dumps({"order_book_details": [{"market_id": 2, "symbol": "ETH"}]}),
+            body=json.dumps({"spot_order_book_details": [{"market_id": 2, "symbol": "ETH/USDC"}]}),
         )
         with self.assertRaises(ValueError) as ctx:
             await self.data_feed.initialize_exchange_data()

@@ -28,8 +28,6 @@ DEFAULT_AUTH_TOKEN_EXPIRY_SECONDS = 10 * 60
 AUTH_TOKEN_REFRESH_BUFFER_SECONDS = 30
 FUNDING_INTERVAL_SECONDS = 60 * 60
 DEFAULT_MARKET_ORDER_SLIPPAGE = Decimal("0.05")
-DEFAULT_REQUEST_LIMIT = 250
-MAX_CLIENT_ORDER_ID_BIT_COUNT = 48
 ORDER_BOOK_SNAPSHOT_LIMIT = 250
 PUBLIC_WS_PING_INTERVAL = 30.0
 PRIVATE_WS_PING_INTERVAL = 30.0
@@ -83,77 +81,151 @@ ORDER_STATE = {
     "canceled-invalid-balance": OrderState.FAILED,
 }
 
+# Rate limit constants — sourced from:
+# https://apidocs.lighter.xyz/docs/rate-limits
+
+# Endpoint weights (applied against the rolling-minute weighted bucket):
+#   sendTx / sendTxBatch / nextNonce   →   6
+#   accountInactiveOrders              →  100
+#   trades / recentTrades              →  600
+#   All other endpoints                →  300
+
+# Standard account flat cap: 60 requests / rolling minute (unweighted).
+# Premium account weighted cap: 24,000 weighted requests / rolling minute.
+# Builder account weighted cap: 240,000 weighted requests / rolling minute.
+
+# NOTE: Hummingbot's throttler uses `limit` as the *weight cost* of one call
+# against the shared pool, not as the total pool size.  The shared pool size
+# is set on the ALL_ENDPOINTS_LIMIT bucket; individual endpoint entries carry
+# their per-call weight via `limit` so the throttler can correctly deduct it.
+
+# Endpoint weights (per single request)
+WEIGHT_DEFAULT = 300          # "Other endpoints"
+WEIGHT_SEND_TX = 6            # sendTx, sendTxBatch, nextNonce
+WEIGHT_INACTIVE_ORDERS = 100  # accountInactiveOrders
+WEIGHT_TRADES = 600           # trades, recentTrades
+
+# Standard account flat cap (unweighted)
+STANDARD_ACCOUNT_REQUEST_LIMIT = 60
+
+# Total weighted-request pool for a standard account per rolling minute.
+# Standard accounts are unweighted at 60 req/min; because the throttler uses
+# a weight-based pool, we size the pool at 60 * WEIGHT_DEFAULT (=18 000) so
+# that one "Other endpoint" call correctly costs 300 out of 18 000, giving
+# the equivalent of 60 calls/min.  Upgrade tiers simply raise this ceiling.
+ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18 000
+
+# Keep legacy aliases used elsewhere in the connector
+MAX_CLIENT_ORDER_ID_BIT_COUNT = 48
+TRADES_RECENT_TRADES_LIMIT = WEIGHT_TRADES  # 600 — kept for backward compat
+
+# WebSocket limits (per IP) — https://apidocs.lighter.xyz/docs/rate-limits#websocket-limits
+WS_MAX_CONNECTIONS = 200
+WS_MAX_SUBSCRIPTIONS_PER_CONNECTION = 500
+WS_MAX_UNIQUE_ACCOUNTS_PER_CONNECTION = 500
+WS_MAX_NEW_CONNECTIONS_PER_MINUTE = 80
+WS_MAX_MESSAGES_PER_MINUTE = 200   # sendTx/sendBatchTx excluded; follow REST limits
+WS_MAX_INFLIGHT_MESSAGES = 50      # sendTx/sendBatchTx excluded
+
 ALL_ENDPOINTS_LIMIT = "lighter_perpetual_all"
 SEND_TX_LIMIT = "lighter_perpetual_send_tx"
 
 RATE_LIMITS = [
-    RateLimit(ALL_ENDPOINTS_LIMIT, limit=DEFAULT_REQUEST_LIMIT, time_interval=60),
-    RateLimit(SEND_TX_LIMIT, limit=DEFAULT_REQUEST_LIMIT, time_interval=60),
+    # ------------------------------------------------------------------
+    # Shared pool — all REST requests draw from this bucket.
+    # Sized for a standard account (60 unweighted req/min → 18 000 pts).
+    # ------------------------------------------------------------------
+    RateLimit(ALL_ENDPOINTS_LIMIT, limit=ALL_ENDPOINTS_POOL, time_interval=60),
+
+    # ------------------------------------------------------------------
+    # sendTx / sendTxBatch — weight 6 per call.
+    # These share the ALL_ENDPOINTS_LIMIT pool AND have their own bucket
+    # so the connector can track transaction throughput independently.
+    # Standard accounts: 60 req/min flat → pool of 360 (60 × 6).
+    # ------------------------------------------------------------------
+    RateLimit(
+        SEND_TX_LIMIT,
+        limit=STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_SEND_TX,  # 360
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_SEND_TX)],
+    ),
+
+    # ------------------------------------------------------------------
+    # Read-only endpoints — "Other endpoints" weight = 300
+    # ------------------------------------------------------------------
     RateLimit(
         ORDER_BOOK_DETAILS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         ORDER_BOOK_ORDERS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         ACCOUNT_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         ACCOUNT_ACTIVE_ORDERS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
-    ),
-    RateLimit(
-        ACCOUNT_INACTIVE_ORDERS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
-    ),
-    RateLimit(
-        TRADES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
-    ),
-    RateLimit(
-        RECENT_TRADES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
-        time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         FUNDING_RATES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         POSITION_FUNDING_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         EXCHANGE_STATS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         CANDLES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
+    ),
+
+    # ------------------------------------------------------------------
+    # accountInactiveOrders — weight 100
+    # ------------------------------------------------------------------
+    RateLimit(
+        ACCOUNT_INACTIVE_ORDERS_PATH_URL,
+        limit=WEIGHT_INACTIVE_ORDERS,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_INACTIVE_ORDERS)],
+    ),
+
+    # ------------------------------------------------------------------
+    # trades / recentTrades — weight 600
+    # ------------------------------------------------------------------
+    RateLimit(
+        TRADES_PATH_URL,
+        limit=WEIGHT_TRADES,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
+    ),
+    RateLimit(
+        RECENT_TRADES_PATH_URL,
+        limit=WEIGHT_TRADES,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_TRADES)],
     ),
 ]
 

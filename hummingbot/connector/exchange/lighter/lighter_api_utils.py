@@ -52,31 +52,33 @@ class LighterMarketInfo:
         )
 
 
+def market_info_from_raw(raw_market: Dict[str, Any]) -> LighterMarketInfo:
+    symbol = str(raw_market["symbol"]).upper()
+    base_asset, quote_asset = symbol.split("/")
+    trading_pair = combine_to_hb_trading_pair(base=base_asset, quote=quote_asset)
+    return LighterMarketInfo(
+        market_id=int(raw_market["market_id"]),
+        exchange_symbol=symbol,
+        trading_pair=trading_pair,
+        base_asset=base_asset,
+        quote_asset=quote_asset,
+        market_type="spot",
+        min_base_amount=Decimal(str(raw_market["min_base_amount"])),
+        min_quote_amount=Decimal(str(raw_market["min_quote_amount"])),
+        size_decimals=int(raw_market["supported_size_decimals"]),
+        price_decimals=int(raw_market["supported_price_decimals"]),
+        maker_fee=Decimal(str(raw_market["maker_fee"])),
+        taker_fee=Decimal(str(raw_market["taker_fee"])),
+        raw_info=raw_market,
+    )
+
+
 def spot_markets_from_exchange_info(exchange_info: Dict[str, Any]) -> List[LighterMarketInfo]:
     markets = []
     for raw_market in exchange_info.get("spot_order_book_details", []):
         if not web_utils.is_exchange_information_valid(raw_market):
             continue
-        symbol = str(raw_market["symbol"]).upper()
-        base_asset, quote_asset = symbol.split("/")
-        trading_pair = combine_to_hb_trading_pair(base=base_asset, quote=quote_asset)
-        markets.append(
-            LighterMarketInfo(
-                market_id=int(raw_market["market_id"]),
-                exchange_symbol=symbol,
-                trading_pair=trading_pair,
-                base_asset=base_asset,
-                quote_asset=quote_asset,
-                market_type="spot",
-                min_base_amount=Decimal(str(raw_market["min_base_amount"])),
-                min_quote_amount=Decimal(str(raw_market["min_quote_amount"])),
-                size_decimals=int(raw_market["supported_size_decimals"]),
-                price_decimals=int(raw_market["supported_price_decimals"]),
-                maker_fee=Decimal(str(raw_market["maker_fee"])),
-                taker_fee=Decimal(str(raw_market["taker_fee"])),
-                raw_info=raw_market,
-            )
-        )
+        markets.append(market_info_from_raw(raw_market))
     return markets
 
 
@@ -104,8 +106,24 @@ def decimal_to_exchange_int(value: Decimal, decimals: int) -> int:
     return int(scaled.to_integral_value())
 
 
-def timestamp_us_to_seconds(timestamp: Any) -> float:
-    return float(timestamp or 0) * 1e-6
+def normalize_timestamp_to_seconds(timestamp: Any) -> float:
+    """Convert a Lighter timestamp to seconds.
+
+    Lighter mixes time units across fields — wall-clock fields such as ``timestamp`` /
+    ``created_at`` / ``updated_at`` are milliseconds, while ``transaction_time`` is
+    microseconds (verified against the live API) — so the unit is inferred from the value's
+    magnitude rather than assumed, matching CandlesBase.ensure_timestamp_in_seconds.
+    """
+    value = float(timestamp or 0)
+    if value <= 0:
+        return 0.0
+    if value >= 1e18:  # nanoseconds
+        return value / 1e9
+    if value >= 1e15:  # microseconds
+        return value / 1e6
+    if value >= 1e12:  # milliseconds
+        return value / 1e3
+    return value  # seconds (or sub-second synthetic values)
 
 
 def order_state_from_order_data(order_data: Dict[str, Any]) -> OrderState:

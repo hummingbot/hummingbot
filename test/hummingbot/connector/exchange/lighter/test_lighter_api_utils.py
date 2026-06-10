@@ -93,3 +93,16 @@ class LighterApiUtilsTests(TestCase):
         )
 
         self.assertEqual(724450, utils.account_index_from_account(account))
+
+    def test_normalize_timestamp_to_seconds_infers_unit_from_magnitude(self):
+        # Lighter mixes units: wall-clock fields are ms, transaction_time is us (live-API verified).
+        self.assertAlmostEqual(1781056278.158, utils.normalize_timestamp_to_seconds("1781056278158"))       # ms
+        self.assertAlmostEqual(1781056278.158263, utils.normalize_timestamp_to_seconds("1781056278158263"))  # us
+        self.assertAlmostEqual(1781056278.0, utils.normalize_timestamp_to_seconds(1781056278))               # s
+        self.assertAlmostEqual(1781056278.158263, utils.normalize_timestamp_to_seconds(1781056278158263158), places=4)  # ns
+        self.assertEqual(0.0, utils.normalize_timestamp_to_seconds(None))
+        self.assertEqual(0.0, utils.normalize_timestamp_to_seconds(0))
+
+    def test_normalize_timestamp_milliseconds_not_parsed_as_1970(self):
+        # Regression: an order's millisecond updated_at must not be read as microseconds (~1970).
+        self.assertGreater(utils.normalize_timestamp_to_seconds("1640780000000"), 1_600_000_000)

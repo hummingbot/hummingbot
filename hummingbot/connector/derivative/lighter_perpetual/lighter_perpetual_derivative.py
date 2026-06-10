@@ -19,10 +19,10 @@ from hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_api_uti
     markets_by_exchange_symbol,
     markets_by_id,
     markets_by_trading_pair,
+    normalize_timestamp_to_seconds,
     order_state_from_order_data,
     own_trade_details,
     perpetual_markets_from_exchange_info,
-    timestamp_us_to_seconds,
     trading_pair_symbol_map,
 )
 from hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_auth import LighterAuth
@@ -434,7 +434,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         new_state = order_state_from_order_data(order_data)
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=timestamp_us_to_seconds(
+            update_timestamp=normalize_timestamp_to_seconds(
                 order_data.get("updated_at", order_data.get("transaction_time"))
             ),
             new_state=new_state,
@@ -748,7 +748,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             new_state = order_state_from_order_data(order)
             order_update = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
-                update_timestamp=timestamp_us_to_seconds(
+                update_timestamp=normalize_timestamp_to_seconds(
                     order.get("updated_at", order.get("transaction_time"))
                 ),
                 new_state=new_state,
@@ -830,7 +830,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=tracked_order.trading_pair,
-            fill_timestamp=timestamp_us_to_seconds(trade.get("transaction_time")),
+            fill_timestamp=normalize_timestamp_to_seconds(trade.get("transaction_time")),
             fill_price=price,
             fill_base_amount=size,
             fill_quote_amount=price * size,

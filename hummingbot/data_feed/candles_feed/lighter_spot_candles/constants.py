@@ -22,27 +22,35 @@ INTERVALS = {
     "1w": "1w",
 }
 
+# Rate limits — https://apidocs.lighter.xyz/docs/rate-limits
+# Lighter throttles against a weighted request pool per rolling minute. Every endpoint this
+# read-only candles feed uses (candles, orderBookDetails, exchangeStats) is an "Other endpoint"
+# with weight 300. A standard account is capped at 60 requests/minute, so the shared pool is
+# sized at 60 * 300 = 18,000 weighted points; each weight-300 call costs 300, giving the
+# equivalent of 60 calls/minute.
 ALL_ENDPOINTS_LIMIT = "lighter_spot_candles_all"
-DEFAULT_REQUEST_LIMIT = 250
+WEIGHT_DEFAULT = 300
+STANDARD_ACCOUNT_REQUEST_LIMIT = 60
+ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18,000
 
 RATE_LIMITS = [
-    RateLimit(ALL_ENDPOINTS_LIMIT, limit=DEFAULT_REQUEST_LIMIT, time_interval=60),
+    RateLimit(ALL_ENDPOINTS_LIMIT, limit=ALL_ENDPOINTS_POOL, time_interval=60),
     RateLimit(
         CANDLES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         ORDER_BOOK_DETAILS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         EXCHANGE_STATS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
 ]

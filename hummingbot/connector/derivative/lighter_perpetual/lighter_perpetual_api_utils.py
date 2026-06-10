@@ -108,8 +108,24 @@ def decimal_to_exchange_int(value: Decimal, decimals: int) -> int:
     return int(scaled.to_integral_value())
 
 
-def timestamp_us_to_seconds(timestamp: Any) -> float:
-    return float(timestamp or 0) * 1e-6
+def normalize_timestamp_to_seconds(timestamp: Any) -> float:
+    """Convert a Lighter timestamp to seconds.
+
+    Lighter mixes time units across fields — wall-clock fields such as ``timestamp`` /
+    ``created_at`` / ``updated_at`` are milliseconds, while ``transaction_time`` is
+    microseconds (verified against the live API) — so the unit is inferred from the value's
+    magnitude rather than assumed, matching CandlesBase.ensure_timestamp_in_seconds.
+    """
+    value = float(timestamp or 0)
+    if value <= 0:
+        return 0.0
+    if value >= 1e18:  # nanoseconds
+        return value / 1e9
+    if value >= 1e15:  # microseconds
+        return value / 1e6
+    if value >= 1e12:  # milliseconds
+        return value / 1e3
+    return value  # seconds (or sub-second synthetic values)
 
 
 def next_funding_timestamp_seconds(last_funding_timestamp_ms: int) -> int:

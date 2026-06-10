@@ -22,27 +22,30 @@ INTERVALS = {
     "1w": "1w",
 }
 
+# Rate limits — https://apidocs.lighter.xyz/docs/rate-limits
 ALL_ENDPOINTS_LIMIT = "lighter_candles_all"
-DEFAULT_REQUEST_LIMIT = 250
+WEIGHT_DEFAULT = 300
+STANDARD_ACCOUNT_REQUEST_LIMIT = 60
+ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18,000
 
 RATE_LIMITS = [
-    RateLimit(ALL_ENDPOINTS_LIMIT, limit=DEFAULT_REQUEST_LIMIT, time_interval=60),
+    RateLimit(ALL_ENDPOINTS_LIMIT, limit=ALL_ENDPOINTS_POOL, time_interval=60),
     RateLimit(
         CANDLES_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         ORDER_BOOK_DETAILS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
     RateLimit(
         EXCHANGE_STATS_PATH_URL,
-        limit=DEFAULT_REQUEST_LIMIT,
+        limit=WEIGHT_DEFAULT,
         time_interval=60,
-        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, weight=WEIGHT_DEFAULT)],
     ),
 ]

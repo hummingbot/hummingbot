@@ -68,23 +68,24 @@ class LighterSpotCandles(CandlesBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair: str) -> str:
-        return trading_pair.split("-")[0].upper()
+        return trading_pair.replace("-", "/").upper()
 
     async def initialize_exchange_data(self):
         if self._market_id is not None:
             return
-        base_symbol = self._trading_pair.split("-")[0].upper()
+        exchange_symbol = self.get_exchange_trading_pair(self._trading_pair)
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
             url=f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}",
             throttler_limit_id=CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL,
         )
-        for market in data.get("order_book_details", []):
-            if str(market.get("symbol", "")).upper() == base_symbol:
+        # Spot markets live under "spot_order_book_details"; "order_book_details" holds perpetuals.
+        for market in data.get("spot_order_book_details", []):
+            if str(market.get("symbol", "")).upper() == exchange_symbol:
                 self._market_id = int(market["market_id"])
                 break
         if self._market_id is None:
-            raise ValueError(f"Lighter market not found for trading pair {self._trading_pair}")
+            raise ValueError(f"Lighter spot market not found for trading pair {self._trading_pair}")
 
     def _get_rest_candles_params(
         self,

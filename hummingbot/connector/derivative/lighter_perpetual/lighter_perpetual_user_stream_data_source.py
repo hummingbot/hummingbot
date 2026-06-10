@@ -84,7 +84,7 @@ class LighterPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 if data is None:
                     continue
                 if data.get("type") == "ping":
-                    websocket_assistant.send(WSJSONRequest(payload={"type": "pong"}))
+                    await websocket_assistant.send(WSJSONRequest(payload={"type": "pong"}))
                     continue
                 await self._process_event_message(event_message=data, queue=queue)
         finally:
