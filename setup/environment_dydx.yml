@@ -18,7 +18,7 @@ dependencies:
   - pytest-asyncio>=0.16.0
   - setuptools>=75.7.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
-  - aiohttp>=3.8.5
+  - aiohttp>=3.8.5,<3.14
   - asyncssh>=2.13.2
   - aioprocessing>=2.0.1
   - aioresponses>=0.7.4
