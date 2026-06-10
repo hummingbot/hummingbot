@@ -17,6 +17,7 @@ test:
  	--ignore="test/hummingbot/strategy/amm_arb/" \
  	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
  	--timeout=120 \
+ 	--timeout-method=thread \
 
 run_coverage: test
 	coverage report
