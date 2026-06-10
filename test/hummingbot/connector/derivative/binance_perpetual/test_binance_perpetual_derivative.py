@@ -1151,6 +1151,31 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "Margin Required: 0. Negative PnL assets: ."
         ))
 
+    async def test_account_update_event_does_not_overwrite_available_balance_with_cross_wallet(self):
+        self._simulate_trading_rules_initialized()
+
+        # Pre-existing available balance coming from a REST poll (the source of truth). It is lower than
+        # the wallet/cross balance because there is margin locked by an open position.
+        self.exchange._account_available_balances["USDT"] = Decimal("23.72469206")
+        self.exchange._account_balances["USDT"] = Decimal("100.0")
+
+        account_update = self._get_account_update_ws_event_single_position_dict()
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: account_update)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.resume_test_event.wait()
+
+        # Total balance is updated from the wallet balance ("wb").
+        self.assertEqual(Decimal("122624.12345678"), self.exchange._account_balances["USDT"])
+        # Available balance must NOT be overwritten with the cross wallet balance ("cw"), which would
+        # overstate it; it stays as the REST-provided value.
+        self.assertEqual(Decimal("23.72469206"), self.exchange._account_available_balances["USDT"])
+
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualDerivative.current_timestamp")

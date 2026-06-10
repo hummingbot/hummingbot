@@ -439,8 +439,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # update balances
             for asset in update_data.get("B", []):
                 asset_name = asset["a"]
+                # The ACCOUNT_UPDATE event only carries the wallet balance ("wb") and the cross wallet
+                # balance ("cw"); it does not include an "available balance" field. "cw" is the total
+                # cross balance and does NOT subtract the initial margin locked by open positions/orders,
+                # so using it as the available balance overstates it. We therefore only update the total
+                # balance here and let the REST poll (_update_balances) remain the source of truth for the
+                # available balance.
                 self._account_balances[asset_name] = Decimal(asset["wb"])
-                self._account_available_balances[asset_name] = Decimal(asset["cw"])
 
             # update position
             for asset in update_data.get("P", []):
