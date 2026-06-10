@@ -16,6 +16,7 @@ test:
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \
  	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
+ 	--timeout=120 \
 
 run_coverage: test
 	coverage report
