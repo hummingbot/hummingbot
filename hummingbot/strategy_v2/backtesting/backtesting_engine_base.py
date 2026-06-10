@@ -343,9 +343,16 @@ class BacktestingEngineBase:
             if executor_info.status == RunnableStatus.TERMINATED:
                 self.stopped_executors_info.append(executor_info)
                 simulations_to_remove.append(executor.config.id)
-                # Naturally terminated executors (TP, SL, TL) always count as realized PnL
-                self._executor_realized_pnl += float(executor_info.net_pnl_quote)
                 self._cumulative_volume += float(executor_info.filled_amount_quote)
+                if executor_info.close_type == CloseType.POSITION_HOLD and executor_info.filled_amount_quote > 0:
+                    # Executors that auto-terminate as POSITION_HOLD (e.g. an OrderExecutor
+                    # whose maker order filled) keep their position. Route them to the
+                    # position-hold ledger instead of booking their (zero) PnL as a realized
+                    # close — mirrors handle_stop_action(keep_position=True).
+                    self._pending_position_hold_executors.append(executor_info)
+                else:
+                    # Naturally terminated executors (TP, SL, TL) always count as realized PnL
+                    self._executor_realized_pnl += float(executor_info.net_pnl_quote)
             else:
                 active_executors_info.append(executor_info)
         self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]
