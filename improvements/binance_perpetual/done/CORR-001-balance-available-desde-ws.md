@@ -11,7 +11,8 @@ files:
   - hummingbot/connector/derivative/binance_perpetual/binance_perpetual_derivative.py:442
 doc_refs:
   - https://developers.binance.com/docs/derivatives/usds-margined-futures/user-data-streams
-commits: []
+commits:
+  - "2512928fc (fix) don't derive available balance from cw in binance_perpetual ACCOUNT_UPDATE"
 created: 2026-06-10
 ---
 
