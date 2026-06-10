@@ -17,6 +17,7 @@ class LighterUtilsTests(TestCase):
             lighter_l1_address="0xabc",
             lighter_api_key_index="8",
             lighter_api_private_key="0xprivate",
+            lighter_account_limit="Starter",
         )
 
         self.assertEqual("0xabc", config.lighter_l1_address)
@@ -29,6 +30,7 @@ class LighterUtilsTests(TestCase):
             lighter_testnet_account_index="12",
             lighter_testnet_api_key_index="8",
             lighter_testnet_api_private_key="0xprivate",
+            lighter_testnet_account_limit="Plus",
         )
 
         self.assertEqual(12, config.lighter_testnet_account_index)

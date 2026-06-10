@@ -20,6 +20,7 @@ class LighterPerpetualUtilsTests(TestCase):
             lighter_perpetual_l1_address="0xabc",
             lighter_perpetual_api_key_index="8",
             lighter_perpetual_api_private_key="0xabc",
+            lighter_perpetual_account_limit="Starter",
         )
 
         self.assertEqual("0xabc", config.lighter_perpetual_l1_address)
@@ -31,6 +32,7 @@ class LighterPerpetualUtilsTests(TestCase):
             lighter_perpetual_testnet_l1_address="0xabc",
             lighter_perpetual_testnet_api_key_index="1",
             lighter_perpetual_testnet_api_private_key="0xdef",
+            lighter_perpetual_testnet_account_limit="Starter",
         )
 
         self.assertEqual("0xabc", config.lighter_perpetual_testnet_l1_address)
