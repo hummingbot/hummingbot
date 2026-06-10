@@ -254,21 +254,26 @@ class GeminiExchange(ExchangePyBase):
         self._raise_for_ws_error(response)
         transact_time = self._time()
 
-        # The WS API does not document the order.place result payload, so look for the
-        # exchange order id defensively and otherwise wait for the orders@account NEW
-        # event (which carries it in the "i" field) to populate the tracked order.
+        # Per Gemini engineering, the order.place ack intentionally carries no order
+        # payload and is NOT proof of placement — the orders@account order event is the
+        # sole source of truth. Probe the result anyway (cheap future-proofing), then
+        # resolve the id from the order event, with REST status as the backstop.
         exchange_order_id = self._extract_exchange_order_id(response.get("result"))
         if exchange_order_id is None:
-            exchange_order_id = await self._resolve_accepted_order_exchange_id(order_id)
+            exchange_order_id = await self._resolve_acked_order_exchange_id(order_id)
 
         return str(exchange_order_id), transact_time
 
-    async def _resolve_accepted_order_exchange_id(self, order_id: str) -> str:
-        """Resolves the exchange order id of an order that was accepted with a 200 ack
-        whose result carried no recognizable id. Primary source: the orders@account NEW
-        event on the user stream (it carries the id in "i"). Backstop if the user stream
-        lags: REST order status by client order id. Raises IOError — deliberately not a
-        transport error, because a REST re-placement would duplicate the accepted order."""
+    async def _resolve_acked_order_exchange_id(self, order_id: str) -> str:
+        """Resolves the exchange order id after an order.place ack. Primary source: the
+        orders@account order event on the user stream (it carries the id in "i").
+        Backstop if the user stream lags: REST order status by client order id.
+
+        Raises GeminiWSTransportError when both agree the order does not exist — per
+        Gemini, an ack without an order event does not mean placed, so the request is
+        treated as not executed and _place_order retries over REST. Raises IOError when
+        the order's existence could not be established either way, because a REST
+        re-placement could then duplicate a live order."""
         # all_orders (not active_orders): an aggressively priced order can fill and reach
         # a terminal state — leaving active_orders — before the ack coroutine resumes.
         tracked_order = self._order_tracker.all_orders.get(order_id)
@@ -283,15 +288,15 @@ class GeminiExchange(ExchangePyBase):
         except asyncio.CancelledError:
             raise
         except Exception as status_error:
-            order_status = None
-            self.logger().warning(
-                f"Could not reconcile websocket-accepted order {order_id} over REST: {status_error}")
+            raise IOError(
+                f"Order {order_id} received an order.place ack but its existence could not "
+                f"be confirmed by an order event, and REST reconciliation failed: {status_error}")
         if order_status is not None and order_status.get("order_id") is not None:
             return str(order_status["order_id"])
 
-        raise IOError(
-            f"Order {order_id} was accepted via websocket but its exchange order id could "
-            f"not be resolved from the response, the user stream, or REST order status.")
+        raise GeminiWSTransportError(
+            f"Order {order_id} received an order.place ack but no order event arrived and "
+            f"REST reports no such order — treating the placement as not executed.")
 
     async def _get_order_via_rest_by_client_id(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Looks an order up over REST by its client order id (supported by
@@ -402,11 +407,12 @@ class GeminiExchange(ExchangePyBase):
 
     @staticmethod
     def _extract_exchange_order_id(result: Any) -> Optional[str]:
-        """The order.place success payload is undocumented; probe the order-id field
-        names on the result object (and a nested "order" object if present). The
-        generic "id" key is deliberately NOT probed — a result echoing the request id
-        under "id" would otherwise be mistaken for the exchange order id and poison
-        every later cancel and status poll for the order."""
+        """Per Gemini engineering the order.place ack intentionally carries no order
+        payload, so this normally returns None; the probe is kept as future-proofing
+        should the result ever gain order-id fields. The generic "id" key is
+        deliberately NOT probed — a result echoing the request id under "id" would
+        otherwise be mistaken for the exchange order id and poison every later cancel
+        and status poll for the order."""
         candidates = [result]
         if isinstance(result, dict) and isinstance(result.get("order"), dict):
             candidates.append(result["order"])

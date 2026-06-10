@@ -457,7 +457,10 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
 
-    def test_place_order_ws_ack_without_id_unresolvable_raises_without_rest_placement(self):
+    def test_place_order_ws_ack_without_order_event_places_via_rest(self):
+        # Per Gemini: an order.place ack is not proof of placement. No order event
+        # arriving AND REST reporting no such order means "not placed" — the
+        # placement must fall through to REST instead of failing the order.
         self._set_symbol_map()
         self.exchange.start_tracking_order(
             order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
@@ -465,35 +468,36 @@ class GeminiExchangeTests(TestCase):
             price=Decimal("100"), amount=Decimal("1"))
         self.exchange._trade_ws_request = AsyncMock(
             return_value={"id": "1", "status": 200, "result": {}})
-        self.exchange._api_post = AsyncMock(side_effect=IOError("OrderNotFound: no such order"))
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("OrderNotFound: no such order"),
+            {"order_id": 9876, "timestampms": 1700000000000},
+        ])
 
         with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
-            with self.assertRaises(IOError):
-                self._async_run(self.exchange._place_order(
-                    order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
-                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+            o_id, _ = self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
 
-        # The order was accepted on the WS — only the status lookup hit REST.
-        self.exchange._api_post.assert_awaited_once()
-        _, kwargs = self.exchange._api_post.call_args
-        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+        self.assertEqual("9876", o_id)
+        self.assertEqual(2, self.exchange._api_post.await_count)
+        _, placement_kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.NEW_ORDER_PATH_URL, placement_kwargs["path_url"])
 
-    def test_place_order_ws_ack_without_id_and_untracked_reconciles_then_raises(self):
+    def test_place_order_ws_ack_untracked_and_not_found_places_via_rest(self):
         self._set_symbol_map()
         self.exchange._trade_ws_request = AsyncMock(
             return_value={"id": "1", "status": 200, "result": None})
-        self.exchange._api_post = AsyncMock(side_effect=IOError("OrderNotFound"))
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("OrderNotFound"),
+            {"order_id": 9876, "timestampms": 1700000000000},
+        ])
 
-        with self.assertRaises(IOError):
-            self._async_run(self.exchange._place_order(
-                order_id="HBOT-untracked", trading_pair="BTC-USD", amount=Decimal("1"),
-                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+        o_id, _ = self._async_run(self.exchange._place_order(
+            order_id="HBOT-untracked", trading_pair="BTC-USD", amount=Decimal("1"),
+            trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
 
-        # The order was accepted on the WS — a REST re-placement would duplicate it,
-        # so REST is only hit for the status reconcile.
-        self.exchange._api_post.assert_awaited_once()
-        _, kwargs = self.exchange._api_post.call_args
-        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+        self.assertEqual("9876", o_id)
+        self.assertEqual(2, self.exchange._api_post.await_count)
 
     def test_place_order_ws_rejection_does_not_fall_back_to_rest(self):
         self._set_symbol_map()
@@ -836,9 +840,9 @@ class GeminiExchangeTests(TestCase):
 
         factory_mock.assert_not_called()
 
-    def test_resolve_accepted_order_reconcile_error_logs_and_raises(self):
-        # Reconcile fails for a reason other than not-found while resolving an
-        # accepted order's id: log it and still raise (never re-place over REST).
+    def test_resolve_acked_order_reconcile_error_raises_without_rest_placement(self):
+        # Reconcile fails for a reason other than not-found while resolving an acked
+        # order's id: the order's existence is unknown, so raise — never re-place.
         self._set_symbol_map()
         self.exchange.start_tracking_order(
             order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
