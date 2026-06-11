@@ -58,9 +58,8 @@ Gateway Commands:
   gateway list                                              - List available connectors
   gateway lp <connector> <action>                           - Manage liquidity positions
   gateway ping [chain]                                      - Test node and chain/network status
-  gateway pool <connector> <pair>                           - View pool information
-  gateway pool <connector> <pair> update                    - Add/update pool information (interactive)
-  gateway pool <connector> <pair> update <address>          - Add/update pool information (direct)
+  gateway pool <symbol_or_address>                          - View pool information
+  gateway pool <symbol_or_address> update                   - Save pool from GeckoTerminal
   gateway swap <connector> [pair] [side] [amount]           - Swap tokens
   gateway token <symbol_or_address>                         - View token information
   gateway token <symbol> update                             - Update token information
@@ -117,10 +116,10 @@ Use 'gateway <command> --help' for more information about a command.""")
         GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
 
     @ensure_gateway_online
-    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None):
+    def gateway_pool(self, symbol_or_address: Optional[str], action: Optional[str]):
         # Delegate to GatewayPoolCommand
         from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
-        GatewayPoolCommand.gateway_pool(self, connector, trading_pair, action, args)
+        GatewayPoolCommand.gateway_pool(self, symbol_or_address, action)
 
     @ensure_gateway_online
     def gateway_list(self):
@@ -549,9 +548,7 @@ Use 'gateway <command> --help' for more information about a command.""")
 
             # Get chain and network from the connector
             gateway = self._get_gateway_instance()
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
-                connector
-            )
+            dex_name, trading_type, chain, network, error = await gateway.get_dex_info(connector)
 
             if error:
                 self.logger().warning(f"Error getting chain/network for {exchange}: {error}")
@@ -635,17 +632,12 @@ Use 'gateway <command> --help' for more information about a command.""")
         try:
             # If specific connector requested
             if connector is not None:
-                # Parse connector format (e.g., "uniswap/amm")
-                if "/" not in connector:
-                    self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                    return
-
-                # Get chain and network from connector
-                chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+                # Get DEX info (dex_name, trading_type, chain, network)
+                dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
                     connector
                 )
                 if error:
-                    self.notify(error)
+                    self.notify(f"Error: {error}")
                     return
 
                 if chain.lower() != "ethereum":

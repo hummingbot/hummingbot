@@ -27,7 +27,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -555,26 +554,19 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         return order_update
 
     async def _update_balances(self):
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-
+        """
+        Calls the REST API to update total and available balances.
+        For perpetual futures with cross-margin, we report the netEquity and netEquityAvailable
+        as the total and available balances in the quote currency (USDC).
+        """
         account_info = await self._api_get(
             path_url=CONSTANTS.BALANCE_PATH_URL,
-            params={"instruction": "balanceQuery"},
+            params={"instruction": "collateralQuery"},
             is_auth_required=True)
 
-        if account_info:
-            for asset_name, balance_entry in account_info.items():
-                free_balance = Decimal(balance_entry["available"])
-                total_balance = Decimal(balance_entry["available"]) + Decimal(balance_entry["locked"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
-
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
+        quote = CONSTANTS.CURRENCY
+        self._account_balances[quote] = Decimal(account_info["netEquity"])
+        self._account_available_balances[quote] = Decimal(account_info["netEquityAvailable"])
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
@@ -669,28 +661,22 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         """
+        Backpack only supports the ONEWAY position mode. This method validates the requested mode and reports
+        success/failure back to the base ``_execute_set_position_mode`` flow, which is responsible for updating
+        the local perpetual trading state and firing the corresponding account events.
+
         :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
         """
         if mode != PositionMode.ONEWAY:
-            self.trigger_event(
-                AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(
-                    self.current_timestamp, trading_pair, mode, "Backpack only supports the ONEWAY position mode."
-                ),
-            )
             self.logger().debug(
                 f"Backpack encountered a problem switching position mode to "
                 f"{mode} for {trading_pair}"
                 f" (Backpack only supports the ONEWAY position mode)"
             )
-        else:
-            self._position_mode = PositionMode.ONEWAY
-            super().set_position_mode(PositionMode.ONEWAY)
-            self.trigger_event(
-                AccountEvent.PositionModeChangeSucceeded,
-                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
-            )
-            self.logger().debug(f"Backpack switching position mode to " f"{mode} for {trading_pair} succeeded.")
+            return False, "Backpack only supports the ONEWAY position mode."
+
+        self._position_mode = PositionMode.ONEWAY
+        self.logger().debug(f"Backpack switching position mode to " f"{mode} for {trading_pair} succeeded.")
         return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:

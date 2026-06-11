@@ -101,3 +101,7 @@ coverage.xml
 .claude/
 .cursor/
 .agents/
+
+
+# GRVT
+/grvt

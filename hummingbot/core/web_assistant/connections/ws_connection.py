@@ -148,7 +148,7 @@ class WSConnection:
         else:
             try:
                 data = msg.json()
-            except JSONDecodeError:
+            except (JSONDecodeError, TypeError):
                 data = msg.data
         response = WSResponse(data)
         return response
