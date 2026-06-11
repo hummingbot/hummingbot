@@ -11,9 +11,6 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
-@patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_HEALTH_CHECK", 0.0)
-@patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_LONG", 0.0)
-@patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_SHORT", 0.0)
 class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the exchange
     level = 0
@@ -44,13 +41,16 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         self.resume_test_event = asyncio.Event()
         self.hbapp.logger().setLevel(1)
         self.hbapp.logger().addHandler(self)
-        # MQTT Transport Patcher
-        self.mqtt_transport_patcher = patch(
-            'commlib.transports.mqtt.MQTTTransport'
+        # Inject the fake aiomqtt client transport.
+
+        def _fake_create_client(gw):
+            return self.fake_mqtt_broker.create_client()
+        self.create_client_patcher = patch(
+            'hummingbot.remote_iface.mqtt.MQTTGateway._create_client',
+            _fake_create_client
         )
-        self.addCleanup(self.mqtt_transport_patcher.stop)
-        self.mqtt_transport_mock = self.mqtt_transport_patcher.start()
-        self.mqtt_transport_mock.side_effect = self.fake_mqtt_broker.create_transport
+        self.addCleanup(self.create_client_patcher.stop)
+        self.create_client_patcher.start()
         # MQTT Patch Loggers Patcher
         self.patch_loggers_patcher = patch(
             'hummingbot.remote_iface.mqtt.MQTTGateway.patch_loggers'
@@ -68,7 +68,7 @@ class RemoteIfaceMQTTTests(IsolatedAsyncioWrapperTestCase):
         # self.ev_loop.run_until_complete(self.hbapp.stop_mqtt_async())
         # self.ev_loop.run_until_complete(asyncio.sleep(0.1))
         self.fake_mqtt_broker.clear()
-        self.mqtt_transport_patcher.stop()
+        self.create_client_patcher.stop()
         self.patch_loggers_patcher.stop()
         super().tearDown()
 
