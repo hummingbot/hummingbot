@@ -447,6 +447,30 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
+    def test_order_url_rate_limits_split_by_verb(self):
+        rate_limits = {rl.limit_id: rl for rl in CONSTANTS.RATE_LIMITS}
+
+        # ORDER_URL no longer has its own shared limit; each verb has a dedicated limit id.
+        self.assertNotIn(CONSTANTS.ORDER_URL, rate_limits)
+        self.assertIn(CONSTANTS.POST_ORDER_LIMIT_ID, rate_limits)
+        self.assertIn(CONSTANTS.GET_ORDER_LIMIT_ID, rate_limits)
+        self.assertIn(CONSTANTS.DELETE_ORDER_LIMIT_ID, rate_limits)
+
+        def linked_pools(limit_id):
+            return {pair.limit_id for pair in rate_limits[limit_id].linked_limits}
+
+        # Only New Order (POST) consumes the order-count pools.
+        post_pools = linked_pools(CONSTANTS.POST_ORDER_LIMIT_ID)
+        self.assertIn(CONSTANTS.ORDERS_1MIN, post_pools)
+        self.assertIn(CONSTANTS.ORDERS_1SEC, post_pools)
+
+        # Query Order (GET) and Cancel Order (DELETE) only count against the IP weight pool.
+        for limit_id in (CONSTANTS.GET_ORDER_LIMIT_ID, CONSTANTS.DELETE_ORDER_LIMIT_ID):
+            pools = linked_pools(limit_id)
+            self.assertEqual({CONSTANTS.REQUEST_WEIGHT}, pools)
+            self.assertNotIn(CONSTANTS.ORDERS_1MIN, pools)
+            self.assertNotIn(CONSTANTS.ORDERS_1SEC, pools)
+
     @aioresponses()
     async def test_set_position_mode_change_successful(self, mock_api):
         self._simulate_trading_rules_initialized()

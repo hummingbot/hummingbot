@@ -217,7 +217,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.ORDER_URL,
             params=api_params,
-            is_auth_required=True)
+            is_auth_required=True,
+            limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID)
         if cancel_result.get("code") == -2011 and "Unknown order sent." == cancel_result.get("msg", ""):
             self.logger().debug(f"The order {order_id} does not exist on Binance Perpetuals. "
                                 f"No cancelation needed.")
@@ -267,7 +268,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_URL,
                 data=api_params,
-                is_auth_required=True)
+                is_auth_required=True,
+                limit_id=CONSTANTS.POST_ORDER_LIMIT_ID)
             o_id = str(order_result["orderId"])
             transact_time = order_result["updateTime"] * 1e-3
         except IOError as e:
@@ -335,7 +337,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 "symbol": trading_pair,
                 "origClientOrderId": tracked_order.client_order_id
             },
-            is_auth_required=True)
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID)
         if "code" in order_update:
             if self._is_request_exception_related_to_time_synchronizer(request_exception=order_update):
                 _order_update = OrderUpdate(
@@ -701,6 +704,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                     },
                     is_auth_required=True,
                     return_err=True,
+                    limit_id=CONSTANTS.GET_ORDER_LIMIT_ID,
                 )
                 for order in tracked_orders
             ]
