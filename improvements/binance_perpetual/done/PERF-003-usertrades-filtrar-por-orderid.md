@@ -12,7 +12,8 @@ files:
 doc_refs:
   - https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Account-Trade-List
 commits:
-  - "667b94b56 (perf) filter binance_perpetual userTrades by orderId in _all_trade_updates_for_order"
+  - "f9d732d2d (perf) filter binance_perpetual userTrades by orderId in _all_trade_updates_for_order"
+  - "999d50d48 (perf) close PERF-003: record commit hash in backlog item"
 created: 2026-06-10
 ---
 
