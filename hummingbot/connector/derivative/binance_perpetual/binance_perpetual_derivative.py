@@ -637,18 +637,28 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
+            query_time = self._last_trade_history_timestamp
+            self._last_trade_history_timestamp = self._time_synchronizer.time()
             trading_pairs_to_order_map: Dict[str, Dict[str, Any]] = defaultdict(lambda: {})
             for order in self._order_tracker.active_orders.values():
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
-            tasks = [
-                self._api_get(
-                    path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                    params={"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)},
-                    is_auth_required=True,
+            tasks = []
+            for trading_pair in trading_pairs:
+                params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
+                if query_time is not None:
+                    # Bound the query to trades since the previous poll so we do not download (and parse) up to
+                    # the last 7 days of userTrades per symbol on every tick. Binance returns trades with
+                    # time >= startTime; reusing the previous poll timestamp guarantees no fills are missed
+                    # between consecutive polls.
+                    params["startTime"] = int(query_time * 1e3)
+                tasks.append(
+                    self._api_get(
+                        path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
+                        params=params,
+                        is_auth_required=True,
+                    )
                 )
-                for trading_pair in trading_pairs
-            ]
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(results, trading_pairs):

@@ -1266,6 +1266,80 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualDerivative.current_timestamp")
+    async def test_update_order_fills_from_trades_constrains_query_with_start_time(
+            self, req_mock, mock_timestamp, mock_seconds_counter):
+        self._simulate_trading_rules_initialized()
+        self.exchange._last_poll_timestamp = 0
+        mock_timestamp.return_value = 1
+        # Drive the time synchronizer so the poll timestamp is deterministic.
+        mock_seconds_counter.return_value = 1640001112.0
+        self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position_action=PositionAction.OPEN,
+        )
+
+        trade = {"buyer": False,
+                 "commission": "0",
+                 "commissionAsset": self.quote_asset,
+                 "id": 698759,
+                 "maker": False,
+                 "orderId": "8886774",
+                 "price": "10000",
+                 "qty": "0.5",
+                 "quoteQty": "5000",
+                 "realizedPnl": "0",
+                 "side": "SELL",
+                 "positionSide": "SHORT",
+                 "symbol": "COINALPHAHBOT",
+                 "time": 1000}
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        # First poll: no previous trade history timestamp yet -> no startTime, fill is processed.
+        req_mock.get(regex_url, body=json.dumps([trade]))
+        await self.exchange._update_order_fills_from_trades()
+
+        first_request = next((value for key, value in req_mock.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        first_params = first_request[0].kwargs["params"]
+        self.assertNotIn("startTime", first_params)
+        in_flight_orders = self.exchange._order_tracker.active_orders
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
+
+        last_poll_ts = self.exchange._last_trade_history_timestamp
+        self.assertIsNotNone(last_poll_ts)
+
+        # Second poll on a later tick: a new fill on a new tick must still be picked up, and the request
+        # must now be bounded by startTime derived from the previous poll timestamp.
+        mock_timestamp.return_value = 1 + self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        req_mock.requests.clear()
+        new_trade = dict(trade, id=698760, time=2000)
+        req_mock.get(regex_url, body=json.dumps([new_trade]))
+        await self.exchange._update_order_fills_from_trades()
+
+        second_request = next((value for key, value in req_mock.requests.items()
+                               if key[1].human_repr().startswith(url)))
+        second_params = second_request[0].kwargs["params"]
+        self.assertIn("startTime", second_params)
+        self.assertEqual(int(last_poll_ts * 1e3), second_params["startTime"])
+        self.assertTrue("698760" in in_flight_orders["OID1"].order_fills.keys())
+
+    @aioresponses()
     async def test_update_order_fills_from_trades_failed(self, req_mock):
         self.exchange._set_current_timestamp(1640001112.0)
         self.exchange._last_poll_timestamp = 0
