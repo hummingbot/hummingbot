@@ -30,7 +30,7 @@ class GeminiWebUtilsTests(TestCase):
 
     def test_wss_url(self):
         url = wss_url()
-        self.assertEqual("wss://wsapi.fast.gemini.com", url)
+        self.assertEqual("wss://ws.gemini.com", url)
 
     def test_create_throttler(self):
         throttler = create_throttler()

@@ -17,7 +17,7 @@ def private_rest_url(path_url: str, domain: str = "") -> str:
 
 
 def wss_url() -> str:
-    return CONSTANTS.WSS_FAST_API_URL
+    return CONSTANTS.WSS_URL
 
 
 def build_api_factory(

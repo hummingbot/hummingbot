@@ -57,6 +57,9 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        # Per-trading-pair margin mode (ISOLATED/CROSS) as configured by the user on KuCoin, cached
+        # at leverage setup so orders can send a matching "marginMode".
+        self._margin_modes: Dict[str, str] = {}
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -166,8 +169,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         response_code = cancel_result["code"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
-            if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
-                await self._order_tracker.process_order_not_found(order_id)
             formatted_ret_code = self._format_ret_code_for_print(response_code)
             raise IOError(f"{formatted_ret_code} - {cancel_result['msg']}")
 
@@ -194,6 +195,10 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "reduceOnly": position_action == PositionAction.CLOSE,
             "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
+            # Match the symbol's selected margin mode (read from KuCoin and cached at leverage
+            # setup). "marginMode" is optional but defaults to ISOLATED, so it must be sent
+            # explicitly for a CROSS symbol; a mismatch is rejected at runtime (error 330005).
+            "marginMode": self._margin_modes.get(trading_pair, CONSTANTS.DEFAULT_MARGIN_MODE),
         }
         if order_type.is_limit_type():
             data["price"] = float(price)
@@ -382,6 +387,12 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         for resp, active_order in zip(raw_responses, active_orders):
             if not isinstance(resp, Exception) and "data" in resp:
                 parsed_status_responses.append(resp["data"])
+            elif not isinstance(resp, Exception) and self._is_order_not_found_during_status_update_error(
+                    IOError(str(resp))):
+                # KuCoin returns "orderNotExist" once an order is no longer active (filled and
+                # purged, or already canceled). Reconcile it as not-found, but quietly — it is an
+                # expected lifecycle response, not a fetch failure worth a network warning.
+                await self._order_tracker.process_order_not_found(active_order.client_order_id)
             else:
                 self.logger().network(
                     f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
@@ -420,6 +431,19 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                 self._account_balances[currency] = Decimal(str(wallet_balance["data"]["marginBalance"]))
                 self._account_available_balances[currency] = Decimal(str(wallet_balance["data"]["availableBalance"]))
 
+    def _position_leverage(self, trading_pair: str, position_data: Dict[str, Any]) -> Decimal:
+        # KuCoin omits "realLeverage" on CROSS-margin positions (it is only present on ISOLATED
+        # positions); CROSS positions report "leverage" instead. Confirmed by toggling one symbol
+        # between modes: ISOLATED -> {realLeverage, leverage}; CROSS -> {leverage} only. Read
+        # "realLeverage", then "leverage", then the leverage configured for the pair, so the
+        # status-polling / user-stream loop never crashes with a KeyError.
+        raw_leverage = position_data.get("realLeverage")
+        if raw_leverage is None:
+            raw_leverage = position_data.get("leverage")
+        if raw_leverage is not None:
+            return Decimal(str(raw_leverage))
+        return Decimal(self.get_leverage(trading_pair))
+
     async def _update_positions(self):
         """
         Retrieves all positions using the REST API.
@@ -451,7 +475,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             unrealized_pnl = Decimal(str(data["unrealisedPnl"]))
             entry_price = Decimal(str(data["avgEntryPrice"]))
-            leverage = Decimal(str(data["realLeverage"]))
+            leverage = self._position_leverage(hb_trading_pair, data)
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 position = Position(
@@ -499,6 +523,11 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
+            if order_status_data.get("code") != CONSTANTS.RET_CODE_OK or "data" not in order_status_data:
+                # e.g. a 200 response carrying {"code": "100001", "msg": "...orderNotExist"}; raise so
+                # _is_order_not_found_during_status_update_error can recognize it (lost-order path).
+                raise IOError(f"{self._format_ret_code_for_print(order_status_data.get('code'))} "
+                              f"- {order_status_data.get('msg')}")
             order_msg = order_status_data["data"]
             client_order_id = str(order_msg["clientOid"])
 
@@ -609,7 +638,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             amount = self.get_value_of_contracts(trading_pair, int(position_msg["currentQty"]))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             entry_price = Decimal(str(position_msg["avgEntryPrice"]))
-            leverage = Decimal(str(position_msg["realLeverage"]))
+            leverage = self._position_leverage(trading_pair, position_msg)
             unrealized_pnl = Decimal(str(position_msg["unrealisedPnl"]))
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
             if amount != s_decimal_0:
@@ -700,13 +729,17 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         is_active = order_msg["isActive"]
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-        new_state = updatable_order.current_state
-        if ordered_canceled:
-            new_state = OrderState.CANCELED
-        elif not is_active:
-            new_state = OrderState.FILLED
 
+        # The order-status poll can return orders that are not tracked (e.g. stale orders from a
+        # previous session). Guard before reading attributes, otherwise the whole status-polling
+        # cycle crashes with AttributeError and balance/position updates are skipped that round.
         if updatable_order is not None:
+            new_state = updatable_order.current_state
+            if ordered_canceled:
+                new_state = OrderState.CANCELED
+            elif not is_active:
+                new_state = OrderState.FILLED
+
             new_order_update: OrderUpdate = OrderUpdate(
                 trading_pair=updatable_order.trading_pair,
                 update_timestamp=self.current_timestamp,
@@ -861,7 +894,34 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if leverage > max_leverage:
             self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
             return False, f"Max leverage for {trading_pair} is {max_leverage}."
+        # Cache the symbol's margin mode (as configured by the user on KuCoin) so each order can
+        # send a matching "marginMode"; KuCoin rejects an order whose mode differs from the symbol's
+        # selected one. The connector follows the user's choice and does not change it.
+        await self._update_margin_mode(exchange_symbol, trading_pair)
         return True, ""
+
+    async def _update_margin_mode(self, exchange_symbol: str, trading_pair: str):
+        """
+        Reads the symbol's current margin mode (ISOLATED/CROSS) from KuCoin and caches it.
+
+        The connector follows the user's per-symbol setting rather than changing it; the cached
+        value is sent as "marginMode" on each order so it matches the symbol's selected mode (a
+        mismatch is rejected with code 330005). Best-effort: on error the cache is left untouched
+        and order placement falls back to the default margin mode. Cached after the first success
+        so the repeated leverage-setup calls at startup don't re-fetch it.
+        """
+        if trading_pair in self._margin_modes:
+            return
+        try:
+            response = await self._api_get(
+                path_url=CONSTANTS.GET_MARGIN_MODE_PATH_URL.format(symbol=exchange_symbol),
+                is_auth_required=True,
+                trading_pair=trading_pair,
+                limit_id=CONSTANTS.GET_MARGIN_MODE_PATH_URL,
+            )
+            self._margin_modes[trading_pair] = response["data"]["marginMode"]
+        except Exception as exception:
+            self.logger().warning(f"Could not fetch margin mode for {trading_pair}: {exception}")
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
@@ -927,18 +987,19 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         return resp
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        # KuCoin returns "orderNotExist" (or code 20001) once an order is no longer queryable —
+        # filled and purged, or canceled. Treat it as not-found so the order is reconciled instead
+        # of being retried indefinitely (lost-order path) or logged as a fetch error (active path).
+        error = str(status_update_exception)
+        return CONSTANTS.RET_CODE_ORDER_NOT_EXISTS in error or "orderNotExist" in error
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        # 20001: the order does not exist; 100004: the order cannot be canceled (already filled or
+        # canceled). Both mean the order is no longer active, so the cancelation is treated as
+        # "order not found" (a benign race) instead of a hard error with a noisy traceback.
+        error = str(cancelation_exception)
+        return (CONSTANTS.RET_CODE_ORDER_NOT_EXISTS in error
+                or CONSTANTS.RET_CODE_ORDER_CANNOT_BE_CANCELED in error)
 
     @staticmethod
     def _format_ret_code_for_print(ret_code: Union[str, int]) -> str:

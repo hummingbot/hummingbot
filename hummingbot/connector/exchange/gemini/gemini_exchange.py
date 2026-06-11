@@ -17,8 +17,26 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+
+
+class GeminiWSTransportError(ConnectionError):
+    """The WS request was not executed by the exchange (connect failure, send failure,
+    or an error ack such as 401/429/500). The request can safely be retried over REST."""
+
+
+class GeminiWSAmbiguousResponseError(GeminiWSTransportError):
+    """The WS request was sent but never answered (ack timeout, or disconnect while
+    waiting). The exchange may or may not have executed it — a blind retry could
+    duplicate an order, so callers must reconcile before retrying."""
+
+
+class GeminiWSRejectionError(IOError):
+    """The exchange answered the WS request with a definitive rejection.
+    Retrying over REST would produce the same rejection."""
 
 
 class GeminiExchange(ExchangePyBase):
@@ -38,6 +56,17 @@ class GeminiExchange(ExchangePyBase):
         self.secret_key = gemini_api_secret
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        # Dedicated authenticated websocket for order entry (order.place / order.cancel).
+        # Requests are correlated to their {id, status, ...} acks through futures keyed
+        # by request id; any failure on this socket falls back to the REST endpoints.
+        self._trade_ws: Optional[WSAssistant] = None
+        self._trade_ws_listener_task: Optional[asyncio.Task] = None
+        self._trade_ws_maintenance_task: Optional[asyncio.Task] = None
+        self._trade_ws_pending_requests: Dict[str, asyncio.Future] = {}
+        self._trade_ws_request_id: int = 0
+        self._trade_ws_lock = asyncio.Lock()
+        self._trade_ws_stopped: bool = False
+        self._trade_ws_last_connect_failure: float = 0.0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -91,6 +120,16 @@ class GeminiExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        # Gate readiness on the order-entry websocket actually being connected, so
+        # strategies cannot start creating/cancelling orders before the WS path is
+        # usable (the maintenance loop establishes it during start_network).
+        status = super().status_dict
+        status["trade_websocket_connected"] = (not self.is_trading_required
+                                               or self._trade_ws is not None)
+        return status
+
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
@@ -112,7 +151,9 @@ class GeminiExchange(ExchangePyBase):
         return CONSTANTS.ORDER_NOT_FOUND_ERROR in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_FOUND_ERROR in str(cancelation_exception)
+        error_str = str(cancelation_exception)
+        return (CONSTANTS.ORDER_NOT_FOUND_ERROR in error_str
+                or CONSTANTS.WS_ORDER_NOT_FOUND_MESSAGE in error_str.lower())
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -158,6 +199,142 @@ class GeminiExchange(ExchangePyBase):
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        try:
+            return await self._place_order_via_ws(
+                order_id=order_id,
+                symbol=symbol,
+                amount=amount,
+                trade_type=trade_type,
+                order_type=order_type,
+                price=price)
+        except asyncio.CancelledError:
+            raise
+        except GeminiWSRejectionError:
+            # The exchange examined and rejected the order (e.g. insufficient funds,
+            # invalid params). REST would reject it identically — do not retry.
+            raise
+        except GeminiWSAmbiguousResponseError as ws_error:
+            # The order.place request was sent but never answered — the order may be
+            # live on the exchange. A blind REST retry could double the position, so
+            # first ask REST whether an order with this client order id exists.
+            self.logger().warning(
+                f"No response to the websocket placement of order {order_id} ({ws_error}). "
+                f"Reconciling over REST before retrying.")
+            order_status = await self._get_order_via_rest_by_client_id(order_id)
+            if order_status is not None:
+                return str(order_status["order_id"]), order_status.get("timestampms", 0) * 1e-3
+            # The exchange has no order with this client id — safe to place over REST.
+        except GeminiWSTransportError as ws_error:
+            self.logger().warning(
+                f"Failed to place order {order_id} via websocket ({ws_error}). Falling back to REST.")
+
+        return await self._place_order_via_rest(
+            order_id=order_id,
+            symbol=symbol,
+            amount=amount,
+            trade_type=trade_type,
+            order_type=order_type,
+            price=price)
+
+    async def _place_order_via_ws(self,
+                                  order_id: str,
+                                  symbol: str,
+                                  amount: Decimal,
+                                  trade_type: TradeType,
+                                  order_type: OrderType,
+                                  price: Decimal) -> Tuple[str, float]:
+        params = {
+            "symbol": symbol,
+            "side": CONSTANTS.WS_SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.WS_SIDE_SELL,
+            # The connector only places limit orders (see supported_order_types);
+            # maker-or-cancel is expressed through timeInForce on the WS API.
+            "type": CONSTANTS.WS_ORDER_TYPE_LIMIT,
+            "timeInForce": (CONSTANTS.WS_TIME_IN_FORCE_MOC
+                            if order_type is OrderType.LIMIT_MAKER
+                            else CONSTANTS.WS_TIME_IN_FORCE_GTC),
+            "price": f"{price:f}",
+            "quantity": f"{amount:f}",
+            "clientOrderId": order_id,
+        }
+
+        response = await self._trade_ws_request(
+            method=CONSTANTS.WS_METHOD_ORDER_PLACE,
+            params=params,
+            throttler_limit_id=CONSTANTS.WS_ORDER_PLACE_LIMIT_ID)
+        self._raise_for_ws_error(response)
+        transact_time = self._time()
+
+        # Per Gemini engineering, the order.place ack intentionally carries no order
+        # payload and is NOT proof of placement — the orders@account order event is the
+        # sole source of truth. Probe the result anyway (cheap future-proofing), then
+        # resolve the id from the order event, with REST status as the backstop.
+        exchange_order_id = self._extract_exchange_order_id(response.get("result"))
+        if exchange_order_id is None:
+            exchange_order_id = await self._resolve_acked_order_exchange_id(order_id)
+
+        return str(exchange_order_id), transact_time
+
+    async def _resolve_acked_order_exchange_id(self, order_id: str) -> str:
+        """Resolves the exchange order id after an order.place ack. Primary source: the
+        orders@account order event on the user stream (it carries the id in "i").
+        Backstop if the user stream lags: REST order status by client order id.
+
+        Raises GeminiWSTransportError when both agree the order does not exist — per
+        Gemini, an ack without an order event does not mean placed, so the request is
+        treated as not executed and _place_order retries over REST. Raises IOError when
+        the order's existence could not be established either way, because a REST
+        re-placement could then duplicate a live order."""
+        # all_orders (not active_orders): an aggressively priced order can fill and reach
+        # a terminal state — leaving active_orders — before the ack coroutine resumes.
+        tracked_order = self._order_tracker.all_orders.get(order_id)
+        if tracked_order is not None:
+            try:
+                return await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                pass  # user stream lagging or reconnecting — reconcile over REST below
+
+        try:
+            order_status = await self._get_order_via_rest_by_client_id(order_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as status_error:
+            raise IOError(
+                f"Order {order_id} received an order.place ack but its existence could not "
+                f"be confirmed by an order event, and REST reconciliation failed: {status_error}")
+        if order_status is not None and order_status.get("order_id") is not None:
+            return str(order_status["order_id"])
+
+        raise GeminiWSTransportError(
+            f"Order {order_id} received an order.place ack but no order event arrived and "
+            f"REST reports no such order — treating the placement as not executed.")
+
+    async def _get_order_via_rest_by_client_id(self, order_id: str) -> Optional[Dict[str, Any]]:
+        """Looks an order up over REST by its client order id (supported by
+        /v1/order/status as an alternative to order_id). Returns None when the
+        exchange reports that no such order exists."""
+        try:
+            return await self._api_post(
+                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+                data={
+                    "request": CONSTANTS.ORDER_STATUS_PATH_URL,
+                    "client_order_id": order_id,
+                },
+                is_auth_required=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception as status_error:
+            if self._is_order_not_found_during_status_update_error(status_error):
+                return None
+            raise
+
+    async def _place_order_via_rest(self,
+                                    order_id: str,
+                                    symbol: str,
+                                    amount: Decimal,
+                                    trade_type: TradeType,
+                                    order_type: OrderType,
+                                    price: Decimal) -> Tuple[str, float]:
         side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
 
         # Gemini REST API does not support "exchange market" order type.
@@ -190,6 +367,19 @@ class GeminiExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         if tracked_order.exchange_order_id is None:
             await tracked_order.get_exchange_order_id()
+
+        try:
+            return await self._place_cancel_via_ws(exchange_order_id=tracked_order.exchange_order_id)
+        except asyncio.CancelledError:
+            raise
+        except GeminiWSRejectionError:
+            # Definitive answer (e.g. "order not found or already filled") — the
+            # not-found predicates inspect the message; REST would not differ.
+            raise
+        except GeminiWSTransportError as ws_error:
+            self.logger().warning(
+                f"Failed to cancel order {order_id} via websocket ({ws_error}). Falling back to REST.")
+
         api_params = {
             "request": CONSTANTS.CANCEL_ORDER_PATH_URL,
             "order_id": int(tracked_order.exchange_order_id),
@@ -201,6 +391,220 @@ class GeminiExchange(ExchangePyBase):
         if cancel_result.get("is_cancelled", False):
             return True
         return False
+
+    async def _place_cancel_via_ws(self, exchange_order_id: str) -> bool:
+        response = await self._trade_ws_request(
+            method=CONSTANTS.WS_METHOD_ORDER_CANCEL,
+            params={"orderId": str(exchange_order_id)},
+            throttler_limit_id=CONSTANTS.WS_ORDER_CANCEL_LIMIT_ID)
+        self._raise_for_ws_error(response)
+        return True
+
+    @staticmethod
+    def _raise_for_ws_error(response: Dict[str, Any]):
+        """Classifies a WS {id, status, result|error} ack. A 400 answer is a definitive
+        rejection (invalid params, insufficient funds) that REST would repeat. Any other
+        non-200 (401 auth, 429 rate limit, 500 internal) means the request was not
+        executed and may be retried over REST, whose auth and rate limits are separate."""
+        status = response.get("status")
+        if status == 200:
+            return
+        error = response.get("error") or {}
+        message = (f"Gemini WS request failed with status {status}: "
+                   f"code={error.get('code')} msg={error.get('msg', '')}")
+        if status == 400:
+            raise GeminiWSRejectionError(message)
+        raise GeminiWSTransportError(message)
+
+    @staticmethod
+    def _extract_exchange_order_id(result: Any) -> Optional[str]:
+        """Per Gemini engineering the order.place ack intentionally carries no order
+        payload, so this normally returns None; the probe is kept as future-proofing
+        should the result ever gain order-id fields. The generic "id" key is
+        deliberately NOT probed — a result echoing the request id under "id" would
+        otherwise be mistaken for the exchange order id and poison every later cancel
+        and status poll for the order."""
+        candidates = [result]
+        if isinstance(result, dict) and isinstance(result.get("order"), dict):
+            candidates.append(result["order"])
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                for key in ("orderId", "order_id", "i"):
+                    value = candidate.get(key)
+                    if value not in (None, ""):
+                        return str(value)
+        return None
+
+    async def _trade_ws_request(self,
+                                method: str,
+                                params: Dict[str, Any],
+                                throttler_limit_id: str) -> Dict[str, Any]:
+        """Sends a {id, method, params} request on the trade websocket and waits for
+        the ack with the matching id. Raises GeminiWSTransportError for any failure
+        in which the request was not answered (connect, send, timeout, disconnect)."""
+        try:
+            ws = await self._connected_trade_ws()
+        except asyncio.CancelledError:
+            raise
+        except Exception as connection_error:
+            raise GeminiWSTransportError(
+                f"Could not connect to the Gemini trade websocket: {connection_error}")
+
+        self._trade_ws_request_id += 1
+        request_id = str(self._trade_ws_request_id)
+        response_future: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._trade_ws_pending_requests[request_id] = response_future
+
+        try:
+            payload = {"id": request_id, "method": method, "params": params}
+            async with self._throttler.execute_task(limit_id=throttler_limit_id):
+                await ws.send(WSJSONRequest(payload=payload))
+            response = await asyncio.wait_for(
+                response_future, timeout=CONSTANTS.WS_ORDER_REQUEST_TIMEOUT)
+        except asyncio.CancelledError:
+            raise
+        except GeminiWSTransportError:
+            raise
+        except asyncio.TimeoutError:
+            # The request reached the wire but was never answered — the exchange may
+            # have executed it. Signal ambiguity so _place_order reconciles instead of
+            # blindly re-placing over REST.
+            raise GeminiWSAmbiguousResponseError(
+                f"Timed out waiting {CONSTANTS.WS_ORDER_REQUEST_TIMEOUT}s for the response to "
+                f"the {method} websocket request.")
+        except Exception as send_error:
+            raise GeminiWSTransportError(
+                f"Failed to send the {method} websocket request: {send_error}")
+        finally:
+            self._trade_ws_pending_requests.pop(request_id, None)
+
+        return response
+
+    async def _connected_trade_ws(self) -> WSAssistant:
+        async with self._trade_ws_lock:
+            if self._trade_ws_stopped:
+                raise GeminiWSTransportError(
+                    "The connector is stopped — not opening a trade websocket.")
+            if self._trade_ws is None:
+                if self._time() - self._trade_ws_last_connect_failure < CONSTANTS.WS_CONNECT_COOLDOWN:
+                    # Fail fast so queued order requests go straight to REST instead of
+                    # serially re-attempting the handshake while holding the lock.
+                    raise GeminiWSTransportError(
+                        "The trade websocket failed to connect recently — deferring to REST "
+                        "until the cooldown expires.")
+                ws: Optional[WSAssistant] = None
+                try:
+                    ws = await self._web_assistants_factory.get_ws_assistant()
+                    # Time-boxed: this runs under the trade WS lock, and an un-bounded
+                    # handshake would head-of-line block every placement and cancel.
+                    await asyncio.wait_for(
+                        ws.connect(
+                            ws_url=web_utils.wss_url(),
+                            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                            ws_headers=self._auth.get_ws_auth_headers(),
+                        ),
+                        timeout=CONSTANTS.WS_CONNECT_TIMEOUT)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    self._trade_ws_last_connect_failure = self._time()
+                    if ws is not None:
+                        await self._safe_ws_disconnect(ws)
+                    raise
+                if self._trade_ws_stopped:
+                    # stop_network ran while the handshake was in flight
+                    await self._safe_ws_disconnect(ws)
+                    raise GeminiWSTransportError(
+                        "The connector was stopped while the trade websocket was connecting.")
+                self._trade_ws = ws
+                self._trade_ws_listener_task = safe_ensure_future(self._trade_ws_listener(ws))
+            return self._trade_ws
+
+    @staticmethod
+    async def _safe_ws_disconnect(ws: WSAssistant):
+        try:
+            await ws.disconnect()
+        except Exception:
+            pass
+
+    async def _trade_ws_listener(self, ws: WSAssistant):
+        """Routes {id, status, ...} acks from the trade websocket to the futures of
+        their pending requests. Any termination resets the connection so the next
+        order request reconnects lazily."""
+        try:
+            async for ws_response in ws.iter_messages():
+                data = ws_response.data
+                if not isinstance(data, dict):
+                    continue
+                response_future = self._trade_ws_pending_requests.get(str(data.get("id", "")))
+                if response_future is not None and not response_future.done():
+                    response_future.set_result(data)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().warning("Unexpected error in the Gemini trade websocket listener.",
+                                  exc_info=True)
+        finally:
+            await self._reset_trade_ws(ws)
+
+    async def _reset_trade_ws(self, ws: Optional[WSAssistant]):
+        if ws is None:
+            return
+        async with self._trade_ws_lock:
+            if self._trade_ws is not ws:
+                return
+            self._trade_ws = None
+            listener_task = self._trade_ws_listener_task
+            self._trade_ws_listener_task = None
+            for response_future in self._trade_ws_pending_requests.values():
+                if not response_future.done():
+                    # The requests were already sent on the dying socket, so their
+                    # outcome is unknown — fail them as ambiguous, not retriable.
+                    response_future.set_exception(GeminiWSAmbiguousResponseError(
+                        "The trade websocket disconnected before a response was received."))
+            self._trade_ws_pending_requests.clear()
+            if listener_task is not None and listener_task is not asyncio.current_task():
+                listener_task.cancel()
+        await self._safe_ws_disconnect(ws)
+
+    async def _trade_ws_maintenance_loop(self):
+        """Eagerly connects the trade websocket and keeps it connected, so order entry
+        never pays the handshake on the order path and `status_dict` reflects the real
+        state of the order-entry rail. _connected_trade_ws is a no-op when connected
+        and enforces its own cooldown after failures."""
+        while True:
+            try:
+                await self._connected_trade_ws()
+            except asyncio.CancelledError:
+                raise
+            except GeminiWSTransportError:
+                pass  # expected while stopped or cooling down after a failed connect
+            except Exception:
+                self.logger().warning(
+                    "Failed to (re)connect the Gemini trade websocket. Will keep retrying; "
+                    "orders fall back to REST meanwhile.", exc_info=True)
+            await self._sleep(CONSTANTS.WS_MAINTENANCE_INTERVAL)
+
+    async def start_network(self):
+        # ExchangePyBase.start_network's FIRST statement is `await self.stop_network()`,
+        # which dispatches to our override and sets _trade_ws_stopped. The trade-WS
+        # flags must therefore be cleared AFTER the base start — clearing them before
+        # would leave the connector permanently "stopped" for the trade websocket.
+        await super().start_network()
+        self._trade_ws_stopped = False
+        self._trade_ws_last_connect_failure = 0.0
+        if self.is_trading_required and self._trade_ws_maintenance_task is None:
+            self._trade_ws_maintenance_task = safe_ensure_future(self._trade_ws_maintenance_loop())
+
+    async def stop_network(self):
+        # Set the flag first: a connect that is mid-handshake when this runs re-checks
+        # it before installing the socket, and later requests refuse to reconnect.
+        self._trade_ws_stopped = True
+        if self._trade_ws_maintenance_task is not None:
+            self._trade_ws_maintenance_task.cancel()
+            self._trade_ws_maintenance_task = None
+        await super().stop_network()
+        await self._reset_trade_ws(self._trade_ws)
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -217,6 +621,12 @@ class GeminiExchange(ExchangePyBase):
                 try:
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
                 except KeyError:
+                    continue
+
+                # The symbol map contains every Gemini symbol (~300+). Fetch the
+                # per-symbol details only for the configured pairs — sweeping them all
+                # would burn ~3x Gemini's whole public budget (120 req/min) per update.
+                if self._trading_pairs and trading_pair not in self._trading_pairs:
                     continue
 
                 rest_assistant = await self._web_assistants_factory.get_rest_assistant()
@@ -479,6 +889,9 @@ class GeminiExchange(ExchangePyBase):
         resp_json = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.TICKER_PATH_URL.format(symbol),
+            # the formatted path is not a registered limit id — without this the
+            # throttler raises on the unknown id and the call bypasses the public budget
+            limit_id=CONSTANTS.TICKER_PATH_URL,
         )
 
         return float(resp_json.get("close", resp_json.get("last", 0)))
