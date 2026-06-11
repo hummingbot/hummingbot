@@ -236,10 +236,19 @@ class BinancePerpetualUserStreamDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         self.listening_task = self.local_event_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
         await self.resume_test_event.wait()
+        # Give the loop a tick to run the except branch that resets the key
+        await asyncio.sleep(0)
 
-        # When ping fails, the exception is raised but the _current_listen_key is not reset
-        # This is expected since the listen key management task will be restarted by the error handling
+        # When ping fails, an explicit IOError is raised and handled by the loop's except clause,
+        # which resets the listen key so a new one is obtained on the next iteration.
         self.assertEqual(None, self.data_source._current_listen_key)
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Error occurred renewing listen key ... Failed to refresh listen key {self.listen_key}"))
+        # The bare `raise` previously produced a misleading RuntimeError; it must no longer appear.
+        self.assertFalse(
+            any("No active exception to re-raise" in record.getMessage() for record in self.log_records))
 
     @aioresponses()
     async def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
