@@ -290,6 +290,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                 params={
                     "symbol": trading_pair,
+                    "orderId": exchange_order_id,
                 },
                 is_auth_required=True)
 

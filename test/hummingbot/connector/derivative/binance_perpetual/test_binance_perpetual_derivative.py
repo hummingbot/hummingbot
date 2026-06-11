@@ -1292,6 +1292,59 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                                         f"Error fetching trades update for the order {self.trading_pair}: ."))
 
     @aioresponses()
+    async def test_all_trade_updates_for_order_filters_by_order_id(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        trades = [{"buyer": False,
+                   "commission": "0",
+                   "commissionAsset": self.quote_asset,
+                   "id": 698759,
+                   "maker": False,
+                   "orderId": "8886774",
+                   "price": "10000",
+                   "qty": "0.5",
+                   "quoteQty": "5000",
+                   "realizedPnl": "0",
+                   "side": "SELL",
+                   "positionSide": "SHORT",
+                   "symbol": "COINALPHAHBOT",
+                   "time": 1000}]
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps(trades))
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+
+        # The request must constrain the query to this order via orderId
+        trade_request = next(((key, value) for key, value in req_mock.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_params = trade_request[1][0].kwargs["params"]
+        self.assertEqual("8886774", request_params["orderId"])
+        self.assertEqual("COINALPHAHBOT", request_params["symbol"])
+
+        # The fills of the order are parsed correctly
+        self.assertEqual(1, len(trade_updates))
+        trade_update = trade_updates[0]
+        self.assertEqual("698759", trade_update.trade_id)
+        self.assertEqual("OID1", trade_update.client_order_id)
+        self.assertEqual(Decimal("0.5"), trade_update.fill_base_amount)
+        self.assertEqual(Decimal("5000"), trade_update.fill_quote_amount)
+        self.assertEqual(Decimal("10000"), trade_update.fill_price)
+
+    @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualDerivative.current_timestamp")
     async def test_update_order_status_successful(self, req_mock, mock_timestamp):
