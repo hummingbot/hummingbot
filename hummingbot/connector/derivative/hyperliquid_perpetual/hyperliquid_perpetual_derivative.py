@@ -70,11 +70,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
         # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
-        self._builder_address: Optional[str] = (
-            CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
-            if CONSTANTS.FOUNDATION_BUILDER_ADDRESS is not None
-            else None
-        )
+        self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -662,7 +658,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             return False
         if self._use_vault or self._is_testnet:
             return False
-        return self._builder_address is not None
+        return True
 
     def _build_builder_field(self) -> Optional[Dict[str, Any]]:
         """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
@@ -673,7 +669,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _initialize_builder_fee(self) -> None:
         """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
-        the hardcoded fee if the user approved it, 0 if not (or if the lookup fails)."""
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
+        fails)."""
         if not self._should_inject_builder():
             return
         try:

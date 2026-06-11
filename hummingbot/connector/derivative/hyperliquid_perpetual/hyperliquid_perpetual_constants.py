@@ -7,16 +7,16 @@ MAX_ORDER_ID_LEN = None
 MIN_NOTIONAL_SIZE = 10
 
 # === Builder code support (HGP-87) ===
-# Attach a Foundation builder code to mainnet orders (omitted on testnet/vault), charged at the
-# user's approved rate. See HyperliquidPerpetualDerivative._initialize_builder_fee.
+# Attach a Foundation builder code to mainnet orders (omitted on testnet/vault). The fee only takes
+# effect if the user has approved this builder in Condor; otherwise it is 0 bps.
+# See HyperliquidPerpetualDerivative._initialize_builder_fee.
 BUILDER_SUPPORTED = True
 
-# Foundation builder address (None = omit the builder field entirely).
+# Foundation builder address (set BUILDER_SUPPORTED = False to omit the builder field entirely).
 FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 
-# Builder fee charged per order, in tenths of a basis point (f=10 is 1 bp = 0.01%). Hardcoded here
-# (not client-side) and charged only when the user has approved this builder on-chain via Condor's
-# connect flow; an unapproved user pays 0.
+# Per-order builder fee, in tenths of a basis point (10 = 1 bp = 0.01%). Only takes effect if the
+# user has approved this builder in Condor; otherwise the effective fee is 0 bps.
 FOUNDATION_BUILDER_FEE_TENTHS_BPS = 10
 
 # Info-endpoint request type used to query a user's approved max builder fee for a builder.
