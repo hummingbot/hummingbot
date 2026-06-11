@@ -20,6 +20,7 @@ dependencies:
   - setuptools>=75.7.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5,<3.14  # aiohttp 3.14 requires a stream_writer arg that aioresponses 0.7.8 doesn't pass, breaking HTTP-mocked tests
+  - aiomqtt>=2.0.0
   - asyncssh>=2.13.2
   - aioprocessing>=2.0.1
   - aioresponses>=0.7.4
@@ -28,7 +29,6 @@ dependencies:
   - bidict>=0.22.1
   - bip-utils
   - cachetools>=5.3.1
-  - commlib-py==0.11.5
   - cryptography>=41.0.2
   - dydxprotocol-v4-proto-py
   - eth-account >=0.13.0
