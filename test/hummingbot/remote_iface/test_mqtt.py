@@ -76,6 +76,16 @@ class RemoteIfaceMQTTTests(TestCase):
         )
         self.addCleanup(self.create_client_patcher.stop)
         self.create_client_patcher.start()
+        # Hard guard: a real broker connection must never be attempted in tests.
+        # If any code path bypasses the _create_client seam, fail loudly instead
+        # of opening a socket (CI runners have no MQTT broker).
+        self.no_network_patcher = patch(
+            'hummingbot.remote_iface.mqtt.aiomqtt.Client',
+            side_effect=AssertionError(
+                "Real aiomqtt.Client instantiated in tests — network access attempted")
+        )
+        self.addCleanup(self.no_network_patcher.stop)
+        self.no_network_patcher.start()
         # MQTT Patch Loggers Patcher
         self.patch_loggers_patcher = patch(
             'hummingbot.remote_iface.mqtt.MQTTGateway.patch_loggers'
