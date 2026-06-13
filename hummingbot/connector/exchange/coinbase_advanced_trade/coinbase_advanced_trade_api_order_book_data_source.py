@@ -77,13 +77,16 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
+        use_auth = self._connector.use_auth_for_public_endpoints
+        snapshot_endpoint = constants.get_snapshot_endpoint(use_auth)
+
         rest_assistant = await self._api_factory.get_rest_assistant()
         snapshot: Dict[str, Any] = await rest_assistant.execute_request(
-            url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
+            url=web_utils.public_rest_url(path_url=snapshot_endpoint, domain=self._domain),
             params=params,
             method=RESTMethod.GET,
-            is_auth_required=True,
-            throttler_limit_id=constants.SNAPSHOT_EP,
+            is_auth_required=use_auth,
+            throttler_limit_id=snapshot_endpoint,
         )
         return snapshot
 
@@ -120,7 +123,12 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "product_ids": symbols,
                     "channel": channel,
                 }
-                await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
+                await ws.send(
+                    WSJSONRequest(
+                        payload=payload,
+                        is_auth_required=self._connector.use_auth_for_public_endpoints,
+                    )
+                )
 
             self.logger().info(f"Subscribed to order book channels for: {', '.join(self._trading_pairs)}")
         except asyncio.CancelledError:

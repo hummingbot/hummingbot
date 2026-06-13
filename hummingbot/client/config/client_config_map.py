@@ -21,6 +21,9 @@ from hummingbot.connector.connector_metrics_collector import (
 )
 from hummingbot.connector.derivative.architect_perpetual import architect_perpetual_constants
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import (
+    CoinbaseAdvancedTradeConfigMap,
+)
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
 from hummingbot.connector.exchange.kraken.kraken_utils import KrakenConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
@@ -201,6 +204,7 @@ class PaperTradeConfigMap(BaseClientModel):
             KuCoinConfigMap.model_config["title"],
             KrakenConfigMap.model_config["title"],
             GateIOConfigMap.model_config["title"],
+            CoinbaseAdvancedTradeConfigMap.model_config["title"],
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
