@@ -1,0 +1,24 @@
+from bidict import bidict
+
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
+
+REST_URL = CONSTANTS.REST_URL.format(domain=CONSTANTS.DEFAULT_DOMAIN)
+WSS_URL = CONSTANTS.WSS_URL.format(domain=CONSTANTS.DEFAULT_DOMAIN)
+HEALTH_CHECK_ENDPOINT = CONSTANTS.SERVER_TIME_EP
+CANDLES_ENDPOINT = CONSTANTS.CANDLES_EP
+CANDLES_ENDPOINT_ID = CONSTANTS.CANDLES_EP_ID
+WS_CANDLES_CHANNEL = "candles"
+
+INTERVALS = bidict({
+    "1m": "ONE_MINUTE",
+    "5m": "FIVE_MINUTE",
+    "15m": "FIFTEEN_MINUTE",
+    "30m": "THIRTY_MINUTE",
+    "1h": "ONE_HOUR",
+    "2h": "TWO_HOUR",
+    "6h": "SIX_HOUR",
+    "1d": "ONE_DAY",
+})
+
+MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 350
+RATE_LIMITS = CONSTANTS.RATE_LIMITS
