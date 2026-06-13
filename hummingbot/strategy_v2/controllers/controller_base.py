@@ -204,6 +204,11 @@ class ControllerBase(RunnableBase):
         self.processed_data = {}
         self.executors_update_event = asyncio.Event()
         self.executors_info_queue = asyncio.Queue()
+        self._last_no_action_reason = "initializing"
+        self._last_idle_log_timestamp = 0.0
+        self._idle_log_interval = 60.0
+        self._market_data_ready_logged = False
+        self._active_decision_logged = False
 
     def start(self):
         """
@@ -257,12 +262,47 @@ class ControllerBase(RunnableBase):
                 setattr(self.config, name, getattr(new_config, name))
 
     async def control_task(self):
-        if self.market_data_provider.ready and self.executors_update_event.is_set():
-            await self.update_processed_data()
-            executor_actions: List[ExecutorAction] = self.determine_executor_actions()
-            if len(executor_actions) > 0:
-                self.logger().debug(f"Sending actions: {executor_actions}")
-                await self.send_actions(executor_actions)
+        if not self.market_data_provider.ready:
+            return
+
+        if not self._market_data_ready_logged:
+            self.logger().info(f"Controller {self.config.id} market data is ready.")
+            self._market_data_ready_logged = True
+
+        if not self.executors_update_event.is_set():
+            return
+
+        if not self._active_decision_logged:
+            self.logger().info(f"Controller {self.config.id} entered active decision-making.")
+            self._active_decision_logged = True
+
+        await self.update_processed_data()
+        executor_actions: List[ExecutorAction] = self.determine_executor_actions()
+        if len(executor_actions) > 0:
+            self.logger().debug(f"Sending actions: {executor_actions}")
+            self._last_no_action_reason = None
+            await self.send_actions(executor_actions)
+        else:
+            if self._last_no_action_reason is None:
+                self._last_no_action_reason = "no_actions"
+            self._log_idle_state_if_due()
+
+    def _log_idle_state_if_due(self):
+        try:
+            now = float(self.market_data_provider.time())
+        except (TypeError, ValueError):
+            return
+        if now - self._last_idle_log_timestamp < self._idle_log_interval:
+            return
+        signal = self.processed_data.get("signal")
+        connector_name = getattr(self.config, "connector_name", "n/a")
+        trading_pair = getattr(self.config, "trading_pair", "n/a")
+        self.logger().info(
+            f"Controller {self.config.id} running but idle. "
+            f"reason={self._last_no_action_reason} connector={connector_name} "
+            f"trading_pair={trading_pair} signal={signal}"
+        )
+        self._last_idle_log_timestamp = now
 
     async def send_actions(self, executor_actions: List[ExecutorAction]):
         if len(executor_actions) > 0:

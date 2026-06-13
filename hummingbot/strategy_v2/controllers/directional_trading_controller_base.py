@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 from pydantic import Field, field_validator
@@ -170,19 +170,28 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         create_actions = []
         signal = self.processed_data["signal"]
-        if signal != 0 and self.can_create_executor(signal):
-            price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
-                                                                PriceType.MidPrice)
-            # Default implementation distribute the total amount equally among the executors
-            amount = self.config.total_amount_quote / price / Decimal(self.config.max_executors_per_side)
-            trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
-            create_actions.append(CreateExecutorAction(
-                controller_id=self.config.id,
-                executor_config=self.get_executor_config(trade_type, price, amount)))
+        if signal == 0:
+            self._last_no_action_reason = "waiting_for_signal"
+            return create_actions
+
+        can_create, no_action_reason = self.can_create_executor(signal)
+        if not can_create:
+            self._last_no_action_reason = no_action_reason
+            return create_actions
+
+        price = self.market_data_provider.get_price_by_type(self.config.connector_name, self.config.trading_pair,
+                                                            PriceType.MidPrice)
+        # Default implementation distribute the total amount equally among the executors
+        amount = self.config.total_amount_quote / price / Decimal(self.config.max_executors_per_side)
+        trade_type = TradeType.BUY if signal > 0 else TradeType.SELL
+        create_actions.append(CreateExecutorAction(
+            controller_id=self.config.id,
+            executor_config=self.get_executor_config(trade_type, price, amount)))
+        self._last_no_action_reason = None
 
         return create_actions
 
-    def can_create_executor(self, signal: int) -> bool:
+    def can_create_executor(self, signal: int) -> Tuple[bool, Optional[str]]:
         """
         Check if an executor can be created based on the signal, the quantity of active executors and the cooldown time.
         """
@@ -192,7 +201,11 @@ class DirectionalTradingControllerBase(ControllerBase):
         max_timestamp = max([executor.timestamp for executor in active_executors_by_signal_side], default=0)
         active_executors_condition = len(active_executors_by_signal_side) < self.config.max_executors_per_side
         cooldown_condition = self.market_data_provider.time() - max_timestamp > self.config.cooldown_time
-        return active_executors_condition and cooldown_condition
+        if not active_executors_condition:
+            return False, "max_executors_reached"
+        if not cooldown_condition:
+            return False, "cooldown_active"
+        return True, None
 
     def stop_actions_proposal(self) -> List[ExecutorAction]:
         """

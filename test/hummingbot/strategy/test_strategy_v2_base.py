@@ -438,6 +438,23 @@ class StrategyV2BaseBasicTest(unittest.TestCase):
         self.strategy.tick(self.start_timestamp + 10)
         self.assertTrue(self.strategy.ready_to_trade)
 
+    def test_tick_logs_connector_ready_transition(self):
+        self.strategy.tick(self.start_timestamp + 10)
+
+        self.assertTrue(self._is_logged("INFO", "All strategy connectors are ready. Trading may proceed."))
+
+    def test_on_tick_logs_market_data_provider_ready_transition(self):
+        self.strategy.ready_to_trade = True
+        self.strategy.controllers = {"controller_1": MagicMock()}
+        self.strategy.market_data_provider.ready = True
+        self.strategy.determine_executor_actions = MagicMock(return_value=[])
+        self.strategy.update_executors_info = MagicMock()
+        self.strategy.update_controllers_configs = MagicMock()
+
+        self.strategy.on_tick()
+
+        self.assertTrue(self._is_logged("INFO", "Strategy market data provider is ready."))
+
     def test_get_assets_basic(self):
         self.strategy.markets = {"con_a": {"HBOT-USDT", "BTC-USDT"}, "con_b": {"HBOT-BTC", "HBOT-ETH"}}
         self.assertRaises(KeyError, self.strategy.get_assets, "con_c")
