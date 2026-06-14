@@ -48,6 +48,7 @@ SIGNIN_ENDPOINTS = {
 # Public API endpoints
 SERVER_TIME_EP = "/brokerage/time"
 ALL_PAIRS_EP = "/brokerage/market/products"  # https://docs.cdp.coinbase.com/advanced-trade/reference/retailbrokerageapi_getpublicproducts
+PUBLIC_SNAPSHOT_EP = "/brokerage/market/product_book"
 PAIR_TICKER_24HR_EP = "/brokerage/market/products/{product_id}/ticker"
 PAIR_TICKER_24HR_RATE_LIMIT_ID = "ProductTicker24Hr"
 
@@ -90,6 +91,7 @@ PUBLIC_REST_ENDPOINTS = {
     CANDLES_EP_ID,
     SERVER_TIME_EP,
     ALL_PAIRS_EP,
+    PUBLIC_SNAPSHOT_EP,
     PAIR_TICKER_24HR_RATE_LIMIT_ID,
 }
 
@@ -214,3 +216,10 @@ def get_ticker_endpoint(use_auth_for_public_endpoints: bool) -> Tuple[str, str]:
         return (PRIVATE_PAIR_TICKER_24HR_EP, PRIVATE_PAIR_TICKER_24HR_RATE_LIMIT_ID)
     else:
         return (PAIR_TICKER_24HR_EP, PAIR_TICKER_24HR_RATE_LIMIT_ID)
+
+
+def get_snapshot_endpoint(use_auth_for_public_endpoints: bool) -> str:
+    if use_auth_for_public_endpoints:
+        return SNAPSHOT_EP
+    else:
+        return PUBLIC_SNAPSHOT_EP

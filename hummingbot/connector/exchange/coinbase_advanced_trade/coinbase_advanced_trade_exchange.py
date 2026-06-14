@@ -144,6 +144,10 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         return self._domain
 
     @property
+    def use_auth_for_public_endpoints(self) -> bool:
+        return self._use_auth_for_public_endpoints
+
+    @property
     def last_poll_timestamp(self) -> float:
         # Defined in ExchangePyBase
         return self._last_poll_timestamp

@@ -57,6 +57,41 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(actions[0].controller_id, "test")
         self.assertIsInstance(actions[0], ExecutorAction)
 
+    async def test_create_actions_proposal_sets_waiting_for_signal_reason(self):
+        await self.controller.update_processed_data()
+
+        actions = self.controller.create_actions_proposal()
+
+        self.assertEqual(actions, [])
+        self.assertEqual(self.controller._last_no_action_reason, "waiting_for_signal")
+
+    def test_can_create_executor_returns_cooldown_reason(self):
+        active_executor = MagicMock()
+        active_executor.is_active = True
+        active_executor.side = TradeType.BUY
+        active_executor.timestamp = 995
+        self.controller.executors_info = [active_executor]
+        self.controller.market_data_provider.time.return_value = 1000
+
+        can_create, reason = self.controller.can_create_executor(1)
+
+        self.assertFalse(can_create)
+        self.assertEqual(reason, "cooldown_active")
+
+    def test_can_create_executor_returns_max_executors_reason(self):
+        self.controller.config.max_executors_per_side = 1
+        active_executor = MagicMock()
+        active_executor.is_active = True
+        active_executor.side = TradeType.BUY
+        active_executor.timestamp = 0
+        self.controller.executors_info = [active_executor]
+        self.controller.market_data_provider.time.return_value = 1000
+
+        can_create, reason = self.controller.can_create_executor(1)
+
+        self.assertFalse(can_create)
+        self.assertEqual(reason, "max_executors_reached")
+
     def test_get_executor_config(self):
         trade_type = TradeType.BUY
         price = Decimal("100")

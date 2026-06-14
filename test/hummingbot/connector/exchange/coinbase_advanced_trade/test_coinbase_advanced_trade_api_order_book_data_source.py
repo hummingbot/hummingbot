@@ -184,7 +184,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.get_snapshot_endpoint(use_auth_for_public_endpoints=False),
+            domain=self.domain,
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self._snapshot_response()
@@ -209,12 +212,49 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertEqual(12, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
+        request_call = list(mock_api.requests.values())[0][0]
+        self.assertNotIn("CB-ACCESS-KEY", request_call.kwargs.get("headers", {}))
+
         mock_api.clear()
+
+    @aioresponses()
+    def test_get_new_order_book_uses_authenticated_snapshot_endpoint_when_configured(self, mock_api):
+        connector = CoinbaseAdvancedTradeExchange(
+            coinbase_advanced_trade_api_key="testAPIKey",
+            coinbase_advanced_trade_api_secret="testSecret",
+            use_auth_for_public_endpoints=True,
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
+        connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+        data_source = CoinbaseAdvancedTradeAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=connector,
+            api_factory=connector._web_assistants_factory,
+            domain=self.domain)
+
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.get_snapshot_endpoint(use_auth_for_public_endpoints=True),
+            domain=self.domain,
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self._snapshot_response()
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        order_book: OrderBook = self.async_run_with_timeout(data_source.get_new_order_book(self.trading_pair))
+
+        self.assertEqual(get_timestamp_from_exchange_time(resp["pricebook"]["time"], "s"), order_book.snapshot_uid)
+        request_call = list(mock_api.requests.values())[0][0]
+        self.assertIn("CB-ACCESS-KEY", request_call.kwargs["headers"])
+        self.assertEqual("testAPIKey", request_call.kwargs["headers"]["CB-ACCESS-KEY"])
 
     @aioresponses()
     # @track_memory_growth()
     def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
+        url = web_utils.public_rest_url(
+            path_url=CONSTANTS.get_snapshot_endpoint(use_auth_for_public_endpoints=False),
+            domain=self.domain,
+        )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
@@ -249,6 +289,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         for message in sent_subscription_messages:
             self.assertEqual("subscribe", message["type"])
             self.assertEqual(self.ex_trading_pair.upper(), message["product_ids"][0])
+            self.assertNotIn("jwt", message)
+            self.assertNotIn("api_key", message)
+            self.assertNotIn("signature", message)
+            self.assertNotIn("timestamp", message)
             subs[message["channel"]] = True
         self.assertTrue(subs["market_trades"])
         self.assertTrue(subs["level2"])
@@ -258,6 +302,32 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             "INFO",
             f"Subscribed to order book channels for: {self.ex_trading_pair.upper()}"
         ))
+
+    def test_subscribe_channels_uses_auth_request_flag_when_public_auth_is_enabled(self):
+        connector = CoinbaseAdvancedTradeExchange(
+            coinbase_advanced_trade_api_key="testAPIKey",
+            coinbase_advanced_trade_api_secret="testSecret",
+            use_auth_for_public_endpoints=True,
+            trading_pairs=[],
+            trading_required=False,
+            domain=self.domain)
+        connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+        data_source = CoinbaseAdvancedTradeAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=connector,
+            api_factory=connector._web_assistants_factory,
+            domain=self.domain)
+        mock_ws = AsyncMock()
+
+        self.listening_task = self.local_event_loop.create_task(data_source._subscribe_channels(mock_ws))
+        self.async_run_with_timeout(self.listening_task)
+
+        sent_requests = [call.args[0] for call in mock_ws.send.call_args_list]
+        self.assertEqual(3, len(sent_requests))
+        for request in sent_requests:
+            self.assertTrue(request.is_auth_required)
+            self.assertEqual(self.ex_trading_pair.upper(), request.payload["product_ids"][0])
+
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")

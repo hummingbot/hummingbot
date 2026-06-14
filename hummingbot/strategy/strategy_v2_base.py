@@ -273,6 +273,8 @@ class StrategyV2Base(StrategyPyBase):
         self._is_stop_triggered = False
         self.mqtt_enabled = False
         self._pub: Optional[ETopicPublisher] = None
+        self._connectors_ready_logged = False
+        self._market_data_ready_logged = False
 
         self.actions_queue = asyncio.Queue()
         self.listen_to_executor_actions_task: asyncio.Task = asyncio.create_task(self.listen_to_executor_actions())
@@ -305,6 +307,9 @@ class StrategyV2Base(StrategyPyBase):
                 for con in [c for c in self.connectors.values() if not c.ready]:
                     self.logger().warning(f"{con.name} is not ready. Please wait...")
                 return
+            if not self._connectors_ready_logged:
+                self.logger().info("All strategy connectors are ready. Trading may proceed.")
+                self._connectors_ready_logged = True
         else:
             self.on_tick()
 
@@ -317,6 +322,9 @@ class StrategyV2Base(StrategyPyBase):
             self.update_executors_info()
             self.update_controllers_configs()
             if self.market_data_provider.ready and not self._is_stop_triggered:
+                if not self._market_data_ready_logged:
+                    self.logger().info("Strategy market data provider is ready.")
+                    self._market_data_ready_logged = True
                 executor_actions: List[ExecutorAction] = self.determine_executor_actions()
                 for action in executor_actions:
                     self.executor_orchestrator.execute_action(action)

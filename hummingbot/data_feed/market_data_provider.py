@@ -283,13 +283,14 @@ class MarketDataProvider:
         if conn_setting is None:
             self.logger().error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
-
-        init_params = conn_setting.conn_init_parameters(
+        resolved_connector_name = conn_setting.parent_name if connector_name.endswith("_paper_trade") else connector_name
+        resolved_conn_setting = self.conn_settings.get(resolved_connector_name, conn_setting)
+        init_params = resolved_conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=self.get_connector_config_map(connector_name),
+            api_keys=self.get_connector_config_map(resolved_connector_name),
         )
-        connector_class = get_connector_class(connector_name)
+        connector_class = get_connector_class(resolved_connector_name)
         connector = connector_class(**init_params)
         return connector
 

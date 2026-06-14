@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 from hummingbot.core.data_type.common import PriceType, TradeType
 from hummingbot.data_feed.market_data_provider import MarketDataProvider
@@ -125,6 +125,37 @@ class TestControllerBase(IsolatedAsyncioWrapperTestCase):
         await self.controller.control_task()
         # Check that no action is put in the queue
         self.mock_actions_queue.put.assert_not_called()
+
+    async def test_control_task_logs_idle_state_when_throttle_allows(self):
+        type(self.controller.market_data_provider).ready = PropertyMock(return_value=True)
+        self.controller.executors_update_event.set()
+        self.controller.update_processed_data = AsyncMock()
+        self.controller.determine_executor_actions = MagicMock(return_value=[])
+        self.controller.processed_data = {"signal": 0}
+        self.controller._last_no_action_reason = "waiting_for_signal"
+        self.controller.market_data_provider.time.return_value = 120.0
+
+        with patch.object(self.controller.logger(), "info") as info_mock:
+            await self.controller.control_task()
+
+        self.assertGreaterEqual(info_mock.call_count, 3)
+        self.assertIn("running but idle", info_mock.call_args_list[-1].args[0])
+
+    async def test_control_task_throttles_idle_logs(self):
+        type(self.controller.market_data_provider).ready = PropertyMock(return_value=True)
+        self.controller.executors_update_event.set()
+        self.controller.update_processed_data = AsyncMock()
+        self.controller.determine_executor_actions = MagicMock(return_value=[])
+        self.controller.processed_data = {"signal": 0}
+        self.controller._last_no_action_reason = "waiting_for_signal"
+        self.controller._market_data_ready_logged = True
+        self.controller._active_decision_logged = True
+        self.controller.market_data_provider.time.return_value = 30.0
+
+        with patch.object(self.controller.logger(), "info") as info_mock:
+            await self.controller.control_task()
+
+        info_mock.assert_not_called()
 
     def test_to_format_status(self):
         # Test the to_format_status method
