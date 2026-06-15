@@ -42,6 +42,7 @@ def main():
     }
     install_requires = [
         "aiohttp>=3.8.5",
+        "aiomqtt>=2.0.0",
         "asyncssh>=2.13.2",
         "aioprocessing>=2.0.1",
         "aioresponses>=0.7.4",
@@ -52,7 +53,6 @@ def main():
         "bidict>=0.22.1",
         "bip-utils",
         "cachetools>=5.3.1",
-        "commlib-py>=0.11",
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",
         "eth-account>=0.13.0",
