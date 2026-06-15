@@ -5,6 +5,7 @@ import re
 from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
+from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -434,7 +435,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.async_run_with_timeout(asyncio.sleep(0.5))
         self.assertTrue(
             self.is_logged(
-                log_level="DEBUG",
+                log_level="INFO",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )
@@ -3090,6 +3091,66 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertLess(pos.amount, 0)
 
     @aioresponses()
+    def test_update_positions_removes_stale_on_partial_close(self, mock_api):
+        """Closed positions must be evicted from the cache even when other positions remain open.
+
+        Hyperliquid omits closed positions from assetPositions entirely — it does not return
+        them with szi=0.  If only some positions are closed the response is non-empty, so the
+        previous 'if not all_positions' guard was never triggered and stale entries remained in
+        account_positions indefinitely.
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        # First poll: two open positions (BTC and ETH).
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "100.0",
+                        "leverage": {"value": 10},
+                    }
+                },
+                {
+                    "position": {
+                        "coin": "ETH",
+                        "szi": "2.0",
+                        "entryPx": "3000.0",
+                        "unrealizedPnl": "50.0",
+                        "leverage": {"value": 5},
+                    }
+                },
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(2, len(self.exchange.account_positions))
+
+        # Second poll: ETH position closed — exchange returns only BTC.
+        mock_api.post(url, body=json.dumps({
+            "assetPositions": [
+                {
+                    "position": {
+                        "coin": "BTC",
+                        "szi": "0.5",
+                        "entryPx": "50000.0",
+                        "unrealizedPnl": "120.0",
+                        "leverage": {"value": 10},
+                    }
+                }
+            ]
+        }))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions), "Stale ETH position was not removed after it closed on exchange")
+        pos = list(positions.values())[0]
+        self.assertEqual("BTC-USD", pos.trading_pair)
+
+    @aioresponses()
     def test_get_last_traded_price_for_hip3_market(self, mock_api):
         """Test _get_last_traded_price for HIP-3 market includes dex param."""
         self._simulate_trading_rules_initialized()
@@ -3745,3 +3806,124 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual("malformed", hydrated[2]["name"])
         self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
         self.assertEqual("exception", hydrated[4]["name"])
+
+
+class HyperliquidPerpetualBuilderCodeTests(TestCase):
+    """Builder-code support (HGP-87) on the Hyperliquid perpetual connector."""
+
+    builder_address = "0xAbC0000000000000000000000000000000000001"
+    api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+
+    def async_run_with_timeout(self, coroutine, timeout: int = 1):
+        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        return HyperliquidPerpetualDerivative(
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_address="0x1111111111111111111111111111111111111111",
+            use_vault=use_vault,
+            trading_pairs=["BTC-USD"],
+            trading_required=False,
+            domain=domain,
+        )
+
+    def test_default_foundation_address_configured_so_field_injected(self):
+        self.assertIsNotNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
+        connector = self._build_connector()
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
+        self.assertTrue(connector._should_inject_builder())
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
+
+    def test_builder_field_omitted_when_not_supported(self):
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            self.assertFalse(connector._should_inject_builder())
+
+    def test_builder_field_omitted_on_vault_and_testnet(self):
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            connector._builder_address = self.builder_address
+            self.assertFalse(connector._should_inject_builder())
+            self.assertIsNone(connector._build_builder_field())
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_place_order_omits_builder_key_on_vault_and_testnet(self, api_post_mock):
+        # The "builder" key must be entirely absent from the signed order action on vault and testnet
+        # orders (not present-but-null) — and present on mainnet. Drives the real _place_order path.
+        api_post_mock.return_value = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        for connector, expect_builder in ((self._build_connector(), True),
+                                          (self._build_connector(use_vault=True), False),
+                                          (self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN), False)):
+            connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
+            connector.coin_to_asset = {"BTC": 0}
+            with patch.object(connector, "exchange_symbol_associated_to_pair",
+                              new_callable=AsyncMock, return_value="BTC"):
+                self.async_run_with_timeout(connector._place_order(
+                    order_id="0xabc", trading_pair="BTC-USD", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                    position_action=PositionAction.OPEN,
+                ))
+            sent = api_post_mock.call_args.kwargs["data"]
+            self.assertEqual(expect_builder, "builder" in sent)
+            if expect_builder:
+                self.assertEqual({"b": connector._builder_address, "f": 10}, sent["builder"])
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_applies_approved(self, api_post_mock):
+        api_post_mock.return_value = 10  # user approved 0.01% = 1 bps
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        # Charges 1 bps and attributes to the Foundation builder address.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 10},
+            connector._build_builder_field(),
+        )
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_zero_when_not_approved(self, api_post_mock):
+        api_post_mock.return_value = 0  # no approval on record
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+        # Still attributes to the Foundation builder address, just at 0 bps.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
+        api_post_mock.return_value = 10_000  # approval above our fee; charge only the hardcoded fee
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS, connector._builder_fee_tenths_bps)
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_below_configured_charges_approved(self, api_post_mock):
+        api_post_mock.return_value = 5  # user approved less than 1 bps; fail safe to the approved max
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(5, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_fails_safe_to_zero(self, api_post_mock):
+        api_post_mock.side_effect = Exception("info endpoint down")
+        connector = self._build_connector()
+        connector._builder_fee_tenths_bps = 99  # ensure it is reset
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_skipped_on_testnet_and_vault(self, api_post_mock):
+        api_post_mock.return_value = 10
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            self.async_run_with_timeout(connector._initialize_builder_fee())
+            self.assertEqual(0, connector._builder_fee_tenths_bps)
+            api_post_mock.assert_not_called()

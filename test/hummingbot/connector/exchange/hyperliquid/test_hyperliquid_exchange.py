@@ -6,7 +6,8 @@ import re
 # from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional
-from unittest.mock import AsyncMock
+from unittest import TestCase
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -1941,3 +1942,123 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         self.assertTrue(self.is_logged("INFO", expected_log))
+
+
+class HyperliquidBuilderCodeTests(TestCase):
+    """Builder-code support (HGP-87) on the Hyperliquid spot connector."""
+
+    builder_address = "0xAbC0000000000000000000000000000000000001"
+    api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+
+    def async_run_with_timeout(self, coroutine, timeout: int = 1):
+        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        return HyperliquidExchange(
+            hyperliquid_secret_key=self.api_secret,
+            hyperliquid_address="0x1111111111111111111111111111111111111111",
+            use_vault=use_vault,
+            trading_pairs=["HFUN-USDC"],
+            trading_required=False,
+            domain=domain,
+        )
+
+    def test_default_foundation_address_configured_so_field_injected(self):
+        self.assertIsNotNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
+        connector = self._build_connector()
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
+        self.assertTrue(connector._should_inject_builder())
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
+
+    def test_builder_field_omitted_when_not_supported(self):
+        connector = self._build_connector()
+        connector._builder_address = self.builder_address
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            self.assertFalse(connector._should_inject_builder())
+
+    def test_builder_field_omitted_on_vault_and_testnet(self):
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            connector._builder_address = self.builder_address
+            self.assertFalse(connector._should_inject_builder())
+            self.assertIsNone(connector._build_builder_field())
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_place_order_omits_builder_key_on_vault_and_testnet(self, api_post_mock):
+        # The "builder" key must be entirely absent from the signed order action on vault and testnet
+        # orders (not present-but-null) — and present on mainnet. Drives the real _place_order path.
+        api_post_mock.return_value = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        for connector, expect_builder in ((self._build_connector(), True),
+                                          (self._build_connector(use_vault=True), False),
+                                          (self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN), False)):
+            connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
+            connector.coin_to_asset = {"HFUN": 0}
+            with patch.object(connector, "exchange_symbol_associated_to_pair",
+                              new_callable=AsyncMock, return_value="HFUN"):
+                self.async_run_with_timeout(connector._place_order(
+                    order_id="0xabc", trading_pair="HFUN-USDC", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                ))
+            sent = api_post_mock.call_args.kwargs["data"]
+            self.assertEqual(expect_builder, "builder" in sent)
+            if expect_builder:
+                self.assertEqual({"b": connector._builder_address, "f": 10}, sent["builder"])
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_applies_approved(self, api_post_mock):
+        api_post_mock.return_value = 10  # user approved 0.01% = 1 bps
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        # Charges 1 bps and attributes to the Foundation builder address.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 10},
+            connector._build_builder_field(),
+        )
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_zero_when_not_approved(self, api_post_mock):
+        api_post_mock.return_value = 0  # no approval on record
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+        # Still attributes to the Foundation builder address, just at 0 bps.
+        self.assertEqual(
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            connector._build_builder_field(),
+        )
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
+        api_post_mock.return_value = 100_000  # approval above our fee; charge only the hardcoded fee
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS, connector._builder_fee_tenths_bps)
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_below_configured_charges_approved(self, api_post_mock):
+        api_post_mock.return_value = 5  # user approved less than 1 bps; fail safe to the approved max
+        connector = self._build_connector()
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(5, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_fails_safe_to_zero(self, api_post_mock):
+        api_post_mock.side_effect = Exception("info endpoint down")
+        connector = self._build_connector()
+        connector._builder_fee_tenths_bps = 99  # ensure it is reset
+        self.async_run_with_timeout(connector._initialize_builder_fee())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_initialize_builder_fee_skipped_on_testnet_and_vault(self, api_post_mock):
+        api_post_mock.return_value = 10
+        for connector in (self._build_connector(use_vault=True),
+                          self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN)):
+            self.async_run_with_timeout(connector._initialize_builder_fee())
+            self.assertEqual(0, connector._builder_fee_tenths_bps)
+            api_post_mock.assert_not_called()

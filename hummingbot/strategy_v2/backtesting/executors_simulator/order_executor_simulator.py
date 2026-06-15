@@ -44,7 +44,13 @@ class OrderExecutorSimulator(ExecutorSimulatorBase):
             fill_timestamp = df_filtered[entry_condition]['timestamp'].min()
 
         if pd.isna(fill_timestamp):
-            return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.FAILED)
+            # A maker/limit order whose price the market never crossed within the window
+            # is a RESTING order, not a failure. Keep it active (zero fill) over the whole
+            # window so the controller's own refresh/cancel logic governs its lifetime; if it
+            # is never cancelled it simply expires unfilled at the end. Returning FAILED here
+            # dropped the order, so controllers that gate re-quoting on "is a level already
+            # resting?" re-quoted every tick, flooding the sim with phantom fills.
+            return ExecutorSimulation(config=config, executor_simulation=df_filtered, close_type=CloseType.EXPIRED)
 
         # Determine entry price
         entry_price = df_filtered.loc[fill_timestamp, 'close']

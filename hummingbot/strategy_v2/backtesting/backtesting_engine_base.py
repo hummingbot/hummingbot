@@ -45,68 +45,107 @@ class BacktestPositionHold:
         self.connector_name = connector_name
         self.trading_pair = trading_pair
         self.source_executor_ids: set = set()
+
+        # Net position tracking (positive = long, negative = short)
+        self.net_amount_base = Decimal("0")
+        self.avg_entry_price = Decimal("0")
+
+        # Accumulated metrics
+        self.realized_pnl_quote = Decimal("0")
+        self.cum_fees_quote = Decimal("0")
+        self.volume_traded_quote = Decimal("0")
+
+        # Separate tracking for buys and sells (for logging/diagnostics)
         self.buy_amount_base = Decimal("0")
         self.buy_amount_quote = Decimal("0")
         self.sell_amount_base = Decimal("0")
         self.sell_amount_quote = Decimal("0")
-        self.cum_fees_quote = Decimal("0")
-        self.volume_traded_quote = Decimal("0")
+
+    def _process_order(self, is_buy: bool, amount_base: Decimal, amount_quote: Decimal):
+        """Process an order incrementally: realize PnL when reducing, update avg entry when adding."""
+        if amount_base == 0:
+            return
+
+        order_price = amount_quote / amount_base
+        is_reducing = (self.net_amount_base > 0 and not is_buy) or (self.net_amount_base < 0 and is_buy)
+
+        if is_reducing:
+            abs_net = abs(self.net_amount_base)
+            matched = min(amount_base, abs_net)
+
+            if self.net_amount_base > 0:
+                self.realized_pnl_quote += (order_price - self.avg_entry_price) * matched
+            else:
+                self.realized_pnl_quote += (self.avg_entry_price - order_price) * matched
+
+            excess = amount_base - matched
+            if excess > 0:
+                self.net_amount_base = excess if is_buy else -excess
+                self.avg_entry_price = order_price
+            elif matched == abs_net:
+                self.net_amount_base = Decimal("0")
+                self.avg_entry_price = Decimal("0")
+            else:
+                if self.net_amount_base > 0:
+                    self.net_amount_base -= matched
+                else:
+                    self.net_amount_base += matched
+        else:
+            if self.net_amount_base == 0:
+                self.net_amount_base = amount_base if is_buy else -amount_base
+                self.avg_entry_price = order_price
+            else:
+                abs_net = abs(self.net_amount_base)
+                total_cost = self.avg_entry_price * abs_net + amount_quote
+                new_abs = abs_net + amount_base
+                self.avg_entry_price = total_cost / new_abs
+                self.net_amount_base = new_abs if is_buy else -new_abs
 
     def add_executor(self, executor_info: ExecutorInfo, entry_price: Decimal):
         """Add an executor's filled position to this hold."""
         self.source_executor_ids.add(executor_info.config.id)
         amount_base = executor_info.filled_amount_quote / entry_price
-        if executor_info.side == TradeType.BUY:
+        amount_quote = executor_info.filled_amount_quote
+        is_buy = executor_info.side == TradeType.BUY
+
+        # Update buy/sell totals (for logging/diagnostics)
+        if is_buy:
             self.buy_amount_base += amount_base
-            self.buy_amount_quote += executor_info.filled_amount_quote
+            self.buy_amount_quote += amount_quote
         else:
             self.sell_amount_base += amount_base
-            self.sell_amount_quote += executor_info.filled_amount_quote
+            self.sell_amount_quote += amount_quote
         self.cum_fees_quote += executor_info.cum_fees_quote
-        self.volume_traded_quote += executor_info.filled_amount_quote
+        self.volume_traded_quote += amount_quote
 
-    @property
-    def net_amount_base(self) -> Decimal:
-        return self.buy_amount_base - self.sell_amount_base
+        # Process for incremental PnL calculation
+        self._process_order(is_buy, amount_base, amount_quote)
 
     @property
     def is_closed(self) -> bool:
         return self.net_amount_base == 0
 
     def get_position_summary(self, mid_price: Decimal) -> PositionSummary:
-        """Calculate position summary with buy/sell netting, mirroring PositionHold.get_position_summary."""
-        buy_breakeven = self.buy_amount_quote / self.buy_amount_base if self.buy_amount_base > 0 else Decimal("0")
-        sell_breakeven = self.sell_amount_quote / self.sell_amount_base if self.sell_amount_base > 0 else Decimal("0")
-
-        matched_base = min(self.buy_amount_base, self.sell_amount_base)
-        realized_pnl = (sell_breakeven - buy_breakeven) * matched_base if matched_base > 0 else Decimal("0")
-
-        net_base = self.buy_amount_base - self.sell_amount_base
-        is_net_long = net_base >= 0
+        """Calculate position summary using incremental PnL tracking."""
+        abs_amount = abs(self.net_amount_base)
+        is_net_long = self.net_amount_base >= 0
 
         unrealized_pnl = Decimal("0")
-        breakeven_price = Decimal("0")
-        if net_base != 0:
+        if abs_amount > 0:
             if is_net_long:
-                remaining_base = net_base
-                remaining_quote = self.buy_amount_quote - (matched_base * buy_breakeven)
-                breakeven_price = remaining_quote / remaining_base if remaining_base > 0 else Decimal("0")
-                unrealized_pnl = (mid_price - breakeven_price) * remaining_base
+                unrealized_pnl = (mid_price - self.avg_entry_price) * abs_amount
             else:
-                remaining_base = abs(net_base)
-                remaining_quote = self.sell_amount_quote - (matched_base * sell_breakeven)
-                breakeven_price = remaining_quote / remaining_base if remaining_base > 0 else Decimal("0")
-                unrealized_pnl = (breakeven_price - mid_price) * remaining_base
+                unrealized_pnl = (self.avg_entry_price - mid_price) * abs_amount
 
         return PositionSummary(
             connector_name=self.connector_name,
             trading_pair=self.trading_pair,
             volume_traded_quote=self.volume_traded_quote,
-            amount=abs(net_base),
+            amount=abs_amount,
             side=TradeType.BUY if is_net_long else TradeType.SELL,
-            breakeven_price=breakeven_price,
+            breakeven_price=self.avg_entry_price,
             unrealized_pnl_quote=unrealized_pnl,
-            realized_pnl_quote=realized_pnl,
+            realized_pnl_quote=self.realized_pnl_quote,
             cum_fees_quote=self.cum_fees_quote,
         )
 
@@ -304,9 +343,16 @@ class BacktestingEngineBase:
             if executor_info.status == RunnableStatus.TERMINATED:
                 self.stopped_executors_info.append(executor_info)
                 simulations_to_remove.append(executor.config.id)
-                # Naturally terminated executors (TP, SL, TL) always count as realized PnL
-                self._executor_realized_pnl += float(executor_info.net_pnl_quote)
                 self._cumulative_volume += float(executor_info.filled_amount_quote)
+                if executor_info.close_type == CloseType.POSITION_HOLD and executor_info.filled_amount_quote > 0:
+                    # Executors that auto-terminate as POSITION_HOLD (e.g. an OrderExecutor
+                    # whose maker order filled) keep their position. Route them to the
+                    # position-hold ledger instead of booking their (zero) PnL as a realized
+                    # close — mirrors handle_stop_action(keep_position=True).
+                    self._pending_position_hold_executors.append(executor_info)
+                else:
+                    # Naturally terminated executors (TP, SL, TL) always count as realized PnL
+                    self._executor_realized_pnl += float(executor_info.net_pnl_quote)
             else:
                 active_executors_info.append(executor_info)
         self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]

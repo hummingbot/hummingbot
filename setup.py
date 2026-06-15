@@ -85,6 +85,7 @@ def main():
         "web3",
         "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
+        "lighter-sdk==1.0.8"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
