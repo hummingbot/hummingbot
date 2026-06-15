@@ -80,7 +80,7 @@ class RateOracle(NetworkBase):
 
     def __init__(self, source: Optional[RateSourceBase] = None, quote_token: Optional[str] = None):
         super().__init__()
-        self._source: RateSourceBase = source if source is not None else BinanceRateSource()
+        self._source: RateSourceBase = source if source is not None else GateIoRateSource()
         self._prices: Dict[str, Decimal] = {}
         self._fetch_price_task: Optional[asyncio.Task] = None
         self._ready_event = asyncio.Event()
