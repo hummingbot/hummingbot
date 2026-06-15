@@ -791,6 +791,7 @@ class PositionExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=self.entry_price,
                 leverage=Decimal(self.config.leverage),
+                from_total_balances=True,
             )
         else:
             order_candidate = OrderCandidate(
@@ -801,10 +802,27 @@ class PositionExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=self.entry_price,
             )
+        quote_asset = self.config.trading_pair.split("-")[1]
+        available_balance = self.get_available_balance(self.config.connector_name, quote_asset)
+        total_balance = self.get_balance(self.config.connector_name, quote_asset)
+        required_collateral = self.config.amount * self.entry_price / Decimal(self.config.leverage) if self.is_perpetual else self.config.amount * self.entry_price
+        self.logger().info(
+            f"Balance check for {self.config.connector_name} | "
+            f"Pair: {self.config.trading_pair} | "
+            f"Leverage: {self.config.leverage}x | "
+            f"Required collateral: ~{required_collateral:.4f} {quote_asset} | "
+            f"Available balance: {available_balance:.4f} {quote_asset} | "
+            f"Total balance: {total_balance:.4f} {quote_asset}"
+        )
         adjusted_order_candidates = self.adjust_order_candidates(self.config.connector_name, [order_candidate])
         if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
-            self.logger().error("Not enough budget to open position.")
+            self.logger().error(
+                f"Not enough budget to open position. "
+                f"Required collateral: ~{required_collateral:.4f} {quote_asset} | "
+                f"Available balance: {available_balance:.4f} {quote_asset} | "
+                f"Total balance: {total_balance:.4f} {quote_asset}"
+            )
             self.stop()
 
     async def _sleep(self, delay: float):
