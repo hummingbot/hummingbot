@@ -58,6 +58,7 @@ class CandlesBase(NetworkBase):
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         self._ws_candle_available = asyncio.Event()
         self._ping_timeout = None
+        self._exchange_data_initialized = False
         if interval in self.intervals.keys():
             self.interval = interval
         else:
@@ -83,8 +84,22 @@ class CandlesBase(NetworkBase):
         if self._fill_candles_task is not None:
             self._fill_candles_task.cancel()
             self._fill_candles_task = None
+        # Allow exchange data to be refreshed on the next start (e.g. WS tokens that expire).
+        self._exchange_data_initialized = False
 
     async def initialize_exchange_data(self):
+        """
+        Idempotent entry point that ensures the exchange-specific data is set up exactly once
+        per network lifecycle. Subclasses should override ``_initialize_exchange_data`` instead
+        of this method. The guard avoids redundant work when this is called repeatedly (e.g. by
+        ``fetch_candles`` inside ``get_historical_candles``'s pagination loop).
+        """
+        if self._exchange_data_initialized:
+            return
+        await self._initialize_exchange_data()
+        self._exchange_data_initialized = True
+
+    async def _initialize_exchange_data(self):
         """
         This method is used to set up the exchange data before starting the network.
 
@@ -236,6 +251,10 @@ class CandlesBase(NetworkBase):
                             limit: Optional[int] = None):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
+
+        # Ensure exchange-specific data (e.g. symbol/coin resolution) is ready, since fetch_candles
+        # can be called directly without going through start_network() or get_historical_candles().
+        await self.initialize_exchange_data()
 
         if limit is None:
             limit = self.candles_max_result_per_rest_request
