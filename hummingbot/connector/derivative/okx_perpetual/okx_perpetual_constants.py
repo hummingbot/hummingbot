@@ -110,6 +110,8 @@ REST_GET_INSTRUMENTS = {METHOD: GET,
 # REST API Private General Endpoints
 REST_GET_WALLET_BALANCE = {METHOD: GET,
                            ENDPOINT: f"/api/{REST_API_VERSION}/account/balance"}
+REST_GET_ACCOUNT_CONFIG = {METHOD: GET,
+                           ENDPOINT: f"/api/{REST_API_VERSION}/account/config"}
 REST_SET_POSITION_MODE = {METHOD: POST,
                           ENDPOINT: f"/api/{REST_API_VERSION}/account/set-position-mode"}
 
@@ -174,6 +176,7 @@ RATE_LIMIT_SET_LEVERAGE = 20  # per 2 seconds
 RATE_LIMIT_USER_TRADE_RECORDS = 120  # per 60 seconds
 RATE_LIMIT_GET_POSITIONS = 10  # per 2 seconds
 RATE_LIMIT_GET_WALLET_BALANCE = 10  # per 2 seconds
+RATE_LIMIT_GET_ACCOUNT_CONFIG = 5  # per 2 seconds
 RATE_LIMIT_SET_POSITION_MODE = 5  # per 2 seconds
 RATE_LIMIT_BILLS_DETAILS = 5  # per 1 second
 RET_CODE_TIMESTAMP_HEADER_INVALID = "50112"

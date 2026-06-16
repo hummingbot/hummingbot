@@ -427,10 +427,10 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calculate trading fee.
 
-        Uses the tier-specific TradeFeeSchema populated by _update_trading_fees
-        (based on the user's 30-day volume) when available. Falls back to the
-        DEFAULT_FEES Tier 0 schema from utils.py until the first successful poll
-        — conservative overstatement rather than understatement.
+        Uses the TradeFeeSchema populated by _update_trading_fees (from the
+        Decibel user_fee_rates API) when available. Falls back to the DEFAULT_FEES
+        Tier 0 schema from utils.py until the first successful poll — conservative
+        overstatement rather than understatement.
         """
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
@@ -1470,52 +1470,37 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             return True, ""
         return False, f"Position mode {mode} not supported by Decibel."
 
-    @staticmethod
-    def _fees_for_30d_volume(volume: Decimal) -> Tuple[Decimal, Decimal]:
-        """
-        Map a 30-day USD trading volume to (maker_decimal, taker_decimal) using
-        CONSTANTS.FEE_TIER_SCHEDULE. The schedule is sorted high-to-low, so the
-        first matching threshold wins. Tier 0 (min_volume=0) guarantees a match.
-        """
-        for _tier, min_volume, maker, taker in CONSTANTS.FEE_TIER_SCHEDULE:
-            if volume >= min_volume:
-                return maker, taker
-
     async def _update_trading_fees(self):
         """
-        Update trading fees based on the user's 30-day volume tier.
+        Update trading fees from Decibel's user_fee_rates endpoint.
 
-        Decibel exposes tier-dependent fees (Tier 0: 0.0110% maker / 0.0340% taker,
-        decreasing at higher tiers with maker reaching 0% from Tier 4 onward).
-        There is no direct "current fee tier" endpoint, so - per guidance from
-        the Decibel team - we derive the tier by reading the 30-day volume from
-        /api/v1/account_overviews (with volume_window="30d") and mapping it
-        against CONSTANTS.FEE_TIER_SCHEDULE.
+        https://docs.decibel.trade/api-reference/account/get-user-fees-and-fee-schedule
 
-        On transient failure we leave any previously computed fees in place so
-        strategies keep working; the base class polling loop will retry.
+        Uses the user's effective maker/taker rates (after referral discount when
+        applicable). On transient failure we leave any previously computed fees in
+        place so strategies keep working; the base class polling loop will retry.
         """
         account_addr = self.authenticator.main_wallet_address
         try:
             response = await self._api_get(
-                path_url=CONSTANTS.GET_ACCOUNT_OVERVIEW_PATH_URL,
-                params={"account": account_addr, "volume_window": CONSTANTS.VOLUME_WINDOW_30D},
-                limit_id=CONSTANTS.GET_ACCOUNT_OVERVIEW_PATH_URL,
+                path_url=CONSTANTS.GET_USER_FEE_RATES_PATH_URL,
+                params={"account": account_addr},
+                limit_id=CONSTANTS.GET_USER_FEE_RATES_PATH_URL,
                 is_auth_required=True,
             )
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().warning(
-                "Failed to fetch 30d volume from account_overviews; keeping previous "
-                "fee tier. Strategies will temporarily use the last-known (or Tier 0 default) fees.",
+                "Failed to fetch user fee rates; keeping previous fee tier. "
+                "Strategies will temporarily use the last-known (or Tier 0 default) fees.",
                 exc_info=True,
             )
             return
 
-        # `volume` may be null for accounts with no trading history → treat as 0 (Tier 0).
-        volume_30d = Decimal(str(response.get("volume") or 0))
-        maker_decimal, taker_decimal = self._fees_for_30d_volume(volume_30d)
+        maker_decimal = Decimal(str(response["user_maker_rate"]))
+        taker_decimal = Decimal(str(response["user_taker_rate"]))
+        fee_tier = response.get("fee_tier")
 
         fee_schema = TradeFeeSchema(
             maker_percent_fee_decimal=maker_decimal,
@@ -1526,7 +1511,7 @@ class DecibelPerpetualDerivative(PerpetualDerivativePyBase):
             self._trading_fees[trading_pair] = fee_schema
 
         self.logger().debug(
-            f"Updated trading fees from 30d volume ${volume_30d}: "
+            f"Updated trading fees (fee_tier={fee_tier}): "
             f"maker={maker_decimal}, taker={taker_decimal}"
         )
 

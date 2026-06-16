@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260421"
+    version = "20260616"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -42,6 +42,7 @@ def main():
     }
     install_requires = [
         "aiohttp>=3.8.5",
+        "aiomqtt>=2.0.0",
         "asyncssh>=2.13.2",
         "aioprocessing>=2.0.1",
         "aioresponses>=0.7.4",
@@ -52,7 +53,6 @@ def main():
         "bidict>=0.22.1",
         "bip-utils",
         "cachetools>=5.3.1",
-        "commlib-py>=0.11",
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",
         "eth-account>=0.13.0",
@@ -85,6 +85,7 @@ def main():
         "web3",
         "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
+        "lighter-sdk==1.0.8"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
