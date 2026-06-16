@@ -23,6 +23,7 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         super().setUp()
         self.data_feed = GateioPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
         self.data_feed.quanto_multiplier = 0.0001
+        self.data_feed._exchange_data_initialized = True  # pre-set to skip initialize_exchange_data API call
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
