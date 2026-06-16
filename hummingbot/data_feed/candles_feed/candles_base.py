@@ -9,6 +9,7 @@ import pandas as pd
 from bidict import bidict
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -65,6 +66,22 @@ class CandlesBase(NetworkBase):
             self.logger().exception(
                 f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
+
+    def use_shared_throttler(self, throttler: AsyncThrottlerBase):
+        """
+        Replaces this feed's own throttler with a shared one (typically the connector's), so that
+        candle REST traffic and the connector's REST traffic are accounted against a single
+        rate-limit budget when both target the same exchange.
+
+        The feed's own rate limits are registered on the shared throttler with ``add_rate_limits``,
+        which is additive and skips ids already present: the connector's pool definitions are
+        preserved while the candle endpoints are registered (without this, candle requests would not
+        be throttled at all on the shared throttler). Safe to call once right after construction.
+
+        :param throttler: The throttler instance to reuse for this feed's requests.
+        """
+        throttler.add_rate_limits(self.rate_limits)
+        self._api_factory = WebAssistantsFactory(throttler=throttler)
 
     async def start_network(self):
         """

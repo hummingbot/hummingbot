@@ -1,5 +1,6 @@
-from typing import Dict, Type
+from typing import Dict, Optional, Type
 
+from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.data_feed.candles_feed.aevo_perpetual_candles import AevoPerpetualCandles
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
@@ -84,16 +85,22 @@ class CandlesFactory:
     }
 
     @classmethod
-    def get_candle(cls, candles_config: CandlesConfig) -> CandlesBase:
+    def get_candle(cls, candles_config: CandlesConfig, throttler: Optional[AsyncThrottlerBase] = None) -> CandlesBase:
         """
         Returns a Candle object based on the specified configuration.
 
         :param candles_config: CandlesConfig
+        :param throttler: Optional throttler to reuse (e.g. the connector's), so candle REST traffic
+            shares a single rate-limit budget with the connector. When ``None`` the feed creates its
+            own throttler, preserving standalone behaviour.
         :return: Instance of CandleBase or its subclass.
         :raises UnsupportedConnectorException: If the connector is not supported.
         """
         connector_class = cls._candles_map.get(candles_config.connector)
         if connector_class:
-            return connector_class(candles_config.trading_pair, candles_config.interval, candles_config.max_records)
+            candle = connector_class(candles_config.trading_pair, candles_config.interval, candles_config.max_records)
+            if throttler is not None:
+                candle.use_shared_throttler(throttler)
+            return candle
         else:
             raise UnsupportedConnectorException(candles_config.connector)
