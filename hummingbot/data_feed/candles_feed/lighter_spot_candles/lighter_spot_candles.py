@@ -70,9 +70,7 @@ class LighterSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair: str) -> str:
         return trading_pair.replace("-", "/").upper()
 
-    async def initialize_exchange_data(self):
-        if self._market_id is not None:
-            return
+    async def _initialize_exchange_data(self):
         exchange_symbol = self.get_exchange_trading_pair(self._trading_pair)
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(

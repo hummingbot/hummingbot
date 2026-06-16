@@ -56,7 +56,7 @@ class GateioPerpetualCandles(CandlesBase):
     def intervals(self):
         return CONSTANTS.INTERVALS
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         await self.get_exchange_trading_pair_quanto_multiplier()
 
     async def check_network(self) -> NetworkStatus:

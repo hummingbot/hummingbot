@@ -72,9 +72,7 @@ class LighterPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair: str) -> str:
         return trading_pair.split("-")[0].upper()
 
-    async def initialize_exchange_data(self):
-        if self._market_id is not None:
-            return
+    async def _initialize_exchange_data(self):
         base_symbol = self._trading_pair.split("-")[0].upper()
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(

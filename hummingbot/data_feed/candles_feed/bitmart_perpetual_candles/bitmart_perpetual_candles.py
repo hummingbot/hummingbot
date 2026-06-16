@@ -32,7 +32,7 @@ class BitmartPerpetualCandles(CandlesBase):
             "1w": "1W",
         }
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         await self.get_exchange_trading_pair_contract_size()
 
     async def get_exchange_trading_pair_contract_size(self):

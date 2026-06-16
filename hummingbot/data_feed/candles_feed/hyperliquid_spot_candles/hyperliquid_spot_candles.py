@@ -144,7 +144,7 @@ class HyperliquidSpotCandles(CandlesBase):
             candles_row_dict["taker_buy_quote_volume"] = 0.
             return candles_row_dict
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         await self._initialize_coins_dict()
 
     @property
