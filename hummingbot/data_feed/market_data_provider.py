@@ -207,19 +207,23 @@ class MarketDataProvider:
             if existing_feed and hasattr(existing_feed, 'stop'):
                 existing_feed.stop()
 
-            # Create a new feed with updated max_records, reusing the connector's throttler when the
-            # same exchange is already present so candle and connector REST traffic share one budget.
-            candle_feed = CandlesFactory.get_candle(config, throttler=self._get_shared_throttler(config.connector))
+            # Create a new feed with updated max_records, reusing the connector when the same exchange
+            # is already present: its throttler (shared rate-limit budget) and the connector itself
+            # (shared symbol map + cached exchange-data, avoiding redundant fetches).
+            connector = self._get_shared_connector(config.connector)
+            candle_feed = CandlesFactory.get_candle(
+                config, throttler=getattr(connector, "throttler", None), connector=connector)
             self.candles_feeds[key] = candle_feed
             if hasattr(candle_feed, 'start'):
                 candle_feed.start()
             return candle_feed
 
-    def _get_shared_throttler(self, connector_name: str):
+    def _get_shared_connector(self, connector_name: str) -> Optional[ConnectorBase]:
         """
-        Returns the throttler of an already-existing connector for ``connector_name`` so a candles
-        feed can share its rate-limit budget, or ``None`` when no such connector exists (in which
-        case the feed keeps its own throttler — identical to the previous behaviour).
+        Returns an already-existing connector for ``connector_name`` so a candles feed can reuse it
+        (its throttler for a shared rate-limit budget, and its symbol map / cached exchange-data to
+        avoid redundant fetches), or ``None`` when no such connector exists (in which case the feed
+        keeps its standalone behaviour — identical to the previous behaviour).
 
         It does NOT force-create a connector: ``self.connectors`` is a plain dict, and
         ``_non_trading_connectors`` is a LazyDict whose ``.get``/``d[absent]`` would materialise the
@@ -227,12 +231,23 @@ class MarketDataProvider:
         already-present key, so a non-trading connector is reused only if it was created elsewhere.
 
         :param connector_name: Name of the connector/exchange.
-        :return: An AsyncThrottlerBase instance to reuse, or None.
+        :return: A ConnectorBase instance to reuse, or None.
         """
         connector = self.connectors.get(connector_name)
         if connector is None and connector_name in self._non_trading_connectors:
             connector = self._non_trading_connectors[connector_name]
-        return getattr(connector, "throttler", None)
+        return connector
+
+    def _get_shared_throttler(self, connector_name: str):
+        """
+        Returns the throttler of an already-existing connector for ``connector_name`` so a candles
+        feed can share its rate-limit budget, or ``None`` when no such connector exists. Thin wrapper
+        over ``_get_shared_connector`` (kept for backwards compatibility); does not force-create.
+
+        :param connector_name: Name of the connector/exchange.
+        :return: An AsyncThrottlerBase instance to reuse, or None.
+        """
+        return getattr(self._get_shared_connector(connector_name), "throttler", None)
 
     @staticmethod
     def _generate_candle_feed_key(config: CandlesConfig) -> str:

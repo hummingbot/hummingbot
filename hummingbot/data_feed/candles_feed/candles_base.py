@@ -2,7 +2,7 @@ import asyncio
 import os
 import time
 from collections import deque
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJ
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+if TYPE_CHECKING:
+    from hummingbot.connector.connector_base import ConnectorBase
 
 
 class CandlesBase(NetworkBase):
@@ -56,6 +59,12 @@ class CandlesBase(NetworkBase):
         self._listen_candles_task: Optional[asyncio.Task] = None
         self._fill_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
+        # Optional reference to the backing connector (same exchange). When present, the feed reuses
+        # the connector's public symbol map and cached exchange-data instead of fetching them itself.
+        # Set post-construction via use_connector(); None keeps the standalone behaviour untouched.
+        self._connector: Optional["ConnectorBase"] = None
+        # Synchronous fallback resolution; re-resolved through the connector (when present) lazily in
+        # initialize_exchange_data() so subclasses still see a populated value at construction time.
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         self._ws_candle_available = asyncio.Event()
         self._ping_timeout = None
@@ -82,6 +91,40 @@ class CandlesBase(NetworkBase):
         """
         throttler.add_rate_limits(self.rate_limits)
         self._api_factory = WebAssistantsFactory(throttler=throttler)
+
+    def use_connector(self, connector: "ConnectorBase"):
+        """
+        Attaches the backing connector (same exchange) so the feed can reuse the connector's public
+        symbol map and already-cached exchange-data instead of fetching them itself, removing a
+        redundant network call per feed. Wired post-construction by ``CandlesFactory.get_candle`` /
+        ``MarketDataProvider`` when the same exchange is already present.
+
+        With no connector attached the feed keeps its standalone behaviour: it resolves the symbol
+        with ``get_exchange_trading_pair`` and runs its own ``_initialize_exchange_data`` fetch.
+
+        :param connector: The ConnectorBase instance backing this feed's exchange.
+        """
+        self._connector = connector
+
+    async def _resolve_exchange_symbol(self) -> str:
+        """
+        Resolves the exchange-notation symbol for this feed's trading pair. When a connector is
+        attached, it reuses the connector's public symbol map
+        (``exchange_symbol_associated_to_pair``, lazily initialised), which is authoritative for the
+        exchange and removes the per-subclass string transform. Any failure (symbol map not ready,
+        pair absent, connector without the method) falls back to the subclass'
+        ``get_exchange_trading_pair`` so standalone behaviour is always preserved.
+
+        :return: The trading pair in exchange notation.
+        """
+        if self._connector is not None:
+            try:
+                return await self._connector.exchange_symbol_associated_to_pair(self._trading_pair)
+            except Exception:
+                self.logger().debug(
+                    f"Could not resolve {self._trading_pair} via the connector symbol map; "
+                    f"falling back to get_exchange_trading_pair.", exc_info=True)
+        return self.get_exchange_trading_pair(self._trading_pair)
 
     async def start_network(self):
         """
@@ -113,6 +156,10 @@ class CandlesBase(NetworkBase):
         """
         if self._exchange_data_initialized:
             return
+        # Re-resolve the exchange symbol through the connector when one is attached (async, lazy).
+        # This runs once per network lifecycle (guarded) and before the subclass hook, so overrides
+        # of _initialize_exchange_data observe the connector-resolved symbol.
+        self._ex_trading_pair = await self._resolve_exchange_symbol()
         await self._initialize_exchange_data()
         self._exchange_data_initialized = True
 

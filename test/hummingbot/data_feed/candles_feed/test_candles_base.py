@@ -94,6 +94,55 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         result = self.data_feed.get_exchange_trading_pair(self.trading_pair)
         self.assertEqual(result, self.ex_trading_pair)
 
+    def test_use_connector_sets_reference(self):
+        # No connector by default (standalone); use_connector attaches the backing connector.
+        self.assertIsNone(self.data_feed._connector)
+        connector = MagicMock()
+        self.data_feed.use_connector(connector)
+        self.assertIs(self.data_feed._connector, connector)
+
+    async def test_resolve_exchange_symbol_without_connector_uses_fallback(self):
+        # Standalone: the symbol is resolved by the subclass' own get_exchange_trading_pair.
+        self.data_feed._connector = None
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_resolve_exchange_symbol_with_connector_uses_symbol_map(self):
+        # Backed by a connector: the symbol comes from the connector's public symbol map.
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.use_connector(connector)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, "CONNECTOR-SYMBOL")
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
+    async def test_resolve_exchange_symbol_connector_failure_falls_back(self):
+        # If the connector lookup raises (map not ready, pair absent), fall back to standalone logic.
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=KeyError(self.trading_pair))
+        self.data_feed.use_connector(connector)
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_initialize_exchange_data_resolves_symbol_via_connector(self):
+        # The idempotent wrapper re-resolves _ex_trading_pair through the connector before the
+        # subclass hook runs, and only once per network lifecycle.
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.use_connector(connector)
+        # Ensure a clean lifecycle: some subclasses' setUp may have already initialised the data.
+        self.data_feed._exchange_data_initialized = False
+        with patch.object(self.data_feed, "_initialize_exchange_data", new_callable=AsyncMock) as mock_init:
+            await self.data_feed.initialize_exchange_data()
+            self.assertEqual(self.data_feed._ex_trading_pair, "CONNECTOR-SYMBOL")
+            mock_init.assert_awaited_once()
+            # Second call is a no-op thanks to the idempotency guard.
+            await self.data_feed.initialize_exchange_data()
+            mock_init.assert_awaited_once()
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
     @patch("os.path.exists", return_value=True)
     @patch("pandas.read_csv")
     def test_load_candles_from_csv(self, mock_read_csv, _):
