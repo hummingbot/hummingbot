@@ -73,6 +73,16 @@ class LighterPerpetualCandles(CandlesBase):
         return trading_pair.split("-")[0].upper()
 
     async def _initialize_exchange_data(self):
+        # Reuse the connector's already-loaded market map when backed by a Lighter connector, avoiding
+        # the redundant orderBookDetails fetch. Any miss (map not loaded, pair absent) falls back.
+        if self._connector is not None:
+            try:
+                self._market_id = int(self._connector.market_info_for_trading_pair(self._trading_pair).market_id)
+                return
+            except Exception:
+                self.logger().debug(
+                    f"Could not resolve market_id for {self._trading_pair} via the connector; "
+                    f"falling back to the orderBookDetails fetch.", exc_info=True)
         base_symbol = self._trading_pair.split("-")[0].upper()
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(

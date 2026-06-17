@@ -1,8 +1,13 @@
 import asyncio
+import json
+import re
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
+from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles, constants as CONSTANTS
 
 
 class TestGateioPerpetualCandles(TestCandlesBase):
@@ -132,3 +137,35 @@ class TestGateioPerpetualCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+    # ---- initialize_exchange_data tests ----
+
+    async def test_initialize_exchange_data_reuses_connector_trading_rules(self):
+        # Backed by a connector: quanto_multiplier comes from the connector's trading rules (stored as
+        # the min base amount increment); the contract-info endpoint must NOT be hit.
+        self.data_feed.quanto_multiplier = None
+        self.data_feed._exchange_data_initialized = False
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
+        connector.trading_rules = {self.trading_pair: MagicMock(min_base_amount_increment=0.0001)}
+        self.data_feed.use_connector(connector)
+        with patch.object(
+            self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
+        ) as mock_rest:
+            await self.data_feed.initialize_exchange_data()
+            mock_rest.assert_not_called()
+        self.assertEqual(self.data_feed.quanto_multiplier, 0.0001)
+
+    @aioresponses()
+    async def test_initialize_exchange_data_falls_back_when_rules_not_ready(self, mock_api):
+        # Connector present but trading rules not polled yet -> fall back to the contract-info fetch.
+        self.data_feed.quanto_multiplier = None
+        self.data_feed._exchange_data_initialized = False
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
+        connector.trading_rules = {}
+        self.data_feed.use_connector(connector)
+        regex_url = re.compile(f"^{CONSTANTS.REST_URL}{CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)}")
+        mock_api.get(url=regex_url, body=json.dumps({"quanto_multiplier": "0.0005"}))
+        await self.data_feed.initialize_exchange_data()
+        self.assertEqual(self.data_feed.quanto_multiplier, 0.0005)

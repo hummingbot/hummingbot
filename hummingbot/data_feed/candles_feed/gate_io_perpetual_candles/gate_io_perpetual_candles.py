@@ -57,6 +57,14 @@ class GateioPerpetualCandles(CandlesBase):
         return CONSTANTS.INTERVALS
 
     async def _initialize_exchange_data(self):
+        # Reuse the connector's trading rules when backed by a Gate.io perpetual connector: the
+        # quanto_multiplier is stored there as the min base amount increment, avoiding the redundant
+        # contract-info fetch. If the rules are not polled yet, fall back to the feed's own fetch.
+        if self._connector is not None:
+            trading_rule = self._connector.trading_rules.get(self._trading_pair)
+            if trading_rule is not None:
+                self.quanto_multiplier = float(trading_rule.min_base_amount_increment)
+                return
         await self.get_exchange_trading_pair_quanto_multiplier()
 
     async def check_network(self) -> NetworkStatus:

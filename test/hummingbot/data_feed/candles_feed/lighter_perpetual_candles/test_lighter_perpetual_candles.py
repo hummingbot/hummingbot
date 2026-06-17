@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 from aioresponses import aioresponses
@@ -188,6 +188,40 @@ class TestLighterPerpetualCandles(TestCandlesBase):
         ) as mock_rest:
             await self.data_feed.initialize_exchange_data()
             mock_rest.assert_not_called()
+
+    async def test_initialize_exchange_data_reuses_connector_market_id(self):
+        # Backed by a connector: market_id comes from the connector's market map; no REST fetch.
+        self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
+        connector.market_info_for_trading_pair = MagicMock(return_value=MagicMock(market_id=7))
+        self.data_feed.use_connector(connector)
+        with patch.object(
+            self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
+        ) as mock_rest:
+            await self.data_feed.initialize_exchange_data()
+            mock_rest.assert_not_called()
+        self.assertEqual(self.data_feed._market_id, 7)
+
+    @aioresponses()
+    async def test_initialize_exchange_data_falls_back_when_connector_lacks_market(self, mock_api):
+        # Connector present but the pair is not in its map -> fall back to the orderBookDetails fetch.
+        self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=KeyError(self.trading_pair))
+        connector.market_info_for_trading_pair = MagicMock(side_effect=ValueError("unknown pair"))
+        self.data_feed.use_connector(connector)
+        order_book_details_url = (
+            f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}"
+        )
+        mock_api.get(
+            url=order_book_details_url,
+            body=json.dumps({"order_book_details": [{"market_id": 3, "symbol": "XRP"}]}),
+        )
+        await self.data_feed.initialize_exchange_data()
+        self.assertEqual(self.data_feed._market_id, 3)
 
     @aioresponses()
     async def test_initialize_exchange_data_raises_if_market_not_found(self, mock_api):
