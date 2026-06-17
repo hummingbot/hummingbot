@@ -15,9 +15,10 @@ dependencies:
   - python>=3.10.12
   - pytest>=7.4.0
   - pytest-asyncio>=0.16.0
+  - pytest-timeout>=2.1.0
   - setuptools==80.8.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
-  - aiohttp>=3.8.5
+  - aiohttp>=3.8.5,<3.14  # aiohttp 3.14 requires a stream_writer arg that aioresponses 0.7.8 doesn't pass, breaking HTTP-mocked tests
   - asyncssh>=2.13.2
   - aioprocessing>=2.0.1
   - aioresponses>=0.7.4
@@ -26,7 +27,6 @@ dependencies:
   - bidict>=0.22.1
   - bip-utils
   - cachetools>=5.3.1
-  - commlib-py==0.11.5
   - cryptography>=41.0.2
   - eth-account>=0.13.0
 #  - injective-py==1.12.*
@@ -64,7 +64,9 @@ dependencies:
   - yaml>=0.2.5
   - zlib>=1.2.13
   - pip:
-    - injective-py==1.13.*
+    - aiomqtt>=2.0.0
+    - injective-py==1.14.*
     - decibel-python-sdk==0.2.1
     - aptos-sdk>=0.8.0
     - solders>=0.19.0
+    - lighter-sdk==1.0.8

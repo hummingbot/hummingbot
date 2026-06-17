@@ -1696,7 +1696,7 @@ class ArchitectPerpetualDerivativeUnitTest(AbstractPerpetualDerivativeTests.Perp
 
         self.assertTrue(
             self.is_logged(
-                log_level="DEBUG",
+                log_level="INFO",
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )

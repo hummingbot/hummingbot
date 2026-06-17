@@ -5,6 +5,22 @@ EXCHANGE_NAME = "hyperliquid"
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
 
+# === Builder code support (HGP-87) ===
+# Attach a Foundation builder code to mainnet orders (omitted on testnet/vault). The fee only takes
+# effect if the user has approved this builder in Condor; otherwise it is 0 bps.
+# See HyperliquidExchange._initialize_builder_fee.
+BUILDER_SUPPORTED = True
+
+# Foundation builder address (set BUILDER_SUPPORTED = False to omit the builder field entirely).
+FOUNDATION_BUILDER_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
+
+# Per-order builder fee, in tenths of a basis point (10 = 1 bp = 0.01%). Only takes effect if the
+# user has approved this builder in Condor; otherwise the effective fee is 0 bps.
+FOUNDATION_BUILDER_FEE_TENTHS_BPS = 10
+
+# Info-endpoint request type used to query a user's approved max builder fee for a builder.
+MAX_BUILDER_FEE_TYPE = "maxBuilderFee"
+
 MARKET_ORDER_SLIPPAGE = 0.05
 
 DOMAIN = EXCHANGE_NAME
@@ -60,6 +76,7 @@ ORDER_STATE = {
     "badAloPxRejected": OrderState.FAILED,
     "minTradeNtlRejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
+    "reduceOnlyRejected": OrderState.FAILED,
     "selfTradeCanceled": OrderState.CANCELED,
     "siblingFilledCanceled": OrderState.CANCELED,
     "delistedCanceled": OrderState.CANCELED,
@@ -67,6 +84,10 @@ ORDER_STATE = {
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
+# Max time to wait for a websocket message before assuming the connection is half-open (no data, no close
+# frame) and forcing a keepalive ping / reconnection. Set above HEARTBEAT_TIME_INTERVAL so the periodic ping
+# (and its pong) keeps a healthy connection from timing out.
+WS_MESSAGE_TIMEOUT = 60.0
 
 MAX_REQUEST = 1_200
 ALL_ENDPOINTS_LIMIT = "All"

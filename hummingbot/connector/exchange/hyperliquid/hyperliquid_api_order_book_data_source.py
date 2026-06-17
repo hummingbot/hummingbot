@@ -36,7 +36,12 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._connector = connector
         self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
+        # Hyperliquid l2Book pushes the full (top-20-per-side) book every frame with
+        # no incremental deltas and no zero-size removals, so each frame must REPLACE
+        # the local book, not merge into it. Route to the snapshot queue (mirrors the
+        # hyperliquid_perpetual connector). Merging full snapshots as diffs leaves
+        # stale levels that are never removed.
+        self._snapshot_messages_queue_key = "order_book_snapshot"
         self._domain = domain
         self._api_factory = api_factory
 
@@ -71,7 +76,11 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _connected_websocket_assistant(self) -> WSAssistant:
         url = f"{web_utils.wss_url(self._domain)}"
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(
+            ws_url=url,
+            ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL,
+            message_timeout=CONSTANTS.WS_MESSAGE_TIMEOUT,
+        )
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -143,7 +152,7 @@ class HyperliquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if "result" not in event_message:
             stream_name = event_message.get("channel")
             if "l2Book" in stream_name:
-                channel = self._diff_messages_queue_key
+                channel = self._snapshot_messages_queue_key
             elif "trades" in stream_name:
                 channel = self._trade_messages_queue_key
         return channel

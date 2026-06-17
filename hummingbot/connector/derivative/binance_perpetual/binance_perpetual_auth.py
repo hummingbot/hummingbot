@@ -27,7 +27,7 @@ class BinancePerpetualAuth(AuthBase):
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         if request.method == RESTMethod.POST:
-            request.data = self.add_auth_to_params(params=json.loads(request.data))
+            request.data = self.add_auth_to_params(params=json.loads(request.data) if request.data is not None else {})
         else:
             request.params = self.add_auth_to_params(request.params)
 
