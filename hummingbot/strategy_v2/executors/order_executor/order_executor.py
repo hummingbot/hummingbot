@@ -173,18 +173,32 @@ class OrderExecutor(ExecutorBase):
     def place_open_order(self):
         """
         Place the order based on the execution strategy.
+        Accounts for previously filled amounts so renewals only order the remaining quantity.
         """
+        remaining = self.config.amount - self.executed_amount_base
+        if remaining <= Decimal("0"):
+            self.logger().info(
+                f"Executor {self.config.id}: fully filled ({self.executed_amount_base}/{self.config.amount}). "
+                f"No new order needed."
+            )
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+            self.close_type = CloseType.POSITION_HOLD
+            self.stop()
+            return
         order_id = self.place_order(
             connector_name=self.config.connector_name,
             trading_pair=self.config.trading_pair,
             order_type=self.get_order_type(),
-            amount=self.config.amount,
+            amount=remaining,
             price=self.get_order_price(),
             side=self.config.side,
             position_action=self.config.position_action,
         )
         self._order = TrackedOrder(order_id=order_id)
-        self.logger().debug(f"Executor ID: {self.config.id} - Placing order {order_id}")
+        self.logger().debug(
+            f"Executor ID: {self.config.id} - Placing order {order_id} "
+            f"(remaining: {remaining}, filled: {self.executed_amount_base}/{self.config.amount})"
+        )
 
     def get_order_type(self) -> OrderType:
         """

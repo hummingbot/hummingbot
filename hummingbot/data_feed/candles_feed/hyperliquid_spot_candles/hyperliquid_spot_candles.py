@@ -78,8 +78,9 @@ class HyperliquidSpotCandles(CandlesBase):
             "type": "candleSnapshot",
             "req": {
                 "interval": CONSTANTS.INTERVALS[self.interval],
-                "coin": self._coins_dict[self._base_asset],
-                "startTime": kwargs.get("start_time", kwargs.get("end_time", 0)) * 1000,
+                "coin": self._coins_dict[self._trading_pair],
+                "startTime": kwargs["start_time"] * 1000,
+                "endTime": kwargs["end_time"] * 1000,
             }
         }
 
@@ -121,7 +122,7 @@ class HyperliquidSpotCandles(CandlesBase):
             "method": "subscribe",
             "subscription": {
                 "type": "candle",
-                "coin": self._coins_dict[self._base_asset],
+                "coin": self._coins_dict[self._trading_pair],
                 "interval": interval
             },
         }
@@ -156,6 +157,11 @@ class HyperliquidSpotCandles(CandlesBase):
                                                               method=RESTMethod.POST,
                                                               throttler_limit_id=self.rest_url,
                                                               data=CONSTANTS.HEALTH_CHECK_PAYLOAD)
-        universe = {token["tokens"][0]: token["name"] for token in self._universe["universe"]}
         tokens = {token["index"]: token["name"] for token in self._universe["tokens"]}
-        self._coins_dict = {tokens[index]: universe[index] for index in universe.keys()}
+        # Key by the full BASE-QUOTE pair: a single base token (e.g. HYPE) can be listed
+        # against several quotes (USDC, USDT0, USDH, USDE), each a distinct market. Keying
+        # by base alone would collapse them and pick whichever appears last in the universe.
+        self._coins_dict = {
+            f"{tokens[market['tokens'][0]]}-{tokens[market['tokens'][1]]}": market["name"]
+            for market in self._universe["universe"]
+        }

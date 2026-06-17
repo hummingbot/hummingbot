@@ -75,7 +75,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
                            "    | ∟ gateway_api_host                | localhost            |\n"
                            "    | ∟ gateway_api_port                | 15888                |\n"
                            "    | ∟ gateway_use_ssl                 | False                |\n"
-                           "    | rate_oracle_source                | binance              |\n"
+                           "    | rate_oracle_source                | gate_io              |\n"
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"
                            "    | ∟ global_token_symbol             | $                    |\n"
