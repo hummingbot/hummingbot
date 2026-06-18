@@ -37,7 +37,7 @@ ARCHIVE_INDEXER_URLS = {
 
 WS_SUBSCRIBE_URLS = {
     DEFAULT_DOMAIN: "wss://gateway.prod.vertexprotocol.com/v1/subscribe",
-    TESTNET_DOMAIN: "wss://gateway.vertexprotocol-vertexprotocol.com/v1/subscribe",
+    TESTNET_DOMAIN: "wss://gateway.sepolia-test.vertexprotocol.com/v1/subscribe",
 }
 
 CONTRACTS = {
