@@ -381,6 +381,30 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
         self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
 
+    @aioresponses()
+    def test_update_balances_skips_tokens_not_in_symbol_map(self, mock_api):
+        # A delisted token keeps being reported by the balances endpoint but is no longer part of any
+        # trading pair in the symbol map, so it can no longer be priced and must be ignored.
+        response = self.balance_request_mock_response_for_base_and_quote
+        response["balances"].append({
+            "coin": "DELISTED",
+            "token": 2,
+            "hold": "0.0",
+            "total": "500",
+            "entryNtl": "0.0",
+        })
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertNotIn("DELISTED", available_balances)
+        self.assertNotIn("DELISTED", total_balances)
+        self.assertIn(self.base_asset, total_balances)
+        self.assertIn(self.quote_asset, total_balances)
+
     def is_cancel_request_executed_synchronously_by_server(self):
         return False
 

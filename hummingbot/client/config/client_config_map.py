@@ -826,7 +826,7 @@ class ClientConfigMap(BaseClientModel):
         json_schema_extra={"prompt": lambda cm: f"Select the desired metrics mode ({'/'.join(list(METRICS_MODES.keys()))})"},
     )
     rate_oracle_source: Union[tuple(RATE_SOURCE_MODES.values())] = Field(
-        default=BinanceRateSourceMode(),
+        default=GateIoRateSourceMode(),
         description=f"A source for rate oracle, currently {', '.join(RATE_SOURCE_MODES.keys())}",
         json_schema_extra={"prompt": lambda cm: f"Select the desired rate oracle source ({'/'.join(RATE_SOURCE_MODES.keys())})"},
     )

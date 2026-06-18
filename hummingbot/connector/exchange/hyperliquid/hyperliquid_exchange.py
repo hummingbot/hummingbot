@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Set, Tuple
 
 from bidict import bidict
 
@@ -19,7 +19,12 @@ from hummingbot.connector.exchange.hyperliquid.hyperliquid_api_user_stream_data_
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_auth import HyperliquidAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import (
+    TradeFillOrderDetails,
+    combine_to_hb_trading_pair,
+    get_new_client_order_id,
+    split_hb_trading_pair,
+)
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -715,6 +720,21 @@ class HyperliquidExchange(ExchangePyBase):
 
         return True
 
+    async def _tradable_assets(self) -> Set[str]:
+        """
+        Returns the set of token names (upper-cased) that belong to a USDC trading pair currently
+        present in the symbol map. These are the only tokens whose balance we can still price, so
+        the balances endpoint response is filtered against this set to skip delisted tokens.
+        """
+        symbol_map = await self.trading_pair_symbol_map()
+        tradable_assets: Set[str] = set()
+        for trading_pair in symbol_map.values():
+            base, quote = split_hb_trading_pair(trading_pair)
+            if quote.upper() == CONSTANTS.CURRENCY:
+                tradable_assets.add(base.upper())
+                tradable_assets.add(quote.upper())
+        return tradable_assets
+
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
@@ -726,9 +746,15 @@ class HyperliquidExchange(ExchangePyBase):
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
                                                   "user": self.hyperliquid_address},
                                             )
+        # Only track balances for tokens that are still part of an active USDC trading pair present
+        # in the symbol map. When a token is delisted it disappears from the map, but the exchange
+        # keeps reporting its balance; tracking it would add a position we can no longer price.
+        tradable_assets = await self._tradable_assets()
         balances = account_info["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["coin"]
+            if asset_name.upper() not in tradable_assets:
+                continue
             free_balance = Decimal(balance_entry["total"]) - Decimal(balance_entry["hold"])
             total_balance = Decimal(balance_entry["total"])
             self._account_available_balances[asset_name] = free_balance
