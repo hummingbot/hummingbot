@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from pydantic import Field
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
@@ -20,7 +19,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.mqtt_start")
     async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
-        self.app = HummingbotApplication(client_config_map=ClientConfigAdapter(ClientConfigMap()))
+        self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
@@ -80,9 +79,9 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"
                            "    | ∟ global_token_symbol             | $                    |\n"
-                           "    | rate_limits_share_pct             | 100                  |\n"
+                           "    | rate_limits_share_pct             | 100.0                |\n"
                            "    | commands_timeout                  |                      |\n"
-                           "    | ∟ create_command_timeout          | 10                   |\n"
+                           "    | ∟ create_command_timeout          | 10.0                 |\n"
                            "    | ∟ other_commands_timeout          | 30.0                 |\n"
                            "    | tables_format                     | psql                 |\n"
                            "    | tick_size                         | 1.0                  |\n"
