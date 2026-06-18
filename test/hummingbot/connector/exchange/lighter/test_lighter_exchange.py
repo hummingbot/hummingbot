@@ -921,6 +921,9 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     async def test_ensure_account_ready_resolves_account_and_rebuilds_auth(self):
         self.exchange._account_index = None
         self.exchange._signer_client = None
+        # Force the trading-rules bootstrap branch as well.
+        self.exchange._markets_by_exchange_symbol = {}
+        self.exchange._update_trading_rules = AsyncMock()
         self.exchange._api_get = AsyncMock(
             return_value={"sub_accounts": [{"index": self.account_index, "l1_address": self.l1_address}]})
         self.exchange._create_signer_client = MagicMock(return_value="signer")
@@ -929,7 +932,14 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         await self.exchange._ensure_account_ready()
 
+        self.exchange._update_trading_rules.assert_awaited_once()
         self.assertEqual(self.account_index, self.exchange._account_index)
         self.assertEqual("signer", self.exchange._signer_client)
         self.assertEqual("factory", self.exchange._web_assistants_factory)
         self.assertEqual("tracker", self.exchange._user_stream_tracker)
+
+    async def test_ensure_account_ready_noop_when_not_trading_required(self):
+        self.exchange._trading_required = False
+        self.exchange._api_get = AsyncMock()
+        await self.exchange._ensure_account_ready()
+        self.exchange._api_get.assert_not_awaited()
