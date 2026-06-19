@@ -6,20 +6,20 @@
   <title>mean_reversion_v1 Strategy Explainer</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --panel: #121933;
-      --panel-2: #182142;
-      --text: #e7ecff;
-      --muted: #a9b4d0;
-      --line: #2b3561;
-      --accent: #61c8ff;
-      --accent-2: #7cf0c2;
-      --warn: #ffd166;
-      --danger: #ff6b6b;
-      --long: #33d17a;
-      --short: #ff7575;
-      --neutral: #8893b7;
-      --shadow: 0 18px 50px rgba(0, 0, 0, 0.30);
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-2: #eef3fb;
+      --text: #162033;
+      --muted: #5b667d;
+      --line: #d8e1ef;
+      --accent: #0f6fdc;
+      --accent-2: #0ea37f;
+      --warn: #b7791f;
+      --danger: #cc4b4b;
+      --long: #1f9d5b;
+      --short: #d64545;
+      --neutral: #6b7280;
+      --shadow: 0 16px 36px rgba(24, 39, 75, 0.10);
     }
 
     * {
@@ -35,9 +35,9 @@
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top right, rgba(97, 200, 255, 0.12), transparent 28%),
-        radial-gradient(circle at top left, rgba(124, 240, 194, 0.10), transparent 22%),
-        linear-gradient(180deg, #0a0f1d 0%, #0b1020 100%);
+        radial-gradient(circle at top right, rgba(15, 111, 220, 0.10), transparent 28%),
+        radial-gradient(circle at top left, rgba(14, 163, 127, 0.08), transparent 22%),
+        linear-gradient(180deg, #f7faff 0%, #f2f6fb 100%);
       line-height: 1.55;
     }
 
@@ -49,8 +49,8 @@
 
     .hero {
       padding: 28px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: linear-gradient(180deg, rgba(18, 25, 51, 0.95), rgba(11, 16, 32, 0.92));
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.98));
       box-shadow: var(--shadow);
       border-radius: 8px;
       overflow: hidden;
@@ -93,8 +93,8 @@
     .metric,
     .formula,
     .callout {
-      background: rgba(18, 25, 51, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--line);
       border-radius: 8px;
     }
 
@@ -134,8 +134,8 @@
       gap: 8px;
       padding: 7px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.10);
-      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+      background: #f7faff;
       color: var(--text);
       font-size: 12px;
     }
@@ -164,8 +164,8 @@
       position: sticky;
       top: 18px;
       padding: 16px;
-      background: rgba(18, 25, 51, 0.90);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
     }
@@ -190,8 +190,8 @@
     main section {
       margin-bottom: 20px;
       padding: 20px;
-      background: rgba(18, 25, 51, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
     }
@@ -242,8 +242,8 @@
     .flow-step {
       padding: 14px 16px;
       border-radius: 8px;
-      background: linear-gradient(180deg, rgba(24, 33, 66, 0.95), rgba(18, 25, 51, 0.90));
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, #ffffff, #f4f8ff);
+      border: 1px solid var(--line);
       position: relative;
     }
 
@@ -282,8 +282,8 @@
       margin-top: 8px;
       padding: 10px 12px;
       border-radius: 6px;
-      background: #091122;
-      color: #d6e4ff;
+      background: #f4f7fc;
+      color: #1f2a3d;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 13px;
       overflow-x: auto;
@@ -299,8 +299,8 @@
     .decision-card {
       padding: 16px;
       border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--line);
+      background: #fbfdff;
     }
 
     .decision-card h3 {
@@ -315,7 +315,7 @@
     .table-wrap {
       overflow-x: auto;
       margin-top: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--line);
       border-radius: 8px;
     }
 
@@ -323,14 +323,14 @@
       width: 100%;
       border-collapse: collapse;
       min-width: 860px;
-      background: rgba(10, 15, 29, 0.72);
+      background: #ffffff;
     }
 
     th, td {
       text-align: left;
       vertical-align: top;
       padding: 12px 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--line);
     }
 
     th {
@@ -338,7 +338,7 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      background: rgba(255, 255, 255, 0.04);
+      background: #f1f5fb;
       position: sticky;
       top: 0;
     }
@@ -349,7 +349,7 @@
 
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      color: #d6e4ff;
+      color: #21304a;
       font-size: 13px;
     }
 
@@ -362,7 +362,7 @@
       margin-top: 14px;
       padding: 14px 16px;
       border-left: 4px solid var(--warn);
-      background: rgba(255, 209, 102, 0.08);
+      background: rgba(183, 121, 31, 0.08);
       color: var(--text);
       border-radius: 0 8px 8px 0;
     }
@@ -375,8 +375,8 @@
       margin-top: 24px;
       padding: 18px 20px;
       border-radius: 8px;
-      background: rgba(18, 25, 51, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
       color: var(--muted);
       font-size: 13px;
     }

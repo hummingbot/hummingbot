@@ -46,7 +46,18 @@ def build_config(
     cooldown_time: int,
     max_executors_per_side: int,
     use_ema: bool,
+    rsi_length: int,
+    rsi_long_threshold: float,
+    rsi_short_threshold: float,
     trend_filter_enabled: bool,
+    trend_ema_period: int,
+    max_trend_deviation: float,
+    volume_lookback: int,
+    min_volume_ratio: float,
+    min_std_pct: float,
+    max_std_pct: float,
+    close_on_mean_reversion: bool,
+    signal_on_closed_candle: bool,
 ):
     config_data = {
         "id": "backtest_mean_reversion_v1",
@@ -70,18 +81,18 @@ def build_config(
         "entry_z_score": str(entry_z_score),
         "exit_z_score": str(exit_z_score),
         "use_ema": use_ema,
-        "rsi_length": 14,
-        "rsi_long_threshold": "35",
-        "rsi_short_threshold": "65",
+        "rsi_length": rsi_length,
+        "rsi_long_threshold": str(rsi_long_threshold),
+        "rsi_short_threshold": str(rsi_short_threshold),
         "trend_filter_enabled": trend_filter_enabled,
-        "trend_ema_period": 200,
-        "max_trend_deviation": "0.015",
-        "volume_lookback": 60,
-        "min_volume_ratio": "0.25",
-        "min_std_pct": "0.001",
-        "max_std_pct": "0.05",
-        "close_on_mean_reversion": True,
-        "signal_on_closed_candle": True,
+        "trend_ema_period": trend_ema_period,
+        "max_trend_deviation": str(max_trend_deviation),
+        "volume_lookback": volume_lookback,
+        "min_volume_ratio": str(min_volume_ratio),
+        "min_std_pct": str(min_std_pct),
+        "max_std_pct": str(max_std_pct),
+        "close_on_mean_reversion": close_on_mean_reversion,
+        "signal_on_closed_candle": signal_on_closed_candle,
     }
     return BacktestingEngineBase.get_controller_config_instance_from_dict(
         config_data, controllers_module="controllers"
@@ -109,7 +120,18 @@ async def main(
     cooldown_time: int,
     max_executors_per_side: int,
     use_ema: bool,
+    rsi_length: int,
+    rsi_long_threshold: float,
+    rsi_short_threshold: float,
     trend_filter_enabled: bool,
+    trend_ema_period: int,
+    max_trend_deviation: float,
+    volume_lookback: int,
+    min_volume_ratio: float,
+    min_std_pct: float,
+    max_std_pct: float,
+    close_on_mean_reversion: bool,
+    signal_on_closed_candle: bool,
 ):
     end_ts = int(time.time())
     start_ts = end_ts - int(days * 24 * 3600)
@@ -130,7 +152,18 @@ async def main(
         cooldown_time,
         max_executors_per_side,
         use_ema,
+        rsi_length,
+        rsi_long_threshold,
+        rsi_short_threshold,
         trend_filter_enabled,
+        trend_ema_period,
+        max_trend_deviation,
+        volume_lookback,
+        min_volume_ratio,
+        min_std_pct,
+        max_std_pct,
+        close_on_mean_reversion,
+        signal_on_closed_candle,
     )
     engine = BacktestingEngineBase()
 
@@ -209,7 +242,20 @@ if __name__ == "__main__":
     parser.add_argument("--cooldown-time", type=int, default=900, help="Cooldown time in seconds")
     parser.add_argument("--max-executors-per-side", type=int, default=1, help="Max concurrent executors per side")
     parser.add_argument("--use-ema", action="store_true", help="Use EMA instead of SMA for fair value")
+    parser.add_argument("--rsi-length", type=int, default=14, help="RSI length")
+    parser.add_argument("--rsi-long-threshold", type=float, default=35.0, help="Maximum RSI allowed for long entries")
+    parser.add_argument("--rsi-short-threshold", type=float, default=65.0, help="Minimum RSI required for short entries")
     parser.add_argument("--disable-trend-filter", action="store_true", help="Disable the trend regime filter")
+    parser.add_argument("--trend-ema-period", type=int, default=200, help="Trend EMA period")
+    parser.add_argument("--max-trend-deviation", type=float, default=0.015, help="Maximum allowed distance from trend EMA")
+    parser.add_argument("--volume-lookback", type=int, default=60, help="Volume lookback period")
+    parser.add_argument("--min-volume-ratio", type=float, default=0.25, help="Minimum current volume relative to rolling average")
+    parser.add_argument("--min-std-pct", type=float, default=0.001, help="Minimum rolling standard deviation percentage")
+    parser.add_argument("--max-std-pct", type=float, default=0.05, help="Maximum rolling standard deviation percentage")
+    parser.add_argument("--disable-close-on-mean-reversion", action="store_true",
+                        help="Disable controller-level exits when price reverts inside the exit z-score band")
+    parser.add_argument("--signal-on-open-candle", action="store_true",
+                        help="Use the latest in-progress candle instead of only closed candles")
     parser.add_argument("--chart", action="store_true", help="Show/save the chart")
     parser.add_argument("--output", type=str, default=None, help="Save chart to HTML file instead of showing")
     parser.add_argument("--trace-output", type=str, default="data/backtest_mean_reversion_v1_trace.csv",
@@ -237,5 +283,16 @@ if __name__ == "__main__":
         args.cooldown_time,
         args.max_executors_per_side,
         args.use_ema,
+        args.rsi_length,
+        args.rsi_long_threshold,
+        args.rsi_short_threshold,
         not args.disable_trend_filter,
+        args.trend_ema_period,
+        args.max_trend_deviation,
+        args.volume_lookback,
+        args.min_volume_ratio,
+        args.min_std_pct,
+        args.max_std_pct,
+        not args.disable_close_on_mean_reversion,
+        not args.signal_on_open_candle,
     ))
