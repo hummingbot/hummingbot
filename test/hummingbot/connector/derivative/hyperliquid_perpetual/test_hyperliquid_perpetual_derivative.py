@@ -2389,8 +2389,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertIsNotNone(auth)
 
     def test_authenticator_when_not_required(self):
-        """Test authenticator is None when trading is not required."""
-        # Temporarily set trading_required to False to test line 85
+        """Test authenticator is created even when trading is not required if secret_key is provided."""
+        # Post-#7866 fix: auth is created whenever secret_key is provided,
+        # regardless of trading_required, so validation runs at connect time.
         original_value = self.exchange._trading_required
         self.exchange._trading_required = False
 
@@ -2398,9 +2399,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         if hasattr(self.exchange, '_authenticator'):
             del self.exchange._authenticator
 
-        # This should return None when trading is not required
+        # Auth should be created because secret_key is provided
         auth = self.exchange.authenticator
-        self.assertIsNone(auth)
+        self.assertIsNotNone(auth)
 
         # Restore
         self.exchange._trading_required = original_value
