@@ -18,7 +18,14 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 class HyperliquidPerpetualAuth(AuthBase):
     """
-    Auth class required by Hyperliquid Perpetual API
+    Auth class required by Hyperliquid Perpetual API.
+
+    Validates credentials at construction time:
+    - arb_wallet mode: verifies private key derives to the supplied wallet address (offline check)
+    - api_wallet mode: skips derive-match check (agent key by design doesn't match trading address);
+      wrong agent keys surface at first authenticated request when the exchange rejects the signature
+    - vault mode: skips derive-match check (vault address differs from wallet);
+      wrong keys surface at first authenticated request
     """
 
     def __init__(
