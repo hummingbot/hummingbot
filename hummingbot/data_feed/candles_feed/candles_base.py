@@ -266,6 +266,8 @@ class CandlesBase(NetworkBase):
                                                        headers=headers,
                                                        method=self._rest_method)
         arr = self._parse_rest_candles(candles, end_time)
+        if not arr:
+            return np.array([]).reshape(0, 10)
         return np.array(arr).astype(float)
 
     def _get_rest_candles_params(self,

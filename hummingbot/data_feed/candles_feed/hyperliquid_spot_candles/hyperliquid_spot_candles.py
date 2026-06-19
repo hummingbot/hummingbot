@@ -109,11 +109,12 @@ class HyperliquidSpotCandles(CandlesBase):
         return {"Content-Type": "application/json"}
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
-        if len(data) > 0:
+        if data:
             return [
                 [self.ensure_timestamp_in_seconds(row["t"]), row["o"], row["h"], row["l"], row["c"], row["v"], 0.,
                  row["n"], 0., 0.] for row in data
             ]
+        return []
 
     def ws_subscription_payload(self):
         interval = CONSTANTS.INTERVALS[self.interval]
@@ -145,6 +146,11 @@ class HyperliquidSpotCandles(CandlesBase):
 
     async def initialize_exchange_data(self):
         await self._initialize_coins_dict()
+        if self._base_asset not in self._coins_dict:
+            raise ValueError(
+                f"Trading pair '{self._trading_pair}' is not available on Hyperliquid spot. "
+                f"Base asset '{self._base_asset}' not found in spot universe."
+            )
 
     @property
     def _ping_payload(self):
