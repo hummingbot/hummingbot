@@ -121,8 +121,12 @@ class BackpackSpotCandles(CandlesBase):
             candles_row_dict["low"] = kline["l"]
             candles_row_dict["close"] = kline["c"]
             candles_row_dict["volume"] = kline["v"]
-            # Backpack's kline stream does not include quote volume or taker buy volumes.
-            candles_row_dict["quote_asset_volume"] = 0.
+            # Backpack's kline websocket stream does not include quote volume (the REST endpoint
+            # does). As a live approximation we use base_volume * close; this differs slightly from
+            # the true traded quote volume (VWAP-based) and is overwritten by the exact REST value
+            # on the next historical backfill.
+            # TODO(backpack): request that the kline WS stream include quoteVolume like the REST API.
+            candles_row_dict["quote_asset_volume"] = float(kline["v"]) * float(kline["c"])
             candles_row_dict["n_trades"] = kline["n"]
             candles_row_dict["taker_buy_base_volume"] = 0.
             candles_row_dict["taker_buy_quote_volume"] = 0.

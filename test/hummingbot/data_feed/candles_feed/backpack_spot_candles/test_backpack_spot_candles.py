@@ -108,3 +108,12 @@ class TestBackpackSpotCandles(TestCandlesBase):
     def test_ws_subscription_payload(self):
         payload = self.data_feed.ws_subscription_payload()
         self.assertEqual(payload, {"method": "SUBSCRIBE", "params": [f"kline.{self.interval}.{self.ex_trading_pair}"]})
+
+    def test_ws_quote_volume_estimated_from_volume_and_close(self):
+        # Backpack's WS kline stream omits quote volume; we approximate it as volume * close.
+        msg = self.get_candles_ws_data_mock_1()
+        parsed = self.data_feed._parse_websocket_message(msg)
+        expected = float(msg["data"]["v"]) * float(msg["data"]["c"])
+        self.assertAlmostEqual(parsed["quote_asset_volume"], expected)
+        self.assertEqual(parsed["taker_buy_base_volume"], 0.)
+        self.assertEqual(parsed["taker_buy_quote_volume"], 0.)
