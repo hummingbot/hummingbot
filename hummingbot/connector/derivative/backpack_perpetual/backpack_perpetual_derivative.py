@@ -610,6 +610,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 account_info = await self._api_get(
                     path_url=CONSTANTS.ACCOUNT_PATH_URL,
+                    params={"instruction": "accountQuery"},
                     is_auth_required=True
                 )
                 self._leverage = Decimal(str(account_info.get("leverageLimit", "1")))

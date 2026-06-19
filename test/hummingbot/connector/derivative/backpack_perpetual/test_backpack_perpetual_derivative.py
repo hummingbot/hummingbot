@@ -1188,6 +1188,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertIsNotNone(sell_collateral)
 
     @aioresponses()
+    async def test_leverage_initialization_signs_account_query(self, req_mock):
+        """The GET /api/v1/account request must be signed with the ``accountQuery`` instruction,
+        otherwise Backpack rejects it with 'Invalid signature' (regression for the leverage fetch).
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps({"leverageLimit": "5"}), status=200)
+
+        await self.exchange._initialize_leverage_if_needed()
+
+        self.assertTrue(self.exchange._leverage_initialized)
+        self.assertEqual(Decimal("5"), self.exchange._leverage)
+
+        # The request must be signed; the instruction is folded into the signature and must NOT
+        # leak as a plain query param.
+        request = next(iter(req_mock.requests.values()))[0]
+        self.assertIn("X-Signature", request.kwargs["headers"])
+        self.assertNotIn("instruction", request.kwargs.get("params") or {})
+
+    @aioresponses()
     async def test_leverage_initialization_failure(self, req_mock):
         """Test leverage initialization when API call fails"""
         self._simulate_trading_rules_initialized()
