@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mean_reversion_v1 Strategy Explainer</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #182142;
+      --text: #e7ecff;
+      --muted: #a9b4d0;
+      --line: #2b3561;
+      --accent: #61c8ff;
+      --accent-2: #7cf0c2;
+      --warn: #ffd166;
+      --danger: #ff6b6b;
+      --long: #33d17a;
+      --short: #ff7575;
+      --neutral: #8893b7;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.30);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(97, 200, 255, 0.12), transparent 28%),
+        radial-gradient(circle at top left, rgba(124, 240, 194, 0.10), transparent 22%),
+        linear-gradient(180deg, #0a0f1d 0%, #0b1020 100%);
+      line-height: 1.55;
+    }
+
+    .page {
+      width: min(1400px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .hero {
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, rgba(18, 25, 51, 0.95), rgba(11, 16, 32, 0.92));
+      box-shadow: var(--shadow);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    h1 {
+      font-size: clamp(32px, 4vw, 50px);
+      max-width: 880px;
+    }
+
+    .hero p {
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 16px;
+      margin: 16px 0 0;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .panel,
+    .metric,
+    .formula,
+    .callout {
+      background: rgba(18, 25, 51, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+    }
+
+    .metric .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric .value {
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+
+    .dot.long { background: var(--long); }
+    .dot.short { background: var(--short); }
+    .dot.neutral { background: var(--neutral); }
+    .dot.warn { background: var(--warn); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+      align-items: start;
+    }
+
+    nav {
+      position: sticky;
+      top: 18px;
+      padding: 16px;
+      background: rgba(18, 25, 51, 0.90);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    nav h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 7px 0;
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      color: var(--text);
+    }
+
+    main section {
+      margin-bottom: 20px;
+      padding: 20px;
+      background: rgba(18, 25, 51, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    section h2 {
+      font-size: 25px;
+      margin-bottom: 10px;
+    }
+
+    section > p,
+    li,
+    td,
+    th {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .source {
+      display: inline-block;
+      margin-top: 8px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .callout {
+      padding: 16px;
+    }
+
+    .callout h3 {
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .flow-step {
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(24, 33, 66, 0.95), rgba(18, 25, 51, 0.90));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 22px;
+      bottom: -12px;
+      width: 2px;
+      height: 12px;
+      background: var(--line);
+    }
+
+    .flow-step .step {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .formula-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .formula {
+      padding: 14px;
+    }
+
+    .formula code {
+      display: block;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #091122;
+      color: #d6e4ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .decision-card {
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .decision-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .decision-card.long h3 { color: var(--long); }
+    .decision-card.short h3 { color: var(--short); }
+    .decision-card.neutral h3 { color: var(--neutral); }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+      background: rgba(10, 15, 29, 0.72);
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    th {
+      color: var(--text);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(255, 255, 255, 0.04);
+      position: sticky;
+      top: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #d6e4ff;
+      font-size: 13px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .banner {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--warn);
+      background: rgba(255, 209, 102, 0.08);
+      color: var(--text);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .banner strong {
+      color: var(--warn);
+    }
+
+    footer {
+      margin-top: 24px;
+      padding: 18px 20px;
+      border-radius: 8px;
+      background: rgba(18, 25, 51, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .layout,
+      .hero-grid,
+      .cards,
+      .formula-grid,
+      .decision-grid {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        position: static;
+      }
+
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="eyebrow">Hummingbot Strategy Explainer</div>
+      <h1><span class="mono">mean_reversion_v1</span>: trade decision logic, parameters, and executor outputs</h1>
+      <p>
+        This page explains the actual runtime behavior of
+        <span class="mono">controllers/directional_trading/mean_reversion_v1.py</span>
+        and the base controller path it inherits from. It covers every controller input,
+        every strategy output that feeds execution, and the exact conditions that trigger
+        entry, block an entry, and stop an active executor.
+      </p>
+
+      <div class="hero-grid">
+        <div class="panel" style="padding:18px;">
+          <h2 style="font-size:18px;">What this strategy is doing</h2>
+          <p style="margin-top:10px;">
+            It computes a rolling fair value and z-score from candles, filters those raw
+            deviations through RSI, volatility, volume, and optional trend distance checks,
+            then emits a directional signal:
+          </p>
+          <div class="legend">
+            <div class="chip"><span class="dot long"></span><span><span class="mono">signal = 1</span> -> propose long entry</span></div>
+            <div class="chip"><span class="dot short"></span><span><span class="mono">signal = -1</span> -> propose short entry</span></div>
+            <div class="chip"><span class="dot neutral"></span><span><span class="mono">signal = 0</span> -> no entry proposal</span></div>
+          </div>
+          <div class="banner">
+            <strong>Important:</strong> a non-zero signal does not automatically create a trade.
+            The inherited base controller still applies cooldown and max-active-executor gates
+            before it emits a <span class="mono">CreateExecutorAction</span>.
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="label">Entry trigger family</div>
+            <div class="value">Mean reversion</div>
+          </div>
+          <div class="metric">
+            <div class="label">Candle source</div>
+            <div class="value">Configurable</div>
+          </div>
+          <div class="metric">
+            <div class="label">Executor type</div>
+            <div class="value"><span class="mono">PositionExecutor</span></div>
+          </div>
+          <div class="metric">
+            <div class="label">Controller-level exit</div>
+            <div class="value">Back to mean</div>
+          </div>
+          <div class="metric">
+            <div class="label">Executor-level exits</div>
+            <div class="value">Triple barrier</div>
+          </div>
+          <div class="metric">
+            <div class="label">Sizing rule</div>
+            <div class="value">Quote notional split</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav>
+        <h2>Contents</h2>
+        <a href="#runtime">1. Runtime flow</a>
+        <a href="#inputs">2. Input parameters</a>
+        <a href="#derived">3. Derived features</a>
+        <a href="#entry">4. Entry decisions</a>
+        <a href="#blocks">5. Entry blockers</a>
+        <a href="#executor">6. Executor outputs</a>
+        <a href="#exit">7. Exit decisions</a>
+        <a href="#outputs">8. Strategy outputs</a>
+      </nav>
+
+      <main>
+        <section id="runtime">
+          <h2>1. Runtime flow</h2>
+          <p>
+            The trade path starts outside this file. The strategy-level tick loop waits until
+            connectors are ready, then the controller loop waits until market data is ready and
+            executors have been synchronized. Only then does the mean reversion controller compute
+            indicators and propose actions.
+          </p>
+          <a class="source" href="../hummingbot/strategy/strategy_v2_base.py">Source: strategy_v2_base.py tick/on_tick</a>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="step">Step 1</div>
+              <strong><span class="mono">StrategyV2Base.tick()</span></strong> runs every tick. If any connector is not ready, it logs
+              <span class="mono">"&lt;connector&gt; is not ready. Please wait..."</span> and returns.
+            </div>
+            <div class="flow-step">
+              <div class="step">Step 2</div>
+              Once connectors are ready, the strategy continues its normal tick path and the controller's async loop is allowed to do work.
+            </div>
+            <div class="flow-step">
+              <div class="step">Step 3</div>
+              <strong><span class="mono">ControllerBase.control_task()</span></strong> checks:
+              <span class="mono">market_data_provider.ready</span>, then
+              <span class="mono">executors_update_event.is_set()</span>.
+              If either is false, no decision is made on that cycle.
+            </div>
+            <div class="flow-step">
+              <div class="step">Step 4</div>
+              <strong><span class="mono">MeanReversionV1Controller.update_processed_data()</span></strong> loads candles,
+              computes features, and stores the latest signal in
+              <span class="mono">self.processed_data</span>.
+            </div>
+            <div class="flow-step">
+              <div class="step">Step 5</div>
+              <strong><span class="mono">DirectionalTradingControllerBase.determine_executor_actions()</span></strong>
+              combines <span class="mono">create_actions_proposal()</span> and
+              <span class="mono">stop_actions_proposal()</span>.
+            </div>
+            <div class="flow-step">
+              <div class="step">Step 6</div>
+              If create or stop actions are returned, the controller sends them to the strategy via
+              <span class="mono">actions_queue</span>. If not, the controller stays idle and may log a periodic
+              <span class="mono">running but idle</span> message with the current no-action reason.
+            </div>
+          </div>
+        </section>
+
+        <section id="inputs">
+          <h2>2. Input parameters</h2>
+          <p>
+            The effective parameter surface is the combination of three config classes:
+            <span class="mono">ControllerConfigBase</span>,
+            <span class="mono">DirectionalTradingControllerConfigBase</span>, and
+            <span class="mono">MeanReversionV1ControllerConfig</span>.
+          </p>
+
+          <h3 style="margin-top:18px;">Base controller inputs</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Default</th>
+                  <th>Meaning</th>
+                  <th>Used directly in decision path?</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">id</td>
+                  <td>Required</td>
+                  <td>Unique controller identifier. It is attached to create and stop actions.</td>
+                  <td>Yes</td>
+                </tr>
+                <tr>
+                  <td class="mono">controller_name</td>
+                  <td><span class="mono">mean_reversion_v1</span></td>
+                  <td>Used to load the controller class.</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td class="mono">controller_type</td>
+                  <td><span class="mono">directional_trading</span></td>
+                  <td>Groups the controller under the directional strategy family.</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td class="mono">total_amount_quote</td>
+                  <td><span class="mono">100</span></td>
+                  <td>Total quote notional budget used by the base sizing rule.</td>
+                  <td>Yes</td>
+                </tr>
+                <tr>
+                  <td class="mono">manual_kill_switch</td>
+                  <td><span class="mono">False</span></td>
+                  <td>Inherited controller control flag. Not used by this file's entry formulas.</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <td class="mono">initial_positions</td>
+                  <td><span class="mono">[]</span></td>
+                  <td>Optional starting positions supplied outside the signal logic.</td>
+                  <td>No</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:18px;">Directional trading inputs</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Default</th>
+                  <th>Meaning</th>
+                  <th>Impact</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">connector_name</td>
+                  <td><span class="mono">binance_perpetual</span></td>
+                  <td>Connector used for price lookup and trade execution.</td>
+                  <td>Execution side</td>
+                </tr>
+                <tr>
+                  <td class="mono">trading_pair</td>
+                  <td><span class="mono">WLD-USDT</span></td>
+                  <td>Pair traded by the executor.</td>
+                  <td>Execution side</td>
+                </tr>
+                <tr>
+                  <td class="mono">max_executors_per_side</td>
+                  <td><span class="mono">2</span></td>
+                  <td>Upper bound on concurrent longs or concurrent shorts.</td>
+                  <td>Entry blocker + sizing denominator</td>
+                </tr>
+                <tr>
+                  <td class="mono">cooldown_time</td>
+                  <td><span class="mono">300</span> seconds</td>
+                  <td>Minimum time since the last active executor on the same side.</td>
+                  <td>Entry blocker</td>
+                </tr>
+                <tr>
+                  <td class="mono">leverage</td>
+                  <td><span class="mono">20</span></td>
+                  <td>Passed to the executor config. Use <span class="mono">1</span> for spot-style behavior.</td>
+                  <td>Executor output</td>
+                </tr>
+                <tr>
+                  <td class="mono">position_mode</td>
+                  <td><span class="mono">HEDGE</span></td>
+                  <td>Validated in config; not consumed directly inside this file's logic.</td>
+                  <td>Execution environment</td>
+                </tr>
+                <tr>
+                  <td class="mono">stop_loss</td>
+                  <td><span class="mono">0.03</span></td>
+                  <td>Triple barrier stop loss percentage.</td>
+                  <td>Executor-level exit</td>
+                </tr>
+                <tr>
+                  <td class="mono">take_profit</td>
+                  <td><span class="mono">0.02</span></td>
+                  <td>Triple barrier take profit percentage.</td>
+                  <td>Executor-level exit</td>
+                </tr>
+                <tr>
+                  <td class="mono">time_limit</td>
+                  <td><span class="mono">2700</span> seconds</td>
+                  <td>Maximum lifetime for an executor position.</td>
+                  <td>Executor-level exit</td>
+                </tr>
+                <tr>
+                  <td class="mono">take_profit_order_type</td>
+                  <td><span class="mono">LIMIT</span></td>
+                  <td>Take-profit order style inside the executor.</td>
+                  <td>Executor output</td>
+                </tr>
+                <tr>
+                  <td class="mono">trailing_stop</td>
+                  <td><span class="mono">None</span></td>
+                  <td>Optional trailing stop with activation and trailing delta.</td>
+                  <td>Executor-level exit</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:18px;">Mean reversion specific inputs</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Default</th>
+                  <th>Meaning</th>
+                  <th>Decision role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="mono">candles_connector</td><td>falls back to <span class="mono">connector_name</span></td><td>Candle source connector.</td><td>Feature input</td></tr>
+                <tr><td class="mono">candles_trading_pair</td><td>falls back to <span class="mono">trading_pair</span></td><td>Candle source trading pair.</td><td>Feature input</td></tr>
+                <tr><td class="mono">interval</td><td><span class="mono">5m</span></td><td>Candle interval used by the feature engine.</td><td>Feature input</td></tr>
+                <tr><td class="mono">lookback_period</td><td><span class="mono">120</span></td><td>Rolling window for fair value and standard deviation.</td><td>Entry model</td></tr>
+                <tr><td class="mono">entry_z_score</td><td><span class="mono">2.0</span></td><td>Absolute z-score threshold for long/short entries.</td><td>Entry trigger</td></tr>
+                <tr><td class="mono">exit_z_score</td><td><span class="mono">0.25</span></td><td>Band inside which active trades are considered back near the mean.</td><td>Controller-level exit</td></tr>
+                <tr><td class="mono">use_ema</td><td><span class="mono">False</span></td><td>Switch fair value from SMA to EMA.</td><td>Feature model</td></tr>
+                <tr><td class="mono">rsi_length</td><td><span class="mono">14</span></td><td>RSI smoothing length.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">rsi_long_threshold</td><td><span class="mono">35</span></td><td>Maximum RSI allowed for long entries.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">rsi_short_threshold</td><td><span class="mono">65</span></td><td>Minimum RSI required for short entries.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">trend_filter_enabled</td><td><span class="mono">True</span></td><td>Turns on/off the distance-to-trend filter.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">trend_ema_period</td><td><span class="mono">200</span></td><td>EMA period used by the trend filter.</td><td>Feature model</td></tr>
+                <tr><td class="mono">max_trend_deviation</td><td><span class="mono">0.015</span></td><td>Maximum allowed absolute distance from trend EMA.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">volume_lookback</td><td><span class="mono">60</span></td><td>Rolling volume average period.</td><td>Feature model</td></tr>
+                <tr><td class="mono">min_volume_ratio</td><td><span class="mono">0.25</span></td><td>Minimum current volume relative to rolling average.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">min_std_pct</td><td><span class="mono">0.001</span></td><td>Minimum normalized volatility.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">max_std_pct</td><td><span class="mono">0.05</span></td><td>Maximum normalized volatility.</td><td>Entry filter</td></tr>
+                <tr><td class="mono">close_on_mean_reversion</td><td><span class="mono">True</span></td><td>If true, stop active executors when price comes back inside the exit band.</td><td>Controller-level exit</td></tr>
+                <tr><td class="mono">signal_on_closed_candle</td><td><span class="mono">True</span></td><td>If true, drop the current in-progress candle and only use closed candles.</td><td>Signal timing</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="derived">
+          <h2>3. Derived features</h2>
+          <p>
+            <span class="mono">update_processed_data()</span> is the core of the strategy. It pulls candles,
+            optionally removes the latest in-progress candle, and computes the features that drive
+            entry and the mean-reversion exit signal.
+          </p>
+          <a class="source" href="../controllers/directional_trading/mean_reversion_v1.py">Source: mean_reversion_v1.py update_processed_data()</a>
+          <div class="formula-grid">
+            <div class="formula">
+              <strong>Fair value</strong>
+              <code>EMA(close, lookback_period) if use_ema else SMA(close, lookback_period)</code>
+            </div>
+            <div class="formula">
+              <strong>Standard deviation</strong>
+              <code>std = rolling_std(close, lookback_period, ddof=0)</code>
+            </div>
+            <div class="formula">
+              <strong>Z-score</strong>
+              <code>z_score = (close - fair_value) / std</code>
+            </div>
+            <div class="formula">
+              <strong>Normalized volatility</strong>
+              <code>std_pct = std / fair_value</code>
+            </div>
+            <div class="formula">
+              <strong>Trend distance</strong>
+              <code>trend_ema = EMA(close, trend_ema_period)
+trend_deviation = abs(close - trend_ema) / trend_ema</code>
+            </div>
+            <div class="formula">
+              <strong>Volume ratio</strong>
+              <code>volume_avg = rolling_mean(volume, volume_lookback)
+volume_ratio = volume / volume_avg</code>
+            </div>
+            <div class="formula">
+              <strong>RSI</strong>
+              <code>delta = close.diff()
+gain = EMA(max(delta, 0), rsi_length)
+loss = EMA(max(-delta, 0), rsi_length)
+rsi = 100 - (100 / (1 + gain / loss))</code>
+            </div>
+            <div class="formula">
+              <strong>Close to mean</strong>
+              <code>close_to_mean = abs(z_score) &lt;= exit_z_score</code>
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="callout">
+              <h3>Why the strategy keeps a full feature DataFrame</h3>
+              <p>
+                The latest row drives the current signal, but the full DataFrame is kept in
+                <span class="mono">processed_data["features"]</span> so the controller can format status,
+                backtesting can export the whole trace, and diagnostics can inspect the full indicator history.
+              </p>
+            </div>
+            <div class="callout">
+              <h3>How many candles are requested</h3>
+              <p>
+                <span class="mono">max_records</span> is set to the maximum of lookback,
+                trend EMA period, volume lookback, and RSI length, plus 25 extra rows. That gives
+                the indicators warm-up room before the latest row is consumed.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="entry">
+          <h2>4. Entry decisions</h2>
+          <p>
+            The strategy produces a raw directional signal in
+            <span class="mono">update_processed_data()</span>. The base directional controller then turns that
+            signal into a create action if the gating checks pass.
+          </p>
+
+          <div class="decision-grid">
+            <div class="decision-card long">
+              <h3>Long entry: <span class="mono">signal = 1</span></h3>
+              <p>All of these must be true on the latest feature row:</p>
+              <ul>
+                <li><span class="mono">z_score &lt;= -entry_z_score</span></li>
+                <li><span class="mono">rsi &lt;= rsi_long_threshold</span></li>
+                <li><span class="mono">min_std_pct &lt;= std_pct &lt;= max_std_pct</span></li>
+                <li><span class="mono">volume_ratio &gt;= min_volume_ratio</span></li>
+                <li>If trend filter is enabled: <span class="mono">trend_deviation &lt;= max_trend_deviation</span></li>
+              </ul>
+            </div>
+            <div class="decision-card short">
+              <h3>Short entry: <span class="mono">signal = -1</span></h3>
+              <p>All of these must be true on the latest feature row:</p>
+              <ul>
+                <li><span class="mono">z_score &gt;= entry_z_score</span></li>
+                <li><span class="mono">rsi &gt;= rsi_short_threshold</span></li>
+                <li><span class="mono">min_std_pct &lt;= std_pct &lt;= max_std_pct</span></li>
+                <li><span class="mono">volume_ratio &gt;= min_volume_ratio</span></li>
+                <li>If trend filter is enabled: <span class="mono">trend_deviation &lt;= max_trend_deviation</span></li>
+              </ul>
+            </div>
+            <div class="decision-card neutral">
+              <h3>No entry: <span class="mono">signal = 0</span></h3>
+              <p>
+                This is the default. It means at least one required long or short condition failed,
+                or the indicators are still warming up and produced <span class="mono">NaN</span>-driven false conditions.
+              </p>
+            </div>
+          </div>
+
+          <div class="banner">
+            <strong>Important distinction:</strong> the mean reversion file only computes the directional intent.
+            The actual trade proposal is emitted by
+            <span class="mono">DirectionalTradingControllerBase.create_actions_proposal()</span>.
+          </div>
+        </section>
+
+        <section id="blocks">
+          <h2>5. Entry blockers after a valid signal</h2>
+          <p>
+            Once the latest signal is non-zero, the inherited base controller still decides whether
+            an executor may be created. This is why a backtest trace can show
+            <span class="mono">signal = 1</span> or <span class="mono">signal = -1</span> without a
+            <span class="mono">CreateExecutorAction</span>.
+          </p>
+
+          <div class="cards">
+            <div class="callout">
+              <h3><span class="mono">waiting_for_signal</span></h3>
+              <p>
+                Set when <span class="mono">signal == 0</span>. No create action is attempted.
+              </p>
+            </div>
+            <div class="callout">
+              <h3><span class="mono">max_executors_reached</span></h3>
+              <p>
+                Set when the number of active executors on the signal side is already equal to
+                <span class="mono">max_executors_per_side</span>.
+              </p>
+            </div>
+            <div class="callout">
+              <h3><span class="mono">cooldown_active</span></h3>
+              <p>
+                Set when the most recent active executor on the same side is too recent:
+                <span class="mono">current_time - max_timestamp &lt;= cooldown_time</span>.
+              </p>
+            </div>
+            <div class="callout">
+              <h3>Market data readiness gates</h3>
+              <p>
+                The controller makes no decision at all until
+                <span class="mono">market_data_provider.ready</span> is true and
+                <span class="mono">executors_update_event</span> is set.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="executor">
+          <h2>6. Executor outputs when a trade is entered</h2>
+          <p>
+            If the signal is non-zero and the gating checks pass, the base directional controller
+            creates a <span class="mono">CreateExecutorAction</span> whose payload is a
+            <span class="mono">PositionExecutorConfig</span>.
+          </p>
+
+          <div class="formula-grid">
+            <div class="formula">
+              <strong>Entry side</strong>
+              <code>BUY if signal &gt; 0 else SELL</code>
+            </div>
+            <div class="formula">
+              <strong>Entry price</strong>
+              <code>market_data_provider.get_price_by_type(connector_name, trading_pair, MidPrice)</code>
+            </div>
+            <div class="formula">
+              <strong>Amount sizing</strong>
+              <code>amount = total_amount_quote / price / max_executors_per_side</code>
+            </div>
+            <div class="formula">
+              <strong>Create action payload</strong>
+              <code>CreateExecutorAction(
+  controller_id = config.id,
+  executor_config = PositionExecutorConfig(...)
+)</code>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Output object</th>
+                  <th>Field</th>
+                  <th>Source</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">CreateExecutorAction</td>
+                  <td class="mono">controller_id</td>
+                  <td><span class="mono">config.id</span></td>
+                  <td>Associates the action with this controller instance.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">timestamp</td>
+                  <td><span class="mono">market_data_provider.time()</span></td>
+                  <td>Creation timestamp.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">connector_name</td>
+                  <td><span class="mono">config.connector_name</span></td>
+                  <td>Execution connector.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">trading_pair</td>
+                  <td><span class="mono">config.trading_pair</span></td>
+                  <td>Execution pair.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">side</td>
+                  <td><span class="mono">BUY</span> or <span class="mono">SELL</span></td>
+                  <td>Long versus short direction.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">entry_price</td>
+                  <td>Current mid price</td>
+                  <td>Initial reference price for the executor entry.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">amount</td>
+                  <td>Sizing formula above</td>
+                  <td>Base asset amount implied by quote budget and price.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">triple_barrier_config</td>
+                  <td>Config property</td>
+                  <td>Stop loss, take profit, time limit, trailing stop, and order types.</td>
+                </tr>
+                <tr>
+                  <td class="mono">PositionExecutorConfig</td>
+                  <td class="mono">leverage</td>
+                  <td><span class="mono">config.leverage</span></td>
+                  <td>Execution leverage.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="banner">
+            <strong>Practical implication:</strong> the strategy decides direction. The base controller decides whether
+            a trade is allowed now. The executor then manages the opened position with its barrier configuration.
+          </div>
+        </section>
+
+        <section id="exit">
+          <h2>7. Exit decisions</h2>
+          <p>
+            There are two distinct exit layers: the controller-level mean-reversion stop path, and the
+            executor-level triple barrier path.
+          </p>
+
+          <div class="cards">
+            <div class="callout">
+              <h3>Controller-level exit: back to mean</h3>
+              <p>
+                <span class="mono">MeanReversionV1Controller.stop_actions_proposal()</span> returns no stop actions
+                unless both of these are true:
+              </p>
+              <ul>
+                <li><span class="mono">close_on_mean_reversion == True</span></li>
+                <li><span class="mono">processed_data["close_to_mean"] == True</span></li>
+              </ul>
+              <p>
+                <span class="mono">close_to_mean</span> is computed as
+                <span class="mono">abs(z_score) &lt;= exit_z_score</span>.
+                When it fires, the controller emits one <span class="mono">StopExecutorAction</span> for every active executor.
+              </p>
+            </div>
+
+            <div class="callout">
+              <h3>Executor-level exit: triple barrier</h3>
+              <p>
+                Every created <span class="mono">PositionExecutorConfig</span> includes a
+                <span class="mono">TripleBarrierConfig</span> with these fields:
+              </p>
+              <ul>
+                <li><span class="mono">stop_loss</span></li>
+                <li><span class="mono">take_profit</span></li>
+                <li><span class="mono">time_limit</span></li>
+                <li><span class="mono">trailing_stop</span></li>
+                <li>open / take-profit / stop-loss / time-limit order types</li>
+              </ul>
+              <p>
+                Those are not decided inside <span class="mono">mean_reversion_v1.py</span> at exit time.
+                They are decided at entry time and then enforced by the executor after the position exists.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="outputs">
+          <h2>8. Strategy outputs</h2>
+          <p>
+            The strategy exposes several outputs that matter for debugging, status, and backtesting.
+          </p>
+
+          <h3 style="margin-top:18px;"><span class="mono">processed_data</span></h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Type</th>
+                  <th>Produced by</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">signal</td>
+                  <td>int</td>
+                  <td><span class="mono">update_processed_data()</span></td>
+                  <td>Latest directional intent: <span class="mono">1</span>, <span class="mono">0</span>, or <span class="mono">-1</span>.</td>
+                </tr>
+                <tr>
+                  <td class="mono">close_to_mean</td>
+                  <td>bool</td>
+                  <td><span class="mono">update_processed_data()</span></td>
+                  <td>Whether the latest absolute z-score is back inside the exit band.</td>
+                </tr>
+                <tr>
+                  <td class="mono">features</td>
+                  <td>DataFrame</td>
+                  <td><span class="mono">update_processed_data()</span></td>
+                  <td>Full indicator frame with candle data and computed columns.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:18px;"><span class="mono">features</span> columns that matter</h3>
+          <p>
+            The feature DataFrame carries the original candle columns plus the strategy-derived columns:
+            <span class="mono">fair_value</span>,
+            <span class="mono">std</span>,
+            <span class="mono">z_score</span>,
+            <span class="mono">std_pct</span>,
+            <span class="mono">trend_ema</span>,
+            <span class="mono">trend_deviation</span>,
+            <span class="mono">volume_avg</span>,
+            <span class="mono">volume_ratio</span>,
+            <span class="mono">rsi</span>,
+            and <span class="mono">signal</span>.
+          </p>
+
+          <h3 style="margin-top:18px;"><span class="mono">get_custom_info()</span></h3>
+          <p>
+            This method returns a compact debug snapshot from the latest row:
+          </p>
+          <div class="formula">
+            <code>{
+  "signal": int,
+  "z_score": float | None,
+  "fair_value": float | None,
+  "rsi": float | None,
+  "volume_ratio": float | None,
+  "std_pct": float | None
+}</code>
+          </div>
+
+          <div class="banner">
+            <strong>Bottom line:</strong> the entry decision is
+            <span class="mono">signal computation + base gating</span>.
+            The exit decision is
+            <span class="mono">mean reversion stop actions + executor triple barriers</span>.
+            That is the complete behavior you need to explain trade entries and exits in live runs or backtests.
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      Built from the current source in:
+      <span class="mono">controllers/directional_trading/mean_reversion_v1.py</span>,
+      <span class="mono">hummingbot/strategy_v2/controllers/directional_trading_controller_base.py</span>,
+      <span class="mono">hummingbot/strategy_v2/controllers/controller_base.py</span>,
+      <span class="mono">hummingbot/strategy/strategy_v2_base.py</span>,
+      and
+      <span class="mono">hummingbot/strategy_v2/executors/position_executor/data_types.py</span>.
+      Open this file directly in a browser; no dev server is required.
+    </footer>
+  </div>
+</body>
+</html>

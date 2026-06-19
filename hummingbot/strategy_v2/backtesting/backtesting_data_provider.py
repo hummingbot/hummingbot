@@ -34,15 +34,40 @@ class BacktestingDataProvider(MarketDataProvider):
         self.trading_rules = {}
         self.conn_settings = AllConnectorSettings.get_connector_settings()
         self.connectors = LazyDict[str, Optional[ConnectorBase]](
-            lambda name: self.get_connector(name) if (
-                self.conn_settings[name].type in self.CONNECTOR_TYPES and
-                name not in self.EXCLUDED_CONNECTORS and
-                "testnet" not in name
-            ) else None
+            lambda name: self.get_connector(name) if self._connector_supported_for_backtesting(name) else None
+        )
+
+    def _resolve_connector_name(self, connector_name: str) -> str:
+        conn_setting = self.conn_settings.get(connector_name)
+        if conn_setting is None:
+            if connector_name.endswith("_paper_trade"):
+                parent_name = connector_name.removesuffix("_paper_trade")
+                if parent_name in self.conn_settings:
+                    return parent_name
+            return connector_name
+        if connector_name.endswith("_paper_trade") and conn_setting.parent_name:
+            return conn_setting.parent_name
+        return connector_name
+
+    def _connector_supported_for_backtesting(self, connector_name: str) -> bool:
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        conn_setting = self.conn_settings.get(resolved_connector_name)
+        if conn_setting is None:
+            return False
+        if connector_name.endswith("_paper_trade") and resolved_connector_name != connector_name:
+            return (
+                conn_setting.type in self.CONNECTOR_TYPES and
+                "testnet" not in resolved_connector_name
+            )
+        return (
+            conn_setting.type in self.CONNECTOR_TYPES and
+            resolved_connector_name not in self.EXCLUDED_CONNECTORS and
+            "testnet" not in resolved_connector_name
         )
 
     def get_connector(self, connector_name: str):
-        conn_setting = self.conn_settings.get(connector_name)
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        conn_setting = self.conn_settings.get(resolved_connector_name)
         if conn_setting is None:
             logger.error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
@@ -50,9 +75,9 @@ class BacktestingDataProvider(MarketDataProvider):
         init_params = conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,
-            api_keys=MarketDataProvider.get_connector_config_map(connector_name),
+            api_keys=MarketDataProvider.get_connector_config_map(resolved_connector_name),
         )
-        connector_class = get_connector_class(connector_name)
+        connector_class = get_connector_class(resolved_connector_name)
         connector = connector_class(**init_params)
         return connector
 
@@ -62,16 +87,23 @@ class BacktestingDataProvider(MarketDataProvider):
         :param connector_name: str
         :return: Trading rules.
         """
-        return self.trading_rules[connector_name][trading_pair]
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        return self.trading_rules[resolved_connector_name][trading_pair]
 
     def time(self):
         return self._time
 
     async def initialize_trading_rules(self, connector_name: str):
-        if len(self.trading_rules.get(connector_name, {})) == 0:
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        if len(self.trading_rules.get(resolved_connector_name, {})) == 0:
             connector = self.connectors.get(connector_name)
+            if connector is None:
+                raise ValueError(
+                    f"Connector {connector_name} is not supported for backtesting trading rules. "
+                    f"Resolved connector: {resolved_connector_name}"
+                )
             await connector._update_trading_rules()
-            self.trading_rules[connector_name] = connector.trading_rules
+            self.trading_rules[resolved_connector_name] = connector.trading_rules
 
     async def initialize_candles_feed(self, config: CandlesConfig):
         await self.get_candles_feed(config)
@@ -88,7 +120,14 @@ class BacktestingDataProvider(MarketDataProvider):
         :param config: CandlesConfig
         :return: Candle feed instance.
         """
-        key = self._generate_candle_feed_key(config)
+        resolved_connector_name = self._resolve_connector_name(config.connector)
+        resolved_config = CandlesConfig(
+            connector=resolved_connector_name,
+            trading_pair=config.trading_pair,
+            interval=config.interval,
+            max_records=config.max_records,
+        )
+        key = self._generate_candle_feed_key(resolved_config)
         existing_feed = self.candles_feeds.get(key, pd.DataFrame())
         # existing_feed = self.ensure_epoch_index(existing_feed)
 
@@ -98,12 +137,12 @@ class BacktestingDataProvider(MarketDataProvider):
             if existing_feed_start_time <= self.start_time and existing_feed_end_time >= self.end_time:
                 return existing_feed
         # Create a new feed or restart the existing one with updated max_records
-        candle_feed = CandlesFactory.get_candle(config)
-        candles_buffer = config.max_records * CandlesBase.interval_to_seconds[config.interval]
+        candle_feed = CandlesFactory.get_candle(resolved_config)
+        candles_buffer = resolved_config.max_records * CandlesBase.interval_to_seconds[resolved_config.interval]
         candles_df = await candle_feed.get_historical_candles(config=HistoricalCandlesConfig(
-            connector_name=config.connector,
-            trading_pair=config.trading_pair,
-            interval=config.interval,
+            connector_name=resolved_connector_name,
+            trading_pair=resolved_config.trading_pair,
+            interval=resolved_config.interval,
             start_time=self.start_time - candles_buffer,
             end_time=self.end_time,
         ))
@@ -121,7 +160,8 @@ class BacktestingDataProvider(MarketDataProvider):
         :param max_records: int
         :return: Candles dataframe.
         """
-        candles_df = self.candles_feeds.get(f"{connector_name}_{trading_pair}_{interval}")
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        candles_df = self.candles_feeds.get(f"{resolved_connector_name}_{trading_pair}_{interval}")
         return candles_df[(candles_df["timestamp"] >= self.start_time) & (candles_df["timestamp"] <= self.end_time)]
 
     def get_price_by_type(self, connector_name: str, trading_pair: str, price_type: PriceType):
@@ -132,7 +172,8 @@ class BacktestingDataProvider(MarketDataProvider):
         :param price_type: PriceType
         :return: Price.
         """
-        return self.prices.get(f"{connector_name}_{trading_pair}", Decimal("1"))
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        return self.prices.get(f"{resolved_connector_name}_{trading_pair}", Decimal("1"))
 
     def quantize_order_amount(self, connector_name: str, trading_pair: str, amount: Decimal):
         """

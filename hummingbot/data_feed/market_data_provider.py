@@ -270,6 +270,18 @@ class MarketDataProvider:
         """
         return self._non_trading_connectors[connector_name]
 
+    def _resolve_connector_name(self, connector_name: str) -> str:
+        conn_setting = self.conn_settings.get(connector_name)
+        if conn_setting is None:
+            if connector_name.endswith("_paper_trade"):
+                parent_name = connector_name.removesuffix("_paper_trade")
+                if parent_name in self.conn_settings:
+                    return parent_name
+            return connector_name
+        if connector_name.endswith("_paper_trade") and conn_setting.parent_name:
+            return conn_setting.parent_name
+        return connector_name
+
     def _create_non_trading_connector(self, connector_name: str):
         """
         Creates a new non-trading connector instance.
@@ -279,12 +291,11 @@ class MarketDataProvider:
         :param connector_name: str
         :return: ConnectorBase
         """
-        conn_setting = self.conn_settings.get(connector_name)
-        if conn_setting is None:
+        resolved_connector_name = self._resolve_connector_name(connector_name)
+        resolved_conn_setting = self.conn_settings.get(resolved_connector_name)
+        if resolved_conn_setting is None:
             self.logger().error(f"Connector {connector_name} not found")
             raise ValueError(f"Connector {connector_name} not found")
-        resolved_connector_name = conn_setting.parent_name if connector_name.endswith("_paper_trade") else connector_name
-        resolved_conn_setting = self.conn_settings.get(resolved_connector_name, conn_setting)
         init_params = resolved_conn_setting.conn_init_parameters(
             trading_pairs=[],
             trading_required=False,

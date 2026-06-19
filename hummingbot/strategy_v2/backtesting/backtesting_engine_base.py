@@ -122,6 +122,7 @@ class BacktestingEngineBase:
         self.dca_executor_simulator = DCAExecutorSimulator()
         self.grid_executor_simulator = GridExecutorSimulator()
         self.order_executor_simulator = OrderExecutorSimulator()
+        self.decision_trace: List[Dict] = []
 
     @classmethod
     def load_controller_config(cls,
@@ -184,7 +185,8 @@ class BacktestingEngineBase:
         await self.initialize_backtesting_data_provider()
         await self.controller.update_processed_data()
         executors_info = await self.simulate_execution(trade_cost=trade_cost)
-        key = f"{controller_config.connector_name}_{controller_config.trading_pair}"
+        resolved_connector_name = self.backtesting_data_provider._resolve_connector_name(controller_config.connector_name)
+        key = f"{resolved_connector_name}_{controller_config.trading_pair}"
         final_price = self.backtesting_data_provider.prices.get(key)
         position_holds_list = list(self.active_position_holds.values())
         results = self.summarize_results(
@@ -199,11 +201,15 @@ class BacktestingEngineBase:
             "position_holds": position_holds_list,
             "position_held_timeseries": self.position_held_timeseries,
             "pnl_timeseries": self.pnl_timeseries,
+            "decision_trace": self.decision_trace,
         }
 
     async def initialize_backtesting_data_provider(self):
+        resolved_connector_name = self.backtesting_data_provider._resolve_connector_name(
+            self.controller.config.connector_name
+        )
         backtesting_config = CandlesConfig(
-            connector=self.controller.config.connector_name,
+            connector=resolved_connector_name,
             trading_pair=self.controller.config.trading_pair,
             interval=self.backtesting_resolution
         )
@@ -229,12 +235,16 @@ class BacktestingEngineBase:
         self._pending_position_hold_executors: List[ExecutorInfo] = []
         self.position_held_timeseries: List[Dict] = []
         self.pnl_timeseries: List[Dict] = []
+        self.decision_trace = []
         self._executor_realized_pnl = 0.0
         self._cumulative_volume = 0.0
         last_index = processed_features.index[-1]
         for i, row in processed_features.iterrows():
             await self.update_state(row)
-            for action in self.controller.determine_executor_actions():
+            await self._update_controller_processed_data()
+            actions = self.controller.determine_executor_actions()
+            self._record_decision_trace(row, actions)
+            for action in actions:
                 if isinstance(action, CreateExecutorAction):
                     max_ts = self._get_executor_max_timestamp(action.executor_config, last_index)
                     executor_simulation = self.simulate_executor(action.executor_config, processed_features.loc[i:max_ts], trade_cost)
@@ -247,11 +257,113 @@ class BacktestingEngineBase:
         self._update_positions_from_stopped_executors()
         return self.controller.executors_info
 
+    async def _update_controller_processed_data(self):
+        update_processed_data = getattr(self.controller, "update_processed_data", None)
+        if update_processed_data is None:
+            return
+
+        controller_update = getattr(type(self.controller), "update_processed_data", None)
+        if controller_update is ControllerBase.update_processed_data:
+            return
+
+        await update_processed_data()
+
+    def _serialize_action(self, action):
+        if isinstance(action, CreateExecutorAction):
+            config = action.executor_config
+            return {
+                "type": action.__class__.__name__,
+                "executor_id": config.id,
+                "side": getattr(config.side, "name", str(config.side)),
+                "amount": float(getattr(config, "amount", 0) or 0),
+                "entry_price": float(getattr(config, "entry_price", 0) or 0),
+            }
+        if isinstance(action, StopExecutorAction):
+            return {
+                "type": action.__class__.__name__,
+                "executor_id": action.executor_id,
+                "side": None,
+                "amount": None,
+                "entry_price": None,
+            }
+        return {
+            "type": action.__class__.__name__,
+            "executor_id": None,
+            "side": None,
+            "amount": None,
+            "entry_price": None,
+        }
+
+    def _record_decision_trace(self, row: pd.Series, actions: List[Union[CreateExecutorAction, StopExecutorAction]]):
+        action_details = [self._serialize_action(action) for action in actions]
+        action_types = ",".join(detail["type"] for detail in action_details)
+        executor_ids = ",".join(detail["executor_id"] for detail in action_details if detail["executor_id"])
+        close_bt = row.get("close_bt")
+        trace_row = {
+            "timestamp": row.get("timestamp"),
+            "close": float(close_bt) if pd.notna(close_bt) else None,
+            "signal": self.controller.processed_data.get("signal"),
+            "no_action_reason": getattr(self.controller, "_last_no_action_reason", None),
+            "active_executors": len(self.active_executor_simulations),
+            "stored_executors": len(self.controller.executors_info),
+            "open_position_holds": len([ph for ph in self.active_position_holds.values() if not ph.is_closed]),
+            "executor_realized_pnl": self._executor_realized_pnl,
+            "cumulative_volume": self._cumulative_volume,
+            "action_types": action_types,
+            "action_count": len(action_details),
+            "executor_ids": executor_ids,
+        }
+        for field in [
+            "fair_value",
+            "std",
+            "std_pct",
+            "z_score",
+            "rsi",
+            "trend_ema",
+            "trend_deviation",
+            "volume_ratio",
+            "close_to_mean",
+            "reference_price",
+            "spread_multiplier",
+        ]:
+            value = self.controller.processed_data.get(field, row.get(field))
+            trace_row[field] = float(value) if isinstance(value, (Decimal, np.floating, float, int)) and pd.notna(value) else value
+        self.decision_trace.append(trace_row)
+
+    def _sync_controller_processed_data_from_row(self, row: pd.Series):
+        """
+        Keep top-level controller state aligned with the current replay row.
+
+        Live controllers refresh these values inside update_processed_data(). Backtesting
+        replays precomputed feature rows instead, so derived controller state such as
+        close_to_mean must be synchronized explicitly from the replay row.
+        """
+        processed_data = self.controller.processed_data
+        row_dict = row.to_dict()
+        processed_data.update(row_dict)
+
+        signal = row_dict.get("signal")
+        if pd.notna(signal):
+            processed_data["signal"] = int(signal)
+
+        close_to_mean = row_dict.get("close_to_mean")
+        if pd.notna(close_to_mean):
+            processed_data["close_to_mean"] = bool(close_to_mean)
+            return
+
+        z_score = row_dict.get("z_score")
+        exit_z_score = getattr(self.controller.config, "exit_z_score", None)
+        if pd.notna(z_score) and exit_z_score is not None:
+            processed_data["close_to_mean"] = bool(abs(float(z_score)) <= float(exit_z_score))
+
     async def update_state(self, row):
-        key = f"{self.controller.config.connector_name}_{self.controller.config.trading_pair}"
+        resolved_connector_name = self.backtesting_data_provider._resolve_connector_name(
+            self.controller.config.connector_name
+        )
+        key = f"{resolved_connector_name}_{self.controller.config.trading_pair}"
         self.controller.market_data_provider.prices = {key: Decimal(row["close_bt"])}
         self.controller.market_data_provider._time = row["timestamp"]
-        self.controller.processed_data.update(row.to_dict())
+        self._sync_controller_processed_data_from_row(row)
 
         # Step 1: Convert previous tick's stopped POSITION_HOLD executors → position holds
         self._update_positions_from_stopped_executors()

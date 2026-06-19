@@ -81,3 +81,8 @@ deploy:
 
 down:
 	docker compose --profile gateway down
+
+rerun:
+	docker compose down
+	docker build -t hummingbot/hummingbot -f Dockerfile .
+	docker compose up -d
