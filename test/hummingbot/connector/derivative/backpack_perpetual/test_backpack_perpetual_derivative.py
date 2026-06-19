@@ -904,6 +904,37 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("100.5"), available_balances[CONSTANTS.CURRENCY])
         self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
 
+    @aioresponses()
+    async def test_available_balance_is_not_double_counted_against_margin(self, mock_api):
+        """Regression for #8168. Backpack is cross-margin: netEquityAvailable already has the
+        initial margin deducted. get_available_balance() must return that value as-is and must NOT
+        subtract an open order's notional on top (which real_time_balance_update=False would do)."""
+        # Cross-margin invariant must hold so the connector relies on the exchange's number.
+        self.assertTrue(self.exchange.real_time_balance_update)
+
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "netEquity": "229.40",
+            "netEquityAvailable": "224.41",  # = netEquity - notional*imf (already margin-net)
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+        await self.exchange._update_balances()
+
+        # Even with a large open BUY order in flight, available must equal netEquityAvailable.
+        self.exchange.start_tracking_order(
+            order_id="OID-DOUBLE-COUNT",
+            exchange_order_id="EID-1",
+            trading_pair="SOL-USDC",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),  # ~200 USDC notional
+            position_action=PositionAction.OPEN,
+        )
+
+        self.assertEqual(Decimal("224.41"), self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
         account_update = self._get_account_update_ws_event_single_position_dict()

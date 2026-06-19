@@ -69,8 +69,12 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         self._leverage_initialized = False
         self._position_mode = None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
-        # Backpack does not provide balance updates through websocket, use REST polling instead
-        self.real_time_balance_update = False
+        # Backpack is cross-margin: collateralQuery already reports netEquityAvailable with the
+        # initial margin (notional * imf) deducted. Keeping real_time_balance_update = True makes
+        # get_available_balance() return that value directly. Setting it to False would route
+        # through apply_balance_update_since_snapshot, which subtracts each order's full quote
+        # notional locally -- double-counting against the margin the exchange already reserved and
+        # under-reporting available balance (root cause of #8168, false "Not enough budget").
 
     @staticmethod
     def backpack_order_type(order_type: OrderType) -> str:
