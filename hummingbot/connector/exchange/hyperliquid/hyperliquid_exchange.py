@@ -79,11 +79,12 @@ class HyperliquidExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> Optional[HyperliquidAuth]:
-        if self._trading_required:
+        if self._trading_required or self.hyperliquid_secret_key:
             return HyperliquidAuth(
                 self.hyperliquid_address,
                 self.hyperliquid_secret_key,
-                self._use_vault
+                self._use_vault,
+                self._connection_mode,
             )
         return None
 

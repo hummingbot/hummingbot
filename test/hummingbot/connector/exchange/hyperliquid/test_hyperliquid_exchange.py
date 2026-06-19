@@ -37,7 +37,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_address = "someAddress"
+        cls.api_address = "0x836eE2b55d173245832995082a8600709c38D099"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False

@@ -6,7 +6,7 @@ from typing import Any
 import eth_account
 import msgpack
 from eth_account.messages import encode_typed_data
-from eth_utils import keccak, to_hex
+from eth_utils import is_hex_address, keccak, to_checksum_address, to_hex
 
 from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils import (
@@ -25,14 +25,50 @@ class HyperliquidPerpetualAuth(AuthBase):
         self,
         api_address: str,
         api_secret: str,
-        use_vault: bool
+        use_vault: bool,
+        connection_mode: str = "arb_wallet",
     ):
+        if not isinstance(api_secret, str) or not api_secret:
+            raise ValueError("Hyperliquid private key must be a non-empty string.")
+        if not isinstance(api_address, str) or not api_address:
+            raise ValueError("Hyperliquid wallet/vault address must be a non-empty string.")
+
+        try:
+            wallet = eth_account.Account.from_key(api_secret)
+        except Exception as exc:
+            raise ValueError(f"Invalid Hyperliquid private key format: {exc}") from exc
+
+        if not is_hex_address(api_address):
+            raise ValueError(
+                f"Invalid Hyperliquid wallet/vault address {api_address!r}; "
+                "expected a 0x-prefixed 20-byte hex address."
+            )
+
+        # In "api_wallet" mode the private key is a Hyperliquid API/agent wallet
+        # key, which by design does NOT derive to the trading (Arbitrum) address
+        # the user supplies, so the derive-match check must be skipped. Vault mode
+        # likewise supplies a vault address that differs from the wallet. The
+        # check only applies to "arb_wallet" mode, where the key must derive to
+        # the supplied address (this is what catches the wrong-key bug, #7866).
+        if not use_vault and connection_mode != "api_wallet":
+            derived = to_checksum_address(wallet.address)
+            provided = to_checksum_address(api_address)
+            if derived != provided:
+                raise ValueError(
+                    "Hyperliquid private key does not derive to the supplied wallet address. "
+                    f"Derived: {derived}; provided: {provided}. "
+                    "Verify the private key matches the wallet address you intend to trade from, "
+                    "set use_vault=True if the supplied address is a vault address, "
+                    "or select the api_wallet connection mode if you are using a "
+                    "Hyperliquid API/agent wallet key."
+                )
+
         # can be as Arbitrum wallet address or Vault address
         self._api_address: str = api_address
         # can be as Arbitrum wallet private key or Hyperliquid API wallet private key
         self._api_secret: str = api_secret
         self._vault_address = api_address if use_vault else None
-        self.wallet = eth_account.Account.from_key(api_secret)
+        self.wallet = wallet
 
     @classmethod
     def address_to_bytes(cls, address: str) -> bytes:
