@@ -3819,9 +3819,10 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
 
     def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        # Post-#7866: use address derived from api_secret to pass validation
         return HyperliquidPerpetualDerivative(
             hyperliquid_perpetual_secret_key=self.api_secret,
-            hyperliquid_perpetual_address="0x1111111111111111111111111111111111111111",
+            hyperliquid_perpetual_address="0x836eE2b55d173245832995082a8600709c38D099",
             use_vault=use_vault,
             trading_pairs=["BTC-USD"],
             trading_required=False,
