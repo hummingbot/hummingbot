@@ -791,6 +791,7 @@ class PositionExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=self.entry_price,
                 leverage=Decimal(self.config.leverage),
+                position_close=self.config.position_close,
             )
         else:
             order_candidate = OrderCandidate(

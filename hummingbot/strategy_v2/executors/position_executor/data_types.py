@@ -54,6 +54,7 @@ class PositionExecutorConfig(ExecutorConfigBase):
     amount: Decimal
     triple_barrier_config: TripleBarrierConfig = TripleBarrierConfig()
     leverage: int = 1
+    position_close: bool = False
     activation_bounds: Optional[List[Decimal]] = None
     level_id: Optional[str] = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
