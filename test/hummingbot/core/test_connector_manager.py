@@ -210,6 +210,30 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         connector = self.connector_manager.get_connector("nonexistent")
         self.assertIsNone(connector)
 
+    def test_get_connector_by_unambiguous_connector_name_alias(self):
+        """Test getting a connector by emitted connector name."""
+        self.mock_connector.name = "binance_perpetual"
+        self.mock_connector.display_name = "binance_perpetual"
+        self.connector_manager.connectors["binance_perpetual_testnet"] = self.mock_connector
+
+        connector = self.connector_manager.get_connector("binance_perpetual")
+
+        self.assertEqual(connector, self.mock_connector)
+
+    def test_get_connector_by_ambiguous_connector_name_alias_returns_none(self):
+        """Test ambiguous emitted connector names are not resolved."""
+        self.mock_connector.name = "binance_perpetual"
+        self.mock_connector.display_name = "binance_perpetual"
+        mock_connector2 = Mock(spec=ExchangeBase)
+        mock_connector2.name = "binance_perpetual"
+        mock_connector2.display_name = "binance_perpetual"
+        self.connector_manager.connectors["binance_perpetual_testnet"] = self.mock_connector
+        self.connector_manager.connectors["binance_perpetual_devnet"] = mock_connector2
+
+        connector = self.connector_manager.get_connector("binance_perpetual")
+
+        self.assertIsNone(connector)
+
     def test_get_all_connectors(self):
         """Test getting all connectors"""
         # Add multiple connectors
@@ -340,6 +364,18 @@ class ConnectorManagerTest(IsolatedAsyncioWrapperTestCase):
         await self.connector_manager.update_connector_balances("binance")
 
         # Verify _update_balances was called
+        mock_update_balances.assert_called_once()
+
+    async def test_update_connector_balances_by_unambiguous_connector_name_alias(self):
+        """Test updating balances through an emitted connector name alias."""
+        mock_update_balances = AsyncMock()
+        self.mock_connector.name = "binance_perpetual"
+        self.mock_connector.display_name = "binance_perpetual"
+        self.mock_connector._update_balances = mock_update_balances
+        self.connector_manager.connectors["binance_perpetual_testnet"] = self.mock_connector
+
+        await self.connector_manager.update_connector_balances("binance_perpetual")
+
         mock_update_balances.assert_called_once()
 
     async def test_update_connector_balances_nonexistent(self):
