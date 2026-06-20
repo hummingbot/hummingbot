@@ -105,3 +105,6 @@ coverage.xml
 
 # GRVT
 /grvt
+
+# codegraph
+.codegraph/
