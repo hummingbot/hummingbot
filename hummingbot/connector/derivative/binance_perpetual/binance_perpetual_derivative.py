@@ -62,7 +62,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        return self._domain
 
     @property
     def authenticator(self) -> BinancePerpetualAuth:
