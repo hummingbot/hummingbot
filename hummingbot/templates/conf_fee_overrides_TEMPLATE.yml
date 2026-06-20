@@ -56,6 +56,12 @@ bitmart_maker_percent_fee:
 bitmart_percent_fee_token:
 bitmart_taker_fixed_fees:
 bitmart_taker_percent_fee:
+bithumb_buy_percent_fee_deducted_from_returns:
+bithumb_maker_fixed_fees:
+bithumb_maker_percent_fee:
+bithumb_percent_fee_token:
+bithumb_taker_fixed_fees:
+bithumb_taker_percent_fee:
 bitstamp_buy_percent_fee_deducted_from_returns:
 bitstamp_maker_fixed_fees:
 bitstamp_maker_percent_fee:
