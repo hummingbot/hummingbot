@@ -819,7 +819,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 if isinstance(event_message, dict):
                     channel: str = event_message.get("channel", None)
                     results = event_message.get("data", None)
-                elif event_message is asyncio.CancelledError:
+                elif event_message is asyncio.CancelledError or isinstance(event_message, asyncio.CancelledError):
                     raise asyncio.CancelledError
                 else:
                     raise Exception(event_message)
