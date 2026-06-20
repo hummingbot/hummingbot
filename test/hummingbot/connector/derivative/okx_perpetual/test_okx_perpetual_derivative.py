@@ -16,7 +16,7 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative impo
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -2574,3 +2574,38 @@ class OkxPerpetualDerivativeTests(
         mock_api.get(self.latest_prices_url, body=json.dumps(self.latest_prices_request_mock_response))
         lastprice_response = self.run_async_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
         self.assertEqual(lastprice_response, 9999.9)
+
+    def test_get_position_side_decimal_long(self):
+        position_msg = {"pos": "0.02", "posSide": "net"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.LONG)
+
+    def test_get_position_side_decimal_short(self):
+        position_msg = {"pos": "-0.04", "posSide": "net"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.SHORT)
+
+    def test_get_position_side_integer_long(self):
+        position_msg = {"pos": "1", "posSide": "net"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.LONG)
+
+    def test_get_position_side_integer_short(self):
+        position_msg = {"pos": "-3", "posSide": "net"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.SHORT)
+
+    def test_get_position_side_explicit_long(self):
+        position_msg = {"pos": "0.02", "posSide": "long"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.LONG)
+
+    def test_get_position_side_explicit_short(self):
+        position_msg = {"pos": "0.02", "posSide": "short"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.SHORT)
+
+    def test_get_position_side_zero_position(self):
+        position_msg = {"pos": "0", "posSide": "net"}
+        result = OkxPerpetualDerivative.get_position_side(position_msg)
+        self.assertEqual(result, PositionSide.SHORT)
