@@ -48,7 +48,7 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
         if isinstance(v, str):
             if v == "":
                 return []
-            return [float(x.strip()) for x in v.split(',')]
+            return [Decimal(x.strip()) for x in v.split(',')]
         return v
 
     @field_validator('dca_amounts', mode="before")
@@ -57,10 +57,17 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
         if v is None or v == "":
             return [1 for _ in validation_info.data['dca_spreads']]
         if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
+            return [Decimal(x.strip()) for x in v.split(',')]
         elif isinstance(v, list) and len(v) != len(validation_info.data['dca_spreads']):
             raise ValueError(
                 f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
+        return v
+
+    @field_validator('dca_amounts')
+    @classmethod
+    def validate_dca_amounts_are_positive(cls, v):
+        if any(amount <= Decimal("0") or not amount.is_finite() for amount in v):
+            raise ValueError("DCA amounts must be positive finite values.")
         return v
 
 
