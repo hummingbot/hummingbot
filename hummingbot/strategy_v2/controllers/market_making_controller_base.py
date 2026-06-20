@@ -79,15 +79,15 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     )
     # Triple Barrier Configuration
     stop_loss: Optional[Decimal] = Field(
-        default=Decimal("0.03"), gt=0,
+        default=Decimal("0.03"),
         json_schema_extra={
-            "prompt": "Enter the stop loss (as a decimal, e.g., 0.03 for 3%): ",
+            "prompt": "Enter the stop loss (as a decimal, e.g., 0.03 for 3%). Leave empty to disable: ",
             "prompt_on_new": True, "is_updatable": True}
     )
     take_profit: Optional[Decimal] = Field(
-        default=Decimal("0.02"), gt=0,
+        default=Decimal("0.02"),
         json_schema_extra={
-            "prompt": "Enter the take profit (as a decimal, e.g., 0.02 for 2%): ",
+            "prompt": "Enter the take profit (as a decimal, e.g., 0.02 for 2%). Leave empty to disable: ",
             "prompt_on_new": True, "is_updatable": True}
     )
     time_limit: Optional[int] = Field(
@@ -131,7 +131,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     @classmethod
     def validate_target(cls, v):
         if isinstance(v, str):
-            if v == "":
+            if v == "" or v.lower() == "none":
                 return None
             return Decimal(v)
         return v
