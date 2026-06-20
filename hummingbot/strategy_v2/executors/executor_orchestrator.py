@@ -22,6 +22,7 @@ from hummingbot.strategy_v2.executors.order_executor.order_executor import Order
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.strategy_v2.executors.xemm_executor.xemm_executor import XEMMExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
@@ -228,6 +229,7 @@ class ExecutorOrchestrator:
         self.executors_update_interval = executors_update_interval
         self.executors_max_retries = executors_max_retries
         self.active_executors = {}
+        self.recently_terminated_executors: Dict[str, deque] = {}
         self.positions_held = {}
         self.executors_ids_position_held = deque(maxlen=50)
         self.cached_performance = {}
@@ -504,6 +506,28 @@ class ExecutorOrchestrator:
             return
         executor.early_stop(action.keep_position)
 
+    def _auto_store_terminated_executors(self):
+        """
+        Automatically store terminated executors to the database and move them to a bounded deque
+        so strategies can still inspect recently terminated executors for cooldown or pricing logic.
+        """
+        for controller_id, executors_list in list(self.active_executors.items()):
+            stored = []
+            for executor in executors_list:
+                if executor.status != RunnableStatus.TERMINATED:
+                    continue
+                try:
+                    MarketsRecorder.get_instance().store_or_update_executor(executor)
+                    self._update_cached_performance(controller_id, executor.executor_info)
+                    stored.append(executor)
+                except Exception as e:
+                    self.logger().error(f"Error auto-storing terminated executor {executor.config.id}: {str(e)}")
+            if controller_id not in self.recently_terminated_executors:
+                self.recently_terminated_executors[controller_id] = deque(maxlen=50)
+            for executor in stored:
+                executors_list.remove(executor)
+                self.recently_terminated_executors[controller_id].append(executor)
+
     def _update_positions_from_done_executors(self):
         """
         Update positions from executors that are done but haven't been processed yet.
@@ -645,11 +669,14 @@ class ExecutorOrchestrator:
 
     def get_executors_report(self) -> Dict[str, List[ExecutorInfo]]:
         """
-        Generate a report of all executors.
+        Generate a report of all executors, including recently terminated ones from the deque.
         """
         report = {}
         for controller_id, executors_list in self.active_executors.items():
-            report[controller_id] = [executor.executor_info for executor in executors_list if executor]
+            active = [executor.executor_info for executor in executors_list if executor]
+            recent = [executor.executor_info for executor in
+                      self.recently_terminated_executors.get(controller_id, [])]
+            report[controller_id] = active + recent
         return report
 
     def get_positions_report(self) -> Dict[str, List[PositionSummary]]:
@@ -674,12 +701,16 @@ class ExecutorOrchestrator:
         # Update any pending position holds from done executors
         self._update_positions_from_done_executors()
 
+        # Auto-store terminated executors to the database
+        self._auto_store_terminated_executors()
+
         # Generate all reports
         executors_report = self.get_executors_report()
         positions_report = self.get_positions_report()
 
         # Get all controller IDs
         all_controller_ids = set(list(self.active_executors.keys()) +
+                                 list(self.recently_terminated_executors.keys()) +
                                  list(self.positions_held.keys()) +
                                  list(self.cached_performance.keys()))
 

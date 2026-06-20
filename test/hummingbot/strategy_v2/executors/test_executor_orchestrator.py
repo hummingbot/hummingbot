@@ -1055,3 +1055,177 @@ class TestExecutorOrchestrator(unittest.TestCase):
         self.assertEqual(len(result["controller2"]["executors"]), 0)
         self.assertEqual(len(result["controller3"]["executors"]), 0)
         self.assertEqual(len(result["controller3"]["positions"]), 0)
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_auto_store_terminated_executors_on_get_all_reports(self, markets_recorder_mock):
+        """Test that terminated executors are automatically stored to DB when get_all_reports is called (Issue #8042)."""
+        mock_recorder = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.return_value = mock_recorder
+
+        # Create a terminated executor with STOP_LOSS close type
+        config = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config.id = "terminated_executor_1"
+
+        executor = MagicMock(spec=PositionExecutor)
+        executor.status = RunnableStatus.TERMINATED
+        executor.close_type = CloseType.STOP_LOSS
+        executor.executor_info = ExecutorInfo(
+            id="terminated_executor_1", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=Decimal(1000), net_pnl_quote=Decimal(-50), net_pnl_pct=Decimal(-5),
+            cum_fees_quote=Decimal(5), is_trading=False, is_active=False,
+            custom_info={},
+            close_type=CloseType.STOP_LOSS,
+        )
+        executor.config = config
+
+        # Set up orchestrator
+        self.orchestrator.active_executors = {"test_controller": [executor]}
+        self.orchestrator.positions_held = {"test_controller": []}
+        self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
+
+        # Call get_all_reports which should auto-store the terminated executor
+        self.orchestrator.get_all_reports()
+
+        # Verify executor was stored to database
+        mock_recorder.store_or_update_executor.assert_called_once_with(executor)
+
+        # Verify executor was removed from active_executors
+        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
+
+        # Verify executor was moved to recently_terminated_executors deque
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 1)
+        self.assertIs(self.orchestrator.recently_terminated_executors["test_controller"][0], executor)
+
+        # Verify cached performance was updated
+        self.assertEqual(self.orchestrator.cached_performance["test_controller"].realized_pnl_quote, Decimal(-50))
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_auto_store_includes_position_hold_executors(self, markets_recorder_mock):
+        """Test that POSITION_HOLD executors ARE auto-stored to the database (Issue #8042)."""
+        mock_recorder = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.return_value = mock_recorder
+
+        config = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config.id = "position_hold_executor"
+
+        executor = MagicMock(spec=PositionExecutor)
+        executor.status = RunnableStatus.TERMINATED
+        executor.close_type = CloseType.POSITION_HOLD
+        executor.executor_info = ExecutorInfo(
+            id="position_hold_executor", timestamp=1234, type="position_executor",
+            status=RunnableStatus.TERMINATED, config=config,
+            filled_amount_quote=Decimal(1000), net_pnl_quote=Decimal(50), net_pnl_pct=Decimal(5),
+            cum_fees_quote=Decimal(5), is_trading=False, is_active=False,
+            custom_info={"held_position_orders": [
+                {"client_order_id": "order_1", "executed_amount_base": Decimal("5"),
+                 "executed_amount_quote": Decimal("1000"), "trade_type": "BUY",
+                 "cumulative_fee_paid_quote": Decimal("5")}
+            ]},
+            close_type=CloseType.POSITION_HOLD,
+        )
+        executor.config = config
+
+        self.orchestrator.active_executors = {"test_controller": [executor]}
+        self.orchestrator.positions_held = {"test_controller": []}
+        self.orchestrator.executors_ids_position_held = []
+        self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
+
+        self.orchestrator._auto_store_terminated_executors()
+
+        # Verify executor WAS stored
+        mock_recorder.store_or_update_executor.assert_called_once_with(executor)
+
+        # Verify executor was removed from active and moved to deque
+        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 1)
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_auto_store_skips_active_executors(self, markets_recorder_mock):
+        """Test that still-active (RUNNING) executors are not auto-stored (Issue #8042)."""
+        mock_recorder = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.return_value = mock_recorder
+
+        config = PositionExecutorConfig(
+            timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+            side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+        )
+        config.id = "running_executor"
+
+        executor = MagicMock(spec=PositionExecutor)
+        executor.status = RunnableStatus.RUNNING
+        executor.close_type = None
+        executor.executor_info = ExecutorInfo(
+            id="running_executor", timestamp=1234, type="position_executor",
+            status=RunnableStatus.RUNNING, config=config,
+            filled_amount_quote=Decimal(0), net_pnl_quote=Decimal(0), net_pnl_pct=Decimal(0),
+            cum_fees_quote=Decimal(0), is_trading=True, is_active=True,
+            custom_info={},
+            close_type=None,
+        )
+        executor.config = config
+
+        self.orchestrator.active_executors = {"test_controller": [executor]}
+        self.orchestrator.positions_held = {"test_controller": []}
+        self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
+
+        # Call _auto_store_terminated_executors
+        self.orchestrator._auto_store_terminated_executors()
+
+        # Verify executor was NOT stored (still active)
+        mock_recorder.store_or_update_executor.assert_not_called()
+
+        # Verify executor is still in active_executors
+        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 1)
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_auto_store_multiple_terminated_executors(self, markets_recorder_mock):
+        """Test that multiple terminated executors with different close types are all stored (Issue #8042)."""
+        mock_recorder = MagicMock(spec=MarketsRecorder)
+        markets_recorder_mock.return_value = mock_recorder
+
+        executors = []
+        for close_type, eid in [(CloseType.STOP_LOSS, "sl_exec"), (CloseType.TAKE_PROFIT, "tp_exec"),
+                                (CloseType.TIME_LIMIT, "tl_exec")]:
+            config = PositionExecutorConfig(
+                timestamp=1234, trading_pair="ETH-USDT", connector_name="binance",
+                side=TradeType.BUY, amount=Decimal(10), entry_price=Decimal(100),
+            )
+            config.id = eid
+            executor = MagicMock(spec=PositionExecutor)
+            executor.status = RunnableStatus.TERMINATED
+            executor.close_type = close_type
+            executor.executor_info = ExecutorInfo(
+                id=eid, timestamp=1234, type="position_executor",
+                status=RunnableStatus.TERMINATED, config=config,
+                filled_amount_quote=Decimal(100), net_pnl_quote=Decimal(10), net_pnl_pct=Decimal(1),
+                cum_fees_quote=Decimal(1), is_trading=False, is_active=False,
+                custom_info={},
+                close_type=close_type,
+            )
+            executor.config = config
+            executors.append(executor)
+
+        self.orchestrator.active_executors = {"test_controller": list(executors)}
+        self.orchestrator.positions_held = {"test_controller": []}
+        self.orchestrator.cached_performance = {"test_controller": PerformanceReport()}
+
+        self.orchestrator._auto_store_terminated_executors()
+
+        # All 3 should be stored
+        self.assertEqual(mock_recorder.store_or_update_executor.call_count, 3)
+
+        # All 3 should be removed from active
+        self.assertEqual(len(self.orchestrator.active_executors["test_controller"]), 0)
+
+        # All 3 should be in the recently terminated deque
+        self.assertEqual(len(self.orchestrator.recently_terminated_executors["test_controller"]), 3)
+
+        # Cached performance should be updated with all 3
+        self.assertEqual(self.orchestrator.cached_performance["test_controller"].realized_pnl_quote, Decimal(30))
