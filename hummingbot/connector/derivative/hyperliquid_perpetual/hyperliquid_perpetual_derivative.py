@@ -541,9 +541,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
-        hex_order_id = f"0x{md5.hexdigest()}"
+        hasher = hashlib.sha256()
+        hasher.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{hasher.hexdigest()}"
         if order_type is OrderType.MARKET:
             reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 + CONSTANTS.MARKET_ORDER_SLIPPAGE))
@@ -578,9 +578,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        md5 = hashlib.md5()
-        md5.update(order_id.encode('utf-8'))
-        hex_order_id = f"0x{md5.hexdigest()}"
+        hasher = hashlib.sha256()
+        hasher.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{hasher.hexdigest()}"
         if order_type is OrderType.MARKET:
             reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
             price = self.quantize_order_price(trading_pair, reference_price * Decimal(1 - CONSTANTS.MARKET_ORDER_SLIPPAGE))
