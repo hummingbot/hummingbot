@@ -329,6 +329,10 @@ class CandlesBase(NetworkBase):
         """
         while not self.ready:
             await self._ws_candle_available.wait()
+            # WS disconnect can clear _candles without clearing _ws_candle_available; avoid IndexError on [0].
+            if len(self._candles) == 0:
+                self._ws_candle_available.clear()
+                continue
             try:
                 if len(self._candles) == 0:
                     continue
@@ -482,6 +486,7 @@ class CandlesBase(NetworkBase):
             self._fill_candles_task = None
         self._ws_candle_available.clear()
         self._candles.clear()
+        self._ws_candle_available.clear()
 
     def get_seconds_from_interval(self, interval: str) -> int:
         """
