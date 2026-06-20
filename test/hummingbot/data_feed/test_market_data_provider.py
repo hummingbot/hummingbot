@@ -795,3 +795,91 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             # Verify cache update was called with limited size
             append_calls = mock_feed._candles.append.call_count
             self.assertLessEqual(append_calls, 80)
+
+    # ---------------------------------------------------------------------------
+    # Regression tests for https://github.com/hummingbot/hummingbot/issues/8186
+    # Gateway CEX namespace false-positive errors
+    # ---------------------------------------------------------------------------
+
+    @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_cex_with_chain_prefix_not_routed_to_gateway(
+            self, mock_gateway_client, mock_rate_oracle):
+        """
+        Regression test for #8186.
+
+        A CEX connector whose name starts with a known chain prefix (e.g.
+        'solana_paper_trade' starts with 'solana') must NOT be routed to the
+        Gateway.  Before the fix, update_rates_task() would call
+        get_default_swap_provider('solana_paper_trade'), which raised a
+        'Namespace not found' error because paper-trade connectors are not
+        registered in the Gateway.
+
+        After the fix, the AllConnectorSettings guard detects that the connector
+        does not use_gateway_generic_connector() and sets is_gateway_network=False,
+        so get_default_swap_provider is never called.
+        """
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+
+        mock_oracle_instance = MagicMock()
+        mock_rate_oracle.return_value = mock_oracle_instance
+
+        # Simulate a CEX connector whose name coincidentally starts with a chain
+        # prefix — this is the exact scenario from issue #8186.
+        cex_connector_name = "solana_paper_trade"
+
+        # Build a fake connector settings object: known to settings but is CEX
+        mock_cex_settings = MagicMock()
+        mock_cex_settings.uses_gateway_generic_connector.return_value = False
+
+        # Patch conn_settings on the provider instance
+        self.provider.conn_settings = {cex_connector_name: mock_cex_settings}
+
+        connector_pair = ConnectorPair(connector_name=cex_connector_name, trading_pair="BTC-USDT")
+        self.provider._rates_required.add_or_update(cex_connector_name, connector_pair)
+        self.provider._rate_sources = {cex_connector_name: AsyncMock()}
+
+        with patch.object(self.provider, '_safe_get_last_traded_prices',
+                          return_value={"BTC-USDT": Decimal("50000")}):
+            with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
+                with self.assertRaises(asyncio.CancelledError):
+                    await self.provider.update_rates_task()
+
+        # The gateway client must NEVER be queried for a CEX connector
+        mock_gateway_instance.get_default_swap_provider.assert_not_called()
+        # But the CEX price path should still run
+        mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
+
+    @patch('hummingbot.core.rate_oracle.rate_oracle.RateOracle.get_instance')
+    @patch('hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
+    async def test_update_rates_task_true_gateway_connector_still_routed_correctly(
+            self, mock_gateway_client, mock_rate_oracle):
+        """
+        Guard against regression: a genuine Gateway connector (uses_gateway_generic_connector
+        returns True) must still be routed to the Gateway path after the fix.
+        """
+        mock_gateway_instance = AsyncMock()
+        mock_gateway_client.return_value = mock_gateway_instance
+        mock_gateway_instance.get_default_swap_provider.return_value = "uniswap/router"
+        mock_gateway_instance.get_price.return_value = {"price": "50000"}
+
+        mock_oracle_instance = MagicMock()
+        mock_rate_oracle.return_value = mock_oracle_instance
+
+        gateway_connector_name = "ethereum-mainnet"
+
+        mock_gateway_settings = MagicMock()
+        mock_gateway_settings.uses_gateway_generic_connector.return_value = True
+
+        self.provider.conn_settings = {gateway_connector_name: mock_gateway_settings}
+
+        connector_pair = ConnectorPair(connector_name=gateway_connector_name, trading_pair="ETH-USDT")
+        self.provider._rates_required.add_or_update(gateway_connector_name, connector_pair)
+
+        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.provider.update_rates_task()
+
+        # Gateway path must be used for a genuine gateway connector
+        mock_gateway_instance.get_default_swap_provider.assert_called_once_with(gateway_connector_name)
