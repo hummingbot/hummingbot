@@ -35,6 +35,12 @@ class DCAExecutor(ExecutorBase):
         # validate amounts and prices
         if len(config.amounts_quote) != len(config.prices):
             raise ValueError("Amounts and prices lists must have the same length")
+        if not config.amounts_quote:
+            raise ValueError("DCA executor must define at least one order level")
+        if any(amount <= Decimal("0") for amount in config.amounts_quote):
+            raise ValueError("DCA amounts_quote values must be greater than zero")
+        if any(price <= Decimal("0") for price in config.prices):
+            raise ValueError("DCA price values must be greater than zero")
 
         # Initialize super class
         super().__init__(strategy=strategy, connectors=[config.connector_name], config=config,
