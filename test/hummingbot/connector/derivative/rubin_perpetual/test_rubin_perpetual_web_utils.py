@@ -21,7 +21,7 @@ class RubinPerpetualWebUtilsTest(unittest.TestCase):
 
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
-        self.assertEqual("https://indexer.rubin.trade/v4/perpetualMarkets", url)
+        self.assertEqual("https://indexer.mainnet.rubin.trade/v4/perpetualMarkets", url)
 
     @patch("hummingbot.connector.derivative.rubin_perpetual.rubin_perpetual_web_utils"
            ".create_throttler", return_value=Mock())

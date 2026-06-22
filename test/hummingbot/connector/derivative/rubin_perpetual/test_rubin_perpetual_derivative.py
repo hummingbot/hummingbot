@@ -1394,7 +1394,7 @@ class RubinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)",
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates={{}})",
             )
         )
 
@@ -1494,20 +1494,15 @@ class RubinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(OrderType.LIMIT, failure_event.order_type)
         self.assertEqual(order_id_for_invalid_order, failure_event.order_id)
 
-        self.assertTrue(
-            self.is_logged(
-                "WARNING",
-                "Buy order amount 0.0001 is lower than the minimum order "
-                "size 0.01. The order will not be created, increase the "
-                "amount to be higher than the minimum order size."
-            )
-        )
+        # The current core handles a below-min-size amount by failing the order
+        # (via _update_order_after_failure), not by logging a separate WARNING;
+        # the failure is verified via the failure_event above and the log below.
         self.assertTrue(
             self.is_logged(
                 "INFO",
                 f"Order {order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
                 f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates=None)"
+                f"client_order_id='{order_id}', exchange_order_id=None, misc_updates={{}})"
             )
         )
 

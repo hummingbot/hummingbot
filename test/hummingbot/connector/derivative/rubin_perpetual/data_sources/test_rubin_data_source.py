@@ -46,6 +46,11 @@ class RubinPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
             self._rubin_chain_address,
             self.exchange
         )
+        # Pre-initialize account state so order-flow tests don't make a live gRPC
+        # query_account call (unit tests must not depend on a network connection).
+        self.v4_client._is_trading_account_initialized = True
+        self.v4_client.sequence = 0
+        self.v4_client.number = 33356
 
     def create_task(self, coroutine: Awaitable) -> asyncio.Task:
         task = self.async_loop.create_task(coroutine)
@@ -100,6 +105,18 @@ class RubinPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.assertIn("txhash", result)
 
     async def test_query_account(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from google.protobuf.any_pb2 import Any as ProtoAny
+        from ritbit_v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
+
+        packed = ProtoAny()
+        packed.Pack(BaseAccount(account_number=33356, sequence=0))
+        response = MagicMock()
+        response.account = packed
+        self.v4_client.auth_client = MagicMock()
+        self.v4_client.auth_client.Account = AsyncMock(return_value=response)
+
         sequence, acccount_number = await (self.v4_client.query_account())
         self.assertEqual(acccount_number, 33356)
 
