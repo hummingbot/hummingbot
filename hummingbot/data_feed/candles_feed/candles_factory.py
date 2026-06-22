@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, Dict, Optional, Type
 
-from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.data_feed.candles_feed.aevo_perpetual_candles import AevoPerpetualCandles
 from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.backpack_perpetual_candles import BackpackPerpetualCandles
@@ -92,28 +91,24 @@ class CandlesFactory:
     }
 
     @classmethod
-    def get_candle(cls, candles_config: CandlesConfig, throttler: Optional[AsyncThrottlerBase] = None,
+    def get_candle(cls, candles_config: CandlesConfig,
                    connector: Optional["ConnectorBase"] = None) -> CandlesBase:
         """
         Returns a Candle object based on the specified configuration.
 
         :param candles_config: CandlesConfig
-        :param throttler: Optional throttler to reuse (e.g. the connector's), so candle REST traffic
-            shares a single rate-limit budget with the connector. When ``None`` the feed creates its
-            own throttler, preserving standalone behaviour.
-        :param connector: Optional backing connector (same exchange). When provided, the feed reuses
-            the connector's public symbol map and cached exchange-data instead of fetching them
-            itself. When ``None`` the feed keeps its standalone symbol/init-data logic.
+        :param connector: Optional backing connector (same exchange). When provided, the feed shares
+            the connector's rate-limit budget (its throttler) and reuses the connector's public
+            symbol map and cached exchange-data instead of fetching them itself. When ``None`` the
+            feed keeps its standalone behaviour (own throttler, own symbol/init-data logic).
         :return: Instance of CandleBase or its subclass.
         :raises UnsupportedConnectorException: If the connector is not supported.
         """
         connector_class = cls._candles_map.get(candles_config.connector)
         if connector_class:
             candle = connector_class(candles_config.trading_pair, candles_config.interval, candles_config.max_records)
-            if throttler is not None:
-                candle.use_shared_throttler(throttler)
             if connector is not None:
-                candle.use_connector(connector)
+                candle.attach_connector(connector)
             return candle
         else:
             raise UnsupportedConnectorException(candles_config.connector)

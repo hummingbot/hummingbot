@@ -196,7 +196,8 @@ class TestLighterPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         connector.market_info_for_trading_pair = MagicMock(return_value=MagicMock(market_id=7))
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         with patch.object(
             self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
         ) as mock_rest:
@@ -212,7 +213,8 @@ class TestLighterPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=KeyError(self.trading_pair))
         connector.market_info_for_trading_pair = MagicMock(side_effect=ValueError("unknown pair"))
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         order_book_details_url = (
             f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}"
         )

@@ -133,7 +133,8 @@ class TestBitmartPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         connector.get_contract_size = MagicMock(return_value=Decimal("0.001"))
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         with patch.object(
             self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
         ) as mock_rest:
@@ -150,7 +151,8 @@ class TestBitmartPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         connector.get_contract_size = MagicMock(return_value=None)
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         regex_url = re.compile(
             f"^{CONSTANTS.REST_URL}{CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)}".replace(
                 "?", r"\?"))

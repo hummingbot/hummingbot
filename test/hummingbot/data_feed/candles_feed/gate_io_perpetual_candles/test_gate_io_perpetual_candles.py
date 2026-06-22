@@ -148,7 +148,8 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         connector.trading_rules = {self.trading_pair: MagicMock(min_base_amount_increment=0.0001)}
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         with patch.object(
             self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
         ) as mock_rest:
@@ -164,7 +165,8 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         connector = MagicMock()
         connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         connector.trading_rules = {}
-        self.data_feed.use_connector(connector)
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
         regex_url = re.compile(f"^{CONSTANTS.REST_URL}{CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)}")
         mock_api.get(url=regex_url, body=json.dumps({"quanto_multiplier": "0.0005"}))
         await self.data_feed.initialize_exchange_data()

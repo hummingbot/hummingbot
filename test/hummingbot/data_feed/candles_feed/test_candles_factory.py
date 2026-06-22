@@ -1,6 +1,7 @@
 import importlib
 import os
 import unittest
+from types import SimpleNamespace
 
 import hummingbot.data_feed.candles_feed as candles_feed_pkg
 from hummingbot.connector.exchange.binance import binance_constants
@@ -41,8 +42,8 @@ class TestCandlesFactory(unittest.TestCase):
                 interval="1m"
             ))
 
-    def test_get_candle_without_throttler_creates_own(self):
-        # Standalone behaviour: no throttler passed -> the feed builds its own AsyncThrottler.
+    def test_get_candle_without_connector_creates_own_throttler(self):
+        # Standalone behaviour: no connector passed -> the feed builds its own AsyncThrottler.
         candles = CandlesFactory.get_candle(CandlesConfig(
             connector="binance",
             trading_pair="BTC-USDT",
@@ -51,13 +52,14 @@ class TestCandlesFactory(unittest.TestCase):
         self.assertIsInstance(candles._api_factory._throttler, AsyncThrottler)
         candles.stop()
 
-    def test_get_candle_with_shared_throttler_is_reused(self):
-        # When a throttler is injected the feed reuses that exact instance (shared rate-limit budget)
-        # and registers its own limit ids on it without overwriting the existing ones.
+    def test_get_candle_with_connector_reuses_its_throttler(self):
+        # When a backing connector is injected the feed reuses the connector's throttler (shared
+        # rate-limit budget) and registers its own limit ids on it without overwriting existing ones.
         shared_throttler = AsyncThrottler(rate_limits=[])
+        connector = SimpleNamespace(throttler=shared_throttler)
         candles = CandlesFactory.get_candle(
             CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m"),
-            throttler=shared_throttler,
+            connector=connector,
         )
         self.assertIsInstance(candles, BinanceSpotCandles)
         # Same throttler instance is used by the feed's request factory.
@@ -93,9 +95,10 @@ class TestCandlesFactory(unittest.TestCase):
         # consume from the connector's existing pool (same RateLimit object -> single shared budget).
         connector_throttler = AsyncThrottler(rate_limits=list(binance_constants.RATE_LIMITS))
         connector_pool = connector_throttler._id_to_limit_map[binance_constants.REQUEST_WEIGHT]
+        connector = SimpleNamespace(throttler=connector_throttler)
         candles = CandlesFactory.get_candle(
             CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m"),
-            throttler=connector_throttler,
+            connector=connector,
         )
         _rate_limit, related = connector_throttler.get_related_limits(binance_spot_constants.CANDLES_ENDPOINT)
         # The klines endpoint links to the connector's REQUEST_WEIGHT pool, and it is the very same

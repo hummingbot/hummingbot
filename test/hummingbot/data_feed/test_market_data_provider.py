@@ -796,55 +796,6 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             append_calls = mock_feed._candles.append.call_count
             self.assertLessEqual(append_calls, 80)
 
-    def test_get_shared_throttler_returns_existing_connector_throttler(self):
-        # A connector already present in self.connectors -> its throttler is reused.
-        throttler = MagicMock()
-        connector = MagicMock()
-        connector.throttler = throttler
-        self.provider.connectors = {"binance": connector}
-        self.assertIs(self.provider._get_shared_throttler("binance"), throttler)
-
-    def test_get_shared_throttler_none_when_no_connector(self):
-        # No trading connector and nothing materialised in the non-trading cache -> None, so the feed
-        # keeps its own throttler. Covers the "candles of an exchange where I don't trade" case and
-        # connectors without a ConnectorBase (e.g. mexc_perpetual).
-        self.assertEqual(len(self.provider._non_trading_connectors), 0)
-        self.assertIsNone(self.provider._get_shared_throttler("mexc_perpetual"))
-        self.assertIsNone(self.provider._get_shared_throttler("binance"))
-
-    def test_get_shared_throttler_does_not_materialize_non_trading_connector(self):
-        # _non_trading_connectors is a LazyDict: only membership (`in`) is checked, so asking for the
-        # throttler of an exchange we don't trade must NOT force-create a connector.
-        self.provider.connectors = {}
-        result = self.provider._get_shared_throttler("binance")
-        self.assertIsNone(result)
-        self.assertNotIn("binance", self.provider._non_trading_connectors)
-        self.assertEqual(len(self.provider._non_trading_connectors), 0)
-
-    def test_get_shared_throttler_reuses_already_created_non_trading_connector(self):
-        # If a non-trading connector was already created elsewhere, its throttler is reused without
-        # re-materialising it.
-        throttler = MagicMock()
-        non_trading_connector = MagicMock()
-        non_trading_connector.throttler = throttler
-        self.provider.connectors = {}
-        self.provider._non_trading_connectors["binance"] = non_trading_connector
-        self.assertIs(self.provider._get_shared_throttler("binance"), throttler)
-
-    def test_get_candles_feed_passes_shared_throttler(self):
-        # get_candles_feed wires the connector's throttler AND the connector itself into the factory.
-        throttler = MagicMock()
-        connector = MagicMock()
-        connector.throttler = throttler
-        self.provider.connectors = {"binance": connector}
-        with patch(
-            "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle"
-        ) as mock_get_candle:
-            mock_get_candle.return_value = MagicMock()
-            config = CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
-            self.provider.get_candles_feed(config)
-            mock_get_candle.assert_called_once_with(config, throttler=throttler, connector=connector)
-
     def test_get_shared_connector_returns_existing_trading_connector(self):
         # A connector already present in self.connectors is returned for reuse (symbol map / data).
         connector = MagicMock()
@@ -866,11 +817,9 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(len(self.provider._non_trading_connectors), 0)
 
     def test_get_candles_feed_passes_connector(self):
-        # get_candles_feed wires the existing connector into the factory so the feed can reuse its
-        # symbol map and cached exchange-data.
-        throttler = MagicMock()
+        # get_candles_feed wires the existing connector into the factory so the feed shares its
+        # throttler and reuses its symbol map and cached exchange-data.
         connector = MagicMock()
-        connector.throttler = throttler
         self.provider.connectors = {"binance": connector}
         with patch(
             "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle"
@@ -878,11 +827,10 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             mock_get_candle.return_value = MagicMock()
             config = CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
             self.provider.get_candles_feed(config)
-            _, kwargs = mock_get_candle.call_args
-            self.assertIs(kwargs["connector"], connector)
+            mock_get_candle.assert_called_once_with(config, connector=connector)
 
     def test_get_candles_feed_no_connector_passes_none(self):
-        # No connector present -> both throttler and connector are None (standalone behaviour).
+        # No connector present -> connector is None (standalone behaviour).
         self.provider.connectors = {}
         with patch(
             "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle"
@@ -890,4 +838,4 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             mock_get_candle.return_value = MagicMock()
             config = CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
             self.provider.get_candles_feed(config)
-            mock_get_candle.assert_called_once_with(config, throttler=None, connector=None)
+            mock_get_candle.assert_called_once_with(config, connector=None)

@@ -9,7 +9,6 @@ import pandas as pd
 from bidict import bidict
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -61,7 +60,7 @@ class CandlesBase(NetworkBase):
         self._trading_pair = trading_pair
         # Optional reference to the backing connector (same exchange). When present, the feed reuses
         # the connector's public symbol map and cached exchange-data instead of fetching them itself.
-        # Set post-construction via use_connector(); None keeps the standalone behaviour untouched.
+        # Set post-construction via attach_connector(); None keeps the standalone behaviour untouched.
         self._connector: Optional["ConnectorBase"] = None
         # Synchronous fallback resolution; re-resolved through the connector (when present) lazily in
         # initialize_exchange_data() so subclasses still see a populated value at construction time.
@@ -76,34 +75,32 @@ class CandlesBase(NetworkBase):
                 f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
 
-    def use_shared_throttler(self, throttler: AsyncThrottlerBase):
+    def attach_connector(self, connector: "ConnectorBase"):
         """
-        Replaces this feed's own throttler with a shared one (typically the connector's), so that
-        candle REST traffic and the connector's REST traffic are accounted against a single
-        rate-limit budget when both target the same exchange.
+        Wires this feed to a backing connector for the same exchange. The feed then:
+          - shares the connector's rate-limit budget (its throttler), so candle and connector REST
+            traffic are accounted against a single pool instead of two when both target the same
+            exchange; and
+          - reuses the connector's public symbol map and already-cached exchange-data instead of
+            fetching them itself, removing a redundant network call per feed.
 
-        The feed's own rate limits are registered on the shared throttler with ``add_rate_limits``,
-        which is additive and skips ids already present: the connector's pool definitions are
-        preserved while the candle endpoints are registered (without this, candle requests would not
-        be throttled at all on the shared throttler). Safe to call once right after construction.
+        Throttler sharing registers the feed's own rate limits on the connector's throttler with
+        ``add_rate_limits``, which is additive and skips ids already present: the connector's pool
+        definitions are preserved while the candle endpoints are registered (without this, candle
+        requests would not be throttled at all on the shared throttler).
 
-        :param throttler: The throttler instance to reuse for this feed's requests.
-        """
-        throttler.add_rate_limits(self.rate_limits)
-        self._api_factory = WebAssistantsFactory(throttler=throttler)
-
-    def use_connector(self, connector: "ConnectorBase"):
-        """
-        Attaches the backing connector (same exchange) so the feed can reuse the connector's public
-        symbol map and already-cached exchange-data instead of fetching them itself, removing a
-        redundant network call per feed. Wired post-construction by ``CandlesFactory.get_candle`` /
-        ``MarketDataProvider`` when the same exchange is already present.
-
-        With no connector attached the feed keeps its standalone behaviour: it resolves the symbol
-        with ``get_exchange_trading_pair`` and runs its own ``_initialize_exchange_data`` fetch.
+        Degrades gracefully: if the connector exposes no throttler (e.g. a Gateway connector), the
+        feed keeps its own; symbol/exchange-data reuse falls back to the standalone path
+        (``get_exchange_trading_pair`` + the feed's own ``_initialize_exchange_data`` fetch). Wired
+        post-construction by ``CandlesFactory.get_candle`` / ``MarketDataProvider`` when the same
+        exchange is already present. Safe to call once right after construction.
 
         :param connector: The ConnectorBase instance backing this feed's exchange.
         """
+        throttler = getattr(connector, "throttler", None)
+        if throttler is not None:
+            throttler.add_rate_limits(self.rate_limits)
+            self._api_factory = WebAssistantsFactory(throttler=throttler)
         self._connector = connector
 
     async def _resolve_exchange_symbol(self) -> str:
