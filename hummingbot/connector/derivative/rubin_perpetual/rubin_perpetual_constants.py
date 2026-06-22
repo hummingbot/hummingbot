@@ -24,12 +24,11 @@ MAX_ID_BIT_COUNT = 31
 
 # data_source grpc
 RUBIN_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-# TODO(rubin): confirm the public MAINNET gRPC validator endpoint
-# (testnet exposes grpc.testnet.rubin.trade; mainnet host assumed by analogy).
+# Rubin mainnet gRPC validator endpoint (confirmed). Testnet: grpc.testnet.rubin.trade:443.
 RUBIN_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
 RUBIN_QUERY_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
 CHAIN_ID = 'ritbit-mainnet-1'
-# TODO(rubin): confirm native fee denom (chain token is urit / micro-rit)
+# Native chain-token denom: urit (micro-RIT).
 FEE_DENOMINATION = "urit"
 TX_FEE = 0
 TX_GAS_LIMIT = 0
