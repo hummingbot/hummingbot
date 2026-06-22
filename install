@@ -19,17 +19,23 @@ fi
 CONDA_BIN=$(dirname ${CONDA_EXE})
 ENV_FILE_1="setup/environment.yml"
 ENV_FILE_2="setup/environment_dydx.yml"
+ENV_FILE_3="setup/environment_rubin.yml"
 
 # The default is ENV_FILE_1
 ENV_FILE=$ENV_FILE_1
 
 # Parse command line arguments
 USE_DYDX=false
+USE_RUBIN=false
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         --dydx)
         USE_DYDX=true
+        shift
+        ;;
+        --rubin)
+        USE_RUBIN=true
         shift
         ;;
         *)
@@ -43,6 +49,11 @@ done
 if [ "$USE_DYDX" = true ]; then
     ENV_FILE=$ENV_FILE_2
     echo "install dydx version."
+fi
+
+if [ "$USE_RUBIN" = true ]; then
+    ENV_FILE=$ENV_FILE_3
+    echo "install rubin version."
 fi
 
 if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then

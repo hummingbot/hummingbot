@@ -5,19 +5,19 @@ from typing import Optional, Tuple
 import certifi
 import grpc
 from google.protobuf import json_format, message as _message
-from v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
-from v4_proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
-from v4_proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
-from v4_proto.cosmos.bank.v1beta1 import query_pb2_grpc as bank_query_grpc
-from v4_proto.cosmos.base.tendermint.v1beta1 import (
+from ritbit_v4_proto.cosmos.auth.v1beta1.auth_pb2 import BaseAccount
+from ritbit_v4_proto.cosmos.auth.v1beta1.query_pb2 import QueryAccountRequest
+from ritbit_v4_proto.cosmos.auth.v1beta1.query_pb2_grpc import QueryStub as AuthGrpcClient
+from ritbit_v4_proto.cosmos.bank.v1beta1 import query_pb2_grpc as bank_query_grpc
+from ritbit_v4_proto.cosmos.base.tendermint.v1beta1 import (
     query_pb2 as tendermint_query,
     query_pb2_grpc as tendermint_query_grpc,
 )
-from v4_proto.cosmos.tx.v1beta1.service_pb2 import BroadcastMode, BroadcastTxRequest
-from v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
-from v4_proto.ritbit.clob.order_pb2 import Order, OrderId
-from v4_proto.ritbit.clob.tx_pb2 import MsgCancelOrder, MsgPlaceOrder
-from v4_proto.ritbit.subaccounts.subaccount_pb2 import SubaccountId
+from ritbit_v4_proto.cosmos.tx.v1beta1.service_pb2 import BroadcastMode, BroadcastTxRequest
+from ritbit_v4_proto.cosmos.tx.v1beta1.service_pb2_grpc import ServiceStub as TxGrpcClient
+from ritbit_v4_proto.ritbit.clob.order_pb2 import Order, OrderId
+from ritbit_v4_proto.ritbit.clob.tx_pb2 import MsgCancelOrder, MsgPlaceOrder
+from ritbit_v4_proto.ritbit.subaccounts.subaccount_pb2 import SubaccountId
 
 from hummingbot.connector.derivative.rubin_perpetual import rubin_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.rubin_perpetual.data_sources.keypairs import PrivateKey

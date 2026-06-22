@@ -2,9 +2,13 @@
 .PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down
 
 DYDX ?= 0
+RUBIN ?= 0
 ENV_FILE := setup/environment.yml
 ifeq ($(DYDX),1)
   ENV_FILE := setup/environment_dydx.yml
+endif
+ifeq ($(RUBIN),1)
+  ENV_FILE := setup/environment_rubin.yml
 endif
 
 test:
@@ -12,6 +16,7 @@ test:
  	--ignore="test/mock" \
  	--ignore="test/hummingbot/connector/exchange/ndax/" \
  	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
+ 	--ignore="test/hummingbot/connector/derivative/rubin_perpetual/" \
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \
  	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
