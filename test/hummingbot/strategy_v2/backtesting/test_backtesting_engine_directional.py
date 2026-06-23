@@ -5,6 +5,7 @@ with historical candle data fetched from binance_perpetual.
 import time
 import unittest
 
+from hummingbot.core.web_assistant.connections.connections_factory import ConnectionsFactory
 from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase
 
 
@@ -13,6 +14,20 @@ class TestBacktestingEngineDirectional(unittest.IsolatedAsyncioTestCase):
     TRADING_PAIR = "ETH-USDT"
     BACKTEST_DAYS = 3
     BACKTESTING_RESOLUTION = "1m"
+
+    async def asyncSetUp(self):
+        # ConnectionsFactory is a process-wide singleton whose aiohttp session is bound
+        # to the event loop that first created it. IsolatedAsyncioTestCase gives each test
+        # its own loop, so a session leaked by an earlier test points at a now-closed loop
+        # and raises "Event loop is closed" when this test reuses it. Drop any stale session
+        # so a fresh one is created on this test's loop.
+        factory = ConnectionsFactory()
+        factory._shared_client = None
+        factory._ws_independent_session = None
+
+    async def asyncTearDown(self):
+        # Close the session opened on this loop so it isn't leaked to later tests.
+        await ConnectionsFactory().close()
 
     @classmethod
     def _build_config(cls, time_limit=2700):
