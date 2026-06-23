@@ -8,11 +8,19 @@ REST_SUBDOMAIN = "api"
 WSS_SUBDOMAIN = "ws"
 DEFAULT_TIME_IN_FORCE = "gtc"
 
+# UTA (Unified Trading Account, V3 API). The spot connector trades the "SPOT" category of the
+# unified account. REST requests use the upper-case category ("SPOT"). V3 websocket subscriptions
+# use {instType, topic, symbol}: public subscriptions use the lower-case product type ("spot"),
+# while private (account) subscriptions use the "UTA" instType.
+CATEGORY = "SPOT"
+INST_TYPE_PUBLIC = "spot"
+INST_TYPE_UTA = "UTA"
+
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
 
-WSS_PUBLIC_ENDPOINT = "/v2/ws/public"
-WSS_PRIVATE_ENDPOINT = "/v2/ws/private"
+WSS_PUBLIC_ENDPOINT = "/v3/ws/public"
+WSS_PRIVATE_ENDPOINT = "/v3/ws/private"
 
 TRADE_TYPES = {
     TradeType.BUY: "buy",
@@ -22,36 +30,45 @@ ORDER_TYPES = {
     OrderType.LIMIT: "limit",
     OrderType.MARKET: "market",
 }
+# V3 UTA order status strings (field "orderStatus"). "live"/"new" -> open, "cancelled"/"canceled"
+# are both tolerated since Bitget has used both spellings across API versions.
 STATE_TYPES = {
     "live": OrderState.OPEN,
+    "new": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
+    "partial_fill": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,
+    "canceled": OrderState.CANCELED,
 }
 
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 20
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
-PUBLIC_ORDERBOOK_ENDPOINT = "/api/v2/spot/market/orderbook"
-PUBLIC_SYMBOLS_ENDPOINT = "/api/v2/spot/public/symbols"
-PUBLIC_TICKERS_ENDPOINT = "/api/v2/spot/market/tickers"
-PUBLIC_TIME_ENDPOINT = "/api/v2/public/time"
+# Public (market data) V3 endpoints
+PUBLIC_ORDERBOOK_ENDPOINT = "/api/v3/market/orderbook"
+PUBLIC_SYMBOLS_ENDPOINT = "/api/v3/market/instruments"
+PUBLIC_TICKERS_ENDPOINT = "/api/v3/market/tickers"
+PUBLIC_TIME_ENDPOINT = "/api/v3/public/time"
 
-ASSETS_ENDPOINT = "/api/v2/spot/account/assets"
-CANCEL_ORDER_ENDPOINT = "/api/v2/spot/trade/cancel-order"
-ORDER_INFO_ENDPOINT = "/api/v2/spot/trade/orderInfo"
-PLACE_ORDER_ENDPOINT = "/api/v2/spot/trade/place-order"
-USER_FILLS_ENDPOINT = "/api/v2/spot/trade/fills"
+# Private (account/trade) V3 endpoints
+ASSETS_ENDPOINT = "/api/v3/account/assets"
+FEE_RATE_ENDPOINT = "/api/v3/account/fee-rate"
+CANCEL_ORDER_ENDPOINT = "/api/v3/trade/cancel-order"
+ORDER_INFO_ENDPOINT = "/api/v3/trade/order-info"
+PLACE_ORDER_ENDPOINT = "/api/v3/trade/place-order"
+USER_FILLS_ENDPOINT = "/api/v3/trade/fills"
 
 API_CODE = "bntva"
 
 PUBLIC_WS_BOOKS = "books"
-PUBLIC_WS_TRADE = "trade"
+PUBLIC_WS_TRADE = "publicTrade"
 
 PUBLIC_WS_PING_REQUEST = "ping"
 PUBLIC_WS_PONG_RESPONSE = "pong"
 
-WS_ORDERS_ENDPOINT = "orders"
+# V3 UTA private websocket channels (singular under UTA)
+WS_ORDERS_ENDPOINT = "order"
 WS_ACCOUNT_ENDPOINT = "account"
 WS_FILL_ENDPOINT = "fill"
 
@@ -83,6 +100,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_TIME_ENDPOINT, limit=10, time_interval=1),
 
     RateLimit(limit_id=ASSETS_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=FEE_RATE_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=CANCEL_ORDER_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ORDER_INFO_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PLACE_ORDER_ENDPOINT, limit=10, time_interval=1),

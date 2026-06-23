@@ -169,14 +169,9 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         if not self.trading_pairs:
             return None
         trading_pair = self.trading_pairs[0]
-        product_type = await self.product_type_associated_to_trading_pair(trading_pair)
+        # V3 UTA account settings are account-level (no symbol/productType/marginCoin params).
         account_info_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.ACCOUNT_INFO_ENDPOINT,
-            params={
-                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-                "productType": product_type,
-                "marginCoin": self.get_buy_collateral_token(trading_pair),
-            },
             is_auth_required=True,
         )
         if account_info_response["code"] != CONSTANTS.RET_CODE_OK:
@@ -189,9 +184,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         position_modes = {
             "one_way_mode": PositionMode.ONEWAY,
             "hedge_mode": PositionMode.HEDGE,
+            # V3 holdMode spellings
+            "single_hold": PositionMode.ONEWAY,
+            "double_hold": PositionMode.HEDGE,
         }
 
-        position_mode = position_modes[account_info_response["data"]["posMode"]]
+        # V3 renames posMode -> holdMode in the account settings payload.
+        settings_data = account_info_response["data"]
+        hold_mode = settings_data.get("holdMode", settings_data.get("posMode"))
+        position_mode = position_modes[hold_mode]
         self.logger().info(f"Position mode for {trading_pair}: {position_mode}")
         return position_mode
 
@@ -254,16 +255,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
-        product_type = await self.product_type_associated_to_trading_pair(
-            tracked_order.trading_pair
-        )
+        # V3 UTA cancel-order identifies the order by orderId/clientOid across the unified account.
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_ENDPOINT,
             data={
-                "symbol": symbol,
-                "productType": product_type,
-                "marginCoin": self.get_buy_collateral_token(tracked_order.trading_pair),
                 "orderId": tracked_order.exchange_order_id
             },
             is_auth_required=True,
@@ -291,12 +286,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             MarginMode.CROSS: "crossed",
             MarginMode.ISOLATED: "isolated"
         }
+        # V3 UTA place-order: productType -> category, size -> qty, force -> timeInForce, and the
+        # marginCoin is implicit for the unified account.
         data = {
-            "marginCoin": self.get_buy_collateral_token(trading_pair),
+            "category": product_type,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "productType": product_type,
-            "size": str(amount),
-            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
+            "qty": str(amount),
+            "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
             "side": trade_type.name.lower(),
             "marginMode": margin_modes[self._margin_mode],
@@ -306,9 +302,14 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             data["price"] = str(price)
 
         if self.position_mode is PositionMode.HEDGE:
+            # V3 hedge mode uses posSide (long/short) instead of the V2 tradeSide (open/close).
+            # A close flips the order side and targets the existing position side; reduceOnly is set.
             if position_action is PositionAction.CLOSE:
                 data["side"] = "sell" if trade_type is TradeType.BUY else "buy"
-            data["tradeSide"] = position_action.name.lower()
+                data["reduceOnly"] = "yes"
+                data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
+            else:
+                data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
 
         resp = await self._api_post(
             path_url=CONSTANTS.PLACE_ORDER_ENDPOINT,
@@ -372,19 +373,25 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_info = await self._api_get(
                 path_url=self.trading_rules_request_path,
                 params={
-                    "productType": product_type
+                    "category": product_type
                 }
             )
             symbol_data.extend(exchange_info["data"])
 
         for symbol_details in symbol_data:
-            if bitget_perpetual_utils.is_exchange_information_valid(exchange_info=symbol_details):
+            maker_fee = symbol_details.get("makerFeeRate")
+            taker_fee = symbol_details.get("takerFeeRate")
+            if (
+                bitget_perpetual_utils.is_exchange_information_valid(exchange_info=symbol_details)
+                and maker_fee is not None
+                and taker_fee is not None
+            ):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                     symbol=symbol_details["symbol"]
                 )
                 self._trading_fees[trading_pair] = TradeFeeSchema(
-                    maker_percent_fee_decimal=Decimal(symbol_details["makerFeeRate"]),
-                    taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"])
+                    maker_percent_fee_decimal=Decimal(maker_fee),
+                    taker_percent_fee_decimal=Decimal(taker_fee)
                 )
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -411,67 +418,58 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_balances(self):
         """
-        Calls REST API to update total and available balances
+        Calls REST API to update total and available balances.
+
+        Under the V3 UTA account this is a single /api/v3/account/assets call returning one unified
+        wallet (data.assets[*] = {coin, available, locked, balance, ...}). The legacy per-product-type
+        accounts shape (marginCoin/crossedMaxAvailable/accountEquity + nested assetList) is still
+        parsed as a fallback.
         """
-        balances = []
-        product_types: set[str] = {
-            await self.product_type_associated_to_trading_pair(trading_pair)
-            for trading_pair in self._trading_pairs
-        } or CONSTANTS.ALL_PRODUCT_TYPES
+        accounts_info_response: Dict[str, Any] = await self._api_get(
+            path_url=CONSTANTS.ACCOUNTS_INFO_ENDPOINT,
+            is_auth_required=True,
+        )
 
-        for product_type in product_types:
-            accounts_info_response: Dict[str, Any] = await self._api_get(
-                path_url=CONSTANTS.ACCOUNTS_INFO_ENDPOINT,
-                params={
-                    "productType": product_type
-                },
-                is_auth_required=True,
-            )
-
-            if accounts_info_response["code"] != CONSTANTS.RET_CODE_OK:
-                raise IOError(
-                    self._formatted_error(
-                        accounts_info_response["code"],
-                        accounts_info_response["msg"]
-                    )
+        if accounts_info_response["code"] != CONSTANTS.RET_CODE_OK:
+            raise IOError(
+                self._formatted_error(
+                    accounts_info_response["code"],
+                    accounts_info_response["msg"]
                 )
-
-            balances.extend(accounts_info_response["data"])
+            )
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        for balance_data in balances:
-            quote_asset_name = balance_data["marginCoin"]
-            queried_available = Decimal(balance_data["crossedMaxAvailable"])
-            queried_total = Decimal(balance_data["accountEquity"])
-            current_total = self._account_balances.get(quote_asset_name, Decimal(0))
-            current_available = self._account_available_balances.get(quote_asset_name, Decimal(0))
+        data = accounts_info_response["data"]
 
-            total = current_total + queried_total
-            available = current_available + queried_available
-
-            if total or available:
-                self._account_available_balances[quote_asset_name] = available
-                self._account_balances[quote_asset_name] = total
-
-            if "assetList" in balance_data:
-                for base_asset in balance_data["assetList"]:
-                    base_asset_name = base_asset["coin"]
-                    queried_available = Decimal(base_asset["available"])
-                    queried_total = Decimal(base_asset["balance"])
-                    current_total = self._account_balances.get(base_asset_name, Decimal(0))
-                    current_available = self._account_available_balances.get(
-                        base_asset_name,
-                        Decimal(0)
+        if isinstance(data, dict):
+            for asset in data.get("assets", []):
+                self._accumulate_balance(
+                    asset["coin"],
+                    Decimal(str(asset["available"])),
+                    Decimal(str(asset.get("balance", asset["available"]))),
+                )
+        else:
+            for balance_data in data:
+                self._accumulate_balance(
+                    balance_data["marginCoin"],
+                    Decimal(balance_data["crossedMaxAvailable"]),
+                    Decimal(balance_data["accountEquity"]),
+                )
+                for base_asset in balance_data.get("assetList", []):
+                    self._accumulate_balance(
+                        base_asset["coin"],
+                        Decimal(base_asset["available"]),
+                        Decimal(base_asset["balance"]),
                     )
 
-                    total = current_total + queried_total
-                    available = current_available + queried_available
-
-                    if total or available:
-                        self._account_available_balances[base_asset_name] = available
-                        self._account_balances[base_asset_name] = total
+    def _accumulate_balance(self, coin: str, available: Decimal, total: Decimal) -> None:
+        new_total = self._account_balances.get(coin, Decimal(0)) + total
+        new_available = self._account_available_balances.get(coin, Decimal(0)) + available
+        if new_total or new_available:
+            self._account_available_balances[coin] = new_available
+            self._account_balances[coin] = new_total
 
     async def _update_positions(self):
         """
@@ -490,20 +488,21 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             all_positions_response: Dict[str, Any] = await self._api_get(
                 path_url=CONSTANTS.ALL_POSITIONS_ENDPOINT,
                 params={
-                    "productType": product_type
+                    "category": product_type
                 },
                 is_auth_required=True,
             )
             all_positions_data = all_positions_response["data"]
 
             for position in all_positions_data:
+                # V3 current-position (CurrentPositionV3) fields.
                 symbol = position["symbol"]
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
-                position_side = position_sides[position["holdSide"]]
-                unrealized_pnl = Decimal(position["unrealizedPL"])
-                entry_price = Decimal(position["openPriceAvg"])
-                amount = Decimal(position["total"])
-                leverage = Decimal(position["leverage"])
+                position_side = position_sides[position["posSide"]]
+                unrealized_pnl = Decimal(str(position["unrealisedPnl"]))
+                entry_price = Decimal(str(position["avgPrice"]))
+                amount = Decimal(str(position["total"]))
+                leverage = Decimal(str(position["leverage"]))
 
                 pos_key = self._perpetual_trading.position_key(
                     trading_pair,
@@ -536,7 +535,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                all_fills_data = all_fills_response["data"]["fillList"]
+                # V3 fills returns data as a list; tolerate the legacy {"fillList": [...]} wrapper.
+                fills_payload = all_fills_response["data"]
+                all_fills_data = (
+                    fills_payload.get("fillList", []) if isinstance(fills_payload, dict) else fills_payload
+                )
 
                 for fill_data in all_fills_data:
                     trade_update = self._parse_trade_update(
@@ -553,14 +556,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         return trade_updates
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
-        symbol = await self.exchange_symbol_associated_to_pair(order.trading_pair)
-        product_type = await self.product_type_associated_to_trading_pair(order.trading_pair)
+        # V3 UTA fills query identifies fills by orderId across the unified account.
         order_fills_response = await self._api_get(
             path_url=CONSTANTS.ORDER_FILLS_ENDPOINT,
             params={
                 "orderId": order.exchange_order_id,
-                "productType": product_type,
-                "symbol": symbol,
             },
             is_auth_required=True,
         )
@@ -574,12 +574,17 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             if len(updated_order_data) == 0:
                 raise ValueError(f"Can't parse order status data. Data: {updated_order_data}")
 
+            # V3 order-info returns a single object; state -> orderStatus.
+            if isinstance(updated_order_data, list):
+                updated_order_data = updated_order_data[0]
             client_order_id = str(updated_order_data["clientOid"])
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.STATE_TYPES[updated_order_data["state"]],
+                new_state=CONSTANTS.STATE_TYPES[
+                    updated_order_data.get("orderStatus", updated_order_data.get("state"))
+                ],
                 client_order_id=client_order_id,
                 exchange_order_id=updated_order_data["orderId"],
             )
@@ -600,12 +605,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         return order_update
 
     async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
-        query_params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
-            "productType": await self.product_type_associated_to_trading_pair(
-                tracked_order.trading_pair
-            )
-        }
+        # V3 UTA order-info identifies the order by orderId/clientOid across the unified account.
+        query_params = {}
         if tracked_order.exchange_order_id:
             query_params["orderId"] = tracked_order.exchange_order_id
         else:
@@ -626,11 +627,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.PUBLIC_TICKER_ENDPOINT,
             params={
                 "symbol": symbol,
-                "productType": product_type
+                "category": product_type
             },
         )
 
-        return float(ticker_response["data"][0]["lastPr"])
+        ticker = ticker_response["data"][0]
+        # V3 renames the last price field lastPr -> lastPrice.
+        return float(ticker.get("lastPrice", ticker.get("lastPr")))
 
     async def set_margin_mode(
         self,
@@ -641,6 +644,9 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         """
         margin_mode = CONSTANTS.MARGIN_MODE_TYPES[mode]
 
+        # NOTE: Under the V3 UTA account the per-order marginMode is also sent on place-order. The
+        # account-level margin/account mode endpoint and its exact request body should be confirmed
+        # against the live UTA docs (productType -> category here).
         for trading_pair in self.trading_pairs:
             product_type = await self.product_type_associated_to_trading_pair(trading_pair)
 
@@ -648,7 +654,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 path_url=CONSTANTS.SET_MARGIN_MODE_ENDPOINT,
                 data={
                     "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-                    "productType": product_type,
+                    "category": product_type,
                     "marginMode": margin_mode,
                     "marginCoin": self.get_buy_collateral_token(trading_pair),
                 },
@@ -714,11 +720,12 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             position_mode = CONSTANTS.POSITION_MODE_TYPES[mode]
             product_type = await self.product_type_associated_to_trading_pair(trading_pair)
 
+            # V3 set-hold-mode: productType -> category, posMode -> holdMode.
             response = await self._api_post(
                 path_url=CONSTANTS.SET_POSITION_MODE_ENDPOINT,
                 data={
-                    "productType": product_type,
-                    "posMode": position_mode,
+                    "category": product_type,
+                    "holdMode": position_mode,
                 },
                 is_auth_required=True,
             )
@@ -748,12 +755,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             product_type = await self.product_type_associated_to_trading_pair(trading_pair)
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
+            # V3 set-leverage params: category, symbol, leverage, coin (the position/margin currency).
             response: Dict[str, Any] = await self._api_post(
                 path_url=CONSTANTS.SET_LEVERAGE_ENDPOINT,
                 data={
                     "symbol": symbol,
-                    "productType": product_type,
-                    "marginCoin": self.get_buy_collateral_token(trading_pair),
+                    "category": product_type,
+                    "coin": self.get_buy_collateral_token(trading_pair),
                     "leverage": str(leverage)
                 },
                 is_auth_required=True,
@@ -773,41 +781,54 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
 
         product_type = await self.product_type_associated_to_trading_pair(trading_pair)
+        # V3 financial-records: productType -> category, businessType -> type; data is a list of
+        # records (FinancialRecordV3) instead of the legacy {"bills": [...]} wrapper, ts replaces cTime.
         payment_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.ACCOUNT_BILLS_ENDPOINT,
             params={
-                "productType": product_type,
-                "businessType": "contract_settle_fee",
+                "category": product_type,
+                "type": "contract_settle_fee",
             },
             is_auth_required=True,
         )
-        payment_data: Dict[str, Any] = payment_response["data"]["bills"]
+        payment_payload = payment_response["data"]
+        # V3 financial-records returns the records under data.list (FinancialRecordPage), with ts.
+        payment_data = (
+            payment_payload.get("list", []) if isinstance(payment_payload, dict) else payment_payload
+        )
 
         if payment_data:
             last_data = payment_data[0]
             funding_info = self._perpetual_trading._funding_info.get(trading_pair)
-            payment: Decimal = Decimal(last_data["amount"])
+            payment: Decimal = Decimal(str(last_data["amount"]))
             funding_rate: Decimal = funding_info.rate if funding_info is not None else Decimal(0)
-            timestamp: float = int(last_data["cTime"]) * 1e-3
+            timestamp: float = int(last_data["ts"]) * 1e-3
 
         return timestamp, funding_rate, payment
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                channel = event_message["arg"]["channel"]
+                # V3 UTA push envelope uses arg.topic (the V2 API used arg.channel). Fills now arrive
+                # on the dedicated "fill" channel; the "order" channel carries order state only.
+                arg = event_message["arg"]
+                channel = arg.get("topic", arg.get("channel"))
                 data = event_message["data"]
 
                 if channel == CONSTANTS.WS_POSITIONS_ENDPOINT:
                     await self._process_account_position_event(data)
                 elif channel == CONSTANTS.WS_ORDERS_ENDPOINT:
                     for order_msg in data:
-                        self._process_trade_event_message(order_msg)
                         self._process_order_event_message(order_msg)
                         self._process_balance_update_from_order_event(order_msg)
+                elif channel == CONSTANTS.WS_FILL_ENDPOINT:
+                    for fill_msg in data:
+                        self._process_trade_event_message(fill_msg)
                 elif channel == CONSTANTS.WS_ACCOUNT_ENDPOINT:
-                    for wallet_msg in data:
-                        self._process_wallet_event_message(wallet_msg)
+                    # The V3 account channel nests per-coin balances in each entry's "coin" array.
+                    for account_msg in data:
+                        for coin_balance in account_msg.get("coin", []):
+                            self._process_wallet_event_message(coin_balance)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -825,13 +846,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         }
 
         for position in position_entries:
-            symbol = position["instId"]
+            # V3 UTA position channel (BitgetUaPositionUpdate): symbol (not instId), posSide, size
+            # (not total), avgPrice, unrealisedPnl.
+            symbol = position["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol)
-            position_side = position_sides[position["holdSide"]]
-            entry_price = Decimal(position["openPriceAvg"])
-            amount = Decimal(position["total"])
-            leverage = Decimal(position["leverage"])
-            unrealized_pnl = Decimal(position["unrealizedPL"])
+            position_side = position_sides[position["posSide"]]
+            entry_price = Decimal(str(position["avgPrice"]))
+            amount = Decimal(str(position["size"]))
+            leverage = Decimal(str(position["leverage"]))
+            unrealized_pnl = Decimal(str(position["unrealisedPnl"]))
 
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
             all_position_keys.append(pos_key)
@@ -873,7 +896,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
+        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -888,10 +911,11 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             self._order_tracker.process_order_update(new_order_update)
 
     def _process_balance_update_from_order_event(self, order_msg: Dict[str, Any]):
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
+        # V3 order channel (BitgetUaOrder): orderStatus, marginCoin, qty (was size), price, leverage.
+        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
         symbol = order_msg["marginCoin"]
         states_to_consider = [OrderState.OPEN, OrderState.CANCELED]
-        order_amount = Decimal(order_msg["size"])
+        order_amount = Decimal(order_msg["qty"])
         order_price = Decimal(order_msg["price"])
         margin_amount = (order_amount * order_price) / Decimal(order_msg["leverage"])
         is_opening = order_msg["tradeSide"] in [
@@ -919,76 +943,35 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         client_order_id = str(trade_msg["clientOid"])
         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
-        if fillable_order and "tradeId" in trade_msg:
-            trade_update = self._parse_websocket_trade_update(
+        # The V3 UTA "fill" channel shares the BitgetUaUserTrade shape with the REST fills endpoint,
+        # so the same parser is used for both.
+        if fillable_order and "execId" in trade_msg:
+            trade_update = self._parse_trade_update(
                 trade_msg=trade_msg,
                 tracked_order=fillable_order
             )
             if trade_update:
                 self._order_tracker.process_trade_update(trade_update)
 
-    def _parse_websocket_trade_update(
-        self,
-        trade_msg: Dict,
-        tracked_order: InFlightOrder
-    ) -> TradeUpdate:
-        trade_id: str = trade_msg["tradeId"]
-
-        if trade_id is not None:
-            trade_id = str(trade_id)
-            fee_asset = trade_msg["fillFeeCoin"]
-            fee_amount = -Decimal(trade_msg["fillFee"])
-            position_actions = {
-                "open": PositionAction.OPEN,
-                "close": PositionAction.CLOSE,
-            }
-            position_action = position_actions.get(trade_msg["tradeSide"], PositionAction.NIL)
-            flat_fees = (
-                [] if fee_amount == Decimal("0")
-                else [TokenAmount(amount=fee_amount, token=fee_asset)]
-            )
-
-            fee = TradeFeeBase.new_perpetual_fee(
-                fee_schema=self.trade_fee_schema(),
-                position_action=position_action,
-                percent_token=fee_asset,
-                flat_fees=flat_fees,
-            )
-
-            exec_price = (
-                Decimal(trade_msg["fillPrice"])
-                if "fillPrice" in trade_msg
-                else Decimal(trade_msg["price"])
-            )
-            exec_time = int(trade_msg["fillTime"]) * 1e-3
-
-            trade_update: TradeUpdate = TradeUpdate(
-                trade_id=trade_id,
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=str(trade_msg["orderId"]),
-                trading_pair=tracked_order.trading_pair,
-                fill_timestamp=exec_time,
-                fill_price=exec_price,
-                fill_base_amount=Decimal(trade_msg["baseVolume"]),
-                fill_quote_amount=exec_price * Decimal(trade_msg["baseVolume"]),
-                fee=fee,
-            )
-
-            return trade_update
-
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
+        # V3 fills (FillV3) rename fields: tradeId->execId, price->execPrice, baseVolume->execQty,
+        # cTime->createdTime, and feeDetail[].{totalFee/totalDeductionFee}->feeDetail[].fee. Legacy
+        # names are kept as fallbacks so V2-shaped payloads keep parsing.
         fee_detail = trade_msg["feeDetail"][0]
         fee_asset = fee_detail["feeCoin"]
-        fee_amount = abs(Decimal((
-            fee_detail["totalDeductionFee"]
-            if fee_detail.get("deduction") == "yes"
-            else fee_detail["totalFee"]
-        )))
+        if "fee" in fee_detail:
+            fee_amount = abs(Decimal(str(fee_detail["fee"])))
+        else:
+            fee_amount = abs(Decimal((
+                fee_detail["totalDeductionFee"]
+                if fee_detail.get("deduction") == "yes"
+                else fee_detail["totalFee"]
+            )))
         position_actions = {
             "open": PositionAction.OPEN,
             "close": PositionAction.CLOSE,
         }
-        position_action = position_actions.get(trade_msg["tradeSide"], PositionAction.NIL)
+        position_action = position_actions.get(trade_msg.get("tradeSide"), PositionAction.NIL)
         flat_fees = (
             [] if fee_amount == Decimal("0")
             else [TokenAmount(amount=fee_amount, token=fee_asset)]
@@ -1001,31 +984,33 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             flat_fees=flat_fees,
         )
 
-        exec_price = Decimal(trade_msg["price"])
-        exec_time = int(trade_msg["cTime"]) * 1e-3
+        exec_price = Decimal(str(trade_msg.get("execPrice", trade_msg.get("price"))))
+        exec_qty = Decimal(str(trade_msg.get("execQty", trade_msg.get("baseVolume"))))
+        exec_time = int(trade_msg.get("createdTime", trade_msg.get("cTime"))) * 1e-3
 
         trade_update: TradeUpdate = TradeUpdate(
-            trade_id=trade_msg["tradeId"],
+            trade_id=str(trade_msg.get("execId", trade_msg.get("tradeId"))),
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=trade_msg["orderId"],
             trading_pair=tracked_order.trading_pair,
             fill_timestamp=exec_time,
             fill_price=exec_price,
-            fill_base_amount=Decimal(trade_msg["baseVolume"]),
-            fill_quote_amount=exec_price * Decimal(trade_msg["baseVolume"]),
+            fill_base_amount=exec_qty,
+            fill_quote_amount=exec_price * exec_qty,
             fee=fee,
         )
 
         return trade_update
 
-    def _process_wallet_event_message(self, wallet_msg: Dict[str, Any]):
+    def _process_wallet_event_message(self, coin_balance: Dict[str, Any]):
         """
-        Updates account balances.
-        :param wallet_msg: The account balance update message payload
+        Updates account balances from a single V3 UTA account-channel coin entry
+        (coin/available/balance).
+        :param coin_balance: One per-coin balance entry from the account channel "coin" array
         """
-        symbol = wallet_msg["marginCoin"]
-        available = Decimal(wallet_msg["maxOpenPosAvailable"])
-        total = Decimal(wallet_msg["equity"])
+        symbol = coin_balance["coin"]
+        available = Decimal(str(coin_balance["available"]))
+        total = Decimal(str(coin_balance["balance"]))
 
         self._account_balances[symbol] = total
         self._account_available_balances[symbol] = available
@@ -1037,7 +1022,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_info = await self._api_get(
                 path_url=self.trading_pairs_request_path,
                 params={
-                    "productType": product_type
+                    "category": product_type
                 }
             )
             all_exchange_info.extend(exchange_info["data"])
@@ -1084,17 +1069,39 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                         symbol=rule["symbol"]
                     )
-                    max_order_size = Decimal(rule["maxOrderQty"]) if rule["maxOrderQty"] else None
-                    margin_coin = rule["supportMarginCoins"][0]
+                    # V3 instruments field names (with V2 fallbacks): minTradeUSDT -> minOrderAmount,
+                    # minTradeNum -> minOrderQty, pricePlace -> pricePrecision, sizeMultiplier ->
+                    # 1e-quantityPrecision. supportMarginCoins is gone; the collateral coin is the
+                    # quote coin for USDT/USDC futures and the base coin for coin-margined futures.
+                    max_order_qty = rule.get("maxOrderQty")
+                    max_order_size = Decimal(str(max_order_qty)) if max_order_qty else None
+                    min_order_value = rule.get("minOrderAmount", rule.get("minTradeUSDT"))
+                    min_order_size = rule.get("minOrderQty", rule.get("minTradeNum"))
+
+                    if "pricePrecision" in rule:
+                        min_price_increment = Decimal(f"1e-{int(rule['pricePrecision'])}")
+                    else:
+                        min_price_increment = Decimal(f"1e-{int(rule['pricePlace'])}")
+
+                    if "quantityPrecision" in rule:
+                        min_base_amount_increment = Decimal(f"1e-{int(rule['quantityPrecision'])}")
+                    else:
+                        min_base_amount_increment = Decimal(str(rule["sizeMultiplier"]))
+
+                    if "supportMarginCoins" in rule:
+                        margin_coin = rule["supportMarginCoins"][0]
+                    else:
+                        base, quote = split_hb_trading_pair(trading_pair)
+                        margin_coin = base if rule.get("category") == CONSTANTS.USD_PRODUCT_TYPE else quote
 
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
-                            min_order_value=Decimal(rule["minTradeUSDT"]),
+                            min_order_value=Decimal(str(min_order_value)),
                             max_order_size=max_order_size,
-                            min_order_size=Decimal(rule["minTradeNum"]),
-                            min_price_increment=Decimal(f"1e-{int(rule['pricePlace'])}"),
-                            min_base_amount_increment=Decimal(rule["sizeMultiplier"]),
+                            min_order_size=Decimal(str(min_order_size)),
+                            min_price_increment=min_price_increment,
+                            min_base_amount_increment=min_base_amount_increment,
                             buy_order_collateral_token=margin_coin,
                             sell_order_collateral_token=margin_coin,
                         )

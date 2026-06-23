@@ -143,9 +143,9 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
@@ -174,9 +174,9 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                "instId": self.exchange_trading_pair,
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                "symbol": self.exchange_trading_pair,
             },
             "data": [
                 {
@@ -222,19 +222,19 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "op": "subscribe",
             "args": [
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                    "symbol": symbol
                 }
             ],
         }
@@ -264,24 +264,24 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                "instId": "BTCUSDT"
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                "symbol": "BTCUSDT"
             },
             "data": [
                 {
-                    "ts": "1695716760565",
-                    "price": "27000.5",
-                    "size": "0.001",
-                    "side": "buy",
-                    "tradeId": "1"
+                    "T": "1695716760565",
+                    "p": "27000.5",
+                    "v": "0.001",
+                    "S": "buy",
+                    "i": "1"
                 },
                 {
-                    "ts": "1695716759514",
-                    "price": "27000.0",
-                    "size": "0.001",
-                    "side": "sell",
-                    "tradeId": "2"
+                    "T": "1695716759514",
+                    "p": "27000.0",
+                    "v": "0.001",
+                    "S": "sell",
+                    "i": "2"
                 }
             ],
             "ts": 1695716761589
@@ -612,7 +612,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(int(trade_event["data"][0]["tradeId"]), msg.trade_id)
+        self.assertEqual(int(trade_event["data"][0]["execId"]), msg.trade_id)
         self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

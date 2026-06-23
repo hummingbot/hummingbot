@@ -122,41 +122,32 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return {
             "action": "snapshot",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ORDERS_ENDPOINT,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
-                    "instId": self.exchange_trading_pair,
+                    "symbol": self.exchange_trading_pair,
                     "orderId": order.exchange_order_id,
                     "clientOid": order.client_order_id,
-                    "size": str(order.amount),
-                    "newSize": "0.0000",
-                    "notional": "0.000000",
+                    "qty": str(order.amount),
+                    "amount": str(order.amount * order.price),
                     "orderType": order.order_type.name.lower(),
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
+                    "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
                     "side": order.trade_type.name.lower(),
-                    "fillPrice": "0.0",
-                    "tradeId": self.expected_fill_trade_id,
-                    "baseVolume": "0.0000",
-                    "fillTime": "1695797773286",
-                    "fillFee": "-0.00000018",
-                    "fillFeeCoin": "BTC",
-                    "tradeScope": "T",
-                    "accBaseVolume": "0.0000",
-                    "priceAvg": str(order.price),
-                    "status": "live",
-                    "cTime": "1695797773257",
-                    "uTime": "1695797773326",
-                    "stpMode": "cancel_taker",
+                    "cumExecQty": "0",
+                    "cumExecValue": "0",
+                    "avgPrice": str(order.price),
+                    "orderStatus": "live",
+                    "createdTime": "1695797773257",
+                    "updatedTime": "1695797773326",
                     "feeDetail": [
                         {
                             "feeCoin": "BTC",
                             "fee": "-0.00000018"
                         }
                     ],
-                    "enterPointSource": "WEB"
                 }
             ],
             "ts": 1695797773370
@@ -204,9 +195,8 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result_subscribe_orders: Dict[str, Any] = {
             "event": "subscribe",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ORDERS_ENDPOINT
             }
         }
 
@@ -245,19 +235,16 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "op": "subscribe",
             "args": [
                 {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                    "coin": "default"
+                    "instType": CONSTANTS.INST_TYPE_UTA,
+                    "topic": CONSTANTS.WS_ACCOUNT_ENDPOINT
                 },
                 {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_FILL_ENDPOINT,
-                    "coin": "default"
+                    "instType": CONSTANTS.INST_TYPE_UTA,
+                    "topic": CONSTANTS.WS_FILL_ENDPOINT
                 },
                 {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                    "instId": self.exchange_trading_pair
+                    "instType": CONSTANTS.INST_TYPE_UTA,
+                    "topic": CONSTANTS.WS_ORDERS_ENDPOINT
                 }
             ]
         }
@@ -440,14 +427,12 @@ class BitgetAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         :param sleep_mock: Mocked sleep function.
         :param mock_ws: Mocked WebSocket connection object.
         """
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=mock_ws.return_value,
-            message=json.dumps(self.ws_login_event_mock_response())
-        )
-        self.connector.exchange_symbol_associated_to_pair = AsyncMock(
-            side_effect=ValueError("Invalid trading pair")
-        )
+        # The V3 UTA private subscription no longer resolves per-symbol instIds (it subscribes the
+        # account/fill/order channels with instType "UTA"), so the subscription failure is injected
+        # at the websocket send call instead of at exchange_symbol_associated_to_pair.
+        ws_mock = AsyncMock()
+        ws_mock.send.side_effect = Exception("subscribe failed")
+        self.data_source._connected_websocket_assistant = AsyncMock(return_value=ws_mock)
         messages: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = asyncio.CancelledError
 

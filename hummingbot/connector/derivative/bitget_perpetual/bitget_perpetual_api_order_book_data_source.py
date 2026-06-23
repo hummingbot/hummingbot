@@ -65,7 +65,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 raise IOError(f"Failed to subscribe to public channels: {message} ({error_code})")
 
             if event_message["event"] == "subscribe":
-                channel: str = event_message["arg"]["channel"]
+                arg = event_message.get("arg", {})
+                channel: str = arg.get("topic") or arg.get("channel", "unknown")
                 self.logger().info(f"Subscribed to public channel: {channel.upper()}")
         else:
             self.logger().info(f"Message for unknown channel received: {event_message}")
@@ -75,7 +76,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         if "arg" in event_message and "action" in event_message:
             arg: Dict[str, Any] = event_message["arg"]
-            response_channel: Optional[str] = arg.get("channel")
+            response_channel: Optional[str] = arg.get("topic")
 
             if response_channel == CONSTANTS.PUBLIC_WS_BOOKS:
                 action: Optional[str] = event_message.get("action")
@@ -121,11 +122,12 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         update_id: int = int(data["ts"])
         timestamp: float = update_id * 1e-3
 
+        # V3 UTA orderbook renames the depth arrays: bids -> "b", asks -> "a". Tolerate both.
         order_book_message_content: Dict[str, Any] = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": data["bids"],
-            "asks": data["asks"],
+            "bids": data["bids"] if "bids" in data else data["b"],
+            "asks": data["asks"] if "asks" in data else data["a"],
         }
 
         return OrderBookMessage(
@@ -140,7 +142,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         diffs_data: Dict[str, Any] = raw_message["data"]
-        symbol: str = raw_message["arg"]["instId"]
+        symbol: str = raw_message["arg"]["symbol"]
 
         for diff in diffs_data:
             diff_message: OrderBookMessage = await self._parse_any_order_book_message(
@@ -157,7 +159,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         snapshot_data: Dict[str, Any] = raw_message["data"]
-        symbol: str = raw_message["arg"]["instId"]
+        symbol: str = raw_message["arg"]["symbol"]
 
         for snapshot in snapshot_data:
             snapshot_message: OrderBookMessage = await self._parse_any_order_book_message(
@@ -174,26 +176,28 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         message_queue: asyncio.Queue
     ) -> None:
         data: List[Dict[str, Any]] = raw_message["data"]
-        symbol: str = raw_message["arg"]["instId"]
+        symbol: str = raw_message["arg"]["symbol"]
         trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
 
         for trade_data in data:
+            # V3 UTA publicTrade channel uses abbreviated keys: i=tradeId, p=price, v=size,
+            # S=side, T=timestamp.
             trade_type: float = (
                 float(TradeType.BUY.value)
-                if trade_data["side"] == "buy"
+                if trade_data["S"] == "buy"
                 else float(TradeType.SELL.value)
             )
             message_content: Dict[str, Any] = {
-                "trade_id": int(trade_data["tradeId"]),
+                "trade_id": int(trade_data["i"]),
                 "trading_pair": trading_pair,
                 "trade_type": trade_type,
-                "amount": trade_data["size"],
-                "price": trade_data["price"],
+                "amount": trade_data["v"],
+                "price": trade_data["p"],
             }
             trade_message = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
                 content=message_content,
-                timestamp=int(trade_data["ts"]) * 1e-3,
+                timestamp=int(trade_data["T"]) * 1e-3,
             )
             message_queue.put_nowait(trade_message)
 
@@ -235,7 +239,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 throttler_limit_id=endpoint,
                 params={
                     "symbol": symbol,
-                    "productType": product_type,
+                    "category": product_type,
                 },
                 method=RESTMethod.GET,
             ))
@@ -273,9 +277,9 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     CONSTANTS.PUBLIC_WS_TICKER,
                 ]:
                     subscription_topics.append({
-                        "instType": product_type,
-                        "channel": channel,
-                        "instId": symbol
+                        "instType": product_type.lower(),
+                        "topic": channel,
+                        "symbol": symbol
                     })
 
             await ws.send(
@@ -301,7 +305,7 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             url=web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_ORDERBOOK_ENDPOINT),
             params={
                 "symbol": symbol,
-                "productType": product_type,
+                "category": product_type,
                 "limit": "100",
             },
             method=RESTMethod.GET,
@@ -319,8 +323,8 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         order_book_message_content: Dict[str, Any] = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": snapshot_data["bids"],
-            "asks": snapshot_data["asks"],
+            "bids": snapshot_data["bids"] if "bids" in snapshot_data else snapshot_data["b"],
+            "asks": snapshot_data["asks"] if "asks" in snapshot_data else snapshot_data["a"],
         }
 
         return OrderBookMessage(
@@ -413,9 +417,9 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 CONSTANTS.PUBLIC_WS_TICKER,
             ]:
                 subscription_topics.append({
-                    "instType": product_type,
-                    "channel": channel,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": channel,
+                    "symbol": symbol
                 })
 
             await self._ws_assistant.send(
@@ -459,9 +463,9 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 CONSTANTS.PUBLIC_WS_TICKER,
             ]:
                 unsubscription_topics.append({
-                    "instType": product_type,
-                    "channel": channel,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": channel,
+                    "symbol": symbol
                 })
 
             await self._ws_assistant.send(

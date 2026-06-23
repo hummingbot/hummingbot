@@ -73,7 +73,8 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 )
 
             if event_message["event"] == "subscribe":
-                channel: str = event_message["arg"]["channel"]
+                arg = event_message.get("arg", {})
+                channel: str = arg.get("topic") or arg.get("channel", "unknown")
                 self.logger().info(f"Subscribed to private channel: {channel.upper()}")
         else:
             self.logger().warning(f"Message for unknown channel received: {event_message}")
@@ -90,25 +91,22 @@ class BitgetPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
         try:
-            product_types: set[str] = {
-                await self._connector.product_type_associated_to_trading_pair(trading_pair)
-                for trading_pair in self._trading_pairs
-            } or CONSTANTS.ALL_PRODUCT_TYPES
+            # Under the V3 UTA account private channels are subscribed with instType "UTA" and cover
+            # the whole unified account (no per-product-type fan-out).
             subscription_topics = []
 
-            for product_type in product_types:
-                for channel in [
-                    CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                    CONSTANTS.WS_POSITIONS_ENDPOINT,
-                    CONSTANTS.WS_ORDERS_ENDPOINT
-                ]:
-                    subscription_topics.append(
-                        {
-                            "instType": product_type,
-                            "channel": channel,
-                            "coin": "default"
-                        }
-                    )
+            for channel in [
+                CONSTANTS.WS_ACCOUNT_ENDPOINT,
+                CONSTANTS.WS_POSITIONS_ENDPOINT,
+                CONSTANTS.WS_ORDERS_ENDPOINT,
+                CONSTANTS.WS_FILL_ENDPOINT,
+            ]:
+                subscription_topics.append(
+                    {
+                        "instType": CONSTANTS.INST_TYPE_UTA,
+                        "topic": channel
+                    }
+                )
 
             await websocket_assistant.send(
                 WSJSONRequest({

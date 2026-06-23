@@ -199,17 +199,17 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "op": "subscribe",
             "args": [
                 {
-                    "instType": CONSTANTS.USDT_PRODUCT_TYPE,
+                    "instType": CONSTANTS.INST_TYPE_UTA,
                     "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
                     "coin": "default"
                 },
                 {
-                    "instType": CONSTANTS.USDT_PRODUCT_TYPE,
+                    "instType": CONSTANTS.INST_TYPE_UTA,
                     "channel": CONSTANTS.WS_POSITIONS_ENDPOINT,
                     "coin": "default"
                 },
                 {
-                    "instType": CONSTANTS.USDT_PRODUCT_TYPE,
+                    "instType": CONSTANTS.INST_TYPE_UTA,
                     "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
                     "coin": "default"
                 },

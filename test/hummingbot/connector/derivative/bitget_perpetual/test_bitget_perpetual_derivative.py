@@ -34,6 +34,24 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         cls.quote_asset = "USDT"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
 
+    def setUp(self) -> None:
+        super().setUp()
+        # The base connector test methods carry a single shared @aioresponses() instance (defined
+        # once on the base class and inherited by both the spot and perpetual Bitget test classes).
+        # aioresponses resets its matchers between runs but NOT its captured `requests` history, and
+        # the V3 UTA spot and perpetual connectors share the same /api/v3/trade/* endpoints, so a
+        # request recorded during one connector's run would otherwise leak into the other's
+        # assertions. Clear the shared history before each test.
+        for name in dir(type(self)):
+            closure = getattr(getattr(type(self), name, None), "__closure__", None) or ()
+            for cell in closure:
+                try:
+                    value = cell.cell_contents
+                except ValueError:
+                    continue
+                if isinstance(value, aioresponses):
+                    value.requests.clear()
+
     @property
     def all_symbols_url(self):
         url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)
@@ -423,28 +441,26 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def balance_event_websocket_update(self):
+        # V3 UTA account channel: each data entry is an account snapshot whose per-coin balances
+        # are nested in a "coin" array.
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                "coin": "default"
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ACCOUNT_ENDPOINT
             },
             "data": [
                 {
-                    "marginCoin": self.base_asset,
-                    "frozen": "0.00000000",
-                    "available": "10",
-                    "maxOpenPosAvailable": "10",
-                    "maxTransferOut": "10",
-                    "equity": "15",
-                    "usdtEquity": "11.985457617660",
-                    "crossedRiskRate": "0",
-                    "unrealizedPL": "0.000000000000",
-                    "unionTotalMargin": "100",
-                    "unionAvailable": "20",
-                    "unionMm": "15",
-                    "assetMode": "union"
+                    "accountEquity": "15",
+                    "coin": [
+                        {
+                            "coin": self.base_asset,
+                            "available": "10",
+                            "locked": "0",
+                            "balance": "15",
+                            "equity": "15",
+                        }
+                    ]
                 }
             ],
             "ts": 1695717225146
@@ -461,7 +477,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "msg": "success",
             "requestTime": 1695809161807,
             "data": {
-                "bills": []
+                "list": []
             },
             "endId": "0"
         }
@@ -473,20 +489,20 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "msg": "success",
             "requestTime": 1695809161807,
             "data": {
-                "bills": [
+                "list": [
                     {
-                        "billId": "1",
+                        "id": "1",
+                        "category": CONSTANTS.USDT_PRODUCT_TYPE,
                         "symbol": self.exchange_trading_pair,
                         "amount": str(self.target_funding_payment_payment_amount),
                         "fee": "0.1",
-                        "feeByCoupon": "",
-                        "businessType": "contract_settle_fee",
+                        "type": "contract_settle_fee",
                         "coin": self.quote_asset,
                         "balance": "232.21",
-                        "cTime": "1657110053000"
+                        "ts": "1657110053000"
                     }
                 ],
-                "endId": "1"
+                "cursor": "1"
             }
         }
 
@@ -584,248 +600,108 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def _expected_valid_trading_pairs(self):
         return [self.trading_pair, "BTC-USD", "BTC-USDC"]
 
+    def _order_trade_side(self, order: InFlightOrder) -> str:
+        side = order.trade_type.name.lower()
+        return f"{side}_single" if order.position is PositionAction.NIL else order.position.name.lower()
+
+    def _order_channel_event(self, order: InFlightOrder, order_status: str) -> Dict[str, Any]:
+        # V3 UTA "order" channel (BitgetUaOrder): order state only.
+        return {
+            "action": "snapshot",
+            "arg": {
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ORDERS_ENDPOINT
+            },
+            "data": [
+                {
+                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clientOid": order.client_order_id or "",
+                    "marginCoin": self.quote_asset,
+                    "marginMode": "crossed",
+                    "symbol": self.exchange_trading_pair,
+                    "side": order.trade_type.name.lower(),
+                    "orderType": order.order_type.name.lower(),
+                    "qty": str(order.amount),
+                    "price": str(order.price),
+                    "avgPrice": str(order.price),
+                    "cumExecQty": str(order.amount) if order_status == "filled" else "0",
+                    "leverage": "20",
+                    "posSide": "long",
+                    "tradeSide": self._order_trade_side(order),
+                    "reduceOnly": "no",
+                    "orderStatus": order_status,
+                    "createdTime": "1695718781129",
+                    "updatedTime": "1695718781146"
+                }
+            ],
+            "ts": 1695718781206
+        }
+
+    def _fill_channel_event(self, order: InFlightOrder, exec_qty, exec_price, fee_amount) -> Dict[str, Any]:
+        # V3 UTA "fill" channel (BitgetUaUserTrade): execId/execPrice/execQty/execValue/feeDetail.fee.
+        return {
+            "action": "snapshot",
+            "arg": {
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_FILL_ENDPOINT,
+                "symbol": self.exchange_trading_pair
+            },
+            "data": [
+                {
+                    "execId": "1111111111",
+                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                    "clientOid": order.client_order_id or "",
+                    "symbol": self.exchange_trading_pair,
+                    "side": order.trade_type.name.lower(),
+                    "execPrice": str(exec_price),
+                    "execQty": str(exec_qty),
+                    "execValue": str(Decimal(str(exec_qty)) * Decimal(str(exec_price))),
+                    "tradeSide": self._order_trade_side(order),
+                    "feeDetail": [
+                        {
+                            "feeCoin": self.quote_asset,
+                            "fee": str(fee_amount)
+                        }
+                    ],
+                    "createdTime": "1695718781146"
+                }
+            ],
+            "ts": 1695718781206
+        }
+
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         reversed_order_states = {v: k for k, v in CONSTANTS.STATE_TYPES.items()}
         current_state = reversed_order_states[order.current_state] \
             if order.current_state in reversed_order_states else "live"
-        side = order.trade_type.name.lower()
-        trade_side = f"{side}_single" if order.position is PositionAction.NIL else order.position.name.lower()
-
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": "default"
-            },
-            "data": [
-                {
-                    "accBaseVolume": "0.01",
-                    "cTime": "1695718781129",
-                    "clientOid": order.client_order_id or "",
-                    "feeDetail": [
-                        {
-                            "feeCoin": self.quote_asset,
-                            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)
-                        }
-                    ],
-                    "fillFee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                    "fillFeeCoin": self.quote_asset,
-                    "fillNotionalUsd": "270.005",
-                    "fillPrice": "0",
-                    "baseVolume": "0.01",
-                    "fillTime": "1695718781146",
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-                    "instId": self.exchange_trading_pair,
-                    "leverage": "20",
-                    "marginCoin": self.quote_asset,
-                    "marginMode": "crossed",
-                    "notionalUsd": "270",
-                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "orderType": order.order_type.name.lower(),
-                    "pnl": "0",
-                    "posMode": "hedge_mode",
-                    "posSide": "long",
-                    "price": str(order.price),
-                    "priceAvg": str(order.price),
-                    "reduceOnly": "no",
-                    "stpMode": "cancel_taker",
-                    "side": side,
-                    "size": str(order.amount),
-                    "enterPointSource": "WEB",
-                    "status": current_state,
-                    "tradeScope": "T",
-                    "tradeId": "1111111111",
-                    "tradeSide": trade_side,
-                    "presetStopSurplusPrice": "21.4",
-                    "totalProfits": "11221.45",
-                    "presetStopLossPrice": "21.5",
-                    "cancelReason": "normal_cancel",
-                    "uTime": "1695718781146"
-                }
-            ],
-            "ts": 1695718781206
-        }
+        return self._order_channel_event(order, current_state)
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": "default"
-            },
-            "data": [
-                {
-                    "accBaseVolume": "0.01",
-                    "cTime": "1695718781129",
-                    "clientOid": order.client_order_id,
-                    "feeDetail": [
-                        {
-                            "feeCoin": self.quote_asset,
-                            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)
-                        }
-                    ],
-                    "fillFee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                    "fillFeeCoin": self.quote_asset,
-                    "fillNotionalUsd": "270.005",
-                    "fillPrice": "0",
-                    "baseVolume": "0.01",
-                    "fillTime": "1695718781146",
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-                    "instId": self.exchange_trading_pair,
-                    "leverage": "20",
-                    "marginCoin": self.quote_asset,
-                    "marginMode": "crossed",
-                    "notionalUsd": "270",
-                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "orderType": order.order_type.name.lower(),
-                    "pnl": "0",
-                    "posMode": "hedge_mode",
-                    "posSide": "long",
-                    "price": str(order.price),
-                    "priceAvg": str(order.price),
-                    "reduceOnly": "no",
-                    "stpMode": "cancel_taker",
-                    "side": order.trade_type.name.lower(),
-                    "size": str(order.amount),
-                    "enterPointSource": "WEB",
-                    "status": "cancelled",
-                    "tradeScope": "T",
-                    "tradeId": "1111111111",
-                    "tradeSide": "close",
-                    "presetStopSurplusPrice": "21.4",
-                    "totalProfits": "11221.45",
-                    "presetStopLossPrice": "21.5",
-                    "cancelReason": "normal_cancel",
-                    "uTime": "1695718781146"
-                }
-            ],
-            "ts": 1695718781206
-        }
+        return self._order_channel_event(order, "cancelled")
 
     def order_event_for_partially_canceled_websocket_update(self, order: InFlightOrder):
         return self.order_event_for_canceled_order_websocket_update(order=order)
 
     def order_event_for_partially_filled_websocket_update(self, order: InFlightOrder):
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": "default"
-            },
-            "data": [
-                {
-                    "accBaseVolume": str(self.expected_partial_fill_amount),
-                    "cTime": "1695718781129",
-                    "clientOid": order.client_order_id,
-                    "feeDetail": [
-                        {
-                            "feeCoin": self.quote_asset,
-                            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)
-                        }
-                    ],
-                    "fillFee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                    "fillFeeCoin": self.quote_asset,
-                    "fillNotionalUsd": "270.005",
-                    "fillPrice": str(self.expected_partial_fill_price),
-                    "baseVolume": str(self.expected_partial_fill_amount),
-                    "fillTime": "1695718781146",
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-                    "instId": self.exchange_trading_pair,
-                    "leverage": "20",
-                    "marginCoin": self.quote_asset,
-                    "marginMode": "crossed",
-                    "notionalUsd": "270",
-                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "orderType": order.order_type.name.lower(),
-                    "pnl": "0",
-                    "posMode": "hedge_mode",
-                    "posSide": "long",
-                    "price": str(order.price),
-                    "priceAvg": str(self.expected_partial_fill_price),
-                    "reduceOnly": "no",
-                    "stpMode": "cancel_taker",
-                    "side": order.trade_type.name.lower(),
-                    "size": str(order.amount),
-                    "enterPointSource": "WEB",
-                    "status": "partially_filled",
-                    "tradeScope": "T",
-                    "tradeId": "1111111111",
-                    "tradeSide": "open",
-                    "presetStopSurplusPrice": "21.4",
-                    "totalProfits": "11221.45",
-                    "presetStopLossPrice": "21.5",
-                    "cancelReason": "normal_cancel",
-                    "uTime": "1695718781146"
-                }
-            ],
-            "ts": 1695718781206
-        }
+        return self._order_channel_event(order, "partially_filled")
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": "default"
-            },
-            "data": [
-                {
-                    "accBaseVolume": str(order.amount),
-                    "cTime": "1695718781129",
-                    "clientOid": order.client_order_id or "",
-                    "feeDetail": [
-                        {
-                            "feeCoin": self.quote_asset,
-                            "fee": str(self.expected_partial_fill_fee.flat_fees[0].amount)
-                        }
-                    ],
-                    "fillFee": str(self.expected_partial_fill_fee.flat_fees[0].amount),
-                    "fillFeeCoin": self.quote_asset,
-                    "fillNotionalUsd": "270.005",
-                    "fillPrice": str(order.price),
-                    "baseVolume": str(order.amount),
-                    "fillTime": "1695718781146",
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-                    "instId": self.exchange_trading_pair,
-                    "leverage": "20",
-                    "marginCoin": self.quote_asset,
-                    "marginMode": "crossed",
-                    "notionalUsd": "270",
-                    "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "orderType": order.order_type.name.lower(),
-                    "pnl": "0",
-                    "posMode": "hedge_mode",
-                    "posSide": "long",
-                    "price": str(order.price),
-                    "priceAvg": str(order.price),
-                    "reduceOnly": "no",
-                    "stpMode": "cancel_taker",
-                    "side": order.trade_type.name.lower(),
-                    "size": str(order.amount),
-                    "enterPointSource": "WEB",
-                    "status": "filled",
-                    "tradeScope": "T",
-                    "tradeId": "1111111111",
-                    "tradeSide": "close",
-                    "presetStopSurplusPrice": "21.4",
-                    "totalProfits": "11221.45",
-                    "presetStopLossPrice": "21.5",
-                    "cancelReason": "normal_cancel",
-                    "uTime": "1695718781146"
-                }
-            ],
-            "ts": 1695718781206
-        }
+        return self._order_channel_event(order, "filled")
 
     def trade_event_for_partial_fill_websocket_update(self, order: InFlightOrder):
-        return self.order_event_for_partially_filled_websocket_update(order)
+        return self._fill_channel_event(
+            order,
+            self.expected_partial_fill_amount,
+            self.expected_partial_fill_price,
+            self.expected_partial_fill_fee.flat_fees[0].amount,
+        )
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return self.order_event_for_full_fill_websocket_update(order)
+        return self._fill_channel_event(
+            order,
+            order.amount,
+            order.price,
+            self.expected_fill_fee.flat_fees[0].amount,
+        )
 
     def position_event_for_full_fill_websocket_update(
         self,
@@ -835,26 +711,25 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.WS_POSITIONS_ENDPOINT,
-                "instId": "default"
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_POSITIONS_ENDPOINT
             },
             "data": [
                 {
                     "posId": "1",
-                    "instId": self.exchange_trading_pair,
+                    "symbol": self.exchange_trading_pair,
                     "marginCoin": self.quote_asset,
                     "marginSize": str(order.amount),
                     "marginMode": "crossed",
-                    "holdSide": "short",
-                    "posMode": "hedge_mode",
-                    "total": str(order.amount),
+                    "posSide": "short",
+                    "holdMode": "hedge_mode",
+                    "size": str(order.amount),
                     "available": str(order.amount),
                     "frozen": "0",
-                    "openPriceAvg": str(order.price),
+                    "avgPrice": str(order.price),
                     "leverage": str(order.leverage),
                     "achievedProfits": "0",
-                    "unrealizedPL": str(unrealized_pnl),
+                    "unrealisedPnl": str(unrealized_pnl),
                     "unrealizedPLR": "0",
                     "liquidationPrice": "5788.108475905242",
                     "keepMarginRate": "0.005",
@@ -875,9 +750,9 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def funding_info_event_for_websocket_update(self):
         return {
             "arg": {
-                "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "instId": self.exchange_trading_pair
+                "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
@@ -940,31 +815,31 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
 
+        # V3 UTA place-order: size -> qty, force -> timeInForce, productType -> category.
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
-        self.assertEqual(order.amount, Decimal(request_data["size"]))
-        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["force"])
+        self.assertEqual(order.amount, Decimal(request_data["qty"]))
+        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["timeInForce"])
         self.assertEqual(order.client_order_id, request_data["clientOid"])
 
         if self.exchange.position_mode == PositionMode.HEDGE:
-            self.assertIn("tradeSide", request_data)
-            self.assertEqual(order.position.name.lower(), request_data["tradeSide"])
+            # V3 hedge mode targets a position side (long/short) via posSide instead of tradeSide.
+            self.assertIn("posSide", request_data)
+            self.assertIn(request_data["posSide"], ["long", "short"])
         else:
-            self.assertNotIn("tradeSide", request_data)
+            self.assertNotIn("posSide", request_data)
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        # V3 UTA cancel-order identifies the order by orderId across the unified account.
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(order.exchange_order_id, request_data["orderId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
         self.assertEqual(order.exchange_order_id, request_params["orderId"])
 
     def configure_successful_cancelation_response(
@@ -1228,21 +1103,21 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         all_urls = []
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDT_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USDT_PRODUCT_TYPE}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self.all_symbols_request_mock_response
         mock_api.get(regex_url, body=json.dumps(response))
         all_urls.append(url)
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USD_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USD_PRODUCT_TYPE}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._all_usd_symbols_request_mock_response
         mock_api.get(regex_url, body=json.dumps(response))
         all_urls.append(url)
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDC_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USDC_PRODUCT_TYPE}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._all_usdc_symbols_request_mock_response
         mock_api.get(regex_url, body=json.dumps(response))
@@ -1266,13 +1141,13 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         all_urls = []
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDT_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USDT_PRODUCT_TYPE}")
         response = self.trading_rules_request_erroneous_mock_response
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USD_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USD_PRODUCT_TYPE}")
         response = {
             "code": "00000",
             "data": [],
@@ -1283,7 +1158,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         all_urls.append(url)
 
         url = (f"{web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_CONTRACTS_ENDPOINT)}"
-               f"?productType={CONSTANTS.USDC_PRODUCT_TYPE}")
+               f"?category={CONSTANTS.USDC_PRODUCT_TYPE}")
         mock_api.get(url, body=json.dumps(response))
         all_urls.append(url)
 
@@ -1365,9 +1240,8 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         position_event = {
             "action": "snapshot",
             "arg": {
-                "channel": CONSTANTS.WS_POSITIONS_ENDPOINT,
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "instId": "default"
+                "topic": CONSTANTS.WS_POSITIONS_ENDPOINT,
+                "instType": CONSTANTS.INST_TYPE_UTA
             },
             "data": [],
         }
@@ -1494,7 +1368,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         fees_request = self._all_executed_requests(mock_api, url)[0]
         request_params = fees_request.kwargs["params"]
-        self.assertEqual(CONSTANTS.USDT_PRODUCT_TYPE, request_params["productType"])
+        self.assertEqual(CONSTANTS.USDT_PRODUCT_TYPE, request_params["category"])
 
         expected_trading_fees = TradeFeeSchema(
             maker_percent_fee_decimal=Decimal(resp["data"][0]["makerFeeRate"]),
@@ -1874,7 +1748,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.amount, fill_event.amount)
         expected_fee = DeductedFromReturnsTradeFee(
             percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=-Decimal("0.1"))],
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
         )
         self.assertEqual(expected_fee, fill_event.trade_fee)
 
@@ -1954,7 +1828,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.amount, fill_event.amount)
         expected_fee = DeductedFromReturnsTradeFee(
             percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=-Decimal("0.1"))],
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
         )
         self.assertEqual(expected_fee, fill_event.trade_fee)
 
