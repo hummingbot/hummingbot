@@ -460,6 +460,9 @@ class BitgetExchange(ExchangePyBase):
         # V3 UTA renames fill fields: tradeId->execId, priceAvg->execPrice, size->execQty,
         # amount->execValue, feeDetail[].totalFee->feeDetail[].fee, uTime->updatedTime. The legacy
         # names are kept as fallbacks so this parser works for both REST fills and websocket pushes.
+        # The fee is taken as a positive magnitude (hummingbot represents the deduction via the fee
+        # type); Bitget V3 already reports feeDetail.fee as a positive value, abs() normalises the
+        # legacy negative convention too.
         fee_detail = trade_msg.get("feeDetail")
         trade_fee_data = (fee_detail[0] if isinstance(fee_detail, list) else fee_detail) or {}
         fee_amount = abs(Decimal(str(trade_fee_data.get("fee", trade_fee_data.get("totalFee", "0")))))

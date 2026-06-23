@@ -954,9 +954,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 self._order_tracker.process_trade_update(trade_update)
 
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
+        # Shared by REST fills and the V3 UTA "fill" channel (both BitgetUaUserTrade).
         # V3 fills (FillV3) rename fields: tradeId->execId, price->execPrice, baseVolume->execQty,
         # cTime->createdTime, and feeDetail[].{totalFee/totalDeductionFee}->feeDetail[].fee. Legacy
         # names are kept as fallbacks so V2-shaped payloads keep parsing.
+        # The fee is taken as a positive magnitude (the perpetual fee type already conveys the
+        # deduction); Bitget V3 reports feeDetail.fee as positive, and abs() normalises the legacy
+        # negative convention as well.
         fee_detail = trade_msg["feeDetail"][0]
         fee_asset = fee_detail["feeCoin"]
         if "fee" in fee_detail:
