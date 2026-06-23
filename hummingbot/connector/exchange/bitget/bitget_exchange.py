@@ -513,7 +513,7 @@ class BitgetExchange(ExchangePyBase):
             try:
                 # V3 UTA push envelope uses arg.topic (the V2 API used arg.channel).
                 arg = event_message["arg"]
-                channel = arg.get("topic", arg.get("channel"))
+                channel = arg.get("topic")
                 data = event_message["data"]
 
                 self.logger().debug(f"Channel: {channel} - Data: {data}")

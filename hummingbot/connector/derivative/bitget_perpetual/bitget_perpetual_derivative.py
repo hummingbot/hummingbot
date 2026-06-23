@@ -812,7 +812,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 # V3 UTA push envelope uses arg.topic (the V2 API used arg.channel). Fills now arrive
                 # on the dedicated "fill" channel; the "order" channel carries order state only.
                 arg = event_message["arg"]
-                channel = arg.get("topic", arg.get("channel"))
+                channel = arg.get("topic")
                 data = event_message["data"]
 
                 if channel == CONSTANTS.WS_POSITIONS_ENDPOINT:

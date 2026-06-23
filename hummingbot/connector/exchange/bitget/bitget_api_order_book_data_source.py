@@ -56,8 +56,7 @@ class BitgetAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise IOError(f"Failed to subscribe to public channels: {message} ({error_code})")
 
             if event_message["event"] == "subscribe":
-                arg = event_message.get("arg", {})
-                channel: str = arg.get("topic") or arg.get("channel", "unknown")
+                channel: str = event_message["arg"]["topic"]
                 self.logger().info(f"Subscribed to public channel: {channel.upper()}")
         else:
             self.logger().info(f"Message for unknown channel received: {event_message}")
