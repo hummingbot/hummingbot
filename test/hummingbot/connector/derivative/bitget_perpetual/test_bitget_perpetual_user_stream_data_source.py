@@ -129,9 +129,8 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return {
             "event": "subscribe",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": channel,
-                "coin": "default"
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": channel
             }
         }
 
@@ -200,18 +199,19 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "args": [
                 {
                     "instType": CONSTANTS.INST_TYPE_UTA,
-                    "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                    "coin": "default"
+                    "topic": CONSTANTS.WS_ACCOUNT_ENDPOINT
                 },
                 {
                     "instType": CONSTANTS.INST_TYPE_UTA,
-                    "channel": CONSTANTS.WS_POSITIONS_ENDPOINT,
-                    "coin": "default"
+                    "topic": CONSTANTS.WS_POSITIONS_ENDPOINT
                 },
                 {
                     "instType": CONSTANTS.INST_TYPE_UTA,
-                    "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                    "coin": "default"
+                    "topic": CONSTANTS.WS_ORDERS_ENDPOINT
+                },
+                {
+                    "instType": CONSTANTS.INST_TYPE_UTA,
+                    "topic": CONSTANTS.WS_FILL_ENDPOINT
                 },
             ]
         }

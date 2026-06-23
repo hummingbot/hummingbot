@@ -612,8 +612,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(int(trade_event["data"][0]["execId"]), msg.trade_id)
-        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        self.assertEqual(int(trade_event["data"][0]["i"]), msg.trade_id)
+        self.assertEqual(int(trade_event["data"][0]["T"]) * 1e-3, msg.timestamp)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_diffs_cancelled(self, mock_ws: AsyncMock) -> None:
