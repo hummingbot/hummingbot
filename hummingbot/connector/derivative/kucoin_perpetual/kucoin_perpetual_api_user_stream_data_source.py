@@ -126,7 +126,7 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
             order_change_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": CONSTANTS.WS_TRADES_TOPIC,
+                "topic": CONSTANTS.WS_ORDER_CHANGE_TOPIC,
                 "privateChannel": True,
                 "response": False,
             }
