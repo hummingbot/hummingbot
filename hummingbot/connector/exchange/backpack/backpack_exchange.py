@@ -543,15 +543,55 @@ class BackpackExchange(ExchangePyBase):
         if account_info:
             for asset_name, balance_entry in account_info.items():
                 free_balance = Decimal(balance_entry["available"])
-                total_balance = Decimal(balance_entry["available"]) + Decimal(balance_entry["locked"])
+                total_balance = (Decimal(balance_entry["available"])
+                                 + Decimal(balance_entry["locked"])
+                                 + Decimal(balance_entry.get("staked", "0")))
                 self._account_available_balances[asset_name] = free_balance
                 self._account_balances[asset_name] = total_balance
+                remote_asset_names.add(asset_name)
+
+            # Backpack auto-lends idle funds; the lent amount leaves the `capital` balance and is
+            # reported only under borrowLend positions. Fold the net lent quantity back in so funds
+            # sitting in the lend pool stay visible and usable (Backpack auto-redeems lent collateral
+            # when it is needed to back an order).
+            for asset_name, lent_amount in (await self._get_net_lent_balances()).items():
+                self._account_available_balances[asset_name] = (
+                    self._account_available_balances.get(asset_name, Decimal("0")) + lent_amount)
+                self._account_balances[asset_name] = (
+                    self._account_balances.get(asset_name, Decimal("0")) + lent_amount)
                 remote_asset_names.add(asset_name)
 
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
             for asset_name in asset_names_to_remove:
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
+
+    async def _get_net_lent_balances(self) -> Dict[str, Decimal]:
+        """
+        Returns the net lent quantity per asset from Backpack's borrowLend positions.
+
+        Auto-lent funds are reported here instead of in `capital`. Borrowed positions
+        (negative ``netQuantity``) are margin liabilities and are ignored for spot balance
+        reporting. Best-effort: a failure here must not break the primary balance update.
+        """
+        lent_balances: Dict[str, Decimal] = {}
+        try:
+            positions = await self._api_get(
+                path_url=CONSTANTS.BORROW_LEND_POSITIONS_PATH_URL,
+                params={"instruction": "borrowLendPositionQuery"},
+                is_auth_required=True)
+        except Exception:
+            self.logger().warning(
+                "Could not fetch Backpack borrowLend positions; lent balances may be "
+                "under-reported until the next successful update.", exc_info=True)
+            return lent_balances
+
+        for position in positions or []:
+            net_quantity = Decimal(position.get("netQuantity", "0"))
+            if net_quantity > Decimal("0"):
+                asset_name = position["symbol"]
+                lent_balances[asset_name] = lent_balances.get(asset_name, Decimal("0")) + net_quantity
+        return lent_balances
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()

@@ -904,6 +904,37 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("100.5"), available_balances[CONSTANTS.CURRENCY])
         self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
 
+    @aioresponses()
+    async def test_available_balance_is_not_double_counted_against_margin(self, mock_api):
+        """Regression for #8168. Backpack is cross-margin: netEquityAvailable already has the
+        initial margin deducted. get_available_balance() must return that value as-is and must NOT
+        subtract an open order's notional on top (which real_time_balance_update=False would do)."""
+        # Cross-margin invariant must hold so the connector relies on the exchange's number.
+        self.assertTrue(self.exchange.real_time_balance_update)
+
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "netEquity": "229.40",
+            "netEquityAvailable": "224.41",  # = netEquity - notional*imf (already margin-net)
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+        await self.exchange._update_balances()
+
+        # Even with a large open BUY order in flight, available must equal netEquityAvailable.
+        self.exchange.start_tracking_order(
+            order_id="OID-DOUBLE-COUNT",
+            exchange_order_id="EID-1",
+            trading_pair="SOL-USDC",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),  # ~200 USDC notional
+            position_action=PositionAction.OPEN,
+        )
+
+        self.assertEqual(Decimal("224.41"), self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
         account_update = self._get_account_update_ws_event_single_position_dict()
@@ -1186,6 +1217,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Both should return values from trading rules
         self.assertIsNotNone(buy_collateral)
         self.assertIsNotNone(sell_collateral)
+
+    @aioresponses()
+    async def test_leverage_initialization_signs_account_query(self, req_mock):
+        """The GET /api/v1/account request must be signed with the ``accountQuery`` instruction,
+        otherwise Backpack rejects it with 'Invalid signature' (regression for the leverage fetch).
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps({"leverageLimit": "5"}), status=200)
+
+        await self.exchange._initialize_leverage_if_needed()
+
+        self.assertTrue(self.exchange._leverage_initialized)
+        self.assertEqual(Decimal("5"), self.exchange._leverage)
+
+        # The request must be signed; the instruction is folded into the signature and must NOT
+        # leak as a plain query param.
+        request = next(iter(req_mock.requests.values()))[0]
+        self.assertIn("X-Signature", request.kwargs["headers"])
+        self.assertNotIn("instruction", request.kwargs.get("params") or {})
 
     @aioresponses()
     async def test_leverage_initialization_failure(self, req_mock):
