@@ -1591,7 +1591,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             erroneous_order=order2,
             mock_api=mock_api)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10), timeout=15)
 
         for url in urls:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
