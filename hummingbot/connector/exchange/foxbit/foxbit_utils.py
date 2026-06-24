@@ -67,7 +67,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 def ws_data_to_dict(data: str) -> Dict[str, Any]:
-    return eval(data.replace(":null", ":None").replace(":false", ":False").replace(":true", ":True"))
+    return json.loads(data)
 
 
 def datetime_val_or_now(string_value: str,
