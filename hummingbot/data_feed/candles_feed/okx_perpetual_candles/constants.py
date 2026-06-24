@@ -1,6 +1,6 @@
 from bidict import bidict
 
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 REST_URL = "https://www.okx.com"
 WSS_URL = "wss://ws.okx.com:8443/ws/v5/business"
@@ -38,5 +38,5 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 100
 HEALTH_CHECK_ENDPOINT = "/api/v5/public/time"
 
 RATE_LIMITS = [
-    RateLimit(CANDLES_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=10, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+    RateLimit(CANDLES_ENDPOINT, limit=20, time_interval=2),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=10, time_interval=2)]
