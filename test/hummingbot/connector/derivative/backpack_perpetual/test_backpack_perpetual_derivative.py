@@ -905,35 +905,43 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
 
     @aioresponses()
-    async def test_available_balance_is_not_double_counted_against_margin(self, mock_api):
-        """Regression for #8168. Backpack is cross-margin: netEquityAvailable already has the
-        initial margin deducted. get_available_balance() must return that value as-is and must NOT
-        subtract an open order's notional on top (which real_time_balance_update=False would do)."""
-        # Cross-margin invariant must hold so the connector relies on the exchange's number.
-        self.assertTrue(self.exchange.real_time_balance_update)
+    async def test_in_flight_order_reserves_margin_not_full_notional(self, mock_api):
+        """Regression for #8168. Backpack has no balance websocket stream, so real_time_balance_update
+        is False and the base class locally reserves in-flight orders between REST polls. Because the
+        market is cross-margin and USDC-settled, in_flight_asset_balances() must reserve only the order's
+        initial margin (notional / leverage) against USDC -- NOT the full quote notional (the spot base
+        behaviour that over-reserved longs and triggered the false "Not enough budget" of #8168)."""
+        # No balance websocket -> local in-flight reservation must be active.
+        self.assertFalse(self.exchange.real_time_balance_update)
+        self.exchange._leverage = Decimal("10")
+        self.exchange._leverage_initialized = True
 
         url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {
             "netEquity": "229.40",
-            "netEquityAvailable": "224.41",  # = netEquity - notional*imf (already margin-net)
+            "netEquityAvailable": "224.41",
         }
         mock_api.get(regex_url, body=json.dumps(response))
         await self.exchange._update_balances()
 
-        # Even with a large open BUY order in flight, available must equal netEquityAvailable.
         self.exchange.start_tracking_order(
-            order_id="OID-DOUBLE-COUNT",
+            order_id="OID-MARGIN",
             exchange_order_id="EID-1",
             trading_pair="SOL-USDC",
-            order_type=OrderType.MARKET,
+            order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal("69.5"),
-            amount=Decimal("2.87"),  # ~200 USDC notional
+            amount=Decimal("2.87"),  # 199.465 USDC notional -> 19.9465 margin at 10x
             position_action=PositionAction.OPEN,
         )
 
-        self.assertEqual(Decimal("224.41"), self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+        notional = Decimal("2.87") * Decimal("69.5")
+        margin = notional / Decimal("10")
+        # Available reflects only the margin reservation...
+        self.assertEqual(Decimal("224.41") - margin, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+        # ...and explicitly NOT the full-notional over-deduction that caused #8168.
+        self.assertNotEqual(Decimal("224.41") - notional, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
 
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
