@@ -1,6 +1,6 @@
 from bidict import bidict
 
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 REST_URL = "https://api-cloud-v2.bitmart.com"
 HEALTH_CHECK_ENDPOINT = "/system/time"
@@ -28,6 +28,6 @@ INTERVALS = bidict({
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
 RATE_LIMITS = [
-    RateLimit(CANDLES_ENDPOINT, limit=12, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(CONTRACT_INFO_URL, limit=12, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=10, time_interval=1, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+    RateLimit(CANDLES_ENDPOINT, limit=12, time_interval=2),
+    RateLimit(CONTRACT_INFO_URL, limit=12, time_interval=2),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=10, time_interval=1)]

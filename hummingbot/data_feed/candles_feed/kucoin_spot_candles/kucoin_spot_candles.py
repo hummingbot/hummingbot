@@ -141,7 +141,7 @@ class KucoinSpotCandles(CandlesBase):
             candles_row_dict["taker_buy_quote_volume"] = 0.
             return candles_row_dict
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
         connection_info = await rest_assistant.execute_request(
             url=self.public_ws_url,
