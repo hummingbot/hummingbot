@@ -535,10 +535,13 @@ class BackpackExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_get(
-            path_url=CONSTANTS.BALANCE_PATH_URL,
-            params={"instruction": "balanceQuery"},
-            is_auth_required=True)
+        # balanceQuery and borrowLendPositionQuery are independent; fetch them concurrently.
+        account_info, lent_balances = await asyncio.gather(
+            self._api_get(
+                path_url=CONSTANTS.BALANCE_PATH_URL,
+                params={"instruction": "balanceQuery"},
+                is_auth_required=True),
+            self._get_net_lent_balances())
 
         if account_info:
             for asset_name, balance_entry in account_info.items():
@@ -554,7 +557,7 @@ class BackpackExchange(ExchangePyBase):
             # reported only under borrowLend positions. Fold the net lent quantity back in so funds
             # sitting in the lend pool stay visible and usable (Backpack auto-redeems lent collateral
             # when it is needed to back an order).
-            for asset_name, lent_amount in (await self._get_net_lent_balances()).items():
+            for asset_name, lent_amount in lent_balances.items():
                 self._account_available_balances[asset_name] = (
                     self._account_available_balances.get(asset_name, Decimal("0")) + lent_amount)
                 self._account_balances[asset_name] = (
