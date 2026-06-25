@@ -59,7 +59,11 @@ async def get_current_server_time(
     )
     server_time = response["data"]
 
-    return server_time * 1e-3
+    # KuCoin returns the server time in milliseconds, which is what TimeSynchronizer expects
+    # (it computes the offset against perf_counter * 1e3). Returning seconds here corrupted the
+    # offset (~1000x off), making signed timestamps invalid (400002) once the auth started using
+    # the synchronizer. Mirror the spot connector and return milliseconds unchanged.
+    return server_time
 
 
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:

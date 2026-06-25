@@ -29,6 +29,9 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1500
 
 MAX_REQUEST = 4000
 TIME_INTERVAL = 30
+# The kucoin connector throttles per-endpoint (no global weight pool), so this feed cannot
+# coordinate a shared budget with it even when they share a throttler. REQUEST_WEIGHT is a
+# candle-local pool that keeps the standalone cap self-consistent.
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 
 RATE_LIMITS = [

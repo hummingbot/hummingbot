@@ -99,11 +99,9 @@ class XEMMExecutor(ExecutorBase):
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
-        self._current_retries = 0
-        self._max_retries = max_retries
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
-                         config=config, update_interval=update_interval)
+                         config=config, update_interval=update_interval, max_retries=max_retries)
 
     async def validate_sufficient_balance(self):
         mid_price = self.get_price(self.maker_connector, self.maker_trading_pair,
@@ -207,7 +205,6 @@ class XEMMExecutor(ExecutorBase):
                 price=self._taker_result_price,
                 order_amount=order_amount,
                 token=asset,
-                exchange=connector,
             )
 
     async def get_resulting_price_for_amount(self, connector: str, trading_pair: str, is_buy: bool,
@@ -326,7 +323,7 @@ class XEMMExecutor(ExecutorBase):
         if self.maker_order and self.maker_order.order and self.maker_order.order.is_open:
             self.logger().info(f"Cancelling maker order {self.maker_order.order_id}.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-        self.close_type = CloseType.EARLY_STOP
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self.stop()
 
     def get_cum_fees_quote(self) -> Decimal:

@@ -19,7 +19,6 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -185,11 +184,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
-
-    def start(self, clock: Clock, timestamp: float):
-        super().start(clock, timestamp)
-        if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
-            self.set_position_mode(PositionMode.HEDGE)
 
     async def start_network(self):
         """
@@ -782,6 +776,17 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                                                                         quote=symbol_data["settleCcy"])
         self._set_trading_pair_symbol_map(mapping)
 
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        response = await self._api_get(
+            path_url=CONSTANTS.REST_GET_ACCOUNT_CONFIG[CONSTANTS.ENDPOINT],
+            is_auth_required=True,
+        )
+        if response.get("code") == CONSTANTS.RET_CODE_OK and response.get("data"):
+            pos_mode = response["data"][0].get("posMode")
+            reverse_map = {v: k for k, v in CONSTANTS.POSITION_MODE_MAP.items()}
+            return reverse_map.get(pos_mode)
+        return None
+
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         msg = ""
         success = True
@@ -799,8 +804,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         response_code = response["code"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(response_code)
-            msg = f"{formatted_ret_code} - {response['msg']}"
+            msg = response['msg']
             success = False
 
         return success, msg

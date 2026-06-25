@@ -2,7 +2,7 @@ import asyncio
 import os
 import time
 from collections import deque
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJ
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+if TYPE_CHECKING:
+    from hummingbot.connector.connector_base import ConnectorBase
 
 
 class CandlesBase(NetworkBase):
@@ -53,16 +56,72 @@ class CandlesBase(NetworkBase):
         self.max_records = max_records
         self._candles = deque(maxlen=max_records)
         self._listen_candles_task: Optional[asyncio.Task] = None
+        self._fill_candles_task: Optional[asyncio.Task] = None
         self._trading_pair = trading_pair
+        # Optional reference to the backing connector (same exchange). When present, the feed reuses
+        # the connector's public symbol map and cached exchange-data instead of fetching them itself.
+        # Set post-construction via attach_connector(); None keeps the standalone behaviour untouched.
+        self._connector: Optional["ConnectorBase"] = None
+        # Synchronous fallback resolution; re-resolved through the connector (when present) lazily in
+        # initialize_exchange_data() so subclasses still see a populated value at construction time.
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         self._ws_candle_available = asyncio.Event()
         self._ping_timeout = None
+        self._exchange_data_initialized = False
         if interval in self.intervals.keys():
             self.interval = interval
         else:
             self.logger().exception(
                 f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
+
+    def attach_connector(self, connector: "ConnectorBase"):
+        """
+        Wires this feed to a backing connector for the same exchange. The feed then:
+          - shares the connector's rate-limit budget (its throttler), so candle and connector REST
+            traffic are accounted against a single pool instead of two when both target the same
+            exchange; and
+          - reuses the connector's public symbol map and already-cached exchange-data instead of
+            fetching them itself, removing a redundant network call per feed.
+
+        Throttler sharing registers the feed's own rate limits on the connector's throttler with
+        ``add_rate_limits``, which is additive and skips ids already present: the connector's pool
+        definitions are preserved while the candle endpoints are registered (without this, candle
+        requests would not be throttled at all on the shared throttler).
+
+        Degrades gracefully: if the connector exposes no throttler (e.g. a Gateway connector), the
+        feed keeps its own; symbol/exchange-data reuse falls back to the standalone path
+        (``get_exchange_trading_pair`` + the feed's own ``_initialize_exchange_data`` fetch). Wired
+        post-construction by ``CandlesFactory.get_candle`` / ``MarketDataProvider`` when the same
+        exchange is already present. Safe to call once right after construction.
+
+        :param connector: The ConnectorBase instance backing this feed's exchange.
+        """
+        throttler = getattr(connector, "throttler", None)
+        if throttler is not None:
+            throttler.add_rate_limits(self.rate_limits)
+            self._api_factory = WebAssistantsFactory(throttler=throttler)
+        self._connector = connector
+
+    async def _resolve_exchange_symbol(self) -> str:
+        """
+        Resolves the exchange-notation symbol for this feed's trading pair. When a connector is
+        attached, it reuses the connector's public symbol map
+        (``exchange_symbol_associated_to_pair``, lazily initialised), which is authoritative for the
+        exchange and removes the per-subclass string transform. Any failure (symbol map not ready,
+        pair absent, connector without the method) falls back to the subclass'
+        ``get_exchange_trading_pair`` so standalone behaviour is always preserved.
+
+        :return: The trading pair in exchange notation.
+        """
+        if self._connector is not None:
+            try:
+                return await self._connector.exchange_symbol_associated_to_pair(self._trading_pair)
+            except Exception:
+                self.logger().debug(
+                    f"Could not resolve {self._trading_pair} via the connector symbol map; "
+                    f"falling back to get_exchange_trading_pair.", exc_info=True)
+        return self.get_exchange_trading_pair(self._trading_pair)
 
     async def start_network(self):
         """
@@ -79,8 +138,29 @@ class CandlesBase(NetworkBase):
         if self._listen_candles_task is not None:
             self._listen_candles_task.cancel()
             self._listen_candles_task = None
+        if self._fill_candles_task is not None:
+            self._fill_candles_task.cancel()
+            self._fill_candles_task = None
+        # Allow exchange data to be refreshed on the next start (e.g. WS tokens that expire).
+        self._exchange_data_initialized = False
 
     async def initialize_exchange_data(self):
+        """
+        Idempotent entry point that ensures the exchange-specific data is set up exactly once
+        per network lifecycle. Subclasses should override ``_initialize_exchange_data`` instead
+        of this method. The guard avoids redundant work when this is called repeatedly (e.g. by
+        ``fetch_candles`` inside ``get_historical_candles``'s pagination loop).
+        """
+        if self._exchange_data_initialized:
+            return
+        # Re-resolve the exchange symbol through the connector when one is attached (async, lazy).
+        # This runs once per network lifecycle (guarded) and before the subclass hook, so overrides
+        # of _initialize_exchange_data observe the connector-resolved symbol.
+        self._ex_trading_pair = await self._resolve_exchange_symbol()
+        await self._initialize_exchange_data()
+        self._exchange_data_initialized = True
+
+    async def _initialize_exchange_data(self):
         """
         This method is used to set up the exchange data before starting the network.
 
@@ -233,6 +313,10 @@ class CandlesBase(NetworkBase):
         if start_time is None and end_time is None:
             raise ValueError("Either the start time or end time must be specified.")
 
+        # Ensure exchange-specific data (e.g. symbol/coin resolution) is ready, since fetch_candles
+        # can be called directly without going through start_network() or get_historical_candles().
+        await self.initialize_exchange_data()
+
         if limit is None:
             limit = self.candles_max_result_per_rest_request
 
@@ -262,6 +346,8 @@ class CandlesBase(NetworkBase):
                                                        headers=headers,
                                                        method=self._rest_method)
         arr = self._parse_rest_candles(candles, end_time)
+        if not arr:
+            return np.array([]).reshape(0, 10)
         return np.array(arr).astype(float)
 
     def _get_rest_candles_params(self,
@@ -326,6 +412,8 @@ class CandlesBase(NetworkBase):
         while not self.ready:
             await self._ws_candle_available.wait()
             try:
+                if len(self._candles) == 0:
+                    continue
                 end_time = self._round_timestamp_to_interval_multiple(self._candles[0][0])
                 missing_records = self._candles.maxlen - len(self._candles)
                 candles: np.ndarray = await self.fetch_candles(end_time=end_time, limit=missing_records)
@@ -421,7 +509,7 @@ class CandlesBase(NetworkBase):
                 if len(self._candles) == 0:
                     self._candles.append(candles_row)
                     self._ws_candle_available.set()
-                    safe_ensure_future(self.fill_historical_candles())
+                    self._fill_candles_task = safe_ensure_future(self.fill_historical_candles())
                 else:
                     latest_timestamp = int(self._candles[-1][0])
                     current_timestamp = int(parsed_message["timestamp"])
@@ -471,6 +559,10 @@ class CandlesBase(NetworkBase):
 
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         websocket_assistant and await websocket_assistant.disconnect()
+        if self._fill_candles_task is not None:
+            self._fill_candles_task.cancel()
+            self._fill_candles_task = None
+        self._ws_candle_available.clear()
         self._candles.clear()
 
     def get_seconds_from_interval(self, interval: str) -> int:

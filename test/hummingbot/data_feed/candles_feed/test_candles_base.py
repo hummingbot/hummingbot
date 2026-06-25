@@ -94,6 +94,67 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         result = self.data_feed.get_exchange_trading_pair(self.trading_pair)
         self.assertEqual(result, self.ex_trading_pair)
 
+    def test_attach_connector_sets_reference_and_shares_throttler(self):
+        # No connector by default (standalone); attach_connector wires the backing connector and,
+        # when the connector exposes a throttler, the feed reuses that exact instance.
+        self.assertIsNone(self.data_feed._connector)
+        shared_throttler = MagicMock()
+        connector = MagicMock(throttler=shared_throttler)
+        self.data_feed.attach_connector(connector)
+        self.assertIs(self.data_feed._connector, connector)
+        shared_throttler.add_rate_limits.assert_called_once_with(self.data_feed.rate_limits)
+        self.assertIs(self.data_feed._api_factory._throttler, shared_throttler)
+
+    def test_attach_connector_without_throttler_keeps_own(self):
+        # A connector with no throttler (e.g. Gateway): the feed keeps its own request factory.
+        own_factory = self.data_feed._api_factory
+        connector = MagicMock(throttler=None)
+        self.data_feed.attach_connector(connector)
+        self.assertIs(self.data_feed._connector, connector)
+        self.assertIs(self.data_feed._api_factory, own_factory)
+
+    async def test_resolve_exchange_symbol_without_connector_uses_fallback(self):
+        # Standalone: the symbol is resolved by the subclass' own get_exchange_trading_pair.
+        self.data_feed._connector = None
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_resolve_exchange_symbol_with_connector_uses_symbol_map(self):
+        # Backed by a connector: the symbol comes from the connector's public symbol map.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.attach_connector(connector)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, "CONNECTOR-SYMBOL")
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
+    async def test_resolve_exchange_symbol_connector_failure_falls_back(self):
+        # If the connector lookup raises (map not ready, pair absent), fall back to standalone logic.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=KeyError(self.trading_pair))
+        self.data_feed.attach_connector(connector)
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_initialize_exchange_data_resolves_symbol_via_connector(self):
+        # The idempotent wrapper re-resolves _ex_trading_pair through the connector before the
+        # subclass hook runs, and only once per network lifecycle.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.attach_connector(connector)
+        # Ensure a clean lifecycle: some subclasses' setUp may have already initialised the data.
+        self.data_feed._exchange_data_initialized = False
+        with patch.object(self.data_feed, "_initialize_exchange_data", new_callable=AsyncMock) as mock_init:
+            await self.data_feed.initialize_exchange_data()
+            self.assertEqual(self.data_feed._ex_trading_pair, "CONNECTOR-SYMBOL")
+            mock_init.assert_awaited_once()
+            # Second call is a no-op thanks to the idempotency guard.
+            await self.data_feed.initialize_exchange_data()
+            mock_init.assert_awaited_once()
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
     @patch("os.path.exists", return_value=True)
     @patch("pandas.read_csv")
     def test_load_candles_from_csv(self, mock_read_csv, _):
@@ -416,3 +477,39 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             result = await self.data_feed.get_historical_candles(config)
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()
+
+    async def test_stop_network_cancels_fill_candles_task(self):
+        """Test that stop_network cancels _fill_candles_task when it exists (lines 83-85)"""
+        # Skip for subclasses that override stop_network (e.g. BtcMarketsSpotCandles)
+        if type(self.data_feed).stop_network is not CandlesBase.stop_network:
+            return
+        mock_task = MagicMock()
+        self.data_feed._fill_candles_task = mock_task
+        self.data_feed._listen_candles_task = None
+
+        await self.data_feed.stop_network()
+
+        mock_task.cancel.assert_called_once()
+        self.assertIsNone(self.data_feed._fill_candles_task)
+
+    async def test_fill_historical_candles_skips_when_candles_empty(self):
+        """Test that fill_historical_candles continues when _candles is empty (lines 333-334)"""
+        self.data_feed._candles = deque(maxlen=4)
+        self.data_feed._ws_candle_available = asyncio.Event()
+        self.data_feed._ws_candle_available.set()
+
+        # First call: candles empty -> ready is False, hits continue (lines 333-334)
+        # Second call: we add candles -> ready becomes True, exits loop
+        call_count = 0
+
+        def mock_ready(self_inner):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return False  # First check: not ready, enter loop
+            # After the continue, add candles and return True to exit
+            return True
+
+        with patch.object(type(self.data_feed), 'ready', new_callable=lambda: property(mock_ready)):
+            with patch.object(self.data_feed, 'check_candles_sorted_and_equidistant'):
+                await asyncio.wait_for(self.data_feed.fill_historical_candles(), timeout=5)

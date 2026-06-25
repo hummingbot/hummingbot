@@ -515,11 +515,11 @@ class ArchitectPerpetualDerivative(PerpetualDerivativePyBase):
     ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         symbol = instrument_data["symbol"]
         quote = instrument_data["quote_currency"]
-        match = re.match(pattern=fr"(\w+){quote}-PERP", string=symbol)
+        match = re.match(pattern=fr"([\w-]+){quote}-PERP", string=symbol)
         if match is not None:
             base = match.group(1)
         else:
-            alt_match = re.match(pattern=r"(\w+)-PERP", string=symbol)
+            alt_match = re.match(pattern=r"([\w-]+)-PERP", string=symbol)
             if alt_match is not None:
                 base = alt_match.group(1)
             else:
@@ -527,6 +527,7 @@ class ArchitectPerpetualDerivative(PerpetualDerivativePyBase):
                     self.logger().warning(f"Could not parse base token for {symbol}.")
                     self._trading_pair_parsing_warrning_issued.add(symbol)
                 return None, None, None
+        base = base.replace("-", "_")
         return symbol, base, quote
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:

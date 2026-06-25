@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
@@ -31,19 +32,23 @@ class ExecutorBase(RunnableBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
+    def __init__(self, strategy: StrategyV2Base, connectors: List[str], config: ExecutorConfigBase,
+                 update_interval: float = 0.5, max_retries: int = 10):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
         :param strategy: The strategy to be used by the executor.
         :param connectors: The connectors to be used by the executor.
         :param update_interval: The update interval for the executor.
+        :param max_retries: The maximum number of retries for the executor.
         """
         super().__init__(update_interval)
         self.config = config
         self.close_type: Optional[CloseType] = None
         self.close_timestamp: Optional[float] = None
         self._strategy: StrategyV2Base = strategy
+        self._max_retries = max_retries
+        self._current_retries = 0
         self._held_position_orders = []  # Keep track of orders that become held positions
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
@@ -182,11 +187,36 @@ class ExecutorBase(RunnableBase):
         """
         pass
 
+    async def control_loop(self):
+        """
+        Override control loop to evaluate max retries after each control task.
+        """
+        await self.on_start()
+        while not self.terminated.is_set():
+            try:
+                await self.control_task()
+                self.evaluate_max_retries()
+            except Exception as e:
+                self.logger().error(e, exc_info=True)
+            finally:
+                await asyncio.sleep(self.update_interval)
+        self.on_stop()
+
     def early_stop(self, keep_position: bool = False):
         """
         This method allows strategy to stop the executor early.
         """
         raise NotImplementedError
+
+    def evaluate_max_retries(self):
+        """
+        Evaluates the maximum number of retries to place an order and stops the executor
+        if the maximum number of retries is reached. Subclasses can override this method
+        to customize the behavior.
+        """
+        if self._current_retries > self._max_retries:
+            self.close_type = CloseType.FAILED
+            self.stop()
 
     async def validate_sufficient_balance(self):
         """

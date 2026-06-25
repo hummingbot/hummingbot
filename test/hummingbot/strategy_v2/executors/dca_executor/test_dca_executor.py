@@ -14,7 +14,7 @@ from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutor
 from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import TrailingStop
 from hummingbot.strategy_v2.models.base import RunnableStatus
-from hummingbot.strategy_v2.models.executors import TrackedOrder
+from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
 
 class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -32,6 +32,7 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         strategy = MagicMock(spec=StrategyV2Base)
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
+        type(strategy).current_timestamp = PropertyMock(return_value=123)
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
         strategy.sell.side_effect = ["OID-SELL-1", "OID-SELL-2", "OID-SELL-3"]
         strategy.cancel.return_value = None
@@ -454,6 +455,73 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.control_task()
         await executor.control_task()
         self.assertEqual(executor.active_close_orders[0].order_id, "OID-SELL-1")
+
+    def test_process_order_failed_event_open_order_increments_retries(self):
+        """Bug fix: open order failures should increment _current_retries."""
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10), Decimal(20)],
+                                   prices=[Decimal(100), Decimal(90)])
+        executor = self.get_dca_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+        self.assertEqual(executor._current_retries, 0)
+
+        open_order_id = "OID-OPEN-FAIL"
+        tracked_order = TrackedOrder(open_order_id)
+        tracked_order.order = InFlightOrder(
+            client_order_id=open_order_id, trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT, trade_type=config.side,
+            price=Decimal("100"), amount=Decimal("1"),
+            creation_timestamp=1640001112.223, initial_state=OrderState.OPEN
+        )
+        executor._open_orders.append(tracked_order)
+
+        failure_event = MarketOrderFailureEvent(
+            order_id=open_order_id, timestamp=1640001112.223, order_type=OrderType.LIMIT
+        )
+        executor.process_order_failed_event(1, self.strategy.connectors["binance"], failure_event)
+
+        self.assertEqual(executor._current_retries, 1)
+        self.assertIn(tracked_order, executor._failed_orders)
+
+    @patch.object(DCAExecutor, "get_price")
+    async def test_barrier_race_condition_only_one_close_order(self, get_price_mock):
+        """When stop loss triggers, subsequent barriers should not also trigger."""
+        get_price_mock.side_effect = [Decimal("105"), Decimal("50"), Decimal("50")]
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal(10)],
+                                   prices=[Decimal(100)],
+                                   stop_loss=Decimal("0.1"),
+                                   take_profit=Decimal("0.1"),
+                                   time_limit=1)
+        executor = self.get_dca_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+
+        # Create and fill an open order
+        await executor.control_task()
+        executor.active_open_orders[0].order = InFlightOrder(
+            client_order_id="OID-BUY-1", exchange_order_id="EOID4",
+            trading_pair="ETH-USDT", order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY, amount=Decimal(0.1), price=Decimal(100),
+            creation_timestamp=1640001112.223, initial_state=OrderState.COMPLETED
+        )
+        executor.active_open_orders[0].order.update_with_trade_update(TradeUpdate(
+            trade_id="1", client_order_id="OID-BUY-1", exchange_order_id="EOID4",
+            trading_pair="ETH-USDT", fill_price=Decimal("100"),
+            fill_base_amount=Decimal("0.1"), fill_quote_amount=Decimal("10"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+            fill_timestamp=10,
+        ))
+
+        # Expire the executor so time_limit would also trigger
+        type(self.strategy).current_timestamp = PropertyMock(return_value=124 + 2)
+
+        # Both stop loss and time limit conditions are met, but only one close should happen
+        await executor.control_task()
+        self.assertEqual(executor.close_type, CloseType.STOP_LOSS)
+        # Only one close order should be placed
+        self.assertEqual(len(executor.active_close_orders), 1)
 
     def test_process_order_failed_event_open_order(self):
         config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",

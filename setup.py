@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260302"
+    version = "20260616"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -42,18 +42,21 @@ def main():
     }
     install_requires = [
         "aiohttp>=3.8.5",
+        "aiomqtt>=2.0.0",
         "asyncssh>=2.13.2",
         "aioprocessing>=2.0.1",
         "aioresponses>=0.7.4",
         "aiounittest>=1.4.2",
+        "aptos-sdk>=0.8.0",
         "async-timeout>=4.0.2,<5",
+        "base58>=2.1.1",
         "bidict>=0.22.1",
         "bip-utils",
         "cachetools>=5.3.1",
-        "commlib-py>=0.11",
         "cryptography>=41.0.2",
+        "decibel-python-sdk==0.2.1",
         "eth-account>=0.13.0",
-        "injective-py",
+        "injective-py>=1.13",
         "msgpack-python",
         "numba>=0.61.2",
         "numpy>=2.2.6",
@@ -72,6 +75,7 @@ def main():
         "scalecodec",
         "scipy>=1.11.1",
         "six>=1.16.0",
+        "solders>=0.19.0",
         "sqlalchemy>=1.4.49",
         "tabulate==0.9.0",
         "TA-Lib>=0.6.4",
@@ -81,6 +85,7 @@ def main():
         "web3",
         "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
+        "lighter-sdk==1.0.8"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
@@ -151,6 +156,7 @@ def main():
         author="Hummingbot Foundation",
         author_email="dev@hummingbot.org",
         license="Apache 2.0",
+        python_requires=">=3.10.12",
         packages=packages,
         package_data=package_data,
         install_requires=install_requires,

@@ -250,6 +250,34 @@ class TestXRPLUtils(IsolatedAsyncioWrapperTestCase):
             XRPLConfigMap.validate_wss_node_urls(invalid_url)
         self.assertIn("Invalid node url", str(context.exception))
 
+    def test_custom_markets_included_in_api_keys(self):
+        """Verify that custom_markets is extracted by api_keys_from_connector_config_map (issue #8118)."""
+        from hummingbot.client.config.config_helpers import ClientConfigAdapter, api_keys_from_connector_config_map
+        from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
+
+        custom = {
+            "BBRL-RLUSD": XRPLMarket(
+                base="BBRL",
+                quote="RLUSD",
+                base_issuer="rBBRL1issuer",
+                quote_issuer="rRLUSD1issuer",
+            )
+        }
+        config_map = ClientConfigAdapter(
+            XRPLConfigMap(
+                xrpl_secret_key="test_secret_key",
+                wss_node_urls=["wss://xrplcluster.com/"],
+                custom_markets=custom,
+            )
+        )
+
+        api_keys = api_keys_from_connector_config_map(config_map)
+
+        self.assertIn("custom_markets", api_keys)
+        self.assertIn("BBRL-RLUSD", api_keys["custom_markets"])
+        self.assertEqual(api_keys["custom_markets"]["BBRL-RLUSD"].base, "BBRL")
+        self.assertEqual(api_keys["custom_markets"]["BBRL-RLUSD"].quote, "RLUSD")
+
     async def test_auto_fill(self):
         client = AsyncMock()
 
