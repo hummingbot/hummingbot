@@ -207,12 +207,34 @@ class MarketDataProvider:
             if existing_feed and hasattr(existing_feed, 'stop'):
                 existing_feed.stop()
 
-            # Create a new feed with updated max_records
-            candle_feed = CandlesFactory.get_candle(config)
+            # Create a new feed with updated max_records, reusing the connector when the same exchange
+            # is already present: the feed then shares the connector's throttler (single rate-limit
+            # budget) and reuses its symbol map + cached exchange-data, avoiding redundant fetches.
+            candle_feed = CandlesFactory.get_candle(config, connector=self._get_shared_connector(config.connector))
             self.candles_feeds[key] = candle_feed
             if hasattr(candle_feed, 'start'):
                 candle_feed.start()
             return candle_feed
+
+    def _get_shared_connector(self, connector_name: str) -> Optional[ConnectorBase]:
+        """
+        Returns an already-existing connector for ``connector_name`` so a candles feed can reuse it
+        (its throttler for a shared rate-limit budget, and its symbol map / cached exchange-data to
+        avoid redundant fetches), or ``None`` when no such connector exists (in which case the feed
+        keeps its standalone behaviour — identical to the previous behaviour).
+
+        It does NOT force-create a connector: ``self.connectors`` is a plain dict, and
+        ``_non_trading_connectors`` is a LazyDict whose ``.get``/``d[absent]`` would materialise the
+        connector via its factory. Only membership (``in``) is checked before indexing an
+        already-present key, so a non-trading connector is reused only if it was created elsewhere.
+
+        :param connector_name: Name of the connector/exchange.
+        :return: A ConnectorBase instance to reuse, or None.
+        """
+        connector = self.connectors.get(connector_name)
+        if connector is None and connector_name in self._non_trading_connectors:
+            connector = self._non_trading_connectors[connector_name]
+        return connector
 
     @staticmethod
     def _generate_candle_feed_key(config: CandlesConfig) -> str:
