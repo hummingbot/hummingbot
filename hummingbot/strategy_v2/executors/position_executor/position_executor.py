@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Set, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
@@ -61,6 +61,7 @@ class PositionExecutor(ExecutorBase):
         self._close_order: Optional[TrackedOrder] = None
         self._take_profit_limit_order: Optional[TrackedOrder] = None
         self._failed_orders: List[TrackedOrder] = []
+        self._failed_close_order_ids: Set[str] = set()
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
 
         self._total_executed_amount_backup: Decimal = Decimal("0")
@@ -643,6 +644,15 @@ class PositionExecutor(ExecutorBase):
             self._close_order.order = in_flight_order
         elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == order_id:
             self._take_profit_limit_order.order = in_flight_order
+        elif not self._close_order and order_id in self._failed_close_order_ids:
+            for failed_order in self._failed_orders:
+                if failed_order.order_id == order_id:
+                    failed_order.order = in_flight_order
+                    if failed_order.is_filled:
+                        self._close_order = failed_order
+                        self._failed_orders.remove(failed_order)
+                        self._failed_close_order_ids.discard(order_id)
+                    break
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         """
@@ -698,6 +708,7 @@ class PositionExecutor(ExecutorBase):
             self._current_retries += 1
         elif self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
+            self._failed_close_order_ids.add(event.order_id)
             self._close_order = None
             self.logger().error(f"Close order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
             self._current_retries += 1
