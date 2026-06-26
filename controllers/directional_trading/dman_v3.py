@@ -101,12 +101,24 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             if v == "":
                 return [Decimal('1.0') / len(spreads) for _ in spreads]
             amounts = [Decimal(val) for val in v.split(",")]
-            if len(amounts) != len(spreads):
-                raise ValueError("Amounts and spreads must have the same length")
-            return amounts
-        if v is None:
+        elif v is None:
             return [Decimal('1.0') / len(spreads) for _ in spreads]
-        return v
+        else:
+            amounts = v
+
+        if len(amounts) != len(spreads):
+            raise ValueError("Amounts and spreads must have the same length")
+
+        if any(amount < 0 for amount in amounts):
+            raise ValueError("dca_amounts_pct cannot contain negative values")
+
+        if sum(amounts) == 0:
+            raise ValueError(
+                "The sum of dca_amounts_pct cannot be zero. "
+                "Please provide non-zero amounts for DCA levels."
+            )
+
+        return amounts
 
     @field_validator("candles_connector", mode="before")
     @classmethod
@@ -129,10 +141,16 @@ class DManV3ControllerConfig(DirectionalTradingControllerConfigBase):
             spreads = self.dca_spreads
             normalized_amounts_pct = [Decimal('1.0') / len(spreads) for _ in spreads]
         else:
+            total_pct = sum(amounts_pct)
+            if total_pct == 0:
+                raise ValueError(
+                    "The sum of dca_amounts_pct is zero. "
+                    "Cannot normalize amounts for order placement."
+                )
             if trade_type == TradeType.BUY:
-                normalized_amounts_pct = [amt_pct / sum(amounts_pct) for amt_pct in amounts_pct]
+                normalized_amounts_pct = [amt_pct / total_pct for amt_pct in amounts_pct]
             else:  # TradeType.SELL
-                normalized_amounts_pct = [amt_pct / sum(amounts_pct) for amt_pct in amounts_pct]
+                normalized_amounts_pct = [amt_pct / total_pct for amt_pct in amounts_pct]
 
         return self.dca_spreads, [amt_pct * total_amount_quote for amt_pct in normalized_amounts_pct]
 
