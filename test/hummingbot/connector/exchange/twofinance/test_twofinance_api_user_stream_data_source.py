@@ -44,10 +44,7 @@ class TwoFinanceAPIUserStreamDataSourceTests(unittest.IsolatedAsyncioTestCase):
             api_factory.ws.connect_calls[0]["ws_headers"],
             {"Authorization": "Bearer private-token"},
         )
-        self.assertEqual(api_factory.ws.sent_payloads[0]["type"], "subscribe_private")
-        self.assertEqual(api_factory.ws.sent_payloads[0]["channels"], ["orders", "trades", "balances"])
-        self.assertEqual(api_factory.ws.sent_payloads[0]["engine_id"], "engine-btc-usdt")
-        self.assertEqual(api_factory.ws.sent_payloads[0]["wallet_id"], 7)
+        self.assertEqual(api_factory.ws.sent_payloads[0], {"method": "subscribe", "params": ["7@WALLET"]})
 
 
 if __name__ == "__main__":

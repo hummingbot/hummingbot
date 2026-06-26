@@ -33,9 +33,11 @@ class MatchEngineClient:
     orders_by_exchange_id: dict[str, str] = field(default_factory=dict)
     last_sequence: int = 0
     _ws_assistant: Any | None = None
+    _pending_command_ids: list[str] = field(default_factory=list)
 
     async def send_command(self, command: OrderCommand) -> None:
         self.orders.setdefault(command.client_order_id, MatchEngineOrderEntry(command.client_order_id, command))
+        self._pending_command_ids.append(command.client_order_id)
         ws = await self._connected_ws_assistant()
         await ws.send(WSJSONRequest(payload=command.to_payload()))
 
@@ -69,16 +71,37 @@ class MatchEngineClient:
             except asyncio.TimeoutError:
                 await asyncio.sleep(0)
 
+    async def wait_for_exchange_order_id(self, client_order_id: str, timeout_seconds: float) -> str | None:
+        deadline = asyncio.get_running_loop().time() + timeout_seconds
+        while True:
+            entry = self.orders.get(client_order_id)
+            if entry is not None and entry.exchange_order_id is not None:
+                return entry.exchange_order_id
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                return None
+            try:
+                await asyncio.wait_for(self.receive_once(), timeout=min(remaining, 0.1))
+            except asyncio.TimeoutError:
+                await asyncio.sleep(0)
+
     def apply_command_response(self, response: CommandResponse) -> None:
-        if response.client_order_id is None:
+        client_order_id = response.client_order_id
+        simple_ack_without_ids = response.accepted and client_order_id is None and response.order_id is None
+        if client_order_id is None and self._pending_command_ids:
+            client_order_id = self._pending_command_ids.pop(0)
+        if client_order_id is None:
             return
-        entry = self.orders.get(response.client_order_id)
+        if client_order_id in self._pending_command_ids and not simple_ack_without_ids:
+            self._pending_command_ids.remove(client_order_id)
+        entry = self.orders.get(client_order_id)
         if entry is None:
             return
         entry.last_response = response
         if response.order_id is not None:
             entry.exchange_order_id = response.order_id
-            self.orders_by_exchange_id[response.order_id] = response.client_order_id
+            if entry.command.operation != "DELETE" or response.order_id not in self.orders_by_exchange_id:
+                self.orders_by_exchange_id[response.order_id] = client_order_id
 
     def apply_event(self, event: MatchEngineEvent) -> None:
         if event.sequence > self.last_sequence:

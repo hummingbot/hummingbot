@@ -47,6 +47,23 @@ class TwoFinanceMatchEngineSchemasTests(unittest.TestCase):
         self.assertEqual(ack.order_id, "42")
         self.assertEqual(reject.status, CommandStatus.REJECTED_BY_RISK)
 
+        simple_ack = parse_command_response({"type": 12, "timestamp": 123456789})
+        real_reject = parse_command_response(
+            {
+                "schema": "matchengine.order_response.v1",
+                "message_type": "REJECT",
+                "status": "rejected",
+                "reason_code": "INVALID_MESSAGE_ORDER_LIMIT",
+                "error_code": 35,
+            }
+        )
+
+        self.assertEqual(simple_ack.status, CommandStatus.ACCEPTED_TO_QUEUE)
+        self.assertIsNone(simple_ack.client_order_id)
+        self.assertIsNone(simple_ack.order_id)
+        self.assertEqual(real_reject.status, CommandStatus.REJECTED_BY_PARSER)
+        self.assertEqual(real_reject.reason, "INVALID_MESSAGE_ORDER_LIMIT")
+
     def test_event_order_state_uses_engine_status(self):
         event = MatchEngineEvent.from_payload(
             {

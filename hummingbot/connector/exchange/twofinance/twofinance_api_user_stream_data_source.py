@@ -42,10 +42,8 @@ class TwoFinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await websocket_assistant.send(
             WSJSONRequest(
                 payload={
-                    "type": CONSTANTS.WS_PRIVATE_SUBSCRIBE,
-                    "channels": ["orders", "trades", "balances"],
-                    "engine_id": self._engine_id,
-                    "wallet_id": self._wallet_id,
+                    "method": "subscribe",
+                    "params": [f"{self._wallet_id}@WALLET"],
                 },
                 is_auth_required=False,
             )

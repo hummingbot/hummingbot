@@ -101,11 +101,7 @@ class TwoFinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _subscribe_channels(self, ws: WSAssistant):
         await ws.send(
             WSJSONRequest(
-                payload={
-                    "type": CONSTANTS.WS_PUBLIC_SUBSCRIBE,
-                    "channels": ["order_book", "trades"],
-                    "trading_pairs": [web_utils.exchange_trading_pair(pair) for pair in self._trading_pairs],
-                }
+                payload=self._subscription_payload("subscribe", self._trading_pairs)
             )
         )
 
@@ -116,11 +112,7 @@ class TwoFinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             await self._ws_assistant.send(
                 WSJSONRequest(
-                    payload={
-                        "type": CONSTANTS.WS_PUBLIC_SUBSCRIBE,
-                        "channels": ["order_book", "trades"],
-                        "trading_pairs": [web_utils.exchange_trading_pair(trading_pair)],
-                    }
+                    payload=self._subscription_payload("subscribe", [trading_pair])
                 )
             )
             self.add_trading_pair(trading_pair)
@@ -138,11 +130,7 @@ class TwoFinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             await self._ws_assistant.send(
                 WSJSONRequest(
-                    payload={
-                        "type": "unsubscribe_public",
-                        "channels": ["order_book", "trades"],
-                        "trading_pairs": [web_utils.exchange_trading_pair(trading_pair)],
-                    }
+                    payload=self._subscription_payload("unsubscribe", [trading_pair])
                 )
             )
             self.remove_trading_pair(trading_pair)
@@ -204,3 +192,17 @@ class TwoFinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if event.timestamp_ns is not None:
             return event.timestamp_ns / 1_000_000_000
         return float(event.payload.get("timestamp") or time.time())
+
+    def _subscription_payload(self, method: str, trading_pairs: List[str]) -> Dict[str, Any]:
+        params: List[str] = []
+        for trading_pair in trading_pairs:
+            symbol_id = self._symbol_id_for_pair(trading_pair)
+            params.extend([f"{symbol_id}@BOOK", f"{symbol_id}@TRADE", f"{symbol_id}@LEVEL"])
+        return {"method": method, "params": params}
+
+    def _symbol_id_for_pair(self, trading_pair: str) -> int:
+        metadata = getattr(self._connector, "_symbol_metadata", {}).get(trading_pair, {})
+        symbol_id = metadata.get("symbol_id")
+        if symbol_id is None:
+            raise KeyError(f"missing 2Finance symbol_id for {trading_pair}")
+        return int(symbol_id)

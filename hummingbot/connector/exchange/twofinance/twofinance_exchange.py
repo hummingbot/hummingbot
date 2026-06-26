@@ -203,7 +203,7 @@ class TwoFinanceExchange(ExchangePyBase):
             raise IOError(response.reason or f"2Finance rejected order {order_id}")
         exchange_order_id = response.order_id if response is not None and response.order_id is not None else None
         if exchange_order_id is None:
-            exchange_order_id = self._matchengine_client.orders[order_id].exchange_order_id
+            exchange_order_id = await self._matchengine_client.wait_for_exchange_order_id(order_id, self._ack_timeout)
         return exchange_order_id or f"UNKNOWN:{order_id}", self.current_timestamp
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):

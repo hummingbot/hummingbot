@@ -23,12 +23,19 @@ class FakeAPIFactory:
         return self.ws
 
 
+class FakeConnector:
+    _symbol_metadata = {
+        "BTC-USDT": {"symbol_id": 1},
+        "ETH-USDT": {"symbol_id": 2},
+    }
+
+
 class TwoFinanceAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.api_factory = FakeAPIFactory()
         self.data_source = TwoFinanceAPIOrderBookDataSource(
             trading_pairs=["BTC-USDT"],
-            connector=None,
+            connector=FakeConnector(),
             api_factory=self.api_factory,
         )
 
@@ -104,10 +111,13 @@ class TwoFinanceAPIOrderBookDataSourceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(subscribed)
         self.assertTrue(unsubscribed)
-        self.assertEqual(self.api_factory.ws.sent[0]["type"], "subscribe_public")
-        self.assertEqual(self.api_factory.ws.sent[0]["trading_pairs"], ["ETH/USDT"])
-        self.assertEqual(self.api_factory.ws.sent[1]["type"], "unsubscribe_public")
-        self.assertEqual(self.api_factory.ws.sent[1]["trading_pairs"], ["ETH/USDT"])
+        self.assertEqual(self.api_factory.ws.sent[0], {"method": "subscribe", "params": ["2@BOOK", "2@TRADE", "2@LEVEL"]})
+        self.assertEqual(self.api_factory.ws.sent[1], {"method": "unsubscribe", "params": ["2@BOOK", "2@TRADE", "2@LEVEL"]})
+
+    async def test_initial_subscribe_uses_matchengine_symbol_params(self):
+        await self.data_source._subscribe_channels(self.api_factory.ws)
+
+        self.assertEqual(self.api_factory.ws.sent[0], {"method": "subscribe", "params": ["1@BOOK", "1@TRADE", "1@LEVEL"]})
 
 
 if __name__ == "__main__":

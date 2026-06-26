@@ -130,10 +130,17 @@ class MatchEngineEvent:
 
 
 def parse_command_response(data: dict[str, Any]) -> CommandResponse:
+    message_type = str(data.get("message_type") or data.get("MessageType") or data.get("type") or "").upper()
     status_value = str(data.get("status") or data.get("Status") or "").lower().replace("_", "-")
     error_code = data.get("error_code") if data.get("error_code") is not None else data.get("ErrorCode")
+    if error_code is None:
+        error_code = data.get("reason_code")
     error_code_value = str(error_code or "")
-    if status_value in {"ok", "accepted", "accepted-to-queue", "queued"} or error_code_value in {"OK", "0"}:
+    if message_type in {"ACK", "12"} and status_value not in {"timeout", "unavailable"}:
+        status = CommandStatus.ACCEPTED_TO_QUEUE
+    elif message_type == "REJECT":
+        status = CommandStatus.REJECTED_BY_PARSER
+    elif status_value in {"ok", "accepted", "accepted-to-queue", "queued"} or error_code_value in {"OK", "0"}:
         status = CommandStatus.ACCEPTED_TO_QUEUE
     elif status_value == "duplicate" or error_code_value == "ORDER_DUPLICATE":
         status = CommandStatus.DUPLICATE
@@ -149,14 +156,14 @@ def parse_command_response(data: dict[str, Any]) -> CommandResponse:
         status=status,
         client_order_id=optional_str(data.get("client_order_id") or data.get("ClientOrderId")),
         order_id=optional_str(data.get("order_id") or data.get("OrderId")),
-        reason=optional_str(data.get("reason") or data.get("message") or data.get("Message") or error_code_value),
+        reason=optional_str(data.get("reason") or data.get("reason_code") or data.get("message") or data.get("Message") or error_code_value),
         raw=data,
     )
 
 
 def is_command_response(payload: dict[str, Any]) -> bool:
     message_type = str(payload.get("message_type") or payload.get("MessageType") or payload.get("type") or "").upper()
-    return message_type in {"ACK", "ERROR", "12", "15"} or "error_code" in payload or "ErrorCode" in payload
+    return message_type in {"ACK", "ERROR", "REJECT", "12", "15"} or "error_code" in payload or "ErrorCode" in payload
 
 
 def event_order_state(event: MatchEngineEvent):
