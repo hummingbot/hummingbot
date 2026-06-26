@@ -1,10 +1,6 @@
 .ONESHELL:
 .PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down
 
-ifeq (, $(shell which conda))
-  $(error "Conda is not found in PATH. Please install Conda or add it to your PATH.")
-endif
-
 DYDX ?= 0
 ENV_FILE := setup/environment.yml
 ifeq ($(DYDX),1)
@@ -16,7 +12,6 @@ test:
  	--ignore="test/mock" \
  	--ignore="test/hummingbot/connector/exchange/ndax/" \
  	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
- 	--ignore="test/hummingbot/remote_iface/" \
  	--ignore="test/connector/utilities/oms_connector/" \
  	--ignore="test/hummingbot/strategy/amm_arb/" \
  	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
@@ -41,6 +36,10 @@ uninstall:
 	conda env remove -n hummingbot -y
 
 install:
+	@if ! command -v conda >/dev/null 2>&1; then \
+		echo "Error: Conda is not found in PATH. Please install Conda or add it to your PATH."; \
+		exit 1; \
+	fi
 	@mkdir -p logs
 	@echo "Using env file: $(ENV_FILE)"
 	@if conda env list | awk '{print $$1}' | grep -qx hummingbot; then \

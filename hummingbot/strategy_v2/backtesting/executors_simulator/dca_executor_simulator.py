@@ -50,7 +50,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
                 break
             returns_df = df_filtered[entry_timestamp:]
             returns = returns_df['close'].pct_change().fillna(0)
-            cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
+            cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - 2 * trade_cost
             take_profit_timestamp = None
             stop_loss_timestamp = None
             trailing_sl_timestamp = None
@@ -137,7 +137,7 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         df_filtered = df_filtered[:last_timestamp].copy()
         df_filtered['filled_amount_quote'] = sum([df_filtered[f'filled_amount_quote_{i}'] for i in range(len(potential_dca_stages))])
         df_filtered['net_pnl_quote'] = sum([df_filtered[f'net_pnl_quote_{i}'] for i in range(len(potential_dca_stages))])
-        df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
+        df_filtered['cum_fees_quote'] = 2 * trade_cost * df_filtered['filled_amount_quote']
         df_filtered.loc[df_filtered["filled_amount_quote"] > 0, "net_pnl_pct"] = df_filtered["net_pnl_quote"] / df_filtered["filled_amount_quote"]
         df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = df_filtered["filled_amount_quote"].iloc[-1] * 2
 

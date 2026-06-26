@@ -6,6 +6,7 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 
 class ConnectorManager:
@@ -99,6 +100,7 @@ class ConnectorManager:
 
             # Add to active connectors
             self.connectors[connector_name] = connector
+            RateOracle.get_instance().register_connector(connector)
 
             self._logger.info(f"Created connector: {connector_name}")
 
@@ -123,6 +125,7 @@ class ConnectorManager:
             return False
 
         del self.connectors[connector_name]
+        RateOracle.get_instance().unregister_connector(connector_name)
         self._logger.info(f"Removed connector: {connector_name}")
         return True
 

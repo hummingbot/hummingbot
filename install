@@ -16,6 +16,14 @@ if [ "${CONDA_EXE}_" == "_" ]; then
     exit 1
 fi
 
+# Normalize CONDA_EXE to the base install's conda. If an env that ships its own
+# conda (e.g. the hummingbot env) is active, CONDA_EXE points at .../envs/<name>/bin/conda,
+# and running "env create" from there nests the new env under .../envs/<name>/envs/.
+# Strip any /envs/<name> segment back to the base prefix so we always use base conda.
+case "${CONDA_EXE}" in
+    */envs/*) CONDA_EXE="${CONDA_EXE%%/envs/*}/bin/conda" ;;
+esac
+
 CONDA_BIN=$(dirname ${CONDA_EXE})
 ENV_FILE_1="setup/environment.yml"
 ENV_FILE_2="setup/environment_dydx.yml"
@@ -45,7 +53,10 @@ if [ "$USE_DYDX" = true ]; then
     echo "install dydx version."
 fi
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
+# Capture the env list first to avoid SIGPIPE (BrokenPipeError) when grep -q
+# exits early, and anchor the match so "hummingbot-site" et al. don't match.
+ENV_LIST=$(${CONDA_EXE} env list)
+if echo "$ENV_LIST" | egrep -qe "^hummingbot[[:space:]]"; then
     ${CONDA_EXE} env update -f $ENV_FILE
 else
     ${CONDA_EXE} env create -f $ENV_FILE

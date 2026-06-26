@@ -15,17 +15,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
+      # get-diff-action diffs against a pull/<n>/merge ref that only exists for pull_request
+      # events; on a push (e.g. post-merge to master/development) that ref is absent and the
+      # action exits 128, failing this gate and skipping the build. Only run the file-change
+      # filter for PRs; on push always build, since post-merge runs should exercise the suite.
       - uses: technote-space/get-diff-action@v6
+        if: github.event_name == 'pull_request'
         with:
           PATTERNS: |
             **/*.+(py|pyx|pyd|yml)
       - name: Check if client files are modified
         id: check_files
-        if: env.GIT_DIFF
+        if: github.event_name == 'push' || env.GIT_DIFF
         run: |
-          echo ${{ env.GIT_DIFF }}
-          echo "::set-output name=is_set::true"
+          echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
     name: Hummingbot build + stable tests
@@ -34,14 +38,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         env:
           # Increase this value to manually reset cache if program files have not changed
           CACHE_NUMBER: 0
@@ -52,7 +56,7 @@ jobs:
       # Check for setup/environment.yml changes
       - name: Cache conda dependencies
         id: conda-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         env:
           # Increase this value to manually reset cache if setup/environment.yml has not changed
           CONDA_CACHE_NUMBER: 0
@@ -76,7 +80,11 @@ jobs:
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
-          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            pre-commit run --files $(git diff --name-only origin/${{ github.base_ref }})
+          else
+            pre-commit run --files $(git diff --name-only HEAD~1)
+          fi
 
       - name: Run stable tests and calculate coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
@@ -110,7 +118,7 @@ jobs:
         id: discord-direct-webhook
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
-        uses: tsickert/discord-webhook@v5.2.0
+        uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           raw-data: ${{ matrix.target }}-build_report.json

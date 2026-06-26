@@ -15,7 +15,6 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import Positi
 
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):
     controller_name: str = "pmm_dynamic"
-    candles_config: List[CandlesConfig] = []
     buy_spreads: List[float] = Field(
         default="1,2,4",
         json_schema_extra={
@@ -80,13 +79,6 @@ class PMMDynamicController(MarketMakingControllerBase):
     def __init__(self, config: PMMDynamicControllerConfig, *args, **kwargs):
         self.config = config
         self.max_records = max(config.macd_slow, config.macd_fast, config.macd_signal, config.natr_length) + 100
-        if len(self.config.candles_config) == 0:
-            self.config.candles_config = [CandlesConfig(
-                connector=config.candles_connector,
-                trading_pair=config.candles_trading_pair,
-                interval=config.interval,
-                max_records=self.max_records
-            )]
         super().__init__(config, *args, **kwargs)
 
     async def update_processed_data(self):
@@ -124,3 +116,11 @@ class PMMDynamicController(MarketMakingControllerBase):
             leverage=self.config.leverage,
             side=trade_type,
         )
+
+    def get_candles_config(self) -> List[CandlesConfig]:
+        return [CandlesConfig(
+            connector=self.config.candles_connector,
+            trading_pair=self.config.candles_trading_pair,
+            interval=self.config.interval,
+            max_records=self.max_records
+        )]

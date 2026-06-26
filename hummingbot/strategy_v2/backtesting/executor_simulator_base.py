@@ -5,6 +5,8 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig
+from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
+from hummingbot.strategy_v2.executors.order_executor.data_types import OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
@@ -12,7 +14,7 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class ExecutorSimulation(BaseModel):
-    config: Union[PositionExecutorConfig, DCAExecutorConfig]
+    config: Union[PositionExecutorConfig, DCAExecutorConfig, GridExecutorConfig, OrderExecutorConfig]
     executor_simulation: pd.DataFrame
     close_type: CloseType
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -70,13 +72,22 @@ class ExecutorSimulation(BaseModel):
             custom_info={}
         )
 
+    @property
+    def fill_timestamp(self) -> float:
+        if not hasattr(self, '_fill_timestamp'):
+            filled = self.executor_simulation[self.executor_simulation['filled_amount_quote'] > 0]
+            self._fill_timestamp = float(filled.index[0]) if len(filled) > 0 else None
+        return self._fill_timestamp
+
     def get_custom_info(self, last_entry: pd.Series) -> dict:
         current_position_average_price = last_entry['current_position_average_price'] if "current_position_average_price" in last_entry else None
+        is_trading = last_entry['filled_amount_quote'] > 0
         return {
             "close_price": last_entry['close'],
             "level_id": self.config.level_id,
             "side": self.config.side,
-            "current_position_average_price": current_position_average_price
+            "current_position_average_price": current_position_average_price,
+            "open_order_last_update": self.fill_timestamp if is_trading else float(last_entry.name),
         }
 
 

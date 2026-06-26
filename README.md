@@ -13,18 +13,19 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 ## Quick Links
 
 * [Website and Docs](https://hummingbot.org): Official Hummingbot website and documentation
-* [Installation](https://hummingbot.org/installation/docker/): Install Hummingbot on various platforms
+* [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
+* [Spotify Podcast - The Bot Pod](https://open.spotify.com/show/1muzSO0SZqYBVQu2DXzGB1?si=ae9a9c0674c64b45): Weekly livestream and podcast by Hummingbot maintainers
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
-* [Reported Volumes](https://p.datadoghq.com/sb/a96a744f5-a15479d77992ccba0d23aecfd4c87a52): Reported trading volumes across all Hummingbot instances
+* [Reported Volumes](https://reporting.hummingbot.org/): Reported trading volumes across all Hummingbot instances
 * [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
 ## Getting Started
 
 The easiest way to get started with Hummingbot is using Docker:
 
-* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Hummingbot Docs](https://hummingbot.org/condor/installation/) site.
+* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Condor docs](https://hummingbot.org/condor/) site.
 
 * To install the CLI-based Hummingbot client, follow the instructions below.
 
@@ -47,6 +48,22 @@ make deploy
 
 # Attach to the running instance
 docker attach hummingbot
+```
+
+### Install Hummingbot from Source
+
+Clone the repo, install dependencies, and run Hummingbot directly from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/hummingbot/hummingbot.git
+cd hummingbot
+
+# Install from source
+make install
+
+# Run Hummingbot
+make run
 ```
 
 ### Install Hummingbot + Gateway DEX Middleware
@@ -75,7 +92,7 @@ make deploy
 docker attach hummingbot
 ```
 
-By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production model with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](http://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
+By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production mode with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
 
 ---
 
@@ -86,7 +103,7 @@ For comprehensive installation instructions and troubleshooting, visit our [Inst
 If you encounter issues or have questions, here's how you can get assistance:
 
 * Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
-* To report bugs or suggest features, submit a [Github issue](https://github.com/hummingbot/hummingbot/issues)
+* To report bugs or suggest features, submit a [GitHub issue](https://github.com/hummingbot/hummingbot/issues)
 * Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
 
 We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
@@ -137,7 +154,10 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
 |------|------|------|-------|----------|
 | [0x Protocol](https://hummingbot.org/exchanges/gateway/0x/) | AMM DEX | Router | `0x` | - |
+| [Aevo](https://hummingbot.org/exchanges/aevo/) | CLOB CEX | Perpetual | `aevo_perpetual` | - |
+| [Architect](https://hummingbot.org/exchanges/architect/) | CLOB CEX | Perpetual | `architect_perpetual` | - |
 | [AscendEx](https://hummingbot.org/exchanges/ascendex/) | CLOB CEX | Spot | `ascend_ex` | - |
+| [Backpack](https://hummingbot.org/exchanges/backpack/) | CLOB CEX | Spot, Perpetual | `backpack`, `backpack_perpetual` | - |
 | [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
 | [BingX](https://hummingbot.org/exchanges/bing_x/) | CLOB CEX | Spot | `bing_x` | - |
 | [Bitrue](https://hummingbot.org/exchanges/bitrue/) | CLOB CEX | Spot | `bitrue` | - |
@@ -147,12 +167,18 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | [Coinbase](https://hummingbot.org/exchanges/coinbase/) | CLOB CEX | Spot | `coinbase_advanced_trade` | - |
 | [Cube](https://hummingbot.org/exchanges/cube/) | CLOB CEX | Spot | `cube` | - |
 | [Curve](https://hummingbot.org/exchanges/gateway/curve/) | AMM DEX | AMM | `curve` | - |
+| [Decibel](https://hummingbot.org/exchanges/decibel/) | CLOB CEX | Perpetual | `decibel_perpetual` | - |
 | [Dexalot](https://hummingbot.org/exchanges/dexalot/) | CLOB DEX | Spot | `dexalot` | - |
+| [EVEDEX](https://hummingbot.org/exchanges/evedex/) | CLOB CEX | Perpetual | `evedex_perpetual` | - |
+| [Foxbit](https://hummingbot.org/exchanges/foxbit/) | CLOB CEX | Spot | `foxbit` | - |
+| [GRVT](https://hummingbot.org/exchanges/grvt/) | CLOB CEX | Perpetual | `grvt_perpetual` | - |
 | [Injective Helix](https://hummingbot.org/exchanges/injective/) | CLOB DEX | Spot, Perpetual | `injective_v2`, `injective_v2_perpetual` | - |
 | [Jupiter](https://hummingbot.org/exchanges/gateway/jupiter/) | AMM DEX | Router | `jupiter` | - |
 | [Kraken](https://hummingbot.org/exchanges/kraken/) | CLOB CEX | Spot | `kraken` | - |
 | [Meteora](https://hummingbot.org/exchanges/gateway/meteora/) | AMM DEX | CLMM | `meteora` | - |
 | [MEXC](https://hummingbot.org/exchanges/mexc/) | CLOB CEX | Spot | `mexc` | - |
+| [NDAX](https://hummingbot.org/exchanges/ndax/) | CLOB CEX | Spot | `ndax` | - |
+| [Pacifica](https://hummingbot.org/exchanges/pacifica/) | CLOB CEX | Perpetual | `pacifica_perpetual` | - |
 | [PancakeSwap](https://hummingbot.org/exchanges/gateway/pancakeswap/) | AMM DEX | AMM | `pancakeswap` | - |
 | [QuickSwap](https://hummingbot.org/exchanges/gateway/quickswap/) | AMM DEX | AMM | `quickswap` | - |
 | [Raydium](https://hummingbot.org/exchanges/gateway/raydium/) | AMM DEX | AMM, CLMM | `raydium` | - |
