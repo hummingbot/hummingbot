@@ -160,6 +160,13 @@ class TestLighterPerpetualCandles(TestCandlesBase):
         )
         self.assertEqual(params["count_back"], 240)
 
+    def test_get_rest_candles_params_rejects_invalid_range(self):
+        # end <= start must fail client-side instead of producing an upstream 400/500.
+        with self.assertRaises(ValueError):
+            self.data_feed._get_rest_candles_params(start_time=1748954400, end_time=1748940000)
+        with self.assertRaises(ValueError):
+            self.data_feed._get_rest_candles_params(start_time=1748954400, end_time=1748954400)
+
     # ---- initialize_exchange_data tests ----
 
     @aioresponses()
