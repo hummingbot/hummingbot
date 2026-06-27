@@ -52,8 +52,8 @@ class InventoryCostPriceDelegate:
                 if fee_asset == base_asset:
                     base_volume += fee_amount
                 elif fee_asset == quote_asset:
-                    # TODO: with new logic, this quote volume adjustment does not impacts anything
-                    quote_volume -= fee_amount
+                    # No adjustment needed: quote_volume is recalculated for SELL orders below
+                    pass
                 else:
                     # Ok, some other asset used (like BNB), assume that we paid in base asset for simplicity
                     base_volume /= 1 + fill_event.trade_fee.percent
