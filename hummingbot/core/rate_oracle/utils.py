@@ -23,6 +23,11 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
     quote = unwrap_token_symbol(quote)
     if base == quote:
         return Decimal("1")
+    # Re-check the direct pair after unwrapping (e.g. HYPE-USD -> HYPE-USDT) before
+    # attempting reverse-pair or path-bridging lookups.
+    unwrapped_pair = combine_to_hb_trading_pair(base=base, quote=quote)
+    if unwrapped_pair in prices:
+        return prices[unwrapped_pair]
     reverse_pair = combine_to_hb_trading_pair(base=quote, quote=base)
     if reverse_pair in prices and prices[reverse_pair] > Decimal("0"):
         return Decimal("1") / prices[reverse_pair]

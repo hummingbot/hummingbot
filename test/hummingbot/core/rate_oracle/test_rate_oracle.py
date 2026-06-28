@@ -82,6 +82,16 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         rate = find_rate(prices, "HBOT-GBP")
         self.assertEqual(rate, Decimal("75"))
 
+    def test_find_rate_unwraps_usd_quote_to_usdt(self):
+        # A USD-quoted lookup should resolve against the USDT market, including for
+        # tokens that only have a single USDT pair (e.g. HYPE) with no bridge route.
+        prices = {"HYPE-USDT": Decimal("60"), "SOL-USDT": Decimal("70")}
+        self.assertEqual(find_rate(prices, "HYPE-USD"), Decimal("60"))
+        self.assertEqual(find_rate(prices, "SOL-USD"), Decimal("70"))
+        # USD and USDT are interchangeable, so converting between them is 1:1.
+        self.assertEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
+        self.assertEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
+
     def test_find_rate_skips_zero_prices(self):
         """Test that find_rate doesn't cause DivisionByZero when prices contain zero values."""
         # Test case 1: reverse pair has zero price - should skip division and return None
