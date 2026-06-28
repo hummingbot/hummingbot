@@ -2,25 +2,15 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
-from pathlib import Path
 from typing import Dict, List, Optional
 
 import typer
 
-from hummingbot import data_path
+from hummingbot.cli import bot
 from hummingbot.cli.commands.status import _request_fresh_snapshot
-from hummingbot.cli.instances import Instance, pid_alive
 from hummingbot.cli.output import ExitCode, fail, print_json
 
 PERF_TIMEOUT = 30.0
-
-
-def _resolve_db_path(instance: Instance) -> Optional[str]:
-    db_path = instance.db_path()
-    if db_path and Path(db_path).exists():
-        return db_path
-    fallback = Path(data_path()) / f"{instance.name}.sqlite"
-    return str(fallback) if fallback.exists() else None
 
 
 def _balances_for_market(market: str, balances: Dict[str, Dict[str, float]]) -> Dict[str, Decimal]:
@@ -115,40 +105,37 @@ def _render_market(market: str, trading_pair: str, perf) -> str:
 
 
 def history(
-    name: str = typer.Argument(..., help="Instance id."),
     days: Optional[float] = typer.Option(None, "--days", help="Only include the last N days."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Report PnL, fees, and volume per market/pair from the bot's trade history."""
     from hummingbot.cli.data import get_trades
-    instance = Instance(name)
-    if not instance.exists():
-        fail(f"instance '{name}' not found", ExitCode.NOT_FOUND, json_output=json_output)
+    if not bot.exists():
+        fail("no bot has been started", ExitCode.NOT_FOUND, json_output=json_output)
 
-    db_path = _resolve_db_path(instance)
+    db_path = bot.resolve_db_path()
     if db_path is None:
-        fail(f"no trades database found for '{name}' (no fills yet?)",
-             ExitCode.ERROR, json_output=json_output)
+        fail("no trades database yet (no fills?)", ExitCode.ERROR, json_output=json_output)
 
-    fills = get_trades(db_path, config_file_path=instance.config_file_path(), days=days)
+    fills = get_trades(db_path, config_file_path=bot.config_file_path(), days=days)
     if not fills:
         if json_output:
-            print_json({"ok": True, "name": name, "markets": []})
+            print_json({"ok": True, "markets": []})
         else:
             typer.echo("No trades found.")
         return
 
     # For a running bot, ask the engine for a fresh snapshot so current balances (-> accurate PnL) are
     # available; matches Hummingbot's history, which reads live balances.
-    _request_fresh_snapshot(instance)
-    _pid = instance.read_pid()
-    running = _pid is not None and pid_alive(_pid)
-    balances = (instance.read_status() or {}).get("balances") or {}
+    _request_fresh_snapshot()
+    _pid = bot.read_pid()
+    running = _pid is not None and bot.pid_alive(_pid)
+    balances = (bot.read_status() or {}).get("balances") or {}
     markets = asyncio.run(_compute(fills, balances))
 
     if json_output:
         clean = [{k: v for k, v in m.items() if k != "perf"} for m in markets]
-        print_json({"ok": True, "name": name, "markets": clean})
+        print_json({"ok": True, "markets": clean})
         return
 
     returns = []

@@ -1,8 +1,8 @@
 """``hbot`` CLI entrypoint — run, control, and monitor Hummingbot bots.
 
 Designed to be driven non-interactively by agentic harnesses: every command supports ``--json``
-and returns a stable exit code (see ``hummingbot.cli.output.ExitCode``). One instance runs a
-single bot.
+and returns a stable exit code (see ``hummingbot.cli.output.ExitCode``). One bot per install
+(like Hummingbot itself); for multiple bots, use multiple installs/containers.
 """
 from pathlib import Path
 from typing import Optional
@@ -28,7 +28,7 @@ app = typer.Typer(
     name="hbot",
     no_args_is_help=True,
     add_completion=False,
-    help="Run, control, and monitor Hummingbot bots (one bot per instance).",
+    help="Run, control, and monitor a Hummingbot bot (one bot per install).",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 

@@ -345,18 +345,30 @@ def create_config_file(stype: str, out_name: str, data: dict) -> Path:
     return path
 
 
-def wrap_controller_as_v2(controller_filename: str) -> str:
-    """Create a V2 script config that runs the generic controllers runner with this controller.
+def controller_loader_name(controller_filename: str) -> str:
+    """Loader-config filename for a controller — also the DB/log name once running.
 
-    Returns the generated v2 config filename (in conf/scripts/).
+    A controller can't run standalone, so we run it through a generated v2 'loader' script config; that
+    config's name is what Hummingbot uses for the trades DB and structured log. Hummingbot derives the
+    DB name via ``name.split('.')[0]`` (it means to strip the extension but truncates at the FIRST dot),
+    so a dotted controller name like ``conf_generic.lp_jit.hype_usdc`` would collide on ``conf_generic``.
+    We flatten dots to underscores so the loader (and thus DB/log) is named after the whole controller.
     """
-    v2_name = f"hbot_ctrl_{Path(controller_filename).stem}.yml"
+    return Path(controller_filename).stem.replace(".", "_") + ".yml"
+
+
+def wrap_controller_as_v2(controller_filename: str) -> str:
+    """Create a v2 loader script config that runs the controllers runner with this controller.
+
+    Returns the generated loader config filename (in conf/scripts/); its stem is the bot's DB/log name.
+    """
+    loader = controller_loader_name(controller_filename)
     content = {
         "script_file_name": V2_CONTROLLER_RUNNER,
         "controllers_config": [controller_filename],
         "max_global_drawdown_quote": None,
         "max_controller_drawdown_quote": None,
     }
-    with open(config_path("v2", v2_name), "w") as f:
+    with open(config_path("v2", loader), "w") as f:
         yaml.safe_dump(content, f, default_flow_style=False, sort_keys=False)
-    return v2_name
+    return loader

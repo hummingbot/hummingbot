@@ -21,7 +21,7 @@ import time
 from typing import Any, Dict, Optional
 
 from hummingbot import init_logging
-from hummingbot.cli.instances import Instance
+from hummingbot.cli import bot
 from hummingbot.cli.runner import autofix_permissions, load_and_start_strategy, wait_for_gateway_ready
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
@@ -75,9 +75,9 @@ async def _format_status_text(hb: HummingbotApplication) -> Optional[str]:
         return None
 
 
-async def _write_snapshot(hb: HummingbotApplication, instance: Instance, *, running: bool) -> None:
+async def _write_snapshot(hb: HummingbotApplication, name: str, *, running: bool) -> None:
     snapshot: Dict[str, Any] = {
-        "name": instance.name,
+        "name": name,
         "pid": os.getpid(),
         "running": running,
         "updated_at": time.time(),
@@ -89,10 +89,10 @@ async def _write_snapshot(hb: HummingbotApplication, instance: Instance, *, runn
     snapshot["format_status"] = await _format_status_text(hb)
     if running:
         snapshot["balances"] = await _collect_balances(hb)
-    instance.write_status(snapshot)
+    bot.write_status(snapshot)
 
 
-async def _serve(hb: HummingbotApplication, instance: Instance) -> None:
+async def _serve(hb: HummingbotApplication, name: str) -> None:
     """Keep the process alive until a stop signal arrives.
 
     Status snapshots are written on demand (SIGUSR1 from ``hbot status``), not on a timer.
@@ -103,10 +103,10 @@ async def _serve(hb: HummingbotApplication, instance: Instance) -> None:
         loop.add_signal_handler(sig, stop_event.set)
     loop.add_signal_handler(
         signal.SIGUSR1,
-        lambda: loop.create_task(_write_snapshot(hb, instance, running=True)))
+        lambda: loop.create_task(_write_snapshot(hb, name, running=True)))
 
     # Initial snapshot so `hbot start` can detect readiness.
-    await _write_snapshot(hb, instance, running=True)
+    await _write_snapshot(hb, name, running=True)
     try:
         await stop_event.wait()
     finally:
@@ -119,8 +119,8 @@ async def _serve(hb: HummingbotApplication, instance: Instance) -> None:
             await hb.trading_core.shutdown()
         except Exception:
             logging.getLogger().error("Error during shutdown.", exc_info=True)
-        await _write_snapshot(hb, instance, running=False)
-        instance.clear_pid()
+        await _write_snapshot(hb, name, running=False)
+        bot.clear_pid()
 
 
 async def run_engine(name: str,
@@ -128,7 +128,6 @@ async def run_engine(name: str,
                      v2_conf: Optional[str],
                      password: str,
                      auto_set_permissions: Optional[str]) -> int:
-    instance = Instance(name)
     client_config_map = load_client_config_map_from_file()
 
     if auto_set_permissions is not None:
@@ -161,13 +160,13 @@ async def run_engine(name: str,
 
     # Record the sqlite DB path so `hbot trades/history` can find it deterministically.
     db_path = hb.trading_core.trade_fill_db.db_path if hb.trading_core.trade_fill_db is not None else None
-    instance.update_meta(
+    bot.update_meta(
         db_path=db_path,
         config_file_path=hb.trading_core._strategy_file_name or hb.strategy_file_name,
         strategy_name=hb.trading_core.strategy_name,
     )
 
-    await _serve(hb, instance)
+    await _serve(hb, name)
     return 0
 
 
