@@ -100,9 +100,13 @@ def describe_strategy(stype: str, source: str) -> Tuple[dict, List[str], Set[str
     from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_pydantic_config_cls
 
     if stype == "controller":
+        from hummingbot.strategy_v2.utils.common import generate_unique_id
         config_class, ctype = resolve_controller_class_by_name(source)
         data, required = template_config_data(config_class, {"controller_name": source, "controller_type": ctype})
-        data["id"] = ""  # the runtime generates a unique id when empty
+        # A controller needs a STABLE, persisted id. If left blank, StrategyV2Base generates a fresh
+        # ephemeral id every start AND the ~10s live-reload (update_controllers_configs) fails to match
+        # the running controller by id, so it spawns a duplicate controller each cycle. Generate one now.
+        data["id"] = generate_unique_id()
         required = [r for r in required if r != "id"]
         return data, required, controller_updatable_fields(config_class)
     if stype == "v2":
