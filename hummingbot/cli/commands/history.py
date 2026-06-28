@@ -7,7 +7,6 @@ from typing import Dict, List, Optional
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.commands.status import _request_fresh_snapshot
 from hummingbot.cli.output import ExitCode, fail, print_json
 
 PERF_TIMEOUT = 30.0
@@ -125,12 +124,17 @@ def history(
         if db_path is None:
             fail("no trades database yet (no fills?)", ExitCode.ERROR, json_output=json_output)
         config_filter = bot.config_file_path()
-        # For the running bot, ask the engine for a fresh snapshot so current balances (-> accurate PnL)
-        # are available; matches Hummingbot's history, which reads live balances.
-        _request_fresh_snapshot()
         _pid = bot.read_pid()
         running = _pid is not None and bot.pid_alive(_pid)
+        # Fills/PnL come from sqlite (exact, fast). For current balances we REUSE the engine's last
+        # snapshot (written on every `hbot status`) — no live fetch, so history stays fast when you're
+        # already polling status. Only if the bot is running and we have no cached balances do we ask
+        # for one fresh snapshot to bootstrap them.
         balances = (bot.read_status() or {}).get("balances") or {}
+        if running and not balances:
+            from hummingbot.cli.commands.status import _request_fresh_snapshot
+            _request_fresh_snapshot()
+            balances = (bot.read_status() or {}).get("balances") or {}
 
     fills = get_trades(db_path, config_file_path=config_filter, days=days)
     if not fills:
@@ -155,8 +159,9 @@ def history(
             continue
         typer.echo(_render_market(m["market"], m["trading_pair"], m["perf"]))
         if not m["balances_available"]:
-            note = "balances unavailable" + ("" if running else " (bot stopped)")
-            typer.echo(f"  ({note} — start/current asset values may be approximate)")
+            hint = "run `hbot status` to refresh" if running else "bot stopped"
+            typer.echo(f"  (current balances unavailable ({hint}) — realized PnL is exact; "
+                       f"current/unrealized values approximate)")
         returns.append(m["return_pct"])
     if len(returns) > 1:
         typer.echo(f"\nAveraged Return = {sum(returns) / len(returns):.2f}%")
