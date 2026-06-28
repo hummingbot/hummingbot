@@ -16,18 +16,6 @@ from typing import List, Optional
 import typer
 
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.cli.strategy_configs import (
-    STRATEGY_TYPES,
-    available_sources,
-    config_path,
-    create_config_file,
-    describe_strategy,
-    edit_config,
-    infer_type,
-    list_configs,
-    read_yaml,
-    updatable_for,
-)
 
 strategy_app = typer.Typer(no_args_is_help=True, help="Discover strategies and create/edit their config files.")
 
@@ -51,6 +39,7 @@ def list_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """List strategies available to create from (v1 strategies, v2 scripts, controllers)."""
+    from hummingbot.cli.strategy_configs import STRATEGY_TYPES, available_sources
     stype = _one_type(v1, v2, controller, json_output, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
     catalog = {t: available_sources(t) for t in types}
@@ -72,6 +61,7 @@ def show_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Show a strategy's fields: defaults, required (to fill), and live (controller-updatable)."""
+    from hummingbot.cli.strategy_configs import describe_strategy
     stype = _one_type(v1, v2, controller, json_output, required=True)
     try:
         data, required, updatable = describe_strategy(stype, strategy)
@@ -97,6 +87,7 @@ def create_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Scaffold a new config from a strategy's defaults; lists fields you must fill."""
+    from hummingbot.cli.strategy_configs import create_config_file, describe_strategy
     stype = _one_type(v1, v2, controller, json_output, required=True)
     try:
         data, required, _ = describe_strategy(stype, strategy)
@@ -121,6 +112,7 @@ def create_cmd(
 # --- configs (concrete files) -----------------------------------------------------------------
 
 def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:
+    from hummingbot.cli.strategy_configs import config_path, infer_type
     if stype is not None:
         if not config_path(stype, file).exists():
             fail(f"{stype} config not found: {file}", ExitCode.NOT_FOUND, json_output=json_output)
@@ -140,6 +132,7 @@ def list_configs_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """List existing config files (all types, or one)."""
+    from hummingbot.cli.strategy_configs import STRATEGY_TYPES, list_configs
     stype = _one_type(v1, v2, controller, json_output, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
     listing = {t: list_configs(t) for t in types}
@@ -161,6 +154,7 @@ def show_config_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Show a config file (controller fields that apply live are marked)."""
+    from hummingbot.cli.strategy_configs import config_path, read_yaml, updatable_for
     stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
     path = config_path(stype, file)
     data = read_yaml(path)
@@ -185,6 +179,7 @@ def set_cmd(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Edit a field in a config file (validated for controllers; comments preserved)."""
+    from hummingbot.cli.strategy_configs import config_path, edit_config
     stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
     path = config_path(stype, file)
     try:

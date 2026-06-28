@@ -8,25 +8,27 @@ Values are validated by the same pydantic models the interactive client uses; se
 masked on read. No keystore password is needed — conf_client.yml is not encrypted. A running bot
 loaded its config at start, so changes take effect on its next start.
 """
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import typer
 
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file, save_to_yml
-from hummingbot.client.settings import CLIENT_CONFIG_PATH
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-def _leaf_items(cm: ClientConfigAdapter):
+def _leaf_items(cm: "ClientConfigAdapter"):
     """Traversal items that hold a value (skip section/parent nodes)."""
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
     return [item for item in cm.traverse() if not isinstance(item.value, ClientConfigAdapter)]
 
 
-def _item_for(cm: ClientConfigAdapter, key: str):
+def _item_for(cm: "ClientConfigAdapter", key: str):
     return next((item for item in cm.traverse() if item.config_path == key), None)
 
 
-def _navigate(cm: ClientConfigAdapter, key: str):
+def _navigate(cm: "ClientConfigAdapter", key: str):
     """Return (parent_model, leaf_attr) for a dotted key."""
     parts = key.split(".")
     model = cm
@@ -43,6 +45,12 @@ def config(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """View or set global client configs (conf/conf_client.yml)."""
+    from hummingbot.client.config.config_helpers import (
+        ClientConfigAdapter,
+        load_client_config_map_from_file,
+        save_to_yml,
+    )
+    from hummingbot.client.settings import CLIENT_CONFIG_PATH
     cm = load_client_config_map_from_file()
 
     if key is None:

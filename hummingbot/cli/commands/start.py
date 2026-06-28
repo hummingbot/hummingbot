@@ -11,11 +11,7 @@ import typer
 from hummingbot import prefix_path
 from hummingbot.cli.instances import Instance
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.cli.password import resolve_password
-from hummingbot.cli.strategy_configs import config_path, validate_controller, wrap_controller_as_v2
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import load_client_config_map_from_file
-from hummingbot.client.config.security import Security
+from hummingbot.cli.password import login
 
 
 def _log_tail(instance: Instance, lines: int = 20) -> str:
@@ -41,6 +37,7 @@ def start(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Start a bot in the background; prints the instance id once it is running."""
+    from hummingbot.cli.strategy_configs import config_path, validate_controller, wrap_controller_as_v2
     chosen = [t for t, on in (("v1", v1), ("v2", v2), ("controller", controller)) if on]
     if len(chosen) != 1:
         fail("specify exactly one of --v1 / --v2 / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
@@ -72,10 +69,7 @@ def start(
 
     # Resolve and validate the password up front so failures are immediate (not buried in the
     # detached log). The password is passed to the child via env, never on argv.
-    password = resolve_password(password_stdin=password_stdin, json_output=json_output)
-    load_client_config_map_from_file()
-    if not Security.login(ETHKeyFileSecretManger(password)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    _, password = login(password_stdin=password_stdin, json_output=json_output)
 
     instance.dir.mkdir(parents=True, exist_ok=True)
     instance.write_meta({

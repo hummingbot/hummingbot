@@ -9,22 +9,19 @@ import asyncio
 import getpass
 import json
 import sys
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import pandas as pd
 import typer
 
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.cli.password import resolve_password
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.user.user_balances import UserBalances
+from hummingbot.cli.password import login, resolve_password
+
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 def _connectable_exchanges() -> List[str]:
+    from hummingbot.client.settings import AllConnectorSettings
     settings = AllConnectorSettings.get_connector_settings()
     return sorted(
         cs.name for cs in settings.values()
@@ -34,12 +31,12 @@ def _connectable_exchanges() -> List[str]:
     )
 
 
-def _connect_key_fields(cfg: ClientConfigAdapter) -> List[Any]:
+def _connect_key_fields(cfg: "ClientConfigAdapter") -> List[Any]:
     return [item for item in cfg.traverse(secure=False)
             if item.client_field_data is not None and item.client_field_data.is_connect_key]
 
 
-def _prompt_text(item: Any, cfg: ClientConfigAdapter) -> str:
+def _prompt_text(item: Any, cfg: "ClientConfigAdapter") -> str:
     prompt = item.client_field_data.prompt
     if callable(prompt):
         try:
@@ -51,6 +48,7 @@ def _prompt_text(item: Any, cfg: ClientConfigAdapter) -> str:
 
 def _list_all(json_output: bool) -> None:
     """Static checklist of every connectable exchange (no password / network needed)."""
+    from hummingbot.client.config.security import Security
     rows = [{"exchange": name, "keys_added": Security.connector_config_file_exists(name)}
             for name in _connectable_exchanges()]
     if json_output:
@@ -62,6 +60,12 @@ def _list_all(json_output: bool) -> None:
 
 def _show_connections(ccm, json_output: bool, password_stdin: bool) -> None:
     """Hummingbot-style ``connect`` table: tests the keys you've added and reports Keys Confirmed."""
+    import pandas as pd
+
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.client.config.security import Security
+    from hummingbot.client.ui.interface_utils import format_df_for_printout
+    from hummingbot.user.user_balances import UserBalances
     keyed = [name for name in _connectable_exchanges() if Security.connector_config_file_exists(name)]
     if not keyed:
         if json_output:
@@ -99,7 +103,7 @@ def _show_connections(ccm, json_output: bool, password_stdin: bool) -> None:
     typer.echo("\n".join(lines))
 
 
-def _collect_values(fields: List[Any], cfg: ClientConfigAdapter,
+def _collect_values(fields: List[Any], cfg: "ClientConfigAdapter",
                     keys_stdin: bool, json_output: bool) -> Dict[str, str]:
     if keys_stdin or not sys.stdin.isatty():
         try:
@@ -138,6 +142,10 @@ def connect(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show your connections (tested), add keys for an exchange, or list all connectable exchanges (--all)."""
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file
+    from hummingbot.client.config.security import Security
+    from hummingbot.client.settings import AllConnectorSettings
+
     if exchange is None:
         if show_all:
             _list_all(json_output)
@@ -172,10 +180,7 @@ def connect(
 
     values = _collect_values(fields, cfg, keys_stdin, json_output)
 
-    password = resolve_password(password_stdin=False, json_output=json_output)
-    load_client_config_map_from_file()
-    if not Security.login(ETHKeyFileSecretManger(password)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    login(password_stdin=False, json_output=json_output)
 
     for attr, value in values.items():
         try:

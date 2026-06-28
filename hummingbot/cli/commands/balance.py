@@ -9,30 +9,32 @@ import asyncio
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
 import typer
 
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.cli.password import resolve_password
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import load_client_config_map_from_file
-from hummingbot.client.config.security import Security
-from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.user.user_balances import UserBalances
+from hummingbot.cli.password import login
 
 
-async def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[str, Decimal],
-                           rate_cache: Dict[str, Decimal]) -> Tuple[List[dict], Decimal, Decimal]:
+async def _all_prices() -> Tuple[Dict[str, Decimal], str]:
+    """Fetch the rate-oracle price list ONCE (not per token, which `get_rate` would do)."""
+    from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+    ro = RateOracle.get_instance()
+    prices = await ro._source.get_prices(quote_token=ro.quote_token)
+    return prices, ro.quote_token
+
+
+def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[str, Decimal],
+                     prices: Dict[str, Decimal], quote_token: str) -> Tuple[List[dict], Decimal, Decimal]:
     """Build per-asset rows (with global-token value + allocated %) for one exchange.
 
     Mirrors ``HummingbotApplication.exchange_balances_extra_df``: CEX hides zero balances, gateway
-    connectors show them; value/allocated use the configured rate oracle.
+    connectors show them; values come from the pre-fetched rate-oracle prices via ``find_rate``.
     """
+    from hummingbot.client.settings import AllConnectorSettings
+    from hummingbot.connector.utils import combine_to_hb_trading_pair
+    from hummingbot.core.rate_oracle.utils import find_rate
     conn = AllConnectorSettings.get_connector_settings().get(exchange)
     is_gateway = bool(conn and conn.uses_gateway_generic_connector())
-    ro = RateOracle.get_instance()
     assets: List[dict] = []
     allocated_total = Decimal("0")
     usd_total = Decimal("0")
@@ -42,43 +44,46 @@ async def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: 
         if bal == Decimal(0) and not is_gateway:
             continue
         allocated = "0%" if bal == Decimal(0) else f"{(bal - avai) / bal:.0%}"
-        tok = token.upper()
-        if tok not in rate_cache:
-            rate = await ro.get_rate(base_token=token)
-            rate_cache[tok] = Decimal("0") if rate is None else rate
-        value = rate_cache[tok] * bal
-        allocated_total += rate_cache[tok] * (bal - avai)
+        rate = find_rate(prices, combine_to_hb_trading_pair(base=token, quote=quote_token))
+        rate = Decimal("0") if rate is None else rate
+        value = rate * bal
+        allocated_total += rate * (bal - avai)
         usd_total += value
-        assets.append({"asset": tok, "total": bal, "available": avai, "value": value, "allocated": allocated})
+        assets.append({"asset": token.upper(), "total": bal, "available": avai,
+                       "value": value, "allocated": allocated})
     assets.sort(key=lambda a: a["asset"])
     return assets, allocated_total, usd_total
 
 
 async def _fetch_all(ccm, timeout: float) -> Dict[str, dict]:
+    from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
     all_total = await asyncio.wait_for(ub.all_balances_all_exchanges(ccm), timeout)
     all_avai = ub.all_available_balances_all_exchanges()
-    rate_cache: Dict[str, Decimal] = {}
-    result: Dict[str, dict] = {}
-    for ex, total in all_total.items():
-        assets, alloc, usd = await _exchange_assets(ex, total, all_avai.get(ex, {}), rate_cache)
-        result[ex] = {"assets": assets, "allocated_total": alloc, "usd_total": usd}
-    return result
+    prices, quote = await _all_prices()
+    return {ex: dict(zip(("assets", "allocated_total", "usd_total"),
+                         _exchange_assets(ex, total, all_avai.get(ex, {}), prices, quote)))
+            for ex, total in all_total.items()}
 
 
 async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[str, dict]], Optional[str]]:
+    from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
     err = await asyncio.wait_for(ub.update_exchange_balance(exchange, ccm), timeout)
     if err is not None:
         return None, err
     total = ub.all_balances(exchange)
     avai = ub.all_available_balances_all_exchanges().get(exchange, {})
-    assets, alloc, usd = await _exchange_assets(exchange, total, avai, {})
+    prices, quote = await _all_prices()
+    assets, alloc, usd = _exchange_assets(exchange, total, avai, prices, quote)
     return {exchange: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}, None
 
 
 def _render(result: Dict[str, dict], sym: str) -> str:
     """Render like Hummingbot's ``balance``: per-exchange table + Total/Allocated, then Exchanges Total."""
+    import pandas as pd
+
+    from hummingbot.client.performance import PerformanceMetrics
     out: List[str] = []
     exchanges_total = Decimal("0")
     for ex, data in result.items():
@@ -124,10 +129,8 @@ def balance(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Fetch balances (with USD value) from exchanges you've connected with `hbot connect`."""
-    password = resolve_password(password_stdin=password_stdin, json_output=json_output)
-    ccm = load_client_config_map_from_file()
-    if not Security.login(ETHKeyFileSecretManger(password)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    from hummingbot.client.settings import AllConnectorSettings
+    ccm, password = login(password_stdin=password_stdin, json_output=json_output)
 
     sym = ccm.global_token.global_token_symbol
     timeout = float(ccm.commands_timeout.other_commands_timeout)

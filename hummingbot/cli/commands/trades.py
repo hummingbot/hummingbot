@@ -5,7 +5,6 @@ from typing import Optional
 import typer
 
 from hummingbot import data_path
-from hummingbot.cli.data import get_trades
 from hummingbot.cli.instances import Instance
 from hummingbot.cli.output import ExitCode, fail, print_json
 from hummingbot.model.trade_fill import TradeFill
@@ -41,6 +40,7 @@ def trades(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """List the bot's fills, newest first when limited."""
+    from hummingbot.cli.data import get_trades
     instance = Instance(name)
     if not instance.exists():
         fail(f"instance '{name}' not found", ExitCode.NOT_FOUND, json_output=json_output)

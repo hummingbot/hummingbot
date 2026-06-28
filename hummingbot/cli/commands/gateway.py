@@ -22,7 +22,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import typer
@@ -30,13 +30,9 @@ import typer
 from hummingbot import prefix_path
 from hummingbot.cli.output import ExitCode, fail, print_json
 from hummingbot.cli.password import resolve_password
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import load_client_config_map_from_file, save_to_yml
-from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CLIENT_CONFIG_PATH
-from hummingbot.core.gateway import get_gateway_paths
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.utils.ssl_cert import create_self_sign_certs
+
+if TYPE_CHECKING:
+    from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 CONTAINER = "hbot-gateway"
 DEFAULT_IMAGE = "hummingbot/gateway:latest"
@@ -45,7 +41,9 @@ GATEWAY_FILES = "gateway-files"
 gateway_app = typer.Typer(no_args_is_help=True, help="Detect, run, set up, and use the Gateway service.")
 
 
-def _client() -> Tuple[object, GatewayHttpClient]:
+def _client() -> Tuple[object, "GatewayHttpClient"]:
+    from hummingbot.client.config.config_helpers import load_client_config_map_from_file
+    from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
     client_config_map = load_client_config_map_from_file()
     return client_config_map, GatewayHttpClient(client_config_map.gateway)
 
@@ -55,12 +53,14 @@ def _gateway_dirs() -> Tuple[Path, Path, Path]:
     return base / "conf", base / "certs", base / "logs"
 
 
-def _arun(gw: GatewayHttpClient, coro_factory):
+def _arun(gw: "GatewayHttpClient", coro_factory):
     """Run a gateway coroutine, re-initializing the HTTP session for this event loop.
 
     GatewayHttpClient caches its aiohttp session globally; a CLI process may open more than one
     short-lived loop (e.g. ping, then wait-for-healthy), so we force a fresh session each time.
     """
+    from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+
     async def _wrapped():
         GatewayHttpClient._http_client(gw._gateway_config, re_init=True)
         try:
@@ -72,7 +72,7 @@ def _arun(gw: GatewayHttpClient, coro_factory):
     return asyncio.run(_wrapped())
 
 
-def _is_running(gw: GatewayHttpClient) -> bool:
+def _is_running(gw: "GatewayHttpClient") -> bool:
     try:
         return _arun(gw, lambda: gw.ping_gateway())
     except Exception:
@@ -103,7 +103,7 @@ def _pull_image(image: str, json_output: bool, required: bool) -> bool:
     return False
 
 
-def _require_running(gw: GatewayHttpClient, json_output: bool) -> None:
+def _require_running(gw: "GatewayHttpClient", json_output: bool) -> None:
     if not _is_running(gw):
         fail("Gateway is not running — run `hbot gateway start` first",
              ExitCode.NOT_RUNNING, json_output=json_output)
@@ -135,6 +135,8 @@ def _split_network(network: str, json_output: bool) -> Tuple[str, str]:
 def _login_if_ssl(client_config_map, json_output: bool, password_stdin: bool = False) -> None:
     """In certs mode the client speaks https+mTLS, and its client key is encrypted with the keystore
     password — so we must log in before any Gateway call. No-op when SSL is disabled (HTTP mode)."""
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.client.config.security import Security
     if not client_config_map.gateway.gateway_use_ssl:
         return
     if Security.secrets_manager is not None:  # already logged in this process
@@ -189,6 +191,12 @@ def start(
 ) -> None:
     """Launch the Gateway Docker image in certs (HTTPS/mTLS) mode and wait until healthy; reuse it if
     one is already running."""
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.client.config.config_helpers import save_to_yml
+    from hummingbot.client.config.security import Security
+    from hummingbot.client.settings import CLIENT_CONFIG_PATH
+    from hummingbot.core.gateway import get_gateway_paths
+    from hummingbot.core.utils.ssl_cert import create_self_sign_certs
     client_config_map, gw = _client()
 
     # Fast path: a gateway already answering on the current transport (no password needed for HTTP).

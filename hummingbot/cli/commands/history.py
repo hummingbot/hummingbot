@@ -9,7 +9,6 @@ import typer
 
 from hummingbot import data_path
 from hummingbot.cli.commands.status import _request_fresh_snapshot
-from hummingbot.cli.data import get_trades
 from hummingbot.cli.instances import Instance, pid_alive
 from hummingbot.cli.output import ExitCode, fail, print_json
 
@@ -121,6 +120,7 @@ def history(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Report PnL, fees, and volume per market/pair from the bot's trade history."""
+    from hummingbot.cli.data import get_trades
     instance = Instance(name)
     if not instance.exists():
         fail(f"instance '{name}' not found", ExitCode.NOT_FOUND, json_output=json_output)

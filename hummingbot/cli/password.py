@@ -38,3 +38,19 @@ def resolve_password(*, password_stdin: bool, json_output: bool, confirm: bool =
 
     fail("no password provided — use --password-stdin, set $HBOT_PASSWORD, or run interactively",
          ExitCode.CONFIG_ERROR, json_output=json_output)
+
+
+def login(*, password_stdin: bool = False, json_output: bool = False, confirm: bool = False):
+    """Resolve the keystore password, load the client config, and unlock Security.
+
+    Returns ``(client_config_map, password)``; fails with a clear error on a bad password. The heavy
+    config/security imports are deferred here so commands that don't authenticate stay fast to import.
+    """
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.client.config.config_helpers import load_client_config_map_from_file
+    from hummingbot.client.config.security import Security
+    password = resolve_password(password_stdin=password_stdin, json_output=json_output, confirm=confirm)
+    client_config_map = load_client_config_map_from_file()
+    if not Security.login(ETHKeyFileSecretManger(password)):
+        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    return client_config_map, password

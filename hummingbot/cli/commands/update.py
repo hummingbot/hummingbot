@@ -14,7 +14,6 @@ import typer
 
 from hummingbot.cli.instances import Instance
 from hummingbot.cli.output import ExitCode, fail, print_json
-from hummingbot.cli.strategy_configs import config_path, edit_config, get_value, read_yaml, updatable_for
 
 
 def update(
@@ -24,6 +23,7 @@ def update(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Read or live-update a running bot's config by instance name."""
+    from hummingbot.cli.strategy_configs import config_path, edit_config, get_value, read_yaml, updatable_for
     inst = Instance(instance)
     if not inst.exists():
         fail(f"instance '{instance}' not found", ExitCode.NOT_FOUND, json_output=json_output)
