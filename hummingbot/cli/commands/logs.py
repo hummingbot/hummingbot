@@ -10,7 +10,16 @@ from hummingbot.cli import bot
 from hummingbot.cli.output import ExitCode, fail
 
 
-def _resolve_log_file() -> Optional[Path]:
+def _resolve_log_file(name: Optional[str], json_output: bool) -> Optional[Path]:
+    if name:
+        log = bot.structured_log_for(name)
+        if log is None:
+            fail(f"no log found for '{name}' (available: {', '.join(bot.list_bots()) or 'none'})",
+                 ExitCode.NOT_FOUND, json_output=json_output)
+        return log
+    if not bot.exists():
+        fail("no bot has been started (pass a name to view a past bot)",
+             ExitCode.NOT_FOUND, json_output=json_output)
     if bot.structured_log_file().exists():
         return bot.structured_log_file()
     if bot.log_file().exists():
@@ -19,6 +28,7 @@ def _resolve_log_file() -> Optional[Path]:
 
 
 def logs(
+    name: Optional[str] = typer.Argument(None, help="Bot name to view (a past/stopped bot). Omit for the current bot."),
     lines: int = typer.Option(200, "--lines", "-n", help="Number of trailing lines to show."),
     follow: bool = typer.Option(False, "--follow", "-f", help="Stream new lines until interrupted (Ctrl-C)."),
     json_output: bool = typer.Option(
@@ -26,12 +36,10 @@ def logs(
 ) -> None:
     """Print the tail of the bot's log; ``-f`` streams new lines as they are written.
 
+    With no name, shows the current bot; pass a name (from `hbot start`) to view a past/stopped bot.
     Note for agents: ``-f`` runs until interrupted — bound it (e.g. a timeout) rather than awaiting forever.
     """
-    if not bot.exists():
-        fail("no bot has been started", ExitCode.NOT_FOUND, json_output=json_output)
-
-    log_file = _resolve_log_file()
+    log_file = _resolve_log_file(name, json_output)
     if log_file is None:
         fail("no log file yet", ExitCode.ERROR, json_output=json_output)
 

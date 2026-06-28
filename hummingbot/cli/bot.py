@@ -157,13 +157,39 @@ def config_file_path() -> Optional[str]:
 
 
 def resolve_db_path() -> Optional[str]:
-    """The trades sqlite DB: the engine-recorded path, else Hummingbot's data/<name>.sqlite fallback."""
+    """The current bot's trades sqlite DB: the engine-recorded path, else data/<name>.sqlite."""
     p = db_path()
     if p and Path(p).exists():
         return p
     name = (read_meta() or {}).get("name")
-    if name:
-        fallback = Path(data_path()) / f"{name}.sqlite"
-        if fallback.exists():
-            return str(fallback)
+    return db_path_for(name) if name else None
+
+
+def db_path_for(name: str) -> Optional[str]:
+    """Trades DB for a named (possibly stopped) bot: data/<name>.sqlite, trying a dot-flattened variant."""
+    for n in (name, name.replace(".", "_")):
+        p = Path(data_path()) / f"{n}.sqlite"
+        if p.exists():
+            return str(p)
     return None
+
+
+def structured_log_for(name: str) -> Optional[Path]:
+    """Structured log for a named bot: logs/logs_<name>.log, trying a dot-flattened variant."""
+    for n in (name, name.replace(".", "_")):
+        p = Path(prefix_path()) / "logs" / f"logs_{n}.log"
+        if p.exists():
+            return p
+    return None
+
+
+def list_bots() -> List[str]:
+    """Names of bots that have on-disk data (a trades DB and/or a structured log) — current or past."""
+    names = set()
+    dd = Path(data_path())
+    if dd.exists():
+        names |= {p.stem for p in dd.glob("*.sqlite")}
+    ld = Path(prefix_path()) / "logs"
+    if ld.exists():
+        names |= {p.name[len("logs_"):-len(".log")] for p in ld.glob("logs_*.log")}
+    return sorted(names)
