@@ -1,0 +1,346 @@
+"""Shared helpers for the three trading-config kinds the CLI speaks: v1, v2, controller.
+
+    v1          conf/strategies/*.yml    full V1 strategy configs
+    v2          conf/scripts/*.yml       V2 script configs (may reference controllers)
+    controller  conf/controllers/*.yml   V2 controller configs (live-updatable while running)
+
+Used by both `hbot start` (to run) and `hbot strategy` (to inspect/edit). Editing preserves
+comments/formatting via ruamel round-trip. Only controllers can be validated against a real
+pydantic config class and expose `is_updatable` fields (the only kind applied live by a running
+bot, via the 10s controller-config poll in StrategyV2Base).
+"""
+import importlib
+import inspect
+from pathlib import Path
+from typing import Any, List, Optional, Set, Tuple
+
+import yaml
+from ruamel.yaml import YAML
+
+from hummingbot import prefix_path
+from hummingbot.client.settings import (
+    CONTROLLERS_CONF_DIR_PATH,
+    CONTROLLERS_MODULE,
+    SCRIPT_STRATEGY_CONF_DIR_PATH,
+    STRATEGIES_CONF_DIR_PATH,
+)
+
+STRATEGY_TYPES = ("v1", "v2", "controller")
+
+TYPE_DIRS = {
+    "v1": STRATEGIES_CONF_DIR_PATH,
+    "v2": SCRIPT_STRATEGY_CONF_DIR_PATH,
+    "controller": CONTROLLERS_CONF_DIR_PATH,
+}
+
+V2_CONTROLLER_RUNNER = "v2_with_controllers.py"
+
+
+def list_configs(stype: str) -> List[str]:
+    directory = TYPE_DIRS[stype]
+    if not directory.exists():
+        return []
+    return sorted(f.name for f in directory.iterdir() if f.suffix == ".yml")
+
+
+def config_path(stype: str, filename: str) -> Path:
+    return TYPE_DIRS[stype] / filename
+
+
+def infer_type(filename: str) -> Optional[str]:
+    """Return the single type whose directory holds ``filename``, or None if absent/ambiguous."""
+    hits = [t for t in STRATEGY_TYPES if config_path(t, filename).exists()]
+    return hits[0] if len(hits) == 1 else None
+
+
+def available_controllers() -> List[str]:
+    """Controller module names that can be scaffolded (controllers/<type>/<name>.py)."""
+    base = Path(prefix_path()) / CONTROLLERS_MODULE
+    if not base.exists():
+        return []
+    return sorted({f.stem for type_dir in base.iterdir() if type_dir.is_dir() and not type_dir.name.startswith("__")
+                   for f in type_dir.glob("*.py") if not f.name.startswith("__")})
+
+
+def available_scripts() -> List[str]:
+    """V2 script files (scripts/*.py)."""
+    base = Path(prefix_path()) / "scripts"
+    if not base.exists():
+        return []
+    return sorted(f.name for f in base.glob("*.py") if not f.name.startswith("__"))
+
+
+def available_v1_strategies() -> List[str]:
+    from hummingbot import get_strategy_list
+    return sorted(get_strategy_list())
+
+
+def available_sources(stype: str) -> List[str]:
+    return {"v1": available_v1_strategies,
+            "v2": available_scripts,
+            "controller": available_controllers}[stype]()
+
+
+def describe_strategy(stype: str, source: str) -> Tuple[dict, List[str], Set[str]]:
+    """Return (template fields, required field names, live-updatable field names) for a creatable
+    strategy/controller/script — used by both `strategy show` (preview) and `strategy create`.
+    """
+    from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_pydantic_config_cls
+
+    if stype == "controller":
+        config_class, ctype = resolve_controller_class_by_name(source)
+        data, required = template_config_data(config_class, {"controller_name": source, "controller_type": ctype})
+        data["id"] = ""  # the runtime generates a unique id when empty
+        required = [r for r in required if r != "id"]
+        return data, required, controller_updatable_fields(config_class)
+    if stype == "v2":
+        script_file = source if source.endswith(".py") else f"{source}.py"
+        config_class = resolve_script_config_class(script_file)
+        data, required = template_config_data(config_class, {"script_file_name": script_file})
+        return data, required, set()
+    # v1
+    config_class = get_strategy_pydantic_config_cls(source)
+    if config_class is not None:
+        data, required = template_config_data(config_class, {})
+    else:
+        config_map = get_strategy_config_map(source)
+        if not config_map:
+            raise ValueError(f"unknown v1 strategy '{source}'")
+        data, required = template_legacy_data(config_map)
+    return data, required, set()
+
+
+def controller_config_class(config_data: dict):
+    """Resolve the pydantic config class for a controller yaml (mirrors load_controller_configs)."""
+    from hummingbot.strategy_v2.controllers.controller_base import ControllerConfigBase
+    from hummingbot.strategy_v2.controllers.directional_trading_controller_base import (
+        DirectionalTradingControllerConfigBase,
+    )
+    from hummingbot.strategy_v2.controllers.market_making_controller_base import MarketMakingControllerConfigBase
+
+    ctype = config_data.get("controller_type")
+    cname = config_data.get("controller_name")
+    if not ctype or not cname:
+        raise ValueError("controller config is missing controller_type or controller_name")
+    module = importlib.import_module(f"{CONTROLLERS_MODULE}.{ctype}.{cname}")
+    bases = (ControllerConfigBase, MarketMakingControllerConfigBase, DirectionalTradingControllerConfigBase)
+    cls = next((m for _, m in inspect.getmembers(module)
+                if inspect.isclass(m) and m not in bases and issubclass(m, ControllerConfigBase)), None)
+    if cls is None:
+        raise ValueError(f"no controller config class found in module for '{cname}'")
+    return cls
+
+
+def controller_updatable_fields(config_class) -> Set[str]:
+    return {name for name, field in config_class.model_fields.items()
+            if (field.json_schema_extra or {}).get("is_updatable", False)}
+
+
+def read_yaml(path: Path) -> dict:
+    return yaml.safe_load(path.read_text()) or {}
+
+
+def _coerce(existing: Any, value: str) -> Any:
+    """Coerce a string value to match an existing value's type (Decimals stay strings in yaml)."""
+    if isinstance(existing, bool):
+        if value.lower() in ("true", "yes", "1"):
+            return True
+        if value.lower() in ("false", "no", "0"):
+            return False
+        raise ValueError(f"expected a boolean, got '{value}'")
+    if isinstance(existing, int) and not isinstance(existing, bool):
+        return int(value)
+    if isinstance(existing, float):
+        return float(value)
+    return value
+
+
+def get_value(data: dict, key: str) -> Any:
+    node: Any = data
+    for part in key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            raise KeyError(key)
+        node = node[part]
+    return node
+
+
+def set_value_preserving_comments(path: Path, key: str, value: str) -> Any:
+    """Round-trip edit ``path`` setting ``key`` (dotted) to a coerced ``value``; returns the new value."""
+    ruamel = YAML()
+    ruamel.preserve_quotes = True
+    with open(path) as f:
+        data = ruamel.load(f)
+    parts = key.split(".")
+    node = data
+    for part in parts[:-1]:
+        node = node[part]
+    leaf = parts[-1]
+    if leaf not in node:
+        raise KeyError(key)
+    new_value = _coerce(node[leaf], value)
+    node[leaf] = new_value
+    with open(path, "w") as f:
+        ruamel.dump(data, f)
+    return new_value
+
+
+def validate_controller(path: Path) -> Tuple[object, Set[str]]:
+    """Instantiate the controller config class to validate the file; return (config, updatable fields)."""
+    data = read_yaml(path)
+    config_class = controller_config_class(data)
+    config = config_class(**data)
+    return config, controller_updatable_fields(config_class)
+
+
+def updatable_for(stype: str, path: Path) -> Set[str]:
+    """Fields that a running bot applies live. Only controllers have any."""
+    if stype != "controller":
+        return set()
+    try:
+        _, updatable = validate_controller(path)
+        return updatable
+    except Exception:
+        return set()
+
+
+def edit_config(path: Path, stype: str, key: str, value: str) -> Tuple[Any, Set[str]]:
+    """Set ``key=value`` in ``path`` (comment-preserving), validating controllers and rolling back
+    on failure. Returns (new_value, updatable_fields). Raises KeyError for a missing key, or another
+    exception (with the file restored) if the value is rejected.
+    """
+    original = path.read_text()
+    try:
+        new_value = set_value_preserving_comments(path, key, value)
+    except KeyError:
+        raise
+    except Exception:
+        path.write_text(original)
+        raise
+    updatable: Set[str] = set()
+    if stype == "controller":
+        try:
+            _, updatable = validate_controller(path)
+        except Exception:
+            path.write_text(original)
+            raise
+    return new_value, updatable
+
+
+def resolve_controller_class_by_name(controller_name: str):
+    """Find a controller's config class + its type by module name (e.g. 'lp_jit')."""
+    import controllers
+
+    base = Path(controllers.__file__).parent
+    for type_dir in sorted(base.iterdir()):
+        if type_dir.is_dir() and (type_dir / f"{controller_name}.py").exists():
+            ctype = type_dir.name
+            cls = controller_config_class({"controller_type": ctype, "controller_name": controller_name})
+            return cls, ctype
+    raise ValueError(f"controller '{controller_name}' not found under {CONTROLLERS_MODULE}/")
+
+
+def resolve_script_config_class(script_filename: str):
+    """Find the config class defined inside a V2 script (e.g. simple_pmm.py -> SimplePMMConfig)."""
+    from hummingbot.client.config.config_data_types import BaseClientModel
+
+    mod_name = script_filename[:-3] if script_filename.endswith(".py") else script_filename
+    module = importlib.import_module(f"scripts.{mod_name}")
+    candidates = [m for _, m in inspect.getmembers(module)
+                  if inspect.isclass(m) and issubclass(m, BaseClientModel)
+                  and m is not BaseClientModel and m.__module__ == module.__name__]
+    if not candidates:
+        raise ValueError(f"no config class found in script '{script_filename}'")
+    return candidates[0]
+
+
+def _yaml_safe(value: Any) -> Any:
+    from decimal import Decimal
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Decimal):
+        return str(value)
+    if hasattr(value, "model_dump"):  # nested pydantic model
+        return _yaml_safe(value.model_dump())
+    if isinstance(value, (list, tuple)):
+        return [_yaml_safe(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _yaml_safe(v) for k, v in value.items()}
+    if hasattr(value, "value"):  # enums
+        return value.value
+    return str(value)  # last-resort: never let yaml.safe_dump choke
+
+
+def template_config_data(config_class, fixed: dict) -> Tuple[dict, List[str]]:
+    """Build a template config dict from a pydantic config class.
+
+    Fields with defaults get them; required fields (no default) get None and are returned in the
+    `required` list so the caller can tell the user what to fill. `fixed` overrides identity fields
+    (controller_name/type or script_file_name).
+    """
+    from pydantic_core import PydanticUndefined
+
+    data: dict = {}
+    required: List[str] = []
+    for name, field in config_class.model_fields.items():
+        if field.default is not PydanticUndefined:
+            data[name] = _yaml_safe(field.default)
+        elif field.default_factory is not None:
+            data[name] = _yaml_safe(field.default_factory())
+        else:
+            data[name] = None
+            required.append(name)
+    data.update(fixed)
+    return data, [r for r in required if r not in fixed]
+
+
+def _safe_attr(obj: Any, name: str) -> Any:
+    """Read an attribute, tolerating ConfigVar properties (e.g. `required`) that evaluate
+    `required_if` lambdas referencing other still-unset values and raise on access."""
+    try:
+        value = getattr(obj, name)
+    except Exception:
+        return None
+    if callable(value):
+        try:
+            return value()
+        except Exception:
+            return None
+    return value
+
+
+def template_legacy_data(config_map: dict) -> Tuple[dict, List[str]]:
+    """Build a template from a legacy ConfigVar map (strategies without a pydantic config)."""
+    data: dict = {}
+    required: List[str] = []
+    for key, cvar in config_map.items():
+        default = _safe_attr(cvar, "default")
+        data[key] = _yaml_safe(default)
+        if _safe_attr(cvar, "required") and default is None:
+            required.append(key)
+    return data, required
+
+
+def create_config_file(stype: str, out_name: str, data: dict) -> Path:
+    path = config_path(stype, out_name)
+    if path.exists():
+        raise FileExistsError(f"{stype} config already exists: {out_name}")
+    with open(path, "w") as f:
+        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+    return path
+
+
+def wrap_controller_as_v2(controller_filename: str) -> str:
+    """Create a V2 script config that runs the generic controllers runner with this controller.
+
+    Returns the generated v2 config filename (in conf/scripts/).
+    """
+    v2_name = f"hbot_ctrl_{Path(controller_filename).stem}.yml"
+    content = {
+        "script_file_name": V2_CONTROLLER_RUNNER,
+        "controllers_config": [controller_filename],
+        "max_global_drawdown_quote": None,
+        "max_controller_drawdown_quote": None,
+    }
+    with open(config_path("v2", v2_name), "w") as f:
+        yaml.safe_dump(content, f, default_flow_style=False, sort_keys=False)
+    return v2_name
