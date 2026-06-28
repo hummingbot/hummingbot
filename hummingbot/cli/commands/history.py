@@ -8,8 +8,9 @@ from typing import Dict, List, Optional
 import typer
 
 from hummingbot import data_path
+from hummingbot.cli.commands.status import _request_fresh_snapshot
 from hummingbot.cli.data import get_trades
-from hummingbot.cli.instances import Instance
+from hummingbot.cli.instances import Instance, pid_alive
 from hummingbot.cli.output import ExitCode, fail, print_json
 
 PERF_TIMEOUT = 30.0
@@ -50,7 +51,7 @@ async def _compute(fills: list, balances: Dict[str, Dict[str, float]]) -> List[d
                 PerformanceMetrics.create(symbol, trades, cur_balances), PERF_TIMEOUT)
         except Exception as e:
             results.append({"market": market, "trading_pair": symbol,
-                            "num_trades": len(trades), "error": str(e)})
+                            "num_trades": len(trades), "error": str(e), "perf": None})
             continue
         results.append({
             "market": market,
@@ -65,8 +66,53 @@ async def _compute(fills: list, balances: Dict[str, Dict[str, float]]) -> List[d
             "total_pnl": float(perf.total_pnl),
             "return_pct": float(perf.return_pct * 100),
             "balances_available": bool(cur_balances),
+            "perf": perf,  # kept for human rendering; stripped before JSON
         })
     return results
+
+
+def _render_market(market: str, trading_pair: str, perf) -> str:
+    """Per-market Trades/Assets/Performance tables — mirrors HummingbotApplication.report_performance_by_market."""
+    import pandas as pd
+
+    from hummingbot.client.performance import PerformanceMetrics
+    from hummingbot.client.settings import AllConnectorSettings
+
+    sr = PerformanceMetrics.smart_round
+    is_deriv = market in AllConnectorSettings.get_derivative_names()
+    base, quote = trading_pair.split("-")
+    lines = [f"\n{market} / {trading_pair}"]
+
+    trades_df = pd.DataFrame(
+        data=[[f"{'Number of trades':<27}", perf.num_buys, perf.num_sells, perf.num_trades],
+              [f"{f'Total trade volume ({base})':<27}", sr(perf.b_vol_base), sr(perf.s_vol_base), sr(perf.tot_vol_base)],
+              [f"{f'Total trade volume ({quote})':<27}", sr(perf.b_vol_quote), sr(perf.s_vol_quote),
+               sr(perf.tot_vol_quote)],
+              [f"{'Avg price':<27}", sr(perf.avg_b_price), sr(perf.avg_s_price), sr(perf.avg_tot_price)]],
+        columns=["", "buy", "sell", "total"])
+    lines += ["", "  Trades:"] + ["    " + ln for ln in trades_df.to_string(index=False).split("\n")]
+
+    assets_df = pd.DataFrame(
+        data=[[f"{base:<17}", "-", "-", "-"] if is_deriv else
+              [f"{base:<17}", sr(perf.start_base_bal), sr(perf.cur_base_bal), sr(perf.tot_vol_base)],
+              [f"{quote:<17}", sr(perf.start_quote_bal), sr(perf.cur_quote_bal), sr(perf.tot_vol_quote)],
+              [f"{trading_pair + ' price':<17}", sr(perf.start_price), sr(perf.cur_price),
+               sr(perf.cur_price - perf.start_price)],
+              [f"{'Base asset %':<17}", "-", "-", "-"] if is_deriv else
+              [f"{'Base asset %':<17}", f"{perf.start_base_ratio_pct:.2%}", f"{perf.cur_base_ratio_pct:.2%}",
+               f"{perf.cur_base_ratio_pct - perf.start_base_ratio_pct:.2%}"]],
+        columns=["", "start", "current", "change"])
+    lines += ["", "  Assets:"] + ["    " + ln for ln in assets_df.to_string(index=False).split("\n")]
+
+    perf_data = [["Hold portfolio value    ", f"{sr(perf.hold_value)} {quote}"],
+                 ["Current portfolio value ", f"{sr(perf.cur_value)} {quote}"],
+                 ["Trade P&L               ", f"{sr(perf.trade_pnl)} {quote}"]]
+    perf_data += [["Fees paid               ", f"{sr(amt)} {tok}"] for tok, amt in perf.fees.items()]
+    perf_data += [["Total P&L               ", f"{sr(perf.total_pnl)} {quote}"],
+                  ["Return %                ", f"{perf.return_pct:.2%}"]]
+    perf_df = pd.DataFrame(data=perf_data)
+    lines += ["", "  Performance:"] + ["    " + ln for ln in perf_df.to_string(index=False, header=False).split("\n")]
+    return "\n".join(lines)
 
 
 def history(
@@ -92,20 +138,29 @@ def history(
             typer.echo("No trades found.")
         return
 
+    # For a running bot, ask the engine for a fresh snapshot so current balances (-> accurate PnL) are
+    # available; matches Hummingbot's history, which reads live balances.
+    _request_fresh_snapshot(instance)
+    _pid = instance.read_pid()
+    running = _pid is not None and pid_alive(_pid)
     balances = (instance.read_status() or {}).get("balances") or {}
     markets = asyncio.run(_compute(fills, balances))
 
     if json_output:
-        print_json({"ok": True, "name": name, "markets": markets})
+        clean = [{k: v for k, v in m.items() if k != "perf"} for m in markets]
+        print_json({"ok": True, "name": name, "markets": clean})
         return
 
+    returns = []
     for m in markets:
-        typer.echo(f"\n{m['market']} / {m['trading_pair']}")
-        if "error" in m:
-            typer.echo(f"  ({m['num_trades']} trades) error: {m['error']}")
+        if m.get("error") or m.get("perf") is None:
+            typer.echo(f"\n{m['market']} / {m['trading_pair']}")
+            typer.echo(f"  ({m['num_trades']} trades) error: {m.get('error')}")
             continue
-        typer.echo(f"  trades: {m['num_trades']} ({m['num_buys']} buys / {m['num_sells']} sells)")
-        typer.echo(f"  volume: {m['base_volume']:.6g} base / {m['quote_volume']:.6g} quote")
-        typer.echo(f"  trade PnL: {m['trade_pnl']:.6g}   fees: {m['fees']:.6g}")
-        typer.echo(f"  total PnL: {m['total_pnl']:.6g}   return: {m['return_pct']:.4g}%"
-                   + ("" if m["balances_available"] else "  (balances unavailable — bot stopped)"))
+        typer.echo(_render_market(m["market"], m["trading_pair"], m["perf"]))
+        if not m["balances_available"]:
+            note = "balances unavailable" + ("" if running else " (bot stopped)")
+            typer.echo(f"  ({note} — start/current asset values may be approximate)")
+        returns.append(m["return_pct"])
+    if len(returns) > 1:
+        typer.echo(f"\nAveraged Return = {sum(returns) / len(returns):.2f}%")
