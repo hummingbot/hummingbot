@@ -51,6 +51,23 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
+def tail_lines(path: Path, n: int) -> List[str]:
+    """Read the last ``n`` lines of ``path`` by seeking from the end — avoids loading the whole file."""
+    if n <= 0 or not path.exists():
+        return []
+    with open(path, "rb") as f:
+        f.seek(0, 2)
+        remaining = f.tell()
+        block = 8192
+        data = b""
+        while remaining > 0 and data.count(b"\n") <= n:
+            step = min(block, remaining)
+            remaining -= step
+            f.seek(remaining)
+            data = f.read(step) + data
+    return data.decode("utf-8", errors="replace").splitlines()[-n:]
+
+
 class Instance:
     def __init__(self, name: str):
         if not name or "/" in name or name in (".", ".."):
@@ -74,6 +91,12 @@ class Instance:
     @property
     def log_file(self) -> Path:
         return self.dir / "bot.log"
+
+    @property
+    def structured_log_file(self) -> Path:
+        # The engine's init_logging(strategy_file_path=name) writes here (conf/hummingbot_logs.yml).
+        from hummingbot import prefix_path
+        return Path(prefix_path()) / "logs" / f"logs_{self.name}.log"
 
     # --- existence / liveness ---
     def exists(self) -> bool:
