@@ -362,7 +362,7 @@ class GlobalTokenConfigMap(BaseClientModel):
         json_schema_extra={"prompt": lambda cm: "What is your default display token symbol? (e.g. $,€)"},
     )
     usd_equivalent_tokens: List[str] = Field(
-        default=["USD"],
+        default_factory=lambda: list(rate_oracle_utils.USD_EQUIVALENT_TOKENS),
         description="Token symbols treated as equivalent to USDT when looking up conversion rates "
                     "(e.g. a USD balance is priced using USDT markets).",
         json_schema_extra={
