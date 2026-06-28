@@ -9,16 +9,15 @@ from typing import Optional
 import typer
 
 from hummingbot import prefix_path
-from hummingbot.cli.instances import Instance
+from hummingbot.cli.instances import Instance, tail_lines
 from hummingbot.cli.output import ExitCode, fail, print_json
 from hummingbot.cli.password import login
 
 
 def _log_tail(instance: Instance, lines: int = 20) -> str:
-    if not instance.log_file.exists():
-        return ""
-    content = instance.log_file.read_text(errors="replace").splitlines()
-    return "\n".join(content[-lines:])
+    # Logged startup errors go to the structured log; pre-logging/uncaught output goes to bot.log.
+    combined = tail_lines(instance.structured_log_file, lines) + tail_lines(instance.log_file, lines)
+    return "\n".join(combined[-lines:])
 
 
 def start(

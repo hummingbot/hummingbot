@@ -36,6 +36,19 @@ from hummingbot.client.settings import AllConnectorSettings
 BALANCE_TIMEOUT = 10.0
 
 
+def _silence_console_handlers() -> None:
+    """Remove stdout (console) log handlers. Every logger keeps its file_handler, so the structured
+    log is unaffected; this just stops the console stream from duplicating into the redirected bot.log."""
+    from hummingbot.logger.cli_handler import CLIHandler
+    loggers = [logging.getLogger()] + [logging.getLogger(n) for n in list(logging.root.manager.loggerDict)]
+    for lg in loggers:
+        for handler in list(getattr(lg, "handlers", [])):
+            if isinstance(handler, CLIHandler) or (
+                    isinstance(handler, logging.StreamHandler)
+                    and getattr(handler, "stream", None) in (sys.stdout, sys.stderr)):
+                lg.removeHandler(handler)
+
+
 async def _collect_balances(hb: HummingbotApplication) -> Dict[str, Dict[str, float]]:
     balances: Dict[str, Dict[str, float]] = {}
     tc = hb.trading_core
@@ -127,7 +140,12 @@ async def run_engine(name: str,
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
-    init_logging("hummingbot_logs.yml", client_config_map)
+    # Initialize per-instance logging once, up front: the structured log at logs/logs_<name>.log is the
+    # single, complete, rotating log (read by `hbot logs`). Then drop the stdout console handlers — in a
+    # detached process they only duplicate the file handler into bot.log, which never rotates.
+    init_logging("hummingbot_logs.yml", client_config_map,
+                 override_log_level=client_config_map.log_level, strategy_file_path=name)
+    _silence_console_handlers()
     await read_system_configs_from_yml()
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
@@ -140,10 +158,6 @@ async def run_engine(name: str,
         return 1
 
     await wait_for_gateway_ready(hb)
-
-    # Re-initialize logging so structured logs land at logs/logs_<name>.log (read by `hbot logs`).
-    init_logging("hummingbot_logs.yml", client_config_map,
-                 override_log_level=client_config_map.log_level, strategy_file_path=name)
 
     # Record the sqlite DB path so `hbot trades/history` can find it deterministically.
     db_path = hb.trading_core.trade_fill_db.db_path if hb.trading_core.trade_fill_db is not None else None
