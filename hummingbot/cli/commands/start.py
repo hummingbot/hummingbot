@@ -1,5 +1,6 @@
 """``hbot start`` — launch the bot detached (one bot per install)."""
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -20,12 +21,34 @@ def _log_tail(lines: int = 20) -> str:
     return "\n".join(combined[-lines:])
 
 
+def _replace_running(timeout: float, json_output: bool) -> None:
+    """Gracefully stop the currently-running bot (so --replace can start a new one)."""
+    pid = bot.read_pid()
+    if pid is None:
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        bot.clear_pid()
+        return
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not bot.pid_alive(pid):
+            bot.clear_pid()
+            return
+        time.sleep(0.5)
+    fail(f"--replace: the running bot (pid {pid}) did not stop within {timeout:g}s; "
+         f"run `hbot stop --force` and retry", ExitCode.TIMEOUT, json_output=json_output)
+
+
 def start(
     file: str = typer.Argument(..., help="Config file name for the selected type."),
     v1: bool = typer.Option(False, "--v1", help="V1 strategy config (conf/strategies)."),
     v2: bool = typer.Option(False, "--v2", help="V2 script config (conf/scripts)."),
     controller: bool = typer.Option(
         False, "--controller", help="V2 controller config (conf/controllers); run via the V2 loader."),
+    replace: bool = typer.Option(
+        False, "--replace", help="If a bot is already running, stop it first, then start this one."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
     auto_set_permissions: Optional[str] = typer.Option(
@@ -44,8 +67,10 @@ def start(
         fail(f"{stype} config not found: {file}", ExitCode.NOT_FOUND, json_output=json_output)
 
     if bot.running():
-        fail(f"a bot is already running (pid {bot.read_pid()}); stop it first — one bot per install",
-             ExitCode.ERROR, json_output=json_output)
+        if not replace:
+            fail(f"a bot is already running (pid {bot.read_pid()}); stop it first or pass --replace "
+                 f"(one bot per install)", ExitCode.ERROR, json_output=json_output)
+        _replace_running(timeout=30.0, json_output=json_output)
 
     # Map the selected type to what the engine consumes. A controller can't run standalone, so generate
     # a v2 loader config and run that; the loader's stem becomes the bot's DB/log name.
