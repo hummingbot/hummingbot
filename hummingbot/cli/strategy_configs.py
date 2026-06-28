@@ -71,20 +71,9 @@ def available_scripts() -> List[str]:
 
 
 def available_v1_strategies() -> List[str]:
-    """List v1 strategies that can actually be created — i.e. that expose a config map. Some entries
-    in the strategy folder are stubs (e.g. `twap`, only a dummy.cpp) with an empty config map; those
-    are excluded so `strategy list` stays consistent with `strategy create`."""
+    """List v1 strategies (the strategy folders). Fast — a directory scan, no config-map imports."""
     from hummingbot import get_strategy_list
-    from hummingbot.client.config.config_helpers import get_strategy_config_map, get_strategy_pydantic_config_cls
-
-    out = []
-    for s in get_strategy_list():
-        try:
-            if get_strategy_pydantic_config_cls(s) is not None or get_strategy_config_map(s):
-                out.append(s)
-        except Exception:
-            continue
-    return sorted(out)
+    return sorted(get_strategy_list())
 
 
 def available_sources(stype: str) -> List[str]:
