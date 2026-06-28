@@ -2,8 +2,9 @@ from copy import deepcopy
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Dict, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import hummingbot.core.rate_oracle.utils as rate_oracle_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -91,6 +92,18 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         # USD and USDT are interchangeable, so converting between them is 1:1.
         self.assertEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
         self.assertEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
+
+    def test_find_rate_without_usd_equivalent_does_not_normalize(self):
+        # When USD is not configured as a USDT-equivalent, it is treated as a
+        # distinct token, so USD<->USDT no longer resolves 1:1 (here, no route exists).
+        prices = {"HYPE-USDT": Decimal("60"), "SOL-USDT": Decimal("70")}
+        with patch.object(rate_oracle_utils, "USD_EQUIVALENT_TOKENS", []):
+            self.assertNotEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
+            self.assertNotEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
+            self.assertIsNone(find_rate(prices, "USD-USDT"))
+            self.assertIsNone(find_rate(prices, "USDT-USD"))
+            # A USD-quoted token no longer falls back to its USDT market.
+            self.assertIsNone(find_rate(prices, "HYPE-USD"))
 
     def test_find_rate_skips_zero_prices(self):
         """Test that find_rate doesn't cause DivisionByZero when prices contain zero values."""
