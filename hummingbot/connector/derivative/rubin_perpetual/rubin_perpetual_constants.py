@@ -27,7 +27,7 @@ RUBIN_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
 # Rubin mainnet gRPC validator endpoint (confirmed). Testnet: grpc.testnet.rubin.trade:443.
 RUBIN_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
 RUBIN_QUERY_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
-CHAIN_ID = 'ritbit-mainnet-1'
+CHAIN_ID = 'ritbit-mainnet'
 # Native chain-token denom: urit (micro-RIT).
 FEE_DENOMINATION = "urit"
 TX_FEE = 0
