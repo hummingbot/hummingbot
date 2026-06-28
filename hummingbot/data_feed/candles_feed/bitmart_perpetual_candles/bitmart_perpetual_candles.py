@@ -32,7 +32,15 @@ class BitmartPerpetualCandles(CandlesBase):
             "1w": "1W",
         }
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
+        # Reuse the connector's cached contract size when backed by a BitMart perpetual connector,
+        # avoiding the redundant contract-details fetch. If the rules are not polled yet (None), fall
+        # back to the feed's own fetch.
+        if self._connector is not None:
+            contract_size = self._connector.get_contract_size(self._trading_pair)
+            if contract_size is not None:
+                self.contract_size = float(contract_size)
+                return
         await self.get_exchange_trading_pair_contract_size()
 
     async def get_exchange_trading_pair_contract_size(self):

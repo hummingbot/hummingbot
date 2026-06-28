@@ -646,6 +646,11 @@ class GateIoRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="gate_io")
 
 
+class BackpackRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="backpack")
+    model_config = ConfigDict(title="backpack")
+
+
 class DexalotRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="dexalot")
     model_config = ConfigDict(title="dexalot")
@@ -754,6 +759,7 @@ RATE_SOURCE_MODES = {
     DecibelPerpetualRateSourceMode.model_config["title"]: DecibelPerpetualRateSourceMode,
     KuCoinRateSourceMode.model_config["title"]: KuCoinRateSourceMode,
     GateIoRateSourceMode.model_config["title"]: GateIoRateSourceMode,
+    BackpackRateSourceMode.model_config["title"]: BackpackRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.model_config["title"]: CoinbaseAdvancedTradeRateSourceMode,
     CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
