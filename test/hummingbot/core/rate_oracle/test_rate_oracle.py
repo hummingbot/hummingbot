@@ -93,17 +93,21 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
         self.assertEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
 
-    def test_find_rate_without_usd_equivalent_does_not_normalize(self):
-        # When USD is not configured as a USDT-equivalent, it is treated as a
-        # distinct token, so USD<->USDT no longer resolves 1:1 (here, no route exists).
-        prices = {"HYPE-USDT": Decimal("60"), "SOL-USDT": Decimal("70")}
+    def test_find_rate_usd_equivalence_is_a_fallback_not_an_override(self):
+        # A real USD-quoted market is matched directly (before normalizing), so the
+        # USDT-equivalence never collapses an actual USDT/USD price to 1:1 — the real
+        # de-peg is preserved with or without USD configured as equivalent.
+        self.assertEqual(find_rate({"USDT-USD": Decimal("0.999")}, "USDT-USD"), Decimal("0.999"))
         with patch.object(rate_oracle_utils, "USD_EQUIVALENT_TOKENS", []):
-            self.assertNotEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
-            self.assertNotEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
+            self.assertEqual(find_rate({"USDT-USD": Decimal("0.999")}, "USDT-USD"), Decimal("0.999"))
+
+        # The equivalence only provides a fallback when no USD market exists, and it is
+        # gated by the configured list: removing USD leaves USD lookups with no route.
+        prices = {"HYPE-USDT": Decimal("60")}
+        with patch.object(rate_oracle_utils, "USD_EQUIVALENT_TOKENS", []):
+            self.assertIsNone(find_rate(prices, "HYPE-USD"))
             self.assertIsNone(find_rate(prices, "USD-USDT"))
             self.assertIsNone(find_rate(prices, "USDT-USD"))
-            # A USD-quoted token no longer falls back to its USDT market.
-            self.assertIsNone(find_rate(prices, "HYPE-USD"))
 
     def test_find_rate_skips_zero_prices(self):
         """Test that find_rate doesn't cause DivisionByZero when prices contain zero values."""
