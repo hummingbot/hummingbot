@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Union
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
 
-import hummingbot.core.gateway.utils as gateway_utils
+import hummingbot.core.rate_oracle.utils as rate_oracle_utils
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
@@ -389,7 +389,7 @@ class GlobalTokenConfigMap(BaseClientModel):
 
     @model_validator(mode="after")
     def post_validations(self):
-        gateway_utils.USD_EQUIVALENT_TOKENS = self.usd_equivalent_tokens
+        rate_oracle_utils.USD_EQUIVALENT_TOKENS = self.usd_equivalent_tokens
         RateOracle.get_instance().quote_token = self.global_token_name
         return self
 

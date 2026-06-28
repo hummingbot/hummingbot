@@ -2,7 +2,22 @@ from decimal import Decimal
 from typing import Dict
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.gateway.utils import unwrap_token_symbol
+
+# Symbols treated as interchangeable with USDT for rate-oracle lookups. Exchanges
+# quote almost exclusively against USDT, so a balance denominated in USD (e.g.
+# perpetual collateral) is priced using the USDT markets that exchanges list.
+# This default is overridden at startup from the ``global_token`` client config.
+USD_EQUIVALENT_TOKENS = ["USD"]
+
+
+def normalize_token_symbol(token_symbol: str) -> str:
+    """
+    Maps USD-equivalent symbols to USDT so that, for example, USD and USDT
+    resolve to the same conversion rate.
+    """
+    if token_symbol in USD_EQUIVALENT_TOKENS:
+        return "USDT"
+    return token_symbol
 
 
 def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
@@ -19,15 +34,15 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
     if pair in prices:
         return prices[pair]
     base, quote = split_hb_trading_pair(trading_pair=pair)
-    base = unwrap_token_symbol(base)
-    quote = unwrap_token_symbol(quote)
+    base = normalize_token_symbol(base)
+    quote = normalize_token_symbol(quote)
     if base == quote:
         return Decimal("1")
-    # Re-check the direct pair after unwrapping (e.g. HYPE-USD -> HYPE-USDT) before
+    # Re-check the direct pair after normalizing (e.g. HYPE-USD -> HYPE-USDT) before
     # attempting reverse-pair or path-bridging lookups.
-    unwrapped_pair = combine_to_hb_trading_pair(base=base, quote=quote)
-    if unwrapped_pair in prices:
-        return prices[unwrapped_pair]
+    normalized_pair = combine_to_hb_trading_pair(base=base, quote=quote)
+    if normalized_pair in prices:
+        return prices[normalized_pair]
     reverse_pair = combine_to_hb_trading_pair(base=quote, quote=base)
     if reverse_pair in prices and prices[reverse_pair] > Decimal("0"):
         return Decimal("1") / prices[reverse_pair]
