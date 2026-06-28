@@ -12,6 +12,7 @@ The password is passed via the ``HBOT_PASSWORD`` env var (never argv).
 """
 import argparse
 import asyncio
+import inspect
 import logging
 import os
 import signal
@@ -47,12 +48,16 @@ async def _collect_balances(hb: HummingbotApplication) -> Dict[str, Dict[str, fl
     return balances
 
 
-def _format_status_text(hb: HummingbotApplication) -> Optional[str]:
+async def _format_status_text(hb: HummingbotApplication) -> Optional[str]:
     strategy = hb.trading_core.strategy
     if strategy is None:
         return None
     try:
-        return strategy.format_status()
+        result = strategy.format_status()
+        # some strategies (e.g. spot_perpetual_arbitrage) define format_status as a coroutine
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
     except Exception:
         return None
 
@@ -68,7 +73,7 @@ async def _write_snapshot(hb: HummingbotApplication, instance: Instance, *, runn
         snapshot["engine"] = hb.trading_core.get_status()
     except Exception:
         snapshot["engine"] = None
-    snapshot["format_status"] = _format_status_text(hb)
+    snapshot["format_status"] = await _format_status_text(hb)
     if running:
         snapshot["balances"] = await _collect_balances(hb)
     instance.write_status(snapshot)

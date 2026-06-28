@@ -125,6 +125,10 @@ async def load_and_start_strategy(hb: HummingbotApplication,
 
         if headless:
             logging.getLogger().info(f"Starting regular strategy: {strategy_name}")
+            # Pydantic-config v1 strategies (e.g. cross_exchange_market_making) read
+            # self.strategy_config_map in their start() — start_strategy() doesn't store the config map
+            # object, so set it here (mirrors the UI path's setter -> trading_core.strategy_config_map).
+            hb.strategy_config_map = strategy_config
             success = await hb.trading_core.start_strategy(strategy_name, strategy_config, config_file_name)
             if not success:
                 logging.getLogger().error("Failed to start strategy")
