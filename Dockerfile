@@ -73,8 +73,11 @@ WORKDIR /home/hummingbot
 COPY --from=builder /opt/conda/ /opt/conda/
 COPY --from=builder /home/ /home/
 
-# Expose the `hbot` CLI on PATH inside the env (mirrors `make install` / `./install`), so the image can
-# run as a single-bot container: `docker run … hbot start <config>` / `docker exec … hbot status`.
+# Put the hummingbot env on PATH so non-login shells (e.g. `docker exec … hbot`) find the env's python
+# + console scripts without `conda activate`, and expose the `hbot` CLI there (mirrors make install).
+# This lets the image run as a single-bot container: `docker run … hbot start <config>`,
+# `docker exec … hbot status`.
+ENV PATH=/opt/conda/envs/hummingbot/bin:$PATH
 RUN ln -sf /home/hummingbot/bin/hbot /opt/conda/envs/hummingbot/bin/hbot
 
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)

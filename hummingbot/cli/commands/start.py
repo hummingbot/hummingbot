@@ -49,6 +49,8 @@ def start(
         False, "--controller", help="Force controller type (only needed if the name collides across types)."),
     replace: bool = typer.Option(
         False, "--replace", help="If a bot is already running, stop it first, then start this one."),
+    foreground: bool = typer.Option(
+        False, "--foreground", help="Run the bot in the foreground (use as a container's main process)."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
     auto_set_permissions: Optional[str] = typer.Option(
@@ -60,7 +62,8 @@ def start(
 
     One bot per install — fails if one is already running. The type is detected from the conf dir
     holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
-    exists under more than one type."""
+    exists under more than one type. By default the bot runs detached (the command returns); pass
+    --foreground to run it in the foreground, e.g. as a Docker container's main process."""
     from hummingbot.cli.strategy_configs import (
         config_path,
         resolve_config_type,
@@ -129,6 +132,17 @@ def start(
         cmd += ["--auto-set-permissions", auto_set_permissions]
 
     env = dict(os.environ, HBOT_PASSWORD=password)
+
+    if foreground:
+        # Replace this process with the engine so the bot runs in the FOREGROUND — the right shape for a
+        # container's main process: the bot IS PID 1, so `docker stop` -> SIGTERM -> the engine's graceful
+        # shutdown (cancels orders). os.exec* keeps the same PID, so the pid we record is the engine's;
+        # stdout/stderr stay attached to the terminal/container (visible via `docker logs`).
+        bot.write_pid(os.getpid())
+        bot.update_meta(pid=os.getpid())
+        os.chdir(prefix_path())
+        os.execve(sys.executable, cmd, env)  # never returns
+
     log_handle = open(bot.log_file(), "wb")  # fresh per run (startup/uncaught only)
     proc = subprocess.Popen(
         cmd, cwd=prefix_path(), stdin=subprocess.DEVNULL,

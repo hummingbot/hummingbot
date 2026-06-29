@@ -200,7 +200,9 @@ hbot gateway balance solana-mainnet-beta          # on-chain balances
 ## Running in Docker
 
 `hbot`'s "one bot per install" model maps to **one container = one bot**: use the image as the
-container's bot process, with `conf/`, `data/`, and `logs/` as mounted volumes.
+container's bot process, with `conf/`, `data/`, and `logs/` as mounted volumes. Use
+`hbot start --foreground` so the bot runs as the container's main process (PID 1) — then `docker stop`
+sends it SIGTERM and the bot shuts down gracefully (cancelling orders).
 
 ```yaml
 services:
@@ -211,12 +213,13 @@ services:
       - ./conf:/home/hummingbot/conf
       - ./data:/home/hummingbot/data
       - ./logs:/home/hummingbot/logs
-    command: hbot start conf_my_bot.yml        # the container's process IS the bot
+    command: hbot start conf_my_bot.yml --foreground   # the bot IS the container's PID 1
 ```
 
-Drive it from outside with `docker exec bot hbot status` / `hbot logs -f` / `hbot trades`. Don't run
-`hbot` *and* the interactive client in the same container — that's two bots fighting over one
-`conf`/`data`/`logs`.
+Drive it from outside with `docker exec bot hbot status` / `hbot logs -f` / `hbot trades`. (Without
+`--foreground`, `hbot start` launches the bot *detached* and returns — fine on a host, but as a
+container's command it would exit immediately and stop the container.) Don't run `hbot` *and* the
+interactive client in the same container — that's two bots fighting over one `conf`/`data`/`logs`.
 
 **Gateway: run it as a sibling service, not docker-in-docker.** `hbot gateway start/stop/pull/logs`
 drive the *host's* Docker, so they don't work from inside a container (they fail with clear guidance,
