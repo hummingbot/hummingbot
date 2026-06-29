@@ -4,7 +4,6 @@ from typing import List, Optional
 import pandas as pd
 from pydantic import Field, field_validator
 
-from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import MarketDict, OrderType, PositionMode, PriceType, TradeType
 from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
@@ -218,6 +217,9 @@ class DirectionalTradingControllerBase(ControllerBase):
         )
 
     def to_format_status(self) -> List[str]:
+        # Imported here (not at module load) so importing a controller doesn't pull in the whole
+        # client.ui package — keeps controller introspection (e.g. `hbot strategy show`) fast.
+        from hummingbot.client.ui.interface_utils import format_df_for_printout
         df = self.processed_data.get("features", pd.DataFrame())
         if df.empty:
             return []
