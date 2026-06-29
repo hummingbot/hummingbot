@@ -1,12 +1,14 @@
-"""``hbot config`` — view and set global client configs in conf/conf_client.yml.
+"""``hbot settings`` — view and set global client settings in conf/conf_client.yml.
 
-  hbot config                          list all global config key=value pairs
-  hbot config <key>                    read one key (dotted, e.g. mqtt_bridge.mqtt_host)
-  hbot config <key> <value>            set a key (validated) and save
+  hbot settings                        list all global setting key=value pairs
+  hbot settings <key>                  read one key (dotted, e.g. mqtt_bridge.mqtt_host)
+  hbot settings <key> <value>          set a key (validated) and save
 
-Values are validated by the same pydantic models the interactive client uses; secret fields are
-masked on read. No keystore password is needed — conf_client.yml is not encrypted. A running bot
-loaded its config at start, so changes take effect on its next start.
+These are the client's global settings (rate source, gateway host, log level, ...), distinct from a
+strategy's config file (which `hbot strategy` manages). Values are validated by the same pydantic
+models the interactive client uses; secret fields are masked on read. No keystore password is needed
+— conf_client.yml is not encrypted. A running bot loaded its settings at start, so changes take
+effect on its next start.
 """
 from typing import TYPE_CHECKING, Optional
 
@@ -37,14 +39,14 @@ def _navigate(cm: "ClientConfigAdapter", key: str):
     return model, parts[-1]
 
 
-def config(
+def settings(
     key: Optional[str] = typer.Argument(
-        None, help="Config key (dotted, e.g. mqtt_bridge.mqtt_host). Omit to list all."),
+        None, help="Setting key (dotted, e.g. mqtt_bridge.mqtt_host). Omit to list all."),
     value: Optional[str] = typer.Argument(
         None, help="New value to set. Omit to read the key."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """View or set global client configs (conf/conf_client.yml)."""
+    """View or set global client settings (conf/conf_client.yml)."""
     from hummingbot.client.config.config_helpers import (
         ClientConfigAdapter,
         load_client_config_map_from_file,
@@ -63,7 +65,7 @@ def config(
         return
 
     if key not in set(cm.config_paths()):
-        fail(f"unknown config key '{key}' (run `hbot config` to list)",
+        fail(f"unknown setting key '{key}' (run `hbot settings` to list)",
              ExitCode.CONFIG_ERROR, json_output=json_output)
 
     model, leaf = _navigate(cm, key)

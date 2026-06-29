@@ -11,10 +11,10 @@ keystore password (``GATEWAY_PASSPHRASE``), so a private key added via ``connect
 encrypted by Gateway under the same password as the rest of hbot.
 
 First-run setup once Gateway is up:
-    hbot gateway config <chain> <path> <nodeURL>   # point a chain at your RPC
-    hbot gateway connect <chain>                    # add a wallet key (read from stdin, never argv)
-    hbot gateway token add <network> <address>      # track a token (e.g. solana-mainnet-beta <mint>)
-    hbot gateway balance -n <network>               # check on-chain wallet balances
+    hbot gateway settings <namespace> <path> <value>   # set a namespace value (e.g. a chain's nodeURL)
+    hbot gateway connect <chain>                        # add a wallet key (read from stdin, never argv)
+    hbot gateway token-add <network> <address>          # track a token (e.g. solana-mainnet-beta <mint>)
+    hbot gateway balance -n <network>                   # check on-chain wallet balances
 """
 import asyncio
 import getpass
@@ -313,15 +313,15 @@ def logs(
     typer.echo(result.stdout + result.stderr)
 
 
-@gateway_app.command("config")
-def config(
+@gateway_app.command("settings")
+def settings(
     namespace: Optional[str] = typer.Argument(
-        None, help="Config namespace (run with no args to list them, e.g. 'solana-mainnet-beta')."),
-    path: Optional[str] = typer.Argument(None, help="Dotted config path within the namespace (e.g. 'nodeURL')."),
-    value: Optional[str] = typer.Argument(None, help="New value. Omit path+value to read the namespace's config."),
+        None, help="Settings namespace (run with no args to list them, e.g. 'solana-mainnet-beta')."),
+    path: Optional[str] = typer.Argument(None, help="Dotted settings path within the namespace (e.g. 'nodeURL')."),
+    value: Optional[str] = typer.Argument(None, help="New value. Omit path+value to read the namespace's settings."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """List config namespaces (no args), view a namespace's config, or set a value (which restarts Gateway).
+    """List settings namespaces (no args), view a namespace's settings, or set a value (which restarts Gateway).
 
     Namespaces come from Gateway's /config/namespaces — chains/networks like 'solana-mainnet-beta' or
     'ethereum-mainnet', connectors like 'meteora', plus 'server'."""
@@ -350,7 +350,7 @@ def config(
     try:
         _arun(gw, lambda: gw.update_config(namespace, path, value))
     except Exception as e:
-        fail(f"config update failed: {e}", ExitCode.ERROR, json_output=json_output)
+        fail(f"settings update failed: {e}", ExitCode.ERROR, json_output=json_output)
     if json_output:
         print_json({"ok": True, "namespace": namespace, "path": path, "value": value})
     else:
