@@ -255,13 +255,15 @@ def clone_cmd(
 # --- configs (concrete files) -----------------------------------------------------------------
 
 def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:
-    """Resolve a config file's type: an explicit flag, else which conf dir holds it."""
-    from hummingbot.cli.strategy_configs import config_path, matching_config_types
-    if stype is not None:
-        if not config_path(stype, file).exists():
-            fail(f"{stype} config not found: {file}", ExitCode.NOT_FOUND, json_output=json_output)
-        return stype
-    return _disambiguate(file, matching_config_types(file), "config", json_output)
+    """Resolve a config file's type: an explicit flag, else which conf dir holds it. Thin fail()-mapper
+    over the shared ``resolve_config_type`` so every filename command resolves types identically."""
+    from hummingbot.cli.strategy_configs import resolve_config_type
+    try:
+        return resolve_config_type(file, stype)
+    except FileNotFoundError as e:
+        fail(str(e), ExitCode.NOT_FOUND, json_output=json_output)
+    except ValueError as e:
+        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
 
 
 @strategy_app.command("list-configs")

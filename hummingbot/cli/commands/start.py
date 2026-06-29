@@ -42,11 +42,11 @@ def _replace_running(timeout: float, json_output: bool) -> None:
 
 
 def start(
-    file: str = typer.Argument(..., help="Config file name for the selected type."),
-    v1: bool = typer.Option(False, "--v1-strategy", help="V1 strategy config (conf/strategies)."),
-    v2: bool = typer.Option(False, "--v2-script", help="V2 script config (conf/scripts)."),
+    file: str = typer.Argument(..., help="Config file name (its type is detected from conf/strategies|scripts|controllers)."),
+    v1: bool = typer.Option(False, "--v1-strategy", help="Force V1 strategy type (only needed if the name collides across types)."),
+    v2: bool = typer.Option(False, "--v2-script", help="Force V2 script type (only needed if the name collides across types)."),
     controller: bool = typer.Option(
-        False, "--controller", help="V2 controller config (conf/controllers); run via the V2 loader."),
+        False, "--controller", help="Force controller type (only needed if the name collides across types)."),
     replace: bool = typer.Option(
         False, "--replace", help="If a bot is already running, stop it first, then start this one."),
     password_stdin: bool = typer.Option(
@@ -56,16 +56,28 @@ def start(
     timeout: float = typer.Option(120.0, "--timeout", help="Seconds to wait for the bot to start."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Start the bot in the background. One bot per install — fails if one is already running."""
-    from hummingbot.cli.strategy_configs import config_path, validate_controller, wrap_controller_as_v2
-    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
-    if len(chosen) != 1:
-        fail("specify exactly one of --v1-strategy / --v2-script / --controller",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
-    stype = chosen[0]
+    """Start the bot in the background. The config's type is auto-detected from the conf dir that holds
+    it (a --type flag is only needed for a legacy name that exists under more than one type). One bot
+    per install — fails if one is already running."""
+    from hummingbot.cli.strategy_configs import (
+        config_path,
+        resolve_config_type,
+        validate_controller,
+        wrap_controller_as_v2,
+    )
 
-    if not config_path(stype, file).exists():
-        fail(f"{stype} config not found: {file}", ExitCode.NOT_FOUND, json_output=json_output)
+    # Same filename->type resolution as `strategy set/show-config/clone`: a flag forces the type, else
+    # it's detected from the conf dirs (names are unique across types).
+    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
+    if len(chosen) > 1:
+        fail("use only one of --v1-strategy / --v2-script / --controller",
+             ExitCode.CONFIG_ERROR, json_output=json_output)
+    try:
+        stype = resolve_config_type(file, chosen[0] if chosen else None)
+    except FileNotFoundError as e:
+        fail(str(e), ExitCode.NOT_FOUND, json_output=json_output)
+    except ValueError as e:
+        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
 
     if bot.running():
         if not replace:

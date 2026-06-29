@@ -73,6 +73,28 @@ def infer_type(filename: str) -> Optional[str]:
     return hits[0] if len(hits) == 1 else None
 
 
+def resolve_config_type(filename: str, explicit: Optional[str] = None) -> str:
+    """Resolve which type a config FILE is — the single lookup shared by every filename-taking command
+    (start/set/show-config/clone/update).
+
+    With ``explicit`` (a type id from a flag), verify the file exists in that type's dir. Otherwise
+    detect it from the conf dirs: config names are unique across types, so a bare filename is enough.
+    Raises FileNotFoundError if the file is absent, or ValueError if it exists under multiple types
+    (a legacy collision) and an explicit type is needed.
+    """
+    if explicit is not None:
+        if not config_path(explicit, filename).exists():
+            raise FileNotFoundError(f"{explicit} config not found: {filename}")
+        return explicit
+    matches = matching_config_types(filename)
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        raise FileNotFoundError(f"config not found: {filename}")
+    raise ValueError(f"'{filename}' exists as {' and '.join(matches)} — pass "
+                     f"{' / '.join('--' + m for m in matches)} to disambiguate")
+
+
 def available_controllers() -> List[str]:
     """Controller module names that can be scaffolded (controllers/<type>/<name>.py)."""
     base = Path(prefix_path()) / CONTROLLERS_MODULE
