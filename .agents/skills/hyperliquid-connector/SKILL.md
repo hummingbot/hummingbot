@@ -82,6 +82,13 @@ The spot connector (`hyperliquid`) authenticates the same way; confirm with
 > **Funds note:** Hyperliquid trades against your **Hyperliquid account balance** (USDC on the L1),
 > not your raw Arbitrum balance — the user must have deposited/bridged into Hyperliquid first.
 > Confirm with `hbot balance hyperliquid_perpetual` after connecting.
+>
+> **Unified account (no spot↔perp transfer needed):** Hyperliquid uses a **unified account** — your
+> USDC balance is shared as collateral across spot and perps, so you do **not** need to move funds
+> from spot to perp to trade perps. Note the perp clearinghouse may report `accountValue` of `$0`
+> while the USDC sits in spot; that's expected on a unified account and perps still draw on the shared
+> balance. (Only if a perp order is rejected for insufficient margin would a `usdClassTransfer`
+> spot→perp be needed — rare.)
 
 ## 2. Builder fee (usually nothing to do)
 
