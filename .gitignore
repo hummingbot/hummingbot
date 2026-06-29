@@ -104,11 +104,11 @@ coverage.xml
 .claude/
 .cursor/
 .agents/*
-# ...but DO ship the agent skills committed in this repo (clone-and-go):
+# ...but DO ship the agent skills + evals committed in this repo (clone-and-go):
 !.agents/skills/
-.agents/skills/*
-!.agents/skills/hummingbot-cli/
-!.agents/skills/pure-market-making/
+!.agents/evals/
+# locally-installed third-party skills stay ignored:
+.agents/skills/hummingbot-deploy
 
 
 # GRVT
