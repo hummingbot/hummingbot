@@ -28,7 +28,7 @@ from urllib.parse import urlencode
 import typer
 
 from hummingbot import prefix_path
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, SortedCommandsGroup, fail, print_json
 from hummingbot.cli.password import resolve_password
 
 if TYPE_CHECKING:
@@ -38,7 +38,9 @@ CONTAINER = "hbot-gateway"
 DEFAULT_IMAGE = "hummingbot/gateway:latest"
 GATEWAY_FILES = "gateway-files"
 
-gateway_app = typer.Typer(no_args_is_help=True, help="Detect, run, set up, and use the Gateway service.")
+gateway_app = typer.Typer(
+    cls=SortedCommandsGroup, no_args_is_help=True,
+    help="Detect, run, set up, and use the Gateway service.")
 
 
 def _client() -> Tuple[object, "GatewayHttpClient"]:
@@ -438,11 +440,9 @@ def balance(
         typer.echo(f"  {symbol}: {amount}")
 
 
-token_app = typer.Typer(no_args_is_help=True, help="List, look up, add, and remove tokens in a network's token list.")
-gateway_app.add_typer(token_app, name="token")
-
-
-@token_app.command("list")
+# Token management is kept flat (`gateway token-list`, not `gateway token list`): the CLI is at most
+# two levels deep so commands stay tab-discoverable and don't hide behind a third sub-app.
+@gateway_app.command("token-list")
 def token_list(
     network: str = typer.Argument(..., help="Chain-network, e.g. 'solana-mainnet-beta'."),
     search: Optional[str] = typer.Option(None, "--search", "-s", help="Filter by symbol or name."),
@@ -466,7 +466,7 @@ def token_list(
     typer.echo(f"{len(items)} token(s)")
 
 
-@token_app.command("find")
+@gateway_app.command("token-find")
 def token_find(
     network: str = typer.Argument(..., help="Chain-network, e.g. 'solana-mainnet-beta'."),
     address: str = typer.Argument(..., help="Token contract address to look up."),
@@ -487,7 +487,7 @@ def token_find(
     typer.echo(token)
 
 
-@token_app.command("add")
+@gateway_app.command("token-add")
 def token_add(
     network: str = typer.Argument(..., help="Chain-network, e.g. 'solana-mainnet-beta'."),
     address: str = typer.Argument(..., help="Token contract address to add."),
@@ -513,7 +513,7 @@ def token_add(
     typer.echo(msg or f"Added token {address} to {network}.")
 
 
-@token_app.command("remove")
+@gateway_app.command("token-remove")
 def token_remove(
     network: str = typer.Argument(..., help="Chain-network, e.g. 'solana-mainnet-beta'."),
     address: str = typer.Argument(..., help="Token contract address to remove."),

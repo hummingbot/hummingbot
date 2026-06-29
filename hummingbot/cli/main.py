@@ -23,9 +23,11 @@ from hummingbot.cli.commands import (
     trades as trades_cmd,
     update as update_cmd,
 )
+from hummingbot.cli.output import SortedCommandsGroup
 
 app = typer.Typer(
     name="hbot",
+    cls=SortedCommandsGroup,
     no_args_is_help=True,
     add_completion=False,
     help="Run, control, and monitor a Hummingbot bot (one bot per install).",

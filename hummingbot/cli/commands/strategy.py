@@ -15,9 +15,11 @@ from typing import List, Optional
 
 import typer
 
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, SortedCommandsGroup, fail, print_json
 
-strategy_app = typer.Typer(no_args_is_help=True, help="Discover strategies and create/edit their config files.")
+strategy_app = typer.Typer(
+    cls=SortedCommandsGroup, no_args_is_help=True,
+    help="Discover strategies and create/edit their config files.")
 
 
 def _one_type(v1: bool, v2: bool, controller: bool, json_output: bool, required: bool) -> Optional[str]:

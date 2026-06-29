@@ -1,9 +1,18 @@
 """Output helpers and the stable exit-code contract shared by all hbot commands."""
 import json
 from enum import IntEnum
-from typing import Any
+from typing import Any, List
 
 import typer
+from typer.core import TyperGroup
+
+
+class SortedCommandsGroup(TyperGroup):
+    """A Typer group that lists its sub-commands alphabetically in --help instead of registration
+    order. Pass as ``cls=`` to every ``typer.Typer(...)`` so all menus read alphabetically."""
+
+    def list_commands(self, ctx: "typer.Context") -> List[str]:
+        return sorted(super().list_commands(ctx))
 
 
 class ExitCode(IntEnum):
