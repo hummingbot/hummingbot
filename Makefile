@@ -64,14 +64,21 @@ install:
 	@echo "Done. Run: conda activate hummingbot && hbot --help"
 
 link-cli:
-	@dest="$${HBOT_BIN:-/usr/local/bin}/hbot"; src="$(CURDIR)/bin/hbot-host"; \
-	if ln -sf "$$src" "$$dest" 2>/dev/null || sudo ln -sf "$$src" "$$dest"; then \
-		echo "Linked $$dest -> bin/hbot-host"; \
-		echo "Now 'hbot <command>' works on the host — it dispatches to the source env or the docker container."; \
-	else \
-		echo "Could not write $$dest. Set HBOT_BIN to a writable dir on your PATH (e.g. HBOT_BIN=\$$HOME/.local/bin) and retry."; \
+	@src="$(CURDIR)/bin/hbot-host"; dir="$${HBOT_BIN:-}"; \
+	if [ -z "$$dir" ]; then \
+		for d in /usr/local/bin "$$HOME/.local/bin"; do \
+			if [ -w "$$d" ] || { [ ! -e "$$d" ] && mkdir -p "$$d" 2>/dev/null; }; then dir="$$d"; break; fi; \
+		done; \
+	fi; \
+	if [ -z "$$dir" ]; then \
+		echo "No writable bin dir found (tried /usr/local/bin, ~/.local/bin)."; \
+		echo "Set HBOT_BIN to a writable dir on your PATH and retry, e.g.  make link-cli HBOT_BIN=\$$HOME/.local/bin"; \
 		exit 1; \
-	fi
+	fi; \
+	mkdir -p "$$dir"; ln -sf "$$src" "$$dir/hbot"; \
+	echo "Linked $$dir/hbot -> bin/hbot-host"; \
+	case ":$$PATH:" in *":$$dir:"*) ;; *) echo "NOTE: add $$dir to your PATH to run 'hbot'." ;; esac; \
+	echo "Now 'hbot <command>' dispatches to your source env or the docker container."
 
 run:
 	conda run -n hummingbot --no-capture-output ./bin/hummingbot_quickstart.py $(ARGS)

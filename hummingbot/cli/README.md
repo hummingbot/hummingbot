@@ -180,6 +180,10 @@ argv**: set `HBOT_PASSWORD` in the environment, or pipe it with `--password-stdi
 (`printf '%s' "$PW" | hbot start conf_eth.yml --password-stdin`). A missing/wrong password fails fast
 with exit code 4 — commands never hang waiting for input.
 
+On a brand-new install there's no keystore yet — the **first** password you provide (the first time
+you run `hbot connect` / `balance` / `start`) becomes your keystore password, just like the
+interactive client's first launch. Every later command must use that same password.
+
 ---
 
 ## Gateway (on-chain / DEX)

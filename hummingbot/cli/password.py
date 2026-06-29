@@ -46,11 +46,17 @@ def login(*, password_stdin: bool = False, json_output: bool = False, confirm: b
     Returns ``(client_config_map, password)``; fails with a clear error on a bad password. The heavy
     config/security imports are deferred here so commands that don't authenticate stay fast to import.
     """
-    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification
     from hummingbot.client.config.config_helpers import load_client_config_map_from_file
     from hummingbot.client.config.security import Security
     password = resolve_password(password_stdin=password_stdin, json_output=json_output, confirm=confirm)
     client_config_map = load_client_config_map_from_file()
-    if not Security.login(ETHKeyFileSecretManger(password)):
+    secrets_manager = ETHKeyFileSecretManger(password)
+    # First run (no keystore yet): the first password provided becomes the keystore password — same as
+    # the interactive client's first launch. Without this, every keyed command trips over the missing
+    # .password_verification file. Once set, the password is fixed; later calls just unlock with it.
+    if Security.new_password_required():
+        store_password_verification(secrets_manager)
+    if not Security.login(secrets_manager):
         fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
     return client_config_map, password

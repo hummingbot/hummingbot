@@ -1,10 +1,11 @@
 import io
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import typer
 
+import hummingbot.cli.password as pw
 from hummingbot.cli.password import resolve_password
 
 
@@ -40,6 +41,32 @@ class PasswordResolveTest(unittest.TestCase):
                 patch.object(sys.stdin, "isatty", return_value=True), \
                 patch("hummingbot.cli.password.getpass.getpass", return_value="typed"):
             self.assertEqual(resolve_password(password_stdin=False, json_output=False), "typed")
+
+
+class LoginFirstRunTest(unittest.TestCase):
+    """`login` must initialize the keystore on a brand-new install (the first password provided becomes
+    the keystore password) instead of tripping over the missing .password_verification file."""
+
+    def _run_login(self, new_password_required: bool):
+        with patch.object(pw, "resolve_password", return_value="pw"), \
+                patch("hummingbot.client.config.config_helpers.load_client_config_map_from_file", return_value={}), \
+                patch("hummingbot.client.config.config_crypt.ETHKeyFileSecretManger", return_value=MagicMock()), \
+                patch("hummingbot.client.config.config_crypt.store_password_verification") as store, \
+                patch("hummingbot.client.config.security.Security") as security:
+            security.new_password_required.return_value = new_password_required
+            security.login.return_value = True
+            pw.login()
+            return store, security
+
+    def test_first_run_initializes_keystore(self):
+        store, security = self._run_login(new_password_required=True)
+        store.assert_called_once()       # the keystore is created from the first password
+        security.login.assert_called_once()
+
+    def test_existing_keystore_not_reinitialized(self):
+        store, security = self._run_login(new_password_required=False)
+        store.assert_not_called()        # an existing keystore is never overwritten
+        security.login.assert_called_once()
 
 
 if __name__ == "__main__":

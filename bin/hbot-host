@@ -10,19 +10,12 @@ set -euo pipefail
 
 container="${HBOT_CONTAINER:-hummingbot}"
 
-# Resolve this script's real directory (following symlinks) so we can call its sibling `bin/hbot`
-# launcher directly — never by the name `hbot`, which would re-resolve to this wrapper and recurse.
-src="${BASH_SOURCE[0]}"
-while [ -h "$src" ]; do
-    dir="$(cd -P "$(dirname "$src")" && pwd)"
-    src="$(readlink "$src")"
-    [ "${src#/}" = "$src" ] && src="$dir/$src"
-done
-bindir="$(cd -P "$(dirname "$src")" && pwd)"
-
-# 1) Source install: a `hummingbot` conda env that has the CLI. Run the launcher with the env's python.
+# 1) Source install: a `hummingbot` conda env that has the CLI. Run the env's INSTALLED package (via
+#    conda develop) directly — not by the name `hbot` (would re-resolve to this wrapper and recurse)
+#    nor by this wrapper's location (might be a checkout without built extensions).
 if command -v conda >/dev/null 2>&1 && conda env list | awk '{print $1}' | grep -qx hummingbot; then
-    exec conda run -n hummingbot --no-capture-output python "$bindir/hbot" "$@"
+    exec conda run -n hummingbot --no-capture-output \
+        python -c "import sys; sys.argv[0]='hbot'; from hummingbot.cli.main import main; sys.exit(main())" "$@"
 fi
 
 # 2) Docker install: a running `hummingbot` container. `-i` forwards stdin (e.g. --password-stdin);
