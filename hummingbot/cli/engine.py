@@ -20,33 +20,18 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from hummingbot import init_logging
 from hummingbot.cli import bot
-from hummingbot.cli.runner import autofix_permissions, load_and_start_strategy, wait_for_gateway_ready
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import (
-    create_yml_files_legacy,
-    load_client_config_map_from_file,
-    read_system_configs_from_yml,
+from hummingbot.cli.runner import (
+    autofix_permissions,
+    bootstrap_application,
+    load_and_start_strategy,
+    wait_for_gateway_ready,
 )
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+from hummingbot.client.config.config_helpers import load_client_config_map_from_file
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import AllConnectorSettings
 
 BALANCE_TIMEOUT = 10.0
-
-
-def _silence_console_handlers() -> None:
-    """Remove stdout (console) log handlers. Every logger keeps its file_handler, so the structured
-    log is unaffected; this just stops the console stream from duplicating into the redirected bot.log."""
-    from hummingbot.logger.cli_handler import CLIHandler
-    loggers = [logging.getLogger()] + [logging.getLogger(n) for n in list(logging.root.manager.loggerDict)]
-    for lg in loggers:
-        for handler in list(getattr(lg, "handlers", [])):
-            if isinstance(handler, CLIHandler) or (
-                    isinstance(handler, logging.StreamHandler)
-                    and getattr(handler, "stream", None) in (sys.stdout, sys.stderr)):
-                lg.removeHandler(handler)
 
 
 async def _collect_balances(hb: HummingbotApplication) -> Dict[str, Dict[str, float]]:
@@ -133,22 +118,15 @@ async def run_engine(name: str,
     if auto_set_permissions is not None:
         autofix_permissions(auto_set_permissions)
 
-    if not Security.login(ETHKeyFileSecretManger(password)):
-        logging.getLogger().error("Invalid password.")
+    # Boot headless with per-instance logging up front: the structured log at logs/logs_<name>.log is
+    # the single rotating log (read by `hbot logs`); silence_console drops the stdout handlers that would
+    # otherwise duplicate into the redirected, non-rotating bot.log. No MQTT (this engine isn't run_headless).
+    hb = await bootstrap_application(
+        client_config_map, ETHKeyFileSecretManger(password),
+        strategy_file_name=name, override_log_level=client_config_map.log_level,
+        headless=True, silence_console=True)
+    if hb is None:
         return 4
-
-    await Security.wait_til_decryption_done()
-    await create_yml_files_legacy()
-    # Initialize per-instance logging once, up front: the structured log at logs/logs_<name>.log is the
-    # single, complete, rotating log (read by `hbot logs`). Then drop the stdout console handlers — in a
-    # detached process they only duplicate the file handler into bot.log, which never rotates.
-    init_logging("hummingbot_logs.yml", client_config_map,
-                 override_log_level=client_config_map.log_level, strategy_file_path=name)
-    _silence_console_handlers()
-    await read_system_configs_from_yml()
-    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
-
-    hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=True)
 
     started = await load_and_start_strategy(
         hb, config_file_name=config_file_name, v2_conf=v2_conf, headless=True)

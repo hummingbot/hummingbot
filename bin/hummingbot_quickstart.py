@@ -10,16 +10,15 @@ import path_util  # noqa: F401
 
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
-from hummingbot.cli.runner import autofix_permissions, load_and_start_strategy, wait_for_gateway_ready
-from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import (
-    create_yml_files_legacy,
-    load_client_config_map_from_file,
-    read_system_configs_from_yml,
+from hummingbot.cli.runner import (
+    autofix_permissions,
+    bootstrap_application,
+    load_and_start_strategy,
+    wait_for_gateway_ready,
 )
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
+from hummingbot.client.config.config_helpers import load_client_config_map_from_file
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
@@ -63,24 +62,12 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
 
-    if not Security.login(secrets_manager):
-        logging.getLogger().error("Invalid password.")
+    # Shared boot (login, yml, basic logging, system configs, paper-trade, build app). Logging is
+    # re-initialized later in run_application with the strategy file name. MQTT autostarts only headless.
+    hb = await bootstrap_application(client_config_map, secrets_manager,
+                                     headless=args.headless, mqtt_autostart=args.headless)
+    if hb is None:
         return
-
-    await Security.wait_til_decryption_done()
-    await create_yml_files_legacy()
-    # Initialize logging with basic setup first - will be re-initialized later with correct strategy file name if needed
-    init_logging("hummingbot_logs.yml", client_config_map)
-    await read_system_configs_from_yml()
-
-    # Automatically enable MQTT autostart for headless mode
-    if args.headless:
-        client_config_map.mqtt_bridge.mqtt_autostart = True
-
-    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
-
-    # Create unified application that handles both headless and UI modes
-    hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=args.headless)
 
     # Load and start strategy if provided
     if args.v2_conf is not None or args.config_file_name is not None:

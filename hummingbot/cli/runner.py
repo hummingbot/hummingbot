@@ -140,3 +140,53 @@ async def load_and_start_strategy(hb: HummingbotApplication,
                 hb.status()
 
     return True
+
+
+async def bootstrap_application(
+    client_config_map,
+    secrets_manager,
+    *,
+    strategy_file_name: str = "hummingbot",
+    override_log_level: Optional[str] = None,
+    headless: bool = False,
+    mqtt_autostart: bool = False,
+    silence_console: bool = False,
+) -> Optional[HummingbotApplication]:
+    """Shared boot sequence for the legacy quickstart and the hbot engine: log in, decrypt, write the
+    legacy yml files, init logging, read system configs, apply paper-trade settings, and build the
+    ``HummingbotApplication``. Returns the app, or ``None`` on a bad password. The per-caller bits
+    (logging name/level, MQTT autostart, console silencing) are explicit params so behavior is identical.
+    """
+    from hummingbot import init_logging
+    from hummingbot.client.config.config_helpers import create_yml_files_legacy, read_system_configs_from_yml
+    from hummingbot.client.config.security import Security
+    if not Security.login(secrets_manager):
+        logging.getLogger().error("Invalid password.")
+        return None
+    await Security.wait_til_decryption_done()
+    await create_yml_files_legacy()
+    init_logging("hummingbot_logs.yml", client_config_map,
+                 override_log_level=override_log_level, strategy_file_path=strategy_file_name)
+    if silence_console:
+        silence_console_handlers()
+    await read_system_configs_from_yml()
+    if mqtt_autostart:
+        client_config_map.mqtt_bridge.mqtt_autostart = True
+    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
+    return HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=headless)
+
+
+def silence_console_handlers() -> None:
+    """Remove stdout/stderr (console) log handlers from every logger. Each keeps its file_handler, so the
+    structured log is unaffected; this stops the console stream from duplicating into a redirected log
+    (used by the detached engine, whose stdout/stderr go to bot.log)."""
+    import sys
+
+    from hummingbot.logger.cli_handler import CLIHandler
+    loggers = [logging.getLogger()] + [logging.getLogger(n) for n in list(logging.root.manager.loggerDict)]
+    for lg in loggers:
+        for handler in list(getattr(lg, "handlers", [])):
+            if isinstance(handler, CLIHandler) or (
+                    isinstance(handler, logging.StreamHandler)
+                    and getattr(handler, "stream", None) in (sys.stdout, sys.stderr)):
+                lg.removeHandler(handler)
