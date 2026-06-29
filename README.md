@@ -23,76 +23,72 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 ## Getting Started
 
-The easiest way to get started with Hummingbot is using Docker:
+The recommended way to run Hummingbot is the **`hbot` command-line interface**, installed from
+source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
+and tune configs, and read trades, PnL, logs, and status — all scriptable, with `--json` output and
+stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Condor docs](https://hummingbot.org/condor/) site.
+### Install and run with `hbot` (recommended)
 
-* To install the CLI-based Hummingbot client, follow the instructions below.
-
-Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/client/installation/#source-installation) section in the documentation.
-
-### Install Hummingbot with Docker
-
-Install [Docker Compose website](https://docs.docker.com/compose/install/).
-
-Clone the repo and use the provided `docker-compose.yml` file:
+Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
 ```bash
 # Clone the repository
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 
-# Run Setup & Deploy
-make setup
-make deploy
+# Create the conda environment, build extensions, and expose the `hbot` CLI
+make install
 
-# Attach to the running instance
+# Activate the environment
+conda activate hummingbot
+hbot --help
+```
+
+Then connect an exchange, create a config, and start a bot:
+
+```bash
+hbot connect binance                                   # store API keys (encrypted)
+hbot strategy create pmm_simple --name conf_my_bot.yml \
+     --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
+hbot start conf_my_bot.yml                             # run it (one bot per install)
+hbot status                                            # check on it
+hbot stop                                              # stop gracefully
+```
+
+For on-chain (DEX) trading, `hbot gateway` manages the Gateway service:
+
+```bash
+hbot gateway start          # launch Gateway (DEX middleware)
+hbot gateway connect solana # add a wallet
+```
+
+Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
+
+---
+
+### Other ways to run Hummingbot
+
+**Docker (interactive client).** Run the traditional interactive Hummingbot client in a container — install [Docker Compose](https://docs.docker.com/compose/install/), then:
+
+```bash
+git clone https://github.com/hummingbot/hummingbot.git
+cd hummingbot
+make setup            # answer `y` to "Include Gateway?" to add the DEX middleware
+make deploy
 docker attach hummingbot
 ```
 
-### Install Hummingbot from Source
+With Gateway included, it starts in development mode (unencrypted HTTP). For production HTTPS, use the `DEV=false` flag and run `gateway generate-certs`. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
 
-Clone the repo, install dependencies, and run Hummingbot directly from source:
+**Interactive client from source.** Run the interactive client directly from a source install:
 
 ```bash
-# Clone the repository
-git clone https://github.com/hummingbot/hummingbot.git
-cd hummingbot
-
-# Install from source
 make install
-
-# Run Hummingbot
 make run
 ```
 
-### Install Hummingbot + Gateway DEX Middleware
-
-Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
-
-To run Hummingbot with Gateway, clone the repo and answer `y` when prompted after running `make setup`
-
-```yaml
-# Clone the repository
-git clone https://github.com/hummingbot/hummingbot.git
-cd hummingbot
-```
-```bash
-make setup
-
-# Answer `y` when prompted
-Include Gateway? [y/N]
-```
-
-Then run:
-```bash
-make deploy
-
-# Attach to the running instance
-docker attach hummingbot
-```
-
-By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production mode with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
+**[Condor](https://github.com/hummingbot/condor) (Telegram bot).** Follow the instructions in the [Condor docs](https://hummingbot.org/condor/).
 
 ---
 

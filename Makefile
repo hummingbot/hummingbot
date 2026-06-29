@@ -60,6 +60,8 @@ install:
 		fi; \
 	fi
 	@conda run -n hummingbot --no-capture-output python setup.py build_ext --inplace
+	@conda run -n hummingbot bash -c 'ln -sf "$(CURDIR)/bin/hbot" "$$CONDA_PREFIX/bin/hbot"'
+	@echo "Done. Run: conda activate hummingbot && hbot --help"
 
 run:
 	conda run -n hummingbot --no-capture-output ./bin/hummingbot_quickstart.py $(ARGS)
