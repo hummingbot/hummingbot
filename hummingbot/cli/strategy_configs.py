@@ -67,12 +67,6 @@ def matching_strategy_types(name: str) -> List[str]:
     return out
 
 
-def infer_type(filename: str) -> Optional[str]:
-    """Return the single type whose directory holds ``filename``, or None if absent/ambiguous."""
-    hits = matching_config_types(filename)
-    return hits[0] if len(hits) == 1 else None
-
-
 def resolve_config_type(filename: str, explicit: Optional[str] = None) -> str:
     """Resolve which type a config FILE is — the single lookup shared by every filename-taking command
     (start/set/show-config/clone/update).
