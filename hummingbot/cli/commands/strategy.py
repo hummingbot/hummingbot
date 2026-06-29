@@ -19,7 +19,7 @@ from hummingbot.cli.output import ExitCode, SortedCommandsGroup, fail, print_jso
 
 strategy_app = typer.Typer(
     cls=SortedCommandsGroup, no_args_is_help=True,
-    help="Discover strategies and create/edit their config files.")
+    help="Browse strategies and build their config files.")
 
 
 def _one_type(v1: bool, v2: bool, controller: bool, json_output: bool, required: bool) -> Optional[str]:
@@ -60,7 +60,7 @@ def list_cmd(
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """List strategies available to create from (v1 strategies, v2 scripts, controllers)."""
+    """List the strategies you can create configs from."""
     from hummingbot.cli.strategy_configs import STRATEGY_TYPES, available_sources
     stype = _one_type(v1, v2, controller, json_output, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
@@ -82,7 +82,7 @@ def show_cmd(
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Show a strategy's fields: defaults, required (to fill), and live (controller-updatable)."""
+    """Show a strategy's fields and which ones you must fill in."""
     from hummingbot.cli.strategy_configs import describe_strategy
     stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
     try:
@@ -139,7 +139,7 @@ def create_cmd(
         False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it (bulk fill; pairs with `strategy show --json`)."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Scaffold a new config from a strategy's defaults, optionally filling fields inline.
+    """Create a config from a strategy, optionally filling in fields.
 
     Agent-friendly: `--set k=v` (repeatable) or `--values-stdin` populate fields in the same call, so a
     fully-specified config is created and validated at once instead of one `set` round-trip per field.
@@ -211,7 +211,7 @@ def clone_cmd(
         False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it to the clone."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Copy an existing config to a new name (comments preserved), optionally changing fields.
+    """Copy a config to a new name, optionally changing fields.
 
     Unlike `create` (which scaffolds a strategy's defaults), `clone` starts from a config you already
     filled in. A cloned controller gets a fresh id so it doesn't collide with the original when run.
@@ -273,7 +273,7 @@ def list_configs_cmd(
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """List existing config files (all types, or one)."""
+    """List your saved config files."""
     from hummingbot.cli.strategy_configs import STRATEGY_TYPES, list_configs
     stype = _one_type(v1, v2, controller, json_output, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
@@ -295,7 +295,7 @@ def show_config_cmd(
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Show a config file (controller fields that apply live are marked)."""
+    """Show the contents of a config file."""
     from hummingbot.cli.strategy_configs import config_path, read_yaml, updatable_for
     stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
     path = config_path(stype, file)
@@ -320,7 +320,7 @@ def set_cmd(
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Edit a field in a config file (validated for controllers; comments preserved)."""
+    """Change a field in a config file."""
     from hummingbot.cli.strategy_configs import config_path, edit_config
     stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
     path = config_path(stype, file)

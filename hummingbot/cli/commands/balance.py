@@ -128,7 +128,7 @@ def balance(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Fetch balances (with USD value) from exchanges you've connected with `hbot connect`."""
+    """Show your exchange balances, with their value in USD."""
     from hummingbot.client.settings import AllConnectorSettings
     ccm, password = login(password_stdin=password_stdin, json_output=json_output)
 

@@ -34,7 +34,7 @@ def logs(
     json_output: bool = typer.Option(
         False, "--json", help="JSON: a {lines:[...]} object for a snapshot, or NDJSON (one record/line) with -f."),
 ) -> None:
-    """Print the tail of the bot's log; ``-f`` streams new lines as they are written.
+    """Show the bot's recent log output (-f to follow live).
 
     With no name, shows the current bot; pass a name (from `hbot start`) to view a past/stopped bot.
     Note for agents: ``-f`` runs until interrupted — bound it (e.g. a timeout) rather than awaiting forever.

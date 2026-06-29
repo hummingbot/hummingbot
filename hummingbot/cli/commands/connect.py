@@ -141,7 +141,7 @@ def connect(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Show your connections (tested), add keys for an exchange, or list all connectable exchanges (--all)."""
+    """Show connections or add an exchange's API keys."""
     from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file
     from hummingbot.client.config.security import Security
     from hummingbot.client.settings import AllConnectorSettings

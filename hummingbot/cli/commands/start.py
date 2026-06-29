@@ -56,9 +56,11 @@ def start(
     timeout: float = typer.Option(120.0, "--timeout", help="Seconds to wait for the bot to start."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Start the bot in the background. The config's type is auto-detected from the conf dir that holds
-    it (a --type flag is only needed for a legacy name that exists under more than one type). One bot
-    per install — fails if one is already running."""
+    """Start a bot from a config file (type auto-detected).
+
+    One bot per install — fails if one is already running. The type is detected from the conf dir
+    holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
+    exists under more than one type."""
     from hummingbot.cli.strategy_configs import (
         config_path,
         resolve_config_type,

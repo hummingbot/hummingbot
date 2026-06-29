@@ -48,7 +48,7 @@ def _request_fresh_snapshot(timeout: float = REFRESH_TIMEOUT) -> None:
 def status(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Show the bot's status: liveness, the strategy's format_status, and any recent errors."""
+    """Show the bot's run state, live status, and errors."""
     if not bot.exists():
         if json_output:
             print_json({"ok": True, "running": False, "note": "no bot started"})

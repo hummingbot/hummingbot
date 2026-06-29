@@ -14,7 +14,7 @@ def stop(
     force: bool = typer.Option(False, "--force", help="SIGKILL if still alive after timeout."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Send SIGTERM so the bot winds down and cancels orders, then wait for exit."""
+    """Stop the bot gracefully, cancelling its open orders."""
     if not bot.exists():
         fail("no bot has been started", ExitCode.NOT_FOUND, json_output=json_output)
 

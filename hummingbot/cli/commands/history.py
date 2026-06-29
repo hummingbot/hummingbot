@@ -108,7 +108,7 @@ def history(
     days: Optional[float] = typer.Option(None, "--days", help="Only include the last N days."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Report PnL, fees, and volume per market/pair. Pass a name to view a past/stopped bot."""
+    """Show profit, fees, and volume per market."""
     from hummingbot.cli.data import get_trades
     if name:
         db_path = bot.db_path_for(name)

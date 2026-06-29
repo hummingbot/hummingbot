@@ -28,7 +28,7 @@ def trades(
     days: Optional[float] = typer.Option(None, "--days", help="Only trades from the last N days."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """List the bot's fills (newest first when limited). Pass a name to view a past/stopped bot."""
+    """List the trades the bot has made."""
     from hummingbot.cli.data import get_trades
     from hummingbot.model.trade_fill import TradeFill
     if name:

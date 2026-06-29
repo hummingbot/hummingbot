@@ -20,7 +20,7 @@ def update(
     value: Optional[str] = typer.Argument(None, help="New value. Omit to read the field."),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
-    """Read or live-update the running bot's config."""
+    """View or change the running bot's config, live."""
     from hummingbot.cli.strategy_configs import config_path, edit_config, get_value, read_yaml, updatable_for
     if not bot.exists():
         fail("no bot has been started", ExitCode.NOT_FOUND, json_output=json_output)

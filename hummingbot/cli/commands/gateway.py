@@ -40,7 +40,7 @@ GATEWAY_FILES = "gateway-files"
 
 gateway_app = typer.Typer(
     cls=SortedCommandsGroup, no_args_is_help=True,
-    help="Detect, run, set up, and use the Gateway service.")
+    help="Run and use the Gateway service for on-chain (DEX) trading.")
 
 
 def _client() -> Tuple[object, "GatewayHttpClient"]:
@@ -150,7 +150,7 @@ def _login_if_ssl(client_config_map, json_output: bool, password_stdin: bool = F
 
 @gateway_app.command("status")
 def status(json_output: bool = typer.Option(False, "--json")) -> None:
-    """Report whether Gateway is reachable, and whether hbot manages the container."""
+    """Show whether Gateway is running."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     running = _is_running(gw)
@@ -171,7 +171,7 @@ def pull(
     image: str = typer.Option(DEFAULT_IMAGE, "--image", help="Gateway Docker image to pull."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Pull the latest Gateway Docker image from its registry."""
+    """Download the latest Gateway version."""
     if _docker("version").returncode != 0:
         fail("Docker is unavailable", ExitCode.ERROR, json_output=json_output)
     _pull_image(image, json_output, required=True)
@@ -191,8 +191,10 @@ def start(
     timeout: float = typer.Option(90.0, "--timeout", help="Seconds to wait for Gateway to become healthy."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Launch the Gateway Docker image in certs (HTTPS/mTLS) mode and wait until healthy; reuse it if
-    one is already running."""
+    """Start the Gateway service.
+
+    Launches the Gateway in secure (HTTPS/mTLS) mode and waits until it's healthy; reuses one that is
+    already running."""
     from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
     from hummingbot.client.config.config_helpers import save_to_yml
     from hummingbot.client.config.security import Security
@@ -285,7 +287,7 @@ def start(
 
 @gateway_app.command("stop")
 def stop(json_output: bool = typer.Option(False, "--json")) -> None:
-    """Stop the hbot-managed Gateway container (never an externally/source-run Gateway)."""
+    """Stop the Gateway service."""
     container = _container_status()
     if container is None:
         _, gw = _client()
@@ -305,7 +307,7 @@ def logs(
     lines: int = typer.Option(200, "--lines", "-n", help="Number of trailing log lines."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Tail the hbot-managed Gateway container's logs."""
+    """Show the Gateway service's recent logs."""
     if _container_status() is None:
         fail("no hbot-managed Gateway container (logs are only available for containers hbot started)",
              ExitCode.NOT_RUNNING, json_output=json_output)
@@ -321,7 +323,7 @@ def settings(
     value: Optional[str] = typer.Argument(None, help="New value. Omit path+value to read the namespace's settings."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """List settings namespaces (no args), view a namespace's settings, or set a value (which restarts Gateway).
+    """View or change Gateway settings, grouped by namespace.
 
     Namespaces come from Gateway's /config/namespaces — chains/networks like 'solana-mainnet-beta' or
     'ethereum-mainnet', connectors like 'meteora', plus 'server'."""
@@ -363,8 +365,10 @@ def connect(
     key_stdin: bool = typer.Option(False, "--key-stdin", help="Read the private key from stdin."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Add a wallet for a chain. The private key is read from stdin or a hidden prompt (never argv);
-    Gateway stores it encrypted under the keystore passphrase."""
+    """Add a wallet to a chain.
+
+    The private key is read from stdin or a hidden prompt (never argv); Gateway stores it encrypted
+    under the keystore passphrase."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
@@ -411,8 +415,10 @@ def balance(
         None, "--address", "-a", help="Wallet address. Defaults to the chain's default wallet."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Check on-chain wallet balances. With no tokens, returns the native token plus all non-zero balances
-    for tokens in the network's token list (use `hbot gateway token add` to track more)."""
+    """Show your on-chain wallet balances.
+
+    With no tokens given, returns the native token plus all non-zero balances for tokens in the
+    network's token list (use `hbot gateway token-add` to track more)."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
@@ -448,7 +454,7 @@ def token_list(
     search: Optional[str] = typer.Option(None, "--search", "-s", help="Filter by symbol or name."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """List the tokens tracked in a network's token list."""
+    """List a network's tracked tokens."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
@@ -472,7 +478,7 @@ def token_find(
     address: str = typer.Argument(..., help="Token contract address to look up."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Look up a token's metadata by address (via GeckoTerminal) WITHOUT saving it. Preview before `add`."""
+    """Look up a token by address, without saving it."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
@@ -493,8 +499,10 @@ def token_add(
     address: str = typer.Argument(..., help="Token contract address to add."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Add a token to the network's token list by address. Metadata (symbol, name, decimals) is fetched
-    automatically via GeckoTerminal (Gateway's /tokens/save), so network + address is all you need."""
+    """Add a token to a network by its address.
+
+    Metadata (symbol, name, decimals) is fetched automatically, so the network + address is all you
+    need."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
@@ -519,7 +527,7 @@ def token_remove(
     address: str = typer.Argument(..., help="Token contract address to remove."),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Remove a token from the network's token list by address."""
+    """Remove a token from a network by its address."""
     client_config_map, gw = _client()
     _login_if_ssl(client_config_map, json_output)
     _require_running(gw, json_output)
