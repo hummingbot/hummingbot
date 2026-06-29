@@ -108,3 +108,4 @@ coverage.xml
 
 # GRVT
 /grvt
+.cli_test/
