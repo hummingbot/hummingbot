@@ -65,28 +65,33 @@ hbot gateway connect solana # add a wallet
 
 Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
 
----
+### …or with `hbot` from Docker
 
-### Other ways to run Hummingbot
-
-**Docker (interactive client).** Run the traditional interactive Hummingbot client in a container — install [Docker Compose](https://docs.docker.com/compose/install/), then:
+Prefer containers? `hbot` works the same way — install [Docker Compose](https://docs.docker.com/compose/install/), then:
 
 ```bash
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 make setup            # answer `y` to "Include Gateway?" to add the DEX middleware
-make deploy
-docker attach hummingbot
+make deploy           # start the container as an idle "hbot host"
+make link-cli         # put the `hbot` command on your host PATH (dispatches into the container)
+
+hbot --help           # same commands as the source install above
 ```
 
-With Gateway included, it starts in development mode (unencrypted HTTP). For production HTTPS, use the `DEV=false` flag and run `gateway generate-certs`. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
+`make link-cli` installs a small wrapper that runs `hbot` inside the container, so every command
+above is identical whether you installed from source or Docker. (Or skip it and use
+`docker exec -it hummingbot hbot <command>`.)
 
-**Interactive client from source.** Run the interactive client directly from a source install:
+---
 
-```bash
-make install
-make run
-```
+### Other ways to run Hummingbot
+
+**Interactive (terminal UI) client.** Prefer the classic full-screen client? Remove the
+`command:` override from `docker-compose.yml`, `make deploy`, and `docker attach hummingbot` — or run
+it from source with `make install && make run`. With Gateway included it starts in development mode
+(unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
+See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
 
 **[Condor](https://github.com/hummingbot/condor) (Telegram bot).** Follow the instructions in the [Condor docs](https://hummingbot.org/condor/).
 

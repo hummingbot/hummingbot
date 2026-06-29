@@ -24,10 +24,14 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
+    # Run as an idle "hbot host": the container stays up and you drive it with `hbot` commands — the
+    # same way as a source install. Use the host wrapper (`make link-cli`, then `hbot <command>`) or
+    # `docker exec -it hummingbot hbot <command>`.
+    #   - for one dedicated bot instead:      command: hbot start <config> --foreground
+    #   - for the legacy interactive client:  remove this command, then `docker attach hummingbot`
+    command: tail -f /dev/null
   #  environment:
-  #    - CONFIG_PASSWORD=admin
-  #    - CONFIG_FILE_NAME=v2_with_controllers.py
-  #    - SCRIPT_CONFIG=conf_v2_with_controllers.yml
+  #    - HBOT_PASSWORD=admin
 
   gateway:
    profiles: ["gateway"]

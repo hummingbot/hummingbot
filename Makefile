@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down
+.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down link-cli
 
 DYDX ?= 0
 ENV_FILE := setup/environment.yml
@@ -62,6 +62,16 @@ install:
 	@conda run -n hummingbot --no-capture-output python setup.py build_ext --inplace
 	@conda run -n hummingbot bash -c 'ln -sf "$(CURDIR)/bin/hbot" "$$CONDA_PREFIX/bin/hbot"'
 	@echo "Done. Run: conda activate hummingbot && hbot --help"
+
+link-cli:
+	@dest="$${HBOT_BIN:-/usr/local/bin}/hbot"; src="$(CURDIR)/bin/hbot-host"; \
+	if ln -sf "$$src" "$$dest" 2>/dev/null || sudo ln -sf "$$src" "$$dest"; then \
+		echo "Linked $$dest -> bin/hbot-host"; \
+		echo "Now 'hbot <command>' works on the host — it dispatches to the source env or the docker container."; \
+	else \
+		echo "Could not write $$dest. Set HBOT_BIN to a writable dir on your PATH (e.g. HBOT_BIN=\$$HOME/.local/bin) and retry."; \
+		exit 1; \
+	fi
 
 run:
 	conda run -n hummingbot --no-capture-output ./bin/hummingbot_quickstart.py $(ARGS)
