@@ -138,6 +138,9 @@ hbot history conf_my_bot                               # review a stopped bot la
 
 - **Don't** put passwords or private keys on the command line / argv. Use `HBOT_PASSWORD` or
   `--password-stdin`; keys go in via `connect` over stdin.
+- **Don't restate a secret's value back** — not in chat, summaries, or logs. Refer to credentials
+  abstractly ("the key you pasted", "your keystore password"); never echo the actual bytes, even to
+  confirm them. (A truncated form like `0x4f3c…` is fine for reference.)
 - **Don't** scrape table text — add `--json` and branch on `code`.
 - **Don't** assume `status` returning "running" means healthy — it reports a **recent-errors count**;
   a bot can be alive and erroring. Check it.

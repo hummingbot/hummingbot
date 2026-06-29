@@ -166,6 +166,8 @@ def main() -> int:
         print(f"\nSPOT  ({len(data['spot'])} markets) — connector: hyperliquid")
         for m in sorted(data["spot"], key=lambda x: x["hummingbot_pair"]):
             print(f"  {m['hummingbot_pair']:20} (exchange symbol: {m['exchange_symbol']})")
+    # Hyperliquid enforces a flat $10 minimum order notional (per order). Size each order >= $10.
+    print("\nMin order notional: $10 (Hyperliquid, per order) — size each order to clear it.")
     print()
     return 0
 

@@ -115,6 +115,11 @@ python scripts/market_stats.py --filter SOL               # funding/OI for a mar
 fails at `start`). `market_stats.py` adds funding rate (hourly + APR), open interest, and 24h volume
 so you can pick a liquid market and understand the cost of holding a perp position.
 
+> **Minimum order size:** Hyperliquid enforces a flat **$10 minimum order notional** (per order, both
+> spot and perp). Size so each order clears $10 — for `pmm_mister`, recall order notional ≈
+> `amount_pct × total_amount_quote × portfolio_allocation` (see the `pure-market-making` skill). A
+> below-$10 order is rejected, leaving the bot alive but not quoting.
+
 ## 4. Pair format
 
 - **Perp:** `BASE-USD` — e.g. `ETH-USD`, `BTC-USD`. (Hyperliquid perps are USD-margined; bare coin.)
