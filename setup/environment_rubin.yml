@@ -13,14 +13,13 @@ dependencies:
   - diff-cover>=7.7.0
   - pip>=23.2.1
   - pre-commit>=3.3.3
-  - python>=3.10.12
+  - python=3.12
   - pytest>=7.4.0
   - pytest-asyncio>=0.16.0
   - pytest-timeout>=2.1.0
   - setuptools>=75.7.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5,<3.14  # aiohttp 3.14 requires a stream_writer arg that aioresponses 0.7.8 doesn't pass, breaking HTTP-mocked tests
-  - aiomqtt>=2.0.0
   - asyncssh>=2.13.2
   - aioprocessing>=2.0.1
   - aioresponses>=0.7.4
@@ -64,3 +63,4 @@ dependencies:
   - zlib>=1.2.13
   - pip:
     - ritbit-v4-proto>=0.1.0
+    - aiomqtt>=2.0.0  # не на conda-forge → ставится через pip
