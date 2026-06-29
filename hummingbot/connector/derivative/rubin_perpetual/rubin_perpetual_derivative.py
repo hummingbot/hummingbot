@@ -7,6 +7,7 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.rubin_perpetual.rubin_perpetual_constants as CONSTANTS
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.derivative.rubin_perpetual import rubin_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.rubin_perpetual.data_sources.rubin_data_source import RubinPerpetualV4Client
 from hummingbot.connector.derivative.rubin_perpetual.rubin_perpetual_api_order_book_data_source import (
@@ -15,7 +16,6 @@ from hummingbot.connector.derivative.rubin_perpetual.rubin_perpetual_api_order_b
 from hummingbot.connector.derivative.rubin_perpetual.rubin_perpetual_user_stream_data_source import (
     RubinPerpetualUserStreamDataSource,
 )
-from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
@@ -52,7 +52,14 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
 
-        self._tx_client: RubinPerpetualV4Client = self._create_tx_client()
+        # Only build the signing tx client when trading is required and a secret phrase is provided.
+        # V2 strategies instantiate read-only connectors (trading_required=False, empty keys) for
+        # public market data — those must not require a mnemonic.
+        self._tx_client: Optional[RubinPerpetualV4Client] = (
+            self._create_tx_client()
+            if (trading_required and rubin_perpetual_secret_phrase)
+            else None
+        )
 
         self._margin_fractions = {}
         self._position_id = None
@@ -152,7 +159,8 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         await self._update_trading_rules()
-        await self._tx_client.initialize_trading_account()
+        if self._tx_client is not None:
+            await self._tx_client.initialize_trading_account()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
@@ -712,9 +720,11 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return RubinPerpetualUserStreamDataSource(api_factory=self._web_assistants_factory,
-                                                   connector=self,
-                                                   domain=self._domain)
+        return RubinPerpetualUserStreamDataSource(
+            api_factory=self._web_assistants_factory,
+            connector=self,
+            domain=self._domain,
+        )
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         markets = exchange_info["markets"]
