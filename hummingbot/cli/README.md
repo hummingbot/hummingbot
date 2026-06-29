@@ -196,7 +196,7 @@ hbot gateway status                               # is it running?
 hbot gateway start                                # launch it (secure HTTPS/mTLS mode)
 hbot gateway connect solana                       # add a wallet (private key read from stdin)
 hbot gateway token-add solana-mainnet-beta <mint> # track a token by address
-hbot gateway balance solana-mainnet-beta          # on-chain balances
+hbot gateway balance -n solana-mainnet-beta       # on-chain balances
 ```
 
 ---
