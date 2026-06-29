@@ -7,7 +7,6 @@ password via ``Security.update_secure_config`` and written to ``conf/connectors/
 """
 import asyncio
 import getpass
-import json
 import sys
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -21,14 +20,8 @@ if TYPE_CHECKING:
 
 
 def _connectable_exchanges() -> List[str]:
-    from hummingbot.client.settings import AllConnectorSettings
-    settings = AllConnectorSettings.get_connector_settings()
-    return sorted(
-        cs.name for cs in settings.values()
-        if not cs.use_ethereum_wallet
-        and not cs.uses_gateway_generic_connector()
-        and cs.name != "probit_kr"
-    )
+    from hummingbot.client.settings import connectable_exchange_names
+    return sorted(connectable_exchange_names())
 
 
 def _connect_key_fields(cfg: "ClientConfigAdapter") -> List[Any]:
@@ -103,15 +96,11 @@ def _show_connections(ccm, json_output: bool, password_stdin: bool) -> None:
     typer.echo("\n".join(lines))
 
 
-def _collect_values(fields: List[Any], cfg: "ClientConfigAdapter",
-                    keys_stdin: bool, json_output: bool) -> Dict[str, str]:
+def _collect_key_values(fields: List[Any], cfg: "ClientConfigAdapter",
+                        keys_stdin: bool, json_output: bool) -> Dict[str, str]:
     if keys_stdin or not sys.stdin.isatty():
-        try:
-            payload = json.load(sys.stdin)
-        except json.JSONDecodeError as e:
-            fail(f"invalid JSON on stdin: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
-        if not isinstance(payload, dict):
-            fail("stdin must be a JSON object of field -> value", ExitCode.CONFIG_ERROR, json_output=json_output)
+        from hummingbot.cli.commands._common import read_json_object_from_stdin
+        payload = read_json_object_from_stdin(json_output)
         values, missing = {}, []
         for f in fields:
             if f.attr in payload:
@@ -178,7 +167,7 @@ def connect(
         fail(f"keys for '{exchange}' already exist; pass --replace to overwrite",
              ExitCode.CONFIG_ERROR, json_output=json_output)
 
-    values = _collect_values(fields, cfg, keys_stdin, json_output)
+    values = _collect_key_values(fields, cfg, keys_stdin, json_output)
 
     login(password_stdin=False, json_output=json_output)
 
