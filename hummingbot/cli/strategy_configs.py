@@ -12,6 +12,7 @@ bot, via the 10s controller-config poll in StrategyV2Base).
 import importlib
 import inspect
 import re
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -416,6 +417,43 @@ def fill_template(data: dict, required: List[str], stype: str, values: Dict[str,
         config_class = controller_config_class(data)
         config_class(**data)  # full validation; raises on an invalid value/combination
     return remaining
+
+
+def regenerate_controller_id(path: Path) -> str:
+    """Give a controller config a fresh unique id (comment-preserving). A clone MUST get a new id:
+    two controllers sharing an id break StrategyV2Base's live-reload matching and spawn a duplicate."""
+    from hummingbot.strategy_v2.utils.common import generate_unique_id
+    ruamel = YAML()
+    ruamel.preserve_quotes = True
+    with open(path) as f:
+        data = ruamel.load(f)
+    new_id = generate_unique_id()
+    data["id"] = new_id
+    with open(path, "w") as f:
+        ruamel.dump(data, f)
+    return new_id
+
+
+def clone_config(stype: str, src_name: str, dest_name: str, values: Dict[str, Any]) -> Optional[str]:
+    """Copy an existing config (comments/formatting preserved) to ``dest_name``, mint a fresh id for a
+    controller, then apply ``values`` (validated for controllers). Atomic: any failure removes the copy.
+    Returns the controller's new id (or None). Raises FileExistsError/FileNotFoundError/KeyError/ValueError.
+    """
+    src = config_path(stype, src_name)
+    dest = config_path(stype, dest_name)
+    if not src.exists():
+        raise FileNotFoundError(f"{stype} config not found: {src_name}")
+    if dest.exists():
+        raise FileExistsError(f"{stype} config already exists: {dest_name}")
+    shutil.copyfile(src, dest)
+    try:
+        new_id = regenerate_controller_id(dest) if stype == "controller" else None
+        for key, value in values.items():
+            edit_config(dest, stype, key, value)  # comment-preserving + controller validation
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise
+    return new_id
 
 
 def controller_loader_name(controller_filename: str) -> str:

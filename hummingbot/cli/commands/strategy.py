@@ -198,6 +198,60 @@ def create_cmd(
             typer.echo(f"Ready to start: hbot start {out_name} {_START_FLAG[stype]}")
 
 
+@strategy_app.command("clone")
+def clone_cmd(
+    source: str = typer.Argument(..., help="Existing config file to clone from."),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
+    controller: bool = typer.Option(False, "--controller"),
+    name: Optional[str] = typer.Option(None, "--name", help="New config file name (default: a free copy of the source name)."),
+    set_values: Optional[List[str]] = typer.Option(
+        None, "--set", help="Change a field in the clone: --set key=value (repeatable)."),
+    values_stdin: bool = typer.Option(
+        False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it to the clone."),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Copy an existing config to a new name (comments preserved), optionally changing fields.
+
+    Unlike `create` (which scaffolds a strategy's defaults), `clone` starts from a config you already
+    filled in. A cloned controller gets a fresh id so it doesn't collide with the original when run.
+    """
+    from hummingbot.cli.strategy_configs import (
+        clone_config,
+        matching_config_types,
+        normalize_config_name,
+        suggest_free_name,
+    )
+    stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), source, json_output)
+
+    values = _collect_values(set_values, values_stdin, json_output)
+    if stype == "controller":
+        values.pop("id", None)  # the clone always gets a freshly minted id
+
+    out_name = normalize_config_name(name or source)
+    collisions = matching_config_types(out_name)
+    if collisions:
+        suggestion = suggest_free_name(out_name)
+        if name:
+            fail(f"'{out_name}' already exists as a {' and '.join(collisions)} config — config names must "
+                 f"be unique across types. Try --name {suggestion}", ExitCode.CONFIG_ERROR, json_output=json_output)
+        out_name = suggestion  # default name == source, so roll forward to the next free name
+
+    try:
+        new_id = clone_config(stype, source, out_name, values)
+    except Exception as e:
+        fail(f"clone failed: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+
+    if json_output:
+        print_json({"ok": True, "type": stype, "source": source, "file": out_name,
+                    "applied": sorted(values), "new_id": new_id})
+    else:
+        typer.echo(f"Cloned {stype}/{source} → {out_name}")
+        if values:
+            typer.echo(f"Changed: {', '.join(sorted(values))}")
+        typer.echo(f"Ready to start: hbot start {out_name} {_START_FLAG[stype]}")
+
+
 # --- configs (concrete files) -----------------------------------------------------------------
 
 def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:

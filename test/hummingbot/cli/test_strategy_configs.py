@@ -137,6 +137,38 @@ class StrategyConfigHelpersTest(unittest.TestCase):
         finally:
             sc.matching_config_types = original
 
+    def test_clone_config_copies_preserves_comments_and_applies_changes(self):
+        from hummingbot.cli import strategy_configs as sc
+        with TemporaryDirectory() as d:
+            src = Path(d) / "src.yml"
+            src.write_text("script_file_name: simple_pmm.py\norder_amount: 0.01  # tuned\n")
+            # patch config_path so the helper resolves into the temp dir for this v2-script clone
+            original = sc.config_path
+            sc.config_path = lambda stype, fn: Path(d) / fn
+            try:
+                new_id = sc.clone_config("v2-script", "src.yml", "dest.yml", {"order_amount": "0.05"})
+            finally:
+                sc.config_path = original
+            self.assertIsNone(new_id)  # only controllers get a regenerated id
+            text = (Path(d) / "dest.yml").read_text()
+            self.assertIn("order_amount: 0.05", text)
+            self.assertIn("# tuned", text)               # inline comment preserved
+            self.assertEqual(src.read_text().count("0.01"), 1)  # source untouched
+
+    def test_clone_config_atomic_on_bad_value(self):
+        from hummingbot.cli import strategy_configs as sc
+        with TemporaryDirectory() as d:
+            src = Path(d) / "src.yml"
+            src.write_text("flag: true\n")
+            original = sc.config_path
+            sc.config_path = lambda stype, fn: Path(d) / fn
+            try:
+                with self.assertRaises(ValueError):
+                    sc.clone_config("v2-script", "src.yml", "dest.yml", {"flag": "maybe"})
+            finally:
+                sc.config_path = original
+            self.assertFalse((Path(d) / "dest.yml").exists())  # failed clone leaves nothing behind
+
     def test_template_config_data_fills_defaults_flags_required(self):
         class Model(BaseModel):
             x: int = 5
