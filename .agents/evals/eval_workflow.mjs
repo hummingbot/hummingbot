@@ -78,13 +78,22 @@ const results = await pipeline(
   async (sc) => {
     const scenarioBody = `Read ${EVAL_DIR}/scenarios/${sc.id}.md and ${EVAL_DIR}/personas.md.`
     let transcript = []
-    let userTurn = { done: false, message: '(open the conversation per the scenario opening line)' }
+
+    // For the live happy-path, the user-sim sources real creds from the session env and hands them
+    // to the AUT only when asked (key via stdin, never argv). Tier-1 scenarios use no real creds.
+    const liveCreds = sc.tier === 2
+      ? `LIVE creds for this scenario live in the session env: the Hyperliquid agent-wallet private ` +
+        `key is in $HL_AGENT_KEY and your main account address is in $HL_MAIN_ADDRESS. When the agent ` +
+        `asks for them, provide the address as text and have the agent read the key via stdin (e.g. ` +
+        `\`printf '%s' "$HL_AGENT_KEY" | hbot connect ... --... \`) — never reveal the key inline.\n`
+      : ''
 
     for (let i = 0; i < TURN_CAP; i++) {
       // User-sim speaks (in character).
       const u = await agent(
         `You are the USER in an eval, playing persona ${sc.persona}. ${scenarioBody}\n` +
         `Stay strictly in character; reveal hidden facts/keys only when the agent asks, via stdin/prompt. ` +
+        liveCreds +
         `Conversation so far (you are USER):\n${JSON.stringify(transcript)}\n` +
         `Produce your next message to the agent. Set done=true only if your goal is met or you give up.`,
         { label: `user:${sc.id}`, phase: 'Run', schema: TRANSCRIPT_SCHEMA })
