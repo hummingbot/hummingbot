@@ -166,6 +166,16 @@ def _login_if_ssl(client_config_map, json_output: bool, password_stdin: bool = F
         fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
 
 
+def _connected_client(json_output: bool, password_stdin: bool = False) -> "GatewayHttpClient":
+    """Return a GatewayHttpClient that is logged in (if SSL) and confirmed reachable — the precondition
+    shared by every gateway command that talks to a running Gateway (status/settings/connect/balance/
+    token-*). Fails clearly if the password is wrong or Gateway isn't running."""
+    client_config_map, gw = _client()
+    _login_if_ssl(client_config_map, json_output, password_stdin)
+    _require_running(gw, json_output)
+    return gw
+
+
 @gateway_app.command("status")
 def status(json_output: bool = typer.Option(False, "--json")) -> None:
     """Show whether Gateway is running."""
@@ -342,9 +352,7 @@ def settings(
 
     Namespaces come from Gateway's /config/namespaces — chains/networks like 'solana-mainnet-beta' or
     'ethereum-mainnet', connectors like 'meteora', plus 'server'."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
 
     if namespace is None:
         result = _arun(gw, lambda: gw.get_namespaces())
@@ -384,9 +392,7 @@ def connect(
 
     The private key is read from stdin or a hidden prompt (never argv); Gateway stores it encrypted
     under the keystore passphrase."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
 
     private_key = _read_secret(f"{chain} private key", key_stdin, json_output)
     try:
@@ -408,9 +414,7 @@ def disconnect(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Remove a wallet from a chain."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     try:
         _arun(gw, lambda: gw.remove_wallet(chain, address))
     except Exception as e:
@@ -434,9 +438,7 @@ def balance(
 
     With no tokens given, returns the native token plus all non-zero balances for tokens in the
     network's token list (use `hbot gateway token-add` to track more)."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     chain, net = _split_network(network, json_output)
 
     if address is None:
@@ -470,9 +472,7 @@ def token_list(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """List a network's tracked tokens."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     chain, net = _split_network(network, json_output)
     try:
         result = _arun(gw, lambda: gw.get_tokens(chain, net, search))
@@ -494,9 +494,7 @@ def token_find(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Look up a token by address, without saving it."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     _split_network(network, json_output)  # validate form
     try:
         token = _arun(gw, lambda: gw.api_request("get", f"tokens/find/{address}", params={"chainNetwork": network}))
@@ -518,9 +516,7 @@ def token_add(
 
     Metadata (symbol, name, decimals) is fetched automatically, so the network + address is all you
     need."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     _split_network(network, json_output)  # validate form
     # Gateway's save is POST with chainNetwork in the query; api_request would send params as a body,
     # so embed the query in the path (the address path segment carries the token to look up + persist).
@@ -543,9 +539,7 @@ def token_remove(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Remove a token from a network by its address."""
-    client_config_map, gw = _client()
-    _login_if_ssl(client_config_map, json_output)
-    _require_running(gw, json_output)
+    gw = _connected_client(json_output)
     chain, net = _split_network(network, json_output)
     # Gateway reads chain/network from the query string for DELETE; api_request would send them as a body,
     # so embed them in the path instead.
