@@ -68,6 +68,17 @@ class LoginFirstRunTest(unittest.TestCase):
         store.assert_not_called()        # an existing keystore is never overwritten
         security.login.assert_called_once()
 
+    def test_unlock_keystore_first_run(self):
+        # gateway commands call unlock_keystore() directly (not login()), so it must also first-run-init.
+        with patch("hummingbot.client.config.config_crypt.ETHKeyFileSecretManger", return_value=MagicMock()), \
+                patch("hummingbot.client.config.config_crypt.store_password_verification") as store, \
+                patch("hummingbot.client.config.security.Security") as security:
+            security.new_password_required.return_value = True
+            security.login.return_value = True
+            pw.unlock_keystore("pw")
+            store.assert_called_once()
+            security.login.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -155,15 +155,14 @@ def _split_network(network: str, json_output: bool) -> Tuple[str, str]:
 def _login_if_ssl(client_config_map, json_output: bool, password_stdin: bool = False) -> None:
     """In certs mode the client speaks https+mTLS, and its client key is encrypted with the keystore
     password — so we must log in before any Gateway call. No-op when SSL is disabled (HTTP mode)."""
-    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.cli.password import unlock_keystore
     from hummingbot.client.config.security import Security
     if not client_config_map.gateway.gateway_use_ssl:
         return
     if Security.secrets_manager is not None:  # already logged in this process
         return
     password = resolve_password(password_stdin=password_stdin, json_output=json_output)
-    if not Security.login(ETHKeyFileSecretManger(password)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    unlock_keystore(password, json_output=json_output)  # creates the keystore on first run
 
 
 def _connected_client(json_output: bool, password_stdin: bool = False) -> "GatewayHttpClient":
@@ -222,9 +221,8 @@ def start(
 
     Launches the Gateway in secure (HTTPS/mTLS) mode and waits until it's healthy; reuses one that is
     already running."""
-    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+    from hummingbot.cli.password import unlock_keystore
     from hummingbot.client.config.config_helpers import save_to_yml
-    from hummingbot.client.config.security import Security
     from hummingbot.client.settings import CLIENT_CONFIG_PATH
     from hummingbot.core.gateway import get_gateway_paths
     from hummingbot.core.utils.ssl_cert import create_self_sign_certs
@@ -243,9 +241,8 @@ def start(
     # The passphrase encrypts the certs AND the wallet keys Gateway stores; it must be the keystore password.
     passphrase = resolve_password(password_stdin=password_stdin, json_output=json_output)
     # Certs mode: the client speaks https+mTLS and its client key is encrypted with this passphrase, so
-    # log in now (the post-launch health check and later commands need it).
-    if not Security.login(ETHKeyFileSecretManger(passphrase)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    # log in now (the post-launch health check and later commands need it). Creates the keystore on first run.
+    unlock_keystore(passphrase, json_output=json_output)
 
     # Client and container must share ONE cert bundle for mTLS to validate. The client always reads its
     # certs from get_gateway_paths().local_certs_path (root_path()/certs), so generate there and mount

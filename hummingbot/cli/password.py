@@ -40,23 +40,30 @@ def resolve_password(*, password_stdin: bool, json_output: bool, confirm: bool =
          ExitCode.CONFIG_ERROR, json_output=json_output)
 
 
+def unlock_keystore(password: str, *, json_output: bool = False) -> None:
+    """Unlock Security with ``password``, creating the keystore on first run (the first password
+    provided becomes the keystore password, like the interactive client's first launch). Fails with
+    exit code 4 on a bad password. Shared by ``login`` and the gateway commands so first-run behavior
+    is identical everywhere — without it, a gateway command run before any keystore exists would trip
+    over the missing .password_verification file.
+    """
+    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification
+    from hummingbot.client.config.security import Security
+    secrets_manager = ETHKeyFileSecretManger(password)
+    if Security.new_password_required():
+        store_password_verification(secrets_manager)
+    if not Security.login(secrets_manager):
+        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+
+
 def login(*, password_stdin: bool = False, json_output: bool = False, confirm: bool = False):
     """Resolve the keystore password, load the client config, and unlock Security.
 
     Returns ``(client_config_map, password)``; fails with a clear error on a bad password. The heavy
     config/security imports are deferred here so commands that don't authenticate stay fast to import.
     """
-    from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification
     from hummingbot.client.config.config_helpers import load_client_config_map_from_file
-    from hummingbot.client.config.security import Security
     password = resolve_password(password_stdin=password_stdin, json_output=json_output, confirm=confirm)
     client_config_map = load_client_config_map_from_file()
-    secrets_manager = ETHKeyFileSecretManger(password)
-    # First run (no keystore yet): the first password provided becomes the keystore password — same as
-    # the interactive client's first launch. Without this, every keyed command trips over the missing
-    # .password_verification file. Once set, the password is fixed; later calls just unlock with it.
-    if Security.new_password_required():
-        store_password_verification(secrets_manager)
-    if not Security.login(secrets_manager):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+    unlock_keystore(password, json_output=json_output)
     return client_config_map, password
