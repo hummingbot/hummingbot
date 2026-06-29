@@ -100,10 +100,15 @@ coverage.xml
 
 **/.claude/settings.local.json
 
-# Editor/AI tool directories
+# Editor/AI tool directories (local agent installs are ignored)
 .claude/
 .cursor/
-.agents/
+.agents/*
+# ...but DO ship the agent skills committed in this repo (clone-and-go):
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/hummingbot-cli/
+!.agents/skills/pure-market-making/
 
 
 # GRVT
