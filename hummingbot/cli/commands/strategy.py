@@ -84,7 +84,8 @@ def show_cmd(
     from hummingbot.cli.strategy_configs import describe_strategy
     stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
     try:
-        data, required, updatable = describe_strategy(stype, strategy)
+        # show is read-only preview: don't mint a real controller id (would look meaningful but isn't).
+        data, required, updatable = describe_strategy(stype, strategy, scaffold_id=False)
     except Exception as e:
         fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
     if json_output:
