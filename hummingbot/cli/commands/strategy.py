@@ -29,6 +29,26 @@ def _one_type(v1: bool, v2: bool, controller: bool, json_output: bool, required:
     return chosen[0] if chosen else None
 
 
+def _disambiguate(name: str, matches: List[str], what: str, json_output: bool) -> str:
+    """Turn a list of matching types into the single one, or fail clearly (none / collision)."""
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        fail(f"'{name}' exists as {' and '.join(matches)} — disambiguate with "
+             f"{' / '.join('--' + m for m in matches)}", ExitCode.CONFIG_ERROR, json_output=json_output)
+    fail(f"{what} '{name}' not found", ExitCode.NOT_FOUND, json_output=json_output)
+
+
+def _resolve_strategy_type(name: str, v1: bool, v2: bool, controller: bool, json_output: bool) -> str:
+    """Pick the strategy type: an explicit flag, else detect it from the name (v1/v2/controller names
+    are assumed unique; a genuine cross-type collision needs a flag)."""
+    from hummingbot.cli.strategy_configs import matching_strategy_types
+    explicit = _one_type(v1, v2, controller, json_output, required=False)
+    if explicit:
+        return explicit
+    return _disambiguate(name, matching_strategy_types(name), "strategy", json_output)
+
+
 # --- strategies (creatable types) -------------------------------------------------------------
 
 @strategy_app.command("list")
@@ -62,7 +82,7 @@ def show_cmd(
 ) -> None:
     """Show a strategy's fields: defaults, required (to fill), and live (controller-updatable)."""
     from hummingbot.cli.strategy_configs import describe_strategy
-    stype = _one_type(v1, v2, controller, json_output, required=True)
+    stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
     try:
         data, required, updatable = describe_strategy(stype, strategy)
     except Exception as e:
@@ -88,7 +108,7 @@ def create_cmd(
 ) -> None:
     """Scaffold a new config from a strategy's defaults; lists fields you must fill."""
     from hummingbot.cli.strategy_configs import create_config_file, describe_strategy
-    stype = _one_type(v1, v2, controller, json_output, required=True)
+    stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
     try:
         data, required, _ = describe_strategy(stype, strategy)
     except Exception as e:
@@ -112,16 +132,13 @@ def create_cmd(
 # --- configs (concrete files) -----------------------------------------------------------------
 
 def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:
-    from hummingbot.cli.strategy_configs import config_path, infer_type
+    """Resolve a config file's type: an explicit flag, else which conf dir holds it."""
+    from hummingbot.cli.strategy_configs import config_path, matching_config_types
     if stype is not None:
         if not config_path(stype, file).exists():
             fail(f"{stype} config not found: {file}", ExitCode.NOT_FOUND, json_output=json_output)
         return stype
-    inferred = infer_type(file)
-    if inferred is None:
-        fail(f"'{file}' not found (or ambiguous) — specify --v1 / --v2 / --controller",
-             ExitCode.NOT_FOUND, json_output=json_output)
-    return inferred
+    return _disambiguate(file, matching_config_types(file), "config", json_output)
 
 
 @strategy_app.command("list-configs")

@@ -47,9 +47,25 @@ def config_path(stype: str, filename: str) -> Path:
     return TYPE_DIRS[stype] / filename
 
 
+def matching_config_types(filename: str) -> List[str]:
+    """Types whose CONFIG dir (conf/strategies | conf/scripts | conf/controllers) holds ``filename``."""
+    return [t for t in STRATEGY_TYPES if config_path(t, filename).exists()]
+
+
+def matching_strategy_types(name: str) -> List[str]:
+    """Types whose SOURCE catalog contains ``name`` — v1 strategy folder, scripts/<name>.py, or
+    controllers/<type>/<name>.py. (v2 scripts carry a .py suffix, so match it with or without.)"""
+    out = []
+    for t in STRATEGY_TYPES:
+        sources = available_sources(t)
+        if name in sources or (t == "v2" and f"{name}.py" in sources):
+            out.append(t)
+    return out
+
+
 def infer_type(filename: str) -> Optional[str]:
     """Return the single type whose directory holds ``filename``, or None if absent/ambiguous."""
-    hits = [t for t in STRATEGY_TYPES if config_path(t, filename).exists()]
+    hits = matching_config_types(filename)
     return hits[0] if len(hits) == 1 else None
 
 
