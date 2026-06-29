@@ -69,7 +69,7 @@ class LoginFirstRunTest(unittest.TestCase):
         security.login.assert_called_once()
 
     def test_unlock_keystore_first_run(self):
-        # gateway commands call unlock_keystore() directly (not login()), so it must also first-run-init.
+        # unlock_keystore() is the first-run-safe path login() delegates to; verify it inits the keystore.
         with patch("hummingbot.client.config.config_crypt.ETHKeyFileSecretManger", return_value=MagicMock()), \
                 patch("hummingbot.client.config.config_crypt.store_password_verification") as store, \
                 patch("hummingbot.client.config.security.Security") as security:

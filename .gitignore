@@ -72,7 +72,7 @@ debug.log
 /certs
 *.pem
 
-# hbot Gateway runtime files (conf, certs, logs, wallet keys — secrets)
+# Gateway runtime files (conf, certs, logs, wallet keys — secrets)
 /gateway-files/
 
 # Coverage

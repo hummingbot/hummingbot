@@ -4,8 +4,8 @@
   hbot settings <key>                  read one key (dotted, e.g. mqtt_bridge.mqtt_host)
   hbot settings <key> <value>          set a key (validated) and save
 
-These are the client's global settings (rate source, gateway host, log level, ...), distinct from a
-strategy's config file (which `hbot strategy` manages). Values are validated by the same pydantic
+These are the client's global settings (rate source, log level, command timeouts, ...), distinct from
+a strategy's config file (which `hbot strategy` manages). Values are validated by the same pydantic
 models the interactive client uses; secret fields are masked on read. No keystore password is needed
 — conf_client.yml is not encrypted. A running bot loaded its settings at start, so changes take
 effect on its next start.
