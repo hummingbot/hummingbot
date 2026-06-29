@@ -22,20 +22,20 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param domain: the rubin domain to connect to ("exchange" or "us"). The default value is "exchange"
+    :param domain: сеть ("mainnet" | "testnet"). По умолчанию — DEFAULT_DOMAIN (env RUBIN_PERPETUAL_DOMAIN).
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.RUBIN_REST_URL + path_url
+    return CONSTANTS.rest_url(domain) + path_url
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the Rubin domain to connect to ("exchange" or "us"). The default value is "exchange"
+    :param domain: сеть ("mainnet" | "testnet"). По умолчанию — DEFAULT_DOMAIN (env RUBIN_PERPETUAL_DOMAIN).
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.RUBIN_REST_URL + path_url
+    return CONSTANTS.rest_url(domain) + path_url
 
 
 def build_api_factory(

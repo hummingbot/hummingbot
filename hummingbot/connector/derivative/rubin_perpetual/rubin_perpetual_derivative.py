@@ -699,7 +699,8 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
         return RubinPerpetualV4Client(
             self._rubin_perpetual_secret_phrase,
             self._rubin_perpetual_chain_address,
-            connector=self
+            connector=self,
+            domain=self._domain,
         )
 
     def _create_order_book_data_source(self) -> RubinPerpetualAPIOrderBookDataSource:
@@ -712,7 +713,8 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return RubinPerpetualUserStreamDataSource(api_factory=self._web_assistants_factory,
-                                                   connector=self)
+                                                   connector=self,
+                                                   domain=self._domain)
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         markets = exchange_info["markets"]

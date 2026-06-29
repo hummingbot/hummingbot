@@ -32,11 +32,13 @@ class RubinPerpetualV4Client:
             rubin_chain_address: str,
             connector,
             subaccount_num=0,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self._private_key = PrivateKey.from_mnemonic(secret_phrase)
         self._rubin_chain_address = rubin_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
+        self._domain = domain
         self.transaction_lock = Lock()
         self.number = 0
         self.sequence = 0
@@ -48,13 +50,13 @@ class RubinPerpetualV4Client:
             root_certificates=trusted_certs
         )
 
-        host_and_port = CONSTANTS.RUBIN_AERIAL_CONFIG_URL
+        host_and_port = CONSTANTS.grpc_endpoint(self._domain)
         grpc_client = (
             grpc.aio.secure_channel(host_and_port, credentials)
             if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         query_grpc_client = (
-            grpc.aio.secure_channel(CONSTANTS.RUBIN_QUERY_AERIAL_CONFIG_URL, credentials)
+            grpc.aio.secure_channel(CONSTANTS.grpc_endpoint(self._domain), credentials)
             if credentials is not None else grpc.aio.insecure_channel(host_and_port)
         )
         self.stubBank = bank_query_grpc.QueryStub(grpc_client)
@@ -273,7 +275,7 @@ class RubinPerpetualV4Client:
                 gas_limit=CONSTANTS.TX_GAS_LIMIT,
                 memo=memo,
             )
-            tx.sign(self._private_key, CONSTANTS.CHAIN_ID, number)
+            tx.sign(self._private_key, CONSTANTS.chain_id(self._domain), number)
             tx.complete()
 
             broadcast_req = BroadcastTxRequest(

@@ -219,7 +219,7 @@ class RubinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.PATH_MARKETS
-        url = web_utils.public_rest_url(path_url=endpoint)
+        url = web_utils.public_rest_url(path_url=endpoint, domain=self._domain)
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
@@ -253,7 +253,7 @@ class RubinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.PATH_SNAPSHOT
         ex_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        url = web_utils.public_rest_url(path_url=endpoint + "/" + ex_symbol)
+        url = web_utils.public_rest_url(path_url=endpoint + "/" + ex_symbol, domain=self._domain)
         data = await rest_assistant.execute_request(
             url=url,
             throttler_limit_id=endpoint,
@@ -284,7 +284,7 @@ class RubinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.RUBIN_WS_URL, ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
+        await ws.connect(ws_url=CONSTANTS.ws_url(self._domain), ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
         return ws
 
     async def _request_order_book_snapshots(self, output: asyncio.Queue):

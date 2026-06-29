@@ -1,3 +1,5 @@
+import os
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -5,7 +7,6 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 # A single source of truth for constant variables related to the exchange
 
 EXCHANGE_NAME = "rubin_perpetual"
-DEFAULT_DOMAIN = "com"
 
 API_VERSION = "v4"
 CURRENCY = "USD"
@@ -24,22 +25,79 @@ MAX_ID_BIT_COUNT = 31
 
 # data_source grpc
 RUBIN_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
-# Rubin mainnet gRPC validator endpoint (confirmed). Testnet: grpc.testnet.rubin.trade:443.
-RUBIN_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
-RUBIN_QUERY_AERIAL_CONFIG_URL = 'grpc.mainnet.rubin.trade:443'
-CHAIN_ID = 'ritbit-mainnet'
-# Native chain-token denom: urit (micro-RIT).
+
+# ── Сеть: mainnet / testnet ───────────────────────────────────────────────
+# Переключение сети: env RUBIN_PERPETUAL_DOMAIN = "mainnet" (по умолчанию) | "testnet".
+# Также честно работает domain-параметр коннектора (getter'ы ниже принимают domain).
+DOMAIN_ENDPOINTS = {
+    "mainnet": {
+        "grpc": "grpc.mainnet.rubin.trade:443",
+        "validator_rest": "https://grpc.mainnet.rubin.trade:443",
+        "indexer_rest": "https://indexer.mainnet.rubin.trade",
+        "ws": "wss://indexer.mainnet.rubin.trade/{}/ws".format(API_VERSION),
+        "chain_id": "ritbit-mainnet",
+    },
+    "testnet": {
+        "grpc": "grpc.testnet.rubin.trade:443",
+        "validator_rest": "https://grpc.testnet.rubin.trade:443",
+        "indexer_rest": "https://indexer.testnet.rubin.trade",
+        "ws": "wss://indexer.testnet.rubin.trade/{}/ws".format(API_VERSION),
+        "chain_id": "ritbit-testnet",
+    },
+}
+# Алиасы домена ("com" — легаси-значение = mainnet).
+_DOMAIN_ALIASES = {"com": "mainnet", "main": "mainnet", "mainnet": "mainnet", "testnet": "testnet", "test": "testnet"}
+
+
+def _resolve_domain(domain) -> str:
+    return _DOMAIN_ALIASES.get(str(domain or "").strip().lower(), "mainnet")
+
+
+# Сеть по умолчанию — из окружения (RUBIN_PERPETUAL_DOMAIN), иначе mainnet.
+DEFAULT_DOMAIN = _resolve_domain(os.getenv("RUBIN_PERPETUAL_DOMAIN", "mainnet"))
+
+
+def _ep(domain=None) -> dict:
+    return DOMAIN_ENDPOINTS[_resolve_domain(domain) if domain else DEFAULT_DOMAIN]
+
+
+def grpc_endpoint(domain=None) -> str:
+    return _ep(domain)["grpc"]
+
+
+def validator_rest_base(domain=None) -> str:
+    return _ep(domain)["validator_rest"]
+
+
+def indexer_rest_base(domain=None) -> str:
+    return _ep(domain)["indexer_rest"]
+
+
+def rest_url(domain=None) -> str:
+    return "{}/{}".format(_ep(domain)["indexer_rest"], API_VERSION)
+
+
+def ws_url(domain=None) -> str:
+    return _ep(domain)["ws"]
+
+
+def chain_id(domain=None) -> str:
+    return _ep(domain)["chain_id"]
+
+
+# Легаси-константы (для прямых ссылок CONSTANTS.*) — из сети по умолчанию.
+RUBIN_AERIAL_CONFIG_URL = grpc_endpoint()
+RUBIN_QUERY_AERIAL_CONFIG_URL = grpc_endpoint()
+CHAIN_ID = chain_id()
+RUBIN_VALIDATOR_REST_BASE_URL = validator_rest_base()
+RUBIN_INDEXER_REST_BASE_URL = indexer_rest_base()
+RUBIN_REST_URL = rest_url()
+RUBIN_WS_URL = ws_url()
+
+# Native chain-token denom: urit (micro-RIT). Одинаков на mainnet/testnet.
 FEE_DENOMINATION = "urit"
 TX_FEE = 0
 TX_GAS_LIMIT = 0
-
-RUBIN_VALIDATOR_REST_BASE_URL = "https://grpc.mainnet.rubin.trade:443"
-
-RUBIN_INDEXER_REST_BASE_URL = "https://indexer.mainnet.rubin.trade"
-
-RUBIN_REST_URL = "{}/{}".format(RUBIN_INDEXER_REST_BASE_URL, API_VERSION)
-
-RUBIN_WS_URL = "wss://indexer.mainnet.rubin.trade/{}/ws".format(API_VERSION)
 
 # Public REST Endpoints
 

@@ -19,10 +19,11 @@ class RubinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, api_factory: Optional[WebAssistantsFactory], connector):
+    def __init__(self, api_factory: Optional[WebAssistantsFactory], connector, domain: str = CONSTANTS.DEFAULT_DOMAIN):
         self._api_factory: WebAssistantsFactory = api_factory
         self._ws_assistant: Optional[WSAssistant] = None
         self._connector = connector
+        self._domain = domain
 
         super().__init__()
 
@@ -38,9 +39,9 @@ class RubinPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     # ping的回调还没写，不然会断掉
     async def _connected_websocket_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
-            self.logger().info(f"Connecting to {CONSTANTS.RUBIN_WS_URL}")
+            self.logger().info(f"Connecting to {CONSTANTS.ws_url(self._domain)}")
             self._ws_assistant = await self._api_factory.get_ws_assistant()
-            await self._ws_assistant.connect(ws_url=CONSTANTS.RUBIN_WS_URL, ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
+            await self._ws_assistant.connect(ws_url=CONSTANTS.ws_url(self._domain), ping_timeout=CONSTANTS.HEARTBEAT_INTERVAL)
 
             subaccount_id = f"{self._connector._rubin_perpetual_chain_address}/{self._connector.subaccount_id}"
 
