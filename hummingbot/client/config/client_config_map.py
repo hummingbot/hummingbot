@@ -480,6 +480,16 @@ class CubeRateSourceMode(ExchangeRateSourceModeBase):
     model_config = ConfigDict(title="cube")
 
 
+class RubinPerpetualRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="rubin_perpetual")
+    model_config = ConfigDict(title="rubin_perpetual")
+
+
+class RubinPerpetualTestnetRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(default="rubin_perpetual_testnet")
+    model_config = ConfigDict(title="rubin_perpetual_testnet")
+
+
 class CoinGeckoRateSourceMode(RateSourceModeBase):
     name: str = Field(default="coin_gecko")
     extra_tokens: List[str] = Field(
@@ -742,6 +752,8 @@ RATE_SOURCE_MODES = {
     ArchitectPerpetualRateSourceMode.model_config["title"]: ArchitectPerpetualRateSourceMode,
     DeriveRateSourceMode.model_config["title"]: DeriveRateSourceMode,
     MexcRateSourceMode.model_config["title"]: MexcRateSourceMode,
+    RubinPerpetualRateSourceMode.model_config["title"]: RubinPerpetualRateSourceMode,
+    RubinPerpetualTestnetRateSourceMode.model_config["title"]: RubinPerpetualTestnetRateSourceMode,
 }
 
 
