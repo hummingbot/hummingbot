@@ -109,6 +109,8 @@ coverage.xml
 !.agents/evals/
 # locally-installed third-party skills stay ignored:
 .agents/skills/hummingbot-deploy
+# eval run outputs (transcripts/scores) are local, not committed:
+.agents/evals/results/
 
 
 # GRVT
