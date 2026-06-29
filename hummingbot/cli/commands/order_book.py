@@ -2,7 +2,8 @@
 
 Read-only public market data, fetched ad-hoc (no running bot): builds a connector, waits for the
 order book, reads the top-N levels, tears down. The pair is fuzzy-matched against the exchange's
-universe (mirrors Hummingbot's ``order_book`` command, but standalone).
+universe. Snapshot extraction and table rendering are reused from the interactive ``order_book``
+command (``hummingbot.client.command.order_book_command``).
 """
 import asyncio
 from typing import List, Tuple
@@ -14,8 +15,9 @@ from hummingbot.cli.password import login
 
 
 async def _run(ccm, exchange: str, pair: str, lines: int, timeout: float,
-               json_output: bool) -> Tuple[dict, str, List[str]]:
+               json_output: bool) -> Tuple[dict, str, str, List[str]]:
     from hummingbot.cli.commands._market_data import all_pairs, make_connector, resolve_or_fail, wait_orderbook_ready
+    from hummingbot.client.command.order_book_command import format_order_book, order_book_rows
     lister = await make_connector(ccm, exchange, [], json_output)
     matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(lister), timeout), pair, json_output)
 
@@ -23,34 +25,15 @@ async def _run(ccm, exchange: str, pair: str, lines: int, timeout: float,
     try:
         await asyncio.wait_for(wait_orderbook_ready(conn, timeout), timeout)
         ob = conn.get_order_book(matched)
-        bids = ob.snapshot[0][["price", "amount"]].head(lines)
-        asks = ob.snapshot[1][["price", "amount"]].head(lines)
+        bids, asks = order_book_rows(ob, lines)
         data = {
             "bids": [{"price": float(p), "amount": float(a)} for p, a in bids.itertuples(index=False)],
             "asks": [{"price": float(p), "amount": float(a)} for p, a in asks.itertuples(index=False)],
         }
+        text = format_order_book(ob, conn.name, matched, lines, ccm.tables_format)
     finally:
         await conn.stop_network()
-    return data, matched, alts
-
-
-def _render(data: dict, exchange: str, matched: str, query: str, alts: List[str]) -> str:
-    head = f"  {exchange}  {matched}"
-    if matched.upper() != query.upper().replace("_", "-").replace("/", "-"):
-        head += f"   [fuzzy-matched from '{query}']"
-    out = [head, f"    {'bid price':>14} {'bid amt':>14}   {'ask price':>14} {'ask amt':>14}"]
-    n = max(len(data["bids"]), len(data["asks"]))
-    for i in range(n):
-        b = data["bids"][i] if i < len(data["bids"]) else None
-        a = data["asks"][i] if i < len(data["asks"]) else None
-        bp = f"{b['price']:>14g}" if b else " " * 14
-        ba = f"{b['amount']:>14g}" if b else " " * 14
-        ap = f"{a['price']:>14g}" if a else " " * 14
-        aa = f"{a['amount']:>14g}" if a else " " * 14
-        out.append(f"    {bp} {ba}   {ap} {aa}")
-    if alts:
-        out.append(f"\n  also matched: {', '.join(alts)}")
-    return "\n".join(out)
+    return data, text, matched, alts
 
 
 def order_book(
@@ -62,10 +45,11 @@ def order_book(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show the order-book depth (top levels of bids and asks) for a pair on an exchange."""
+    from hummingbot.cli.commands._market_data import _norm
     ccm, _ = login(password_stdin=password_stdin, json_output=json_output)
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     try:
-        data, matched, alts = asyncio.run(_run(ccm, exchange, pair, lines, timeout, json_output))
+        data, text, matched, alts = asyncio.run(_run(ccm, exchange, pair, lines, timeout, json_output))
     except asyncio.TimeoutError:
         fail("timed out waiting for the order book", ExitCode.TIMEOUT, json_output=json_output)
 
@@ -73,4 +57,9 @@ def order_book(
         print_json({"ok": True, "exchange": exchange, "query": pair, "matched": matched,
                     "alternatives": alts, "order_book": data})
     else:
-        typer.echo(_render(data, exchange, matched, pair, alts))
+        out = text
+        if matched.upper() != _norm(pair):
+            out = f"  [fuzzy-matched '{pair}' -> {matched}]\n" + out
+        if alts:
+            out += f"\n  also matched: {', '.join(alts)}"
+        typer.echo(out)
