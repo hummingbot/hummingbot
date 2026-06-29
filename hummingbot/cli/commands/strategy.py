@@ -15,20 +15,12 @@ from typing import List, Optional
 
 import typer
 
+from hummingbot.cli.commands._common import one_type as _one_type, read_json_object_from_stdin
 from hummingbot.cli.output import ExitCode, SortedCommandsGroup, fail, print_json
 
 strategy_app = typer.Typer(
     cls=SortedCommandsGroup, no_args_is_help=True,
     help="Browse strategies and build their config files.")
-
-
-def _one_type(v1: bool, v2: bool, controller: bool, json_output: bool, required: bool) -> Optional[str]:
-    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
-    if len(chosen) > 1:
-        fail("use only one of --v1-strategy / --v2-script / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
-    if required and not chosen:
-        fail("specify one of --v1-strategy / --v2-script / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
-    return chosen[0] if chosen else None
 
 
 def _disambiguate(name: str, matches: List[str], what: str, json_output: bool) -> str:
@@ -108,16 +100,7 @@ def _collect_values(set_values: Optional[List[str]], values_stdin: bool, json_ou
     from hummingbot.cli.strategy_configs import parse_set_pairs
     values: dict = {}
     if values_stdin:
-        import json
-        import sys
-        raw = sys.stdin.read()
-        try:
-            parsed = json.loads(raw) if raw.strip() else {}
-        except Exception as e:
-            fail(f"--values-stdin: invalid JSON: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
-        if not isinstance(parsed, dict):
-            fail("--values-stdin: expected a JSON object of field:value", ExitCode.CONFIG_ERROR, json_output=json_output)
-        values.update(parsed)
+        values.update(read_json_object_from_stdin(json_output))
     if set_values:
         try:
             values.update(parse_set_pairs(set_values))

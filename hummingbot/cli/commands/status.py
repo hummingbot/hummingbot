@@ -49,6 +49,9 @@ def status(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show the bot's run state, live status, and errors."""
+    # Unlike stop/logs/trades/history/update (which exit NOT_FOUND when there's no bot), `status` is a
+    # poll: "is anything running?" is a valid question with a valid answer, so "no bot" is success
+    # (exit 0, running=false) — a harness can poll status without treating the empty state as an error.
     if not bot.exists():
         if json_output:
             print_json({"ok": True, "running": False, "note": "no bot started"})

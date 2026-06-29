@@ -3,8 +3,7 @@ from typing import Optional
 
 import typer
 
-from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import print_json
 
 
 def _trade_to_dict(t) -> dict:
@@ -29,23 +28,10 @@ def trades(
     json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """List the trades the bot has made."""
+    from hummingbot.cli.commands._common import resolve_db_for_command
     from hummingbot.cli.data import get_trades
     from hummingbot.model.trade_fill import TradeFill
-    if name:
-        db_path = bot.db_path_for(name)
-        if db_path is None:
-            fail(f"no trades database for '{name}' (available: {', '.join(bot.list_bots()) or 'none'})",
-                 ExitCode.NOT_FOUND, json_output=json_output)
-        config_filter = None  # one bot per DB now, so no config_file_path filter needed
-    else:
-        if not bot.exists():
-            fail("no bot has been started (pass a name to view a past bot)",
-                 ExitCode.NOT_FOUND, json_output=json_output)
-        db_path = bot.resolve_db_path()
-        if db_path is None:
-            fail("no trades database yet (no fills?)", ExitCode.ERROR, json_output=json_output)
-        config_filter = bot.config_file_path()
-
+    db_path, config_filter, _running = resolve_db_for_command(name, json_output)
     fills = get_trades(db_path, config_file_path=config_filter, days=days, limit=limit)
 
     if json_output:

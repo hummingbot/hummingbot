@@ -64,21 +64,17 @@ def start(
     holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
     exists under more than one type. By default the bot runs detached (the command returns); pass
     --foreground to run it in the foreground, e.g. as a Docker container's main process."""
+    # Same filename->type resolution as `strategy set/show-config/clone`: a flag forces the type, else
+    # it's detected from the conf dirs (names are unique across types).
+    from hummingbot.cli.commands._common import one_type
     from hummingbot.cli.strategy_configs import (
         config_path,
         resolve_config_type,
         validate_controller,
         wrap_controller_as_v2,
     )
-
-    # Same filename->type resolution as `strategy set/show-config/clone`: a flag forces the type, else
-    # it's detected from the conf dirs (names are unique across types).
-    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
-    if len(chosen) > 1:
-        fail("use only one of --v1-strategy / --v2-script / --controller",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
     try:
-        stype = resolve_config_type(file, chosen[0] if chosen else None)
+        stype = resolve_config_type(file, one_type(v1, v2, controller, json_output, required=False))
     except FileNotFoundError as e:
         fail(str(e), ExitCode.NOT_FOUND, json_output=json_output)
     except ValueError as e:
