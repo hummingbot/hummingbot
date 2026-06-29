@@ -24,12 +24,10 @@ server, no message broker, no MCP. `hbot` is the interface; the agent drives it 
 |---|---|
 | **`hummingbot-cli`** | Always read first. The operating manual for the `hbot` CLI: install, the `--json`/exit-code contract, password & secret handling, the command map, the core loop, and anti-patterns. |
 | **`pure-market-making`** | The user wants to market-make or provide liquidity. Steers to the `pmm_mister` controller (spot + perp, order-level TP/SL, inventory holding), picks sane defaults, and avoids the order-sizing / minimum-notional traps. |
+| **`hyperliquid-connector`** | The user trades on Hyperliquid. Connector setup: wallet mode, generate/authorize an API/agent wallet, the builder fee, and market/pair/funding discovery (bundled `scripts/`). Hand off to a strategy skill afterward. |
 
 ### Planned
 
-- `hyperliquid-trader` — Hyperliquid-specific setup: fetch tradable pairs, identify markets
-  (incl. HIP-3 lower-fee markets), create an agent/API wallet, approve the builder fee, and build the
-  correct trading-pair format.
 - `arbitrage`, `cross-exchange-market-making`, `directional-trading` — additional strategy recipes,
   each building on `hummingbot-cli` the same way `pure-market-making` does.
 
