@@ -1,4 +1,4 @@
-from asyncio import Lock
+from asyncio import Lock, sleep
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
@@ -140,12 +140,19 @@ class RubinPerpetualV4Client:
             self,
             msg: _message.Message,
     ):
-        tx = Transaction()
-        tx.add_message(msg)
-        return await self.prepare_and_broadcast_basic_transaction(
-            tx=tx,
-            memo=None,
-        )
+        # On a sequence mismatch the broadcast helper resynced the committed sequence; rebuild the
+        # tx with that fresh sequence and resubmit a few times before giving up to the caller.
+        result = None
+        for _ in range(CONSTANTS.SEQUENCE_RETRY_ATTEMPTS):
+            tx = Transaction()
+            tx.add_message(msg)
+            result = await self.prepare_and_broadcast_basic_transaction(
+                tx=tx,
+                memo=None,
+            )
+            if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR not in result.get("raw_log", ""):
+                break
+        return result
 
     async def cancel_order(
             self,
@@ -265,9 +272,12 @@ class RubinPerpetualV4Client:
             memo: Optional[str] = None,
     ):
         async with self.transaction_lock:
-            # query the account information for the sender
-            sequence = await self.trading_account_sequence()
-            number = await self.trading_account_number()
+            # Always sign with the latest committed sequence from the chain. A locally incremented
+            # counter desyncs under order bursts (sync broadcast returns before block inclusion) and
+            # ignores external signers on the same wallet.
+            await self.query_account()
+            sequence = self.sequence
+            number = self.number
             # finally, build the final transaction that will be executed with the correct gas and fee values
             tx.seal(
                 SigningCfg.direct(self._private_key, sequence),
@@ -283,10 +293,26 @@ class RubinPerpetualV4Client:
             )
             result = await self.send_tx_sync_mode(broadcast_req)
             err_msg = result.get("raw_log", "")
-            if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in err_msg:
-                await self.initialize_trading_account()
-
+            accepted = (
+                CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR not in err_msg
+                and str(result.get("code", 0)) == "0"
+            )
+            if accepted:
+                # Accepted at CheckTx — wait until it is committed so the next tx sees the advanced
+                # sequence (BROADCAST_MODE_SYNC returns before block inclusion).
+                await self._wait_for_sequence_commit(sequence)
             return result
+
+    async def _wait_for_sequence_commit(self, used_sequence: int):
+        """Poll the account until the committed sequence advances past the one we just used."""
+        for _ in range(CONSTANTS.SEQUENCE_COMMIT_POLLS):
+            await sleep(CONSTANTS.SEQUENCE_COMMIT_POLL_INTERVAL)
+            try:
+                await self.query_account()
+            except Exception:
+                continue
+            if self.sequence > used_sequence:
+                return
 
     async def send_tx_sync_mode(self, broadcast_req):
         resp = await self.txs.BroadcastTx(broadcast_req)

@@ -39,9 +39,11 @@ class RubinPerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCa
         self.async_task: Optional[asyncio.Task] = None
 
         self.connector = RubinPerpetualDerivative(
-            rubin_perpetual_secret_phrase="mirror actor skill push coach wait confirm orchard "
-                                            "lunch mobile athlete gossip awake miracle matter "
-                                            "bus reopen team ladder lazy list timber render wait",
+            rubin_perpetual_secret_phrase=(
+                "mirror actor skill push coach wait confirm orchard "
+                "lunch mobile athlete gossip awake miracle matter "
+                "bus reopen team ladder lazy list timber render wait"
+            ),
             rubin_perpetual_chain_address="rubin14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art",
             trading_pairs=[self.trading_pair],
             trading_required=False,

@@ -26,9 +26,9 @@ MAX_ID_BIT_COUNT = 31
 # data_source grpc
 RUBIN_AERIAL_GRPC_OR_REST_PREFIX = "grpc"
 
-# ── Сеть: mainnet / testnet ───────────────────────────────────────────────
-# Переключение сети: env RUBIN_PERPETUAL_DOMAIN = "mainnet" (по умолчанию) | "testnet".
-# Также честно работает domain-параметр коннектора (getter'ы ниже принимают domain).
+# ── Network: mainnet / testnet ────────────────────────────────────────────
+# Select the network via env RUBIN_PERPETUAL_DOMAIN = "mainnet" (default) | "testnet".
+# The connector's domain argument also works (the getters below accept a domain).
 DOMAIN_ENDPOINTS = {
     "mainnet": {
         "grpc": "grpc.mainnet.rubin.trade:443",
@@ -45,7 +45,7 @@ DOMAIN_ENDPOINTS = {
         "chain_id": "ritbit-testnet",
     },
 }
-# Алиасы домена ("com" — легаси-значение = mainnet).
+# Domain aliases ("com" is a legacy value = mainnet).
 _DOMAIN_ALIASES = {"com": "mainnet", "main": "mainnet", "mainnet": "mainnet", "testnet": "testnet", "test": "testnet"}
 
 
@@ -53,7 +53,7 @@ def _resolve_domain(domain) -> str:
     return _DOMAIN_ALIASES.get(str(domain or "").strip().lower(), "mainnet")
 
 
-# Сеть по умолчанию — из окружения (RUBIN_PERPETUAL_DOMAIN), иначе mainnet.
+# Default network from the environment (RUBIN_PERPETUAL_DOMAIN), otherwise mainnet.
 DEFAULT_DOMAIN = _resolve_domain(os.getenv("RUBIN_PERPETUAL_DOMAIN", "mainnet"))
 
 
@@ -85,7 +85,7 @@ def chain_id(domain=None) -> str:
     return _ep(domain)["chain_id"]
 
 
-# Легаси-константы (для прямых ссылок CONSTANTS.*) — из сети по умолчанию.
+# Legacy constants (for direct CONSTANTS.* references) — from the default network.
 RUBIN_AERIAL_CONFIG_URL = grpc_endpoint()
 RUBIN_QUERY_AERIAL_CONFIG_URL = grpc_endpoint()
 CHAIN_ID = chain_id()
@@ -94,10 +94,18 @@ RUBIN_INDEXER_REST_BASE_URL = indexer_rest_base()
 RUBIN_REST_URL = rest_url()
 RUBIN_WS_URL = ws_url()
 
-# Native chain-token denom: urit (micro-RIT). Одинаков на mainnet/testnet.
+# Native chain-token denom: urit (micro-RIT). Same on mainnet and testnet.
 FEE_DENOMINATION = "urit"
 TX_FEE = 0
 TX_GAS_LIMIT = 0
+
+# On-chain account-sequence pacing for stateful orders. BROADCAST_MODE_SYNC returns at CheckTx,
+# before the tx is committed in a block, so a burst of orders would assign sequences faster than
+# the chain advances them -> "account sequence mismatch". We therefore re-read the committed
+# sequence per tx and wait for the prior tx to be included before sending the next.
+SEQUENCE_COMMIT_POLLS = 12            # max poll attempts to confirm a tx committed
+SEQUENCE_COMMIT_POLL_INTERVAL = 0.5   # seconds between commit polls (~chain block time)
+SEQUENCE_RETRY_ATTEMPTS = 3           # self-healing resubmits on a sequence mismatch
 
 # Public REST Endpoints
 

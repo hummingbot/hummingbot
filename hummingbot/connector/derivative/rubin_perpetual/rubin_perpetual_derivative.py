@@ -71,7 +71,11 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        # Full connector name == the registered connector-setting key, so balance / trade-monitor
+        # lookups (which key by connector.name) resolve. ``_domain`` is the short form mainnet/testnet.
+        if self._domain == "mainnet":
+            return CONSTANTS.EXCHANGE_NAME
+        return f"{CONSTANTS.EXCHANGE_NAME}_{self._domain}"
 
     @property
     def authenticator(self) -> AuthBase:
@@ -525,7 +529,9 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
                 for k, v in all_orders.items():
                     await v.get_exchange_order_id()
             except Exception as e:
-                self.logger().info(
+                # Expected when the chain has accepted the order but the indexer hasn't ingested it
+                # yet; the fill is reconciled on a later poll. Debug-level to avoid log spam.
+                self.logger().debug(
                     f"Unable to locate order {exchange_order_id} on exchange. Pending update from blockchain {e}")
             _cli_tracked_orders = [o for o in all_orders.values() if exchange_order_id == o.exchange_order_id]
             if len(_cli_tracked_orders) == 0 or _cli_tracked_orders[0] is None:

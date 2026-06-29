@@ -27,9 +27,11 @@ class RubinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.rubin_perpetual_secret_phrase = "mirror actor skill push coach wait confirm orchard " \
-                                              "lunch mobile athlete gossip awake miracle matter " \
-                                              "bus reopen team ladder lazy list timber render wait"
+        cls.rubin_perpetual_secret_phrase = (
+            "mirror actor skill push coach wait confirm orchard "
+            "lunch mobile athlete gossip awake miracle matter "
+            "bus reopen team ladder lazy list timber render wait"
+        )
         cls.rubin_perpetual_chain_address = "rubin14zzueazeh0hj67cghhf9jypslcf9sh2n5k6art"
         cls.subaccount_id = 0
         cls.base_asset = "TRX"

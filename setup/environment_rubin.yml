@@ -63,4 +63,4 @@ dependencies:
   - zlib>=1.2.13
   - pip:
     - ritbit-v4-proto>=0.1.0
-    - aiomqtt>=2.0.0  # не на conda-forge → ставится через pip
+    - aiomqtt>=2.0.0  # not on conda-forge -> installed via pip

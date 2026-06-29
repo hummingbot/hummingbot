@@ -46,8 +46,8 @@ class RubinPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
             self._rubin_chain_address,
             self.exchange
         )
-        # Pre-initialize account state so order-flow tests don't make a live gRPC
-        # query_account call (unit tests must not depend on a network connection).
+        # Pre-set the account state read by the broadcast path. Order-flow tests also patch
+        # query_account so they never make a live gRPC call (unit tests must not hit the network).
         self.v4_client._is_trading_account_initialized = True
         self.v4_client.sequence = 0
         self.v4_client.number = 33356
@@ -76,8 +76,10 @@ class RubinPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(result, 100000000000000)
 
     @patch(
+        "hummingbot.connector.derivative.rubin_perpetual.data_sources.rubin_data_source.RubinPerpetualV4Client.query_account")
+    @patch(
         "hummingbot.connector.derivative.rubin_perpetual.data_sources.rubin_data_source.RubinPerpetualV4Client.send_tx_sync_mode")
-    async def test_cancel_order(self, send_tx_sync_mode_mock):
+    async def test_cancel_order(self, send_tx_sync_mode_mock, query_account_mock):
         send_tx_sync_mode_mock.return_value = self._order_cancelation_request_successful_mock_response
         result = await (self.v4_client.cancel_order(
             client_id=11,
@@ -89,8 +91,10 @@ class RubinPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.assertIn("txhash", result)
 
     @patch(
+        "hummingbot.connector.derivative.rubin_perpetual.data_sources.rubin_data_source.RubinPerpetualV4Client.query_account")
+    @patch(
         "hummingbot.connector.derivative.rubin_perpetual.data_sources.rubin_data_source.RubinPerpetualV4Client.send_tx_sync_mode")
-    async def test_place_order(self, send_tx_sync_mode_mock):
+    async def test_place_order(self, send_tx_sync_mode_mock, query_account_mock):
         send_tx_sync_mode_mock.return_value = self.order_creation_request_successful_mock_response
         result = await (self.v4_client.place_order(
             market=self.trading_pair,

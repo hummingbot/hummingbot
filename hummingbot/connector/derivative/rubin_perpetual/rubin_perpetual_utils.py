@@ -44,11 +44,11 @@ class RubinPerpetualConfigMap(BaseConnectorConfigMap):
 
 KEYS = RubinPerpetualConfigMap.model_construct()
 
-# ── Testnet как отдельный коннектор (виден в `connect`, без env RUBIN_PERPETUAL_DOMAIN) ──
-# Механизм hummingbot: OTHER_DOMAINS регистрирует доп. имя коннектора; OTHER_DOMAINS_PARAMETER[name]
-# передаётся в конструктор как domain → наши constants резолвят testnet-endpoints/chain_id.
-# Поля ConfigMap должны иметь префикс имени (rubin_perpetual_testnet_*): settings.py нормализует их
-# k.replace("rubin_perpetual_testnet", "rubin_perpetual") → параметры конструктора.
+# ── Testnet as a separate connector (shown in `connect`, without env RUBIN_PERPETUAL_DOMAIN) ──
+# Hummingbot mechanism: OTHER_DOMAINS registers an extra connector name; OTHER_DOMAINS_PARAMETER[name]
+# is passed to the constructor as `domain` -> our constants resolve testnet endpoints/chain_id.
+# ConfigMap fields must be prefixed with the name (rubin_perpetual_testnet_*); settings.py normalizes
+# them via k.replace("rubin_perpetual_testnet", "rubin_perpetual") -> constructor parameters.
 OTHER_DOMAINS = ["rubin_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"rubin_perpetual_testnet": "testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"rubin_perpetual_testnet": "BTC-USD"}
