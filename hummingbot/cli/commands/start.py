@@ -43,8 +43,8 @@ def _replace_running(timeout: float, json_output: bool) -> None:
 
 def start(
     file: str = typer.Argument(..., help="Config file name for the selected type."),
-    v1: bool = typer.Option(False, "--v1", help="V1 strategy config (conf/strategies)."),
-    v2: bool = typer.Option(False, "--v2", help="V2 script config (conf/scripts)."),
+    v1: bool = typer.Option(False, "--v1-strategy", help="V1 strategy config (conf/strategies)."),
+    v2: bool = typer.Option(False, "--v2-script", help="V2 script config (conf/scripts)."),
     controller: bool = typer.Option(
         False, "--controller", help="V2 controller config (conf/controllers); run via the V2 loader."),
     replace: bool = typer.Option(
@@ -58,9 +58,10 @@ def start(
 ) -> None:
     """Start the bot in the background. One bot per install — fails if one is already running."""
     from hummingbot.cli.strategy_configs import config_path, validate_controller, wrap_controller_as_v2
-    chosen = [t for t, on in (("v1", v1), ("v2", v2), ("controller", controller)) if on]
+    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
     if len(chosen) != 1:
-        fail("specify exactly one of --v1 / --v2 / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail("specify exactly one of --v1-strategy / --v2-script / --controller",
+             ExitCode.CONFIG_ERROR, json_output=json_output)
     stype = chosen[0]
 
     if not config_path(stype, file).exists():
@@ -76,9 +77,9 @@ def start(
     # a v2 loader config and run that; the loader's stem becomes the bot's DB/log name.
     config_file_name: Optional[str] = None
     v2_conf: Optional[str] = None
-    if stype == "v1":
+    if stype == "v1-strategy":
         config_file_name = file
-    elif stype == "v2":
+    elif stype == "v2-script":
         v2_conf = file
     else:
         try:

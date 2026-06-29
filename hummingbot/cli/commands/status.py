@@ -53,7 +53,7 @@ def status(
         if json_output:
             print_json({"ok": True, "running": False, "note": "no bot started"})
         else:
-            typer.echo("No bot started. Run `hbot start <config> --v1|--v2|--controller`.")
+            typer.echo("No bot started. Run `hbot start <config> --v1-strategy|--v2-script|--controller`.")
         return
 
     _request_fresh_snapshot()

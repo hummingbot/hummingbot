@@ -21,11 +21,11 @@ strategy_app = typer.Typer(no_args_is_help=True, help="Discover strategies and c
 
 
 def _one_type(v1: bool, v2: bool, controller: bool, json_output: bool, required: bool) -> Optional[str]:
-    chosen = [t for t, on in (("v1", v1), ("v2", v2), ("controller", controller)) if on]
+    chosen = [t for t, on in (("v1-strategy", v1), ("v2-script", v2), ("controller", controller)) if on]
     if len(chosen) > 1:
-        fail("use only one of --v1 / --v2 / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail("use only one of --v1-strategy / --v2-script / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
     if required and not chosen:
-        fail("specify one of --v1 / --v2 / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail("specify one of --v1-strategy / --v2-script / --controller", ExitCode.CONFIG_ERROR, json_output=json_output)
     return chosen[0] if chosen else None
 
 
@@ -53,8 +53,8 @@ def _resolve_strategy_type(name: str, v1: bool, v2: bool, controller: bool, json
 
 @strategy_app.command("list")
 def list_cmd(
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -75,8 +75,8 @@ def list_cmd(
 @strategy_app.command("show")
 def show_cmd(
     strategy: str = typer.Argument(..., help="Strategy/controller/script name."),
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -100,8 +100,8 @@ def show_cmd(
 @strategy_app.command("create")
 def create_cmd(
     strategy: str = typer.Argument(..., help="Strategy/controller/script name to scaffold from."),
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     name: Optional[str] = typer.Option(None, "--name", help="Output config file name."),
     json_output: bool = typer.Option(False, "--json"),
@@ -143,8 +143,8 @@ def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:
 
 @strategy_app.command("list-configs")
 def list_configs_cmd(
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -165,8 +165,8 @@ def list_configs_cmd(
 @strategy_app.command("show-config")
 def show_config_cmd(
     file: str = typer.Argument(..., help="Config file name."),
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -190,8 +190,8 @@ def set_cmd(
     file: str = typer.Argument(..., help="Config file name."),
     key: str = typer.Argument(..., help="Field key (dotted)."),
     value: str = typer.Argument(..., help="New value."),
-    v1: bool = typer.Option(False, "--v1"),
-    v2: bool = typer.Option(False, "--v2"),
+    v1: bool = typer.Option(False, "--v1-strategy"),
+    v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:

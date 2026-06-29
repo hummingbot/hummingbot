@@ -64,7 +64,7 @@ def heuristic(field):
     return "1"
 
 
-CONF_DIRS = {"v1": "conf/strategies", "v2": "conf/scripts", "controller": "conf/controllers"}
+CONF_DIRS = {"v1-strategy": "conf/strategies", "v2-script": "conf/scripts", "controller": "conf/controllers"}
 ROOT = os.environ.get("HBOT_REPO", os.getcwd())
 UPDATE_CANDIDATES = ["order_amount", "bid_spread", "spread", "total_amount_quote", "order_refresh_time",
                      "amount", "leverage", "min_profitability"]
@@ -135,7 +135,7 @@ def wait_ready(instance, secs=70):
 
 def main():
     stype, strategy, instance, *overrides = sys.argv[1:]
-    flag = {"v1": "--v1", "v2": "--v2", "controller": "--controller"}[stype]
+    flag = {"v1-strategy": "--v1-strategy", "v2-script": "--v2-script", "controller": "--controller"}[stype]
     fname = f"conf_clitest_{instance}.yml"
     ov = dict(kv.split("=", 1) for kv in overrides)
     R = {"strategy": strategy, "type": stype}

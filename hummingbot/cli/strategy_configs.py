@@ -1,8 +1,8 @@
-"""Shared helpers for the three trading-config kinds the CLI speaks: v1, v2, controller.
+"""Shared helpers for the three trading-config kinds the CLI speaks.
 
-    v1          conf/strategies/*.yml    full V1 strategy configs
-    v2          conf/scripts/*.yml       V2 script configs (may reference controllers)
-    controller  conf/controllers/*.yml   V2 controller configs (live-updatable while running)
+    v1-strategy  conf/strategies/*.yml    full V1 strategy configs
+    v2-script    conf/scripts/*.yml       V2 script configs (may reference controllers)
+    controller   conf/controllers/*.yml   V2 controller configs (live-updatable while running)
 
 Used by both `hbot start` (to run) and `hbot strategy` (to inspect/edit). Editing preserves
 comments/formatting via ruamel round-trip. Only controllers can be validated against a real
@@ -25,11 +25,13 @@ from hummingbot.client.settings import (
     STRATEGIES_CONF_DIR_PATH,
 )
 
-STRATEGY_TYPES = ("v1", "v2", "controller")
+# Type ids match the folder vocabulary: v1-strategy (hummingbot/strategy + conf/strategies),
+# v2-script (scripts + conf/scripts), controller (controllers + conf/controllers).
+STRATEGY_TYPES = ("v1-strategy", "v2-script", "controller")
 
 TYPE_DIRS = {
-    "v1": STRATEGIES_CONF_DIR_PATH,
-    "v2": SCRIPT_STRATEGY_CONF_DIR_PATH,
+    "v1-strategy": STRATEGIES_CONF_DIR_PATH,
+    "v2-script": SCRIPT_STRATEGY_CONF_DIR_PATH,
     "controller": CONTROLLERS_CONF_DIR_PATH,
 }
 
@@ -58,7 +60,7 @@ def matching_strategy_types(name: str) -> List[str]:
     out = []
     for t in STRATEGY_TYPES:
         sources = available_sources(t)
-        if name in sources or (t == "v2" and f"{name}.py" in sources):
+        if name in sources or (t == "v2-script" and f"{name}.py" in sources):
             out.append(t)
     return out
 
@@ -93,8 +95,8 @@ def available_v1_strategies() -> List[str]:
 
 
 def available_sources(stype: str) -> List[str]:
-    return {"v1": available_v1_strategies,
-            "v2": available_scripts,
+    return {"v1-strategy": available_v1_strategies,
+            "v2-script": available_scripts,
             "controller": available_controllers}[stype]()
 
 
@@ -114,7 +116,7 @@ def describe_strategy(stype: str, source: str) -> Tuple[dict, List[str], Set[str
         data["id"] = generate_unique_id()
         required = [r for r in required if r != "id"]
         return data, required, controller_updatable_fields(config_class)
-    if stype == "v2":
+    if stype == "v2-script":
         script_file = source if source.endswith(".py") else f"{source}.py"
         config_class = resolve_script_config_class(script_file)
         data, required = template_config_data(config_class, {"script_file_name": script_file})
@@ -374,6 +376,6 @@ def wrap_controller_as_v2(controller_filename: str) -> str:
         "max_global_drawdown_quote": None,
         "max_controller_drawdown_quote": None,
     }
-    with open(config_path("v2", loader), "w") as f:
+    with open(config_path("v2-script", loader), "w") as f:
         yaml.safe_dump(content, f, default_flow_style=False, sort_keys=False)
     return loader

@@ -61,7 +61,7 @@ class StrategyConfigHelpersTest(unittest.TestCase):
         with TemporaryDirectory() as d:
             path = Path(d) / "c.yml"
             path.write_text("a: 1\n")
-            new_value, updatable = edit_config(path, "v2", "a", "5")
+            new_value, updatable = edit_config(path, "v2-script", "a", "5")
             self.assertEqual(new_value, 5)
             self.assertEqual(updatable, set())
 
@@ -70,7 +70,7 @@ class StrategyConfigHelpersTest(unittest.TestCase):
             path = Path(d) / "c.yml"
             path.write_text("flag: true\n")
             with self.assertRaises(ValueError):
-                edit_config(path, "v2", "flag", "maybe")
+                edit_config(path, "v2-script", "flag", "maybe")
             self.assertIn("flag: true", path.read_text())  # unchanged
 
     def test_template_legacy_handles_raising_required_property(self):
@@ -87,8 +87,8 @@ class StrategyConfigHelpersTest(unittest.TestCase):
     def test_available_sources(self):
         from hummingbot.cli.strategy_configs import available_sources
         self.assertIn("lp_jit", available_sources("controller"))
-        self.assertIn("simple_pmm.py", available_sources("v2"))
-        self.assertIn("pure_market_making", available_sources("v1"))
+        self.assertIn("simple_pmm.py", available_sources("v2-script"))
+        self.assertIn("pure_market_making", available_sources("v1-strategy"))
 
     def test_describe_strategy_controller(self):
         from hummingbot.cli.strategy_configs import describe_strategy
