@@ -97,6 +97,18 @@ hbot strategy create pmm_mister --name conf_mm.yml \
 For spot, drop `leverage`/`position_mode` (ignored) and size `total_amount_quote × portfolio_allocation`
 to your available quote balance.
 
+### Spot starts one-sided until it builds inventory (perp does not)
+
+On a **spot** market you can only *sell* base you actually hold. If you start from a quote-only
+balance (e.g. all USDC), `pmm_mister` first quotes **buys** to reach `target_base_pct`, and you'll see
+a `"<BASE> balance is too low. Cannot place order"` warning for the **sell** side — this is **expected
+inventory-building, not a failure**. Once it accumulates base, it quotes both sides. To start more
+two-sided on spot, pre-hold some base, or lower `target_base_pct`.
+
+On a **perp** market this limitation does **not** apply: selling opens a short, so no base inventory
+is required and the bot can quote **both sides immediately** from a flat, USDC-only start. (If you see
+a transient base-balance warning right at perp startup, it clears once the connector is ready.)
+
 ## Trading rules & pair availability (known gap)
 
 Before configuring, you want the connector's **available pairs** and **minimum order size** — but

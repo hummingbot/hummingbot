@@ -55,14 +55,22 @@ const VERDICT_SCHEMA = {
 }
 
 // --- Provision: one clean env; scenarios reset state between runs (see run_eval.md). ---
+// If args.env/args.workdir are supplied (env pre-built out of band — the conda+Cython build is slow
+// and would hang a workflow agent), use them directly; otherwise an agent runs setup_clean_env.sh.
 phase('Provision')
-const env = await agent(
-  `Run \`bash ${EVAL_DIR}/setup_clean_env.sh\` from the repo root and return the ENV and WORKDIR it ` +
-  `prints. If it fails, return the error.`,
-  { label: 'provision', phase: 'Provision',
-    schema: { type: 'object', additionalProperties: false, required: ['env', 'workdir', 'ok'],
-      properties: { env: { type: 'string' }, workdir: { type: 'string' }, ok: { type: 'boolean' },
-        error: { type: 'string' } } } })
+let env
+if (args && args.env && args.workdir) {
+  env = { env: args.env, workdir: args.workdir, ok: true }
+  log(`using pre-provisioned env=${env.env} workdir=${env.workdir}`)
+} else {
+  env = await agent(
+    `Run \`bash ${EVAL_DIR}/setup_clean_env.sh\` from the repo root and return the ENV and WORKDIR it ` +
+    `prints. If it fails, return the error.`,
+    { label: 'provision', phase: 'Provision',
+      schema: { type: 'object', additionalProperties: false, required: ['env', 'workdir', 'ok'],
+        properties: { env: { type: 'string' }, workdir: { type: 'string' }, ok: { type: 'boolean' },
+          error: { type: 'string' } } } })
+}
 
 if (!env || !env.ok) {
   log(`Provisioning failed: ${env ? env.error : 'no result'}`)
