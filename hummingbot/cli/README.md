@@ -32,7 +32,7 @@ type from the folder that holds the file; a `--v1-strategy` / `--v2-script` / `-
 only needed to disambiguate a legacy name that exists under more than one folder.
 
 **"config" vs "settings".** `config` always means a *strategy config file* (managed by `hbot
-strategy`). Global client settings (rate source, gateway host, log level, …) are `hbot settings`.
+strategy`). Global client settings (rate source, log level, …) are `hbot settings`.
 
 **Controllers** can't run standalone, so `start` generates a tiny V2 loader script for them
 automatically; the loader's name becomes the bot's trades-DB and log name. You don't manage the
@@ -68,13 +68,6 @@ hbot
 │  ├─ logs [name]             tail the log (-f to follow)
 │  ├─ trades [name]           recorded fills
 │  └─ history [name]          PnL, fees, volume per market
-│
-├─ gateway ── on-chain (DEX) ──
-│  ├─ status | start | stop | pull | logs    manage the Gateway service
-│  ├─ settings [namespace] [path] [value]    view/change Gateway settings
-│  ├─ connect <chain> | disconnect <chain>   wallets (key read from stdin)
-│  ├─ balance <network> [wallet]             on-chain balances
-│  └─ token-list | token-find | token-add | token-remove   per-network token lists
 │
 └─ settings [key] [value]     global client settings (conf/conf_client.yml)
 ```
@@ -186,21 +179,6 @@ interactive client's first launch. Every later command must use that same passwo
 
 ---
 
-## Gateway (on-chain / DEX)
-
-Gateway is a separate service Hummingbot talks to for on-chain trading. `hbot gateway` manages it and
-mirrors the top-level setup verbs for the on-chain world:
-
-```bash
-hbot gateway status                               # is it running?
-hbot gateway start                                # launch it (secure HTTPS/mTLS mode)
-hbot gateway connect solana                       # add a wallet (private key read from stdin)
-hbot gateway token-add solana-mainnet-beta <mint> # track a token by address
-hbot gateway balance -n solana-mainnet-beta       # on-chain balances
-```
-
----
-
 ## Running in Docker
 
 `hbot` works the same in Docker as from source — same commands, same flow. `make deploy` brings up a
@@ -243,25 +221,6 @@ services:
 as a container's command it would exit immediately and stop the container.) Either way, don't run
 `hbot` *and* the interactive client in the same container — that's two bots fighting over one
 `conf`/`data`/`logs`.
-
-**Gateway: run it as a sibling service, not docker-in-docker.** `hbot gateway start/stop/pull/logs`
-drive the *host's* Docker, so they don't work from inside a container (they fail with clear guidance,
-not a crash). Because `hbot gateway` is URL-first, the fix is to run Gateway as its own service and
-point `hbot` at it — every other gateway command (`status`, `balance`, `connect`, `token-*`,
-`settings`) then talks to it over the network:
-
-```yaml
-services:
-  gateway:
-    image: hummingbot/gateway
-    # ports / certs / gateway-files volume as needed
-  bot:
-    image: hummingbot/hummingbot
-    environment: [HBOT_PASSWORD]
-    depends_on: [gateway]
-    # point hbot at the Gateway service (once), then skip `hbot gateway start`:
-    #   hbot settings gateway.gateway_api_host gateway
-```
 
 ---
 

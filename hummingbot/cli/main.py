@@ -12,7 +12,6 @@ import typer
 from hummingbot.cli.commands import (
     balance as balance_cmd,
     connect as connect_cmd,
-    gateway as gateway_cmd,
     history as history_cmd,
     logs as logs_cmd,
     settings as settings_cmd,
@@ -55,7 +54,6 @@ def _root(
 
 app.command("connect")(connect_cmd.connect)
 app.command("balance")(balance_cmd.balance)
-app.add_typer(gateway_cmd.gateway_app, name="gateway")
 app.command("settings")(settings_cmd.settings)
 app.add_typer(strategy_cmd.strategy_app, name="strategy")
 app.command("update")(update_cmd.update)

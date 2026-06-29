@@ -56,13 +56,6 @@ hbot status                                            # check on it
 hbot stop                                              # stop gracefully
 ```
 
-For on-chain (DEX) trading, `hbot gateway` manages the Gateway service:
-
-```bash
-hbot gateway start          # launch Gateway (DEX middleware)
-hbot gateway connect solana # add a wallet
-```
-
 Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
 
 ### …or with `hbot` from Docker

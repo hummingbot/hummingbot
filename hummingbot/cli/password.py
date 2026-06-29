@@ -43,9 +43,8 @@ def resolve_password(*, password_stdin: bool, json_output: bool, confirm: bool =
 def unlock_keystore(password: str, *, json_output: bool = False) -> None:
     """Unlock Security with ``password``, creating the keystore on first run (the first password
     provided becomes the keystore password, like the interactive client's first launch). Fails with
-    exit code 4 on a bad password. Shared by ``login`` and the gateway commands so first-run behavior
-    is identical everywhere — without it, a gateway command run before any keystore exists would trip
-    over the missing .password_verification file.
+    exit code 4 on a bad password. Without the first-run branch, a keyed command run before any
+    keystore exists would trip over the missing .password_verification file.
     """
     from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification
     from hummingbot.client.config.security import Security
