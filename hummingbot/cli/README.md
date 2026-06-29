@@ -49,6 +49,11 @@ hbot
 │  ├─ connect [exchange]      show connections, or add an exchange's API keys
 │  └─ balance [exchange]      show exchange balances, with USD value
 │
+├─ ── market data (public; fuzzy pair match) ──
+│  ├─ rules <exchange> <pair>      trading rules: min order size, min notional, tick/step
+│  ├─ ticker <exchange> <pair>     best bid/ask/mid + last price
+│  └─ order-book <exchange> <pair> bid/ask depth (-n N levels)
+│
 ├─ strategy ── author config files ──
 │  ├─ list                    strategies you can create configs from
 │  ├─ show <strategy>         a strategy's fields, and which are required

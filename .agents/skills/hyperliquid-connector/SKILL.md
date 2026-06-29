@@ -99,21 +99,29 @@ nothing to approve** — mention it only if asked. (On testnet / with a Vault th
 omitted entirely.) If a user *does* want to authorize a non-zero fee, `approve_builder_fee.py` does it
 (dry-run by default; `--submit` to send).
 
-## 3. Find tradable markets, funding & open interest (no `hbot` command for this yet)
+## 3. Find tradable markets, funding & open interest
 
-Use the bundled scripts (public endpoint, **no keys needed**) before configuring a strategy:
+**For a single pair's trading rules, use the `hbot` commands** (fuzzy pair matching, including HIP-3
+dex-prefixed markets — `spcx` or `xyz:spcx-usd` → `XYZ:SPCX-USD`):
 
 ```bash
-python scripts/list_markets.py --type perp --filter ETH   # pairs + rules matching ETH
-python scripts/list_markets.py --type spot                # all spot pairs
-python scripts/market_stats.py --top 10                   # top perps by 24h volume
-python scripts/market_stats.py --filter SOL               # funding/OI for a market
+hbot rules hyperliquid_perpetual eth-usd      # min order size, min notional ($10), tick/step sizes
+hbot ticker hyperliquid_perpetual eth-usd     # best bid/ask/mid + last
+hbot order-book hyperliquid_perpetual eth-usd -n 5
 ```
 
-`list_markets.py` prints each market's **`hummingbot_pair`** (the `BASE-QUOTE` string for a config),
-`max_leverage`, and `size_decimals` — confirm the pair here before `strategy create` (a wrong pair
-fails at `start`). `market_stats.py` adds funding rate (hourly + APR), open interest, and 24h volume
-so you can pick a liquid market and understand the cost of holding a perp position.
+**For bulk discovery + funding/OI, use the bundled scripts** (public endpoint, no keys needed):
+
+```bash
+python scripts/list_markets.py --type perp --filter ETH   # browse pairs + rules
+python scripts/list_markets.py --hip3                     # enumerate HIP-3 builder dexs
+python scripts/market_stats.py --top 10                   # funding rate (hr + APR), OI, 24h volume
+python scripts/market_stats.py --filter SOL               # funding/OI for one market
+```
+
+`hbot rules` gives the authoritative per-pair rules straight from the connector; `list_markets.py`
+is better for browsing the whole universe, and `market_stats.py` adds funding/open-interest/volume to
+pick a liquid market and understand the cost of holding a perp position.
 
 > **Minimum order size:** Hyperliquid enforces a flat **$10 minimum order notional** (per order, both
 > spot and perp). Size so each order clears $10 — for `pmm_mister`, recall order notional ≈

@@ -109,21 +109,22 @@ On a **perp** market this limitation does **not** apply: selling opens a short, 
 is required and the bot can quote **both sides immediately** from a flat, USDC-only start. (If you see
 a transient base-balance warning right at perp startup, it clears once the connector is ready.)
 
-## Trading rules & pair availability (known gap)
+## Trading rules & pair availability
 
-Before configuring, you want the connector's **available pairs** and **minimum order size** — but
-there is **no `hbot` command for trading rules yet**. Until there is, work around it:
+Before configuring, check the connector's **minimum order size / notional** and confirm the pair
+exists — use **`hbot rules <exchange> <pair>`** (the pair is fuzzy-matched, so `eth-usd`, `btc/usdt`,
+or `spcx` all resolve):
 
-- Confirm the pair string format the connector expects (e.g. `ETH-USD` vs `ETH-USDT`); a wrong/unknown
-  pair fails at `start`.
-- Size generously above the typical 5–10 quote minimum (see above) so the first run quotes.
-- After `start`, check `hbot logs -f` for order-rejection or below-minimum messages, and `hbot status`
-  for the recent-errors count — that's how you'll see a min-notional problem today.
+```bash
+hbot rules hyperliquid_perpetual eth-usd     # min order size, min notional, tick/step sizes
+hbot ticker hyperliquid_perpetual eth-usd    # current bid/ask/mid (to sanity-check sizing in quote)
+```
 
-> **Recommended follow-up for maintainers:** add a command that surfaces a connector's trading rules
-> (min order size / notional, price & amount increments, available pairs) so agents can size orders
-> correctly *before* starting — e.g. `hbot connect <exchange> --rules <pair>` or `hbot strategy rules`.
-> Until then this skill sizes conservatively and verifies via logs.
+Size each order so its notional clears the reported **min notional** (recall order notional ≈
+`amount_pct × total_amount_quote × portfolio_allocation`). A wrong/unknown pair surfaces as a
+"no trading pair matches" error from `hbot rules` (with suggestions) rather than failing later at
+`start`. After `start`, still check `hbot logs -f` for any below-minimum rejections and `hbot status`
+for the recent-errors count.
 
 ## End-to-end happy path
 
