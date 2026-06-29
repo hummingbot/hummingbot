@@ -112,7 +112,7 @@ const results = await pipeline(
       // Agent-under-test responds (has a shell; works in the clean clone).
       const a = await agent(
         `You are the AGENT UNDER TEST helping a user set up and run a Hummingbot bot. You have a ` +
-        `terminal. Work in: cd ${env.workdir} && conda activate ${env.env}. Read AGENTS.md and the ` +
+        `terminal. Work in: cd ${env.workdir} && source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate ${env.env}. Read AGENTS.md and the ` +
         `skills under .agents/skills/ and FOLLOW them. Do NOT read the .agents/evals/ directory — ` +
         `that is the eval harness, not user material. Never put a password or private key on argv.\n` +
         `Conversation so far (you are AGENT):\n${JSON.stringify(transcript)}\n` +
@@ -131,7 +131,7 @@ const results = await pipeline(
     const v = await agent(
       `You are the JUDGE. Score this eval run against ${EVAL_DIR}/rubric.md and the must-pass gates ` +
       `in ${EVAL_DIR}/scenarios/${run.sc.id}.md. Inspect the clean env if useful ` +
-      `(cd ${env.workdir} && conda activate ${env.env}): check whether a bot is running, whether the ` +
+      `(cd ${env.workdir} && source "$(conda info --base)/etc/profile.d/conda.sh" && conda activate ${env.env}): check whether a bot is running, whether the ` +
       `config is valid and correctly sized, and whether any secret leaked onto argv or into a file.\n` +
       `Transcript:\n${JSON.stringify(run.transcript)}\n` +
       `Return the verdict JSON.`,
