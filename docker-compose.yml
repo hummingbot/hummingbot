@@ -24,6 +24,10 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
+    # init: true runs a real init (tini) as PID 1 so it REAPS exited children. Required for the idle-host
+    # model below: a bot started via `docker exec hbot start` reparents to PID 1 when the exec returns; a
+    # bare `tail` PID 1 won't reap it, leaving a zombie that makes `hbot stop` wait the full timeout.
+    init: true
     # Run as an idle "hbot host": the container stays up and you drive it with `hbot` commands — the
     # same way as a source install. Use the host wrapper (`make link-cli`, then `hbot <command>`) or
     # `docker exec -it hummingbot hbot <command>`.

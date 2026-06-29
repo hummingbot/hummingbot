@@ -199,6 +199,11 @@ The wrapper (`bin/hbot-host`) auto-detects: a `hummingbot` conda env → run the
 `hummingbot` container → `docker exec` into it. So one `hbot <command>` works regardless of how you
 installed. (Without the wrapper, `docker exec -it hummingbot hbot <command>` does the same thing.)
 
+> The idle-host container must run a real init (the compose file sets `init: true`) so the bot
+> process — which reparents to PID 1 after the `docker exec` that started it returns — gets **reaped**
+> on exit. A bare `tail` PID 1 won't reap it, leaving a zombie that makes `hbot stop` wait its full
+> timeout. If you `docker run` your own idle host, pass `--init`.
+
 ### One dedicated bot per container
 
 For orchestration (one container = one bot, restart policies), make the bot the container's main
