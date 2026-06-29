@@ -82,7 +82,25 @@ def _is_running(gw: "GatewayHttpClient") -> bool:
 
 
 def _docker(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["docker", *args], capture_output=True, text=True)
+    """Run a `docker` CLI command. If the docker binary is absent (e.g. hbot running inside a container
+    without Docker access), return a non-zero result instead of raising FileNotFoundError."""
+    try:
+        return subprocess.run(["docker", *args], capture_output=True, text=True)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(
+            args=["docker", *args], returncode=127, stdout="", stderr="docker: command not found")
+
+
+def _require_docker(json_output: bool) -> None:
+    """Fail cleanly if the Docker CLI/daemon isn't usable here. This is the expected case when hbot runs
+    inside a container: rather than docker-in-docker, run Gateway as a separate/sibling service and point
+    hbot at it via `hbot settings gateway.gateway_api_host <host>` — the other gateway commands
+    (status/balance/connect/token-*) then use it over the network, no Docker needed."""
+    if _docker("version").returncode != 0:
+        fail("Docker isn't available here, so hbot can't manage the Gateway container. Run Gateway as a "
+             "separate service and point hbot at it: `hbot settings gateway.gateway_api_host <host>` "
+             "(and gateway_api_port). Then `hbot gateway status`/`balance`/... use it over the network.",
+             ExitCode.ERROR, json_output=json_output)
 
 
 def _container_status() -> Optional[str]:
@@ -172,8 +190,7 @@ def pull(
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Download the latest Gateway version."""
-    if _docker("version").returncode != 0:
-        fail("Docker is unavailable", ExitCode.ERROR, json_output=json_output)
+    _require_docker(json_output)
     _pull_image(image, json_output, required=True)
     if json_output:
         print_json({"ok": True, "image": image, "pulled": True})
@@ -211,9 +228,7 @@ def start(
             typer.echo(f"Gateway already running at {gw.base_url} — using it.")
         return
 
-    if _docker("version").returncode != 0:
-        fail("Gateway is not running and Docker is unavailable — start Gateway (from source or Docker) first",
-             ExitCode.ERROR, json_output=json_output)
+    _require_docker(json_output)
 
     # The passphrase encrypts the certs AND the wallet keys Gateway stores; it must be the keystore password.
     passphrase = resolve_password(password_stdin=password_stdin, json_output=json_output)

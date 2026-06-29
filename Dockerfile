@@ -73,6 +73,10 @@ WORKDIR /home/hummingbot
 COPY --from=builder /opt/conda/ /opt/conda/
 COPY --from=builder /home/ /home/
 
+# Expose the `hbot` CLI on PATH inside the env (mirrors `make install` / `./install`), so the image can
+# run as a single-bot container: `docker run … hbot start <config>` / `docker exec … hbot status`.
+RUN ln -sf /home/hummingbot/bin/hbot /opt/conda/envs/hummingbot/bin/hbot
+
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
 

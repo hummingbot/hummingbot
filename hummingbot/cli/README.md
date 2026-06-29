@@ -197,6 +197,48 @@ hbot gateway balance solana-mainnet-beta          # on-chain balances
 
 ---
 
+## Running in Docker
+
+`hbot`'s "one bot per install" model maps to **one container = one bot**: use the image as the
+container's bot process, with `conf/`, `data/`, and `logs/` as mounted volumes.
+
+```yaml
+services:
+  bot:
+    image: hummingbot/hummingbot
+    environment: [HBOT_PASSWORD]
+    volumes:
+      - ./conf:/home/hummingbot/conf
+      - ./data:/home/hummingbot/data
+      - ./logs:/home/hummingbot/logs
+    command: hbot start conf_my_bot.yml        # the container's process IS the bot
+```
+
+Drive it from outside with `docker exec bot hbot status` / `hbot logs -f` / `hbot trades`. Don't run
+`hbot` *and* the interactive client in the same container — that's two bots fighting over one
+`conf`/`data`/`logs`.
+
+**Gateway: run it as a sibling service, not docker-in-docker.** `hbot gateway start/stop/pull/logs`
+drive the *host's* Docker, so they don't work from inside a container (they fail with clear guidance,
+not a crash). Because `hbot gateway` is URL-first, the fix is to run Gateway as its own service and
+point `hbot` at it — every other gateway command (`status`, `balance`, `connect`, `token-*`,
+`settings`) then talks to it over the network:
+
+```yaml
+services:
+  gateway:
+    image: hummingbot/gateway
+    # ports / certs / gateway-files volume as needed
+  bot:
+    image: hummingbot/hummingbot
+    environment: [HBOT_PASSWORD]
+    depends_on: [gateway]
+    # point hbot at the Gateway service (once), then skip `hbot gateway start`:
+    #   hbot settings gateway.gateway_api_host gateway
+```
+
+---
+
 ## Files & state
 
 ```
