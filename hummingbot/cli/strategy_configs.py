@@ -11,8 +11,9 @@ bot, via the 10s controller-config poll in StrategyV2Base).
 """
 import importlib
 import inspect
+import re
 from pathlib import Path
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import yaml
 from ruamel.yaml import YAML
@@ -354,6 +355,67 @@ def create_config_file(stype: str, out_name: str, data: dict) -> Path:
     with open(path, "w") as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
     return path
+
+
+def normalize_config_name(name: str) -> str:
+    """A config filename always ends in .yml (accept 'conf_x' or 'conf_x.yml')."""
+    return name if name.endswith(".yml") else f"{name}.yml"
+
+
+def suggest_free_name(desired: str) -> str:
+    """Return a config filename based on ``desired`` that exists in NO type dir (names are unique
+    across v1-strategy/v2-script/controller so a config never needs a type flag to identify it)."""
+    desired = normalize_config_name(desired)
+    if not matching_config_types(desired):
+        return desired
+    base = re.sub(r"_\d+$", "", Path(desired).stem)  # strip a trailing _<n> before re-numbering
+    n = 2
+    while matching_config_types(f"{base}_{n}.yml"):
+        n += 1
+    return f"{base}_{n}.yml"
+
+
+def parse_set_pairs(pairs: List[str]) -> Dict[str, str]:
+    """Parse ``--set key=value`` strings into a {key: value} dict (string values)."""
+    out: Dict[str, str] = {}
+    for p in pairs:
+        if "=" not in p:
+            raise ValueError(f"invalid --set '{p}', expected key=value")
+        key, value = p.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"invalid --set '{p}', empty key")
+        out[key] = value
+    return out
+
+
+def _set_in_template(data: dict, key: str, value: Any) -> None:
+    """Set a dotted ``key`` in a scaffold dict, raising ValueError if the field doesn't exist. String
+    values (from --set) are coerced to the placeholder's type; JSON values (from stdin) go in as-is."""
+    parts = key.split(".")
+    node = data
+    for part in parts[:-1]:
+        if not isinstance(node, dict) or part not in node:
+            raise ValueError(f"unknown field '{key}'")
+        node = node[part]
+    leaf = parts[-1]
+    if not isinstance(node, dict) or leaf not in node:
+        raise ValueError(f"unknown field '{key}'")
+    node[leaf] = _coerce(node[leaf], value) if isinstance(value, str) else _yaml_safe(value)
+
+
+def fill_template(data: dict, required: List[str], stype: str, values: Dict[str, Any]) -> List[str]:
+    """Apply ``values`` into a scaffold ``data`` in place, then return the still-unfilled required
+    fields. Validates each field exists and, once a controller has every required field, validates the
+    whole pydantic model so a complete-but-invalid combination fails at create time. Raises ValueError.
+    """
+    for key, value in values.items():
+        _set_in_template(data, key, value)
+    remaining = [r for r in required if data.get(r) is None]
+    if stype == "controller" and not remaining:
+        config_class = controller_config_class(data)
+        config_class(**data)  # full validation; raises on an invalid value/combination
+    return remaining
 
 
 def controller_loader_name(controller_filename: str) -> str:

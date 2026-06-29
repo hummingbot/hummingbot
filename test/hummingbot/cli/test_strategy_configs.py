@@ -103,6 +103,40 @@ class StrategyConfigHelpersTest(unittest.TestCase):
         data2, _, _ = describe_strategy("controller", "lp_jit")
         self.assertNotEqual(data["id"], data2["id"])
 
+    def test_parse_set_pairs(self):
+        from hummingbot.cli.strategy_configs import parse_set_pairs
+        self.assertEqual(parse_set_pairs(["a=1", "b=x=y"]), {"a": "1", "b": "x=y"})  # only first = splits
+        with self.assertRaises(ValueError):
+            parse_set_pairs(["noequals"])
+        with self.assertRaises(ValueError):
+            parse_set_pairs(["=novalue"])
+
+    def test_fill_template_coerces_validates_and_reports_remaining(self):
+        from hummingbot.cli.strategy_configs import fill_template
+        data = {"a": None, "b": 0, "flag": False}
+        # b's int placeholder coerces the string; a stays unfilled and is reported as remaining
+        remaining = fill_template(data, required=["a", "b"], stype="v2-script", values={"b": "5", "flag": "true"})
+        self.assertEqual(data["b"], 5)
+        self.assertEqual(data["flag"], True)
+        self.assertEqual(remaining, ["a"])
+
+    def test_fill_template_unknown_field_raises(self):
+        from hummingbot.cli.strategy_configs import fill_template
+        with self.assertRaises(ValueError):
+            fill_template({"a": 1}, required=[], stype="v2-script", values={"nope": "1"})
+
+    def test_suggest_free_name_increments_past_existing(self):
+        from hummingbot.cli import strategy_configs as sc
+        existing = {"conf_x.yml", "conf_x_2.yml"}
+        original = sc.matching_config_types
+        sc.matching_config_types = lambda fn: ["controller"] if fn in existing else []
+        try:
+            self.assertEqual(sc.suggest_free_name("conf_new.yml"), "conf_new.yml")  # free → unchanged
+            self.assertEqual(sc.suggest_free_name("conf_x"), "conf_x_3.yml")         # taken → next free, .yml added
+            self.assertEqual(sc.suggest_free_name("conf_x_2.yml"), "conf_x_3.yml")   # strips trailing _n first
+        finally:
+            sc.matching_config_types = original
+
     def test_template_config_data_fills_defaults_flags_required(self):
         class Model(BaseModel):
             x: int = 5
