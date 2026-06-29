@@ -139,6 +139,12 @@ def start(
         os.chdir(prefix_path())
         os.execve(sys.executable, cmd, env)  # never returns
 
+    _spawn_detached(cmd, env, name, timeout, json_output)
+
+
+def _spawn_detached(cmd: list, env: dict, name: str, timeout: float, json_output: bool) -> None:
+    """Launch the engine detached, wait until its strategy is running, and report — or fail with the
+    recent log if it exits during startup / times out."""
     log_handle = open(bot.log_file(), "wb")  # fresh per run (startup/uncaught only)
     proc = subprocess.Popen(
         cmd, cwd=prefix_path(), stdin=subprocess.DEVNULL,
@@ -161,8 +167,7 @@ def start(
         fail(f"timed out after {timeout:g}s waiting for the bot to start (pid {proc.pid} still booting)",
              ExitCode.TIMEOUT, json_output=json_output)
 
-    result = {"ok": True, "name": name, "pid": proc.pid, "status": "running"}
     if json_output:
-        print_json(result)
+        print_json({"ok": True, "name": name, "pid": proc.pid, "status": "running"})
     else:
         typer.echo(f"Started '{name}' (pid {proc.pid}). Use `hbot status` to monitor, `hbot stop` to stop.")
