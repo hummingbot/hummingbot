@@ -24,7 +24,6 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.event.events import AccountEvent, PositionModeChangeEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.utils.tracking_nonce import NonceCreator
@@ -801,28 +800,16 @@ class RubinPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         """
-        :return: A tuple of boolean (true if success) and error message if the exchange returns one on failure.
+        rubin only supports ONEWAY. Return (success, message); the base class
+        (_execute_set_position_mode) handles updating perpetual-trading state and firing the
+        PositionModeChange events, so we must NOT do it here (doing so re-enters the flow and
+        returning None crashes the caller's tuple-unpack).
+
+        :return: A tuple of boolean (true if success) and error message on failure.
         """
         if mode != PositionMode.ONEWAY:
-            self.trigger_event(
-                AccountEvent.PositionModeChangeFailed,
-                PositionModeChangeEvent(
-                    self.current_timestamp, trading_pair, mode, "rubin only supports the ONEWAY position mode."
-                ),
-            )
-            self.logger().debug(
-                f"rubin encountered a problem switching position mode to "
-                f"{mode} for {trading_pair}"
-                f" (rubin only supports the ONEWAY position mode)"
-            )
-        else:
-            self._position_mode = PositionMode.ONEWAY
-            super().set_position_mode(PositionMode.ONEWAY)
-            self.trigger_event(
-                AccountEvent.PositionModeChangeSucceeded,
-                PositionModeChangeEvent(self.current_timestamp, trading_pair, mode),
-            )
-            self.logger().debug(f"rubin switching position mode to " f"{mode} for {trading_pair} succeeded.")
+            return False, "rubin only supports the ONEWAY position mode."
+        return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         success = True

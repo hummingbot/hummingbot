@@ -31,6 +31,10 @@ from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSou
 from hummingbot.core.rate_oracle.sources.mexc_rate_source import MexcRateSource
 from hummingbot.core.rate_oracle.sources.pacifica_perpetual_rate_source import PacificaPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
+from hummingbot.core.rate_oracle.sources.rubin_perpetual_rate_source import (
+    RubinPerpetualRateSource,
+    RubinPerpetualTestnetRateSource,
+)
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -54,6 +58,8 @@ RATE_ORACLE_SOURCES = {
     "evedex_perpetual": EvedexPerpetualRateSource,
     "pacifica_perpetual": PacificaPerpetualRateSource,
     "decibel_perpetual": DecibelPerpetualRateSource,
+    "rubin_perpetual": RubinPerpetualRateSource,
+    "rubin_perpetual_testnet": RubinPerpetualTestnetRateSource,
 }
 
 
