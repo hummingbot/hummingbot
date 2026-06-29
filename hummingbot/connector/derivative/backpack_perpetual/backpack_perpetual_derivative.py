@@ -69,8 +69,34 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         self._leverage_initialized = False
         self._position_mode = None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
-        # Backpack does not provide balance updates through websocket, use REST polling instead
+        # Backpack exposes no balance websocket stream, so available balance is refreshed only by the
+        # REST collateralQuery poll (~5s). real_time_balance_update = False lets the base class bridge
+        # that gap by locally reserving in-flight orders (apply_balance_update_since_snapshot) until the
+        # next poll. We override in_flight_asset_balances() below so the local reservation matches how a
+        # cross-margin, USDC-settled perpetual actually locks collateral -- the base (spot) implementation
+        # reserves each order's full quote notional (over-reserving longs -> root cause of #8168, false
+        # "Not enough budget") or the base asset for sells (leaving shorts unreserved), neither correct here.
         self.real_time_balance_update = False
+
+    def in_flight_asset_balances(self, in_flight_orders: Dict[str, InFlightOrder]) -> Dict[str, Decimal]:
+        """
+        Reserve each open order's *initial margin* (notional / leverage) against the USDC collateral,
+        for both buys and sells. Backpack perpetual is cross-margin and USDC-settled, so an order locks
+        only its margin -- not the full notional, and never the base asset. This bridges the ~5s window
+        between collateralQuery polls without the over-/under-reservation of the spot base implementation.
+        """
+        asset_balances: Dict[str, Decimal] = {}
+        if in_flight_orders is None:
+            return asset_balances
+        leverage = self._leverage if self._leverage and self._leverage > 0 else Decimal("1")
+        for order in (o for o in in_flight_orders.values()
+                      if not (o.is_done or o.is_failure or o.is_cancelled)):
+            if order.price is None or not order.price.is_finite():
+                continue
+            outstanding_amount = order.amount - order.executed_amount_base
+            margin = outstanding_amount * order.price / leverage
+            asset_balances[order.quote_asset] = asset_balances.get(order.quote_asset, Decimal("0")) + margin
+        return asset_balances
 
     @staticmethod
     def backpack_order_type(order_type: OrderType) -> str:
@@ -610,6 +636,7 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 account_info = await self._api_get(
                     path_url=CONSTANTS.ACCOUNT_PATH_URL,
+                    params={"instruction": "accountQuery"},
                     is_auth_required=True
                 )
                 self._leverage = Decimal(str(account_info.get("leverageLimit", "1")))
