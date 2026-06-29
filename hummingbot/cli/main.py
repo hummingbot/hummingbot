@@ -14,11 +14,14 @@ from hummingbot.cli.commands import (
     connect as connect_cmd,
     history as history_cmd,
     logs as logs_cmd,
+    order_book as order_book_cmd,
+    rules as rules_cmd,
     settings as settings_cmd,
     start as start_cmd,
     status as status_cmd,
     stop as stop_cmd,
     strategy as strategy_cmd,
+    ticker as ticker_cmd,
     trades as trades_cmd,
     update as update_cmd,
 )
@@ -54,6 +57,9 @@ def _root(
 
 app.command("connect")(connect_cmd.connect)
 app.command("balance")(balance_cmd.balance)
+app.command("rules")(rules_cmd.rules)
+app.command("ticker")(ticker_cmd.ticker)
+app.command("order-book")(order_book_cmd.order_book)
 app.command("settings")(settings_cmd.settings)
 app.add_typer(strategy_cmd.strategy_app, name="strategy")
 app.command("update")(update_cmd.update)
