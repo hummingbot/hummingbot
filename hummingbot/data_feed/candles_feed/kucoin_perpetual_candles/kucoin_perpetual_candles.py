@@ -170,7 +170,7 @@ class KucoinPerpetualCandles(CandlesBase):
                 candles_row_dict["taker_buy_quote_volume"] = 0.
                 return candles_row_dict
 
-    async def initialize_exchange_data(self) -> Dict[str, Any]:
+    async def _initialize_exchange_data(self) -> Dict[str, Any]:
         await self._get_symbols_dict()
         await self._get_ws_token()
 

@@ -23,7 +23,9 @@ INTERVALS = {
 }
 
 # Rate limits — https://apidocs.lighter.xyz/docs/rate-limits
-ALL_ENDPOINTS_LIMIT = "lighter_candles_all"
+# Shared weighted pool of the lighter_perpetual connector (lighter_perpetual_constants.ALL_ENDPOINTS_LIMIT).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+ALL_ENDPOINTS_LIMIT = "lighter_perpetual_all"
 WEIGHT_DEFAULT = 300
 STANDARD_ACCOUNT_REQUEST_LIMIT = 60
 ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18,000

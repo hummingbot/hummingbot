@@ -82,7 +82,7 @@ class EvedexPerpetualCandles(CandlesBase):
             quote = "USD"
         return f"{base}{quote}"
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         if self._instrument_resolved:
             return
 
