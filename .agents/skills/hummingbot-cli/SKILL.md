@@ -86,8 +86,16 @@ argv**:
 - pipe it: `printf '%s' "$PW" | hbot start conf.yml --password-stdin`.
 
 On a brand-new install there is no keystore yet — the **first** password you provide (first `connect`
-/ `balance` / `start`) becomes the keystore password. Every later command must reuse it. Treat connector
-API keys and wallet private keys as secrets: pass them via stdin/file, never in the command line.
+/ `balance` / `start`) becomes the keystore password. Every later command must reuse it.
+
+**Entering connector keys safely (especially when an AI agent is driving).** Don't paste a private key
+or API secret into an agent chat or put it on a command line — both land in the agent's context and your
+shell history. Instead, **the user runs `hbot connect <connector>` interactively in their own terminal**:
+it prompts for each field, the input is hidden, and the keys go straight into the encrypted keystore —
+the agent never sees them. The agent can do every other step; this one is yours. Prefer a **scoped,
+revocable key** (a trade-only API key with withdrawals disabled, or a venue agent wallet) so a leak
+can't move funds. (`--keys-stdin` exists for non-interactive automation; the interactive prompt is the
+safe default for people.)
 
 ## Mental model
 

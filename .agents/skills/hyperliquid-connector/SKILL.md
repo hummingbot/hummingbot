@@ -21,8 +21,10 @@ wallet mode, agent-wallet authorization, the builder fee, market/pair discovery.
 then hand off to the strategy skill (e.g. `pure-market-making`).
 
 > **Prerequisite:** the **`hummingbot-cli`** skill (install, the Markdown-output + exit-code contract, the
-> `hbot connect` flow, secret handling). Never put a private key on the command line — `hbot connect`
-> takes it over stdin.
+> `hbot connect` flow, secret handling). Never put a private key on the command line or into an agent
+> chat — **the user runs `hbot connect hyperliquid_perpetual` interactively in their own terminal**; it
+> prompts for the key (hidden) and stores it encrypted, so the agent never sees it. Prefer an
+> **`api_wallet`** (agent wallet): it can trade but **cannot withdraw**, so a leak can't move funds.
 
 ## Bundled scripts (`scripts/`)
 
