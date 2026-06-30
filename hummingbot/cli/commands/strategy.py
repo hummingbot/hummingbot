@@ -16,31 +16,31 @@ from typing import List, Optional
 import typer
 
 from hummingbot.cli.commands._common import one_type as _one_type, read_json_object_from_stdin
-from hummingbot.cli.output import ExitCode, SortedCommandsGroup, fail, print_json
+from hummingbot.cli.output import ExitCode, SortedCommandsGroup, cell, echo, fail, render_kv, render_table
 
 strategy_app = typer.Typer(
     cls=SortedCommandsGroup, no_args_is_help=True,
     help="Browse strategies and build their config files.")
 
 
-def _disambiguate(name: str, matches: List[str], what: str, json_output: bool) -> str:
+def _disambiguate(name: str, matches: List[str], what: str) -> str:
     """Turn a list of matching types into the single one, or fail clearly (none / collision)."""
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
         fail(f"'{name}' exists as {' and '.join(matches)} — disambiguate with "
-             f"{' / '.join('--' + m for m in matches)}", ExitCode.CONFIG_ERROR, json_output=json_output)
-    fail(f"{what} '{name}' not found", ExitCode.NOT_FOUND, json_output=json_output)
+             f"{' / '.join('--' + m for m in matches)}", ExitCode.CONFIG_ERROR)
+    fail(f"{what} '{name}' not found", ExitCode.NOT_FOUND)
 
 
-def _resolve_strategy_type(name: str, v1: bool, v2: bool, controller: bool, json_output: bool) -> str:
+def _resolve_strategy_type(name: str, v1: bool, v2: bool, controller: bool) -> str:
     """Pick the strategy type: an explicit flag, else detect it from the name (v1/v2/controller names
     are assumed unique; a genuine cross-type collision needs a flag)."""
     from hummingbot.cli.strategy_configs import matching_strategy_types
-    explicit = _one_type(v1, v2, controller, json_output, required=False)
+    explicit = _one_type(v1, v2, controller, required=False)
     if explicit:
         return explicit
-    return _disambiguate(name, matching_strategy_types(name), "strategy", json_output)
+    return _disambiguate(name, matching_strategy_types(name), "strategy")
 
 
 # --- strategies (creatable types) -------------------------------------------------------------
@@ -50,20 +50,13 @@ def list_cmd(
     v1: bool = typer.Option(False, "--v1-strategy"),
     v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """List the strategies you can create configs from."""
     from hummingbot.cli.strategy_configs import STRATEGY_TYPES, available_sources
-    stype = _one_type(v1, v2, controller, json_output, required=False)
+    stype = _one_type(v1, v2, controller, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
-    catalog = {t: available_sources(t) for t in types}
-    if json_output:
-        print_json({"ok": True, "strategies": catalog})
-    else:
-        for t in types:
-            typer.echo(f"\n{t}:")
-            for name in catalog[t]:
-                typer.echo(f"  {name}")
+    rows = [{"type": t, "strategy": name} for t in types for name in available_sources(t)]
+    echo(render_table(rows, columns=["type", "strategy"], title="strategies"))
 
 
 @strategy_app.command("show")
@@ -72,40 +65,35 @@ def show_cmd(
     v1: bool = typer.Option(False, "--v1-strategy"),
     v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Show a strategy's fields and which ones you must fill in."""
     from hummingbot.cli.strategy_configs import describe_strategy
-    stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
+    stype = _resolve_strategy_type(strategy, v1, v2, controller)
     try:
         # show is read-only preview: don't mint a real controller id (would look meaningful but isn't).
         data, required, updatable = describe_strategy(stype, strategy, scaffold_id=False)
     except Exception as e:
-        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
-    if json_output:
-        print_json({"ok": True, "type": stype, "strategy": strategy,
-                    "required": required, "live_fields": sorted(updatable), "fields": data})
-    else:
-        typer.echo(f"{stype}: {strategy}")
-        for k, val in data.items():
-            marks = "".join([" (required)" if k in required else "", " (live)" if k in updatable else ""])
-            typer.echo(f"  {k} = {val}{marks}")
+        fail(str(e), ExitCode.CONFIG_ERROR)
+    rows = [{"field": k, "value": cell(val), "required": k in required, "live": k in updatable}
+            for k, val in data.items()]
+    echo(render_table(rows, columns=["field", "value", "required", "live"],
+                      title=f"{stype}: {strategy}"))
 
 
 _START_FLAG = {"v1-strategy": "--v1-strategy", "v2-script": "--v2-script", "controller": "--controller"}
 
 
-def _collect_values(set_values: Optional[List[str]], values_stdin: bool, json_output: bool) -> dict:
+def _collect_values(set_values: Optional[List[str]], values_stdin: bool) -> dict:
     """Merge field values from --set pairs and/or a JSON object on stdin (stdin first, --set wins)."""
     from hummingbot.cli.strategy_configs import parse_set_pairs
     values: dict = {}
     if values_stdin:
-        values.update(read_json_object_from_stdin(json_output))
+        values.update(read_json_object_from_stdin())
     if set_values:
         try:
             values.update(parse_set_pairs(set_values))
         except ValueError as e:
-            fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
+            fail(str(e), ExitCode.CONFIG_ERROR)
     return values
 
 
@@ -119,8 +107,7 @@ def create_cmd(
     set_values: Optional[List[str]] = typer.Option(
         None, "--set", help="Fill a field inline: --set key=value (repeatable). Fill the required fields here to create a ready-to-run config in one call."),
     values_stdin: bool = typer.Option(
-        False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it (bulk fill; pairs with `strategy show --json`)."),
-    json_output: bool = typer.Option(False, "--json"),
+        False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it (bulk fill; pairs with `strategy show`)."),
 ) -> None:
     """Create a config from a strategy, optionally filling in fields.
 
@@ -135,15 +122,15 @@ def create_cmd(
         normalize_config_name,
         suggest_free_name,
     )
-    stype = _resolve_strategy_type(strategy, v1, v2, controller, json_output)
+    stype = _resolve_strategy_type(strategy, v1, v2, controller)
     try:
         data, required, _ = describe_strategy(stype, strategy)
     except Exception as e:
-        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(str(e), ExitCode.CONFIG_ERROR)
 
-    values = _collect_values(set_values, values_stdin, json_output)
+    values = _collect_values(set_values, values_stdin)
     # A controller's id is always generated by the scaffold; ignore any user-supplied one (e.g. piping
-    # `show --json`, whose id is a placeholder) so we never persist a bogus/duplicate id.
+    # `show`, whose id is a placeholder) so we never persist a bogus/duplicate id.
     if stype == "controller":
         values.pop("id", None)
 
@@ -155,30 +142,27 @@ def create_cmd(
         suggestion = suggest_free_name(out_name)
         if name:
             fail(f"'{out_name}' already exists as a {' and '.join(collisions)} config — config names must "
-                 f"be unique across types. Try --name {suggestion}", ExitCode.CONFIG_ERROR, json_output=json_output)
+                 f"be unique across types. Try --name {suggestion}", ExitCode.CONFIG_ERROR)
         out_name = suggestion
 
     try:
         remaining = fill_template(data, required, stype, values)
     except Exception as e:
-        fail(f"invalid field value: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"invalid field value: {e}", ExitCode.CONFIG_ERROR)
 
     try:
         create_config_file(stype, out_name, data)
     except FileExistsError as e:
-        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(str(e), ExitCode.CONFIG_ERROR)
 
-    ready = not remaining
-    if json_output:
-        print_json({"ok": True, "type": stype, "file": out_name, "applied": sorted(values),
-                    "required_remaining": remaining, "ready": ready})
+    record = {"type": stype, "file": out_name, "applied": ", ".join(sorted(values)),
+              "ready": not remaining}
+    if remaining:
+        record["required_remaining"] = ", ".join(remaining)
+        record["next"] = f"hbot strategy set {out_name} {remaining[0]} <value>"
     else:
-        typer.echo(f"Created {stype}/{out_name}")
-        if remaining:
-            typer.echo(f"Fill required fields: {', '.join(remaining)}")
-            typer.echo(f"  e.g. hbot strategy set {out_name} {remaining[0]} <value>")
-        else:
-            typer.echo(f"Ready to start: hbot start {out_name} {_START_FLAG[stype]}")
+        record["next"] = f"hbot start {out_name} {_START_FLAG[stype]}"
+    echo(render_kv(record, title=f"created {stype}/{out_name}"))
 
 
 @strategy_app.command("clone")
@@ -192,7 +176,6 @@ def clone_cmd(
         None, "--set", help="Change a field in the clone: --set key=value (repeatable)."),
     values_stdin: bool = typer.Option(
         False, "--values-stdin", help="Read a JSON object {field: value} from stdin and apply it to the clone."),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Copy a config to a new name, optionally changing fields.
 
@@ -205,9 +188,9 @@ def clone_cmd(
         normalize_config_name,
         suggest_free_name,
     )
-    stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), source, json_output)
+    stype = _resolve(_one_type(v1, v2, controller, required=False), source)
 
-    values = _collect_values(set_values, values_stdin, json_output)
+    values = _collect_values(set_values, values_stdin)
     if stype == "controller":
         values.pop("id", None)  # the clone always gets a freshly minted id
 
@@ -217,36 +200,32 @@ def clone_cmd(
         suggestion = suggest_free_name(out_name)
         if name:
             fail(f"'{out_name}' already exists as a {' and '.join(collisions)} config — config names must "
-                 f"be unique across types. Try --name {suggestion}", ExitCode.CONFIG_ERROR, json_output=json_output)
+                 f"be unique across types. Try --name {suggestion}", ExitCode.CONFIG_ERROR)
         out_name = suggestion  # default name == source, so roll forward to the next free name
 
     try:
         new_id = clone_config(stype, source, out_name, values)
     except Exception as e:
-        fail(f"clone failed: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"clone failed: {e}", ExitCode.CONFIG_ERROR)
 
-    if json_output:
-        print_json({"ok": True, "type": stype, "source": source, "file": out_name,
-                    "applied": sorted(values), "new_id": new_id})
-    else:
-        typer.echo(f"Cloned {stype}/{source} → {out_name}")
-        if values:
-            typer.echo(f"Changed: {', '.join(sorted(values))}")
-        typer.echo(f"Ready to start: hbot start {out_name} {_START_FLAG[stype]}")
+    record = {"type": stype, "source": source, "file": out_name,
+              "changed": ", ".join(sorted(values)), "new_id": new_id,
+              "next": f"hbot start {out_name} {_START_FLAG[stype]}"}
+    echo(render_kv(record, title=f"cloned {stype}/{source} -> {out_name}"))
 
 
 # --- configs (concrete files) -----------------------------------------------------------------
 
-def _resolve(stype: Optional[str], file: str, json_output: bool) -> str:
+def _resolve(stype: Optional[str], file: str) -> str:
     """Resolve a config file's type: an explicit flag, else which conf dir holds it. Thin fail()-mapper
     over the shared ``resolve_config_type`` so every filename command resolves types identically."""
     from hummingbot.cli.strategy_configs import resolve_config_type
     try:
         return resolve_config_type(file, stype)
     except FileNotFoundError as e:
-        fail(str(e), ExitCode.NOT_FOUND, json_output=json_output)
+        fail(str(e), ExitCode.NOT_FOUND)
     except ValueError as e:
-        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(str(e), ExitCode.CONFIG_ERROR)
 
 
 @strategy_app.command("list-configs")
@@ -254,20 +233,13 @@ def list_configs_cmd(
     v1: bool = typer.Option(False, "--v1-strategy"),
     v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """List your saved config files."""
     from hummingbot.cli.strategy_configs import STRATEGY_TYPES, list_configs
-    stype = _one_type(v1, v2, controller, json_output, required=False)
+    stype = _one_type(v1, v2, controller, required=False)
     types: List[str] = [stype] if stype else list(STRATEGY_TYPES)
-    listing = {t: list_configs(t) for t in types}
-    if json_output:
-        print_json({"ok": True, "configs": listing})
-    else:
-        for t in types:
-            typer.echo(f"\n{t}:")
-            for name in listing[t]:
-                typer.echo(f"  {name}")
+    rows = [{"type": t, "config": name} for t in types for name in list_configs(t)]
+    echo(render_table(rows, columns=["type", "config"], title="configs"))
 
 
 @strategy_app.command("show-config")
@@ -276,21 +248,15 @@ def show_config_cmd(
     v1: bool = typer.Option(False, "--v1-strategy"),
     v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Show the contents of a config file."""
     from hummingbot.cli.strategy_configs import config_path, read_yaml, updatable_for
-    stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
+    stype = _resolve(_one_type(v1, v2, controller, required=False), file)
     path = config_path(stype, file)
     data = read_yaml(path)
     updatable = updatable_for(stype, path)
-    if json_output:
-        print_json({"ok": True, "type": stype, "file": file,
-                    "updatable_fields": sorted(updatable), "config": data})
-    else:
-        typer.echo(f"{stype}: {file}")
-        for k, val in data.items():
-            typer.echo(f"  {k} = {val}{'  (live)' if k in updatable else ''}")
+    rows = [{"field": k, "value": cell(val), "live": k in updatable} for k, val in data.items()]
+    echo(render_table(rows, columns=["field", "value", "live"], title=f"{stype}: {file}"))
 
 
 @strategy_app.command("set")
@@ -301,19 +267,16 @@ def set_cmd(
     v1: bool = typer.Option(False, "--v1-strategy"),
     v2: bool = typer.Option(False, "--v2-script"),
     controller: bool = typer.Option(False, "--controller"),
-    json_output: bool = typer.Option(False, "--json"),
 ) -> None:
     """Change a field in a config file."""
     from hummingbot.cli.strategy_configs import config_path, edit_config
-    stype = _resolve(_one_type(v1, v2, controller, json_output, required=False), file, json_output)
+    stype = _resolve(_one_type(v1, v2, controller, required=False), file)
     path = config_path(stype, file)
     try:
         new_value, _ = edit_config(path, stype, key, value)
     except KeyError:
-        fail(f"key '{key}' not found in {file}", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"key '{key}' not found in {file}", ExitCode.CONFIG_ERROR)
     except Exception as e:
-        fail(f"value rejected: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
-    if json_output:
-        print_json({"ok": True, "type": stype, "file": file, "key": key, "value": new_value})
-    else:
-        typer.echo(f"{key} = {new_value}  (saved to {stype}/{file})")
+        fail(f"value rejected: {e}", ExitCode.CONFIG_ERROR)
+    echo(render_kv({"key": key, "value": new_value, "saved_to": f"{stype}/{file}"},
+                   title=f"set {file}"))

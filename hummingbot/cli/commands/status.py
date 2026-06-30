@@ -4,10 +4,8 @@ import signal
 import time
 from typing import Any, Dict
 
-import typer
-
 from hummingbot.cli import bot
-from hummingbot.cli.output import print_json
+from hummingbot.cli.output import echo, render_kv
 
 # How long `hbot status` waits for the engine to write a fresh snapshot after SIGUSR1.
 REFRESH_TIMEOUT = 5.0
@@ -45,18 +43,13 @@ def _request_fresh_snapshot(timeout: float = REFRESH_TIMEOUT) -> None:
         time.sleep(0.1)
 
 
-def status(
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
-) -> None:
+def status() -> None:
     """Show the bot's run state, live status, and errors."""
     # Unlike stop/logs/trades/history/update (which exit NOT_FOUND when there's no bot), `status` is a
     # poll: "is anything running?" is a valid question with a valid answer, so "no bot" is success
     # (exit 0, running=false) — a harness can poll status without treating the empty state as an error.
     if not bot.exists():
-        if json_output:
-            print_json({"ok": True, "running": False, "note": "no bot started"})
-        else:
-            typer.echo("No bot started. Run `hbot start <config>`.")
+        echo(render_kv({"running": False, "note": "no bot started"}, title="status"))
         return
 
     _request_fresh_snapshot()
@@ -71,26 +64,23 @@ def status(
     uptime = (time.time() - started_at) if (running and started_at) else None
     errors = _recent_log_errors()
 
-    if json_output:
-        print_json({"ok": True, "name": name, "running": running, "pid": bot.read_pid(),
-                    "strategy_name": strategy_name, "uptime_seconds": uptime,
-                    "snapshot_age_seconds": snapshot_age, "engine": snapshot.get("engine"),
-                    "recent_errors": errors, "balances": snapshot.get("balances"),
-                    "format_status": snapshot.get("format_status")})
-        return
-
-    typer.echo(f"Bot:       {name}")
-    typer.echo(f"State:     {'running' if running else 'stopped'} (pid {bot.read_pid() or '-'})")
-    typer.echo(f"Strategy:  {strategy_name or '-'}")
+    fields = {
+        "name": name,
+        "state": "running" if running else "stopped",
+        "pid": bot.read_pid() or "-",
+        "strategy": strategy_name or "-",
+    }
     if uptime:
-        typer.echo(f"Uptime:    {uptime:.0f}s")
+        fields["uptime"] = f"{uptime:.0f}s"
     if snapshot_age is not None:
-        typer.echo(f"Snapshot:  {snapshot_age:.0f}s ago")
+        fields["snapshot"] = f"{snapshot_age:.0f}s ago"
     # Surface a running-but-broken bot: process is alive but the strategy is logging errors.
     if errors["count"]:
         last = errors["messages"][-1] if errors["messages"] else ""
-        typer.echo(f"Errors:    {errors['count']} in last {errors['window']} log lines — last: {last[:120]}"
-                   f"\n           (run `hbot logs` for detail)")
+        fields["errors"] = (f"{errors['count']} in last {errors['window']} log lines — last: "
+                            f"{last[:120]} (run `hbot logs` for detail)")
+    echo(render_kv(fields, title="status"))
+
     text = snapshot.get("format_status")
     if text:
-        typer.echo("\n" + text)
+        echo("\n" + text)

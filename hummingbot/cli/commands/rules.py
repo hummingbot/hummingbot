@@ -9,7 +9,7 @@ from typing import List, Tuple
 
 import typer
 
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_kv
 from hummingbot.cli.password import login
 
 
@@ -30,41 +30,14 @@ def _rule_dict(rule) -> dict:
     }
 
 
-async def _run(ccm, exchange: str, pair: str, timeout: float, json_output: bool) -> Tuple[dict, str, List[str]]:
+async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str, List[str]]:
     from hummingbot.cli.commands._market_data import make_connector, resolve_or_fail, trading_rules_universe
-    conn = await make_connector(ccm, exchange, [], json_output)
+    conn = await make_connector(ccm, exchange, [])
     rules = await asyncio.wait_for(trading_rules_universe(conn), timeout)
     if not rules:
-        fail(f"{exchange} returned no trading rules", ExitCode.ERROR, json_output=json_output)
-    matched, alts = resolve_or_fail(list(rules.keys()), pair, json_output)
+        fail(f"{exchange} returned no trading rules", ExitCode.ERROR)
+    matched, alts = resolve_or_fail(list(rules.keys()), pair)
     return _rule_dict(rules[matched]), matched, alts
-
-
-def _render(rule: dict, matched: str, query: str, alts: List[str]) -> str:
-    lines = [f"  {matched}  ({rule['trading_pair']})"]
-    if matched.upper() != query.upper().replace("_", "-").replace("/", "-"):
-        lines[0] += f"   [fuzzy-matched from '{query}']"
-    rows = [
-        ("min order size", rule["min_order_size"], "base"),
-        ("max order size", rule["max_order_size"], "base"),
-        ("min notional", rule["min_notional_size"], "quote"),
-        ("min order value", rule["min_order_value"], "quote"),
-        ("price increment (tick)", rule["min_price_increment"], ""),
-        ("base step (amount)", rule["min_base_amount_increment"], ""),
-        ("quote step", rule["min_quote_amount_increment"], ""),
-    ]
-    for label, val, unit in rows:
-        if val is not None:
-            lines.append(f"    {label:24} {val:<20g} {unit}")
-    types = []
-    if rule["supports_limit_orders"]:
-        types.append("limit")
-    if rule["supports_market_orders"]:
-        types.append("market")
-    lines.append(f"    {'order types':24} {', '.join(types) or 'unknown'}")
-    if alts:
-        lines.append(f"\n  also matched: {', '.join(alts)}")
-    return "\n".join(lines)
 
 
 def rules(
@@ -72,18 +45,20 @@ def rules(
     pair: str = typer.Argument(..., help="Trading pair (fuzzy), e.g. ETH-USD, spcx/usd, xyz:tsla-usd."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show an exchange's trading rules for a pair (min size, min notional, tick/step sizes)."""
-    ccm, _ = login(password_stdin=password_stdin, json_output=json_output)
+    from hummingbot.cli.commands._market_data import _norm
+    ccm, _ = login(password_stdin=password_stdin)
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     try:
-        rule, matched, alts = asyncio.run(_run(ccm, exchange, pair, timeout, json_output))
+        rule, matched, alts = asyncio.run(_run(ccm, exchange, pair, timeout))
     except asyncio.TimeoutError:
-        fail("network timeout fetching trading rules", ExitCode.TIMEOUT, json_output=json_output)
+        fail("network timeout fetching trading rules", ExitCode.TIMEOUT)
 
-    if json_output:
-        print_json({"ok": True, "exchange": exchange, "query": pair, "matched": matched,
-                    "alternatives": alts, "rule": rule})
-    else:
-        typer.echo(_render(rule, matched, pair, alts))
+    title = f"rules {matched} ({exchange})"
+    if matched.upper() != _norm(pair):
+        title += f" — fuzzy-matched from '{pair}'"
+    out = render_kv(rule, title=title)
+    if alts:
+        out += f"\n\nalso matched: {', '.join(alts)}"
+    echo(out)

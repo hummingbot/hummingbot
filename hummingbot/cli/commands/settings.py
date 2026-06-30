@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Optional
 
 import typer
 
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_kv, render_table
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -44,7 +44,6 @@ def settings(
         None, help="Setting key (dotted, e.g. mqtt_bridge.mqtt_host). Omit to list all."),
     value: Optional[str] = typer.Argument(
         None, help="New value to set. Omit to read the key."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """View or set global client settings (conf/conf_client.yml)."""
     from hummingbot.client.config.config_helpers import (
@@ -56,39 +55,29 @@ def settings(
     cm = load_client_config_map_from_file()
 
     if key is None:
-        data = {item.config_path: item.printable_value for item in _leaf_items(cm)}
-        if json_output:
-            print_json({"ok": True, "config": data})
-        else:
-            for k, v in data.items():
-                typer.echo(f"{k} = {v}")
+        rows = [{"key": item.config_path, "value": item.printable_value} for item in _leaf_items(cm)]
+        echo(render_table(rows, columns=["key", "value"], title="settings"))
         return
 
     if key not in set(cm.config_paths()):
         fail(f"unknown setting key '{key}' (run `hbot settings` to list)",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
+             ExitCode.CONFIG_ERROR)
 
     model, leaf = _navigate(cm, key)
     if isinstance(getattr(model, leaf), ClientConfigAdapter):
         fail(f"'{key}' is a section, not a value; specify a sub-key",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
+             ExitCode.CONFIG_ERROR)
 
     if value is None:
         item = _item_for(cm, key)
-        if json_output:
-            print_json({"ok": True, "key": key, "value": item.printable_value})
-        else:
-            typer.echo(f"{key} = {item.printable_value}")
+        echo(render_kv({"key": key, "value": item.printable_value}, title="settings"))
         return
 
     try:
         setattr(model, leaf, value)
     except Exception as e:
-        fail(f"invalid value for {key}: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"invalid value for {key}: {e}", ExitCode.CONFIG_ERROR)
     save_to_yml(CLIENT_CONFIG_PATH, cm)
 
     item = _item_for(cm, key)
-    if json_output:
-        print_json({"ok": True, "key": key, "value": item.printable_value})
-    else:
-        typer.echo(f"{key} = {item.printable_value}")
+    echo(render_kv({"key": key, "value": item.printable_value}, title="settings"))

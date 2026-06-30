@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import print_json
+from hummingbot.cli.output import echo
 
 PERF_TIMEOUT = 30.0
 
@@ -68,12 +68,11 @@ def _render_market(market: str, trading_pair: str, perf) -> str:
 def history(
     name: Optional[str] = typer.Argument(None, help="Bot name to view (a past/stopped bot). Omit for the current bot."),
     days: Optional[float] = typer.Option(None, "--days", help="Only include the last N days."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show profit, fees, and volume per market."""
     from hummingbot.cli.commands._common import resolve_db_for_command
     from hummingbot.cli.data import get_trades
-    db_path, config_filter, running = resolve_db_for_command(name, json_output)
+    db_path, config_filter, running = resolve_db_for_command(name)
     balances: dict = {}
     if name is None:
         # Fills/PnL come from sqlite (exact, fast). For current balances we REUSE the engine's last
@@ -88,30 +87,22 @@ def history(
 
     fills = get_trades(db_path, config_file_path=config_filter, days=days)
     if not fills:
-        if json_output:
-            print_json({"ok": True, "markets": []})
-        else:
-            typer.echo("No trades found.")
+        echo("No trades found.")
         return
 
     markets = asyncio.run(_compute(fills, balances))
 
-    if json_output:
-        clean = [{k: v for k, v in m.items() if k != "perf"} for m in markets]
-        print_json({"ok": True, "markets": clean})
-        return
-
     returns = []
     for m in markets:
         if m.get("error") or m.get("perf") is None:
-            typer.echo(f"\n{m['market']} / {m['trading_pair']}")
-            typer.echo(f"  ({m['num_trades']} trades) error: {m.get('error')}")
+            echo(f"\n{m['market']} / {m['trading_pair']}")
+            echo(f"  ({m['num_trades']} trades) error: {m.get('error')}")
             continue
-        typer.echo(_render_market(m["market"], m["trading_pair"], m["perf"]))
+        echo(_render_market(m["market"], m["trading_pair"], m["perf"]))
         if not m["balances_available"]:
             hint = "run `hbot status` to refresh" if running else "bot stopped"
-            typer.echo(f"  (current balances unavailable ({hint}) — realized PnL is exact; "
-                       f"current/unrealized values approximate)")
+            echo(f"  (current balances unavailable ({hint}) — realized PnL is exact; "
+                 f"current/unrealized values approximate)")
         returns.append(m["return_pct"])
     if len(returns) > 1:
-        typer.echo(f"\nAveraged Return = {sum(returns) / len(returns):.2f}%")
+        echo(f"\nAveraged Return = {sum(returns) / len(returns):.2f}%")

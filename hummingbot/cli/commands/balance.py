@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 import typer
 
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_table
 from hummingbot.cli.password import login
 
 
@@ -80,81 +80,54 @@ async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[
 
 
 def _render(result: Dict[str, dict], sym: str) -> str:
-    """Render like Hummingbot's ``balance``: per-exchange table + Total/Allocated, then Exchanges Total."""
-    import pandas as pd
-
+    """Render balances as per-exchange Markdown tables + a totals line."""
     from hummingbot.client.performance import PerformanceMetrics
     out: List[str] = []
     exchanges_total = Decimal("0")
     for ex, data in result.items():
-        out.append(f"\n{ex}:")
         assets = data["assets"]
         if not assets:
-            out.append("You have no balance on this exchange.")
+            out.append(f"## {ex}\n\n_(no balance)_")
             continue
-        df = pd.DataFrame([{
-            "Asset": a["asset"],
-            "Total": round(a["total"], 4),
-            f"Total ({sym})": PerformanceMetrics.smart_round(a["value"]),
-            "Allocated": a["allocated"],
-        } for a in assets])
-        out.append("\n".join("    " + line for line in df.to_string(index=False).split("\n")))
-        out.append(f"\n  Total: {sym} {PerformanceMetrics.smart_round(data['usd_total'])}")
+        rows = [{"asset": a["asset"], "total": float(a["total"]),
+                 f"value({sym})": float(a["value"]), "allocated": a["allocated"]} for a in assets]
         pct = (data["allocated_total"] / data["usd_total"]) if data["usd_total"] != Decimal("0") else 0
-        out.append(f"Allocated: {pct:.2%}")
+        out.append(render_table(rows, title=ex)
+                   + f"\n\ntotal: {sym}{PerformanceMetrics.smart_round(data['usd_total'])} | allocated: {pct:.2%}")
         exchanges_total += data["usd_total"]
-    out.append(f"\n\nExchanges Total: {sym} {exchanges_total:.0f}    ")
-    return "\n".join(out)
-
-
-def _to_json(result: Dict[str, dict], sym: str) -> dict:
-    exchanges_total = Decimal("0")
-    exchanges = {}
-    for ex, data in result.items():
-        exchanges_total += data["usd_total"]
-        pct = float(data["allocated_total"] / data["usd_total"]) if data["usd_total"] != Decimal("0") else 0.0
-        exchanges[ex] = {
-            "assets": [{"asset": a["asset"], "total": float(a["total"]), "available": float(a["available"]),
-                        "value": float(a["value"]), "allocated": a["allocated"]} for a in data["assets"]],
-            "total_value": float(data["usd_total"]),
-            "allocated_pct": pct,
-        }
-    return {"ok": True, "global_token": sym, "exchanges": exchanges, "total_value": float(exchanges_total)}
+    out.append(f"exchanges total: {sym}{exchanges_total:.2f}")
+    return "\n\n".join(out)
 
 
 def balance(
     exchange: Optional[str] = typer.Argument(None, help="Exchange to fetch. Omit for all connected exchanges."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show your exchange balances, with their value in USD."""
     from hummingbot.client.settings import AllConnectorSettings
-    ccm, password = login(password_stdin=password_stdin, json_output=json_output)
+    ccm, password = login(password_stdin=password_stdin)
 
     sym = ccm.global_token.global_token_symbol
     timeout = float(ccm.commands_timeout.other_commands_timeout)
-    if not json_output:
-        typer.echo("Updating balances, please wait...")
+    typer.echo("Updating balances, please wait...", err=True)
 
     if exchange is not None:
         if exchange not in AllConnectorSettings.get_connector_settings():
-            fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR, json_output=json_output)
+            fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
         try:
             result, err = asyncio.run(_fetch_one(ccm, exchange, timeout))
         except asyncio.TimeoutError:
-            fail("network timeout fetching balances", ExitCode.TIMEOUT, json_output=json_output)
+            fail("network timeout fetching balances", ExitCode.TIMEOUT)
         if err is not None:
-            fail(f"{exchange}: {err}", ExitCode.ERROR, json_output=json_output)
+            fail(f"{exchange}: {err}", ExitCode.ERROR)
     else:
         try:
             result = asyncio.run(_fetch_all(ccm, timeout))
         except asyncio.TimeoutError:
-            fail("network timeout fetching balances", ExitCode.TIMEOUT, json_output=json_output)
+            fail("network timeout fetching balances", ExitCode.TIMEOUT)
 
-    if json_output:
-        print_json(_to_json(result, sym))
-    elif not result:
-        typer.echo("No balances (no connected exchanges, or all balances are zero).")
+    if not result:
+        echo("No balances (no connected exchanges, or all balances are zero).")
     else:
-        typer.echo(_render(result, sym))
+        echo(_render(result, sym))

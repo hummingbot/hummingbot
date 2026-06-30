@@ -11,7 +11,7 @@ import typer
 
 from hummingbot import prefix_path
 from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_kv
 from hummingbot.cli.password import login
 
 
@@ -21,7 +21,7 @@ def _log_tail(lines: int = 20) -> str:
     return "\n".join(combined[-lines:])
 
 
-def _replace_running(timeout: float, json_output: bool) -> None:
+def _replace_running(timeout: float) -> None:
     """Gracefully stop the currently-running bot (so --replace can start a new one)."""
     pid = bot.read_pid()
     if pid is None:
@@ -38,7 +38,7 @@ def _replace_running(timeout: float, json_output: bool) -> None:
             return
         time.sleep(0.5)
     fail(f"--replace: the running bot (pid {pid}) did not stop within {timeout:g}s; "
-         f"run `hbot stop --force` and retry", ExitCode.TIMEOUT, json_output=json_output)
+         f"run `hbot stop --force` and retry", ExitCode.TIMEOUT)
 
 
 def start(
@@ -56,7 +56,6 @@ def start(
     auto_set_permissions: Optional[str] = typer.Option(
         None, "--auto-set-permissions", help="user:group to chown conf/data/logs (Docker)."),
     timeout: float = typer.Option(120.0, "--timeout", help="Seconds to wait for the bot to start."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Start a bot from a config file (type auto-detected).
 
@@ -74,17 +73,17 @@ def start(
         wrap_controller_as_v2,
     )
     try:
-        stype = resolve_config_type(file, one_type(v1, v2, controller, json_output, required=False))
+        stype = resolve_config_type(file, one_type(v1, v2, controller, required=False))
     except FileNotFoundError as e:
-        fail(str(e), ExitCode.NOT_FOUND, json_output=json_output)
+        fail(str(e), ExitCode.NOT_FOUND)
     except ValueError as e:
-        fail(str(e), ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(str(e), ExitCode.CONFIG_ERROR)
 
     if bot.running():
         if not replace:
             fail(f"a bot is already running (pid {bot.read_pid()}); stop it first or pass --replace "
-                 f"(one bot per install)", ExitCode.ERROR, json_output=json_output)
-        _replace_running(timeout=30.0, json_output=json_output)
+                 f"(one bot per install)", ExitCode.ERROR)
+        _replace_running(timeout=30.0)
 
     # Map the selected type to what the engine consumes. A controller can't run standalone, so generate
     # a v2 loader config and run that; the loader's stem becomes the bot's DB/log name.
@@ -98,7 +97,7 @@ def start(
         try:
             validate_controller(config_path("controller", file))
         except Exception as e:
-            fail(f"invalid controller config: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+            fail(f"invalid controller config: {e}", ExitCode.CONFIG_ERROR)
         v2_conf = wrap_controller_as_v2(file)
 
     # The bot's name == the strategy file Hummingbot runs (the loader for controllers); this is what
@@ -107,7 +106,7 @@ def start(
 
     # Resolve and validate the password up front so failures are immediate (not buried in the
     # detached log). The password is passed to the child via env, never on argv.
-    _, password = login(password_stdin=password_stdin, json_output=json_output)
+    _, password = login(password_stdin=password_stdin)
 
     bot.bot_dir().mkdir(parents=True, exist_ok=True)
     bot.write_meta({
@@ -139,10 +138,10 @@ def start(
         os.chdir(prefix_path())
         os.execve(sys.executable, cmd, env)  # never returns
 
-    _spawn_detached(cmd, env, name, timeout, json_output)
+    _spawn_detached(cmd, env, name, timeout)
 
 
-def _spawn_detached(cmd: list, env: dict, name: str, timeout: float, json_output: bool) -> None:
+def _spawn_detached(cmd: list, env: dict, name: str, timeout: float) -> None:
     """Launch the engine detached, wait until its strategy is running, and report — or fail with the
     recent log if it exits during startup / times out."""
     log_handle = open(bot.log_file(), "wb")  # fresh per run (startup/uncaught only)
@@ -158,16 +157,13 @@ def _spawn_detached(cmd: list, env: dict, name: str, timeout: float, json_output
         if proc.poll() is not None:
             bot.clear_pid()
             fail(f"bot exited during startup (rc={proc.returncode}). Recent log:\n{_log_tail()}",
-                 ExitCode.ERROR, json_output=json_output)
+                 ExitCode.ERROR)
         engine = (bot.read_status() or {}).get("engine") or {}
         if engine.get("strategy_running"):
             break
         time.sleep(1.0)
     else:
         fail(f"timed out after {timeout:g}s waiting for the bot to start (pid {proc.pid} still booting)",
-             ExitCode.TIMEOUT, json_output=json_output)
+             ExitCode.TIMEOUT)
 
-    if json_output:
-        print_json({"ok": True, "name": name, "pid": proc.pid, "status": "running"})
-    else:
-        typer.echo(f"Started '{name}' (pid {proc.pid}). Use `hbot status` to monitor, `hbot stop` to stop.")
+    echo(render_kv({"name": name, "pid": proc.pid, "status": "running"}, title="start"))

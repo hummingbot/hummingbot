@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import typer
 
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_kv, render_table
 from hummingbot.cli.password import login, resolve_password
 
 if TYPE_CHECKING:
@@ -39,68 +39,50 @@ def _prompt_text(item: Any, cfg: "ClientConfigAdapter") -> str:
     return prompt or item.attr
 
 
-def _list_all(json_output: bool) -> None:
+def _list_all() -> None:
     """Static checklist of every connectable exchange (no password / network needed)."""
     from hummingbot.client.config.security import Security
     rows = [{"exchange": name, "keys_added": Security.connector_config_file_exists(name)}
             for name in _connectable_exchanges()]
-    if json_output:
-        print_json({"ok": True, "exchanges": rows})
-        return
-    for r in rows:
-        typer.echo(f" [{'x' if r['keys_added'] else ' '}] {r['exchange']}")
+    echo(render_table(rows, columns=["exchange", "keys_added"], title="connectable exchanges"))
 
 
-def _show_connections(ccm, json_output: bool, password_stdin: bool) -> None:
+def _show_connections(ccm, password_stdin: bool) -> None:
     """Hummingbot-style ``connect`` table: tests the keys you've added and reports Keys Confirmed."""
-    import pandas as pd
-
     from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
     from hummingbot.client.config.security import Security
-    from hummingbot.client.ui.interface_utils import format_df_for_printout
     from hummingbot.user.user_balances import UserBalances
     keyed = [name for name in _connectable_exchanges() if Security.connector_config_file_exists(name)]
     if not keyed:
-        if json_output:
-            print_json({"ok": True, "connections": []})
-        else:
-            typer.echo("No exchanges connected. Run `hbot connect <exchange>` to add keys, "
-                       "or `hbot connect --all` to list connectable exchanges.")
+        echo("No exchanges connected. Run `hbot connect <exchange>` to add keys, "
+             "or `hbot connect --all` to list connectable exchanges.")
         return
 
-    password = resolve_password(password_stdin=password_stdin, json_output=json_output)
+    password = resolve_password(password_stdin=password_stdin)
     if not Security.login(ETHKeyFileSecretManger(password)):
-        fail("invalid password", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail("invalid password", ExitCode.CONFIG_ERROR)
 
-    if not json_output:
-        typer.echo("\nTesting connections, please wait...")
+    typer.echo("Testing connections, please wait...", err=True)
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     try:
         err_msgs = asyncio.run(asyncio.wait_for(
             UserBalances.instance().update_exchanges(ccm, reconnect=True, exchanges=keyed), timeout))
     except asyncio.TimeoutError:
-        fail("network timeout testing connections", ExitCode.TIMEOUT, json_output=json_output)
+        fail("network timeout testing connections", ExitCode.TIMEOUT)
 
-    rows, data = [], []
+    rows = []
     for ex in keyed:
         err = err_msgs.get(ex)
-        confirmed = err is None
-        rows.append({"exchange": ex, "keys_added": True, "keys_confirmed": confirmed, "error": err})
-        data.append([ex, "Yes", "Yes" if confirmed else "No"])
-
-    if json_output:
-        print_json({"ok": True, "connections": rows})
-        return
-    df = pd.DataFrame(data=data, columns=["Exchange", "  Keys Added", "  Keys Confirmed"])
-    lines = ["    " + line for line in format_df_for_printout(df, ccm.tables_format).split("\n")]
-    typer.echo("\n".join(lines))
+        rows.append({"exchange": ex, "keys_added": True, "keys_confirmed": err is None, "error": err})
+    echo(render_table(rows, columns=["exchange", "keys_added", "keys_confirmed", "error"],
+                      title="connections"))
 
 
 def _collect_key_values(fields: List[Any], cfg: "ClientConfigAdapter",
-                        keys_stdin: bool, json_output: bool) -> Dict[str, str]:
+                        keys_stdin: bool) -> Dict[str, str]:
     if keys_stdin or not sys.stdin.isatty():
         from hummingbot.cli.commands._common import read_json_object_from_stdin
-        payload = read_json_object_from_stdin(json_output)
+        payload = read_json_object_from_stdin()
         values, missing = {}, []
         for f in fields:
             if f.attr in payload:
@@ -109,7 +91,7 @@ def _collect_key_values(fields: List[Any], cfg: "ClientConfigAdapter",
                 missing.append(f.attr)
         if missing:
             fail(f"missing required fields on stdin: {', '.join(missing)}",
-                 ExitCode.CONFIG_ERROR, json_output=json_output)
+                 ExitCode.CONFIG_ERROR)
         return values
 
     values = {}
@@ -128,7 +110,6 @@ def connect(
     show_all: bool = typer.Option(False, "--all", help="List every connectable exchange (no key test)."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Show connections or add an exchange's API keys."""
     from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file
@@ -137,48 +118,41 @@ def connect(
 
     if exchange is None:
         if show_all:
-            _list_all(json_output)
+            _list_all()
         else:
-            _show_connections(load_client_config_map_from_file(), json_output, password_stdin)
+            _show_connections(load_client_config_map_from_file(), password_stdin)
         return
 
     if exchange not in _connectable_exchanges():
         fail(f"unknown exchange '{exchange}' (run `hbot connect` to list)",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
+             ExitCode.CONFIG_ERROR)
 
     config_keys = AllConnectorSettings.get_connector_config_keys(exchange)
     if config_keys is None:
-        fail(f"'{exchange}' does not use API keys", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"'{exchange}' does not use API keys", ExitCode.CONFIG_ERROR)
     cfg = ClientConfigAdapter(config_keys)
     fields = _connect_key_fields(cfg)
 
     if show_fields:
         described = [{"field": f.attr, "prompt": _prompt_text(f, cfg),
                       "secret": bool(f.client_field_data.is_secure)} for f in fields]
-        if json_output:
-            print_json({"ok": True, "exchange": exchange, "fields": described})
-        else:
-            typer.echo(f"Required fields for {exchange}:")
-            for d in described:
-                typer.echo(f"  {d['field']}{' (secret)' if d['secret'] else ''} — {d['prompt']}")
+        echo(render_table(described, columns=["field", "secret", "prompt"],
+                          title=f"key fields for {exchange}"))
         return
 
     if Security.connector_config_file_exists(exchange) and not replace:
         fail(f"keys for '{exchange}' already exist; pass --replace to overwrite",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
+             ExitCode.CONFIG_ERROR)
 
-    values = _collect_key_values(fields, cfg, keys_stdin, json_output)
+    values = _collect_key_values(fields, cfg, keys_stdin)
 
-    login(password_stdin=False, json_output=json_output)
+    login(password_stdin=False)
 
     for attr, value in values.items():
         try:
             setattr(cfg, attr, value)
         except Exception as e:
-            fail(f"invalid value for {attr}: {e}", ExitCode.CONFIG_ERROR, json_output=json_output)
+            fail(f"invalid value for {attr}: {e}", ExitCode.CONFIG_ERROR)
     Security.update_secure_config(cfg)
 
-    if json_output:
-        print_json({"ok": True, "exchange": exchange, "fields_set": list(values.keys())})
-    else:
-        typer.echo(f"Stored encrypted keys for {exchange}.")
+    echo(render_kv({"exchange": exchange, "fields_set": ", ".join(values.keys())}, title="connect"))

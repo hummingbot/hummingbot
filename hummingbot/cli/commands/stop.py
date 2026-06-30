@@ -6,22 +6,21 @@ import time
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, fail, print_json
+from hummingbot.cli.output import ExitCode, echo, fail, render_kv
 
 
 def stop(
     timeout: float = typer.Option(30.0, "--timeout", help="Seconds to wait for graceful shutdown."),
     force: bool = typer.Option(False, "--force", help="SIGKILL if still alive after timeout."),
-    json_output: bool = typer.Option(False, "--json", help="Machine-readable JSON output."),
 ) -> None:
     """Stop the bot gracefully, cancelling its open orders."""
     if not bot.exists():
-        fail("no bot has been started", ExitCode.NOT_FOUND, json_output=json_output)
+        fail("no bot has been started", ExitCode.NOT_FOUND)
 
     pid = bot.read_pid()
     if pid is None or not bot.pid_alive(pid):
         bot.clear_pid()
-        fail("the bot is not running", ExitCode.NOT_RUNNING, json_output=json_output)
+        fail("the bot is not running", ExitCode.NOT_RUNNING)
 
     os.kill(pid, signal.SIGTERM)
 
@@ -39,10 +38,7 @@ def stop(
             killed = True
         else:
             fail(f"the bot did not stop within {timeout:g}s (use --force to SIGKILL)",
-                 ExitCode.TIMEOUT, json_output=json_output)
+                 ExitCode.TIMEOUT)
 
     bot.clear_pid()
-    if json_output:
-        print_json({"ok": True, "stopped": True, "killed": killed})
-    else:
-        typer.echo("Stopped the bot." + (" (force-killed)" if killed else ""))
+    echo(render_kv({"stopped": True, "killed": killed}, title="stop"))

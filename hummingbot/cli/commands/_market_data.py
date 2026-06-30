@@ -45,19 +45,19 @@ def fuzzy_match_pair(candidates: List[str], query: str) -> Tuple[Optional[str], 
     return None, []
 
 
-async def make_connector(ccm, exchange: str, trading_pairs: List[str], json_output: bool):
+async def make_connector(ccm, exchange: str, trading_pairs: List[str]):
     """Build a read-only connector for ``exchange``, using stored keys if the exchange is connected."""
     from hummingbot.client.config.security import Security
     from hummingbot.client.settings import AllConnectorSettings
     from hummingbot.core.connector_manager import ConnectorManager
     if exchange not in AllConnectorSettings.get_connector_settings():
-        fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR, json_output=json_output)
+        fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
     await Security.wait_til_decryption_done()
     try:
         return ConnectorManager(ccm).create_connector(exchange, trading_pairs, trading_required=False)
     except ValueError:
         fail(f"no API keys stored for '{exchange}' — run `hbot connect {exchange}` first",
-             ExitCode.CONFIG_ERROR, json_output=json_output)
+             ExitCode.CONFIG_ERROR)
 
 
 async def trading_rules_universe(connector) -> dict:
@@ -71,7 +71,7 @@ async def all_pairs(connector) -> List[str]:
     return await connector.all_trading_pairs()
 
 
-def resolve_or_fail(candidates: List[str], query: str, json_output: bool) -> Tuple[str, List[str]]:
+def resolve_or_fail(candidates: List[str], query: str) -> Tuple[str, List[str]]:
     """Fuzzy-resolve ``query`` to a real pair, or fail NOT_FOUND with the closest suggestions."""
     best, alts = fuzzy_match_pair(candidates, query)
     if best is None:
@@ -79,7 +79,7 @@ def resolve_or_fail(candidates: List[str], query: str, json_output: bool) -> Tup
         msg = f"no trading pair matches '{query}'"
         if close:
             msg += f" (closest: {close})"
-        fail(msg, ExitCode.NOT_FOUND, json_output=json_output)
+        fail(msg, ExitCode.NOT_FOUND)
     return best, alts
 
 
