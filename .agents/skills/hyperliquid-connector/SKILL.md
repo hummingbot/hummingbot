@@ -107,7 +107,7 @@ dex-prefixed markets — `spcx` or `xyz:spcx-usd` → `XYZ:SPCX-USD`):
 ```bash
 hbot rules hyperliquid_perpetual eth-usd      # min order size, min notional ($10), tick/step sizes
 hbot ticker hyperliquid_perpetual eth-usd     # best bid/ask/mid + last
-hbot order-book hyperliquid_perpetual eth-usd -n 5
+hbot book hyperliquid_perpetual eth-usd -n 5
 ```
 
 **For bulk discovery + funding/OI, use the bundled scripts** (public endpoint, no keys needed):

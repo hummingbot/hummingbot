@@ -47,12 +47,13 @@ hbot
 │
 ├─ ── set up (exchanges & funds) ──
 │  ├─ connect [exchange]      show connections, or add an exchange's API keys
-│  └─ balance [exchange]      show exchange balances, with USD value
+│  ├─ balance [exchange]      balances + USD value (perps: positions + net value)
+│  └─ positions <exchange>    open positions on a perpetual exchange
 │
-├─ ── market data (public; fuzzy pair match) ──
+├─ ── market data (public; no keystore; fuzzy pair match) ──
 │  ├─ rules <exchange> <pair>      trading rules: min order size, min notional, tick/step
 │  ├─ ticker <exchange> <pair>     best bid/ask/mid + last price
-│  └─ order-book <exchange> <pair> bid/ask depth (-n N levels)
+│  └─ book <exchange> <pair>       bid/ask depth (-n N levels)
 │
 ├─ strategy ── author config files ──
 │  ├─ list                    strategies you can create configs from

@@ -89,10 +89,11 @@ script automatically; you just `start` the controller config.
 ```
 hbot
 ├─ connect [exchange]        show connections, or add an exchange's API keys
-├─ balance [exchange]        exchange balances, with USD value
-├─ rules <exchange> <pair>   trading rules: min order size, min notional, tick/step sizes
-├─ ticker <exchange> <pair>  best bid/ask/mid + last price
-├─ order-book <exchange> <pair>   bid/ask depth (-n N levels)
+├─ balance [exchange]        balances + USD value (perps also show positions + net value)
+├─ positions <exchange>      open positions on a perpetual exchange
+├─ rules <exchange> <pair>   trading rules: min order size, min notional, tick/step sizes  (public)
+├─ ticker <exchange> <pair>  best bid/ask/mid + last price  (public)
+├─ book <exchange> <pair>    bid/ask depth (-n N levels)  (public)
 ├─ strategy
 │  ├─ list                   strategies you can create configs from
 │  ├─ show <strategy>        a strategy's fields + which are required/live-updatable
