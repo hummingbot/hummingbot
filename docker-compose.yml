@@ -1,7 +1,7 @@
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
+    image: hummingbot/hummingbot:feat-hbot-cli
     # build: # Uncomment this build section and comment image to build Hummingbot locally
     #   context: .
     #   dockerfile: Dockerfile
