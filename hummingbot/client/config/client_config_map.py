@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Union
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 from tabulate import tabulate_formats
 
+import hummingbot.core.rate_oracle.utils as rate_oracle_utils
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
@@ -360,6 +361,17 @@ class GlobalTokenConfigMap(BaseClientModel):
         default="$",
         json_schema_extra={"prompt": lambda cm: "What is your default display token symbol? (e.g. $,€)"},
     )
+    usd_equivalent_tokens: List[str] = Field(
+        default_factory=lambda: list(rate_oracle_utils.USD_EQUIVALENT_TOKENS),
+        description="Token symbols treated as equivalent to USDT when looking up conversion rates "
+                    "(e.g. a USD balance is priced using USDT markets).",
+        json_schema_extra={
+            "prompt": lambda cm: (
+                "List of comma-delimited token symbols to treat as equivalent to USDT for rate"
+                " conversions (e.g. USD)"
+            ),
+        },
+    )
     model_config = ConfigDict(title="global_token")
 
     @field_validator("global_token_name")
@@ -367,10 +379,17 @@ class GlobalTokenConfigMap(BaseClientModel):
     def validate_global_token_name(cls, v: str) -> str:
         return v.upper()
 
+    @field_validator("usd_equivalent_tokens", mode="before")
+    @classmethod
+    def validate_usd_equivalent_tokens(cls, value: Union[str, List[str]]) -> List[str]:
+        tokens = value.split(",") if isinstance(value, str) else value
+        return [token.strip().upper() for token in tokens if token.strip()]
+
     # === post-validations ===
 
     @model_validator(mode="after")
     def post_validations(self):
+        rate_oracle_utils.USD_EQUIVALENT_TOKENS = self.usd_equivalent_tokens
         RateOracle.get_instance().quote_token = self.global_token_name
         return self
 

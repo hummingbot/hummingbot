@@ -72,6 +72,9 @@ debug.log
 /certs
 *.pem
 
+# Gateway runtime files (conf, certs, logs, wallet keys — secrets)
+/gateway-files/
+
 # Coverage
 .coverage
 /cover/
@@ -97,11 +100,19 @@ coverage.xml
 
 **/.claude/settings.local.json
 
-# Editor/AI tool directories
+# Editor/AI tool directories (local agent installs are ignored)
 .claude/
 .cursor/
-.agents/
+.agents/*
+# ...but DO ship the agent skills + evals committed in this repo (clone-and-go):
+!.agents/skills/
+!.agents/evals/
+# locally-installed third-party skills stay ignored:
+.agents/skills/hummingbot-deploy
+# eval run outputs (transcripts/scores) are local, not committed:
+.agents/evals/results/
 
 
 # GRVT
 /grvt
+.cli_test/

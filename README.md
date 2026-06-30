@@ -23,76 +23,70 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 ## Getting Started
 
-The easiest way to get started with Hummingbot is using Docker:
+The recommended way to run Hummingbot is the **`hbot` command-line interface**, installed from
+source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
+and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
+stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Condor docs](https://hummingbot.org/condor/) site.
+### Install and run with `hbot` (recommended)
 
-* To install the CLI-based Hummingbot client, follow the instructions below.
-
-Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/client/installation/#source-installation) section in the documentation.
-
-### Install Hummingbot with Docker
-
-Install [Docker Compose website](https://docs.docker.com/compose/install/).
-
-Clone the repo and use the provided `docker-compose.yml` file:
+Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
 ```bash
 # Clone the repository
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 
-# Run Setup & Deploy
-make setup
-make deploy
-
-# Attach to the running instance
-docker attach hummingbot
-```
-
-### Install Hummingbot from Source
-
-Clone the repo, install dependencies, and run Hummingbot directly from source:
-
-```bash
-# Clone the repository
-git clone https://github.com/hummingbot/hummingbot.git
-cd hummingbot
-
-# Install from source
+# Create the conda environment, build extensions, and expose the `hbot` CLI
 make install
 
-# Run Hummingbot
-make run
+# Activate the environment
+conda activate hummingbot
+hbot --help
 ```
 
-### Install Hummingbot + Gateway DEX Middleware
+Then connect an exchange, create a config, and start a bot:
 
-Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
+```bash
+hbot connect binance                                   # store API keys (encrypted)
+hbot strategy create pmm_simple --name conf_my_bot.yml \
+     --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
+hbot start conf_my_bot.yml                             # run it (one bot per install)
+hbot status                                            # check on it
+hbot stop                                              # stop gracefully
+```
 
-To run Hummingbot with Gateway, clone the repo and answer `y` when prompted after running `make setup`
+Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
 
-```yaml
-# Clone the repository
+### …or with `hbot` from Docker
+
+Prefer containers? `hbot` works the same way — install [Docker Compose](https://docs.docker.com/compose/install/), then:
+
+```bash
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
-```
-```bash
-make setup
+make setup            # answer `y` to "Include Gateway?" to add the DEX middleware
+make deploy           # start the container as an idle "hbot host"
+make link-cli         # put the `hbot` command on your host PATH (dispatches into the container)
 
-# Answer `y` when prompted
-Include Gateway? [y/N]
-```
-
-Then run:
-```bash
-make deploy
-
-# Attach to the running instance
-docker attach hummingbot
+hbot --help           # same commands as the source install above
 ```
 
-By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production mode with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
+`make link-cli` installs a small wrapper that runs `hbot` inside the container, so every command
+above is identical whether you installed from source or Docker. (Or skip it and use
+`docker exec -it hummingbot hbot <command>`.)
+
+---
+
+### Other ways to run Hummingbot
+
+**Interactive (terminal UI) client.** Prefer the classic full-screen client? Remove the
+`command:` override from `docker-compose.yml`, `make deploy`, and `docker attach hummingbot` — or run
+it from source with `make install && make run`. With Gateway included it starts in development mode
+(unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
+See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
+
+**[Condor](https://github.com/hummingbot/condor) (Telegram bot).** Follow the instructions in the [Condor docs](https://hummingbot.org/condor/).
 
 ---
 

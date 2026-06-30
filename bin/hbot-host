@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Unified host launcher for the `hbot` CLI: makes `hbot <command>` work the same whether Hummingbot
+# was installed from source (a `hummingbot` conda env) or via Docker (a `hummingbot` container). It
+# just dispatches to the real CLI that lives inside the env/container — see bin/hbot.
+#
+# Install it as the host `hbot` with `make link-cli` (symlinks this onto your PATH).
+#
+set -euo pipefail
+
+container="${HBOT_CONTAINER:-hummingbot}"
+
+# 1) Source install: a `hummingbot` conda env that has the CLI. Run the env's INSTALLED package (via
+#    conda develop) directly — not by the name `hbot` (would re-resolve to this wrapper and recurse)
+#    nor by this wrapper's location (might be a checkout without built extensions).
+if command -v conda >/dev/null 2>&1 && conda env list | awk '{print $1}' | grep -qx hummingbot; then
+    exec conda run -n hummingbot --no-capture-output \
+        python -c "import sys; sys.argv[0]='hbot'; from hummingbot.cli.main import main; sys.exit(main())" "$@"
+fi
+
+# 2) Docker install: a running `hummingbot` container. `-i` forwards stdin (e.g. --password-stdin);
+#    add a TTY only when this shell has one, so piping still works.
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$container"; then
+    if [ -t 0 ]; then
+        exec docker exec -it "$container" hbot "$@"
+    fi
+    exec docker exec -i "$container" hbot "$@"
+fi
+
+echo "hbot: no Hummingbot install found." >&2
+echo "  source: make install && conda activate hummingbot" >&2
+echo "  docker: make deploy   (starts the '$container' container)" >&2
+exit 1

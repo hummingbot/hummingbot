@@ -11,6 +11,25 @@ if TYPE_CHECKING:
 import threading
 
 
+def order_book_rows(order_book, lines: int):
+    """Top-N (bids, asks) DataFrames with price/amount — the shared snapshot extraction."""
+    return (order_book.snapshot[0][['price', 'amount']].head(lines),
+            order_book.snapshot[1][['price', 'amount']].head(lines))
+
+
+def format_order_book(order_book, market_name: str, trading_pair: str, lines: int, table_format) -> str:
+    """Render top-N order-book depth as an indented table.
+
+    Shared by the interactive ``order_book`` command and the standalone ``hbot order-book`` CLI.
+    """
+    bids, asks = order_book_rows(order_book, lines)
+    bids = bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}).reset_index(drop=True)
+    asks = asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}).reset_index(drop=True)
+    joined_df = pd.concat([bids, asks], axis=1)
+    text_lines = ["    " + line for line in format_df_for_printout(joined_df, table_format).split("\n")]
+    return f"  market: {market_name} {trading_pair}\n" + "\n".join(text_lines)
+
+
 class OrderBookCommand:
     def order_book(self,  # type: HummingbotApplication
                    lines: int = 5,
@@ -47,17 +66,8 @@ class OrderBookCommand:
             trading_pair, order_book = next(iter(market_connector.order_books.items()))
 
         def get_order_book(lines):
-            bids = order_book.snapshot[0][['price', 'amount']].head(lines)
-            bids.rename(columns={'price': 'bid_price', 'amount': 'bid_volume'}, inplace=True)
-            asks = order_book.snapshot[1][['price', 'amount']].head(lines)
-            asks.rename(columns={'price': 'ask_price', 'amount': 'ask_volume'}, inplace=True)
-            joined_df = pd.concat([bids, asks], axis=1)
-            text_lines = [
-                "    " + line
-                for line in format_df_for_printout(joined_df, self.client_config_map.tables_format).split("\n")
-            ]
-            header = f"  market: {market_connector.name} {trading_pair}\n"
-            return header + "\n".join(text_lines)
+            return format_order_book(order_book, market_connector.name, trading_pair, lines,
+                                     self.client_config_map.tables_format)
 
         if live:
             await self.stop_live_update()

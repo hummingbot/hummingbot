@@ -80,6 +80,7 @@ def main():
         "tabulate==0.9.0",
         "TA-Lib>=0.6.4",
         "tqdm>=4.67.1",
+        "typer>=0.9.0",
         "ujson>=5.7.0",
         "urllib3>=1.26.15,<2.0",
         "web3",
