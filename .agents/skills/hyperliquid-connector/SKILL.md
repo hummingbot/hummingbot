@@ -20,7 +20,7 @@ Hyperliquid is a fully on-chain DEX with **perpetual** (`hyperliquid_perpetual`)
 wallet mode, agent-wallet authorization, the builder fee, market/pair discovery. Handle that here,
 then hand off to the strategy skill (e.g. `pure-market-making`).
 
-> **Prerequisite:** the **`hummingbot-cli`** skill (install, the `--json`/exit-code contract, the
+> **Prerequisite:** the **`hummingbot-cli`** skill (install, the Markdown-output + exit-code contract, the
 > `hbot connect` flow, secret handling). Never put a private key on the command line — `hbot connect`
 > takes it over stdin.
 

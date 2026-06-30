@@ -17,8 +17,8 @@ metadata:
 Market making = continuously quoting a **buy** below mid and a **sell** above mid, capturing the
 spread while managing inventory. This skill gets a user from zero to a running market-making bot.
 
-> **Prerequisite:** operate the CLI via the **`hummingbot-cli`** skill (install, the `--json`/exit-code
-> contract, passwords, the core loop). This skill is the market-making recipe on top of it.
+> **Prerequisite:** operate the CLI via the **`hummingbot-cli`** skill (install, the Markdown-output +
+> exit-code contract, passwords, the core loop). This skill is the market-making recipe on top of it.
 
 ## Which strategy to use
 
@@ -40,7 +40,7 @@ set **order-level take-profit and stop-loss**, **hold inventory** (skew quotes t
 
 `pmm_mister` has **no required fields** — every field has a default — so the job is overriding a
 small set for the user's venue, pair, and risk. Inspect the live field list anytime with
-`hbot strategy show pmm_mister --json` (`fields` = name→default, `live_fields` = changeable while
+`hbot strategy show pmm_mister` (`fields` = name→default, `live_fields` = changeable while
 running — nearly all of them are).
 
 The fields that matter for a first bot:

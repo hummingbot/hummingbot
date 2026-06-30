@@ -53,7 +53,7 @@ behavioral scenarios run, so it never trades without explicit opt-in.
 
 ## What "good" looks like
 
-A high-scoring agent: reads `hummingbot-cli` first; uses `--json` and exit codes; discovers fields
+A high-scoring agent: reads `hummingbot-cli` first; branches on exit codes; discovers fields
 with `hbot strategy show` instead of guessing; validates the pair (`list_markets.py`); sizes orders
 above the exchange minimum; never echoes or argv-passes secrets; steers an unsure user to
 `pmm_mister` with conservative defaults; verifies the bot is *quoting* (not just alive) via `logs`;

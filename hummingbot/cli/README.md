@@ -1,9 +1,9 @@
 # `hbot` — Hummingbot command-line interface
 
 `hbot` runs, controls, and monitors **one Hummingbot bot per install**. It is fully
-non-interactive and scriptable: every command prints a table by default, accepts `--json` for
-machine-readable output, and returns a **stable exit code**. No MQTT broker or interactive prompts
-required.
+non-interactive and scriptable: every command emits compact **Markdown** (tables for lists,
+key-value for records — readable by humans and agents alike) and returns a **stable exit code**.
+No `--json` flag, no MQTT broker, no interactive prompts required.
 
 ```bash
 hbot --help          # top-level commands
@@ -131,8 +131,8 @@ hbot strategy show-config conf_eth.yml
 hbot strategy set conf_eth.yml total_amount_quote 250
 ```
 
-- `--set key=value` is repeatable; `--values-stdin` reads a JSON object (pairs with `strategy show
-  --json`'s `fields`). Both validate and coerce values.
+- `--set key=value` is repeatable; `--values-stdin` reads a JSON object on stdin (the field names come
+  from `strategy show`). Both validate and coerce values.
 - `create` is **atomic**: a bad field or value leaves no file behind; a partial config (some required
   still unfilled) is allowed and reports what remains.
 - Config names are unique across types: an explicit colliding `--name` fails **with a suggested free
@@ -157,10 +157,12 @@ hbot strategy set conf_eth.yml total_amount_quote 250
 
 ---
 
-## JSON & exit codes
+## Output & exit codes
 
-Add `--json` to **any** command for machine-readable output: `{"ok": true, ...}` on success,
-`{"ok": false, "error": "...", "code": N}` on failure. Branch on the exit code, not on text:
+Every command emits compact **Markdown** — a table for a list of records, a `- key: value` block for
+a single record — on stdout. Errors print to stderr as `Error: <message> (code N)`. There is **no
+`--json` flag**: the Markdown is the format for humans and agents alike. The machine contract is the
+**exit code** — branch on it, not on the text:
 
 | code | name | meaning |
 |---|---|---|

@@ -25,7 +25,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 
 The recommended way to run Hummingbot is the **`hbot` command-line interface**, installed from
 source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
-and tune configs, and read trades, PnL, logs, and status — all scriptable, with `--json` output and
+and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
 stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
 ### Install and run with `hbot` (recommended)

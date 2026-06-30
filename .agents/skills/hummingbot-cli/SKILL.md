@@ -13,9 +13,10 @@ metadata:
 
 # hummingbot-cli
 
-`hbot` runs **one bot per install**, fully non-interactively. Every command prints a table by
-default, accepts `--json` for machine-readable output, and returns a **stable exit code**. There is
-no broker, no API server, and no interactive prompt — drive it entirely over the shell.
+`hbot` runs **one bot per install**, fully non-interactively. Every command emits compact
+**Markdown** (tables for lists, key-value for records — readable by humans and agents alike) and
+returns a **stable exit code**. There is no `--json` flag, no broker, no API server, and no
+interactive prompt — drive it entirely over the shell.
 
 > For a market-making bot specifically, follow the **`pure-market-making`** skill, which builds on
 > this one with the exact `pmm_mister` recipe. This skill is the general operating manual.
@@ -37,9 +38,10 @@ running `hbot`. (Docker users: `make deploy && make link-cli` instead — same c
 
 ## The contract every command honors (this is why it's agent-friendly)
 
-- **`--json` on ANY command** → `{"ok": true, ...}` on success, `{"ok": false, "error": "...", "code": N}`
-  on failure. Parse this, don't scrape tables.
-- **Branch on the exit code, never on text:**
+- **Output is compact Markdown** — a table for a list of records, a `- key: value` block for a single
+  record. The same format for humans and agents; read values straight from it.
+- **Branch on the exit code, never on text.** Errors print to stderr as `Error: <msg> (code N)`;
+  success/data goes to stdout. The exit code is the contract:
 
   | code | name | meaning |
   |---|---|---|
@@ -93,7 +95,7 @@ hbot
 ├─ order-book <exchange> <pair>   bid/ask depth (-n N levels)
 ├─ strategy
 │  ├─ list                   strategies you can create configs from
-│  ├─ show <strategy>        a strategy's fields + which are required (--json for machine use)
+│  ├─ show <strategy>        a strategy's fields + which are required/live-updatable
 │  ├─ create <strategy>      make a config (fill fields with --set k=v or --values-stdin)
 │  ├─ clone <config>         copy a config to a new name, tweak fields
 │  ├─ list-configs           your saved config files
@@ -116,16 +118,16 @@ trades/logs/history stay viewable by name indefinitely.
 
 - `hbot <command> -h` — full help for one command (detail lives here, not in the menu).
 - `hbot strategy list` — exact strategy names you can create from.
-- `hbot strategy show <strategy> --json` — authoritative field list: `fields` (name→default),
-  `required` (must be filled before start), `live_fields` (changeable while running). Pair this with
-  `strategy create --values-stdin` to bulk-fill from a JSON object.
+- `hbot strategy show <strategy>` — authoritative field table: each field's default value, whether
+  it's **required** before start, and whether it's **live**-updatable while running. Pair with
+  `strategy create --values-stdin` to bulk-fill from a JSON object on stdin.
 
 ## The core loop
 
 ```bash
 hbot connect binance                                   # add API keys (encrypted with keystore pw)
 hbot balance                                           # confirm funds
-hbot strategy show pmm_simple --json                   # inspect fields
+hbot strategy show pmm_simple                          # inspect fields
 hbot strategy create pmm_simple --name conf_my_bot.yml \
      --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
 hbot start conf_my_bot.yml                             # type auto-detected
@@ -144,14 +146,15 @@ hbot history conf_my_bot                               # review a stopped bot la
 - **Don't restate a secret's value back** — not in chat, summaries, or logs. Refer to credentials
   abstractly ("the key you pasted", "your keystore password"); never echo the actual bytes, even to
   confirm them. (A truncated form like `0x4f3c…` is fine for reference.)
-- **Don't** scrape table text — add `--json` and branch on `code`.
+- **Don't** parse free text to decide success/failure — branch on the **exit code**; read values from
+  the Markdown table/key-value body.
 - **Don't** assume `status` returning "running" means healthy — it reports a **recent-errors count**;
   a bot can be alive and erroring. Check it.
 - **Don't** leave `hbot logs -f` running unbounded in a script — it follows until interrupted. Use
   plain `logs` (returns immediately) or wrap `-f` in a timeout.
 - **Don't** start a second bot in the same install expecting both to run — it's one bot per install;
   pass `--replace` to swap, or use a separate install/container.
-- **Don't** invent strategy or field names — confirm with `strategy list` / `strategy show --json`.
+- **Don't** invent strategy or field names — confirm with `strategy list` / `strategy show`.
 
 ## Reference
 
