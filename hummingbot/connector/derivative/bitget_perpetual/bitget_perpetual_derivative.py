@@ -55,6 +55,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trade_history_timestamp = None
+        self._classic_account_mode_logged = False
 
         self._margin_mode = MarginMode.CROSS
 
@@ -120,6 +121,21 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def _formatted_error(code: int, message: str) -> str:
         return f"Error: {code} - {message}"
+
+    def _log_if_classic_account_mode(self, error: Exception) -> None:
+        """
+        Surfaces a clear, actionable message (once) when Bitget rejects a V3 UTA request because the
+        account is still in Classic mode (code 40084). Otherwise the connector just spins on
+        "not ready" with the real reason buried in a generic network error.
+        """
+        if not self._classic_account_mode_logged and CONSTANTS.RET_CODE_CLASSIC_ACCOUNT in str(error):
+            self._classic_account_mode_logged = True
+            self.logger().error(
+                "Bitget account is in Classic Account mode, which the V3 Unified Trading Account "
+                "API used by this connector does not support. Upgrade the account to the Unified "
+                "Trading Account on Bitget and use an API key created under it. "
+                "See https://www.bitget.com/support/articles/12560603886018"
+            )
 
     async def start_network(self):
         # Initialize symbol mappings before starting network
@@ -425,10 +441,14 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         accounts shape (marginCoin/crossedMaxAvailable/accountEquity + nested assetList) is still
         parsed as a fallback.
         """
-        accounts_info_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.ACCOUNTS_INFO_ENDPOINT,
-            is_auth_required=True,
-        )
+        try:
+            accounts_info_response: Dict[str, Any] = await self._api_get(
+                path_url=CONSTANTS.ACCOUNTS_INFO_ENDPOINT,
+                is_auth_required=True,
+            )
+        except IOError as e:
+            self._log_if_classic_account_mode(e)
+            raise
 
         if accounts_info_response["code"] != CONSTANTS.RET_CODE_OK:
             raise IOError(
@@ -640,37 +660,21 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         mode: MarginMode
     ) -> None:
         """
-        Change the margin mode of the exchange (cross/isolated)
+        Record the desired margin mode (cross/isolated).
+
+        Under the V3 UTA account there is no per-symbol cross/isolated margin-mode endpoint: the
+        margin mode is applied per order via the ``marginMode`` field on place-order (see
+        ``_place_order``). The V3 ``/api/v3/account/adjust-account-mode`` endpoint sets the
+        account-wide margin model (single- vs multi-currency / portfolio margin), which is a
+        different concept and must not be driven from the cross/isolated selection.
+
+        We therefore only store the requested mode locally so it is sent with every order. This also
+        keeps ``start_network`` from raising on an unsupported account-level request, which would
+        otherwise abort startup and have the network loop repeatedly cancel the order book / user
+        stream websocket tasks before they can subscribe (leaving the connector stuck "not ready").
         """
-        margin_mode = CONSTANTS.MARGIN_MODE_TYPES[mode]
-
-        # NOTE: Under the V3 UTA account the per-order marginMode is also sent on place-order. The
-        # account-level margin/account mode endpoint and its exact request body should be confirmed
-        # against the live UTA docs (productType -> category here).
-        for trading_pair in self.trading_pairs:
-            product_type = await self.product_type_associated_to_trading_pair(trading_pair)
-
-            response = await self._api_post(
-                path_url=CONSTANTS.SET_MARGIN_MODE_ENDPOINT,
-                data={
-                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-                    "category": product_type,
-                    "marginMode": margin_mode,
-                    "marginCoin": self.get_buy_collateral_token(trading_pair),
-                },
-                is_auth_required=True,
-            )
-
-            if response["code"] != CONSTANTS.RET_CODE_OK:
-                self.logger().error(
-                    self._formatted_error(
-                        response["code"],
-                        f"There was an error changing the margin mode ({response['msg']})"
-                    )
-                )
-                return
-
-            self.logger().info(f"Margin mode set to {margin_mode}")
+        self._margin_mode = mode
+        self.logger().info(f"Margin mode set to {CONSTANTS.MARGIN_MODE_TYPES[mode]} (applied per order).")
 
     async def _execute_set_position_mode(self, mode: PositionMode):
         """Bitget derives productType from trading_pair, so we must loop over all trading pairs."""

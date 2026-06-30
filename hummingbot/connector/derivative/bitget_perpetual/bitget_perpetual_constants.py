@@ -97,6 +97,9 @@ WS_FILL_ENDPOINT = "fill"
 RET_CODE_OK = "00000"
 RET_CODE_PARAMS_ERROR = "40007"
 RET_CODE_API_KEY_INVALID = "40006"
+# Returned by the V3 UTA endpoints when the account has not been upgraded to the Unified Trading
+# Account: "You are in Classic Account mode, and the Unified Account API is not supported at this time"
+RET_CODE_CLASSIC_ACCOUNT = "40084"
 RET_CODE_AUTH_TIMESTAMP_ERROR = "40005"
 RET_CODES_ORDER_NOT_EXISTS = [
     "40768", "80011", "40819",

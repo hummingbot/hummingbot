@@ -43,6 +43,7 @@ class BitgetExchange(ExchangePyBase):
         self._passphrase = bitget_passphrase
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._classic_account_mode_logged = False
 
         self._expected_market_amounts: Dict[str, Decimal] = {}
 
@@ -104,6 +105,21 @@ class BitgetExchange(ExchangePyBase):
     @staticmethod
     def _formatted_error(code: int, message: str) -> str:
         return f"Error: {code} - {message}"
+
+    def _log_if_classic_account_mode(self, error: Exception) -> None:
+        """
+        Surfaces a clear, actionable message (once) when Bitget rejects a V3 UTA request because the
+        account is still in Classic mode (code 40084). Otherwise the connector just spins on
+        "not ready" with the real reason buried in a generic network error.
+        """
+        if not self._classic_account_mode_logged and CONSTANTS.RET_CODE_CLASSIC_ACCOUNT in str(error):
+            self._classic_account_mode_logged = True
+            self.logger().error(
+                "Bitget account is in Classic Account mode, which the V3 Unified Trading Account "
+                "API used by this connector does not support. Upgrade the account to the Unified "
+                "Trading Account on Bitget and use an API key created under it. "
+                "See https://www.bitget.com/support/articles/12560603886018"
+            )
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -317,10 +333,14 @@ class BitgetExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        wallet_balance_response: Dict[str, Union[str, List[Dict[str, Any]]]] = await self._api_get(
-            path_url=CONSTANTS.ASSETS_ENDPOINT,
-            is_auth_required=True,
-        )
+        try:
+            wallet_balance_response: Dict[str, Union[str, List[Dict[str, Any]]]] = await self._api_get(
+                path_url=CONSTANTS.ASSETS_ENDPOINT,
+                is_auth_required=True,
+            )
+        except IOError as e:
+            self._log_if_classic_account_mode(e)
+            raise
         response_code = wallet_balance_response["code"]
 
         if response_code != CONSTANTS.RET_CODE_OK:

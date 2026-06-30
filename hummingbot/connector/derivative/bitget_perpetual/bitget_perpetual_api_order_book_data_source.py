@@ -205,12 +205,12 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         raw_message: Dict[str, Any],
         message_queue: asyncio.Queue
     ) -> None:
+        # V3 UTA ticker pushes carry the symbol on the envelope ("arg"), not inside each data entry.
+        symbol: str = raw_message["arg"]["symbol"]
+        trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         data: List[Dict[str, Any]] = raw_message["data"]
 
         for entry in data:
-            trading_pair: str = await self._connector.trading_pair_associated_to_exchange_symbol(
-                entry["symbol"]
-            )
             funding_update = FundingInfoUpdate(
                 trading_pair=trading_pair,
                 index_price=Decimal(entry["indexPrice"]),
@@ -222,26 +222,24 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_complete_funding_info(self, trading_pair: str) -> Dict[str, Any]:
         rest_assistant: RESTAssistant = await self._api_factory.get_rest_assistant()
-        endpoints = [
-            CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT,
-            CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT
-        ]
-        tasks: List[asyncio.Task] = []
         funding_info: Dict[str, Any] = {}
 
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair)
         product_type = await self._connector.product_type_associated_to_trading_pair(trading_pair)
 
-        for endpoint in endpoints:
-            tasks.append(rest_assistant.execute_request(
+        requests = [
+            (CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT, {"symbol": symbol}),
+            (CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT, {"symbol": symbol, "category": product_type}),
+        ]
+        tasks: List[asyncio.Task] = [
+            rest_assistant.execute_request(
                 url=web_utils.public_rest_url(path_url=endpoint),
                 throttler_limit_id=endpoint,
-                params={
-                    "symbol": symbol,
-                    "category": product_type,
-                },
+                params=params,
                 method=RESTMethod.GET,
-            ))
+            )
+            for endpoint, params in requests
+        ]
 
         results = await safe_gather(*tasks)
 
