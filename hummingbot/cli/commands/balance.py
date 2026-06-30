@@ -72,20 +72,23 @@ async def _attach_positions(ub, result: Dict[str, dict], timeout: float) -> None
         result[ex]["pnl_total"] = sum((Decimal(str(r["unrealized_pnl"])) for r in rows), Decimal("0"))
 
 
-async def _fetch_all(ccm, timeout: float) -> Dict[str, dict]:
+async def _fetch_all(ccm, timeout: float, with_prices: bool = True) -> Dict[str, dict]:
     from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
     all_total = await asyncio.wait_for(ub.all_balances_all_exchanges(ccm), timeout)
     all_avai = ub.all_available_balances_all_exchanges()
-    prices, quote = await _all_prices()
+    # --units-only skips the rate-oracle price fetch (the slowest part) and positions.
+    prices, quote = (await _all_prices()) if with_prices else ({}, "")
     result = {ex: dict(zip(("assets", "allocated_total", "usd_total"),
                            _exchange_assets(ex, total, all_avai.get(ex, {}), prices, quote)))
               for ex, total in all_total.items()}
-    await _attach_positions(ub, result, timeout)
+    if with_prices:
+        await _attach_positions(ub, result, timeout)
     return result
 
 
-async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[str, dict]], Optional[str]]:
+async def _fetch_one(ccm, exchange: str, timeout: float,
+                     with_prices: bool = True) -> Tuple[Optional[Dict[str, dict]], Optional[str]]:
     from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
     err = await asyncio.wait_for(ub.update_exchange_balance(exchange, ccm), timeout)
@@ -93,15 +96,19 @@ async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[
         return None, err
     total = ub.all_balances(exchange)
     avai = ub.all_available_balances_all_exchanges().get(exchange, {})
-    prices, quote = await _all_prices()
+    prices, quote = (await _all_prices()) if with_prices else ({}, "")
     assets, alloc, usd = _exchange_assets(exchange, total, avai, prices, quote)
     result = {exchange: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}
-    await _attach_positions(ub, result, timeout)
+    if with_prices:
+        await _attach_positions(ub, result, timeout)
     return result, None
 
 
-def _render(result: Dict[str, dict], sym: str) -> str:
-    """Render balances (+ positions on perps) as per-exchange Markdown, with a net-value total."""
+def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
+    """Render balances (+ positions on perps) as per-exchange Markdown, with a net-value total.
+
+    ``units_only`` hides the USD value column and all value totals (no prices were fetched).
+    """
     from hummingbot.client.performance import PerformanceMetrics
     rnd = PerformanceMetrics.smart_round
     out: List[str] = []
@@ -117,10 +124,15 @@ def _render(result: Dict[str, dict], sym: str) -> str:
             continue
         section = f"## {ex}\n\n"
         if assets:
-            rows = [{"asset": a["asset"], "total": float(a["total"]),
-                     f"value({sym})": float(a["value"]), "allocated": a["allocated"]} for a in assets]
-            pct = (data["allocated_total"] / usd) if usd != Decimal("0") else 0
-            section += render_table(rows) + f"\n\nbalances: {sym}{rnd(usd)} | allocated: {pct:.2%}"
+            if units_only:
+                rows = [{"asset": a["asset"], "total": float(a["total"]),
+                         "available": float(a["available"])} for a in assets]
+                section += render_table(rows)
+            else:
+                rows = [{"asset": a["asset"], "total": float(a["total"]),
+                         f"value({sym})": float(a["value"]), "allocated": a["allocated"]} for a in assets]
+                pct = (data["allocated_total"] / usd) if usd != Decimal("0") else 0
+                section += render_table(rows) + f"\n\nbalances: {sym}{rnd(usd)} | allocated: {pct:.2%}"
         if positions:
             pos_rows = [{"pair": p["trading_pair"], "side": p["side"], "amount": p["amount"],
                          "entry": p["entry_price"], "notional": p["notional"],
@@ -130,12 +142,16 @@ def _render(result: Dict[str, dict], sym: str) -> str:
                         f"(balances {sym}{rnd(usd)} + uPnL {sym}{rnd(pnl)})")
         out.append(section)
         exchanges_total += net
+    if units_only:
+        return "\n\n".join(out)
     out.append(f"exchanges total (net): {sym}{exchanges_total:.2f}")
     return "\n\n".join(out)
 
 
 def balance(
     exchange: Optional[str] = typer.Argument(None, help="Exchange to fetch. Omit for all connected exchanges."),
+    units_only: bool = typer.Option(
+        False, "--units-only", help="Show only token amounts — skip the price fetch (faster) and USD values/positions."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
 ) -> None:
@@ -146,23 +162,24 @@ def balance(
     sym = ccm.global_token.global_token_symbol
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     typer.echo("Updating balances, please wait...", err=True)
+    with_prices = not units_only
 
     if exchange is not None:
         if exchange not in AllConnectorSettings.get_connector_settings():
             fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
         try:
-            result, err = asyncio.run(_fetch_one(ccm, exchange, timeout))
+            result, err = asyncio.run(_fetch_one(ccm, exchange, timeout, with_prices))
         except asyncio.TimeoutError:
             fail("network timeout fetching balances", ExitCode.TIMEOUT)
         if err is not None:
             fail(f"{exchange}: {err}", ExitCode.ERROR)
     else:
         try:
-            result = asyncio.run(_fetch_all(ccm, timeout))
+            result = asyncio.run(_fetch_all(ccm, timeout, with_prices))
         except asyncio.TimeoutError:
             fail("network timeout fetching balances", ExitCode.TIMEOUT)
 
     if not result:
         echo("No balances (no connected exchanges, or all balances are zero).")
     else:
-        echo(_render(result, sym))
+        echo(_render(result, sym, units_only))
