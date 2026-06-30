@@ -1,6 +1,7 @@
 .ONESHELL:
 .PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down
 
+OCI_RUNTIME=podman
 DYDX ?= 0
 ENV_FILE := setup/environment.yml
 ifeq ($(DYDX),1)
@@ -29,7 +30,7 @@ development-diff-cover:
 	diff-cover --compare-branch=origin/development coverage.xml
 
 build:
-	git clean -xdf && make clean && docker build -t hummingbot/hummingbot${TAG} -f Dockerfile .
+	git clean -xdf && make clean && $(OCI_RUNTIME) build -t hummingbot/hummingbot${TAG} -f Dockerfile .
 
 
 uninstall:
@@ -76,7 +77,7 @@ setup:
 
 deploy:
 	@set -a; . ./.compose.env 2>/dev/null || true; set +a; \
-	docker compose up -d
+	$(OCI_RUNTIME) compose up -d
 
 down:
-	docker compose --profile gateway down
+	$(OCI_RUNTIME) compose --profile gateway down

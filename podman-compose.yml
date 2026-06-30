@@ -1,0 +1,45 @@
+services:
+  hummingbot:
+    container_name: hummingbot
+    image: hummingbot/hummingbot:latest
+    # build: # Uncomment this build section and comment image to build Hummingbot locally
+    #   context: .
+    #   dockerfile: Dockerfile
+    volumes:
+      - ./conf:/home/hummingbot/conf:z
+      - ./conf/connectors:/home/hummingbot/conf/connectors:z
+      - ./conf/strategies:/home/hummingbot/conf/strategies:z
+      - ./conf/controllers:/home/hummingbot/conf/controllers:z
+      - ./conf/scripts:/home/hummingbot/conf/scripts:z
+      - ./logs:/home/hummingbot/logs:z
+      - ./data:/home/hummingbot/data:z
+      - ./certs:/home/hummingbot/certs:z
+      - ./scripts:/home/hummingbot/scripts:z
+      - ./controllers:/home/hummingbot/controllers:z
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    tty: true
+    stdin_open: true
+    network_mode: host
+  #  environment:
+  #    - CONFIG_PASSWORD=admin
+  #    - CONFIG_FILE_NAME=v2_with_controllers.py
+  #    - SCRIPT_CONFIG=conf_v2_with_controllers.yml
+
+  gateway:
+   profiles: ["gateway"]
+   restart: always
+   container_name: gateway
+   image: hummingbot/gateway:latest
+   ports:
+     - "15888:15888"
+   volumes:
+     - "./gateway-files/conf:/home/gateway/conf:z"
+     - "./gateway-files/logs:/home/gateway/logs:z"
+     - "./certs:/home/gateway/certs:z"
+   environment:
+     - GATEWAY_PASSPHRASE=admin
+     - DEV=true
