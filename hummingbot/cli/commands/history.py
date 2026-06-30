@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import echo
+from hummingbot.cli.output import echo, render_table
 
 PERF_TIMEOUT = 30.0
 
@@ -38,31 +38,24 @@ async def _compute(fills: list, balances: Dict[str, Dict[str, float]]) -> List[d
             perf = await asyncio.wait_for(
                 PerformanceMetrics.create(symbol, trades, cur_balances), PERF_TIMEOUT)
         except Exception as e:
-            results.append({"market": market, "trading_pair": symbol,
-                            "num_trades": len(trades), "error": str(e), "perf": None})
+            results.append({"market": market, "pair": symbol, "trades": len(trades),
+                            "error": str(e)})
             continue
         results.append({
             "market": market,
-            "trading_pair": symbol,
-            "num_trades": perf.num_trades,
-            "num_buys": perf.num_buys,
-            "num_sells": perf.num_sells,
-            "base_volume": float(perf.tot_vol_base),
-            "quote_volume": float(perf.tot_vol_quote),
+            "pair": symbol,
+            "trades": perf.num_trades,
+            "buys": perf.num_buys,
+            "sells": perf.num_sells,
+            "base_vol": float(perf.tot_vol_base),
+            "quote_vol": float(perf.tot_vol_quote),
             "trade_pnl": float(perf.trade_pnl),
             "fees": float(perf.fee_in_quote),
             "total_pnl": float(perf.total_pnl),
-            "return_pct": float(perf.return_pct * 100),
+            "return%": round(float(perf.return_pct * 100), 4),
             "balances_available": bool(cur_balances),
-            "perf": perf,  # kept for human rendering; stripped before JSON
         })
     return results
-
-
-def _render_market(market: str, trading_pair: str, perf) -> str:
-    """Per-market Trades/Assets/Performance tables — shared with the interactive `history` command."""
-    from hummingbot.client.performance import format_performance_by_market
-    return "\n".join(format_performance_by_market(market, trading_pair, perf))
 
 
 def history(
@@ -92,17 +85,18 @@ def history(
 
     markets = asyncio.run(_compute(fills, balances))
 
-    returns = []
-    for m in markets:
-        if m.get("error") or m.get("perf") is None:
-            echo(f"\n{m['market']} / {m['trading_pair']}")
-            echo(f"  ({m['num_trades']} trades) error: {m.get('error')}")
-            continue
-        echo(_render_market(m["market"], m["trading_pair"], m["perf"]))
-        if not m["balances_available"]:
-            hint = "run `hbot status` to refresh" if running else "bot stopped"
-            echo(f"  (current balances unavailable ({hint}) — realized PnL is exact; "
-                 f"current/unrealized values approximate)")
-        returns.append(m["return_pct"])
+    cols = ["market", "pair", "trades", "buys", "sells", "base_vol", "quote_vol",
+            "trade_pnl", "fees", "total_pnl", "return%"]
+    echo(render_table(markets, columns=cols, title=f"history {name}" if name else "history"))
+
+    ok = [m for m in markets if "error" not in m]
+    returns = [m["return%"] for m in ok]
     if len(returns) > 1:
-        echo(f"\nAveraged Return = {sum(returns) / len(returns):.2f}%")
+        echo(f"\naveraged return: {sum(returns) / len(returns):.2f}%")
+    if any(not m["balances_available"] for m in ok):
+        hint = "run `hbot status` to refresh" if running else "bot stopped"
+        echo(f"\n(current balances unavailable for some markets ({hint}) — realized PnL is exact; "
+             f"current/unrealized values approximate)")
+    for m in markets:
+        if "error" in m:
+            echo(f"\n{m['market']}/{m['pair']}: ({m['trades']} trades) error: {m['error']}")
