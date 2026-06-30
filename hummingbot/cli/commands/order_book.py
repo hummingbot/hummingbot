@@ -50,7 +50,7 @@ def order_book(
     except asyncio.TimeoutError:
         fail("timed out waiting for the order book", ExitCode.TIMEOUT)
 
-    title = f"order-book {matched} ({exchange})"
+    title = f"book {matched} ({exchange})"
     if matched.upper() != _norm(pair):
         title += f" — fuzzy-matched from '{pair}'"
     out = render_table(rows, columns=["bid_px", "bid_amt", "ask_px", "ask_amt"], title=title)
