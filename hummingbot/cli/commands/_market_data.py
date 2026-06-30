@@ -45,19 +45,54 @@ def fuzzy_match_pair(candidates: List[str], query: str) -> Tuple[Optional[str], 
     return None, []
 
 
+def _public_dummy_keys(conn_setting) -> dict:
+    """A throwaway key set so a connector can be CONSTRUCTED for PUBLIC reads without the user's
+    keystore — market data (order book, trading rules, ticker) is public and needs no auth.
+
+    The keys are never used to sign (``trading_required=False``); they only satisfy connectors that
+    require a valid-format key just to build their auth object (e.g. Hyperliquid wants an eth key).
+    A freshly generated, immediately-discarded eth key covers that; other fields get their default or
+    a benign placeholder.
+    """
+    cfg = conn_setting.config_keys
+    if cfg is None:
+        return {}
+    from eth_account import Account
+    acct = Account.create()
+    keys = {}
+    for name, field in cfg.__class__.model_fields.items():
+        if name == "connector":
+            continue
+        low = name.lower()
+        default = field.default
+        if "secret" in low or "private" in low or ("key" in low and "api" in low):
+            keys[name] = acct.key.hex()
+        elif "address" in low or "account" in low or "wallet" in low:
+            keys[name] = acct.address
+        elif default is not None and str(default) != "PydanticUndefined":
+            keys[name] = default
+        else:
+            keys[name] = "0"
+    return keys
+
+
 async def make_connector(ccm, exchange: str, trading_pairs: List[str]):
-    """Build a read-only connector for ``exchange``, using stored keys if the exchange is connected."""
-    from hummingbot.client.config.security import Security
+    """Build a read-only connector for PUBLIC market data — no keystore required.
+
+    Market data is public, so this never unlocks the user's keystore: it constructs the connector
+    with throwaway keys and ``trading_required=False``. Only ``hbot connect`` (which *stores* keys)
+    needs the keystore.
+    """
     from hummingbot.client.settings import AllConnectorSettings
     from hummingbot.core.connector_manager import ConnectorManager
-    if exchange not in AllConnectorSettings.get_connector_settings():
+    settings = AllConnectorSettings.get_connector_settings()
+    if exchange not in settings:
         fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
-    await Security.wait_til_decryption_done()
     try:
-        return ConnectorManager(ccm).create_connector(exchange, trading_pairs, trading_required=False)
-    except ValueError:
-        fail(f"no API keys stored for '{exchange}' — run `hbot connect {exchange}` first",
-             ExitCode.CONFIG_ERROR)
+        return ConnectorManager(ccm).create_connector(
+            exchange, trading_pairs, trading_required=False, api_keys=_public_dummy_keys(settings[exchange]))
+    except Exception as e:
+        fail(f"could not open a read-only connector for '{exchange}': {e}", ExitCode.ERROR)
 
 
 async def trading_rules_universe(connector) -> dict:

@@ -10,7 +10,6 @@ from typing import List, Tuple
 import typer
 
 from hummingbot.cli.output import ExitCode, echo, fail, render_kv
-from hummingbot.cli.password import login
 
 
 def _rule_dict(rule) -> dict:
@@ -43,12 +42,11 @@ async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str
 def rules(
     exchange: str = typer.Argument(..., help="Exchange, e.g. hyperliquid_perpetual or binance."),
     pair: str = typer.Argument(..., help="Trading pair (fuzzy), e.g. ETH-USD, spcx/usd, xyz:tsla-usd."),
-    password_stdin: bool = typer.Option(
-        False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
 ) -> None:
     """Show an exchange's trading rules for a pair (min size, min notional, tick/step sizes)."""
     from hummingbot.cli.commands._market_data import _norm
-    ccm, _ = login(password_stdin=password_stdin)
+    from hummingbot.client.config.config_helpers import load_client_config_map_from_file
+    ccm = load_client_config_map_from_file()  # public market data — no keystore needed
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     try:
         rule, matched, alts = asyncio.run(_run(ccm, exchange, pair, timeout))
