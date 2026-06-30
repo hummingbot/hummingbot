@@ -15,6 +15,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.sources.aevo_rate_source import AevoRateSource
 from hummingbot.core.rate_oracle.sources.architect_perpetual_rate_source import ArchitectPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.ascend_ex_rate_source import AscendExRateSource
+from hummingbot.core.rate_oracle.sources.backpack_rate_source import BackpackRateSource
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
 from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRateSource
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
@@ -37,6 +38,7 @@ from hummingbot.logger import HummingbotLogger
 
 RATE_ORACLE_SOURCES = {
     "aevo_perpetual": AevoRateSource,
+    "backpack": BackpackRateSource,
     "binance": BinanceRateSource,
     "coin_gecko": CoinGeckoRateSource,
     "coin_cap": CoinCapRateSource,
