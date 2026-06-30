@@ -46,6 +46,7 @@ loader — just `start` the controller config.
 hbot
 │
 ├─ ── set up (exchanges & funds) ──
+│  ├─ connectors             list available connectors (spot / perpetual)
 │  ├─ connect [exchange]      show connections, or add an exchange's API keys
 │  ├─ balance [exchange]      balances + USD value (perps: positions + net value)
 │  └─ positions <exchange>    open positions on a perpetual exchange
