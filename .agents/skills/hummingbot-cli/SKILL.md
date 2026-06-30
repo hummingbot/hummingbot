@@ -3,7 +3,7 @@ name: hummingbot-cli
 description: >-
   Operate the `hbot` command-line interface to run, control, and monitor a Hummingbot trading
   bot from source — non-interactively. Use this when a user wants to set up Hummingbot, connect
-  an exchange, author a strategy config, start/stop a bot, or check status, logs, trades, and PnL.
+  a connector, author a strategy config, start/stop a bot, or check status, logs, trades, and PnL.
   This is the direct CLI (no API server, no MQTT broker, no MCP) — `hbot` IS the interface.
 metadata:
   author: hummingbot
@@ -63,7 +63,7 @@ argv**:
 - pipe it: `printf '%s' "$PW" | hbot start conf.yml --password-stdin`.
 
 On a brand-new install there is no keystore yet — the **first** password you provide (first `connect`
-/ `balance` / `start`) becomes the keystore password. Every later command must reuse it. Treat exchange
+/ `balance` / `start`) becomes the keystore password. Every later command must reuse it. Treat connector
 API keys and wallet private keys as secrets: pass them via stdin/file, never in the command line.
 
 ## Mental model
@@ -89,12 +89,12 @@ script automatically; you just `start` the controller config.
 ```
 hbot
 ├─ connectors                list available connectors (spot / perpetual)
-├─ connect [exchange]        show connections, or add an exchange's API keys
-├─ balance [exchange]        balances + USD value (perps also show positions + net value)
-├─ positions <exchange>      open positions on a perpetual exchange
-├─ rules <exchange> <pair>   trading rules: min order size, min notional, tick/step sizes  (public)
-├─ ticker <exchange> <pair>  best bid/ask/mid + last price  (public)
-├─ book <exchange> <pair>    bid/ask depth (-n N levels)  (public)
+├─ connect [connector]        show connections, or add a connector's API keys
+├─ balance [connector]        balances + USD value (perps also show positions + net value)
+├─ positions <connector>      open positions on a perpetual connector
+├─ rules <connector> <pair>   trading rules: min order size, min notional, tick/step sizes  (public)
+├─ ticker <connector> <pair>  best bid/ask/mid + last price  (public)
+├─ book <connector> <pair>    bid/ask depth (-n N levels)  (public)
 ├─ strategy
 │  ├─ list                   strategies you can create configs from
 │  ├─ show <strategy>        a strategy's fields + which are required/live-updatable

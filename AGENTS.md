@@ -45,11 +45,11 @@ hbot --help
   agents; there is no `--json` flag. **Branch on the exit code**, not on the text
   (`0` ok · `1` error · `2` not-found · `3` not-running · `4` config/password · `5` timeout).
 - **Never put the keystore password or API keys on the command line.** Use `HBOT_PASSWORD` in the
-  environment or `--password-stdin`; add exchange keys via `hbot connect` over stdin.
+  environment or `--password-stdin`; add connector keys via `hbot connect` over stdin.
 - **Don't guess** strategy or field names — confirm with `hbot strategy list` and
   `hbot strategy show <strategy>`.
 - **"Running" ≠ "healthy."** `hbot status` reports a recent-errors count, and a bot can be alive but
-  not quoting (e.g. orders below the exchange minimum). Verify with `hbot logs`.
+  not quoting (e.g. orders below the connector minimum). Verify with `hbot logs`.
 
 ## Reference
 

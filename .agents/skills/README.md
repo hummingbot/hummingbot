@@ -11,7 +11,7 @@ server, no message broker, no MCP. `hbot` is the interface; the agent drives it 
 
 1. **Install** — clone the repo, `make install`, `conda activate hummingbot` (full steps in
    `hummingbot-cli`).
-2. **Connect & fund** — `hbot connect <exchange>` to store encrypted API keys, `hbot balance` to
+2. **Connect & fund** — `hbot connect <connector>` to store encrypted API keys, `hbot balance` to
    confirm funds.
 3. **Pick a strategy** — choose the skill that matches the user's goal (table below).
 4. **Configure** — `hbot strategy create <strategy> --set ...` with sane, venue-appropriate defaults.

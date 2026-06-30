@@ -2,9 +2,9 @@
 name: pure-market-making
 description: >-
   Set up and run a market-making bot on Hummingbot via the `hbot` CLI. Use this when a user wants to
-  market-make, provide liquidity, or quote two-sided orders on a spot or perpetual exchange. Steers
+  market-make, provide liquidity, or quote two-sided orders on a spot or perpetual connector. Steers
   toward the modern `pmm_mister` controller, helps pick sane defaults, and avoids the common sizing
-  pitfalls (orders below the exchange's minimum notional). Builds on the `hummingbot-cli` skill.
+  pitfalls (orders below the connector's minimum notional). Builds on the `hummingbot-cli` skill.
 metadata:
   author: hummingbot
   homepage: https://github.com/hummingbot/hummingbot
@@ -47,7 +47,7 @@ The fields that matter for a first bot:
 
 | field | default | what it does |
 |---|---|---|
-| `connector_name` | `binance` | the exchange. Spot (e.g. `binance`) or perp (e.g. `binance_perpetual`, `hyperliquid_perpetual`). |
+| `connector_name` | `binance` | the connector. Spot (e.g. `binance`) or perp (e.g. `binance_perpetual`, `hyperliquid_perpetual`). |
 | `trading_pair` | `BTC-USDT` | the market. Must exist on the connector (see "Trading rules" below). |
 | `total_amount_quote` | `100` | capital **reference** in quote currency. |
 | `portfolio_allocation` | `0.1` | fraction of `total_amount_quote` actually deployed into orders. |
@@ -72,7 +72,7 @@ So the **defaults deploy only `100 × 0.1 = 10` quote total**, split across all 
 roughly **5 quote per order**. On most venues that's **below the minimum order notional**, so each
 order gets quantized to `0` and **silently skipped** — the bot looks alive but never quotes.
 
-To avoid it, make sure **every level's notional ≥ the exchange's minimum order size**:
+To avoid it, make sure **every level's notional ≥ the connector's minimum order size**:
 
 - Raise `total_amount_quote` and/or `portfolio_allocation` so each side clears the minimum.
 - Fewer spread levels = larger notional per level.
@@ -112,7 +112,7 @@ a transient base-balance warning right at perp startup, it clears once the conne
 ## Trading rules & pair availability
 
 Before configuring, check the connector's **minimum order size / notional** and confirm the pair
-exists — use **`hbot rules <exchange> <pair>`** (the pair is fuzzy-matched, so `eth-usd`, `btc/usdt`,
+exists — use **`hbot rules <connector> <pair>`** (the pair is fuzzy-matched, so `eth-usd`, `btc/usdt`,
 or `spcx` all resolve):
 
 ```bash
@@ -165,7 +165,7 @@ hbot stop                            # graceful: cancels open orders (and closes
 - **Order-level `take_profit`** locks in small gains per filled level; raise it for trendier markets,
   lower it for tight range-bound ones.
 - **Multiple levels:** `buy_spreads=0.001,0.002,0.003` with matching `buy_amounts_pct=1,1,1` ladders
-  three buy orders — but remember each level's notional must still clear the exchange minimum.
+  three buy orders — but remember each level's notional must still clear the connector minimum.
 
 ## Anti-patterns & safety
 

@@ -45,16 +45,16 @@ loader — just `start` the controller config.
 ```
 hbot
 │
-├─ ── set up (exchanges & funds) ──
+├─ ── set up (connectors & funds) ──
 │  ├─ connectors             list available connectors (spot / perpetual)
-│  ├─ connect [exchange]      show connections, or add an exchange's API keys
-│  ├─ balance [exchange]      balances + USD value (perps: positions + net value)
-│  └─ positions <exchange>    open positions on a perpetual exchange
+│  ├─ connect [connector]      show connections, or add a connector's API keys
+│  ├─ balance [connector]      balances + USD value (perps: positions + net value)
+│  └─ positions <connector>    open positions on a perpetual connector
 │
 ├─ ── market data (public; no keystore; fuzzy pair match) ──
-│  ├─ rules <exchange> <pair>      trading rules: min order size, min notional, tick/step
-│  ├─ ticker <exchange> <pair>     best bid/ask/mid + last price
-│  └─ book <exchange> <pair>       bid/ask depth (-n N levels)
+│  ├─ rules <connector> <pair>      trading rules: min order size, min notional, tick/step
+│  ├─ ticker <connector> <pair>     best bid/ask/mid + last price
+│  └─ book <connector> <pair>       bid/ask depth (-n N levels)
 │
 ├─ strategy ── author config files ──
 │  ├─ list                    strategies you can create configs from
@@ -86,7 +86,7 @@ At most two levels deep; every menu is alphabetical.
 ## Walkthrough
 
 ```bash
-# 1. connect an exchange (keys are encrypted with your keystore password)
+# 1. connect a connector (keys are encrypted with your keystore password)
 hbot connect hyperliquid_perpetual --fields          # what keys does it need?
 hbot connect hyperliquid_perpetual                   # add the keys
 hbot balance                                          # confirm funds
