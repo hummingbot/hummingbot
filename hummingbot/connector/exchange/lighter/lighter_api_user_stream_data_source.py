@@ -37,8 +37,13 @@ class LighterAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return self._ws_assistant.last_recv_time
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        if self._ws_assistant is None:
-            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        # The connector resolves the account index and builds the authenticated web-assistants
+        # factory lazily. Ensure that has happened and (re)bind to the connector's current
+        # factory before creating the assistant, so the private subscribe messages carry a
+        # valid `auth` token. Otherwise Lighter rejects them with "auth field is required".
+        await self._connector._ensure_account_ready()
+        self._api_factory = self._connector._web_assistants_factory
+        self._ws_assistant = await self._api_factory.get_ws_assistant()
         await self._ws_assistant.connect(
             ws_url=web_utils.wss_url(domain=self._domain),
             ping_timeout=CONSTANTS.PRIVATE_WS_PING_INTERVAL,

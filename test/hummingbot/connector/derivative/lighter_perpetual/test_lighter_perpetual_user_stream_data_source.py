@@ -42,22 +42,57 @@ class LighterPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertEqual(456, data_source.last_recv_time)
 
-    def test_connected_websocket_assistant_reuses_ws(self):
+    def test_connected_websocket_assistant_ensures_account_and_uses_connector_factory(self):
+        # Regression for the "auth field is required" private-websocket failure: the assistant
+        # must be built from the connector's *current* (authenticated) factory, not the possibly
+        # auth-less one captured at construction, and only after the account bootstrap completes.
         ws = MockWSAssistant()
-        api_factory = SimpleNamespace(get_ws_assistant=AsyncMock(return_value=ws))
+        connector_factory = SimpleNamespace(get_ws_assistant=AsyncMock(return_value=ws))
+        connector = SimpleNamespace(
+            _ensure_account_ready=AsyncMock(),
+            _web_assistants_factory=connector_factory,
+        )
+        stale_factory = SimpleNamespace(get_ws_assistant=AsyncMock())
         data_source = LighterPerpetualUserStreamDataSource(
             auth=SimpleNamespace(),
-            connector=SimpleNamespace(),
-            api_factory=api_factory,
+            connector=connector,
+            api_factory=stale_factory,
         )
 
         connected_ws = asyncio.run(data_source._connected_websocket_assistant())
-        connected_ws_again = asyncio.run(data_source._connected_websocket_assistant())
 
         self.assertEqual(ws, connected_ws)
-        self.assertEqual(ws, connected_ws_again)
-        self.assertEqual(1, api_factory.get_ws_assistant.await_count)
+        connector._ensure_account_ready.assert_awaited_once()
+        connector_factory.get_ws_assistant.assert_awaited_once()
+        stale_factory.get_ws_assistant.assert_not_called()
         self.assertEqual(CONSTANTS.PRIVATE_WS_PING_INTERVAL, ws.connect_calls[0]["ping_timeout"])
+
+    def test_subscribe_channels_inject_auth_token(self):
+        # End-to-end: a real WSAssistant carrying a real LighterAuth must stamp the `auth` token
+        # onto every private subscribe message (guards against the missing-auth regression).
+        from hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_auth import LighterAuth
+        from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+
+        signer = SimpleNamespace(
+            create_auth_token_with_expiry=lambda deadline, api_key_index: ("tok-123", None)
+        )
+        auth = LighterAuth(signer_client=signer, api_key_index=1)
+        sent = []
+        connection = SimpleNamespace(send=AsyncMock(side_effect=lambda request: sent.append(request)))
+        ws_assistant = WSAssistant(connection=connection, auth=auth)
+
+        data_source = LighterPerpetualUserStreamDataSource(
+            auth=auth,
+            connector=SimpleNamespace(account_index=724450),
+            api_factory=SimpleNamespace(),
+        )
+
+        asyncio.run(data_source._subscribe_channels(ws_assistant))
+
+        self.assertEqual(4, len(sent))
+        for request in sent:
+            self.assertEqual("tok-123", request.payload["auth"])
+            self.assertTrue(str(request.payload["channel"]).endswith("/724450"))
 
     def test_subscribe_channels_sends_private_channel_requests(self):
         data_source = LighterPerpetualUserStreamDataSource(
