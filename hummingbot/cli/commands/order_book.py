@@ -15,28 +15,24 @@ from hummingbot.cli.password import login
 
 
 async def _run(ccm, exchange: str, pair: str, lines: int, timeout: float) -> Tuple[List[dict], str, List[str]]:
-    from hummingbot.cli.commands._market_data import all_pairs, make_connector, resolve_or_fail, wait_orderbook_ready
+    from hummingbot.cli.commands._market_data import all_pairs, fetch_order_book, make_connector, resolve_or_fail
     from hummingbot.client.command.order_book_command import order_book_rows
-    lister = await make_connector(ccm, exchange, [])
-    matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(lister), timeout), pair)
+    conn = await make_connector(ccm, exchange, [])
+    matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(conn), timeout), pair)
+    ob = await fetch_order_book(conn, matched, timeout)
 
-    conn = await make_connector(ccm, exchange, [matched])
-    try:
-        await asyncio.wait_for(wait_orderbook_ready(conn, timeout), timeout)
-        bids, asks = order_book_rows(conn.get_order_book(matched), lines)
-        bids, asks = bids.reset_index(drop=True), asks.reset_index(drop=True)
-        rows = []
-        for i in range(max(len(bids), len(asks))):
-            row = {}
-            if i < len(bids):
-                row["bid_px"] = float(bids.iloc[i]["price"])
-                row["bid_amt"] = float(bids.iloc[i]["amount"])
-            if i < len(asks):
-                row["ask_px"] = float(asks.iloc[i]["price"])
-                row["ask_amt"] = float(asks.iloc[i]["amount"])
-            rows.append(row)
-    finally:
-        await conn.stop_network()
+    bids, asks = order_book_rows(ob, lines)
+    bids, asks = bids.reset_index(drop=True), asks.reset_index(drop=True)
+    rows = []
+    for i in range(max(len(bids), len(asks))):
+        row = {}
+        if i < len(bids):
+            row["bid_px"] = float(bids.iloc[i]["price"])
+            row["bid_amt"] = float(bids.iloc[i]["amount"])
+        if i < len(asks):
+            row["ask_px"] = float(asks.iloc[i]["price"])
+            row["ask_amt"] = float(asks.iloc[i]["amount"])
+        rows.append(row)
     return rows, matched, alts
 
 

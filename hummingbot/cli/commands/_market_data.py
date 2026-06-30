@@ -83,11 +83,14 @@ def resolve_or_fail(candidates: List[str], query: str) -> Tuple[str, List[str]]:
     return best, alts
 
 
-async def wait_orderbook_ready(connector, timeout: float) -> None:
-    """Start the connector network and block until the order book + symbol map are ready."""
-    await connector.start_network()
+async def fetch_order_book(connector, trading_pair: str, timeout: float):
+    """One-shot order-book snapshot via a single REST call (``get_new_order_book``) — no websocket
+    tracker, no ``start_network``.
 
-    async def _ready():
-        while not (connector.order_book_tracker.ready and connector.trading_pair_symbol_map_ready()):
-            await asyncio.sleep(0.2)
-    await asyncio.wait_for(_ready(), timeout)
+    Standalone ticker/order-book queries only need a current snapshot, not a streaming book. Warming
+    the full order-book tracker (websocket subscribe + readiness poll) cost ~4-9s; the direct snapshot
+    is ~0.2s once the symbol map is warm (the caller fetches the pair universe first for fuzzy match,
+    which warms it). Returns an ``OrderBook`` so the existing snapshot rendering is unchanged.
+    """
+    ds = connector.order_book_tracker.data_source
+    return await asyncio.wait_for(ds.get_new_order_book(trading_pair), timeout)

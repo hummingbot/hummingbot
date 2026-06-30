@@ -15,17 +15,24 @@ from hummingbot.cli.password import login
 
 
 async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str, List[str]]:
-    from hummingbot.cli.commands._market_data import all_pairs, make_connector, resolve_or_fail, wait_orderbook_ready
-    from hummingbot.client.command.ticker_command import get_ticker_prices
-    lister = await make_connector(ccm, exchange, [])
-    matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(lister), timeout), pair)
+    from hummingbot.cli.commands._market_data import all_pairs, fetch_order_book, make_connector, resolve_or_fail
+    conn = await make_connector(ccm, exchange, [])
+    matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(conn), timeout), pair)
+    ob = await fetch_order_book(conn, matched, timeout)
 
-    conn = await make_connector(ccm, exchange, [matched])
+    bids, asks = ob.snapshot[0], ob.snapshot[1]
+    best_bid = float(bids.iloc[0]["price"]) if len(bids) else None
+    best_ask = float(asks.iloc[0]["price"]) if len(asks) else None
+    mid = (best_bid + best_ask) / 2 if best_bid is not None and best_ask is not None else None
+    # last_trade is a streaming value; a one-shot REST snapshot may not carry it (then None).
+    last = None
     try:
-        await asyncio.wait_for(wait_orderbook_ready(conn, timeout), timeout)
-        prices = get_ticker_prices(conn, matched)
-    finally:
-        await conn.stop_network()
+        v = float(ob.last_trade_price)
+        if v and v == v:  # exclude 0 and NaN (NaN != NaN)
+            last = v
+    except Exception:
+        pass
+    prices = {"best_bid": best_bid, "best_ask": best_ask, "mid_price": mid, "last_trade": last}
     return prices, matched, alts
 
 
