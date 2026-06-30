@@ -33,6 +33,7 @@ interactive prompt — drive it entirely over the shell.
 ### Docker (recommended for agents)
 
 ```bash
+make setup            # one-time: writes .compose.env (answer N to the Gateway prompt)
 make deploy           # start the hummingbot container (an idle "hbot host")
 make link-cli         # put an `hbot` wrapper on PATH -> dispatches into the container
 hbot --help           # confirm it works

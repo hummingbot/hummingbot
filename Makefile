@@ -94,7 +94,7 @@ setup:
 	fi
 
 deploy:
-	@set -a; . ./.compose.env 2>/dev/null || true; set +a; \
+	@if [ -f ./.compose.env ]; then set -a; . ./.compose.env; set +a; fi; \
 	docker compose up -d
 
 down:
