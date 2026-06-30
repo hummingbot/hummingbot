@@ -1,7 +1,7 @@
-"""``hbot ticker`` — best bid/ask/mid/last for a pair on an exchange.
+"""``hbot ticker`` — best bid/ask/mid/last for a pair on a connector.
 
 Read-only public market data, fetched ad-hoc (no running bot): builds a connector, waits for the
-order book, reads the prices, tears down. The pair is fuzzy-matched against the exchange's universe.
+order book, reads the prices, tears down. The pair is fuzzy-matched against the connector's universe.
 Price fetching is reused from the interactive ``ticker`` command (``get_ticker_prices``); rendering
 is hbot's compact Markdown.
 """
@@ -13,16 +13,16 @@ import typer
 from hummingbot.cli.output import ExitCode, echo, fail, render_kv
 
 
-async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str, List[str]]:
+async def _run(ccm, connector: str, pair: str, timeout: float) -> Tuple[dict, str, List[str]]:
     from hummingbot.cli.commands._market_data import (
         connector_for_snapshot,
         fetch_order_book,
         load_universe,
         resolve_or_fail,
     )
-    symbol_map, _rules, conn = await load_universe(ccm, exchange, timeout)
+    symbol_map, _rules, conn = await load_universe(ccm, connector, timeout)
     matched, alts = resolve_or_fail(list(symbol_map.values()), pair)
-    conn = await connector_for_snapshot(ccm, exchange, symbol_map, conn)
+    conn = await connector_for_snapshot(ccm, connector, symbol_map, conn)
     ob = await fetch_order_book(conn, matched, timeout)
 
     bids, asks = ob.snapshot[0], ob.snapshot[1]
@@ -42,20 +42,20 @@ async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str
 
 
 def ticker(
-    exchange: str = typer.Argument(..., help="Exchange, e.g. hyperliquid_perpetual or binance."),
+    connector: str = typer.Argument(..., help="Connector, e.g. hyperliquid_perpetual or binance."),
     pair: str = typer.Argument(..., help="Trading pair (fuzzy), e.g. ETH-USD, btc/usdt."),
 ) -> None:
-    """Show best bid, ask, mid, and last price for a pair on an exchange."""
+    """Show best bid, ask, mid, and last price for a pair on a connector."""
     from hummingbot.cli.commands._market_data import _norm
     from hummingbot.client.config.config_helpers import load_client_config_map_from_file
     ccm = load_client_config_map_from_file()  # public market data — no keystore needed
     timeout = float(ccm.commands_timeout.other_commands_timeout)
     try:
-        prices, matched, alts = asyncio.run(_run(ccm, exchange, pair, timeout))
+        prices, matched, alts = asyncio.run(_run(ccm, connector, pair, timeout))
     except asyncio.TimeoutError:
         fail("timed out waiting for the order book", ExitCode.TIMEOUT)
 
-    title = f"ticker {matched} ({exchange})"
+    title = f"ticker {matched} ({connector})"
     if matched.upper() != _norm(pair):
         title += f" — fuzzy-matched from '{pair}'"
     out = render_kv(prices, title=title)

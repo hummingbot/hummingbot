@@ -1,8 +1,8 @@
-"""``hbot balance`` — fetch balances from exchanges connected via `hbot connect`.
+"""``hbot balance`` — fetch balances from connectors connected via `hbot connect`.
 
-Typically run right after `hbot connect <exchange>` to confirm the keys work and see funds.
-Decrypts the stored keys with the keystore password, queries each exchange (network), and reports
-balances per exchange with their global-token (USD) value, mirroring Hummingbot's ``balance`` command.
+Typically run right after `hbot connect <connector>` to confirm the keys work and see funds.
+Decrypts the stored keys with the keystore password, queries each connector (network), and reports
+balances per connector with their global-token (USD) value, mirroring Hummingbot's ``balance`` command.
 Read-only — it never places orders.
 """
 import asyncio
@@ -23,9 +23,9 @@ async def _all_prices() -> Tuple[Dict[str, Decimal], str]:
     return prices, ro.quote_token
 
 
-def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[str, Decimal],
+def _exchange_assets(connector: str, total: Dict[str, Decimal], available: Dict[str, Decimal],
                      prices: Dict[str, Decimal], quote_token: str) -> Tuple[List[dict], Decimal, Decimal]:
-    """Build per-asset rows (with global-token value + allocated %) for one exchange.
+    """Build per-asset rows (with global-token value + allocated %) for one connector.
 
     Mirrors ``HummingbotApplication.exchange_balances_extra_df``: CEX hides zero balances, gateway
     connectors show them; values come from the pre-fetched rate-oracle prices via ``find_rate``.
@@ -33,7 +33,7 @@ def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[s
     from hummingbot.client.settings import AllConnectorSettings
     from hummingbot.connector.utils import combine_to_hb_trading_pair
     from hummingbot.core.rate_oracle.utils import find_rate
-    conn = AllConnectorSettings.get_connector_settings().get(exchange)
+    conn = AllConnectorSettings.get_connector_settings().get(connector)
     is_gateway = bool(conn and conn.uses_gateway_generic_connector())
     assets: List[dict] = []
     allocated_total = Decimal("0")
@@ -56,7 +56,7 @@ def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[s
 
 
 async def _attach_positions(ub, result: Dict[str, dict], timeout: float) -> None:
-    """For perpetual exchanges, attach open positions + total unrealized PnL, reusing the connectors
+    """For perpetual connectors, attach open positions + total unrealized PnL, reusing the connectors
     UserBalances already built for the balance fetch (no extra connection)."""
     from hummingbot.cli.commands.positions import _position_dict
     for ex in result:
@@ -87,25 +87,25 @@ async def _fetch_all(ccm, timeout: float, with_prices: bool = True) -> Dict[str,
     return result
 
 
-async def _fetch_one(ccm, exchange: str, timeout: float,
+async def _fetch_one(ccm, connector: str, timeout: float,
                      with_prices: bool = True) -> Tuple[Optional[Dict[str, dict]], Optional[str]]:
     from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
-    err = await asyncio.wait_for(ub.update_exchange_balance(exchange, ccm), timeout)
+    err = await asyncio.wait_for(ub.update_exchange_balance(connector, ccm), timeout)
     if err is not None:
         return None, err
-    total = ub.all_balances(exchange)
-    avai = ub.all_available_balances_all_exchanges().get(exchange, {})
+    total = ub.all_balances(connector)
+    avai = ub.all_available_balances_all_exchanges().get(connector, {})
     prices, quote = (await _all_prices()) if with_prices else ({}, "")
-    assets, alloc, usd = _exchange_assets(exchange, total, avai, prices, quote)
-    result = {exchange: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}
+    assets, alloc, usd = _exchange_assets(connector, total, avai, prices, quote)
+    result = {connector: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}
     if with_prices:
         await _attach_positions(ub, result, timeout)
     return result, None
 
 
 def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
-    """Render balances (+ positions on perps) as per-exchange Markdown, with a net-value total.
+    """Render balances (+ positions on perps) as per-connector Markdown, with a net-value total.
 
     ``units_only`` hides the USD value column and all value totals (no prices were fetched).
     """
@@ -144,18 +144,18 @@ def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
         exchanges_total += net
     if units_only:
         return "\n\n".join(out)
-    out.append(f"exchanges total (net): {sym}{exchanges_total:.2f}")
+    out.append(f"connectors total (net): {sym}{exchanges_total:.2f}")
     return "\n\n".join(out)
 
 
 def balance(
-    exchange: Optional[str] = typer.Argument(None, help="Exchange to fetch. Omit for all connected exchanges."),
+    connector: Optional[str] = typer.Argument(None, help="Connector to fetch. Omit for all connected connectors."),
     units_only: bool = typer.Option(
         False, "--units-only", help="Show only token amounts — skip the price fetch (faster) and USD values/positions."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
 ) -> None:
-    """Show your exchange balances, with their value in USD."""
+    """Show your connector balances, with their value in USD."""
     from hummingbot.client.settings import AllConnectorSettings
     ccm, password = login(password_stdin=password_stdin)
 
@@ -164,15 +164,15 @@ def balance(
     typer.echo("Updating balances, please wait...", err=True)
     with_prices = not units_only
 
-    if exchange is not None:
-        if exchange not in AllConnectorSettings.get_connector_settings():
-            fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
+    if connector is not None:
+        if connector not in AllConnectorSettings.get_connector_settings():
+            fail(f"unknown connector '{connector}'", ExitCode.CONFIG_ERROR)
         try:
-            result, err = asyncio.run(_fetch_one(ccm, exchange, timeout, with_prices))
+            result, err = asyncio.run(_fetch_one(ccm, connector, timeout, with_prices))
         except asyncio.TimeoutError:
             fail("network timeout fetching balances", ExitCode.TIMEOUT)
         if err is not None:
-            fail(f"{exchange}: {err}", ExitCode.ERROR)
+            fail(f"{connector}: {err}", ExitCode.ERROR)
     else:
         try:
             result = asyncio.run(_fetch_all(ccm, timeout, with_prices))
@@ -180,6 +180,6 @@ def balance(
             fail("network timeout fetching balances", ExitCode.TIMEOUT)
 
     if not result:
-        echo("No balances (no connected exchanges, or all balances are zero).")
+        echo("No balances (no connected connectors, or all balances are zero).")
     else:
         echo(_render(result, sym, units_only))

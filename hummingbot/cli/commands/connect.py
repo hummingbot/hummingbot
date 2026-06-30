@@ -1,9 +1,9 @@
-"""``hbot connect`` — list exchanges and securely store encrypted API keys.
+"""``hbot connect`` — list connectors and securely store encrypted API keys.
 
-Like Hummingbot's ``connect``: each exchange declares its own key fields (api key, secret, etc.).
+Like Hummingbot's ``connect``: each connector declares its own key fields (api key, secret, etc.).
 Secrets are NEVER taken as flags. Supply them either interactively (hidden prompts) or, for
 automation, as a JSON object on stdin (``--keys-stdin``). Keys are encrypted with the keystore
-password via ``Security.update_secure_config`` and written to ``conf/connectors/<exchange>.yml``.
+password via ``Security.update_secure_config`` and written to ``conf/connectors/<connector>.yml``.
 """
 import asyncio
 import getpass
@@ -40,11 +40,11 @@ def _prompt_text(item: Any, cfg: "ClientConfigAdapter") -> str:
 
 
 def _list_all() -> None:
-    """Static checklist of every connectable exchange (no password / network needed)."""
+    """Static checklist of every connectable connector (no password / network needed)."""
     from hummingbot.client.config.security import Security
-    rows = [{"exchange": name, "keys_added": Security.connector_config_file_exists(name)}
+    rows = [{"connector": name, "keys_added": Security.connector_config_file_exists(name)}
             for name in _connectable_exchanges()]
-    echo(render_table(rows, columns=["exchange", "keys_added"], title="connectable exchanges"))
+    echo(render_table(rows, columns=["connector", "keys_added"], title="connectable connectors"))
 
 
 def _show_connections(ccm, password_stdin: bool) -> None:
@@ -54,8 +54,8 @@ def _show_connections(ccm, password_stdin: bool) -> None:
     from hummingbot.user.user_balances import UserBalances
     keyed = [name for name in _connectable_exchanges() if Security.connector_config_file_exists(name)]
     if not keyed:
-        echo("No exchanges connected. Run `hbot connect <exchange>` to add keys, "
-             "or `hbot connect --all` to list connectable exchanges.")
+        echo("No connectors connected. Run `hbot connect <connector>` to add keys, "
+             "or `hbot connect --all` to list connectable connectors.")
         return
 
     password = resolve_password(password_stdin=password_stdin)
@@ -73,8 +73,8 @@ def _show_connections(ccm, password_stdin: bool) -> None:
     rows = []
     for ex in keyed:
         err = err_msgs.get(ex)
-        rows.append({"exchange": ex, "keys_added": True, "keys_confirmed": err is None, "error": err})
-    echo(render_table(rows, columns=["exchange", "keys_added", "keys_confirmed", "error"],
+        rows.append({"connector": ex, "keys_added": True, "keys_confirmed": err is None, "error": err})
+    echo(render_table(rows, columns=["connector", "keys_added", "keys_confirmed", "error"],
                       title="connections"))
 
 
@@ -103,33 +103,33 @@ def _collect_key_values(fields: List[Any], cfg: "ClientConfigAdapter",
 
 
 def connect(
-    exchange: Optional[str] = typer.Argument(None, help="Exchange to add keys for. Omit to show connections."),
+    connector: Optional[str] = typer.Argument(None, help="Connector to add keys for. Omit to show connections."),
     keys_stdin: bool = typer.Option(False, "--keys-stdin", help="Read API keys as a JSON object from stdin."),
-    replace: bool = typer.Option(False, "--replace", help="Overwrite existing keys for the exchange."),
-    show_fields: bool = typer.Option(False, "--fields", help="List the exchange's required key fields and exit."),
-    show_all: bool = typer.Option(False, "--all", help="List every connectable exchange (no key test)."),
+    replace: bool = typer.Option(False, "--replace", help="Overwrite existing keys for the connector."),
+    show_fields: bool = typer.Option(False, "--fields", help="List the connector's required key fields and exit."),
+    show_all: bool = typer.Option(False, "--all", help="List every connectable connector (no key test)."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
 ) -> None:
-    """Show connections or add an exchange's API keys."""
+    """Show connections or add a connector's API keys."""
     from hummingbot.client.config.config_helpers import ClientConfigAdapter, load_client_config_map_from_file
     from hummingbot.client.config.security import Security
     from hummingbot.client.settings import AllConnectorSettings
 
-    if exchange is None:
+    if connector is None:
         if show_all:
             _list_all()
         else:
             _show_connections(load_client_config_map_from_file(), password_stdin)
         return
 
-    if exchange not in _connectable_exchanges():
-        fail(f"unknown exchange '{exchange}' (run `hbot connect` to list)",
+    if connector not in _connectable_exchanges():
+        fail(f"unknown connector '{connector}' (run `hbot connect` to list)",
              ExitCode.CONFIG_ERROR)
 
-    config_keys = AllConnectorSettings.get_connector_config_keys(exchange)
+    config_keys = AllConnectorSettings.get_connector_config_keys(connector)
     if config_keys is None:
-        fail(f"'{exchange}' does not use API keys", ExitCode.CONFIG_ERROR)
+        fail(f"'{connector}' does not use API keys", ExitCode.CONFIG_ERROR)
     cfg = ClientConfigAdapter(config_keys)
     fields = _connect_key_fields(cfg)
 
@@ -137,11 +137,11 @@ def connect(
         described = [{"field": f.attr, "prompt": _prompt_text(f, cfg),
                       "secret": bool(f.client_field_data.is_secure)} for f in fields]
         echo(render_table(described, columns=["field", "secret", "prompt"],
-                          title=f"key fields for {exchange}"))
+                          title=f"key fields for {connector}"))
         return
 
-    if Security.connector_config_file_exists(exchange) and not replace:
-        fail(f"keys for '{exchange}' already exist; pass --replace to overwrite",
+    if Security.connector_config_file_exists(connector) and not replace:
+        fail(f"keys for '{connector}' already exist; pass --replace to overwrite",
              ExitCode.CONFIG_ERROR)
 
     values = _collect_key_values(fields, cfg, keys_stdin)
@@ -155,4 +155,4 @@ def connect(
             fail(f"invalid value for {attr}: {e}", ExitCode.CONFIG_ERROR)
     Security.update_secure_config(cfg)
 
-    echo(render_kv({"exchange": exchange, "fields_set": ", ".join(values.keys())}, title="connect"))
+    echo(render_kv({"connector": connector, "fields_set": ", ".join(values.keys())}, title="connect"))

@@ -1,6 +1,6 @@
 """``hbot connectors`` — list the available connectors, grouped by spot and perpetual.
 
-The catalog of exchanges you *can* connect to (static — no keystore, no network). To see which you've
+The catalog of connectors you *can* connect to (static — no keystore, no network). To see which you've
 already connected, use ``hbot connect``.
 """
 from hummingbot.cli.output import echo

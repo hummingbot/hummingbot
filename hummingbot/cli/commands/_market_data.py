@@ -1,12 +1,12 @@
 """Shared helpers for the public market-data commands (``rules`` / ``ticker`` / ``order-book``).
 
-These commands fetch public exchange data ad-hoc — without a running strategy — by building a
+These commands fetch public connector data ad-hoc — without a running strategy — by building a
 connector with ``trading_required=False`` (read-only), querying it, and tearing it down. Stored API
-keys are used if the exchange is connected (some connectors, e.g. Hyperliquid, need a key just to
+keys are used if the connector is connected (some connectors, e.g. Hyperliquid, need a key just to
 construct); otherwise a clear "connect first" error is raised.
 
 Pair resolution is **fuzzy**: a loose query like ``xyz:spcx-usd`` / ``spcx/usd`` / ``ETHUSD`` is
-matched against the exchange's real pair universe (which, for Hyperliquid, includes HIP-3
+matched against the connector's real pair universe (which, for Hyperliquid, includes HIP-3
 dex-prefixed markets like ``XYZ:TSLA-USD``).
 """
 import asyncio
@@ -76,7 +76,7 @@ def _public_dummy_keys(conn_setting) -> dict:
     return keys
 
 
-async def make_connector(ccm, exchange: str, trading_pairs: List[str]):
+async def make_connector(ccm, connector: str, trading_pairs: List[str]):
     """Build a read-only connector for PUBLIC market data — no keystore required.
 
     Market data is public, so this never unlocks the user's keystore: it constructs the connector
@@ -86,13 +86,13 @@ async def make_connector(ccm, exchange: str, trading_pairs: List[str]):
     from hummingbot.client.settings import AllConnectorSettings
     from hummingbot.core.connector_manager import ConnectorManager
     settings = AllConnectorSettings.get_connector_settings()
-    if exchange not in settings:
-        fail(f"unknown exchange '{exchange}'", ExitCode.CONFIG_ERROR)
+    if connector not in settings:
+        fail(f"unknown connector '{connector}'", ExitCode.CONFIG_ERROR)
     try:
         return ConnectorManager(ccm).create_connector(
-            exchange, trading_pairs, trading_required=False, api_keys=_public_dummy_keys(settings[exchange]))
+            connector, trading_pairs, trading_required=False, api_keys=_public_dummy_keys(settings[connector]))
     except Exception as e:
-        fail(f"could not open a read-only connector for '{exchange}': {e}", ExitCode.ERROR)
+        fail(f"could not open a read-only connector for '{connector}': {e}", ExitCode.ERROR)
 
 
 def rule_to_dict(rule) -> dict:
@@ -113,21 +113,21 @@ def rule_to_dict(rule) -> dict:
     }
 
 
-# Per-exchange market-universe cache: the pair list / trading rules / symbol map change rarely, but
+# Per-connector market-universe cache: the pair list / trading rules / symbol map change rarely, but
 # fetching them costs ~2.5s (the meta endpoint). One `_update_trading_rules()` warms rules AND the
 # symbol map, so a single cached entry serves rules / ticker / book, dropping repeat calls to ~1.3s.
 _CACHE_TTL = 600.0  # seconds
 
 
-def _cache_path(exchange: str):
+def _cache_path(connector: str):
     from pathlib import Path
-    return Path("data") / "market_cache" / f"{exchange}.json"
+    return Path("data") / "market_cache" / f"{connector}.json"
 
 
-def read_market_cache(exchange: str, ttl: float = _CACHE_TTL) -> Optional[dict]:
+def read_market_cache(connector: str, ttl: float = _CACHE_TTL) -> Optional[dict]:
     import json
     import time
-    p = _cache_path(exchange)
+    p = _cache_path(connector)
     try:
         if not p.exists() or (time.time() - p.stat().st_mtime) > ttl:
             return None
@@ -136,9 +136,9 @@ def read_market_cache(exchange: str, ttl: float = _CACHE_TTL) -> Optional[dict]:
         return None
 
 
-def write_market_cache(exchange: str, symbol_map: dict, rules: dict) -> None:
+def write_market_cache(connector: str, symbol_map: dict, rules: dict) -> None:
     import json
-    p = _cache_path(exchange)
+    p = _cache_path(connector)
     try:  # best-effort: never fail a command because the cache couldn't be written
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(".tmp")
@@ -148,7 +148,7 @@ def write_market_cache(exchange: str, symbol_map: dict, rules: dict) -> None:
         pass
 
 
-async def load_universe(ccm, exchange: str, timeout: float) -> Tuple[dict, dict, object]:
+async def load_universe(ccm, connector: str, timeout: float) -> Tuple[dict, dict, object]:
     """Return ``(symbol_map {exch_sym: pair}, rules {pair: rule_dict}, connector_or_None)``.
 
     Served from the TTL disk cache when fresh (connector_or_None is None → no network); otherwise a
@@ -156,24 +156,34 @@ async def load_universe(ccm, exchange: str, timeout: float) -> Tuple[dict, dict,
     call) and both are cached. ticker/book reuse the returned connector (or inject the cached symbol
     map) to snapshot without a second meta fetch.
     """
-    cached = read_market_cache(exchange)
-    if cached:
+    cached = read_market_cache(connector)
+    if cached and cached.get("rules") and cached.get("symbol_map"):  # ignore a poisoned/empty cache
         return cached["symbol_map"], cached["rules"], None
-    conn = await make_connector(ccm, exchange, [])
-    await asyncio.wait_for(conn._update_trading_rules(), timeout)
-    symbol_map = dict(await conn.trading_pair_symbol_map())
-    rules = {pair: rule_to_dict(r) for pair, r in conn.trading_rules.items()}
-    write_market_cache(exchange, symbol_map, rules)
+    conn = await make_connector(ccm, connector, [])
+    try:
+        await asyncio.wait_for(conn._update_trading_rules(), timeout)
+        symbol_map = dict(await conn.trading_pair_symbol_map())
+        rules = {pair: rule_to_dict(r) for pair, r in conn.trading_rules.items()}
+    except asyncio.TimeoutError:
+        raise  # the command turns this into a clear TIMEOUT exit
+    except Exception as e:
+        fail(f"could not load markets for '{connector}': {e} (it may be rate-limited — try again)",
+             ExitCode.ERROR)
+    # A rate-limited connector often returns an empty rule set silently; fail clearly (and don't cache
+    # it) instead of letting fuzzy match report a misleading "no pair matches".
+    if not rules or not symbol_map:
+        fail(f"'{connector}' returned no markets (possibly rate-limited) — try again", ExitCode.ERROR)
+    write_market_cache(connector, symbol_map, rules)
     return symbol_map, rules, conn
 
 
-async def connector_for_snapshot(ccm, exchange: str, symbol_map: dict, conn):
+async def connector_for_snapshot(ccm, connector: str, symbol_map: dict, conn):
     """A connector with the symbol map ready, for a live order-book snapshot. Reuses ``conn`` from a
     cache-miss warm-up; on a cache hit builds one and injects the cached symbol map (no meta fetch)."""
     if conn is not None:
         return conn
     from bidict import bidict
-    conn = await make_connector(ccm, exchange, [])
+    conn = await make_connector(ccm, connector, [])
     conn._set_trading_pair_symbol_map(bidict(symbol_map))
     return conn
 
