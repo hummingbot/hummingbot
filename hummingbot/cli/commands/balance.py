@@ -55,15 +55,34 @@ def _exchange_assets(exchange: str, total: Dict[str, Decimal], available: Dict[s
     return assets, allocated_total, usd_total
 
 
+async def _attach_positions(ub, result: Dict[str, dict], timeout: float) -> None:
+    """For perpetual exchanges, attach open positions + total unrealized PnL, reusing the connectors
+    UserBalances already built for the balance fetch (no extra connection)."""
+    from hummingbot.cli.commands.positions import _position_dict
+    for ex in result:
+        market = getattr(ub, "_markets", {}).get(ex)
+        if market is None or not hasattr(market, "account_positions"):
+            continue
+        try:
+            await asyncio.wait_for(market._update_positions(), timeout)
+        except Exception:
+            continue
+        rows = [_position_dict(p) for p in market.account_positions.values() if float(p.amount) != 0]
+        result[ex]["positions"] = rows
+        result[ex]["pnl_total"] = sum((Decimal(str(r["unrealized_pnl"])) for r in rows), Decimal("0"))
+
+
 async def _fetch_all(ccm, timeout: float) -> Dict[str, dict]:
     from hummingbot.user.user_balances import UserBalances
     ub = UserBalances.instance()
     all_total = await asyncio.wait_for(ub.all_balances_all_exchanges(ccm), timeout)
     all_avai = ub.all_available_balances_all_exchanges()
     prices, quote = await _all_prices()
-    return {ex: dict(zip(("assets", "allocated_total", "usd_total"),
-                         _exchange_assets(ex, total, all_avai.get(ex, {}), prices, quote)))
-            for ex, total in all_total.items()}
+    result = {ex: dict(zip(("assets", "allocated_total", "usd_total"),
+                           _exchange_assets(ex, total, all_avai.get(ex, {}), prices, quote)))
+              for ex, total in all_total.items()}
+    await _attach_positions(ub, result, timeout)
+    return result
 
 
 async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[str, dict]], Optional[str]]:
@@ -76,26 +95,42 @@ async def _fetch_one(ccm, exchange: str, timeout: float) -> Tuple[Optional[Dict[
     avai = ub.all_available_balances_all_exchanges().get(exchange, {})
     prices, quote = await _all_prices()
     assets, alloc, usd = _exchange_assets(exchange, total, avai, prices, quote)
-    return {exchange: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}, None
+    result = {exchange: {"assets": assets, "allocated_total": alloc, "usd_total": usd}}
+    await _attach_positions(ub, result, timeout)
+    return result, None
 
 
 def _render(result: Dict[str, dict], sym: str) -> str:
-    """Render balances as per-exchange Markdown tables + a totals line."""
+    """Render balances (+ positions on perps) as per-exchange Markdown, with a net-value total."""
     from hummingbot.client.performance import PerformanceMetrics
+    rnd = PerformanceMetrics.smart_round
     out: List[str] = []
     exchanges_total = Decimal("0")
     for ex, data in result.items():
+        positions = data.get("positions") or []
+        pnl = data.get("pnl_total", Decimal("0"))
+        usd = data["usd_total"]
+        net = usd + pnl                       # net value = balances value + unrealized PnL
         assets = data["assets"]
-        if not assets:
+        if not assets and not positions:
             out.append(f"## {ex}\n\n_(no balance)_")
             continue
-        rows = [{"asset": a["asset"], "total": float(a["total"]),
-                 f"value({sym})": float(a["value"]), "allocated": a["allocated"]} for a in assets]
-        pct = (data["allocated_total"] / data["usd_total"]) if data["usd_total"] != Decimal("0") else 0
-        out.append(render_table(rows, title=ex)
-                   + f"\n\ntotal: {sym}{PerformanceMetrics.smart_round(data['usd_total'])} | allocated: {pct:.2%}")
-        exchanges_total += data["usd_total"]
-    out.append(f"exchanges total: {sym}{exchanges_total:.2f}")
+        section = f"## {ex}\n\n"
+        if assets:
+            rows = [{"asset": a["asset"], "total": float(a["total"]),
+                     f"value({sym})": float(a["value"]), "allocated": a["allocated"]} for a in assets]
+            pct = (data["allocated_total"] / usd) if usd != Decimal("0") else 0
+            section += render_table(rows) + f"\n\nbalances: {sym}{rnd(usd)} | allocated: {pct:.2%}"
+        if positions:
+            pos_rows = [{"pair": p["trading_pair"], "side": p["side"], "amount": p["amount"],
+                         "entry": p["entry_price"], "notional": p["notional"],
+                         "uPnL": p["unrealized_pnl"], "lev": p["leverage"]} for p in positions]
+            section += "\n\npositions:\n" + render_table(pos_rows)
+            section += (f"\n\nnet value: {sym}{rnd(net)}  "
+                        f"(balances {sym}{rnd(usd)} + uPnL {sym}{rnd(pnl)})")
+        out.append(section)
+        exchanges_total += net
+    out.append(f"exchanges total (net): {sym}{exchanges_total:.2f}")
     return "\n\n".join(out)
 
 
