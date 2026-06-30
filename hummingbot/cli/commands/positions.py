@@ -15,14 +15,20 @@ from hummingbot.cli.password import login
 
 def _position_dict(p) -> dict:
     amt = float(p.amount)
-    side = getattr(p.position_side, "name", str(p.position_side))
+    entry = float(p.entry_price)
+    upnl = float(p.unrealized_pnl)
+    # Current mark is exact from the position's own data (uPnL = amount*(mark-entry) for linear
+    # perps), so the market value needs no rate-oracle / price fetch.
+    mark = entry + (upnl / amt) if amt else entry
     return {
         "trading_pair": p.trading_pair,
-        "side": side,
+        "side": getattr(p.position_side, "name", str(p.position_side)),
         "amount": amt,
-        "entry_price": float(p.entry_price),
-        "notional": abs(amt) * float(p.entry_price),
-        "unrealized_pnl": float(p.unrealized_pnl),
+        "entry_price": entry,
+        "mark_price": mark,
+        "value": abs(amt) * mark,          # current market value (notional at mark, in quote currency)
+        "notional": abs(amt) * entry,      # entry notional (kept for balance's existing render)
+        "unrealized_pnl": upnl,
         "leverage": int(p.leverage),
     }
 
@@ -62,4 +68,4 @@ def positions(
     else:
         echo(render_table(rows, title=f"positions {exchange}",
                           columns=["trading_pair", "side", "amount", "entry_price",
-                                   "notional", "unrealized_pnl", "leverage"]))
+                                   "mark_price", "value", "unrealized_pnl", "leverage"]))
