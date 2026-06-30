@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.gemini.gemini_api_user_stream_data_source imp
 from hummingbot.connector.exchange.gemini.gemini_auth import GeminiAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -131,7 +131,9 @@ class GeminiExchange(ExchangePyBase):
         return status
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        # MARKET is emulated as an immediate-or-cancel "exchange limit" priced
+        # aggressively through the book (Gemini has no native market order type).
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
         # Gemini doesn't have a bulk ticker endpoint, so we return an empty list
@@ -199,6 +201,20 @@ class GeminiExchange(ExchangePyBase):
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        if order_type is OrderType.MARKET:
+            # Gemini has no native market order; emulate it with an immediate-or-cancel
+            # "exchange limit" priced aggressively through the book. This always goes over
+            # REST (the documented path for the immediate-or-cancel option) rather than the
+            # maker-oriented order-entry websocket.
+            return await self._place_order_via_rest(
+                order_id=order_id,
+                symbol=symbol,
+                amount=amount,
+                trade_type=trade_type,
+                order_type=order_type,
+                price=self._market_order_price(
+                    trading_pair=trading_pair, trade_type=trade_type, amount=amount, price=price))
 
         try:
             return await self._place_order_via_ws(
@@ -328,6 +344,78 @@ class GeminiExchange(ExchangePyBase):
                 return None
             raise
 
+    def _market_order_price(self,
+                            trading_pair: str,
+                            trade_type: TradeType,
+                            amount: Decimal,
+                            price: Decimal) -> Decimal:
+        """Builds the aggressive limit price for an emulated market order: the price that
+        would fill the whole `amount` through the book, padded by MARKET_ORDER_SLIPPAGE so
+        the immediate-or-cancel order still sweeps the liquidity if the book shifts. The
+        order executes at the resting book prices — this is only the protective bound."""
+        is_buy = trade_type is TradeType.BUY
+        reference_price = self._reference_price_for_market_order(
+            trading_pair=trading_pair, is_buy=is_buy, amount=amount, fallback_price=price)
+        slippage_factor = (Decimal("1") + CONSTANTS.MARKET_ORDER_SLIPPAGE
+                           if is_buy else Decimal("1") - CONSTANTS.MARKET_ORDER_SLIPPAGE)
+        aggressive_price = reference_price * slippage_factor
+        if is_buy:
+            # Gemini reserves amount * limit_price for a buy limit, but the strategy sized the
+            # order against the (un-padded) market price — so the padded limit, and even the
+            # full-depth sweep reference, can exceed the reserved quote and get a near-all-in
+            # market buy rejected for insufficient funds. Cap the limit at the price the
+            # available quote can fund so the immediate-or-cancel fills what it can afford (at
+            # the cheaper resting prices) instead of being rejected. min() only ever lowers the
+            # limit, so an ample balance leaves the aggressive price untouched.
+            affordable_price = self._affordable_buy_limit_price(trading_pair, amount)
+            if affordable_price is not None:
+                aggressive_price = min(aggressive_price, affordable_price)
+        quantized = self.quantize_order_price(trading_pair, aggressive_price)
+        if quantized <= Decimal("0"):
+            # The slippage buffer rounded a low-priced asset's sell limit down to zero;
+            # fall back to the (positive) reference so the order still has a valid price.
+            quantized = self.quantize_order_price(trading_pair, reference_price)
+        return quantized
+
+    def _affordable_buy_limit_price(self, trading_pair: str, amount: Decimal) -> Optional[Decimal]:
+        """Highest per-unit quote price the available quote balance can cover for `amount`
+        base, used to keep an emulated market buy's protective limit fundable. Returns None
+        when the amount or the tracked quote balance is unusable, leaving the limit uncapped."""
+        if amount <= Decimal("0"):
+            return None
+        _, quote = split_hb_trading_pair(trading_pair)
+        available_quote = self._account_available_balances.get(quote)
+        if available_quote is None or available_quote <= Decimal("0"):
+            return None
+        return available_quote / amount
+
+    def _reference_price_for_market_order(self,
+                                          trading_pair: str,
+                                          is_buy: bool,
+                                          amount: Decimal,
+                                          fallback_price: Decimal) -> Decimal:
+        """Resolves a positive reference price for a market order, preferring the price
+        that fills `amount` through the book, then the top of book, then a caller-supplied
+        price. Raises ValueError if none is usable (e.g. the order book is not yet tracked)."""
+        candidates: List[Optional[Decimal]] = []
+        try:
+            volume_query = self.get_price_for_volume(trading_pair, is_buy, amount)
+            if volume_query is not None:
+                candidates.append(Decimal(str(volume_query.result_price)))
+        except Exception:
+            pass
+        try:
+            candidates.append(self.get_price(trading_pair, is_buy))
+        except Exception:
+            pass
+        candidates.append(fallback_price)
+        for candidate in candidates:
+            if candidate is not None and not candidate.is_nan() and candidate > Decimal("0"):
+                return candidate
+        raise ValueError(
+            f"Cannot determine a market price for {trading_pair}: the order book is "
+            f"unavailable and no valid fallback price was provided.")
+
     async def _place_order_via_rest(self,
                                     order_id: str,
                                     symbol: str,
@@ -337,8 +425,9 @@ class GeminiExchange(ExchangePyBase):
                                     price: Decimal) -> Tuple[str, float]:
         side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
 
-        # Gemini REST API does not support "exchange market" order type.
-        # All orders are placed as "exchange limit" with an explicit price.
+        # Gemini has no native "exchange market" order type — every order, including an
+        # emulated MARKET, is an "exchange limit". A MARKET order carries the aggressive
+        # price computed by _market_order_price and the immediate-or-cancel option below.
         gemini_order_type = CONSTANTS.ORDER_TYPE_LIMIT
 
         api_params = {
@@ -352,7 +441,9 @@ class GeminiExchange(ExchangePyBase):
         }
 
         if order_type == OrderType.LIMIT_MAKER:
-            api_params["options"] = ["maker-or-cancel"]
+            api_params["options"] = [CONSTANTS.ORDER_OPTION_MAKER_OR_CANCEL]
+        elif order_type == OrderType.MARKET:
+            api_params["options"] = [CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL]
 
         order_result = await self._api_post(
             path_url=CONSTANTS.NEW_ORDER_PATH_URL,
@@ -733,8 +824,15 @@ class GeminiExchange(ExchangePyBase):
                     # Balance update: {"e": "balanceUpdate", "B": [{"a": "USD", "f": "207.39"}]}
                     for balance_entry in event_message.get("B", []):
                         asset_name = balance_entry.get("a", "")
+                        if not asset_name:
+                            continue
                         available = Decimal(str(balance_entry.get("f", "0")))
-                        if asset_name:
+                        if available <= Decimal("0"):
+                            # Mirror _update_balances: drop non-positive dust instead of
+                            # tracking a negative/zero balance for the asset.
+                            self._account_available_balances.pop(asset_name, None)
+                            self._account_balances.pop(asset_name, None)
+                        else:
                             self._account_available_balances[asset_name] = available
                             self._account_balances[asset_name] = available
 
@@ -831,6 +929,15 @@ class GeminiExchange(ExchangePyBase):
                 },
                 is_auth_required=True)
         except Exception as e:
+            if CONSTANTS.MISSING_ACCOUNTS_ERROR in str(e):
+                # The key is a Master API key, which requires an "account" on every
+                # payload. Hummingbot uses account-scoped keys, so guide the user instead
+                # of surfacing the opaque "Expected a JSON payload with accounts" error.
+                message = ("Gemini rejected the request because the API key is a Master API key. "
+                           "Hummingbot requires an account-scoped (primary) API key: create one "
+                           "under your Gemini account's API settings (not a Master key) and reconnect.")
+                self.logger().error(message)
+                raise IOError(message) from e
             self.logger().error(f"Error fetching Gemini balances: {e}", exc_info=True)
             raise
 
@@ -842,6 +949,12 @@ class GeminiExchange(ExchangePyBase):
                 continue
             available_balance = Decimal(str(balance_entry["available"]))
             total_balance = Decimal(str(balance_entry["amount"]))
+            # Gemini can report sub-cent negative dust (e.g. USD "-0.0020" from a fee on
+            # unsettled funds). It is not a tradeable holding, so skip non-positive totals
+            # rather than surfacing a confusing negative in the balance view and feeding a
+            # negative figure into budget checks.
+            if total_balance <= Decimal("0"):
+                continue
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)

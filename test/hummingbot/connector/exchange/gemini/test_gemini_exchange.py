@@ -609,7 +609,182 @@ class GeminiExchangeTests(TestCase):
 
         _, kwargs = self.exchange._api_post.call_args
         self.assertEqual(CONSTANTS.SIDE_SELL, kwargs["data"]["side"])
-        self.assertEqual(["maker-or-cancel"], kwargs["data"]["options"])
+        self.assertEqual([CONSTANTS.ORDER_OPTION_MAKER_OR_CANCEL], kwargs["data"]["options"])
+
+    # ------------------------------------------------------------------
+    # MARKET orders — emulated as an immediate-or-cancel "exchange limit"
+    # ------------------------------------------------------------------
+
+    def test_supported_order_types_includes_market(self):
+        self.assertIn(OrderType.MARKET, self.exchange.supported_order_types())
+
+    def _prime_market_price(self, volume_price="100", top_price="100"):
+        # Stand in for the order book: a price that fills the whole volume, the top of
+        # book, and an identity quantizer so assertions can reason about exact numbers.
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal(volume_price)))
+        self.exchange.get_price = MagicMock(return_value=Decimal(top_price))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+
+    def test_place_order_market_buy_uses_rest_ioc_above_market(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._trade_ws_request = AsyncMock()
+        self.exchange._api_post = AsyncMock(
+            return_value={"order_id": 555, "timestampms": 1700000000000})
+
+        o_id, ts = self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+            trade_type=TradeType.BUY, order_type=OrderType.MARKET, price=Decimal("NaN")))
+
+        self.assertEqual("555", o_id)
+        self.assertGreater(ts, 0)
+        # A MARKET order never touches the maker-oriented order-entry websocket.
+        self.exchange._trade_ws_request.assert_not_called()
+        self.exchange.get_price_for_volume.assert_called_once_with("BTC-USD", True, Decimal("1"))
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.NEW_ORDER_PATH_URL, kwargs["path_url"])
+        data = kwargs["data"]
+        self.assertEqual(CONSTANTS.ORDER_TYPE_LIMIT, data["type"])
+        self.assertEqual([CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL], data["options"])
+        self.assertEqual(CONSTANTS.SIDE_BUY, data["side"])
+        # Buy is padded ABOVE the fill price so the IOC sweeps the book.
+        self.assertGreater(Decimal(data["price"]), Decimal("100"))
+
+    def test_place_order_market_sell_uses_rest_ioc_below_market(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._trade_ws_request = AsyncMock()
+        self.exchange._api_post = AsyncMock(return_value={"order_id": 7, "timestampms": 0})
+
+        self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+            trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+
+        self.exchange._trade_ws_request.assert_not_called()
+        _, kwargs = self.exchange._api_post.call_args
+        data = kwargs["data"]
+        self.assertEqual(CONSTANTS.SIDE_SELL, data["side"])
+        self.assertEqual([CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL], data["options"])
+        # Sell is padded BELOW the fill price (but still positive).
+        self.assertLess(Decimal(data["price"]), Decimal("100"))
+        self.assertGreater(Decimal(data["price"]), Decimal("0"))
+
+    def test_market_order_price_falls_back_to_top_of_book(self):
+        self.exchange.get_price_for_volume = MagicMock(side_effect=ValueError("no depth"))
+        self.exchange.get_price = MagicMock(return_value=Decimal("200"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertGreater(price, Decimal("200"))
+
+    def test_market_order_price_skips_nan_volume_price(self):
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal("NaN")))
+        self.exchange.get_price = MagicMock(return_value=Decimal("300"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertGreater(price, Decimal("300"))
+
+    def test_market_order_price_uses_fallback_price_when_book_unavailable(self):
+        self.exchange.get_price_for_volume = MagicMock(side_effect=ValueError("no book"))
+        self.exchange.get_price = MagicMock(side_effect=ValueError("no book"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.SELL,
+            amount=Decimal("1"), price=Decimal("50"))
+
+        self.assertLess(price, Decimal("50"))
+        self.assertGreater(price, Decimal("0"))
+
+    def test_market_order_price_raises_without_any_usable_price(self):
+        self.exchange.get_price_for_volume = MagicMock(side_effect=ValueError("no book"))
+        self.exchange.get_price = MagicMock(side_effect=ValueError("no book"))
+
+        with self.assertRaises(ValueError):
+            self.exchange._market_order_price(
+                trading_pair="BTC-USD", trade_type=TradeType.BUY,
+                amount=Decimal("1"), price=Decimal("NaN"))
+
+    def test_market_order_price_guards_against_zero_after_quantization(self):
+        # A sell whose slippage-adjusted price quantizes down to 0 falls back to the
+        # (positive) reference so the order still carries a valid limit price.
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal("0.0001")))
+        self.exchange.get_price = MagicMock(return_value=Decimal("0.0001"))
+
+        def fake_quantize(trading_pair, candidate):
+            return Decimal("0") if candidate < Decimal("0.0001") else Decimal("0.0001")
+
+        self.exchange.quantize_order_price = MagicMock(side_effect=fake_quantize)
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.SELL,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertEqual(Decimal("0.0001"), price)
+
+    def test_market_order_price_buy_caps_at_affordable_quote(self):
+        # The +slippage limit would require more quote than the user holds; cap it so
+        # Gemini's amount*limit funds check passes, while still >= the sweep reference.
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal("100")))
+        self.exchange.get_price = MagicMock(return_value=Decimal("100"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+        self.exchange._account_available_balances["USD"] = Decimal("101")  # < 1 * 100 * 1.02
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertEqual(Decimal("101"), price)
+        self.assertLessEqual(price * Decimal("1"), Decimal("101"))  # fundable
+
+    def test_market_order_price_buy_not_capped_when_balance_is_ample(self):
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal("100")))
+        self.exchange.get_price = MagicMock(return_value=Decimal("100"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+        self.exchange._account_available_balances["USD"] = Decimal("1000000")
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertEqual(Decimal("102"), price)  # full 2% buffer, uncapped
+
+    def test_market_order_price_buy_caps_below_marginal_sweep_reference(self):
+        # The full-depth sweep reference (110) exceeds what the balance can fund (105); the
+        # cap must still apply (105), not be skipped — the IOC then fills what it can afford
+        # at the cheaper resting prices instead of being rejected for insufficient funds.
+        self.exchange.get_price_for_volume = MagicMock(
+            return_value=MagicMock(result_price=Decimal("110")))
+        self.exchange.get_price = MagicMock(return_value=Decimal("110"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+        self.exchange._account_available_balances["USD"] = Decimal("105")  # < 110, < 110*1.02
+
+        price = self.exchange._market_order_price(
+            trading_pair="BTC-USD", trade_type=TradeType.BUY,
+            amount=Decimal("1"), price=Decimal("NaN"))
+
+        self.assertEqual(Decimal("105"), price)
+        self.assertLessEqual(price * Decimal("1"), Decimal("105"))  # fundable, not rejected
+
+    def test_affordable_buy_limit_price_guards(self):
+        self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("0")))
+        self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("1")))
+        self.exchange._account_available_balances["USD"] = Decimal("-5")
+        self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("1")))
+        self.exchange._account_available_balances["USD"] = Decimal("200")
+        self.assertEqual(Decimal("100"), self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("2")))
 
     # ------------------------------------------------------------------
     # Order cancellation — websocket-first
@@ -1247,6 +1422,34 @@ class GeminiExchangeTests(TestCase):
         with self.assertRaises(Exception):
             self._async_run(self.exchange._update_balances())
 
+    def test_update_balances_skips_negative_dust(self):
+        # Gemini reports sub-cent negative USD dust next to a real USDC holding; the dust
+        # must not surface in the balance view or feed a negative into budget checks.
+        self.exchange._api_post = AsyncMock(return_value=[
+            {"currency": "USDC", "amount": "100", "available": "100"},
+            {"currency": "USD", "amount": "-0.0020", "available": "-0.0020"},
+        ])
+        self.exchange._account_balances["USD"] = Decimal("-0.0020")
+        self.exchange._account_available_balances["USD"] = Decimal("-0.0020")
+
+        self._async_run(self.exchange._update_balances())
+
+        self.assertEqual(Decimal("100"), self.exchange._account_balances["USDC"])
+        self.assertNotIn("USD", self.exchange._account_balances)
+        self.assertNotIn("USD", self.exchange._account_available_balances)
+
+    def test_update_balances_master_key_error_is_actionable(self):
+        self.exchange._api_post = AsyncMock(side_effect=IOError(
+            'Error executing request POST https://api.gemini.com/v1/balances. HTTP status '
+            'is 400. Error: {"result":"error","reason":"MissingAccounts","message":'
+            '"Expected a JSON payload with accounts"}'))
+
+        with self.assertRaises(IOError) as ctx:
+            self._async_run(self.exchange._update_balances())
+
+        self.assertIn("Master API key", str(ctx.exception))
+        self.assertIn("account-scoped", str(ctx.exception))
+
     # ------------------------------------------------------------------
     # Last traded price
     # ------------------------------------------------------------------
@@ -1274,6 +1477,20 @@ class GeminiExchangeTests(TestCase):
         self._drive_user_stream([balance_event])
         self.assertEqual(Decimal("207.39"), self.exchange._account_available_balances["USD"])
         self.assertEqual(Decimal("207.39"), self.exchange._account_balances["USD"])
+
+    def test_user_stream_balance_update_drops_non_positive(self):
+        # A balanceUpdate that drives an asset to sub-cent negative dust removes it from
+        # the tracked balances rather than recording a negative figure.
+        self.exchange._account_available_balances["USD"] = Decimal("5")
+        self.exchange._account_balances["USD"] = Decimal("5")
+        balance_event = {
+            "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
+            "E": 1700000000000,
+            "B": [{"a": "USD", "f": "-0.0020"}],
+        }
+        self._drive_user_stream([balance_event])
+        self.assertNotIn("USD", self.exchange._account_balances)
+        self.assertNotIn("USD", self.exchange._account_available_balances)
 
     def test_user_stream_handles_unexpected_error(self):
         # A malformed order event (status present but bad data) should be caught and logged

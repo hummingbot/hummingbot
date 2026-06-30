@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -75,7 +77,18 @@ MAX_ORDER_ID_LEN = 36
 # Order params
 SIDE_BUY = "buy"
 SIDE_SELL = "sell"
+# Gemini has no native "market" order type; every order is an "exchange limit".
+# A market order is emulated with the immediate-or-cancel option and an aggressive
+# limit price (see https://docs.gemini.com/rest/orders).
 ORDER_TYPE_LIMIT = "exchange limit"
+ORDER_OPTION_MAKER_OR_CANCEL = "maker-or-cancel"
+ORDER_OPTION_IMMEDIATE_OR_CANCEL = "immediate-or-cancel"
+# Fraction added to (buy) / subtracted from (sell) the price that would fill the whole
+# order through the book, so an immediate-or-cancel market order still sweeps the required
+# liquidity if the book shifts between pricing and submission. The reference is already the
+# full-depth sweep price, so this only absorbs short-term movement; the order executes at
+# the resting book prices — this is just the protective limit.
+MARKET_ORDER_SLIPPAGE = Decimal("0.02")
 
 # Time
 WS_HEARTBEAT_TIME_INTERVAL = 30
@@ -119,6 +132,9 @@ ORDER_STATE = {
 # Error codes
 ORDER_NOT_FOUND_ERROR = "OrderNotFound"
 INVALID_ORDER_ERROR = "InvalidOrderId"
+# Returned (HTTP 400) when a Master API key is used without an "account" in the payload.
+# Hummingbot expects an account-scoped (primary) key, so this is surfaced with guidance.
+MISSING_ACCOUNTS_ERROR = "MissingAccounts"
 # The WS API rejects cancels of unknown/filled orders with
 # "Invalid parameters - order not found or already filled" (code -1013)
 WS_ORDER_NOT_FOUND_MESSAGE = "order not found"
