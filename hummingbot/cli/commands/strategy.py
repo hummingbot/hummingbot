@@ -74,10 +74,17 @@ def show_cmd(
         data, required, updatable = describe_strategy(stype, strategy, scaffold_id=False)
     except Exception as e:
         fail(str(e), ExitCode.CONFIG_ERROR)
+    # The framework = the source folder this lives in: controllers/<type> for a controller,
+    # scripts/ for a v2 script, hummingbot/strategy/<name>/ for a v1 strategy.
+    framework = {
+        "controller": f"controllers/{data.get('controller_type', '')}".rstrip("/"),
+        "v2-script": "scripts",
+        "v1-strategy": f"hummingbot/strategy/{strategy}",
+    }[stype]
     rows = [{"field": k, "value": cell(val), "required": k in required, "live": k in updatable}
             for k, val in data.items()]
-    echo(render_table(rows, columns=["field", "value", "required", "live"],
-                      title=f"{stype}: {strategy}"))
+    header = render_kv({"type": stype, "framework": framework}, title=strategy)
+    echo(header + "\n\n" + render_table(rows, columns=["field", "value", "required", "live"]))
 
 
 _START_FLAG = {"v1-strategy": "--v1-strategy", "v2-script": "--v2-script", "controller": "--controller"}
