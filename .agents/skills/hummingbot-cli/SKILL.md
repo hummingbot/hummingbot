@@ -21,7 +21,29 @@ interactive prompt — drive it entirely over the shell.
 > For a market-making bot specifically, follow the **`pure-market-making`** skill, which builds on
 > this one with the exact `pmm_mister` recipe. This skill is the general operating manual.
 
-## Install (from a fresh clone)
+## Install
+
+> **If you are an agent setting this up for a user, prefer Docker.** The image ships with the conda
+> env and the compiled Cython extensions already built, so setup is a couple of commands and a pull —
+> no Miniconda download, no `conda env create`, no Anaconda ToS prompts, no Python-version drift, and
+> no multi-minute extension compile. The source install does all of that from scratch and is slow and
+> failure-prone in a fresh or automated environment. Use source only when the user explicitly wants to
+> build from source or modify the code. Either way the `hbot` commands afterward are identical.
+
+### Docker (recommended for agents)
+
+```bash
+make deploy           # start the hummingbot container (an idle "hbot host")
+make link-cli         # put an `hbot` wrapper on PATH -> dispatches into the container
+hbot --help           # confirm it works
+```
+
+After this, `hbot <command>` runs exactly as documented below. The wrapper (`bin/hbot-host`)
+auto-detects a `hummingbot` conda env or a running `hummingbot` container, so the same `hbot` works
+regardless of how it was installed. (Equivalent without the wrapper:
+`docker exec -it hummingbot hbot <command>`.)
+
+### From source (only if building or modifying the code)
 
 Requires Anaconda or Miniconda.
 
@@ -34,7 +56,7 @@ hbot --help           # confirm it works
 ```
 
 After this, `hbot` is on PATH inside the `hummingbot` env. Always `conda activate hummingbot` before
-running `hbot`. (Docker users: `make deploy && make link-cli` instead — same commands afterward.)
+running `hbot`.
 
 ## The contract every command honors (this is why it's agent-friendly)
 

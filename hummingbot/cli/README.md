@@ -190,6 +190,11 @@ interactive client's first launch. Every later command must use that same passwo
 
 ## Running in Docker
 
+> **Recommended for automated/agent-driven setup.** The image ships with the conda env and compiled
+> Cython extensions prebuilt, so there's no Miniconda download, `conda env create`, ToS prompt, or
+> multi-minute extension compile — just `make deploy && make link-cli`. Reach for the source install
+> only when you're building or modifying the code.
+
 `hbot` works the same in Docker as from source — same commands, same flow. `make deploy` brings up a
 `hummingbot` container as an **idle "hbot host"** (it stays up; you drive it with `hbot` commands),
 and `make link-cli` puts an `hbot` wrapper on your host PATH that dispatches into the container:
