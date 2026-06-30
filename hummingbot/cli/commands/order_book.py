@@ -14,10 +14,16 @@ from hummingbot.cli.output import ExitCode, echo, fail, render_table
 
 
 async def _run(ccm, exchange: str, pair: str, lines: int, timeout: float) -> Tuple[List[dict], str, List[str]]:
-    from hummingbot.cli.commands._market_data import all_pairs, fetch_order_book, make_connector, resolve_or_fail
+    from hummingbot.cli.commands._market_data import (
+        connector_for_snapshot,
+        fetch_order_book,
+        load_universe,
+        resolve_or_fail,
+    )
     from hummingbot.client.command.order_book_command import order_book_rows
-    conn = await make_connector(ccm, exchange, [])
-    matched, alts = resolve_or_fail(await asyncio.wait_for(all_pairs(conn), timeout), pair)
+    symbol_map, _rules, conn = await load_universe(ccm, exchange, timeout)
+    matched, alts = resolve_or_fail(list(symbol_map.values()), pair)
+    conn = await connector_for_snapshot(ccm, exchange, symbol_map, conn)
     ob = await fetch_order_book(conn, matched, timeout)
 
     bids, asks = order_book_rows(ob, lines)

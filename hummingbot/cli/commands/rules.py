@@ -12,31 +12,13 @@ import typer
 from hummingbot.cli.output import ExitCode, echo, fail, render_kv
 
 
-def _rule_dict(rule) -> dict:
-    def f(v):
-        return float(v) if v is not None else None
-    return {
-        "trading_pair": rule.trading_pair,
-        "min_order_size": f(rule.min_order_size),
-        "max_order_size": f(rule.max_order_size),
-        "min_notional_size": f(rule.min_notional_size),
-        "min_order_value": f(rule.min_order_value),
-        "min_price_increment": f(rule.min_price_increment),
-        "min_base_amount_increment": f(rule.min_base_amount_increment),
-        "min_quote_amount_increment": f(rule.min_quote_amount_increment),
-        "supports_limit_orders": bool(rule.supports_limit_orders),
-        "supports_market_orders": bool(rule.supports_market_orders),
-    }
-
-
 async def _run(ccm, exchange: str, pair: str, timeout: float) -> Tuple[dict, str, List[str]]:
-    from hummingbot.cli.commands._market_data import make_connector, resolve_or_fail, trading_rules_universe
-    conn = await make_connector(ccm, exchange, [])
-    rules = await asyncio.wait_for(trading_rules_universe(conn), timeout)
+    from hummingbot.cli.commands._market_data import load_universe, resolve_or_fail
+    _symbol_map, rules, _conn = await load_universe(ccm, exchange, timeout)
     if not rules:
         fail(f"{exchange} returned no trading rules", ExitCode.ERROR)
     matched, alts = resolve_or_fail(list(rules.keys()), pair)
-    return _rule_dict(rules[matched]), matched, alts
+    return rules[matched], matched, alts
 
 
 def rules(
