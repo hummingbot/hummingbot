@@ -11,20 +11,17 @@ import typer
 
 from hummingbot.cli.commands import (
     balance as balance_cmd,
+    config as config_cmd,
     connect as connect_cmd,
-    connectors as connectors_cmd,
+    create as create_cmd,
     history as history_cmd,
+    import_cmd,
     logs as logs_cmd,
-    order_book as order_book_cmd,
-    positions as positions_cmd,
-    rules as rules_cmd,
-    settings as settings_cmd,
+    rate as rate_cmd,
     start as start_cmd,
     status as status_cmd,
     stop as stop_cmd,
-    strategy as strategy_cmd,
     ticker as ticker_cmd,
-    trades as trades_cmd,
     update as update_cmd,
 )
 from hummingbot.cli.output import SortedCommandsGroup
@@ -57,22 +54,21 @@ def _root(
         raise typer.Exit()
 
 
+# v1 surface — a faithful subset of the interactive client's commands (minus gateway). Order here
+# is irrelevant; --help lists them alphabetically (SortedCommandsGroup).
 app.command("connect")(connect_cmd.connect)
-app.command("connectors")(connectors_cmd.connectors)
 app.command("balance")(balance_cmd.balance)
-app.command("rules")(rules_cmd.rules)
 app.command("ticker")(ticker_cmd.ticker)
-app.command("book")(order_book_cmd.order_book)
-app.command("positions")(positions_cmd.positions)
-app.command("settings")(settings_cmd.settings)
-app.add_typer(strategy_cmd.strategy_app, name="strategy")
+app.command("rate")(rate_cmd.rate)
+app.command("create")(create_cmd.create)
+app.command("import")(import_cmd.import_config)
+app.command("config")(config_cmd.config)
 app.command("update")(update_cmd.update)
 app.command("start")(start_cmd.start)
 app.command("stop")(stop_cmd.stop)
 app.command("status")(status_cmd.status)
 app.command("logs")(logs_cmd.logs)
 app.command("history")(history_cmd.history)
-app.command("trades")(trades_cmd.trades)
 
 
 def main() -> None:

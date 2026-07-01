@@ -42,7 +42,8 @@ def _replace_running(timeout: float) -> None:
 
 
 def start(
-    file: str = typer.Argument(..., help="Config file name (its type is detected from conf/strategies|scripts|controllers)."),
+    file: Optional[str] = typer.Argument(
+        None, help="Config file name (type detected from conf/strategies|scripts|controllers). Omit to run the config from `hbot import`."),
     v1: bool = typer.Option(False, "--v1-strategy", help="Force V1 strategy type (only needed if the name collides across types)."),
     v2: bool = typer.Option(False, "--v2-script", help="Force V2 script type (only needed if the name collides across types)."),
     controller: bool = typer.Option(
@@ -63,7 +64,7 @@ def start(
     holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
     exists under more than one type. By default the bot runs detached (the command returns); pass
     --foreground to run it in the foreground, e.g. as a Docker container's main process."""
-    # Same filename->type resolution as `strategy set/show-config/clone`: a flag forces the type, else
+    # Filename->type resolution shared with `hbot config`/`hbot import`: a flag forces the type, else
     # it's detected from the conf dirs (names are unique across types).
     from hummingbot.cli.commands._common import one_type
     from hummingbot.cli.strategy_configs import (
@@ -72,12 +73,28 @@ def start(
         validate_controller,
         wrap_controller_as_v2,
     )
+
+    # No file given: run the config `hbot import` (or a previous `hbot start`) loaded, and force its
+    # recorded type so a later cross-type name collision doesn't demand a flag.
+    if file is None:
+        loaded = bot.read_loaded()
+        if not loaded or not loaded.get("file"):
+            fail("no config given and none imported — pass a config file or run `hbot import <file>` first",
+                 ExitCode.CONFIG_ERROR)
+        file = loaded["file"]
+        v1 = loaded["type"] == "v1-strategy"
+        v2 = loaded["type"] == "v2-script"
+        controller = loaded["type"] == "controller"
     try:
         stype = resolve_config_type(file, one_type(v1, v2, controller, required=False))
     except FileNotFoundError as e:
         fail(str(e), ExitCode.NOT_FOUND)
     except ValueError as e:
         fail(str(e), ExitCode.CONFIG_ERROR)
+
+    # Record what we're running as the loaded config, so `hbot config` keeps showing it after `stop`
+    # (the interactive client keeps a strategy loaded across a stop; import/start both load it).
+    bot.write_loaded(file, stype)
 
     if bot.running():
         if not replace:

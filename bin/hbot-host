@@ -10,12 +10,21 @@ set -euo pipefail
 
 container="${HBOT_CONTAINER:-hummingbot}"
 
-# 1) Source install: a `hummingbot` conda env that has the CLI. Run the env's INSTALLED package (via
-#    conda develop) directly — not by the name `hbot` (would re-resolve to this wrapper and recurse)
-#    nor by this wrapper's location (might be a checkout without built extensions).
-if command -v conda >/dev/null 2>&1 && conda env list | awk '{print $1}' | grep -qx hummingbot; then
-    exec conda run -n hummingbot --no-capture-output \
-        python -c "import sys; sys.argv[0]='hbot'; from hummingbot.cli.main import main; sys.exit(main())" "$@"
+# 1) Source install: a `hummingbot` conda env that has the CLI. Exec the env's python DIRECTLY rather
+#    than via `conda run`, which prints a noisy "ERROR conda.cli.main_run:execute(148): ... failed"
+#    line on EVERY non-zero exit — including the CLI's normal ones (exit 2 for "no command, here's
+#    help"; exit 4 for "need password") — making a healthy CLI look broken. We resolve the env prefix
+#    and set PATH/CONDA_PREFIX ourselves so the CLI and its subprocesses still run inside the env, and
+#    the CLI's real exit code passes straight through. Run the INSTALLED package (via conda develop) —
+#    not the name `hbot` (would re-resolve to this wrapper and recurse).
+if command -v conda >/dev/null 2>&1; then
+    prefix="$(conda env list | awk '$1=="hummingbot"{print $NF}')"
+    if [ -n "$prefix" ] && [ -x "$prefix/bin/python" ]; then
+        export CONDA_PREFIX="$prefix"
+        export PATH="$prefix/bin:$PATH"
+        exec "$prefix/bin/python" \
+            -c "import sys; sys.argv[0]='hbot'; from hummingbot.cli.main import main; sys.exit(main())" "$@"
+    fi
 fi
 
 # 2) Docker install: a running `hummingbot` container. `-i` forwards stdin (e.g. --password-stdin);

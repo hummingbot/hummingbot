@@ -24,6 +24,28 @@ def one_type(v1: bool, v2: bool, controller: bool, required: bool) -> Optional[s
     return chosen[0] if chosen else None
 
 
+def position_dict(p) -> dict:
+    """Normalize a connector ``Position`` into a flat dict (side, size, entry/mark price, notional,
+    unrealized PnL, leverage). Shared by ``balance`` to show perp positions inline."""
+    amt = float(p.amount)
+    entry = float(p.entry_price)
+    upnl = float(p.unrealized_pnl)
+    # Current mark is exact from the position's own data (uPnL = amount*(mark-entry) for linear
+    # perps), so the market value needs no rate-oracle / price fetch.
+    mark = entry + (upnl / amt) if amt else entry
+    return {
+        "trading_pair": p.trading_pair,
+        "side": getattr(p.position_side, "name", str(p.position_side)),
+        "amount": amt,
+        "entry_price": entry,
+        "mark_price": mark,
+        "value": abs(amt) * mark,          # current market value (notional at mark, in quote currency)
+        "notional": abs(amt) * entry,      # entry notional (kept for balance's existing render)
+        "unrealized_pnl": upnl,
+        "leverage": int(p.leverage),
+    }
+
+
 def read_json_object_from_stdin() -> dict:
     """Read a JSON object {key: value} from stdin, failing clearly on bad/non-object input."""
     raw = sys.stdin.read()

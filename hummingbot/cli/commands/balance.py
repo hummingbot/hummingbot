@@ -58,7 +58,7 @@ def _exchange_assets(connector: str, total: Dict[str, Decimal], available: Dict[
 async def _attach_positions(ub, result: Dict[str, dict], timeout: float) -> None:
     """For perpetual connectors, attach open positions + total unrealized PnL, reusing the connectors
     UserBalances already built for the balance fetch (no extra connection)."""
-    from hummingbot.cli.commands.positions import _position_dict
+    from hummingbot.cli.commands._common import position_dict as _position_dict
     for ex in result:
         market = getattr(ub, "_markets", {}).get(ex)
         if market is None or not hasattr(market, "account_positions"):

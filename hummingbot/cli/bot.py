@@ -156,6 +156,33 @@ def config_file_path() -> Optional[str]:
     return (read_meta() or {}).get("config_file_path")
 
 
+def _loaded_file() -> Path:
+    return bot_dir() / "loaded.json"
+
+
+def read_loaded() -> Optional[Dict[str, Any]]:
+    """The config `hbot import` (or the last `hbot start`) loaded — ``{"file", "type"}`` — or None.
+
+    This is the "currently loaded strategy" the interactive client keeps: what `hbot start` runs when
+    given no file, and what `hbot config` shows/edits when no bot is running.
+    """
+    if not _loaded_file().exists():
+        return None
+    try:
+        return json.loads(_loaded_file().read_text())
+    except json.JSONDecodeError:
+        return None
+
+
+def write_loaded(file: str, stype: str) -> None:
+    _atomic_write(_loaded_file(), json.dumps({"file": file, "type": stype}, indent=2))
+
+
+def clear_loaded() -> None:
+    if _loaded_file().exists():
+        _loaded_file().unlink()
+
+
 def resolve_db_path() -> Optional[str]:
     """The current bot's trades sqlite DB: the engine-recorded path, else data/<name>.sqlite."""
     p = db_path()

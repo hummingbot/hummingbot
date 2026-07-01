@@ -86,21 +86,21 @@ class StrategyConfigHelpersTest(unittest.TestCase):
 
     def test_available_sources(self):
         from hummingbot.cli.strategy_configs import available_sources
-        self.assertIn("lp_jit", available_sources("controller"))
+        self.assertIn("pmm_simple", available_sources("controller"))
         self.assertIn("simple_pmm.py", available_sources("v2-script"))
         self.assertIn("pure_market_making", available_sources("v1-strategy"))
 
     def test_describe_strategy_controller(self):
         from hummingbot.cli.strategy_configs import describe_strategy
-        data, required, updatable = describe_strategy("controller", "lp_jit")
-        self.assertEqual(data["controller_name"], "lp_jit")
+        data, required, updatable = describe_strategy("controller", "pmm_simple")
+        self.assertEqual(data["controller_name"], "pmm_simple")
         self.assertIn("total_amount_quote", updatable)
         self.assertNotIn("id", required)  # filled with a generated id, not prompted
         # A controller needs a STABLE, persisted id: blank ids make StrategyV2Base regenerate one each
         # start and spawn a duplicate controller every live-reload cycle. Create must fill it.
         self.assertTrue(data["id"], "controller config id must be generated, not blank")
         # two scaffolds get distinct ids
-        data2, _, _ = describe_strategy("controller", "lp_jit")
+        data2, _, _ = describe_strategy("controller", "pmm_simple")
         self.assertNotEqual(data["id"], data2["id"])
 
     def test_parse_set_pairs(self):

@@ -27,12 +27,19 @@ hbot <command> -h    # full help for one command (detail lives here, not in the 
 | `controller` | `conf/controllers/` | a V2 controller config (its fields can be tuned live) |
 
 Config **file names are unique across the three folders**, so a bare filename is unambiguous — you
-almost never type a type flag. `start` / `set` / `show-config` / `clone` / `update` all detect the
-type from the folder that holds the file; a `--v1-strategy` / `--v2-script` / `--controller` flag is
-only needed to disambiguate a legacy name that exists under more than one folder.
+almost never type a type flag. `import` / `start` / `config` / `update` all detect the type from the
+folder that holds the file; a `--v1-strategy` / `--v2-script` / `--controller` flag is only needed to
+disambiguate a legacy name that exists under more than one folder.
 
-**"config" vs "settings".** `config` always means a *strategy config file* (managed by `hbot
-strategy`). Global client settings (rate source, log level, …) are `hbot settings`.
+**The loaded strategy.** Like the interactive client, `hbot` keeps a *currently loaded* config.
+`create <strategy>` and `import <file>` both load one (without starting it); `start <file>` loads and
+runs it. Once loaded, `hbot config` shows/edits it, and `hbot start` with no argument runs it. The
+pointer lives in `data/bot/loaded.json`; a running bot's own config always takes precedence.
+
+**`config` — one command, two scopes.** `hbot config` shows **global** client settings (rate source,
+log level, timeouts — `conf/conf_client.yml`, not encrypted) and, when a strategy is loaded, that
+**strategy's** config too. `config <key> <value>` edits whichever scope the key belongs to (global
+keys win). This is the v1 CLI's *only* config surface — there is no separate `settings` command.
 
 **Controllers** can't run standalone, so `start` generates a tiny V2 loader script for them
 automatically; the loader's name becomes the bot's trades-DB and log name. You don't manage the
@@ -42,44 +49,38 @@ loader — just `start` the controller config.
 
 ## Command ontology
 
+The v1 surface mirrors the interactive Hummingbot client's commands (minus the `gateway` suite). Flat
+— no sub-commands — and every menu is alphabetical.
+
 ```
 hbot
 │
 ├─ ── set up (connectors & funds) ──
-│  ├─ connectors             list available connectors (spot / perpetual)
-│  ├─ connect [connector]      show connections, or add a connector's API keys
-│  ├─ balance [connector]      balances + USD value (perps: positions + net value)
-│  └─ positions <connector>    open positions on a perpetual connector
+│  ├─ connect [connector]        show connections, or add a connector's API keys
+│  └─ balance [connector]        balances + USD value (perps: positions + net value)
 │
 ├─ ── market data (public; no keystore; fuzzy pair match) ──
-│  ├─ rules <connector> <pair>      trading rules: min order size, min notional, tick/step
-│  ├─ ticker <connector> <pair>     best bid/ask/mid + last price
-│  └─ book <connector> <pair>       bid/ask depth (-n N levels)
+│  ├─ ticker <connector> <pair>  best bid/ask/mid + last price
+│  └─ rate <pair>                rate-oracle conversion rate (BASE-QUOTE)
 │
-├─ strategy ── author config files ──
-│  ├─ list                    strategies you can create configs from
-│  ├─ show <strategy>         a strategy's fields, and which are required
-│  ├─ create <strategy>       make a config (fill fields inline with --set)
-│  ├─ clone <config>          copy a config to a new name, tweak fields
-│  ├─ list-configs            your saved config files
-│  ├─ show-config <config>    a config file's contents
-│  └─ set <config> <k> <v>    change a field in a config file
+├─ ── create, load & configure ──
+│  ├─ create <strategy>          create a strategy config (--set k=v, or --with-defaults to scaffold)
+│  ├─ import <config>            load an existing config as the current strategy
+│  └─ config [key] [value]       global client settings + the loaded strategy's config
 │
 ├─ ── run & control ──
-│  ├─ start <config>          start a bot (type auto-detected); --replace to swap
-│  ├─ update [key] [value]    view / live-change the running bot's config
-│  └─ stop                    stop gracefully (cancels orders); --force to kill
+│  ├─ start [config]             start a bot (defaults to the imported config); --replace to swap
+│  ├─ update [key] [value]       view / live-change the running bot's config
+│  └─ stop                       stop gracefully (cancels orders); --force to kill
 │
-├─ ── observe ([name] = a past/stopped bot) ──
-│  ├─ status                  run state, live status, recent errors
-│  ├─ logs [name]             tail the log (-f to follow)
-│  ├─ trades [name]           recorded fills
-│  └─ history [name]          PnL, fees, volume per market
-│
-└─ settings [key] [value]     global client settings (conf/conf_client.yml)
+└─ ── observe ([name] = a past/stopped bot) ──
+   ├─ status                     run state, live status, recent errors
+   ├─ logs [name]                tail the log (-f to follow)
+   └─ history [name]             PnL, fees, volume per market
 ```
 
-At most two levels deep; every menu is alphabetical.
+See [Roadmap](#roadmap) for commands intentionally left out of v1 (`positions`, `rules`, `book`,
+`connectors`, `trades`, config `clone`/`list`/`show`, `gateway`).
 
 ---
 
@@ -91,56 +92,37 @@ hbot connect hyperliquid_perpetual --fields          # what keys does it need?
 hbot connect hyperliquid_perpetual                   # add the keys
 hbot balance                                          # confirm funds
 
-# 2. author a config from a strategy
-hbot strategy show pmm_simple                         # see the fields
-hbot strategy create pmm_simple --name conf_eth.yml \
-     --set connector_name=hyperliquid_perpetual \
-     --set trading_pair=ETH-USD \
-     --set total_amount_quote=100
-#  -> Created controller/conf_eth.yml
-#     Ready to start: hbot start conf_eth.yml --controller
+# 2. create a strategy config (agents: fill required fields in one shot)
+hbot create pmm_simple --name conf_eth.yml \
+     --set connector_name=hyperliquid_perpetual --set trading_pair=ETH-USD
+#   ...or scaffold it and fill fields afterwards:
+hbot create pmm_simple --name conf_eth.yml --with-defaults   # defaults + blanks, and loads it
+hbot config                                                  # review global + this strategy's fields
+hbot config total_amount_quote 250                           # fill / adjust a field before launch
+
+#   (already have a .yml? skip create and load it:  hbot import conf_eth.yml)
 
 # 3. run it
-hbot start conf_eth.yml                                # type auto-detected
+hbot start                                             # runs the loaded config (or: hbot start conf_eth.yml)
 hbot status                                            # is it healthy?
 hbot logs -f                                           # watch live (Ctrl-C to stop)
 
 # 4. tune, observe, stop
 hbot update buy_spreads 0.001                          # live for controllers (~10s)
-hbot trades ; hbot history                             # fills + PnL
+hbot history                                           # PnL, fees, volume
 hbot stop                                              # graceful, cancels orders
 
 # 5. review a stopped bot later, by name
-hbot history conf_eth ; hbot trades conf_eth
+hbot history conf_eth
 ```
 
----
-
-## Authoring configs
-
-```bash
-# create from a strategy's defaults; --set fills fields, --values-stdin bulk-fills from JSON
-hbot strategy create dman_v3 --name conf_a.yml --set connector_name=binance --set trading_pair=BTC-USDT
-echo '{"connector_name":"binance","trading_pair":"BTC-USDT"}' | hbot strategy create dman_v3 --values-stdin
-
-# clone a config you already filled in (same strategy, second pair); a cloned
-# controller gets a FRESH id so it won't collide with the original when run
-hbot strategy clone conf_eth.yml --name conf_btc.yml --set trading_pair=BTC-USD
-
-# browse & edit existing files
-hbot strategy list-configs
-hbot strategy show-config conf_eth.yml
-hbot strategy set conf_eth.yml total_amount_quote 250
-```
-
-- `--set key=value` is repeatable; `--values-stdin` reads a JSON object on stdin (the field names come
-  from `strategy show`). Both validate and coerce values.
-- `create` is **atomic**: a bad field or value leaves no file behind; a partial config (some required
-  still unfilled) is allowed and reports what remains.
-- Config names are unique across types: an explicit colliding `--name` fails **with a suggested free
-  name**; the default name auto-rolls to the next free `conf_<strategy>_N.yml`.
-- **create** starts from a *strategy's* defaults; **clone** starts from a *config file* you already
-  filled in (comments preserved). Otherwise they behave identically.
+> **create → config → start.** `create` scaffolds a config from a strategy and *loads* it; `config`
+> shows and fills its fields; `start` runs the loaded config. Two ways to fill on create: give every
+> required field with `--set key=value` / `--values-stdin` for a **ready-to-run** config (agents), or
+> `--with-defaults` to write a **scaffold** (defaults + blank required fields) and finish it with
+> `config` (humans). Running `create <strategy>` with a missing required field lists exactly what's
+> needed — which also serves as field discovery. Already have a `.yml` (dashboard, API, an example)?
+> `import` it instead.
 
 ---
 
@@ -152,10 +134,33 @@ hbot strategy set conf_eth.yml total_amount_quote 250
   within ~10s, other fields (and v1/v2 scripts) take effect on next start — the reply says which.
 - `status` reports run state, the strategy's live status, and a count of **recent errors** (a bot can
   be alive *and* erroring — check it). `stop` is graceful and cancels open orders.
-- `logs` / `trades` / `history` accept a bot **name** (a config stem from a previous `start`) to
-  inspect a past/stopped bot. `history` also fetches live balances, so it's the slowest.
+- `logs` / `history` accept a bot **name** (a config stem from a previous `start`) to inspect a
+  past/stopped bot. `history` also fetches live balances, so it's the slowest.
 - `logs -f` follows until interrupted — bound it (e.g. a timeout) if you're scripting. Plain `logs`
   returns immediately.
+
+---
+
+## Roadmap
+
+v1 is a **faithful subset of the interactive Hummingbot client's commands** — the goal is to give
+existing source/Docker users the commands they already know, non-interactively. Some commands the
+previous CLI shipped are intentionally deferred so v1 stays close to the client's surface. They'll
+return in later versions:
+
+| deferred | what it did | v1 alternative |
+|---|---|---|
+| config `list` / `show` | list creatable strategies; preview a strategy's fields | `create <strategy>` (missing-required error lists fields); `create --with-defaults` + `config` reveals them all |
+| config `clone <config>` | copy a config to a new name, tweak fields | `create` a fresh one, or copy the `.yml` by hand |
+| `positions <connector>` | open perp positions, standalone | shown inline under `balance` for perp connectors |
+| `rules <connector> <pair>` | trading rules (min size/notional, tick/step) | — |
+| `book <connector> <pair>` | order-book depth | `ticker` for top-of-book |
+| `connectors` | list available connectors | `connect` with no argument lists connections |
+| `trades [name]` | recorded fills table | `history` for PnL/fees/volume |
+| `gateway …` | Gateway (DEX/AMM) helpers | out of scope for the CLI |
+
+Removing these is not a capability loss in the engine — only in the CLI surface — and each is tracked
+to come back once the core client parity is solid.
 
 ---
 
@@ -204,7 +209,7 @@ make deploy        # start the container (an idle hbot host)
 make link-cli      # install the host `hbot` command (-> docker exec into the container)
 
 hbot connect binance              # exactly the same commands as a source install
-hbot strategy create pmm_simple --name conf_my_bot.yml --set ...
+hbot import conf_my_bot.yml       # load a config you've placed in conf/
 hbot start conf_my_bot.yml
 hbot status ; hbot logs -f ; hbot stop
 ```
@@ -247,12 +252,13 @@ as a container's command it would exit immediately and stop the container.) Eith
 
 ```
 conf/strategies/   conf/scripts/   conf/controllers/   # your config files (.yml), by type
-conf/conf_client.yml                                   # global settings (hbot settings)
-data/bot/                                              # current bot: meta.json, bot.pid, status.json, bot.log
+conf/conf_client.yml                                   # global settings (hbot config)
+data/bot/                                              # current bot: meta.json, bot.pid, status.json, bot.log, loaded.json
 data/<name>.sqlite                                     # a bot's trades DB (name = config stem)
 logs/logs_<name>.log                                   # a bot's structured log
 ```
 
 `status` reads `data/bot/status.json` (a snapshot the running bot writes every few seconds);
-`trades` / `history` read the SQLite DB; `logs` tails `logs/logs_<name>.log`. Because these are named
-by the config stem, a stopped bot's trades/logs/history stay viewable **by name** indefinitely.
+`history` reads the SQLite DB; `logs` tails `logs/logs_<name>.log`; `import` / `start` record the
+loaded config in `data/bot/loaded.json`. Because the DB and log are named by the config stem, a
+stopped bot's logs/history stay viewable **by name** indefinitely.

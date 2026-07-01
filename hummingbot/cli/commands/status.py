@@ -49,7 +49,16 @@ def status() -> None:
     # poll: "is anything running?" is a valid question with a valid answer, so "no bot" is success
     # (exit 0, running=false) — a harness can poll status without treating the empty state as an error.
     if not bot.exists():
-        echo(render_kv({"running": False, "note": "no bot started"}, title="status"))
+        # No bot has ever been started. If a config was `import`ed (loaded but not run), surface it so
+        # the user sees what `hbot start` would launch — otherwise report the plain empty state.
+        loaded = bot.read_loaded()
+        if loaded and loaded.get("file"):
+            echo(render_kv({"running": False, "note": "imported, not started",
+                            "config": loaded["file"], "type": loaded.get("type") or "-",
+                            "next": "hbot start"}, title="status"))
+        else:
+            echo(render_kv({"running": False, "note": "no strategy config loaded",
+                            "next": "hbot create <strategy>  or  hbot import <file>"}, title="status"))
         return
 
     _request_fresh_snapshot()
@@ -68,6 +77,8 @@ def status() -> None:
         "name": name,
         "state": "running" if running else "stopped",
         "pid": bot.read_pid() or "-",
+        "config": meta.get("file") or "-",       # the strategy config file this bot runs
+        "type": meta.get("type") or "-",          # v1-strategy / v2-script / controller
         "strategy": strategy_name or "-",
     }
     if uptime:

@@ -1,11 +1,11 @@
 import unittest
 
-from hummingbot.cli.commands.settings import _item_for, _leaf_items, _navigate
+from hummingbot.cli.commands.config import _item_for, _leaf_items, _navigate
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class SettingsCommandTest(unittest.TestCase):
+class ConfigCommandTest(unittest.TestCase):
     def setUp(self) -> None:
         self.cm = ClientConfigAdapter(ClientConfigMap())
 
