@@ -7,6 +7,7 @@ from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
@@ -50,6 +51,7 @@ class ExecutorBase(RunnableBase):
         self._max_retries = max_retries
         self._current_retries = 0
         self._held_position_orders = []  # Keep track of orders that become held positions
+        self._paper_in_flight_orders = {}
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
 
@@ -271,7 +273,94 @@ class ExecutorBase(RunnableBase):
         :param order_id: The ID of the order.
         :return: The in-flight order.
         """
-        return self.connectors[connector_name]._order_tracker.fetch_order(client_order_id=order_id)
+        connector = self.connectors[connector_name]
+        order_tracker = getattr(connector, "_order_tracker", None)
+        if order_tracker is not None:
+            return order_tracker.fetch_order(client_order_id=order_id)
+        return self._paper_in_flight_orders.get(order_id)
+
+    def sync_paper_in_flight_order(self, event):
+        connector_name = getattr(self.config, "connector_name", None)
+        connector = self.connectors.get(connector_name)
+        if connector is None or hasattr(connector, "_order_tracker"):
+            return
+
+        order_id = getattr(event, "order_id", None)
+        if order_id is None:
+            return
+
+        if isinstance(event, (BuyOrderCreatedEvent, SellOrderCreatedEvent)):
+            trade_type = TradeType.BUY if isinstance(event, BuyOrderCreatedEvent) else TradeType.SELL
+            position = event.position if isinstance(event.position, PositionAction) else PositionAction(event.position)
+            self._paper_in_flight_orders[order_id] = InFlightOrder(
+                client_order_id=order_id,
+                exchange_order_id=event.exchange_order_id,
+                trading_pair=event.trading_pair,
+                order_type=event.type,
+                trade_type=trade_type,
+                amount=event.amount,
+                price=event.price,
+                creation_timestamp=event.creation_timestamp,
+                initial_state=OrderState.OPEN,
+                leverage=event.leverage,
+                position=position,
+            )
+            return
+
+        if isinstance(event, OrderFilledEvent):
+            order = self._paper_in_flight_orders.get(order_id)
+            if order is None:
+                position = event.position if isinstance(event.position, PositionAction) else PositionAction(event.position)
+                order = InFlightOrder(
+                    client_order_id=order_id,
+                    exchange_order_id=event.exchange_order_id,
+                    trading_pair=event.trading_pair,
+                    order_type=event.order_type,
+                    trade_type=event.trade_type,
+                    amount=event.amount,
+                    price=event.price,
+                    creation_timestamp=event.timestamp,
+                    initial_state=OrderState.OPEN,
+                    leverage=event.leverage,
+                    position=position,
+                )
+                self._paper_in_flight_orders[order_id] = order
+            order.update_with_trade_update(TradeUpdate(
+                trade_id=event.exchange_trade_id or f"{order_id}-{event.timestamp}",
+                client_order_id=order_id,
+                exchange_order_id=event.exchange_order_id or "",
+                trading_pair=event.trading_pair,
+                fill_timestamp=event.timestamp,
+                fill_price=event.price,
+                fill_base_amount=event.amount,
+                fill_quote_amount=event.price * event.amount,
+                fee=event.trade_fee,
+                is_taker=event.order_type == OrderType.MARKET,
+            ))
+            order.current_state = OrderState.FILLED if order.is_filled else OrderState.PARTIALLY_FILLED
+            return
+
+        if isinstance(event, (BuyOrderCompletedEvent, SellOrderCompletedEvent)):
+            trade_type = TradeType.BUY if isinstance(event, BuyOrderCompletedEvent) else TradeType.SELL
+            trading_pair = f"{event.base_asset}-{event.quote_asset}"
+            order = self._paper_in_flight_orders.get(order_id)
+            if order is None:
+                order = InFlightOrder(
+                    client_order_id=order_id,
+                    exchange_order_id=event.exchange_order_id,
+                    trading_pair=trading_pair,
+                    order_type=event.order_type,
+                    trade_type=trade_type,
+                    amount=event.base_asset_amount,
+                    price=event.quote_asset_amount / event.base_asset_amount,
+                    creation_timestamp=event.timestamp,
+                    initial_state=OrderState.FILLED,
+                )
+                self._paper_in_flight_orders[order_id] = order
+            order.executed_amount_base = event.base_asset_amount
+            order.executed_amount_quote = event.quote_asset_amount
+            order.current_state = OrderState.FILLED
+            order.last_update_timestamp = event.timestamp
 
     def register_events(self):
         """
@@ -340,7 +429,39 @@ class ExecutorBase(RunnableBase):
         :param trading_pair: The trading pair.
         :return: The trading rules.
         """
-        return self.connectors[connector_name].trading_rules[trading_pair]
+        connector = self.connectors.get(connector_name) or self._strategy.connectors.get(connector_name)
+        if connector is not None and hasattr(connector, "trading_rules"):
+            trading_rules = connector.trading_rules
+            if trading_pair in trading_rules:
+                return trading_rules[trading_pair]
+
+        if connector_name.endswith("_paper_trade"):
+            base_connector_name = connector_name.replace("_paper_trade", "")
+            base_connector = self._strategy.connectors.get(base_connector_name)
+            if base_connector is not None and hasattr(base_connector, "trading_rules"):
+                trading_rules = base_connector.trading_rules
+                if trading_pair in trading_rules:
+                    return trading_rules[trading_pair]
+            market_data_provider = getattr(self._strategy, "market_data_provider", None)
+            if market_data_provider is not None:
+                try:
+                    return market_data_provider.get_trading_rules(base_connector_name, trading_pair)
+                except Exception:
+                    self.logger().debug(
+                        f"Could not fetch trading rules from market data provider for "
+                        f"{base_connector_name} {trading_pair}.",
+                        exc_info=True,
+                    )
+            return TradingRule(
+                trading_pair=trading_pair,
+                min_order_size=Decimal("0.0000001"),
+                min_price_increment=Decimal("0.01"),
+                min_base_amount_increment=Decimal("0.0000001"),
+                min_notional_size=Decimal("1"),
+                min_order_value=Decimal("1"),
+            )
+
+        raise KeyError(f"Trading rules are not available for {connector_name} {trading_pair}")
 
     def get_order_book(self, connector_name: str, trading_pair: str):
         """

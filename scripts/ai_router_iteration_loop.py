@@ -1,0 +1,502 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import subprocess
+import sys
+import time
+from collections import Counter
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from ai_router_monitor import (
+    db_counts,
+    db_recent_orders,
+    db_status_counts,
+    docker_status,
+    estimate_pnl,
+    latest_event_price,
+    parse_fill_events,
+    parse_router_decisions,
+    render_report,
+    repo_root,
+    tail_lines,
+)
+
+
+CORE_COMPILE_TARGETS = [
+    "controllers/generic/ai_strategy_router.py",
+    "hummingbot/strategy_v2/routers/__init__.py",
+    "hummingbot/strategy_v2/routers/data_types.py",
+    "hummingbot/strategy_v2/routers/feature_engine.py",
+    "hummingbot/strategy_v2/routers/router.py",
+    "hummingbot/strategy_v2/routers/strategy_registry.py",
+    "hummingbot/strategy_v2/executors/executor_base.py",
+    "hummingbot/strategy_v2/executors/grid_executor/grid_executor.py",
+    "hummingbot/strategy_v2/executors/position_executor/position_executor.py",
+    "scripts/ai_router_monitor.py",
+    "scripts/ai_router_iteration_loop.py",
+]
+
+
+def run_command(command: List[str], cwd: Path, timeout: int = 60) -> Dict:
+    started = time.time()
+    result = subprocess.run(
+        command,
+        cwd=str(cwd),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+        check=False,
+    )
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+        "elapsed_sec": round(time.time() - started, 3),
+        "ok": result.returncode == 0,
+    }
+
+
+def run_py_compile(root: Path) -> Dict:
+    return run_command([sys.executable, "-m", "py_compile", *CORE_COMPILE_TARGETS], cwd=root, timeout=90)
+
+
+def run_router_synthetic_tests(root: Path) -> Dict:
+    code = r"""
+from hummingbot.strategy_v2.routers.data_types import MarketFeatures, MarketRegime, RouterAction
+from hummingbot.strategy_v2.routers.router import RuleBasedRouterThresholds, RuleBasedStrategyRouter
+from hummingbot.strategy_v2.routers.strategy_registry import default_strategy_registry
+
+router = RuleBasedStrategyRouter(default_strategy_registry(), RuleBasedRouterThresholds())
+
+cases = [
+    ("not_enough_data", MarketFeatures(enough_data=False), MarketRegime.UNKNOWN, RouterAction.OBSERVE, "protect_mode"),
+    ("range", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=100, atr_pct=0.002, bb_width_pct=0.005, ema_fast=100, ema_slow=100, ema_slope_pct=0, volume_zscore=0, range_high=102, range_low=98), MarketRegime.RANGE_LOW_VOL, RouterAction.SWITCH, "grid_strike"),
+    ("trend_up", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=101, atr_pct=0.002, bb_width_pct=0.02, ema_fast=101, ema_slow=100, ema_slope_pct=0.002, volume_zscore=0, range_high=104, range_low=96), MarketRegime.TREND_UP, RouterAction.SWITCH, "trend_long"),
+    ("trend_down", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=99, atr_pct=0.002, bb_width_pct=0.02, ema_fast=99, ema_slow=100, ema_slope_pct=-0.002, volume_zscore=0, range_high=104, range_low=96), MarketRegime.TREND_DOWN, RouterAction.SWITCH, "trend_short"),
+    ("extreme_volume", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=100, atr_pct=0.002, bb_width_pct=0.005, ema_fast=100, ema_slow=100, ema_slope_pct=0, volume_zscore=5, range_high=102, range_low=98, active_strategy="grid_strike"), MarketRegime.EXTREME, RouterAction.PROTECT, "protect_mode"),
+]
+
+for name, features, regime, action, strategy in cases:
+    decision = router.decide(features)
+    assert decision.regime == regime, (name, decision.regime, regime)
+    assert decision.action == action, (name, decision.action, action)
+    assert decision.recommended_strategy == strategy, (name, decision.recommended_strategy, strategy)
+
+registry = default_strategy_registry()
+assert len(registry) >= 26, len(registry)
+assert {"grid_strike", "bollingrid", "trend_long", "trend_short", "protect_mode"}.issubset(registry)
+assert all(registry[name].enabled for name in ["grid_strike", "bollingrid", "trend_long", "trend_short", "protect_mode"])
+assert any(not candidate.enabled for candidate in registry.values())
+print("router_synthetic_tests=ok")
+"""
+    return run_command([sys.executable, "-c", code], cwd=root, timeout=90)
+
+
+def registry_snapshot(root: Path) -> Dict:
+    sys.path.insert(0, str(root))
+    from hummingbot.strategy_v2.routers.strategy_registry import default_strategy_registry
+
+    registry = default_strategy_registry()
+    families = Counter(candidate.family.value for candidate in registry.values())
+    enabled = [candidate.name for candidate in registry.values() if candidate.enabled]
+    disabled = [candidate.name for candidate in registry.values() if not candidate.enabled]
+    return {
+        "total": len(registry),
+        "enabled_count": len(enabled),
+        "disabled_count": len(disabled),
+        "families": dict(sorted(families.items())),
+        "enabled": enabled,
+        "disabled_sample": disabled[:10],
+    }
+
+
+def git_snapshot(root: Path) -> Dict:
+    result = run_command(["git", "status", "--short"], cwd=root, timeout=20)
+    lines = result["stdout"].splitlines() if result["stdout"] else []
+    relevant = [
+        line for line in lines
+        if any(token in line for token in [
+            "ai_strategy_router",
+            "strategy_v2/routers",
+            "ai_router_monitor",
+            "ai_router_iteration_loop",
+            "executor_base.py",
+            "grid_executor.py",
+            "position_executor.py",
+        ])
+    ]
+    return {
+        "dirty_count": len(lines),
+        "relevant_changes": relevant,
+    }
+
+
+def read_simple_yaml(path: Path) -> Dict[str, str]:
+    values = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def bool_config(config: Dict[str, str], key: str, default: bool = False) -> bool:
+    value = config.get(key)
+    if value is None:
+        return default
+    return value.lower() in {"true", "yes", "1", "on"}
+
+
+def live_snapshot(root: Path, args) -> Dict:
+    db_path = Path(args.db).expanduser().resolve()
+    log_path = Path(args.log).expanduser().resolve()
+    controller_config = read_simple_yaml(Path(args.controller_config).expanduser().resolve())
+    lines = tail_lines(log_path, args.log_lines)
+    decisions = parse_router_decisions(lines)
+    fills = parse_fill_events(lines)
+    mark_price = latest_event_price(lines)
+    pnl = estimate_pnl(fills, mark_price)
+    counts = db_counts(db_path)
+    status_counts = db_status_counts(db_path)
+    latest_decision = decisions[-1] if decisions else None
+    latest_protect = next((decision for decision in reversed(decisions) if decision.action == "protect"), None)
+    recent_orders = db_recent_orders(db_path, 5)
+    return {
+        "container": args.container,
+        "container_status": docker_status(args.container),
+        "orders": counts["orders"],
+        "fills": counts["fills"],
+        "parsed_fills": len(fills),
+        "status_counts": dict(status_counts),
+        "latest_decision": latest_decision.__dict__ if latest_decision else None,
+        "latest_protect": latest_protect.__dict__ if latest_protect else None,
+        "recent_orders": [
+            {
+                **order,
+                "amount": str(order["amount"]),
+                "price": str(order["price"]),
+            }
+            for order in recent_orders
+        ],
+        "controller_config": controller_config,
+        "pnl": {key: str(value) for key, value in pnl.items()},
+    }
+
+
+def evaluate_gaps(snapshot: Dict, registry: Dict, tests: Dict[str, Dict], git: Dict, args) -> List[Dict]:
+    gaps = []
+    compile_ok = tests["py_compile"]["ok"]
+    synthetic_ok = tests["router_synthetic"]["ok"]
+    live = snapshot
+    pnl = {key: Decimal(value) for key, value in live["pnl"].items()}
+    latest_decision = live.get("latest_decision") or {}
+    status_counts = live.get("status_counts") or {}
+    controller_config = live.get("controller_config") or {}
+
+    if not compile_ok or not synthetic_ok:
+        gaps.append({
+            "severity": "blocker",
+            "area": "code",
+            "title": "Tests are failing; block deployment.",
+            "action": "Fix failing py_compile/router synthetic tests before restarting paper or live bots.",
+        })
+
+    if "Up" not in live.get("container_status", ""):
+        gaps.append({
+            "severity": "high",
+            "area": "deployment",
+            "title": "Paper container is not running.",
+            "action": "Restart paper container after tests pass.",
+        })
+
+    if live["orders"] == 0 or live["fills"] == 0:
+        gaps.append({
+            "severity": "high",
+            "area": "execution",
+            "title": "No orders or fills detected.",
+            "action": "Check connector readiness, trading rules, paper balances, and executor creation logs.",
+        })
+
+    if pnl["equity_quote"] <= Decimal(str(args.max_paper_loss_quote)):
+        gaps.append({
+            "severity": "high",
+            "area": "risk",
+            "title": f"Paper equity estimate is below loss gate: {pnl['equity_quote']} USDT.",
+            "action": "Reduce grid size, widen take-profit, or pause deployment until loss source is understood.",
+        })
+
+    open_orders = sum(count for status, count in status_counts.items() if status.endswith("Created"))
+    if open_orders > args.max_open_orders_warning:
+        gaps.append({
+            "severity": "medium",
+            "area": "execution",
+            "title": f"Open paper orders are elevated: {open_orders}.",
+            "action": "Inspect stale orders and executor state before adding more strategies.",
+        })
+
+    if latest_decision.get("action") == "protect":
+        gaps.append({
+            "severity": "medium",
+            "area": "router",
+            "title": "Router is currently in protect mode.",
+            "action": "Do not deploy new strategy candidates until protect clears and the reason is reviewed.",
+        })
+
+    if latest_decision.get("recommended") == "trend_short" and not bool_config(controller_config, "allow_short"):
+        gaps.append({
+            "severity": "high",
+            "area": "config_constraints",
+            "title": "Router recommended trend_short while allow_short=false.",
+            "action": "Deploy the config-constraint patch or enable short only after explicit risk approval.",
+        })
+
+    if registry["disabled_count"] > registry["enabled_count"]:
+        gaps.append({
+            "severity": "medium",
+            "area": "strategy_adapters",
+            "title": f"{registry['disabled_count']} shadow strategies still need adapters.",
+            "action": "Prioritize adapters by current shadow score and market regime coverage.",
+        })
+
+    if git["relevant_changes"]:
+        gaps.append({
+            "severity": "low",
+            "area": "release",
+            "title": "Router-related code has uncommitted or unpinned changes.",
+            "action": "Commit or tag a release snapshot before promoting beyond paper; rerun --deploy-paper after later code edits.",
+        })
+
+    if not gaps:
+        gaps.append({
+            "severity": "info",
+            "area": "system",
+            "title": "No blocking gap detected.",
+            "action": "Keep collecting paper data and promote the next adapter only after a clean observation window.",
+        })
+
+    return gaps
+
+
+def deploy_paper(root: Path, args) -> Dict:
+    if not (root / "conf" / ".password_verification").exists():
+        return {
+            "ok": False,
+            "stdout": "",
+            "stderr": "conf/.password_verification is missing. Create it before deploying.",
+            "returncode": 1,
+        }
+
+    command = [
+        "docker", "rm", "-f", args.container,
+    ]
+    remove_result = run_command(command, cwd=root, timeout=30)
+    run_args = [
+        "docker", "run", "-dit",
+        "--name", args.container,
+        "--network", "host",
+        "-e", f"CONFIG_PASSWORD={args.config_password}",
+        "-e", "SCRIPT_CONFIG=conf_ai_strategy_router_paper.yml",
+        "-v", f"{root / 'conf'}:/home/hummingbot/conf",
+        "-v", f"{root / 'logs'}:/home/hummingbot/logs",
+        "-v", f"{root / 'data'}:/home/hummingbot/data",
+        "-v", f"{root / 'certs'}:/home/hummingbot/certs",
+        "-v", f"{root / 'scripts'}:/home/hummingbot/scripts",
+        "-v", f"{root / 'controllers'}:/home/hummingbot/controllers",
+        "-v", f"{root / 'hummingbot/strategy_v2/routers'}:/home/hummingbot/hummingbot/strategy_v2/routers",
+        "-v", f"{root / 'hummingbot/strategy_v2/executors/executor_base.py'}:/home/hummingbot/hummingbot/strategy_v2/executors/executor_base.py",
+        "-v", f"{root / 'hummingbot/strategy_v2/executors/grid_executor/grid_executor.py'}:/home/hummingbot/hummingbot/strategy_v2/executors/grid_executor/grid_executor.py",
+        "-v", f"{root / 'hummingbot/strategy_v2/executors/position_executor/position_executor.py'}:/home/hummingbot/hummingbot/strategy_v2/executors/position_executor/position_executor.py",
+        args.image,
+        "bash", "-lc",
+        'conda activate hummingbot && ./bin/hummingbot_quickstart.py --v2 conf_ai_strategy_router_paper.yml -p "$CONFIG_PASSWORD"',
+    ]
+    deploy_result = run_command(run_args, cwd=root, timeout=60)
+    deploy_result["remove"] = remove_result
+    return deploy_result
+
+
+def recent_error_lines(log_path: Path, max_lines: int = 500) -> List[str]:
+    return [
+        line.strip()
+        for line in tail_lines(log_path, max_lines)
+        if "ERROR" in line or "Traceback" in line
+    ][-20:]
+
+
+def post_deploy_verify(root: Path, args) -> Dict:
+    if args.deploy_verify_seconds > 0:
+        time.sleep(args.deploy_verify_seconds)
+    live = live_snapshot(root, args)
+    errors = recent_error_lines(Path(args.log).expanduser().resolve(), args.deploy_verify_log_lines)
+    latest_decision = live.get("latest_decision")
+    ok = (
+        "Up" in live.get("container_status", "")
+        and latest_decision is not None
+        and len(errors) == 0
+    )
+    return {
+        "ok": ok,
+        "container_status": live.get("container_status"),
+        "latest_decision": latest_decision,
+        "orders": live.get("orders"),
+        "fills": live.get("fills"),
+        "errors": errors,
+    }
+
+
+def write_iteration_reports(root: Path, payload: Dict, markdown: str, json_path: Path, md_path: Path):
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
+    md_path.write_text(markdown + "\n", encoding="utf-8")
+
+
+def render_iteration_markdown(payload: Dict) -> str:
+    live = payload["live"]
+    registry = payload["registry"]
+    tests = payload["tests"]
+    gaps = payload["gaps"]
+    deploy = payload.get("deploy")
+    pnl = live["pnl"]
+    latest_decision = live.get("latest_decision") or {}
+
+    lines = [
+        "# AI Router Iteration Report",
+        "",
+        f"- Generated: {payload['generated_at']}",
+        f"- Loop iteration: {payload['iteration']}",
+        f"- Container: {live['container']} | {live['container_status']}",
+        f"- Router: {latest_decision.get('regime', 'n/a')} / {latest_decision.get('action', 'n/a')} -> {latest_decision.get('recommended', 'n/a')}",
+        f"- Orders/Fills: {live['orders']} / {live['fills']}",
+        f"- Equity estimate: {pnl['equity_quote']} USDT | base={pnl['base']} BTC | fees={pnl['fees_quote']} USDT",
+        "",
+        "## Tests",
+        "",
+        f"- py_compile: {'PASS' if tests['py_compile']['ok'] else 'FAIL'}",
+        f"- router synthetic: {'PASS' if tests['router_synthetic']['ok'] else 'FAIL'}",
+        "",
+        "## Strategy Universe",
+        "",
+        f"- Total: {registry['total']}",
+        f"- Enabled: {registry['enabled_count']} | {', '.join(registry['enabled'])}",
+        f"- Shadow: {registry['disabled_count']}",
+        f"- Families: {registry['families']}",
+        "",
+        "## Gaps / Next Actions",
+        "",
+    ]
+    for gap in gaps:
+        lines.append(f"- [{gap['severity']}] {gap['area']}: {gap['title']} Action: {gap['action']}")
+
+    if deploy is not None:
+        post_verify = deploy.get("post_verify") or {}
+        lines.extend([
+            "",
+            "## Deploy",
+            "",
+            f"- Result: {'PASS' if deploy.get('ok') else 'FAIL'}",
+            f"- stdout: `{deploy.get('stdout', '')[:300]}`",
+            f"- stderr: `{deploy.get('stderr', '')[:300]}`",
+            f"- Post verify: {'PASS' if post_verify.get('ok') else 'SKIPPED/FAIL'}",
+        ])
+        if post_verify:
+            lines.append(f"- Post container: {post_verify.get('container_status')}")
+            lines.append(f"- Post latest decision: {post_verify.get('latest_decision')}")
+            if post_verify.get("errors"):
+                lines.append(f"- Post errors: {post_verify.get('errors')}")
+    return "\n".join(lines)
+
+
+def run_iteration(root: Path, args, iteration: int) -> Dict:
+    tests = {
+        "py_compile": run_py_compile(root),
+        "router_synthetic": run_router_synthetic_tests(root),
+    }
+    registry = registry_snapshot(root)
+    live = live_snapshot(root, args)
+    git = git_snapshot(root)
+    gaps = evaluate_gaps(live, registry, tests, git, args)
+    should_deploy = args.deploy_paper and all(test["ok"] for test in tests.values())
+    deploy = deploy_paper(root, args) if should_deploy else None
+    if deploy is not None and deploy.get("ok"):
+        deploy["post_verify"] = post_deploy_verify(root, args)
+
+    payload = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "iteration": iteration,
+        "tests": tests,
+        "registry": registry,
+        "live": live,
+        "git": git,
+        "gaps": gaps,
+        "deploy": deploy,
+        "deploy_requested": args.deploy_paper,
+        "deploy_skipped_reason": None if should_deploy or not args.deploy_paper else "tests_failed",
+    }
+
+    if args.monitor_report:
+        monitor_report = render_report(
+            db_path=Path(args.db).expanduser().resolve(),
+            log_path=Path(args.log).expanduser().resolve(),
+            container=args.container,
+            log_lines=args.log_lines,
+            recent=args.recent,
+        )
+        Path(args.monitor_report).expanduser().resolve().write_text(monitor_report + "\n", encoding="utf-8")
+
+    md = render_iteration_markdown(payload)
+    write_iteration_reports(
+        root=root,
+        payload=payload,
+        markdown=md,
+        json_path=Path(args.json_report).expanduser().resolve(),
+        md_path=Path(args.md_report).expanduser().resolve(),
+    )
+    return payload
+
+
+def main():
+    root = repo_root()
+    parser = argparse.ArgumentParser(description="AI router observe-test-evaluate-deploy iteration loop.")
+    parser.add_argument("--db", default=str(root / "data" / "conf_ai_strategy_router_paper.sqlite"))
+    parser.add_argument("--log", default=str(root / "logs" / "logs_conf_ai_strategy_router_paper.log"))
+    parser.add_argument("--container", default="hummingbot-ai-router-paper")
+    parser.add_argument("--controller-config", default=str(root / "conf" / "controllers" / "conf_ai_strategy_router_paper.yml"))
+    parser.add_argument("--image", default="hummingbot/hummingbot:latest")
+    parser.add_argument("--config-password", default="admin")
+    parser.add_argument("--log-lines", type=int, default=100000)
+    parser.add_argument("--recent", type=int, default=8)
+    parser.add_argument("--watch", type=int, default=0, help="Run forever, sleeping N seconds between iterations.")
+    parser.add_argument("--max-iterations", type=int, default=1)
+    parser.add_argument("--deploy-paper", action="store_true", help="Restart the paper container after tests pass.")
+    parser.add_argument("--deploy-verify-seconds", type=int, default=90)
+    parser.add_argument("--deploy-verify-log-lines", type=int, default=500)
+    parser.add_argument("--max-paper-loss-quote", type=Decimal, default=Decimal("-5"))
+    parser.add_argument("--max-open-orders-warning", type=int, default=20)
+    parser.add_argument("--json-report", default=str(root / "reports" / "ai_strategy_router_iteration_latest.json"))
+    parser.add_argument("--md-report", default=str(root / "reports" / "ai_strategy_router_iteration_latest.md"))
+    parser.add_argument("--monitor-report", default=str(root / "reports" / "ai_strategy_router_live_status.md"))
+    args = parser.parse_args()
+
+    iteration = 1
+    while True:
+        payload = run_iteration(root, args, iteration)
+        print(render_iteration_markdown(payload))
+        if args.watch <= 0 or iteration >= args.max_iterations:
+            break
+        iteration += 1
+        print("\n" + "=" * 80 + "\n")
+        time.sleep(args.watch)
+
+
+if __name__ == "__main__":
+    main()

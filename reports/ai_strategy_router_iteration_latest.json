@@ -1,0 +1,228 @@
+{
+  "generated_at": "2026-07-01 08:33:36",
+  "iteration": 1,
+  "tests": {
+    "py_compile": {
+      "command": [
+        "/usr/local/bin/python3",
+        "-m",
+        "py_compile",
+        "controllers/generic/ai_strategy_router.py",
+        "hummingbot/strategy_v2/routers/__init__.py",
+        "hummingbot/strategy_v2/routers/data_types.py",
+        "hummingbot/strategy_v2/routers/feature_engine.py",
+        "hummingbot/strategy_v2/routers/router.py",
+        "hummingbot/strategy_v2/routers/strategy_registry.py",
+        "hummingbot/strategy_v2/executors/executor_base.py",
+        "hummingbot/strategy_v2/executors/grid_executor/grid_executor.py",
+        "hummingbot/strategy_v2/executors/position_executor/position_executor.py",
+        "scripts/ai_router_monitor.py",
+        "scripts/ai_router_iteration_loop.py"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed_sec": 0.075,
+      "ok": true
+    },
+    "router_synthetic": {
+      "command": [
+        "/usr/local/bin/python3",
+        "-c",
+        "\nfrom hummingbot.strategy_v2.routers.data_types import MarketFeatures, MarketRegime, RouterAction\nfrom hummingbot.strategy_v2.routers.router import RuleBasedRouterThresholds, RuleBasedStrategyRouter\nfrom hummingbot.strategy_v2.routers.strategy_registry import default_strategy_registry\n\nrouter = RuleBasedStrategyRouter(default_strategy_registry(), RuleBasedRouterThresholds())\n\ncases = [\n    (\"not_enough_data\", MarketFeatures(enough_data=False), MarketRegime.UNKNOWN, RouterAction.OBSERVE, \"protect_mode\"),\n    (\"range\", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=100, atr_pct=0.002, bb_width_pct=0.005, ema_fast=100, ema_slow=100, ema_slope_pct=0, volume_zscore=0, range_high=102, range_low=98), MarketRegime.RANGE_LOW_VOL, RouterAction.SWITCH, \"grid_strike\"),\n    (\"trend_up\", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=101, atr_pct=0.002, bb_width_pct=0.02, ema_fast=101, ema_slow=100, ema_slope_pct=0.002, volume_zscore=0, range_high=104, range_low=96), MarketRegime.TREND_UP, RouterAction.SWITCH, \"trend_long\"),\n    (\"trend_down\", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=99, atr_pct=0.002, bb_width_pct=0.02, ema_fast=99, ema_slow=100, ema_slope_pct=-0.002, volume_zscore=0, range_high=104, range_low=96), MarketRegime.TREND_DOWN, RouterAction.SWITCH, \"trend_short\"),\n    (\"extreme_volume\", MarketFeatures(enough_data=True, timestamp=1, mid_price=100, close_price=100, atr_pct=0.002, bb_width_pct=0.005, ema_fast=100, ema_slow=100, ema_slope_pct=0, volume_zscore=5, range_high=102, range_low=98, active_strategy=\"grid_strike\"), MarketRegime.EXTREME, RouterAction.PROTECT, \"protect_mode\"),\n]\n\nfor name, features, regime, action, strategy in cases:\n    decision = router.decide(features)\n    assert decision.regime == regime, (name, decision.regime, regime)\n    assert decision.action == action, (name, decision.action, action)\n    assert decision.recommended_strategy == strategy, (name, decision.recommended_strategy, strategy)\n\nregistry = default_strategy_registry()\nassert len(registry) >= 26, len(registry)\nassert {\"grid_strike\", \"bollingrid\", \"trend_long\", \"trend_short\", \"protect_mode\"}.issubset(registry)\nassert all(registry[name].enabled for name in [\"grid_strike\", \"bollingrid\", \"trend_long\", \"trend_short\", \"protect_mode\"])\nassert any(not candidate.enabled for candidate in registry.values())\nprint(\"router_synthetic_tests=ok\")\n"
+      ],
+      "returncode": 0,
+      "stdout": "router_synthetic_tests=ok",
+      "stderr": "",
+      "elapsed_sec": 0.685,
+      "ok": true
+    }
+  },
+  "registry": {
+    "total": 26,
+    "enabled_count": 5,
+    "disabled_count": 21,
+    "families": {
+      "arbitrage": 3,
+      "grid": 4,
+      "hedge": 2,
+      "lp": 1,
+      "market_making": 5,
+      "mean_reversion": 2,
+      "observe": 2,
+      "protect": 1,
+      "trend": 6
+    },
+    "enabled": [
+      "grid_strike",
+      "bollingrid",
+      "trend_long",
+      "trend_short",
+      "protect_mode"
+    ],
+    "disabled_sample": [
+      "multi_grid_strike",
+      "quantum_grid_allocator",
+      "supertrend_v1",
+      "macd_bb_v1",
+      "dman_v3",
+      "ai_livestream",
+      "bollinger_v1",
+      "bollinger_v2",
+      "pmm_dynamic",
+      "pmm_simple"
+    ]
+  },
+  "live": {
+    "container": "hummingbot-ai-router-paper",
+    "container_status": "Up 4 minutes",
+    "orders": 84,
+    "fills": 47,
+    "parsed_fills": 47,
+    "status_counts": {
+      "OrderCancelled": 29,
+      "BuyOrderCompleted": 29,
+      "SellOrderCompleted": 18,
+      "BuyOrderCreated": 8
+    },
+    "latest_decision": {
+      "log_time": "2026-07-01 00:29:32,325",
+      "regime": "range_low_vol",
+      "action": "continue",
+      "active": "grid_strike",
+      "recommended": "grid_strike",
+      "confidence": "0.70",
+      "scale": "0.70",
+      "reasons": "['low_vol_range']"
+    },
+    "latest_protect": {
+      "log_time": "2026-07-01 00:05:49,203",
+      "regime": "extreme",
+      "action": "protect",
+      "active": "none",
+      "recommended": "protect_mode",
+      "confidence": "0.90",
+      "scale": "0.00",
+      "reasons": "['volume_spike']"
+    },
+    "recent_orders": [
+      {
+        "time": "2026-07-01 08:29:37",
+        "id": "buy://BTC-USDT/d2cb1fa45e38c035e0d9b50dd9",
+        "order_type": "LIMIT",
+        "amount": "0.000092",
+        "price": "58335.26",
+        "status": "BuyOrderCreated"
+      },
+      {
+        "time": "2026-07-01 08:29:34",
+        "id": "buy://BTC-USDT/76b882c123d01fc47520ec7070",
+        "order_type": "LIMIT",
+        "amount": "0.000092",
+        "price": "58387.76",
+        "status": "BuyOrderCreated"
+      },
+      {
+        "time": "2026-07-01 08:29:31",
+        "id": "buy://BTC-USDT/94487cdc6210ff0d43cfb57ff3",
+        "order_type": "LIMIT",
+        "amount": "0.000092",
+        "price": "58387.76",
+        "status": "BuyOrderCreated"
+      },
+      {
+        "time": "2026-07-01 08:28:08",
+        "id": "buy://BTC-USDT/06321d42d84050410b36fd6180",
+        "order_type": "LIMIT",
+        "amount": "0.000092",
+        "price": "58313.58",
+        "status": "BuyOrderCreated"
+      },
+      {
+        "time": "2026-07-01 08:28:05",
+        "id": "buy://BTC-USDT/3deec097ebea16dd09f999d644",
+        "order_type": "LIMIT",
+        "amount": "0.000092",
+        "price": "58367.46",
+        "status": "BuyOrderCreated"
+      }
+    ],
+    "controller_config": {
+      "id": "ai_strategy_router_paper",
+      "controller_type": "generic",
+      "controller_name": "ai_strategy_router",
+      "total_amount_quote": "100",
+      "manual_kill_switch": "false",
+      "initial_positions": "[]",
+      "connector_name": "gate_io_paper_trade",
+      "trading_pair": "BTC-USDT",
+      "candles_connector": "gate_io",
+      "candles_trading_pair": "BTC-USDT",
+      "interval": "1m",
+      "candles_records": "120",
+      "enable_trading": "true",
+      "router_cooldown": "300",
+      "max_active_executors": "1",
+      "protect_keep_position": "false",
+      "allow_short": "false",
+      "leverage": "1",
+      "position_mode": "HEDGE",
+      "low_bb_width_pct": "0.01",
+      "high_bb_width_pct": "0.03",
+      "trend_slope_pct": "0.001",
+      "atr_spike_pct": "0.03",
+      "volume_spike_zscore": "3.0",
+      "range_break_buffer_pct": "0.001",
+      "active_loss_limit_pct": "0.03",
+      "grid_side": "BUY",
+      "grid_range_pct": "0.006",
+      "grid_take_profit_pct": "0.001",
+      "grid_limit_price_spread": "0.003",
+      "grid_min_spread_between_orders": "0.0005",
+      "grid_min_order_amount_quote": "5",
+      "grid_max_open_orders": "3",
+      "grid_order_frequency": "3",
+      "trend_stop_loss_pct": "0.02",
+      "trend_take_profit_pct": "0.03",
+      "trend_time_limit": "2700"
+    },
+    "pnl": {
+      "base": "0.00009210000000000004981327850249",
+      "quote_cash": "-5.96677602028800610289216529",
+      "fees_quote": "0.6128428182879999877697551797",
+      "buy_quote": "155.88767117300000000",
+      "sell_quote": "150.5337379709999938848775899",
+      "mark_price": "58335.2600000000",
+      "equity_quote": "-0.594098574288003197021612395"
+    }
+  },
+  "git": {
+    "dirty_count": 16,
+    "relevant_changes": [
+      "M hummingbot/strategy_v2/executors/executor_base.py",
+      " M hummingbot/strategy_v2/executors/grid_executor/grid_executor.py",
+      " M hummingbot/strategy_v2/executors/position_executor/position_executor.py",
+      "?? controllers/generic/ai_strategy_router.py",
+      "?? hummingbot/strategy_v2/routers/",
+      "?? scripts/ai_router_iteration_loop.py",
+      "?? scripts/ai_router_monitor.py"
+    ]
+  },
+  "gaps": [
+    {
+      "severity": "medium",
+      "area": "strategy_adapters",
+      "title": "21 shadow strategies still need adapters.",
+      "action": "Prioritize adapters by current shadow score and market regime coverage."
+    },
+    {
+      "severity": "low",
+      "area": "release",
+      "title": "Router-related code has uncommitted or unpinned changes.",
+      "action": "Commit or tag a release snapshot before promoting beyond paper; rerun --deploy-paper after later code edits."
+    }
+  ],
+  "deploy": null,
+  "deploy_requested": false,
+  "deploy_skipped_reason": null
+}

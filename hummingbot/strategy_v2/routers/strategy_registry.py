@@ -1,0 +1,297 @@
+from typing import Dict
+
+from hummingbot.strategy_v2.routers.data_types import MarketRegime, StrategyCandidate, StrategyFamily
+
+
+def default_strategy_registry() -> Dict[str, StrategyCandidate]:
+    """
+    Registry of strategy candidates that the router can reason about.
+
+    Phase 1 routes directly to executor-backed implementations. The controller_name
+    values document the mature Hummingbot controllers that can be promoted later.
+    """
+    candidates = [
+        # Direct executor-backed routes used by the Phase 1 router.
+        StrategyCandidate(
+            name="grid_strike",
+            family=StrategyFamily.GRID,
+            controller_name="grid_strike",
+            executor_type="grid_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="Range strategy backed by GridExecutor.",
+            priority=10,
+        ),
+        StrategyCandidate(
+            name="bollingrid",
+            family=StrategyFamily.GRID,
+            controller_name="bollingrid",
+            executor_type="grid_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="Bollinger-filtered grid candidate.",
+            priority=20,
+        ),
+        StrategyCandidate(
+            name="multi_grid_strike",
+            family=StrategyFamily.GRID,
+            controller_name="multi_grid_strike",
+            executor_type="grid_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="Multiple grid allocation candidate. Needs allocation adapter before direct routing.",
+            priority=60,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="quantum_grid_allocator",
+            family=StrategyFamily.GRID,
+            controller_name="quantum_grid_allocator",
+            executor_type="grid_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="Grid allocator candidate. Needs allocator state adapter before direct routing.",
+            priority=65,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="trend_long",
+            family=StrategyFamily.TREND,
+            controller_name="supertrend_v1",
+            executor_type="position_executor",
+            supported_regimes=[
+                MarketRegime.TREND_UP,
+                MarketRegime.BREAKOUT_UP,
+            ],
+            description="Long directional PositionExecutor for bullish trend regimes.",
+            priority=10,
+        ),
+        StrategyCandidate(
+            name="trend_short",
+            family=StrategyFamily.TREND,
+            controller_name="supertrend_v1",
+            executor_type="position_executor",
+            supported_regimes=[
+                MarketRegime.TREND_DOWN,
+                MarketRegime.BREAKOUT_DOWN,
+            ],
+            description="Short directional PositionExecutor for bearish trend regimes.",
+            priority=10,
+        ),
+
+        # Directional controller candidates. These are in the strategy universe, but
+        # Phase 1 only routes directional exposure through trend_long/trend_short.
+        StrategyCandidate(
+            name="supertrend_v1",
+            family=StrategyFamily.TREND,
+            controller_name="supertrend_v1",
+            executor_type="position_executor",
+            supported_regimes=[
+                MarketRegime.TREND_UP,
+                MarketRegime.TREND_DOWN,
+                MarketRegime.BREAKOUT_UP,
+                MarketRegime.BREAKOUT_DOWN,
+            ],
+            description="Mature SuperTrend directional controller. Shadow candidate behind trend_long/trend_short.",
+            priority=40,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="macd_bb_v1",
+            family=StrategyFamily.TREND,
+            controller_name="macd_bb_v1",
+            executor_type="position_executor",
+            supported_regimes=[
+                MarketRegime.TREND_UP,
+                MarketRegime.TREND_DOWN,
+                MarketRegime.BREAKOUT_UP,
+                MarketRegime.BREAKOUT_DOWN,
+            ],
+            description="MACD plus Bollinger directional controller. Needs signal adapter.",
+            priority=45,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="dman_v3",
+            family=StrategyFamily.TREND,
+            controller_name="dman_v3",
+            executor_type="dca_executor",
+            supported_regimes=[MarketRegime.TREND_UP, MarketRegime.TREND_DOWN],
+            description="Directional DCA/DMAN controller. Needs DCA risk adapter.",
+            priority=50,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="ai_livestream",
+            family=StrategyFamily.TREND,
+            controller_name="ai_livestream",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.TREND_UP, MarketRegime.TREND_DOWN],
+            description="External AI signal controller. Keep disabled until signal trust and kill switch are validated.",
+            priority=80,
+            enabled=False,
+        ),
+
+        # Mean-reversion candidates.
+        StrategyCandidate(
+            name="bollinger_v1",
+            family=StrategyFamily.MEAN_REVERSION,
+            controller_name="bollinger_v1",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_HIGH_VOL],
+            description="Bollinger mean-reversion controller. Needs adapter for entry/exit scoring.",
+            priority=45,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="bollinger_v2",
+            family=StrategyFamily.MEAN_REVERSION,
+            controller_name="bollinger_v2",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_HIGH_VOL],
+            description="Bollinger v2 mean-reversion controller. Needs adapter for entry/exit scoring.",
+            priority=45,
+            enabled=False,
+        ),
+
+        # Market-making candidates.
+        StrategyCandidate(
+            name="pmm_dynamic",
+            family=StrategyFamily.MARKET_MAKING,
+            controller_name="pmm_dynamic",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL],
+            description="Dynamic market making candidate for quiet order books. Needs PMM level adapter.",
+            priority=30,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="pmm_simple",
+            family=StrategyFamily.MARKET_MAKING,
+            controller_name="pmm_simple",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL],
+            description="Simple PMM controller. Needs inventory skew and maker-only adapter.",
+            priority=35,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="pmm_v1",
+            family=StrategyFamily.MARKET_MAKING,
+            controller_name="pmm_v1",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL],
+            description="Generic PMM v1 controller. Needs inventory and spread adapter.",
+            priority=40,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="pmm_mister",
+            family=StrategyFamily.MARKET_MAKING,
+            controller_name="pmm_mister",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="Advanced PMM controller. Needs config adapter and risk limits.",
+            priority=45,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="dman_maker_v2",
+            family=StrategyFamily.MARKET_MAKING,
+            controller_name="dman_maker_v2",
+            executor_type="dca_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="DMAN maker controller. Needs DCA/maker inventory adapter.",
+            priority=50,
+            enabled=False,
+        ),
+
+        # Arbitrage and relative-value candidates. They need multi-market feature
+        # inputs before the single-symbol Phase 1 router can activate them.
+        StrategyCandidate(
+            name="arbitrage_controller",
+            family=StrategyFamily.ARBITRAGE,
+            controller_name="arbitrage_controller",
+            executor_type="arbitrage_executor",
+            supported_regimes=[MarketRegime.ARBITRAGE],
+            description="Arbitrage candidate. Needs spread features before live routing.",
+            priority=50,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="xemm_multiple_levels",
+            family=StrategyFamily.ARBITRAGE,
+            controller_name="xemm_multiple_levels",
+            executor_type="xemm_executor",
+            supported_regimes=[MarketRegime.ARBITRAGE],
+            description="Cross-exchange market making candidate. Needs maker/taker spread features.",
+            priority=55,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="stat_arb",
+            family=StrategyFamily.ARBITRAGE,
+            controller_name="stat_arb",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.ARBITRAGE],
+            description="Statistical arbitrage pair controller. Needs pair feature engine and hedge constraints.",
+            priority=60,
+            enabled=False,
+        ),
+
+        # Hedge and liquidity-management candidates.
+        StrategyCandidate(
+            name="hedge_asset",
+            family=StrategyFamily.HEDGE,
+            controller_name="hedge_asset",
+            executor_type="order_executor",
+            supported_regimes=[MarketRegime.EXTREME, MarketRegime.RANGE_HIGH_VOL],
+            description="Asset hedge controller. Needs portfolio exposure input before routing.",
+            priority=70,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="funding_rate_arb",
+            family=StrategyFamily.HEDGE,
+            controller_name="v2_funding_rate_arb",
+            executor_type="position_executor",
+            supported_regimes=[MarketRegime.ARBITRAGE],
+            description="Funding-rate arbitrage script. Needs funding feature feed and perp risk adapter.",
+            priority=70,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="lp_rebalancer",
+            family=StrategyFamily.LP,
+            controller_name="lp_rebalancer",
+            executor_type="lp_executor",
+            supported_regimes=[MarketRegime.RANGE_LOW_VOL, MarketRegime.RANGE_HIGH_VOL],
+            description="LP rebalancer candidate. Needs AMM/gateway context before routing.",
+            priority=80,
+            enabled=False,
+        ),
+
+        # Observation-only candidates.
+        StrategyCandidate(
+            name="market_status_monitor",
+            family=StrategyFamily.OBSERVE,
+            controller_name="examples.market_status_controller",
+            supported_regimes=[MarketRegime.UNKNOWN],
+            description="Observation-only market status controller.",
+            priority=90,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="liquidations_monitor",
+            family=StrategyFamily.OBSERVE,
+            controller_name="examples.liquidations_monitor_controller",
+            supported_regimes=[MarketRegime.EXTREME],
+            description="Observation-only liquidation monitor for risk features.",
+            priority=90,
+            enabled=False,
+        ),
+        StrategyCandidate(
+            name="protect_mode",
+            family=StrategyFamily.PROTECT,
+            supported_regimes=[MarketRegime.EXTREME, MarketRegime.UNKNOWN],
+            description="Stops new risk and lets the risk gate control exits.",
+            priority=0,
+        ),
+    ]
+    return {candidate.name: candidate for candidate in candidates}

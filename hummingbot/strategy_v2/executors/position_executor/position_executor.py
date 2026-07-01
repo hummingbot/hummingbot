@@ -649,6 +649,7 @@ class PositionExecutor(ExecutorBase):
         This method is responsible for processing the order created event. Here we will update the TrackedOrder with the
         order_id.
         """
+        self.sync_paper_in_flight_order(event)
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_filled_event(self, _, market, event: OrderFilledEvent):
@@ -657,6 +658,7 @@ class PositionExecutor(ExecutorBase):
         _total_executed_amount_backup, that can be used if the InFlightOrder
         is not available.
         """
+        self.sync_paper_in_flight_order(event)
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
@@ -664,6 +666,7 @@ class PositionExecutor(ExecutorBase):
         This method is responsible for processing the order completed event. Here we will check if the id is one of the
         tracked orders and update the state
         """
+        self.sync_paper_in_flight_order(event)
         self._total_executed_amount_backup += event.base_asset_amount
         self.update_tracked_orders_with_order_id(event.order_id)
 
