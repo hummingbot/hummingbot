@@ -512,7 +512,14 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
                 },
                 is_auth_required=True,
             )
-            all_positions_data = all_positions_response["data"]
+            # V3 current-position wraps the rows in a paginated object: data.list (the V2 API
+            # returned the list directly under data). When there are no open positions the API
+            # returns data.list = null (or data = null), so coalesce to an empty list.
+            all_positions_payload = all_positions_response.get("data")
+            if isinstance(all_positions_payload, dict):
+                all_positions_data = all_positions_payload.get("list") or []
+            else:
+                all_positions_data = all_positions_payload or []
 
             for position in all_positions_data:
                 # V3 current-position (CurrentPositionV3) fields.
@@ -555,11 +562,13 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                # V3 fills returns data as a list; tolerate the legacy {"fillList": [...]} wrapper.
-                fills_payload = all_fills_response["data"]
-                all_fills_data = (
-                    fills_payload.get("fillList", []) if isinstance(fills_payload, dict) else fills_payload
-                )
+                # V3 fills are paginated under data.list (the V2 API used the {"fillList": [...]}
+                # wrapper). Coalesce a null/missing list to an empty list.
+                fills_payload = all_fills_response.get("data")
+                if isinstance(fills_payload, dict):
+                    all_fills_data = fills_payload.get("list") or []
+                else:
+                    all_fills_data = fills_payload or []
 
                 for fill_data in all_fills_data:
                     trade_update = self._parse_trade_update(
@@ -785,24 +794,32 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
 
         product_type = await self.product_type_associated_to_trading_pair(trading_pair)
-        # V3 financial-records: productType -> category, businessType -> type; data is a list of
-        # records (FinancialRecordV3) instead of the legacy {"bills": [...]} wrapper, ts replaces cTime.
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        # V3 financial-records: productType -> category, paginated under data.list (ts replaces the
+        # legacy cTime). Funding-settlement rows use uppercase V3 "type" values split by direction
+        # (CONTRACT_MAIN_SETTLE_FEE_USER_IN/OUT for cross, MARGIN_SETTLE_FEE_USER_IN/OUT for
+        # isolated). The endpoint rejects the legacy lowercase single "type" filter with "40020
+        # Parameter type error", so we fetch the records unfiltered and pick the latest funding
+        # settlement for this symbol locally.
         payment_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.ACCOUNT_BILLS_ENDPOINT,
             params={
                 "category": product_type,
-                "type": "contract_settle_fee",
             },
             is_auth_required=True,
         )
-        payment_payload = payment_response["data"]
-        # V3 financial-records returns the records under data.list (FinancialRecordPage), with ts.
-        payment_data = (
-            payment_payload.get("list", []) if isinstance(payment_payload, dict) else payment_payload
-        )
+        payment_payload = payment_response.get("data")
+        if isinstance(payment_payload, dict):
+            payment_data = payment_payload.get("list") or []
+        else:
+            payment_data = payment_payload or []
+        funding_payments = [
+            record for record in payment_data
+            if record.get("symbol") == symbol and "SETTLE_FEE" in str(record.get("type", ""))
+        ]
 
-        if payment_data:
-            last_data = payment_data[0]
+        if funding_payments:
+            last_data = funding_payments[0]
             funding_info = self._perpetual_trading._funding_info.get(trading_pair)
             payment: Decimal = Decimal(str(last_data["amount"]))
             funding_rate: Decimal = funding_info.rate if funding_info is not None else Decimal(0)

@@ -496,7 +496,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "symbol": self.exchange_trading_pair,
                         "amount": str(self.target_funding_payment_payment_amount),
                         "fee": "0.1",
-                        "type": "contract_settle_fee",
+                        "type": "CONTRACT_MAIN_SETTLE_FEE_USER_OUT",
                         "coin": self.quote_asset,
                         "balance": "232.21",
                         "ts": "1657110053000"
@@ -1597,7 +1597,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "code": "00000",
             "data": {
-                "fillList": [
+                "list": [
                     {
                         "tradeId": self.expected_fill_trade_id,
                         "symbol": self.exchange_trading_pair,
@@ -1634,7 +1634,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "code": "00000",
             "data": {
-                "fillList": [
+                "list": [
                     {
                         "tradeId": self.expected_fill_trade_id,
                         "symbol": self.exchange_trading_pair,

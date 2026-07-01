@@ -49,7 +49,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 PUBLIC_ORDERBOOK_ENDPOINT = "/api/v3/market/orderbook"
 PUBLIC_SYMBOLS_ENDPOINT = "/api/v3/market/instruments"
 PUBLIC_TICKERS_ENDPOINT = "/api/v3/market/tickers"
-PUBLIC_TIME_ENDPOINT = "/api/v3/public/time"
+PUBLIC_TIME_ENDPOINT = "/api/v3/market/time"
 
 # Private (account/trade) V3 endpoints
 ASSETS_ENDPOINT = "/api/v3/account/assets"

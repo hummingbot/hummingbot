@@ -63,7 +63,7 @@ PUBLIC_ORDERBOOK_ENDPOINT = "/api/v3/market/orderbook"
 PUBLIC_FUNDING_RATE_ENDPOINT = "/api/v3/market/current-fund-rate"
 PUBLIC_OPEN_INTEREST_ENDPOINT = "/api/v3/market/open-interest"
 PUBLIC_SYMBOL_PRICE_ENDPOINT = "/api/v3/market/tickers"
-PUBLIC_TIME_ENDPOINT = "/api/v3/public/time"
+PUBLIC_TIME_ENDPOINT = "/api/v3/market/time"
 PUBLIC_FUNDING_TIME_ENDPOINT = "/api/v3/market/current-fund-rate"
 
 # Private (account/trade/position) V3 endpoints

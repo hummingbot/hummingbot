@@ -369,9 +369,13 @@ class BitgetExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                fills_payload = all_fills_response.get("data", [])
-                # V3 returns data as a list of fills; tolerate the legacy {"fillList": [...]} wrapper.
-                fills_data = fills_payload.get("fillList", []) if isinstance(fills_payload, dict) else fills_payload
+                # V3 fills are paginated under data.list (the V2 API used the {"fillList": [...]}
+                # wrapper). Coalesce a null/missing list to an empty list.
+                fills_payload = all_fills_response.get("data")
+                if isinstance(fills_payload, dict):
+                    fills_data = fills_payload.get("list") or []
+                else:
+                    fills_data = fills_payload or []
 
                 for fill_data in fills_data:
                     trade_update = self._parse_trade_update(
