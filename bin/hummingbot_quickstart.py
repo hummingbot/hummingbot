@@ -10,15 +10,15 @@ import path_util  # noqa: F401
 
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
-from hummingbot.cli.runner import (
+from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
+from hummingbot.client.config.config_helpers import load_client_config_map_from_file
+from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.client.runner import (
     autofix_permissions,
     bootstrap_application,
     load_and_start_strategy,
     wait_for_gateway_ready,
 )
-from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import load_client_config_map_from_file
-from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent

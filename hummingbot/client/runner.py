@@ -1,8 +1,13 @@
-"""Shared, headless-safe helpers for launching a Hummingbot strategy.
+"""Shared, headless-safe helpers for bootstrapping and launching a Hummingbot strategy.
 
-These were extracted from ``bin/hummingbot_quickstart.py`` so that both the legacy
-quickstart entrypoint and the ``hbot`` engine use one implementation. Keep this module free
-of CLI concerns (no typer, no argparse) — it only knows how to load and start a strategy.
+These bootstrap the one real engine — ``HummingbotApplication`` + ``TradingCore`` — and are used by
+every host that stands it up: the interactive ``bin/hummingbot.py`` / ``bin/hummingbot_quickstart.py``
+launchers and the detached ``hbot`` engine (``hummingbot/cli/engine.py``). Because this is core
+engine-launch logic (not CLI logic), it lives in the client layer, so ``hummingbot/cli`` stays a leaf
+that depends on the client — never the other way around.
+
+Keep this module free of host concerns (no typer, no argparse, no prompt-toolkit) — it only knows how
+to build the application and load/start a strategy.
 """
 import asyncio
 import grp
