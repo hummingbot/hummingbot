@@ -156,7 +156,12 @@ def main() -> None:
     parser.add_argument("--auto-set-permissions", default=None, dest="auto_set_permissions")
     args = parser.parse_args()
 
+    # Read the password, then scrub it from this process's environment so none of the subprocesses
+    # the engine (or a connector) may spawn inherit the keystore password. The engine lives for the
+    # bot's whole run — the password should live only in this variable, not in the inheritable env.
     password = os.environ.get("HBOT_PASSWORD") or os.environ.get("CONFIG_PASSWORD")
+    os.environ.pop("HBOT_PASSWORD", None)
+    os.environ.pop("CONFIG_PASSWORD", None)
     if not password:
         sys.stderr.write("HBOT_PASSWORD is not set; the engine cannot unlock the keystore.\n")
         sys.exit(4)
