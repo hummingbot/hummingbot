@@ -49,7 +49,7 @@ Then connect an exchange, create a config, and start a bot:
 
 ```bash
 hbot connect binance                                   # store API keys (encrypted)
-hbot strategy create pmm_simple --name conf_my_bot.yml \
+hbot create pmm_simple --name conf_my_bot.yml \
      --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
 hbot start conf_my_bot.yml                             # run it (one bot per install)
 hbot status                                            # check on it

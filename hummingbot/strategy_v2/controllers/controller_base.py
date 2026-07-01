@@ -11,6 +11,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.core.data_type.common import MarketDict, PositionAction, PriceType, TradeType
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
+from hummingbot.data_feed.market_data_provider import MarketDataProvider
 from hummingbot.strategy_v2.executors.order_executor.data_types import (
     ExecutionStrategy,
     LimitChaserConfig,
@@ -25,9 +26,6 @@ from hummingbot.strategy_v2.models.position_config import InitialPositionConfig
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 
 if TYPE_CHECKING:
-    # type-only: the real provider is passed into __init__ and used via the instance, so importing the
-    # class at module load would needlessly drag in the whole config/market-data stack (~0.5s).
-    from hummingbot.data_feed.market_data_provider import MarketDataProvider
     from hummingbot.strategy_v2.executors.data_types import PositionSummary
 
 
@@ -194,14 +192,14 @@ class ControllerBase(RunnableBase):
     )
     """
 
-    def __init__(self, config: ControllerConfigBase, market_data_provider: "MarketDataProvider",
+    def __init__(self, config: ControllerConfigBase, market_data_provider: MarketDataProvider,
                  actions_queue: asyncio.Queue, update_interval: float = 1.0):
         super().__init__(update_interval=update_interval)
         self.config = config
         self.executors_info: List[ExecutorInfo] = []
         self.positions_held: List[PositionSummary] = []
         self.performance_report: Optional[PerformanceReport] = None
-        self.market_data_provider: "MarketDataProvider" = market_data_provider
+        self.market_data_provider: MarketDataProvider = market_data_provider
         self.actions_queue: asyncio.Queue = actions_queue
         self.processed_data = {}
         self.executors_update_event = asyncio.Event()

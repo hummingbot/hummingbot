@@ -103,23 +103,11 @@ coverage.xml
 
 **/.claude/settings.local.json
 
-# Editor/AI tool directories (local agent installs are ignored)
-.claude/*
+# Editor/AI tool directories
+.claude/
 .cursor/
-.agents/*
-# ...but DO ship the agent skills committed in this repo (clone-and-go).
-# .agents/skills/ is the canonical, vendor-neutral location (read natively by
-# Codex, Cursor, etc.); .claude/skills/ holds symlinks into it for Claude Code,
-# which only auto-discovers skills under .claude/.
-!.agents/skills/
-!.claude/skills/
-!.agents/evals/
-# locally-installed third-party skills stay ignored:
-.agents/skills/hummingbot-deploy
-# eval run outputs (transcripts/scores) are local, not committed:
-.agents/evals/results/
+.agents/
 
 
 # GRVT
 /grvt
-.cli_test/

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 import pandas as pd
 
-from hummingbot.client.performance import PerformanceMetrics, format_performance_by_market
-from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT
+from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT, AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.trade_fill import TradeFill
@@ -107,7 +107,73 @@ class HistoryCommand:
                                      trading_pair: str,
                                      perf: PerformanceMetrics,
                                      precision: int):
-        self.notify("\n".join(format_performance_by_market(market, trading_pair, perf, precision)))
+        lines = []
+        base, quote = trading_pair.split("-")
+        lines.extend(
+            [f"\n{market} / {trading_pair}"]
+        )
+
+        trades_columns = ["", "buy", "sell", "total"]
+        trades_data = [
+            [f"{'Number of trades':<27}", perf.num_buys, perf.num_sells, perf.num_trades],
+            [f"{f'Total trade volume ({base})':<27}",
+             PerformanceMetrics.smart_round(perf.b_vol_base, precision),
+             PerformanceMetrics.smart_round(perf.s_vol_base, precision),
+             PerformanceMetrics.smart_round(perf.tot_vol_base, precision)],
+            [f"{f'Total trade volume ({quote})':<27}",
+             PerformanceMetrics.smart_round(perf.b_vol_quote, precision),
+             PerformanceMetrics.smart_round(perf.s_vol_quote, precision),
+             PerformanceMetrics.smart_round(perf.tot_vol_quote, precision)],
+            [f"{'Avg price':<27}",
+             PerformanceMetrics.smart_round(perf.avg_b_price, precision),
+             PerformanceMetrics.smart_round(perf.avg_s_price, precision),
+             PerformanceMetrics.smart_round(perf.avg_tot_price, precision)],
+        ]
+        trades_df: pd.DataFrame = pd.DataFrame(data=trades_data, columns=trades_columns)
+        lines.extend(["", "  Trades:"] + ["    " + line for line in trades_df.to_string(index=False).split("\n")])
+
+        assets_columns = ["", "start", "current", "change"]
+        assets_data = [
+            [f"{base:<17}", "-", "-", "-"] if market in AllConnectorSettings.get_derivative_names() else  # No base asset for derivatives because they are margined
+            [f"{base:<17}",
+             PerformanceMetrics.smart_round(perf.start_base_bal, precision),
+             PerformanceMetrics.smart_round(perf.cur_base_bal, precision),
+             PerformanceMetrics.smart_round(perf.tot_vol_base, precision)],
+            [f"{quote:<17}",
+             PerformanceMetrics.smart_round(perf.start_quote_bal, precision),
+             PerformanceMetrics.smart_round(perf.cur_quote_bal, precision),
+             PerformanceMetrics.smart_round(perf.tot_vol_quote, precision)],
+            [f"{trading_pair + ' price':<17}",
+             PerformanceMetrics.smart_round(perf.start_price),
+             PerformanceMetrics.smart_round(perf.cur_price),
+             PerformanceMetrics.smart_round(perf.cur_price - perf.start_price)],
+            [f"{'Base asset %':<17}", "-", "-", "-"] if market in AllConnectorSettings.get_derivative_names() else  # No base asset for derivatives because they are margined
+            [f"{'Base asset %':<17}",
+             f"{perf.start_base_ratio_pct:.2%}",
+             f"{perf.cur_base_ratio_pct:.2%}",
+             f"{perf.cur_base_ratio_pct - perf.start_base_ratio_pct:.2%}"],
+        ]
+        assets_df: pd.DataFrame = pd.DataFrame(data=assets_data, columns=assets_columns)
+        lines.extend(["", "  Assets:"] + ["    " + line for line in assets_df.to_string(index=False).split("\n")])
+
+        perf_data = [
+            ["Hold portfolio value    ", f"{PerformanceMetrics.smart_round(perf.hold_value, precision)} {quote}"],
+            ["Current portfolio value ", f"{PerformanceMetrics.smart_round(perf.cur_value, precision)} {quote}"],
+            ["Trade P&L               ", f"{PerformanceMetrics.smart_round(perf.trade_pnl, precision)} {quote}"]
+        ]
+        perf_data.extend(
+            ["Fees paid               ", f"{PerformanceMetrics.smart_round(fee_amount, precision)} {fee_token}"]
+            for fee_token, fee_amount in perf.fees.items()
+        )
+        perf_data.extend(
+            [["Total P&L               ", f"{PerformanceMetrics.smart_round(perf.total_pnl, precision)} {quote}"],
+             ["Return %                ", f"{perf.return_pct:.2%}"]]
+        )
+        perf_df: pd.DataFrame = pd.DataFrame(data=perf_data)
+        lines.extend(["", "  Performance:"] +
+                     ["    " + line for line in perf_df.to_string(index=False, header=False).split("\n")])
+
+        self.notify("\n".join(lines))
 
     def list_trades(self,  # type: HummingbotApplication
                     start_time: float):
