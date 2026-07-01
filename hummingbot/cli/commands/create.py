@@ -73,6 +73,18 @@ def create(
         False, "--controller", help="Force controller type (only if the name collides across types)."),
 ) -> None:
     """Create a strategy config file, then load it (for `config` / `start`)."""
+    record = create_config(strategy=strategy, set_values=set_values, values_stdin=values_stdin,
+                           with_defaults=with_defaults, name=name, v1=v1, v2=v2, controller=controller)
+    echo(render_kv(record, title=f"created {record['type']}/{record['file']}"))
+
+
+def create_config(*, strategy: str, set_values: Optional[List[str]] = None, values_stdin: bool = False,
+                  with_defaults: bool = False, name: Optional[str] = None,
+                  v1: bool = False, v2: bool = False, controller: bool = False) -> dict:
+    """The core of ``hbot create`` — scaffold, fill, validate, write, load; returns the record.
+
+    Shared with ``hbot deploy`` (which bundles config creation + launch into one call).
+    """
     from hummingbot.cli.strategy_configs import (
         create_config_file,
         describe_strategy,
@@ -130,4 +142,4 @@ def create(
         record["next"] = f"hbot config {remaining[0]} <value>"
     else:
         record["next"] = "hbot start"
-    echo(render_kv(record, title=f"created {stype}/{out_name}"))
+    return record

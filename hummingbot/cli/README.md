@@ -2,8 +2,9 @@
 
 `hbot` runs, controls, and monitors **one Hummingbot bot per install**. It is fully
 non-interactive and scriptable: every command emits compact **Markdown** (tables for lists,
-key-value for records — readable by humans and agents alike) and returns a **stable exit code**.
-No `--json` flag, no MQTT broker, no interactive prompts required.
+key-value for records — readable by humans and agents alike) and returns a **stable exit code**;
+the run/observe commands also take **`--json`** for machine-readable output. No MQTT broker, no
+interactive prompts required.
 
 ```bash
 hbot --help          # top-level commands
@@ -69,6 +70,7 @@ hbot
 │  └─ config [key] [value]       global client settings + the loaded strategy's config
 │
 ├─ ── run & control ──
+│  ├─ deploy <target>            one-shot: create/load a config and start it (--set k=v)
 │  ├─ start [config]             start a bot (defaults to the imported config); --replace to swap
 │  ├─ update [key] [value]       view / live-change the running bot's config
 │  └─ stop                       stop gracefully (cancels orders); --force to kill
@@ -124,6 +126,25 @@ hbot history conf_eth
 > needed — which also serves as field discovery. Already have a `.yml` (dashboard, API, an example)?
 > `import` it instead.
 
+### `deploy` — the one-shot
+
+`deploy` bundles the whole "config → running bot" flow into a single command, for agents and
+scripts that don't need the intermediate steps:
+
+```bash
+# existing config file → (optional --set edits) → running bot
+hbot deploy conf_eth.yml
+hbot deploy conf_eth.yml --set total_amount_quote=500
+
+# strategy/controller/script name → create a ready-to-run config → running bot
+hbot deploy pmm_simple --set connector_name=hyperliquid_perpetual --set trading_pair=ETH-USD
+```
+
+The target is resolved config-file-first (config names are unique across types); anything else must
+be a creatable strategy name, with every required field supplied via `--set` / `--values-stdin`
+(deploy's contract is a *running* bot, so there is no `--with-defaults`). `--replace`,
+`--foreground`, `--password-stdin`, `--timeout`, and `--json` behave exactly as on `start`.
+
 ---
 
 ## Running & observing
@@ -166,10 +187,12 @@ to come back once the core client parity is solid.
 
 ## Output & exit codes
 
-Every command emits compact **Markdown** — a table for a list of records, a `- key: value` block for
-a single record — on stdout. Errors print to stderr as `Error: <message> (code N)`. There is **no
-`--json` flag**: the Markdown is the format for humans and agents alike. The machine contract is the
-**exit code** — branch on it, not on the text:
+Every command emits compact **Markdown** by default — a table for a list of records, a `- key: value`
+block for a single record — on stdout. Errors print to stderr as `Error: <message> (code N)`. The
+run/observe commands (`deploy`, `start`, `stop`, `status`, `logs`, `config`, `balance`) also take
+**`--json`** to emit a machine-readable object with raw values (e.g. `hbot status --json` →
+`{"running": true, "pid": …, "errors": {…}, …}`). Either way, the machine contract for *outcomes* is
+the **exit code** — branch on it, not on the text:
 
 | code | name | meaning |
 |---|---|---|

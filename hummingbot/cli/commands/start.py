@@ -11,7 +11,7 @@ import typer
 
 from hummingbot import prefix_path
 from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, echo, fail, render_kv
+from hummingbot.cli.output import ExitCode, emit, fail, json_option, render_kv
 from hummingbot.cli.password import login
 
 
@@ -57,6 +57,7 @@ def start(
     auto_set_permissions: Optional[str] = typer.Option(
         None, "--auto-set-permissions", help="user:group to chown conf/data/logs (Docker)."),
     timeout: float = typer.Option(120.0, "--timeout", help="Seconds to wait for the bot to start."),
+    as_json: bool = json_option(),
 ) -> None:
     """Start a bot from a config file (type auto-detected).
 
@@ -64,6 +65,19 @@ def start(
     holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
     exists under more than one type. By default the bot runs detached (the command returns); pass
     --foreground to run it in the foreground, e.g. as a Docker container's main process."""
+    record = launch(file=file, v1=v1, v2=v2, controller=controller, replace=replace,
+                    foreground=foreground, password_stdin=password_stdin,
+                    auto_set_permissions=auto_set_permissions, timeout=timeout)
+    emit(record, render_kv(record, title="start"), as_json)
+
+
+def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controller: bool = False,
+           replace: bool = False, foreground: bool = False, password_stdin: bool = False,
+           auto_set_permissions: Optional[str] = None, timeout: float = 120.0) -> dict:
+    """The core of ``hbot start`` — resolve, spawn, wait for readiness; returns the start record.
+
+    Shared with ``hbot deploy`` (which bundles config creation + launch into one call).
+    """
     # Filename->type resolution shared with `hbot config`/`hbot import`: a flag forces the type, else
     # it's detected from the conf dirs (names are unique across types).
     from hummingbot.cli.commands._common import one_type
@@ -155,10 +169,10 @@ def start(
         os.chdir(prefix_path())
         os.execve(sys.executable, cmd, env)  # never returns
 
-    _spawn_detached(cmd, env, name, timeout)
+    return _spawn_detached(cmd, env, name, timeout)
 
 
-def _spawn_detached(cmd: list, env: dict, name: str, timeout: float) -> None:
+def _spawn_detached(cmd: list, env: dict, name: str, timeout: float) -> dict:
     """Launch the engine detached, wait until its strategy is running, and report — or fail with the
     recent log if it exits during startup / times out."""
     log_handle = open(bot.log_file(), "wb")  # fresh per run (startup/uncaught only)
@@ -183,4 +197,4 @@ def _spawn_detached(cmd: list, env: dict, name: str, timeout: float) -> None:
         fail(f"timed out after {timeout:g}s waiting for the bot to start (pid {proc.pid} still booting)",
              ExitCode.TIMEOUT)
 
-    echo(render_kv({"name": name, "pid": proc.pid, "status": "running"}, title="start"))
+    return {"name": name, "pid": proc.pid, "status": "running"}
