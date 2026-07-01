@@ -1050,7 +1050,7 @@ class LPExecutor(ExecutorBase):
         return pnl_in_quote - tx_fee_quote
 
     def get_net_pnl_pct(self) -> Decimal:
-        """Returns net P&L as percentage of initial investment.
+        """Returns net P&L ratio relative to initial investment.
 
         Both P&L and initial value are in quote currency.
         Falls back to config values if initial amounts not yet set.
@@ -1079,7 +1079,7 @@ class LPExecutor(ExecutorBase):
         if initial_value_quote == Decimal("0"):
             return Decimal("0")
 
-        return (pnl_quote / initial_value_quote) * Decimal("100")
+        return pnl_quote / initial_value_quote
 
     def get_cum_fees_quote(self) -> Decimal:
         """

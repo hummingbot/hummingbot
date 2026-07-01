@@ -28,7 +28,9 @@ INTERVALS = {
 # with weight 300. A standard account is capped at 60 requests/minute, so the shared pool is
 # sized at 60 * 300 = 18,000 weighted points; each weight-300 call costs 300, giving the
 # equivalent of 60 calls/minute.
-ALL_ENDPOINTS_LIMIT = "lighter_spot_candles_all"
+# Shared weighted pool of the lighter connector (lighter_constants.ALL_ENDPOINTS_LIMIT).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+ALL_ENDPOINTS_LIMIT = "lighter_all"
 WEIGHT_DEFAULT = 300
 STANDARD_ACCOUNT_REQUEST_LIMIT = 60
 ALL_ENDPOINTS_POOL = STANDARD_ACCOUNT_REQUEST_LIMIT * WEIGHT_DEFAULT  # 18,000
