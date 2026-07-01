@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 import typer
 
-from hummingbot.cli.output import ExitCode, echo, fail, render_table
+from hummingbot.cli.output import ExitCode, echo, emit, fail, json_option, render_table
 from hummingbot.cli.password import login
 
 
@@ -148,12 +148,36 @@ def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
     return "\n\n".join(out)
 
 
+def _json_payload(result: Dict[str, dict], quote: str, units_only: bool) -> dict:
+    """The --json shape: raw numbers per connector (no Markdown, no rendering-only fields)."""
+    payload: dict = {"quote": None if units_only else quote, "connectors": {}}
+    total = Decimal("0")
+    for ex, data in result.items():
+        entry: dict = {"assets": [
+            {"asset": a["asset"], "total": float(a["total"]), "available": float(a["available"]),
+             **({} if units_only else {"value": float(a["value"])})} for a in data["assets"]]}
+        if not units_only:
+            entry["balances_value"] = float(data["usd_total"])
+            entry["allocated_value"] = float(data["allocated_total"])
+            pnl = data.get("pnl_total", Decimal("0"))
+            if "positions" in data:
+                entry["positions"] = data["positions"]
+                entry["unrealized_pnl"] = float(pnl)
+            entry["net_value"] = float(data["usd_total"] + pnl)
+            total += data["usd_total"] + pnl
+        payload["connectors"][ex] = entry
+    if not units_only:
+        payload["net_value_total"] = float(total)
+    return payload
+
+
 def balance(
     connector: Optional[str] = typer.Argument(None, help="Connector to fetch. Omit for all connected connectors."),
     units_only: bool = typer.Option(
         False, "--units-only", help="Show only token amounts — skip the price fetch (faster) and USD values/positions."),
     password_stdin: bool = typer.Option(
         False, "--password-stdin", help="Read the keystore password from stdin (else $HBOT_PASSWORD or a prompt)."),
+    as_json: bool = json_option(),
 ) -> None:
     """Show your connector balances, with their value in USD."""
     from hummingbot.client.settings import AllConnectorSettings
@@ -179,7 +203,9 @@ def balance(
         except asyncio.TimeoutError:
             fail("network timeout fetching balances", ExitCode.TIMEOUT)
 
-    if not result:
+    if as_json:
+        emit(_json_payload(result, quote=sym, units_only=units_only), "", True)
+    elif not result:
         echo("No balances (no connected connectors, or all balances are zero).")
     else:
         echo(_render(result, sym, units_only))

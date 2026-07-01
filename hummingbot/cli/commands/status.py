@@ -5,7 +5,7 @@ import time
 from typing import Any, Dict
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import echo, render_kv
+from hummingbot.cli.output import echo, emit, json_option, render_kv
 
 # How long `hbot status` waits for the engine to write a fresh snapshot after SIGUSR1.
 REFRESH_TIMEOUT = 5.0
@@ -43,7 +43,7 @@ def _request_fresh_snapshot(timeout: float = REFRESH_TIMEOUT) -> None:
         time.sleep(0.1)
 
 
-def status() -> None:
+def status(as_json: bool = json_option()) -> None:
     """Show the bot's run state, live status, and errors."""
     # Unlike stop/logs/trades/history/update (which exit NOT_FOUND when there's no bot), `status` is a
     # poll: "is anything running?" is a valid question with a valid answer, so "no bot" is success
@@ -53,12 +53,13 @@ def status() -> None:
         # the user sees what `hbot start` would launch — otherwise report the plain empty state.
         loaded = bot.read_loaded()
         if loaded and loaded.get("file"):
-            echo(render_kv({"running": False, "note": "imported, not started",
-                            "config": loaded["file"], "type": loaded.get("type") or "-",
-                            "next": "hbot start"}, title="status"))
+            record = {"running": False, "note": "imported, not started",
+                      "config": loaded["file"], "type": loaded.get("type") or "-",
+                      "next": "hbot start"}
         else:
-            echo(render_kv({"running": False, "note": "no strategy config loaded",
-                            "next": "hbot create <strategy>  or  hbot import <file>"}, title="status"))
+            record = {"running": False, "note": "no strategy config loaded",
+                      "next": "hbot create <strategy>  or  hbot import <file>"}
+        emit(record, render_kv(record, title="status"), as_json)
         return
 
     _request_fresh_snapshot()
@@ -72,6 +73,24 @@ def status() -> None:
     strategy_name = engine.get("strategy_name") or meta.get("strategy_name")
     uptime = (time.time() - started_at) if (running and started_at) else None
     errors = _recent_log_errors()
+
+    text = snapshot.get("format_status")
+
+    if as_json:
+        emit({
+            "running": running,
+            "name": name,
+            "pid": bot.read_pid(),
+            "config": meta.get("file"),
+            "type": meta.get("type"),
+            "strategy": strategy_name,
+            "uptime_s": round(uptime, 1) if uptime else None,
+            "snapshot_age_s": round(snapshot_age, 1) if snapshot_age is not None else None,
+            "errors": errors,
+            "format_status": text,
+            "balances": snapshot.get("balances"),
+        }, "", True)
+        return
 
     fields = {
         "name": name,
@@ -92,6 +111,5 @@ def status() -> None:
                             f"{last[:120]} (run `hbot logs` for detail)")
     echo(render_kv(fields, title="status"))
 
-    text = snapshot.get("format_status")
     if text:
         echo("\n" + text)

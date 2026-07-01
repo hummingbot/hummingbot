@@ -6,12 +6,13 @@ import time
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, echo, fail, render_kv
+from hummingbot.cli.output import ExitCode, emit, fail, json_option, render_kv
 
 
 def stop(
     timeout: float = typer.Option(30.0, "--timeout", help="Seconds to wait for graceful shutdown."),
     force: bool = typer.Option(False, "--force", help="SIGKILL if still alive after timeout."),
+    as_json: bool = json_option(),
 ) -> None:
     """Stop the bot gracefully, cancelling its open orders."""
     if not bot.exists():
@@ -41,4 +42,5 @@ def stop(
                  ExitCode.TIMEOUT)
 
     bot.clear_pid()
-    echo(render_kv({"stopped": True, "killed": killed}, title="stop"))
+    record = {"stopped": True, "killed": killed}
+    emit(record, render_kv(record, title="stop"), as_json)

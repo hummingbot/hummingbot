@@ -1,9 +1,11 @@
 """Output helpers + the stable exit-code contract shared by all hbot commands.
 
-hbot emits a single, token-economic **Markdown** format — tables for lists of records, key-value for
-single records — that serves both humans and agents (no ``--json`` flag). The machine contract for an
-agent is the stable **exit code** (branch on it); the Markdown body carries the values.
+hbot emits a token-economic **Markdown** format by default — tables for lists of records, key-value
+for single records — that serves both humans and agents. The run/observe commands (start, stop,
+status, logs, config, balance, deploy) also take ``--json`` for a machine-readable object with raw
+values. Either way, the machine contract for outcomes is the stable **exit code** (branch on it).
 """
+import json
 from enum import IntEnum
 from typing import Any, List, Optional, Sequence
 
@@ -64,6 +66,20 @@ def render_kv(record: dict, title: Optional[str] = None) -> str:
 
 def echo(text: str) -> None:
     typer.echo(text)
+
+
+def emit(payload: Any, markdown: str, as_json: bool) -> None:
+    """Print ``markdown`` (the default surface) or ``payload`` as JSON when ``--json`` was passed.
+
+    ``payload`` carries the raw values (numbers stay numbers; Decimals and other non-JSON types
+    serialize via ``str``) so agents don't re-parse the human rendering.
+    """
+    typer.echo(json.dumps(payload, indent=2, default=str) if as_json else markdown)
+
+
+def json_option() -> Any:
+    """The shared ``--json`` flag declaration, so every command words it identically."""
+    return typer.Option(False, "--json", help="Emit machine-readable JSON instead of Markdown.")
 
 
 def fail(message: str, code: ExitCode) -> "typer.Exit":

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 import typer
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import ExitCode, cell, echo, fail, render_kv, render_table
+from hummingbot.cli.output import ExitCode, cell, emit, fail, json_option, render_kv, render_table
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -63,9 +63,10 @@ def _active_strategy() -> Optional[Tuple[str, str, bool]]:
     return None
 
 
-def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]]) -> None:
+def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]], as_json: bool) -> None:
     rows = [{"key": item.config_path, "value": item.printable_value} for item in _leaf_items(cm)]
     out = render_table(rows, columns=["key", "value"], title="global settings")
+    payload: dict = {"global": {r["key"]: r["value"] for r in rows}, "strategy": None}
     if active is not None:
         file, stype, running = active
         from hummingbot.cli.strategy_configs import config_path, read_yaml, updatable_for
@@ -77,29 +78,29 @@ def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]]) ->
         out += "\n\n" + render_table(
             srows, columns=["field", "value", "live"],
             title=f"strategy config — {file} ({stype}, {state})")
-    echo(out)
+        payload["strategy"] = {"file": file, "type": stype, "state": state,
+                               "fields": data, "live_fields": sorted(updatable)}
+    emit(payload, out, as_json)
 
 
-def _read_or_set_global(cm: "ClientConfigAdapter", key: str, value: Optional[str]) -> None:
+def _read_or_set_global(cm: "ClientConfigAdapter", key: str, value: Optional[str], as_json: bool) -> None:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter, save_to_yml
     from hummingbot.client.settings import CLIENT_CONFIG_PATH
     model, leaf = _navigate(cm, key)
     if isinstance(getattr(model, leaf), ClientConfigAdapter):
         fail(f"'{key}' is a section, not a value; specify a sub-key", ExitCode.CONFIG_ERROR)
-    if value is None:
-        item = _item_for(cm, key)
-        echo(render_kv({"key": key, "value": item.printable_value, "scope": "global"}, title="config"))
-        return
-    try:
-        setattr(model, leaf, value)
-    except Exception as e:
-        fail(f"invalid value for {key}: {e}", ExitCode.CONFIG_ERROR)
-    save_to_yml(CLIENT_CONFIG_PATH, cm)
+    if value is not None:
+        try:
+            setattr(model, leaf, value)
+        except Exception as e:
+            fail(f"invalid value for {key}: {e}", ExitCode.CONFIG_ERROR)
+        save_to_yml(CLIENT_CONFIG_PATH, cm)
     item = _item_for(cm, key)
-    echo(render_kv({"key": key, "value": item.printable_value, "scope": "global"}, title="config"))
+    record = {"key": key, "value": item.printable_value, "scope": "global"}
+    emit(record, render_kv(record, title="config"), as_json)
 
 
-def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Optional[str]) -> None:
+def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Optional[str], as_json: bool) -> None:
     from hummingbot.cli.strategy_configs import config_path, edit_config, get_value, read_yaml
     file, stype, running = active
     path = config_path(stype, file)
@@ -111,7 +112,8 @@ def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Option
              f"(run `hbot config` to list)", ExitCode.CONFIG_ERROR)
 
     if value is None:
-        echo(render_kv({"key": key, "value": cell(current), "scope": f"{stype}:{file}"}, title="config"))
+        record = {"key": key, "value": current if as_json else cell(current), "scope": f"{stype}:{file}"}
+        emit(record, render_kv(record, title="config"), as_json)
         return
 
     try:
@@ -125,7 +127,7 @@ def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Option
     if running:
         live = stype == "controller" and key in updatable
         record["applies"] = "live (~10s)" if live else "on next start (use `hbot update` for live edits)"
-    echo(render_kv(record, title=f"set {file}"))
+    emit(record, render_kv(record, title=f"set {file}"), as_json)
 
 
 def config(
@@ -133,6 +135,7 @@ def config(
         None, help="Config key: a global setting (dotted, e.g. mqtt_bridge.mqtt_host) or a loaded-strategy field. Omit to list."),
     value: Optional[str] = typer.Argument(
         None, help="New value to set. Omit to read the key."),
+    as_json: bool = json_option(),
 ) -> None:
     """View or set configuration — global client settings, plus the loaded strategy's config."""
     from hummingbot.client.config.config_helpers import load_client_config_map_from_file
@@ -140,16 +143,16 @@ def config(
     active = _active_strategy()
 
     if key is None:
-        _list(cm, active)
+        _list(cm, active, as_json)
         return
 
     # Global keys are the priority namespace: a key that names a global setting is always global.
     if key in set(cm.config_paths()):
-        _read_or_set_global(cm, key, value)
+        _read_or_set_global(cm, key, value, as_json)
         return
 
     if active is None:
         fail(f"unknown config key '{key}' — not a global setting, and no strategy is loaded "
              f"(run `hbot import <file>` to load one, or `hbot config` to list settings)",
              ExitCode.CONFIG_ERROR)
-    _read_or_set_strategy(active, key, value)
+    _read_or_set_strategy(active, key, value, as_json)
