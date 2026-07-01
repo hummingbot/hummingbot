@@ -1256,6 +1256,50 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(0, len(self.exchange._perpetual_trading._account_positions))
 
+    def test_user_stream_position_event_sets_position(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 10)
+
+        # V3 UTA position channel: symbol/posSide/avgPrice/size/leverage/unrealisedPnl.
+        position_event = {
+            "action": "snapshot",
+            "arg": {
+                "topic": CONSTANTS.WS_POSITIONS_ENDPOINT,
+                "instType": CONSTANTS.INST_TYPE_UTA,
+            },
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "posSide": "long",
+                    "avgPrice": "29000",
+                    "size": "3",
+                    "leverage": "10",
+                    "unrealisedPnl": "12.3",
+                }
+            ],
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+        position = list(positions.values())[0]
+        self.assertEqual(self.trading_pair, position.trading_pair)
+        self.assertEqual(PositionSide.LONG, position.position_side)
+        self.assertEqual(Decimal("29000"), position.entry_price)
+        self.assertEqual(Decimal("3"), position.amount)
+        self.assertEqual(Decimal("12.3"), position.unrealized_pnl)
+
     @aioresponses()
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
@@ -1343,6 +1387,66 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         self.assertEqual(CONSTANTS.USD_PRODUCT_TYPE, product_type)
+
+    @aioresponses()
+    def test_update_positions_reads_paginated_data_list(self, mock_api):
+        # V3 current-position wraps the rows in a paginated object (data.list).
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695807725658,
+            "data": {
+                "list": [
+                    {
+                        "symbol": self.exchange_trading_pair,
+                        "posSide": "long",
+                        "unrealisedPnl": "15.5",
+                        "avgPrice": "29000",
+                        "total": "2",
+                        "leverage": "10",
+                    }
+                ],
+                "cursor": "1",
+            },
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        positions = self.exchange.account_positions
+        self.assertEqual(1, len(positions))
+        position = list(positions.values())[0]
+        self.assertEqual(self.trading_pair, position.trading_pair)
+        self.assertEqual(PositionSide.LONG, position.position_side)
+        self.assertEqual(Decimal("15.5"), position.unrealized_pnl)
+        self.assertEqual(Decimal("29000"), position.entry_price)
+        self.assertEqual(Decimal("2"), position.amount)
+        self.assertEqual(Decimal("10"), position.leverage)
+
+    @aioresponses()
+    def test_update_positions_handles_null_list(self, mock_api):
+        # With no open positions V3 returns data.list = null; this must not raise.
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695807725658,
+            "data": {"list": None, "cursor": ""},
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(0, len(self.exchange.account_positions))
 
     @aioresponses()
     def test_update_trading_fees(self, mock_api):
