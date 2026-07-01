@@ -15,6 +15,8 @@ DEFAULT_DOMAIN = "bitget.com"
 REST_SUBDOMAIN = "api"
 WSS_SUBDOMAIN = "ws"
 DEFAULT_TIME_IN_FORCE = "gtc"
+# V3 UTA post-only (maker-only) timeInForce, used for LIMIT_MAKER orders.
+POST_ONLY_TIME_IN_FORCE = "post_only"
 
 # V3 UTA (Unified Trading Account). Futures are traded as the "<COIN>-FUTURES" categories of the
 # unified account; the product-type constants below double as the V3 "category" request value.
@@ -33,6 +35,7 @@ MARGIN_MODE_TYPES = {
 }
 ORDER_TYPES = {
     OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
 POSITION_MODE_TYPES = {

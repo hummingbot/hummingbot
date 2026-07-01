@@ -7,6 +7,8 @@ DEFAULT_DOMAIN = "bitget.com"
 REST_SUBDOMAIN = "api"
 WSS_SUBDOMAIN = "ws"
 DEFAULT_TIME_IN_FORCE = "gtc"
+# V3 UTA post-only (maker-only) timeInForce, used for LIMIT_MAKER orders.
+POST_ONLY_TIME_IN_FORCE = "post_only"
 
 # UTA (Unified Trading Account, V3 API). The spot connector trades the "SPOT" category of the
 # unified account. REST requests use the upper-case category ("SPOT"). V3 websocket subscriptions
@@ -28,6 +30,7 @@ TRADE_TYPES = {
 }
 ORDER_TYPES = {
     OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
 # V3 UTA order status strings (field "orderStatus"). "live"/"new" -> open, "cancelled"/"canceled"

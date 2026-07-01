@@ -147,7 +147,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             await self._initialize_position_mode()
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
@@ -303,12 +303,17 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             MarginMode.ISOLATED: "isolated"
         }
         # V3 UTA place-order: productType -> category, size -> qty, force -> timeInForce, and the
-        # marginCoin is implicit for the unified account.
+        # marginCoin is implicit for the unified account. LIMIT_MAKER maps to a post-only limit order.
+        time_in_force = (
+            CONSTANTS.POST_ONLY_TIME_IN_FORCE
+            if order_type is OrderType.LIMIT_MAKER
+            else CONSTANTS.DEFAULT_TIME_IN_FORCE
+        )
         data = {
             "category": product_type,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             "qty": str(amount),
-            "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
+            "timeInForce": time_in_force,
             "clientOid": order_id,
             "side": trade_type.name.lower(),
             "marginMode": margin_modes[self._margin_mode],
