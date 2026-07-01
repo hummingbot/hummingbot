@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import logging
+import re
 import threading
 import time
 from collections import deque
@@ -997,6 +998,9 @@ class MQTTLogHandler(logging.Handler):
 
 
 class MQTTExternalEvents:
+    # Regex pattern for validating event names: alphanumeric, dots, underscores, and wildcard
+    EVENT_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9._*]+$')
+
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  gateway: "MQTTGateway"
@@ -1045,11 +1049,19 @@ class MQTTExternalEvents:
         for fenc in self._listeners['*']:
             fenc(msg, event_name)
 
+    def _validate_event_name(self, event_name: str) -> None:
+        """Validate event name format using regex pattern."""
+        if not self.EVENT_NAME_PATTERN.match(event_name):
+            raise ValueError(
+                f"Invalid event name '{event_name}'. "
+                "Event names must only contain alphanumeric characters, dots, underscores, or wildcards (*)"
+            )
+
     def add_listener(self,
                      event_name: str,
                      callback: Callable[[ExternalEventMessage, str], None]
                      ) -> None:
-        # TODO validate event_name with regex
+        self._validate_event_name(event_name)
         if event_name in self._listeners:
             self._listeners.get(event_name).append(callback)
         else:
@@ -1059,7 +1071,7 @@ class MQTTExternalEvents:
                         event_name: str,
                         callback: Callable[[ExternalEventMessage, str], None]
                         ):
-        # TODO validate event_name with regex
+        self._validate_event_name(event_name)
         if event_name in self._listeners:
             self._listeners.get(event_name).remove(callback)
 
