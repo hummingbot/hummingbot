@@ -82,6 +82,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         self._markets_by_trading_pair = {}
         self._markets_by_exchange_symbol = {}
         self._tx_lock = asyncio.Lock()
+        self._account_ready_lock = asyncio.Lock()
         # Single-flight task for WS-triggered balance refresh: Lighter's account_all_assets
         # event lacks `available_balance`, so we use the event as a trigger to refresh from REST.
         self._balance_refresh_task: Optional[asyncio.Task] = None
@@ -701,20 +702,21 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
     async def _ensure_account_ready(self):
         if not self.is_trading_required:
             return
-        if self._markets_by_exchange_symbol == {}:
-            await self._update_trading_rules()
-        if self._account_index is None:
-            account_response = await self._api_get(
-                path_url=CONSTANTS.BALANCE_PATH_URL,
-                params=self._account_lookup_params(),
-            )
-            account = extract_account_snapshot(account_response, l1_address=self._l1_address)
-            self._set_account_index_from_account(account)
-        if self._signer_client is None:
-            self._signer_client = self._create_signer_client()
-            self._auth = self.authenticator
-            self._web_assistants_factory = self._create_web_assistants_factory()
-            self._user_stream_tracker = self._create_user_stream_tracker()
+        async with self._account_ready_lock:
+            if self._markets_by_exchange_symbol == {}:
+                await self._update_trading_rules()
+            if self._account_index is None:
+                account_response = await self._api_get(
+                    path_url=CONSTANTS.BALANCE_PATH_URL,
+                    params=self._account_lookup_params(),
+                )
+                account = extract_account_snapshot(account_response, l1_address=self._l1_address)
+                self._set_account_index_from_account(account)
+            if self._signer_client is None:
+                self._signer_client = self._create_signer_client()
+                self._auth = self.authenticator
+                self._web_assistants_factory = self._create_web_assistants_factory()
+                self._user_stream_tracker = self._create_user_stream_tracker()
 
     @staticmethod
     def _match_order(tracked_order: InFlightOrder, orders: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
