@@ -79,6 +79,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"
                            "    | ∟ global_token_symbol             | $                    |\n"
+                           "    | ∟ usd_equivalent_tokens           | ['USD']              |\n"
                            "    | rate_limits_share_pct             | 100.0                |\n"
                            "    | commands_timeout                  |                      |\n"
                            "    | ∟ create_command_timeout          | 10.0                 |\n"
