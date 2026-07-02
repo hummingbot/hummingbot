@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from decimal import Decimal
@@ -18,14 +19,33 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
+    def setUp(self) -> None:
+        super().setUp()
+        # The base connector test methods carry a single shared @aioresponses() instance (defined
+        # once on the base class and inherited by both the spot and perpetual Bitget test classes).
+        # aioresponses resets its matchers between runs but NOT its captured `requests` history, and
+        # the V3 UTA spot and perpetual connectors share the same /api/v3/trade/* endpoints, so a
+        # request recorded during one connector's run would otherwise leak into the other's
+        # assertions. Clear the shared history before each test.
+        for name in dir(type(self)):
+            closure = getattr(getattr(type(self), name, None), "__closure__", None) or ()
+            for cell in closure:
+                try:
+                    value = cell.cell_contents
+                except ValueError:
+                    continue
+                if isinstance(value, aioresponses):
+                    value.requests.clear()
+
     @property
     def all_symbols_url(self):
-        return web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOLS_ENDPOINT)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOLS_ENDPOINT)
+        return f"{url}?category={CONSTANTS.CATEGORY}"
 
     @property
     def latest_prices_url(self):
         url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT)
-        url = f"{url}?symbol={self.exchange_trading_pair}"
+        url = f"{url}?category={CONSTANTS.CATEGORY}&symbol={self.exchange_trading_pair}"
         return url
 
     @property
@@ -36,7 +56,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def trading_rules_url(self):
         url = web_utils.public_rest_url(CONSTANTS.PUBLIC_SYMBOLS_ENDPOINT)
-        return url
+        return f"{url}?category={CONSTANTS.CATEGORY}"
 
     @property
     def order_creation_url(self):
@@ -122,7 +142,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "high24h": "37775.65",
                     "open": "35134.2",
                     "low24h": "34413.1",
-                    "lastPr": str(self.expected_latest_price),
+                    "lastPrice": str(self.expected_latest_price),
                     "quoteVolume": "0",
                     "baseVolume": "0",
                     "usdtVolume": "0",
@@ -208,28 +228,30 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
+        # V3 UTA assets response: data is an object with an "assets" list; held amount is "locked".
         return {
             "code": "00000",
             "message": "success",
             "requestTime": 1695808949356,
-            "data": [
-                {
-                    "coin": self.base_asset,
-                    "available": "10",
-                    "frozen": "5",
-                    "locked": "0",
-                    "limitAvailable": "0",
-                    "uTime": "1622697148"
-                },
-                {
-                    "coin": self.quote_asset,
-                    "available": "2000",
-                    "frozen": "0",
-                    "locked": "0",
-                    "limitAvailable": "0",
-                    "uTime": "1622697148"
-                }
-            ]
+            "data": {
+                "accountEquity": "2010",
+                "assets": [
+                    {
+                        "coin": self.base_asset,
+                        "available": "10",
+                        "locked": "5",
+                        "balance": "15",
+                        "equity": "15",
+                    },
+                    {
+                        "coin": self.quote_asset,
+                        "available": "2000",
+                        "locked": "0",
+                        "balance": "2000",
+                        "equity": "2000",
+                    }
+                ]
+            }
         }
 
     @property
@@ -238,16 +260,18 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "code": "00000",
             "message": "success",
             "requestTime": 1695808949356,
-            "data": [
-                {
-                    "coin": self.base_asset,
-                    "available": "10",
-                    "frozen": "5",
-                    "locked": "0",
-                    "limitAvailable": "0",
-                    "uTime": "1622697148"
-                }
-            ]
+            "data": {
+                "accountEquity": "15",
+                "assets": [
+                    {
+                        "coin": self.base_asset,
+                        "available": "10",
+                        "locked": "5",
+                        "balance": "15",
+                        "equity": "15",
+                    }
+                ]
+            }
         }
 
     @property
@@ -275,29 +299,33 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def balance_event_websocket_update(self):
+        # V3 UTA account channel: each data entry is an account snapshot whose per-coin balances
+        # are nested in a "coin" array.
         return {
             "action": "snapshot",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ACCOUNT_ENDPOINT,
-                "coin": "default"
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ACCOUNT_ENDPOINT
             },
             "data": [
                 {
-                    "coin": self.base_asset,
-                    "available": "10",
-                    "frozen": "5",
-                    "locked": "0",
-                    "limitAvailable": "0",
-                    "uTime": "1622697148"
-                },
-                {
-                    "coin": self.quote_asset,
-                    "available": "2000",
-                    "frozen": "0",
-                    "locked": "0",
-                    "limitAvailable": "0",
-                    "uTime": "1622697148"
+                    "accountEquity": "2015",
+                    "coin": [
+                        {
+                            "coin": self.base_asset,
+                            "available": "10",
+                            "locked": "5",
+                            "balance": "15",
+                            "equity": "15",
+                        },
+                        {
+                            "coin": self.quote_asset,
+                            "available": "2000",
+                            "locked": "0",
+                            "balance": "2000",
+                            "equity": "2000",
+                        }
+                    ]
                 }
             ],
             "ts": 1695713887792
@@ -309,7 +337,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -389,16 +417,38 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             request_data["orderType"]
         )
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
-        self.assertEqual(order.amount, Decimal(request_data["size"]))
+        self.assertEqual(order.amount, Decimal(request_data["qty"]))
         if order.order_type.is_limit_type():
             self.assertEqual(order.price, Decimal(request_data["price"]))
         self.assertEqual(order.client_order_id, request_data["clientOid"])
-        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(), request_data["force"])
+        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(), request_data["timeInForce"])
+        self.assertEqual(CONSTANTS.CATEGORY, request_data["category"])
+
+    @aioresponses()
+    def test_create_limit_maker_order_sends_post_only(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_order(order_type=OrderType.LIMIT_MAKER)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("limit", request_data["orderType"])
+        self.assertEqual(CONSTANTS.POST_ONLY_TIME_IN_FORCE, request_data["timeInForce"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        # V3 UTA cancel-order identifies the order by clientOid across the unified account.
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(order.client_order_id, request_data["clientOid"])
-        self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
@@ -407,7 +457,6 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertEqual(str(order.exchange_order_id), request_params["orderId"])
-        self.assertEqual(order.trading_pair, request_params["symbol"])
 
     def configure_successful_cancelation_response(
             self,
@@ -461,7 +510,7 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_ENDPOINT)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {
-            "code": "31007",
+            "code": "25204",
             "msg": "Order does not exist",
             "requestTime": 1695808949356,
             "data": None
@@ -574,166 +623,80 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return url
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        # V3 UTA "fill" channel (BitgetUaUserTrade): execId/execPrice/execQty/execValue/feeDetail.fee.
         return {
             "action": "snapshot",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_FILL_ENDPOINT,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_FILL_ENDPOINT,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
-                    "tradeId": self.expected_fill_trade_id,
+                    "execId": self.expected_fill_trade_id,
                     "orderId": order.exchange_order_id,
                     "clientOid": order.client_order_id,
                     "symbol": self.exchange_trading_pair,
                     "side": order.trade_type.name.lower(),
-                    "priceAvg": str(order.price),
-                    "size": str(order.amount),
-                    "amount": str(order.amount * order.price),
+                    "execPrice": str(order.price),
+                    "execQty": str(order.amount),
+                    "execValue": str(order.amount * order.price),
                     "feeDetail": [
                         {
-                            "totalFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                             "feeCoin": self.expected_fill_fee.flat_fees[0].token
                         }
                     ],
-                    "uTime": int(order.creation_timestamp * 1000)
+                    "updatedTime": int(order.creation_timestamp * 1000)
                 }
             ],
             "ts": int(order.creation_timestamp * 1000)
         }
 
-    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+    def _order_event_websocket_update(self, order: InFlightOrder, order_status: str):
+        # V3 UTA "order" channel (BitgetUaOrder): state only (orderStatus/qty/amount/cumExec*/avgPrice).
         return {
             "action": "snapshot",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ORDERS_ENDPOINT,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
-                    "instId": self.exchange_trading_pair,
+                    "symbol": self.exchange_trading_pair,
                     "orderId": order.exchange_order_id,
                     "clientOid": order.client_order_id,
-                    "size": str(order.amount),
-                    "newSize": "0.0000",
-                    "notional": "0.000000",
+                    "qty": str(order.amount),
+                    "amount": str(order.amount * order.price),
                     "orderType": order.order_type.name.lower(),
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
+                    "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
                     "side": order.trade_type.name.lower(),
-                    "fillPrice": "0.0",
-                    "tradeId": self.expected_fill_trade_id,
-                    "baseVolume": "0.0000",
-                    "fillTime": "1695797773286",
-                    "fillFee": "-0.00000018",
-                    "fillFeeCoin": "BTC",
-                    "tradeScope": "T",
-                    "accBaseVolume": "0.0000",
-                    "priceAvg": str(order.price),
-                    "status": "live",
-                    "cTime": "1695797773257",
-                    "uTime": "1695797773326",
-                    "stpMode": "cancel_taker",
+                    "cumExecQty": str(order.amount) if order_status == "filled" else "0",
+                    "cumExecValue": str(order.amount * order.price) if order_status == "filled" else "0",
+                    "avgPrice": str(order.price),
+                    "orderStatus": order_status,
+                    "createdTime": "1695797773257",
+                    "updatedTime": "1695797773326",
                     "feeDetail": [
                         {
                             "feeCoin": "BTC",
                             "fee": "-0.00000018"
                         }
                     ],
-                    "enterPointSource": "WEB"
                 }
             ],
             "ts": 1695797773370
         }
+
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return self._order_event_websocket_update(order, "live")
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
-            },
-            "data": [
-                {
-                    "instId": self.exchange_trading_pair,
-                    "orderId": order.exchange_order_id,
-                    "clientOid": order.client_order_id,
-                    "size": str(order.amount),
-                    "newSize": "0.0000",
-                    "notional": "0.000000",
-                    "orderType": order.order_type.name.lower(),
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
-                    "side": order.trade_type.name.lower(),
-                    "fillPrice": "0.0",
-                    "tradeId": self.expected_fill_trade_id,
-                    "baseVolume": "0.0000",
-                    "fillTime": "1695797773286",
-                    "fillFee": "-0.00000018",
-                    "fillFeeCoin": "BTC",
-                    "tradeScope": "T",
-                    "accBaseVolume": "0.0000",
-                    "priceAvg": str(order.price),
-                    "status": "cancelled",
-                    "cTime": "1695797773257",
-                    "uTime": "1695797773326",
-                    "stpMode": "cancel_taker",
-                    "feeDetail": [
-                        {
-                            "feeCoin": "BTC",
-                            "fee": "-0.00000018"
-                        }
-                    ],
-                    "enterPointSource": "WEB"
-                }
-            ],
-            "ts": 1695797773370
-        }
+        return self._order_event_websocket_update(order, "cancelled")
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {
-            "action": "snapshot",
-            "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                "instId": self.exchange_trading_pair
-            },
-            "data": [
-                {
-                    "instId": self.exchange_trading_pair,
-                    "orderId": order.exchange_order_id,
-                    "clientOid": order.client_order_id,
-                    "size": str(order.amount),
-                    "newSize": str(order.amount),
-                    "notional": str(order.amount * order.price),
-                    "orderType": order.order_type.name.lower(),
-                    "force": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
-                    "side": order.trade_type.name.lower(),
-                    "fillPrice": str(order.price),
-                    "tradeId": self.expected_fill_trade_id,
-                    "baseVolume": str(order.amount),
-                    "fillTime": "1695797773286",
-                    "fillFee": "-0.00000018",
-                    "fillFeeCoin": "BTC",
-                    "tradeScope": "T",
-                    "accBaseVolume": "0.0000",
-                    "priceAvg": str(order.price),
-                    "status": "filled",
-                    "cTime": "1695797773257",
-                    "uTime": "1695797773326",
-                    "stpMode": "cancel_taker",
-                    "feeDetail": [
-                        {
-                            "feeCoin": "BTC",
-                            "fee": "-0.00000018"
-                        }
-                    ],
-                    "enterPointSource": "WEB"
-                }
-            ],
-            "ts": 1695797773370
-        }
+        return self._order_event_websocket_update(order, "filled")
 
     @aioresponses()
     async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
@@ -742,6 +705,18 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @aioresponses()
     async def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
         pass
+
+    def test_order_not_found_v3_code_recognized(self):
+        # V3 UTA returns 25204 "Order does not exist" when cancelling/querying an order that is
+        # unknown or already filled/cancelled; it must be recognised as order-not-found so the base
+        # connector handles it gracefully instead of logging a hard error.
+        exception = IOError(
+            "Error executing request POST https://api.bitget.com/api/v3/trade/cancel-order. "
+            'HTTP status is 400. Error: {"code":"25204","msg":"Order does not exist",'
+            '"requestTime":1783017943282,"data":null}'
+        )
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(exception))
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(exception))
 
     @aioresponses()
     async def test_update_trading_rules_ignores_rule_with_error(self, mock_api):

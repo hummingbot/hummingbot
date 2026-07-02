@@ -71,7 +71,7 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 )
 
             if event_message["event"] == "subscribe":
-                channel: str = event_message["arg"]["channel"]
+                channel: str = event_message["arg"]["topic"]
                 self.logger().info(f"Subscribed to private channel: {channel.upper()}")
         else:
             self.logger().warning(f"Message for unknown channel received: {event_message}")
@@ -88,21 +88,21 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
         try:
+            # Under the V3 UTA account, private channels are subscribed with instType "UTA" and
+            # cover the whole unified account, so the order channel no longer needs a per-symbol
+            # instId (events are matched back to orders by clientOid).
             subscription_topics = []
 
-            for channel in [CONSTANTS.WS_ACCOUNT_ENDPOINT, CONSTANTS.WS_FILL_ENDPOINT]:
+            for channel in [
+                CONSTANTS.WS_ACCOUNT_ENDPOINT,
+                CONSTANTS.WS_FILL_ENDPOINT,
+                CONSTANTS.WS_ORDERS_ENDPOINT,
+            ]:
                 subscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": channel,
-                    "coin": "default"
+                    "instType": CONSTANTS.INST_TYPE_UTA,
+                    "topic": channel
                 })
 
-            for trading_pair in self._trading_pairs:
-                subscription_topics.append({
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.WS_ORDERS_ENDPOINT,
-                    "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair)
-                })
             await websocket_assistant.send(
                 WSJSONRequest({
                     "op": "subscribe",

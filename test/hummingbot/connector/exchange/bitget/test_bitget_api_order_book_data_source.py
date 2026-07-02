@@ -78,24 +78,24 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         """
         return {
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_PUBLIC,
+                "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
-                    "ts": "1695709835822",
-                    "price": "26293.4",
-                    "size": "0.0013",
-                    "side": "buy",
-                    "tradeId": "1000000000"
+                    "T": "1695709835822",
+                    "p": "26293.4",
+                    "v": "0.0013",
+                    "S": "buy",
+                    "i": "1000000000"
                 },
                 {
-                    "ts": "1695709835822",
-                    "price": "24293.5",
-                    "size": "0.0213",
-                    "side": "sell",
-                    "tradeId": "1000000001"
+                    "T": "1695709835822",
+                    "p": "24293.5",
+                    "v": "0.0213",
+                    "S": "sell",
+                    "i": "1000000001"
                 }
             ]
         }
@@ -139,9 +139,9 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         return {
             "action": "snapshot",
             "arg": {
-                "instType": "SPOT",
-                "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_PUBLIC,
+                "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
@@ -290,9 +290,9 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         for channel in [CONSTANTS.PUBLIC_WS_BOOKS, CONSTANTS.PUBLIC_WS_TRADE]:
             subscription_topics.append({
-                "instType": "SPOT",
-                "channel": channel,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.INST_TYPE_PUBLIC,
+                "topic": channel,
+                "symbol": self.exchange_trading_pair
             })
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -318,14 +318,14 @@ class BitgetAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
             "op": "subscribe",
             "args": [
                 {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                    "instId": self.exchange_trading_pair
+                    "instType": CONSTANTS.INST_TYPE_PUBLIC,
+                    "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                    "symbol": self.exchange_trading_pair
                 },
                 {
-                    "instType": "SPOT",
-                    "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                    "instId": self.exchange_trading_pair
+                    "instType": CONSTANTS.INST_TYPE_PUBLIC,
+                    "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                    "symbol": self.exchange_trading_pair
                 }
             ]
         }

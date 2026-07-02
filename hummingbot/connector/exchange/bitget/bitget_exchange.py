@@ -14,7 +14,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -43,6 +43,7 @@ class BitgetExchange(ExchangePyBase):
         self._passphrase = bitget_passphrase
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._classic_account_mode_logged = False
 
         self._expected_market_amounts: Dict[str, Decimal] = {}
 
@@ -105,8 +106,23 @@ class BitgetExchange(ExchangePyBase):
     def _formatted_error(code: int, message: str) -> str:
         return f"Error: {code} - {message}"
 
+    def _log_if_classic_account_mode(self, error: Exception) -> None:
+        """
+        Surfaces a clear, actionable message (once) when Bitget rejects a V3 UTA request because the
+        account is still in Classic mode (code 40084). Otherwise the connector just spins on
+        "not ready" with the real reason buried in a generic network error.
+        """
+        if not self._classic_account_mode_logged and CONSTANTS.RET_CODE_CLASSIC_ACCOUNT in str(error):
+            self._classic_account_mode_logged = True
+            self.logger().error(
+                "Bitget account is in Classic Account mode, which the V3 Unified Trading Account "
+                "API used by this connector does not support. Upgrade the account to the Unified "
+                "Trading Account on Bitget and use an API key created under it. "
+                "See https://www.bitget.com/support/articles/12560603886018"
+            )
+
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(
         self,
@@ -151,10 +167,11 @@ class BitgetExchange(ExchangePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
+        # V3 UTA cancel-order identifies the order by clientOid/orderId across the unified account;
+        # category/symbol are not required (CancelOrderRequestV3 = {orderId?, clientOid?}).
         cancel_order_response = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_ENDPOINT,
             data={
-                "symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair),
                 "clientOid": tracked_order.client_order_id
             },
             is_auth_required=True,
@@ -186,12 +203,19 @@ class BitgetExchange(ExchangePyBase):
             step_size = Decimal(self.trading_rules[trading_pair].min_base_amount_increment)
             amount = (amount * current_price).quantize(step_size, rounding=ROUND_UP)
             self._expected_market_amounts[order_id] = amount
+        # LIMIT_MAKER maps to a post-only limit order (orderType "limit" + timeInForce "post_only").
+        time_in_force = (
+            CONSTANTS.POST_ONLY_TIME_IN_FORCE
+            if order_type is OrderType.LIMIT_MAKER
+            else CONSTANTS.DEFAULT_TIME_IN_FORCE
+        )
         data = {
+            "category": CONSTANTS.CATEGORY,
             "side": CONSTANTS.TRADE_TYPES[trade_type],
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "size": str(amount),
+            "qty": str(amount),
             "orderType": CONSTANTS.ORDER_TYPES[order_type],
-            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
+            "timeInForce": time_in_force,
             "clientOid": order_id,
         }
         if order_type.is_limit_type():
@@ -253,19 +277,41 @@ class BitgetExchange(ExchangePyBase):
 
     async def _update_trading_fees(self) -> None:
         exchange_info = await self._api_get(
-            path_url=self.trading_rules_request_path
+            path_url=self.trading_rules_request_path,
+            params={"category": CONSTANTS.CATEGORY},
         )
         symbol_data = exchange_info["data"]
 
         for symbol_details in symbol_data:
-            if bitget_utils.is_exchange_information_valid(exchange_info=symbol_details):
+            # V3 instruments only expose makerFeeRate/takerFeeRate for some categories; when absent
+            # the connector falls back to DEFAULT_FEES via build_trade_fee in _get_fee.
+            maker_fee = symbol_details.get("makerFeeRate")
+            taker_fee = symbol_details.get("takerFeeRate")
+            if (
+                bitget_utils.is_exchange_information_valid(exchange_info=symbol_details)
+                and maker_fee is not None
+                and taker_fee is not None
+            ):
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                     symbol=symbol_details["symbol"]
                 )
                 self._trading_fees[trading_pair] = TradeFeeSchema(
-                    maker_percent_fee_decimal=Decimal(symbol_details["makerFeeRate"]),
-                    taker_percent_fee_decimal=Decimal(symbol_details["takerFeeRate"])
+                    maker_percent_fee_decimal=Decimal(maker_fee),
+                    taker_percent_fee_decimal=Decimal(taker_fee)
                 )
+
+    async def _make_trading_rules_request(self) -> Any:
+        # V3 market/instruments requires the category query parameter (SPOT for this connector).
+        return await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={"category": CONSTANTS.CATEGORY},
+        )
+
+    async def _make_trading_pairs_request(self) -> Any:
+        return await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            params={"category": CONSTANTS.CATEGORY},
+        )
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -293,10 +339,14 @@ class BitgetExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        wallet_balance_response: Dict[str, Union[str, List[Dict[str, Any]]]] = await self._api_get(
-            path_url=CONSTANTS.ASSETS_ENDPOINT,
-            is_auth_required=True,
-        )
+        try:
+            wallet_balance_response: Dict[str, Union[str, List[Dict[str, Any]]]] = await self._api_get(
+                path_url=CONSTANTS.ASSETS_ENDPOINT,
+                is_auth_required=True,
+            )
+        except IOError as e:
+            self._log_if_classic_account_mode(e)
+            raise
         response_code = wallet_balance_response["code"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
@@ -305,7 +355,12 @@ class BitgetExchange(ExchangePyBase):
                 f"Error while balance update: {wallet_balance_response}"
             ))
 
-        for balance_data in wallet_balance_response["data"]:
+        # V3 UTA assets response wraps the per-coin list in data["assets"] (AccountAssetsV3),
+        # whereas the V2 classic endpoint returned data as a flat list of coin balances.
+        balance_payload = wallet_balance_response["data"]
+        asset_entries = balance_payload.get("assets", balance_payload) if isinstance(balance_payload, dict) else balance_payload
+
+        for balance_data in asset_entries:
             self._set_account_balances(balance_data)
             remote_asset_names.add(balance_data["coin"])
 
@@ -320,7 +375,13 @@ class BitgetExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                fills_data = all_fills_response.get("data", [])
+                # V3 fills are paginated under data.list (the V2 API used the {"fillList": [...]}
+                # wrapper). Coalesce a null/missing list to an empty list.
+                fills_payload = all_fills_response.get("data")
+                if isinstance(fills_payload, dict):
+                    fills_data = fills_payload.get("list") or []
+                else:
+                    fills_data = fills_payload or []
 
                 for fill_data in fills_data:
                     trade_update = self._parse_trade_update(
@@ -370,16 +431,20 @@ class BitgetExchange(ExchangePyBase):
         if not updated_order_data:
             raise ValueError(f"Can't parse order status data. Data: {updated_order_data}")
 
-        updated_info = updated_order_data[0]
+        # V3 order-info returns data as a single OrderInfoV3 object; the legacy endpoint returned a
+        # one-element list. Support both. Field renames: status->orderStatus, size->qty.
+        updated_info = updated_order_data[0] if isinstance(updated_order_data, list) else updated_order_data
 
         if (
             order.trade_type is TradeType.BUY
             and order.order_type is OrderType.MARKET
             and order.client_order_id not in self._expected_market_amounts
         ):
-            self._expected_market_amounts[order.client_order_id] = Decimal(updated_info["size"])
+            self._expected_market_amounts[order.client_order_id] = Decimal(
+                str(updated_info.get("qty", updated_info.get("size")))
+            )
 
-        new_state = CONSTANTS.STATE_TYPES[updated_info["status"]]
+        new_state = CONSTANTS.STATE_TYPES[updated_info.get("orderStatus", updated_info.get("status"))]
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
@@ -405,11 +470,14 @@ class BitgetExchange(ExchangePyBase):
         resp_json = await self._api_get(
             path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT,
             params={
+                "category": CONSTANTS.CATEGORY,
                 "symbol": await self.exchange_symbol_associated_to_pair(trading_pair)
             },
         )
 
-        return float(resp_json["data"][0]["lastPr"])
+        ticker = resp_json["data"][0]
+        # V3 renames the last price field lastPr -> lastPrice.
+        return float(ticker.get("lastPrice", ticker.get("lastPr")))
 
     def _parse_trade_update(
         self,
@@ -419,10 +487,16 @@ class BitgetExchange(ExchangePyBase):
     ) -> Optional[TradeUpdate]:
         self.logger().debug(f"Data for {source_type} trade update: {trade_msg}")
 
-        fee_detail = trade_msg["feeDetail"]
-        trade_fee_data = fee_detail[0] if isinstance(fee_detail, list) else fee_detail
-        fee_amount = abs(Decimal(trade_fee_data["totalFee"]))
-        fee_coin = trade_fee_data["feeCoin"]
+        # V3 UTA renames fill fields: tradeId->execId, priceAvg->execPrice, size->execQty,
+        # amount->execValue, feeDetail[].totalFee->feeDetail[].fee, uTime->updatedTime. The legacy
+        # names are kept as fallbacks so this parser works for both REST fills and websocket pushes.
+        # The fee is taken as a positive magnitude (hummingbot represents the deduction via the fee
+        # type); Bitget V3 already reports feeDetail.fee as a positive value, abs() normalises the
+        # legacy negative convention too.
+        fee_detail = trade_msg.get("feeDetail")
+        trade_fee_data = (fee_detail[0] if isinstance(fee_detail, list) else fee_detail) or {}
+        fee_amount = abs(Decimal(str(trade_fee_data.get("fee", trade_fee_data.get("totalFee", "0")))))
+        fee_coin = trade_fee_data.get("feeCoin")
         side = TradeType.BUY if trade_msg["side"] == "buy" else TradeType.SELL
 
         fee = TradeFeeBase.new_spot_fee(
@@ -431,11 +505,11 @@ class BitgetExchange(ExchangePyBase):
             flat_fees=[TokenAmount(amount=fee_amount, token=fee_coin)],
         )
 
-        trade_id: str = trade_msg["tradeId"]
+        trade_id: str = str(trade_msg.get("execId", trade_msg.get("tradeId")))
         trading_pair = tracked_order.trading_pair
-        fill_price = Decimal(trade_msg["priceAvg"])
-        base_amount = Decimal(trade_msg["size"])
-        quote_amount = Decimal(trade_msg["amount"])
+        fill_price = Decimal(str(trade_msg.get("execPrice", trade_msg.get("priceAvg"))))
+        base_amount = Decimal(str(trade_msg.get("execQty", trade_msg.get("size"))))
+        quote_amount = Decimal(str(trade_msg.get("execValue", trade_msg.get("amount"))))
 
         if (
             tracked_order.trade_type is TradeType.BUY
@@ -449,12 +523,13 @@ class BitgetExchange(ExchangePyBase):
                 rounding=ROUND_UP
             )
 
+        fill_ts = trade_msg.get("updatedTime", trade_msg.get("uTime", trade_msg.get("createdTime")))
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(trade_msg["orderId"]),
             trading_pair=trading_pair,
-            fill_timestamp=int(trade_msg["uTime"]) * 1e-3,
+            fill_timestamp=int(fill_ts) * 1e-3,
             fill_price=fill_price,
             fill_base_amount=base_amount,
             fill_quote_amount=quote_amount,
@@ -466,7 +541,9 @@ class BitgetExchange(ExchangePyBase):
     async def _user_stream_event_listener(self) -> None:
         async for event_message in self._iter_user_event_queue():
             try:
-                channel = event_message["arg"]["channel"]
+                # V3 UTA push envelope uses arg.topic (the V2 API used arg.channel).
+                arg = event_message["arg"]
+                channel = arg.get("topic")
                 data = event_message["data"]
 
                 self.logger().debug(f"Channel: {channel} - Data: {data}")
@@ -478,8 +555,11 @@ class BitgetExchange(ExchangePyBase):
                     for fill_msg in data:
                         self._process_fill_event_message(fill_msg)
                 elif channel == CONSTANTS.WS_ACCOUNT_ENDPOINT:
-                    for wallet_msg in data:
-                        self._set_account_balances(wallet_msg)
+                    # The V3 account channel pushes account snapshots; the per-coin balances are
+                    # nested in each entry's "coin" array (coin/available/locked/balance).
+                    for account_msg in data:
+                        for coin_balance in account_msg.get("coin", []):
+                            self._set_account_balances(coin_balance)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -487,10 +567,14 @@ class BitgetExchange(ExchangePyBase):
 
     def _process_order_event_message(self, order_msg: Dict[str, Any]) -> None:
         """
-        Updates in-flight order and triggers cancellation or failure event if needed.
+        Updates the in-flight order state from the V3 UTA "order" channel (BitgetUaOrder).
+
+        The order channel carries order state only (orderStatus, cumExecQty, avgPrice, ...);
+        individual fills are delivered on the separate "fill" channel and handled by
+        _process_fill_event_message.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
+        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -500,49 +584,12 @@ class BitgetExchange(ExchangePyBase):
                 and updatable_order.order_type is OrderType.MARKET
                 and client_order_id not in self._expected_market_amounts
             ):
-                self._expected_market_amounts[client_order_id] = Decimal(order_msg["notional"])
-
-            if order_status is OrderState.PARTIALLY_FILLED:
-                side = TradeType.BUY if order_msg["side"] == "buy" else TradeType.SELL
-                fee_amount = abs(Decimal(order_msg["fillFee"]))
-                fee_coin = order_msg["fillFeeCoin"]
-
-                fee = TradeFeeBase.new_spot_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    trade_type=side,
-                    flat_fees=[TokenAmount(amount=fee_amount, token=fee_coin)],
-                )
-                trading_pair = updatable_order.trading_pair
-                fill_price = Decimal(order_msg["fillPrice"])
-                base_amount = Decimal(order_msg["baseVolume"])
-                quote_amount = base_amount * fill_price
-
-                if (
-                    updatable_order.trade_type is TradeType.BUY
-                    and updatable_order.order_type is OrderType.MARKET
-                ):
-                    expected_price = Decimal(order_msg["notional"]) / updatable_order.amount
-                    base_amount = (quote_amount / expected_price).quantize(
-                        Decimal(self.trading_rules[trading_pair].min_base_amount_increment),
-                        rounding=ROUND_UP
-                    )
-
-                new_trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=order_msg["tradeId"],
-                    client_order_id=client_order_id,
-                    exchange_order_id=updatable_order.exchange_order_id,
-                    trading_pair=updatable_order.trading_pair,
-                    fill_timestamp=int(order_msg["fillTime"]) * 1e-3,
-                    fill_price=fill_price,
-                    fill_base_amount=base_amount,
-                    fill_quote_amount=quote_amount,
-                    fee=fee
-                )
-                self._order_tracker.process_trade_update(new_trade_update)
+                # Spot market buys are sized in quote currency; "amount" is the order quote value.
+                self._expected_market_amounts[client_order_id] = Decimal(str(order_msg["amount"]))
 
             new_order_update: OrderUpdate = OrderUpdate(
                 trading_pair=updatable_order.trading_pair,
-                update_timestamp=int(order_msg["uTime"]) * 1e-3,
+                update_timestamp=int(order_msg["updatedTime"]) * 1e-3,
                 new_state=order_status,
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["orderId"],
@@ -579,9 +626,11 @@ class BitgetExchange(ExchangePyBase):
             self.logger().error(f"Error processing fill event: {e}", exc_info=True)
 
     def _set_account_balances(self, data: Dict[str, Any]) -> None:
+        # V3 UTA renames the held-balance field "frozen" -> "locked"; both spellings are tolerated
+        # so the same helper can parse REST (account/assets) and websocket (account channel) payloads.
         symbol = data["coin"]
         available = Decimal(str(data["available"]))
-        frozen = Decimal(str(data["frozen"]))
+        frozen = Decimal(str(data.get("locked", data.get("frozen", "0"))))
         self._account_balances[symbol] = frozen + available
         self._account_available_balances[symbol] = available
 
@@ -615,6 +664,9 @@ class BitgetExchange(ExchangePyBase):
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                         symbol=rule["symbol"]
                     )
+                    # V3 instruments renames minTradeUSDT -> minOrderAmount; precision fields
+                    # (pricePrecision/quantityPrecision/quotePrecision) keep their names.
+                    min_notional = rule.get("minOrderAmount", rule.get("minTradeUSDT"))
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
@@ -622,7 +674,7 @@ class BitgetExchange(ExchangePyBase):
                             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
                             min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
                             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),
-                            min_notional_size=Decimal(rule["minTradeUSDT"]),
+                            min_notional_size=Decimal(str(min_notional)),
                         )
                     )
                 except Exception:

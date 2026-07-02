@@ -143,9 +143,9 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
@@ -174,33 +174,29 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                "instId": self.exchange_trading_pair,
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                "symbol": self.exchange_trading_pair,
             },
             "data": [
+                # V3 UTA ticker push: the symbol lives on the envelope ("arg"), not in the entry.
                 {
-                    "instId": self.exchange_trading_pair,
-                    "lastPr": "27000.5",
-                    "bidPr": "27000",
-                    "askPr": "27000.5",
-                    "bidSz": "2.71",
-                    "askSz": "8.76",
-                    "open24h": "27000.5",
-                    "high24h": "30668.5",
-                    "low24h": "26999.0",
-                    "change24h": "-0.00002",
+                    "lastPrice": "27000.5",
+                    "bid1Price": "27000",
+                    "ask1Price": "27000.5",
+                    "bid1Size": "2.71",
+                    "ask1Size": "8.76",
+                    "openPrice24h": "27000.5",
+                    "highPrice24h": "30668.5",
+                    "lowPrice24h": "26999.0",
+                    "price24hPcnt": "-0.00002",
                     "fundingRate": "0.000010",
                     "nextFundingTime": "1695722400000",
                     "markPrice": "27000.0",
                     "indexPrice": "25702.4",
-                    "holdingAmount": "929.502",
-                    "baseVolume": "368.900",
-                    "quoteVolume": "10152429.961",
-                    "openUtc": "27000.5",
-                    "symbolType": 1,
-                    "symbol": self.exchange_trading_pair,
-                    "deliveryPrice": "0",
+                    "openInterest": "929.502",
+                    "volume24h": "368.900",
+                    "turnover24h": "10152429.961",
                     "ts": "1695715383021"
                 }
             ]
@@ -222,19 +218,19 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "op": "subscribe",
             "args": [
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                    "symbol": symbol
                 }
             ],
         }
@@ -264,24 +260,24 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                "instId": "BTCUSDT"
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                "symbol": "BTCUSDT"
             },
             "data": [
                 {
-                    "ts": "1695716760565",
-                    "price": "27000.5",
-                    "size": "0.001",
-                    "side": "buy",
-                    "tradeId": "1"
+                    "T": "1695716760565",
+                    "p": "27000.5",
+                    "v": "0.001",
+                    "S": "buy",
+                    "i": "1"
                 },
                 {
-                    "ts": "1695716759514",
-                    "price": "27000.0",
-                    "size": "0.001",
-                    "side": "sell",
-                    "tradeId": "2"
+                    "T": "1695716759514",
+                    "p": "27000.0",
+                    "v": "0.001",
+                    "S": "sell",
+                    "i": "2"
                 }
             ],
             "ts": 1695716761589
@@ -612,8 +608,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(int(trade_event["data"][0]["tradeId"]), msg.trade_id)
-        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        self.assertEqual(int(trade_event["data"][0]["i"]), msg.trade_id)
+        self.assertEqual(int(trade_event["data"][0]["T"]) * 1e-3, msg.timestamp)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_diffs_cancelled(self, mock_ws: AsyncMock) -> None:
