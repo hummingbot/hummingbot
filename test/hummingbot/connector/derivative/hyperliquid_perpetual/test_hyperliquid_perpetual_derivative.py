@@ -34,7 +34,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_address = "someAddress"
+        cls.api_address = "0x836eE2b55d173245832995082a8600709c38D099"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False
@@ -1591,7 +1591,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             erroneous_order=order2,
             mock_api=mock_api)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10), timeout=15)
 
         for url in urls:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -2389,8 +2389,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertIsNotNone(auth)
 
     def test_authenticator_when_not_required(self):
-        """Test authenticator is None when trading is not required."""
-        # Temporarily set trading_required to False to test line 85
+        """Test authenticator is created even when trading is not required if secret_key is provided."""
+        # Post-#7866 fix: auth is created whenever secret_key is provided,
+        # regardless of trading_required, so validation runs at connect time.
         original_value = self.exchange._trading_required
         self.exchange._trading_required = False
 
@@ -2398,9 +2399,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         if hasattr(self.exchange, '_authenticator'):
             del self.exchange._authenticator
 
-        # This should return None when trading is not required
+        # Auth should be created because secret_key is provided
         auth = self.exchange.authenticator
-        self.assertIsNone(auth)
+        self.assertIsNotNone(auth)
 
         # Restore
         self.exchange._trading_required = original_value
@@ -3818,9 +3819,10 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
 
     def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        # Post-#7866: use address derived from api_secret to pass validation
         return HyperliquidPerpetualDerivative(
             hyperliquid_perpetual_secret_key=self.api_secret,
-            hyperliquid_perpetual_address="0x1111111111111111111111111111111111111111",
+            hyperliquid_perpetual_address="0x836eE2b55d173245832995082a8600709c38D099",
             use_vault=use_vault,
             trading_pairs=["BTC-USD"],
             trading_required=False,

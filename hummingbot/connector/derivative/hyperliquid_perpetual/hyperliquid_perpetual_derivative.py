@@ -81,11 +81,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
-        if self._trading_required:
+        if self._trading_required or self.hyperliquid_perpetual_secret_key:
             return HyperliquidPerpetualAuth(
                 self.hyperliquid_perpetual_address,
                 self.hyperliquid_perpetual_secret_key,
-                self._use_vault
+                self._use_vault,
+                self._connection_mode,
             )
         return None
 

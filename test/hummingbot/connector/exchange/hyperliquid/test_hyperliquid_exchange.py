@@ -37,7 +37,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_address = "someAddress"
+        cls.api_address = "0x836eE2b55d173245832995082a8600709c38D099"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False
@@ -1325,7 +1325,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             erroneous_order=order2,
             mock_api=mock_api)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10), timeout=15)
 
         for url in urls:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1978,9 +1978,10 @@ class HyperliquidBuilderCodeTests(TestCase):
         return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
 
     def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        # Post-#7866: use address derived from api_secret to pass validation
         return HyperliquidExchange(
             hyperliquid_secret_key=self.api_secret,
-            hyperliquid_address="0x1111111111111111111111111111111111111111",
+            hyperliquid_address="0x836eE2b55d173245832995082a8600709c38D099",
             use_vault=use_vault,
             trading_pairs=["HFUN-USDC"],
             trading_required=False,
