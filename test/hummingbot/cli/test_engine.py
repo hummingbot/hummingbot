@@ -7,6 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from hummingbot.cli import bot, engine
 
 
+def tearDownModule():
+    # IsolatedAsyncioTestCase leaves the main thread with no current event loop; legacy tests later
+    # in the suite still reach it via asyncio.get_event_loop(), so restore one.
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+
 def _make_hb(connectors=None):
     hb = MagicMock()
     hb.trading_core.connector_manager.connectors = connectors if connectors is not None else {}
