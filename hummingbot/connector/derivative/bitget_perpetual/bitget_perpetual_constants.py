@@ -44,8 +44,10 @@ POSITION_MODE_TYPES = {
 }
 STATE_TYPES = {
     "live": OrderState.OPEN,
+    "new": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "partially_filled": OrderState.PARTIALLY_FILLED,
+    "partial_fill": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,
     "canceled": OrderState.CANCELED,
 }

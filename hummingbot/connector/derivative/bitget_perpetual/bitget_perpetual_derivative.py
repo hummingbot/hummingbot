@@ -938,25 +938,37 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _process_balance_update_from_order_event(self, order_msg: Dict[str, Any]):
         # V3 order channel (BitgetUaOrder): orderStatus, marginCoin, qty (was size), price, leverage.
+        # This only adjusts the locally-cached available balance for opening limit orders; the REST
+        # balance poll is the source of truth, so we bail out (rather than raise) when the event is
+        # not applicable or the numeric fields are missing/empty (e.g. market orders carry no price).
         order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
-        symbol = order_msg["marginCoin"]
+        symbol = order_msg.get("marginCoin")
         states_to_consider = [OrderState.OPEN, OrderState.CANCELED]
-        order_amount = Decimal(order_msg["qty"])
-        order_price = Decimal(order_msg["price"])
-        margin_amount = (order_amount * order_price) / Decimal(order_msg["leverage"])
-        is_opening = order_msg["tradeSide"] in [
+        is_opening = order_msg.get("tradeSide") in [
             "open",
             "buy_single",
             "sell_single",
         ]
 
-        if (
+        if not (
             symbol in self._account_available_balances
             and order_status in states_to_consider
             and is_opening
         ):
-            multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
-            self._account_available_balances[symbol] += margin_amount * multiplier
+            return
+
+        try:
+            order_amount = Decimal(str(order_msg["qty"]))
+            order_price = Decimal(str(order_msg["price"]))
+            leverage = Decimal(str(order_msg["leverage"]))
+        except (KeyError, TypeError, ArithmeticError):
+            return
+        if leverage == Decimal(0):
+            return
+
+        margin_amount = (order_amount * order_price) / leverage
+        multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
+        self._account_available_balances[symbol] += margin_amount * multiplier
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
@@ -1016,7 +1028,15 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         exec_price = Decimal(str(trade_msg.get("execPrice", trade_msg.get("price"))))
         exec_qty = Decimal(str(trade_msg.get("execQty", trade_msg.get("baseVolume"))))
-        exec_time = int(trade_msg.get("createdTime", trade_msg.get("cTime"))) * 1e-3
+        # REST fills carry "createdTime"; the V3 "fill" websocket channel carries "execTime"
+        # (execution time) / "updatedTime" instead. Fall back across them, then to the local clock.
+        exec_time_raw = (
+            trade_msg.get("createdTime")
+            or trade_msg.get("execTime")
+            or trade_msg.get("updatedTime")
+            or trade_msg.get("cTime")
+        )
+        exec_time = int(exec_time_raw) * 1e-3 if exec_time_raw is not None else self.current_timestamp
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=str(trade_msg.get("execId", trade_msg.get("tradeId"))),

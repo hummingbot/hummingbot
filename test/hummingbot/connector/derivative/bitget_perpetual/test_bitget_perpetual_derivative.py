@@ -1448,6 +1448,61 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(0, len(self.exchange.account_positions))
 
+    def test_process_order_event_new_status_sets_open(self):
+        # V3 order channel reports a freshly-accepted order with orderStatus "new".
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange.start_tracking_order(
+            order_id="OID-NEW",
+            exchange_order_id="EX-NEW",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("1.05"),
+            amount=Decimal("9"),
+            position_action=PositionAction.OPEN,
+        )
+        self.exchange._process_order_event_message(
+            {"orderStatus": "new", "clientOid": "OID-NEW", "orderId": "EX-NEW"}
+        )
+        self.assertTrue(self.exchange.in_flight_orders["OID-NEW"].is_open)
+
+    def test_parse_trade_update_uses_exec_time_for_ws_fill(self):
+        # The V3 "fill" websocket channel carries execTime (no createdTime).
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID-EXEC",
+            exchange_order_id="EX-EXEC",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("1.05"),
+            amount=Decimal("9"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID-EXEC"]
+        trade_msg = {
+            "execId": "T1",
+            "orderId": "EX-EXEC",
+            "clientOid": "OID-EXEC",
+            "symbol": self.exchange_trading_pair,
+            "side": "buy",
+            "execPrice": "1.056",
+            "execQty": "9",
+            "tradeSide": "open",
+            "feeDetail": [{"feeCoin": self.quote_asset, "fee": "0.01"}],
+            "execTime": "1695718781146",
+            "updatedTime": "1695718781150",
+        }
+        trade_update = self.exchange._parse_trade_update(trade_msg=trade_msg, tracked_order=order)
+        self.assertEqual("T1", trade_update.trade_id)
+        self.assertEqual(int("1695718781146") * 1e-3, trade_update.fill_timestamp)
+        self.assertEqual(Decimal("9"), trade_update.fill_base_amount)
+
     @aioresponses()
     def test_create_limit_maker_order_sends_post_only(self, mock_api):
         self._simulate_trading_rules_initialized()
