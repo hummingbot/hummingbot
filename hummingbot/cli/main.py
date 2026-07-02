@@ -22,7 +22,6 @@ from hummingbot.cli.commands import (
     start as start_cmd,
     status as status_cmd,
     stop as stop_cmd,
-    update as update_cmd,
 )
 from hummingbot.cli.output import SortedCommandsGroup
 
@@ -62,7 +61,6 @@ app.command("balance")(balance_cmd.balance)
 app.command("create")(create_cmd.create)
 app.command("import")(import_cmd.import_config)
 app.command("config")(config_cmd.config)
-app.command("update")(update_cmd.update)
 app.command("deploy")(deploy_cmd.deploy)
 app.command("start")(start_cmd.start)
 app.command("stop")(stop_cmd.stop)

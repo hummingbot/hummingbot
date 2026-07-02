@@ -12,7 +12,7 @@ Two scopes, one command — matching the interactive client's ``config``:
 * **Strategy** config — shown/edited only when a strategy is *loaded*: the config a running bot is
   using, or (when nothing is running) the one selected by ``hbot import`` / the last ``hbot start``.
   A running controller applies live-updatable fields within ~10s; other fields (and v1/v2 scripts)
-  take effect on the next start — use ``hbot update`` for live edits.
+  take effect on the next start.
 
 A bare ``hbot config`` shows global only when nothing is loaded, and global + strategy when one is.
 Global keys take precedence: a key that names a global setting is always read/written globally.
@@ -126,7 +126,7 @@ def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Option
     record = {"key": key, "value": new_value, "scope": f"{stype}:{file}"}
     if running:
         live = stype == "controller" and key in updatable
-        record["applies"] = "live (~10s)" if live else "on next start (use `hbot update` for live edits)"
+        record["applies"] = "live (~10s)" if live else "on next start"
     emit(record, render_kv(record, title=f"set {file}"), as_json)
 
 

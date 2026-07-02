@@ -28,7 +28,7 @@ hbot <command> -h    # full help for one command (detail lives here, not in the 
 | `controller` | `conf/controllers/` | a V2 controller config (its fields can be tuned live) |
 
 Config **file names are unique across the three folders**, so a bare filename is unambiguous — you
-almost never type a type flag. `import` / `start` / `config` / `update` all detect the type from the
+almost never type a type flag. `import` / `start` / `config` all detect the type from the
 folder that holds the file; a `--v1-strategy` / `--v2-script` / `--controller` flag is only needed to
 disambiguate a legacy name that exists under more than one folder.
 
@@ -68,7 +68,6 @@ hbot
 ├─ ── run & control ──
 │  ├─ deploy <target>            one-shot: create/load a config and start it (--set k=v)
 │  ├─ start [config]             start a bot (defaults to the imported config); --replace to swap
-│  ├─ update [key] [value]       view / live-change the running bot's config
 │  └─ stop                       stop gracefully (cancels orders); --force to kill
 │
 └─ ── observe ([name] = a past/stopped bot) ──
@@ -106,7 +105,7 @@ hbot status                                            # is it healthy?
 hbot logs -f                                           # watch live (Ctrl-C to stop)
 
 # 4. tune, observe, stop
-hbot update buy_spreads 0.001                          # live for controllers (~10s)
+hbot config buy_spreads 0.001                          # live for controllers (~10s)
 hbot history                                           # PnL, fees, volume
 hbot stop                                              # graceful, cancels orders
 

@@ -15,7 +15,7 @@ class MainAppTest(unittest.TestCase):
         result = self.runner.invoke(app, ["--help"])
         self.assertEqual(result.exit_code, 0)
         for command in ("balance", "config", "connect", "create", "deploy", "history",
-                        "import", "logs", "start", "status", "stop", "update"):
+                        "import", "logs", "start", "status", "stop"):
             self.assertIn(command, result.output)
 
     def test_no_args_shows_help(self):
