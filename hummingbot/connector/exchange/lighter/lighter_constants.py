@@ -303,6 +303,22 @@ BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = 19
 MARKET_ORDER_SLIPPAGE = Decimal(str(DEFAULT_MARKET_ORDER_SLIPPAGE))
 
+# --- Integrator ("builder code") attribution ---------------------------------
+# Lighter's analogue of a Hyperliquid builder code (see PR #8265): every order can
+# credit an "integrator" account (the Hummingbot Foundation's Lighter account) for
+# volume attribution. The integrator fields are part of the signed order
+# transaction, so they are passed straight to the SDK's create_order /
+# create_market_order. Attribution is applied on mainnet only and is skipped
+# entirely when disabled, on testnet, or while the Foundation account index is
+# unset (<= 0).
+INTEGRATOR_ENABLED = True
+# TODO: set to the Hummingbot Foundation's Lighter integrator account index.
+# 0 keeps attribution disabled until the real index is provided.
+FOUNDATION_INTEGRATOR_ACCOUNT_INDEX = 0
+# Attribution only: no extra fee is charged to the user (matches hyperliquid PR #8265).
+FOUNDATION_INTEGRATOR_TAKER_FEE = 0
+FOUNDATION_INTEGRATOR_MAKER_FEE = 0
+
 EXCHANGE_INFO_PATH_URL = ORDER_BOOK_DETAILS_PATH_URL
 SNAPSHOT_PATH_URL = ORDER_BOOK_ORDERS_PATH_URL
 BALANCE_PATH_URL = ACCOUNT_PATH_URL

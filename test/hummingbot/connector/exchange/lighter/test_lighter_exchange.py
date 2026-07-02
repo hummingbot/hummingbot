@@ -582,6 +582,69 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual(self.market_id, call_kwargs["market_index"])
         self.assertTrue(call_kwargs["is_ask"])
 
+    async def test_create_order_injects_integrator_attribution(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_TAKER_FEE", 3), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_MAKER_FEE", 1):
+            self.place_buy_order()
+            await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertEqual(987654, call_kwargs["integrator_account_index"])
+        self.assertEqual(3, call_kwargs["integrator_taker_fee"])
+        self.assertEqual(1, call_kwargs["integrator_maker_fee"])
+
+    async def test_create_market_order_injects_integrator_attribution(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.get_mid_price = MagicMock(return_value=Decimal("10000"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda trading_pair, price: price)
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654):
+            await self.exchange._place_order(
+                order_id="123",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.SELL,
+                order_type=OrderType.MARKET,
+                price=Decimal("NaN"),
+            )
+
+        call_kwargs = self.exchange._signer_client.create_market_order.await_args.kwargs
+        self.assertEqual(987654, call_kwargs["integrator_account_index"])
+
+    async def test_create_order_omits_integrator_attribution_by_default(self, *_):
+        # The Foundation integrator index defaults to 0 (disabled), so no integrator
+        # kwargs should be handed to the signer client.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.place_buy_order()
+        await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+        self.assertNotIn("integrator_taker_fee", call_kwargs)
+        self.assertNotIn("integrator_maker_fee", call_kwargs)
+
+    async def test_create_order_omits_integrator_attribution_on_testnet(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._domain = CONSTANTS.TESTNET_DOMAIN
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654):
+            self.place_buy_order()
+            await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+
     async def test_create_order_fails_and_raises_failure_event(self, *_):
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
