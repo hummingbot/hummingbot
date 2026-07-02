@@ -60,10 +60,6 @@ hbot
 │  ├─ connect [connector]        show connections, or add a connector's API keys
 │  └─ balance [connector]        balances + USD value (perps: positions + net value)
 │
-├─ ── market data (public; no keystore; fuzzy pair match) ──
-│  ├─ ticker <connector> <pair>  best bid/ask/mid + last price
-│  └─ rate <pair>                rate-oracle conversion rate (BASE-QUOTE)
-│
 ├─ ── create, load & configure ──
 │  ├─ create <strategy>          create a strategy config (--set k=v, or --with-defaults to scaffold)
 │  ├─ import <config>            load an existing config as the current strategy
@@ -81,8 +77,8 @@ hbot
    └─ history [name]             PnL, fees, volume per market
 ```
 
-See [Roadmap](#roadmap) for commands intentionally left out of v1 (`positions`, `rules`, `book`,
-`connectors`, `trades`, config `clone`/`list`/`show`, `gateway`).
+See [Roadmap](#roadmap) for commands intentionally left out of v1 (`ticker`, `rate`, `positions`,
+`rules`, `book`, `connectors`, `trades`, config `clone`/`list`/`show`, `gateway`).
 
 ---
 
@@ -174,8 +170,10 @@ return in later versions:
 | config `list` / `show` | list creatable strategies; preview a strategy's fields | `create <strategy>` (missing-required error lists fields); `create --with-defaults` + `config` reveals them all |
 | config `clone <config>` | copy a config to a new name, tweak fields | `create` a fresh one, or copy the `.yml` by hand |
 | `positions <connector>` | open perp positions, standalone | shown inline under `balance` for perp connectors |
+| `ticker <connector> <pair>` | best bid/ask/mid + last price | the exchange's public API (no keystore needed); a running bot's prices show under `status` |
+| `rate <pair>` | rate-oracle conversion rate | the oracle still runs inside the engine; for a spot price use public data |
 | `rules <connector> <pair>` | trading rules (min size/notional, tick/step) | — |
-| `book <connector> <pair>` | order-book depth | `ticker` for top-of-book |
+| `book <connector> <pair>` | order-book depth | the exchange's public API |
 | `connectors` | list available connectors | `connect` with no argument lists connections |
 | `trades [name]` | recorded fills table | `history` for PnL/fees/volume |
 | `gateway …` | Gateway (DEX/AMM) helpers | out of scope for the CLI |

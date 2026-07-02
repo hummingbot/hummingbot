@@ -19,11 +19,9 @@ from hummingbot.cli.commands import (
     history as history_cmd,
     import_cmd,
     logs as logs_cmd,
-    rate as rate_cmd,
     start as start_cmd,
     status as status_cmd,
     stop as stop_cmd,
-    ticker as ticker_cmd,
     update as update_cmd,
 )
 from hummingbot.cli.output import SortedCommandsGroup
@@ -61,8 +59,6 @@ def _root(
 # here is irrelevant; --help lists them alphabetically (SortedCommandsGroup).
 app.command("connect")(connect_cmd.connect)
 app.command("balance")(balance_cmd.balance)
-app.command("ticker")(ticker_cmd.ticker)
-app.command("rate")(rate_cmd.rate)
 app.command("create")(create_cmd.create)
 app.command("import")(import_cmd.import_config)
 app.command("config")(config_cmd.config)
