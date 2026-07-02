@@ -902,6 +902,83 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
     @aioresponses()
+    def test_create_order_injects_integrator_attribution(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+
+        original = self.exchange._signer_client.create_order
+
+        async def _patched(**kwargs):
+            result = await original(**kwargs)
+            request_done.set()
+            return result
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_patched)
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_TAKER_FEE", 3), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_MAKER_FEE", 1):
+            self.place_buy_order()
+            self.async_run_with_timeout(request_done.wait())
+            self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertEqual(987654, call_kwargs["integrator_account_index"])
+        self.assertEqual(3, call_kwargs["integrator_taker_fee"])
+        self.assertEqual(1, call_kwargs["integrator_maker_fee"])
+
+    @aioresponses()
+    def test_create_order_omits_integrator_attribution_by_default(self, mock_api):
+        # The Foundation integrator index defaults to 0 (disabled), so no integrator
+        # kwargs should be handed to the signer client.
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+
+        original = self.exchange._signer_client.create_order
+
+        async def _patched(**kwargs):
+            result = await original(**kwargs)
+            request_done.set()
+            return result
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_patched)
+        self.place_buy_order()
+        self.async_run_with_timeout(request_done.wait())
+        self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+        self.assertNotIn("integrator_taker_fee", call_kwargs)
+        self.assertNotIn("integrator_maker_fee", call_kwargs)
+
+    @aioresponses()
+    def test_create_order_omits_integrator_attribution_on_testnet(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._domain = CONSTANTS.TESTNET_DOMAIN
+
+        original = self.exchange._signer_client.create_order
+
+        async def _patched(**kwargs):
+            result = await original(**kwargs)
+            request_done.set()
+            return result
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_patched)
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654):
+            self.place_buy_order()
+            self.async_run_with_timeout(request_done.wait())
+            self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+
+    @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_done = asyncio.Event()

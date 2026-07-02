@@ -240,6 +240,24 @@ class LighterExchange(ExchangePyBase):
     async def _update_lost_orders_status(self):
         await self._update_lost_orders()
 
+    def _integrator_order_params(self) -> Dict[str, int]:
+        # Lighter's equivalent of a "builder code" (see hyperliquid PR #8265): orders can
+        # credit the Hummingbot Foundation's integrator account for volume attribution.
+        # These fields are part of the signed order transaction, so they are handed
+        # straight to the SDK's create_order / create_market_order. Attribution is applied
+        # on mainnet only and omitted when disabled or while the Foundation index is unset.
+        if not CONSTANTS.INTEGRATOR_ENABLED:
+            return {}
+        if self._domain == CONSTANTS.TESTNET_DOMAIN:
+            return {}
+        if CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX <= 0:
+            return {}
+        return {
+            "integrator_account_index": CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX,
+            "integrator_taker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_TAKER_FEE,
+            "integrator_maker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_MAKER_FEE,
+        }
+
     async def _place_order(
         self,
         order_id: str,
@@ -261,6 +279,7 @@ class LighterExchange(ExchangePyBase):
         base_amount = decimal_to_exchange_int(amount, market.size_decimals)
         price_int = decimal_to_exchange_int(price, market.price_decimals)
         client_order_index = int(order_id)
+        integrator_params = self._integrator_order_params()
 
         async with self._tx_lock:
             if order_type is OrderType.MARKET:
@@ -270,6 +289,7 @@ class LighterExchange(ExchangePyBase):
                     base_amount=base_amount,
                     avg_execution_price=price_int,
                     is_ask=trade_type is TradeType.SELL,
+                    **integrator_params,
                 )
             else:
                 tif = self._signer_client.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
@@ -283,6 +303,7 @@ class LighterExchange(ExchangePyBase):
                     is_ask=trade_type is TradeType.SELL,
                     order_type=self._signer_client.ORDER_TYPE_LIMIT,
                     time_in_force=tif,
+                    **integrator_params,
                 )
 
         if error is not None:
