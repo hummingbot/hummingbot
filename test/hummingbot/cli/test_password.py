@@ -42,6 +42,28 @@ class PasswordResolveTest(unittest.TestCase):
                 patch("hummingbot.cli.password.getpass.getpass", return_value="typed"):
             self.assertEqual(resolve_password(password_stdin=False), "typed")
 
+    def test_empty_prompted_password_fails(self):
+        with patch.dict("os.environ", {}, clear=True), \
+                patch.object(sys.stdin, "isatty", return_value=True), \
+                patch("hummingbot.cli.password.getpass.getpass", return_value=""):
+            with self.assertRaises(typer.Exit) as ctx:
+                resolve_password(password_stdin=False)
+        self.assertEqual(ctx.exception.exit_code, 4)  # CONFIG_ERROR
+
+    def test_confirm_mismatch_fails(self):
+        with patch.dict("os.environ", {}, clear=True), \
+                patch.object(sys.stdin, "isatty", return_value=True), \
+                patch("hummingbot.cli.password.getpass.getpass", side_effect=["first", "second"]):
+            with self.assertRaises(typer.Exit) as ctx:
+                resolve_password(password_stdin=False, confirm=True)
+        self.assertEqual(ctx.exception.exit_code, 4)  # CONFIG_ERROR
+
+    def test_confirm_match_succeeds(self):
+        with patch.dict("os.environ", {}, clear=True), \
+                patch.object(sys.stdin, "isatty", return_value=True), \
+                patch("hummingbot.cli.password.getpass.getpass", side_effect=["same", "same"]):
+            self.assertEqual(resolve_password(password_stdin=False, confirm=True), "same")
+
 
 class LoginFirstRunTest(unittest.TestCase):
     """`login` must initialize the keystore on a brand-new install (the first password provided becomes
@@ -67,6 +89,17 @@ class LoginFirstRunTest(unittest.TestCase):
         store, security = self._run_login(new_password_required=False)
         store.assert_not_called()        # an existing keystore is never overwritten
         security.login.assert_called_once()
+
+    def test_unlock_keystore_bad_password_fails_config_error(self):
+        with patch("hummingbot.client.config.config_crypt.ETHKeyFileSecretManger", return_value=MagicMock()), \
+                patch("hummingbot.client.config.config_crypt.store_password_verification") as store, \
+                patch("hummingbot.client.config.security.Security") as security:
+            security.new_password_required.return_value = False
+            security.login.return_value = False
+            with self.assertRaises(typer.Exit) as ctx:
+                pw.unlock_keystore("wrong")
+            store.assert_not_called()
+        self.assertEqual(ctx.exception.exit_code, 4)  # CONFIG_ERROR
 
     def test_unlock_keystore_first_run(self):
         # unlock_keystore() is the first-run-safe path login() delegates to; verify it inits the keystore.

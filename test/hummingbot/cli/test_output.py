@@ -11,7 +11,7 @@ import typer
 from typer.testing import CliRunner
 
 from hummingbot.cli import bot
-from hummingbot.cli.output import emit
+from hummingbot.cli.output import SortedCommandsGroup, cell, echo, emit, render_kv, render_table
 
 
 class EmitTest(unittest.TestCase):
@@ -29,6 +29,62 @@ class EmitTest(unittest.TestCase):
         self.assertEqual(payload["n"], 7)          # numbers stay numbers
         self.assertEqual(payload["d"], "1.5")      # Decimal -> str (exact, no float drift)
         self.assertEqual(payload["rows"], [{"x": True}])
+
+
+class RenderHelpersTest(unittest.TestCase):
+    def test_cell_none_is_empty_string(self):
+        self.assertEqual(cell(None), "")
+
+    def test_cell_formats_bools_floats_and_escapes(self):
+        self.assertEqual(cell(True), "yes")
+        self.assertEqual(cell(False), "no")
+        self.assertEqual(cell(0.5), "0.5")
+        self.assertEqual(cell("a|b\nc"), "a\\|b c")
+
+    def test_render_table_empty_rows(self):
+        self.assertEqual(render_table([], title="Trades"), "## Trades\n\n_(none)_")
+
+    def test_render_table_rows_and_column_selection(self):
+        rows = [{"pair": "BTC-USDT", "amount": 1.5, "extra": "hidden"},
+                {"pair": "ETH-USDT", "amount": None}]
+        out = render_table(rows, columns=["pair", "amount"], title="Fills")
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "## Fills")
+        self.assertEqual(lines[2], "| pair | amount |")
+        self.assertEqual(lines[3], "| --- | --- |")
+        self.assertEqual(lines[4], "| BTC-USDT | 1.5 |")
+        self.assertEqual(lines[5], "| ETH-USDT |  |")   # None -> empty cell
+        self.assertNotIn("hidden", out)                  # unselected column dropped
+
+    def test_render_table_defaults_columns_from_first_row(self):
+        out = render_table([{"a": 1, "b": 2}])
+        self.assertEqual(out.splitlines()[0], "| a | b |")
+
+    def test_render_kv_empty_record(self):
+        self.assertEqual(render_kv({}, title="Bot"), "## Bot\n\n_(empty)_")
+
+    def test_echo_prints_to_stdout(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            echo("hello")
+        self.assertEqual(buf.getvalue(), "hello\n")
+
+
+class SortedCommandsGroupTest(unittest.TestCase):
+    def test_help_lists_commands_alphabetically(self):
+        app = typer.Typer(cls=SortedCommandsGroup)
+
+        @app.command("zeta")
+        def zeta():
+            pass
+
+        @app.command("alpha")
+        def alpha():
+            pass
+
+        result = CliRunner().invoke(app, ["--help"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertLess(result.stdout.index("alpha"), result.stdout.index("zeta"))
 
 
 class StatusJsonTest(unittest.TestCase):
