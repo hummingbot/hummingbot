@@ -106,7 +106,9 @@ RET_CODE_API_KEY_INVALID = "40006"
 # Account: "You are in Classic Account mode, and the Unified Account API is not supported at this time"
 RET_CODE_CLASSIC_ACCOUNT = "40084"
 RET_CODE_AUTH_TIMESTAMP_ERROR = "40005"
+
 RET_CODES_ORDER_NOT_EXISTS = [
+    "25204",
     "40768", "80011", "40819",
     "43020", "43025", "43001",
     "45057", "31007", "43033"

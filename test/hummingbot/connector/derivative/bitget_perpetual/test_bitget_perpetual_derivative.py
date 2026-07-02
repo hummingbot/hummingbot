@@ -1695,6 +1695,18 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
         pass
 
+    def test_order_not_found_v3_code_recognized(self):
+        # V3 UTA returns 25204 "Order does not exist" when cancelling/querying an order that is
+        # unknown or already filled/cancelled; it must be recognised as order-not-found so the base
+        # connector handles it gracefully instead of logging a hard error.
+        exception = IOError(
+            "Error executing request POST https://api.bitget.com/api/v3/trade/cancel-order. "
+            'HTTP status is 400. Error: {"code":"25204","msg":"Order does not exist",'
+            '"requestTime":1783017943282,"data":null}'
+        )
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(exception))
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(exception))
+
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
         # Disabling this test because the connector has not been updated yet to validate
