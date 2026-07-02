@@ -176,6 +176,44 @@ class TestLighterSpotCandles(TestCandlesBase):
         with self.assertRaises(ValueError):
             self.data_feed._get_rest_candles_params(start_time=1748954400, end_time=1748954400)
 
+    @aioresponses()
+    async def test_fetch_candles_with_zero_limit_requests_valid_range(self, mock_api):
+        # get_historical_candles passes limit=0 when start and end round to the same interval
+        # multiple; the request window must still satisfy start_timestamp < end_timestamp.
+        regex_url = re.compile(
+            f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?")
+        )
+        mock_api.get(url=regex_url, body=json.dumps(self.get_candles_rest_data_mock()))
+        await self.data_feed.fetch_candles(
+            start_time=1748954400, end_time=1748954400, limit=0
+        )
+        request_calls = next(iter(mock_api.requests.values()))
+        params = request_calls[0].kwargs["params"]
+        self.assertLess(params["start_timestamp"], params["end_timestamp"])
+
+    @aioresponses()
+    async def test_get_historical_candles_with_sub_interval_range(self, mock_api):
+        # Regression for #8327: a range shorter than one interval rounds to start == end,
+        # which used to produce an invalid zero-width candles request.
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        regex_url = re.compile(
+            f"^{self.data_feed.candles_url}".replace(".", r"\.").replace("?", r"\?")
+        )
+        mock_api.get(url=regex_url, body=json.dumps({
+            "c": [{"t": 1748954400000, "o": 1.4175, "h": 1.4220, "l": 1.4150, "c": 1.4200, "v": 900.0, "V": 1278.0}]
+        }))
+        config = HistoricalCandlesConfig(
+            connector_name="lighter",
+            trading_pair=self.trading_pair,
+            interval=self.interval,
+            start_time=1748954400,
+            end_time=1748954430,
+        )
+        candles_df = await self.data_feed.get_historical_candles(config)
+        self.assertEqual(len(candles_df), 1)
+        self.assertEqual(candles_df["timestamp"].iloc[0], 1748954400)
+
     # ---- initialize_exchange_data tests ----
 
     @aioresponses()
