@@ -71,6 +71,9 @@ class LighterExchange(ExchangePyBase):
         # Serializes the lazy account/signer/auth bootstrap so concurrent callers can't each
         # rebuild the authenticated web-assistants factory and race the user-stream tracker.
         self._account_ready_lock = asyncio.Lock()
+        # Foundation integrator ("builder code") account index, resolved from its L1 address
+        # at start-up. None until resolved (or if resolution is disabled/fails).
+        self._integrator_account_index: Optional[int] = None
         self._signer_client = self._create_signer_client() if trading_required and self._account_index is not None else None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -134,6 +137,7 @@ class LighterExchange(ExchangePyBase):
     async def start_network(self):
         if self.is_trading_required:
             await self._ensure_account_ready()
+            await self._initialize_integrator_account_index()
         await super().start_network()
 
     def supported_order_types(self) -> List[OrderType]:
@@ -240,20 +244,41 @@ class LighterExchange(ExchangePyBase):
     async def _update_lost_orders_status(self):
         await self._update_lost_orders()
 
+    async def _initialize_integrator_account_index(self):
+        # Resolve the Hummingbot Foundation's Lighter account index from its L1 address so
+        # every order can credit it for volume attribution (Lighter's analogue of a builder
+        # code). Best-effort and mainnet-only: any failure leaves
+        # attribution disabled rather than blocking order submission.
+        if self._integrator_account_index is not None:
+            return
+        if not CONSTANTS.INTEGRATOR_ENABLED or self._domain == CONSTANTS.TESTNET_DOMAIN:
+            return
+        address = CONSTANTS.FOUNDATION_INTEGRATOR_L1_ADDRESS
+        if not address:
+            return
+        try:
+            account_response = await self._api_get(
+                path_url=CONSTANTS.BALANCE_PATH_URL,
+                params={"by": CONSTANTS.ACCOUNT_LOOKUP_BY_L1_ADDRESS, "value": address},
+            )
+            account = extract_account_snapshot(account_response, l1_address=address)
+            self._integrator_account_index = account_index_from_account(account)
+        except Exception:
+            self.logger().warning(
+                "Could not resolve the Lighter integrator (builder code) account index from "
+                f"{address}; orders will be submitted without volume attribution.",
+                exc_info=True,
+            )
+
     def _integrator_order_params(self) -> Dict[str, int]:
-        # Lighter's equivalent of a "builder code" (see hyperliquid PR #8265): orders can
-        # credit the Hummingbot Foundation's integrator account for volume attribution.
-        # These fields are part of the signed order transaction, so they are handed
-        # straight to the SDK's create_order / create_market_order. Attribution is applied
-        # on mainnet only and omitted when disabled or while the Foundation index is unset.
-        if not CONSTANTS.INTEGRATOR_ENABLED:
-            return {}
-        if self._domain == CONSTANTS.TESTNET_DOMAIN:
-            return {}
-        if CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX <= 0:
+        # Attach the resolved Foundation integrator account (see
+        # _initialize_integrator_account_index) so orders credit it for volume attribution.
+        # These fields are part of the signed order transaction, so they are handed straight
+        # to the SDK's create_order / create_market_order.
+        if self._integrator_account_index is None:
             return {}
         return {
-            "integrator_account_index": CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX,
+            "integrator_account_index": self._integrator_account_index,
             "integrator_taker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_TAKER_FEE,
             "integrator_maker_fee": CONSTANTS.FOUNDATION_INTEGRATOR_MAKER_FEE,
         }

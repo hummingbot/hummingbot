@@ -320,12 +320,13 @@ MARKET_ORDER_SLIPPAGE = Decimal(str(DEFAULT_MARKET_ORDER_SLIPPAGE))
 # volume attribution. The integrator fields are part of the signed order
 # transaction, so they are passed straight to the SDK's create_order /
 # create_market_order. Attribution is applied on mainnet only and is skipped
-# entirely when disabled, on testnet, or while the Foundation account index is
-# unset (<= 0).
+# entirely when disabled, on testnet, or while the Foundation account index cannot
+# be resolved from its L1 address.
 INTEGRATOR_ENABLED = True
-# TODO: set to the Hummingbot Foundation's Lighter integrator account index.
-# 0 keeps attribution disabled until the real index is provided.
-FOUNDATION_INTEGRATOR_ACCOUNT_INDEX = 0
+# The Hummingbot Foundation's L1 address. Lighter's SDK credits an integer account
+# index rather than an address, so this is resolved to the Foundation's Lighter
+# account index once at start-up (see _initialize_integrator_account_index).
+FOUNDATION_INTEGRATOR_L1_ADDRESS = "0x10BA451e6439Efc6a17dc20d21121Aa838100705"
 # Attribution only: no extra fee is charged to the user (matches hyperliquid PR #8265).
 FOUNDATION_INTEGRATOR_TAKER_FEE = 0
 FOUNDATION_INTEGRATOR_MAKER_FEE = 0
