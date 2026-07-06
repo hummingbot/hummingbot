@@ -1,0 +1,198 @@
+{
+  "auditDir": "/Users/xinghailong/Documents/soft/hummingbot/.codex-audits/tg-miniapp-nav-20260630",
+  "url": "https://humm.kline007.top/app/",
+  "title": "Humm 智能量化控制台",
+  "steps": [
+    {
+      "label": "总览",
+      "filename": "01-dashboard.png",
+      "activeNav": "总览",
+      "header": "总览",
+      "panels": [
+        "服务状态\n\n最后刷新 10:47 · 已连接后端\n\n交易机器人接口\n1.0.1\n连接交易机器人，绿灯说明能读到账户、纸盘和任务数据。\n0ms\n控制接口\n风控保护中\n小程序后端，负责读数据、保存纸盘记录和执行权限校验。\n0ms\n风控闸门\n严格模式\n风控闸门，任何实盘动作都要先经过这里。\n0ms\nTelegram 小程序\n小程序入口\n小程序入口，待命表示入口正常等待使用。\n0ms",
+        "策略建议\n\n这里只是策略路由器的建议，不是自动实盘指令。\n\n资金费率\n72%\n\n优先观察 BTC-USDT 的资金费差；净收益没覆盖基差和滑点前，不扩大资金。\n\nHyperliquid 按小时归一\nBinance 按 8 小时归一\n先扣手续费和退出成本\n执行层\n64%\n\n做市模块只做小额纸盘和成交质量观察，暂不放开实盘。\n\n主流合约做市很卷\n需要看盘口毒性\n先记录真实费率"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n总览\n纸盘模式\n安全总览\n智能量化控制台\n\n现在是纸盘和信号模式：可以看数据、跑模拟、看策略建议；实盘下单被锁住，需要风控和人工确认。\n\n刷新\n账户估值\n7,482.36\n按 USDT 估算\n\n纸盘账户当前大概值，不代表已经提现的收益。\n\n当前盈亏\n-1.38\n来自真实接口\n\n绿色是赚，红色是亏；先看方向和持续性，不看单次跳动。\n\n运行任务\n0\n正在跑的交易任务\n\n0 代表现在没有机器人在跑交易任务。\n\n安全状态\nStrict\n实盘开关已锁\n\n严格模式会先拦住实盘动作，必须经过风控和人工确认。\n\n当前状态一句话\n\n系统已连上真实后端，但仍只允许纸盘、信号和停止动作。\n\n想看系统有没有坏：先看服务状态是不是绿灯。\n想试交易流程：去“交易”里的纸盘模拟，不会提交真实订单。\n想开实盘：现在页面不会直接放行，需要先改风控配置并人工批准。\n服务状态\n\n最后刷新 10:47 · 已连接后端\n\n交易机器人接口\n1.0.1\n连接交易机器人，绿灯说明能读到账户、纸盘和任务数据。\n0ms\n控制接口\n风控保护中\n小程序后端，负责读数据、保存纸盘记录和执行权限校验。\n0ms\n风控闸门\n严格模式\n风控闸门，任何实盘动作都要先经过这里。\n0ms\nTelegram 小程序\n小程序入口\n小程序入口，待命表示入口正常等待使用。\n0ms\n策略建议\n\n这里只是策略路由器的建议，不是自动实盘指令。\n\n资金费率\n72%\n\n优先观察 BTC-USDT 的资金费差；净收益没覆盖基差和滑点前，不扩大资金。\n\nHyperliquid 按小时归一\nBinance 按 8 小时归一\n先扣手续费和退出成本\n执行层\n64%\n\n做市模块只做小额纸盘和成交质量观察，暂不放开实盘。\n\n主流合约做市很卷\n需要看盘口毒性\n先记录真实费率\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "交易",
+      "filename": "02-交易.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "账户 / 接口密钥\n\n这里只显示有没有配置密钥，不会显示密钥明文。\n\n添加\n账户\n1\n机器人账户\n已配置\n2\n交易所凭证\nmaster_account\n\nbinance_perpetual, binance\n\n生效\nbinance_perpetual\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\nbinance\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除",
+        "资产余额\n\n优先读缓存；点刷新会重新请求交易所。\n\n刷新\n暂无资产数据\n\n通常需要先添加交易所接口密钥，然后刷新资产。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n账户 / 接口密钥\n\n这里只显示有没有配置密钥，不会显示密钥明文。\n\n添加\n账户\n1\n机器人账户\n已配置\n2\n交易所凭证\nmaster_account\n\nbinance_perpetual, binance\n\n生效\nbinance_perpetual\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\nbinance\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\n资产余额\n\n优先读缓存；点刷新会重新请求交易所。\n\n刷新\n暂无资产数据\n\n通常需要先添加交易所接口密钥，然后刷新资产。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "策略",
+      "filename": "03-策略.png",
+      "activeNav": "策略",
+      "header": "策略",
+      "panels": [
+        "智能决策流程\n\n每一步都要留下理由、证据、风控结果和复盘记录。\n\n观察行情\n判断市场\n选择策略\n风控检查\n执行动作\n复盘记录",
+        "本轮结论\n\n人话版策略摘要\n\n当前优先观察资金费率套利；做市模块只做小额纸盘，智能路由器暂不放开实盘。\n\n系统可以给建议，但不能绕过实盘锁和资金上限；行情异常时先停止新开仓。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n策略\n纸盘模式\n智能\n插件\n脚本\n智能决策流程\n\n每一步都要留下理由、证据、风控结果和复盘记录。\n\n观察行情\n判断市场\n选择策略\n风控检查\n执行动作\n复盘记录\n本轮结论\n\n人话版策略摘要\n\n当前优先观察资金费率套利；做市模块只做小额纸盘，智能路由器暂不放开实盘。\n\n系统可以给建议，但不能绕过实盘锁和资金上限；行情异常时先停止新开仓。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "风控",
+      "filename": "04-风控.png",
+      "activeNav": "风控",
+      "header": "风控",
+      "panels": [
+        "安全风控\n\n这些规则优先级最高，智能策略和小程序都不能绕过。\n\n单笔资金上限\n100 USDT\n生效\n日亏损熔断\n20 USDT\n生效\nLive 开仓\n人工批准\n锁定\n允许交易所\nbinance, binance_perpetual, okx, okx_perpetual\n生效\nPolymarket\n研究模式\n锁定",
+        "风控策略\n\n服务端当前加载的安全规则。\n\n实盘锁\n开启\n实盘开仓限制\n单笔上限\n100\n单笔 USDT\n日亏损熔断\n20\nUSDT\n写权限\nTG 校验\n白名单启用\nbinance\nbinance_perpetual\nokx\nokx_perpetual"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n风控\n纸盘模式\n安全风控\n\n这些规则优先级最高，智能策略和小程序都不能绕过。\n\n单笔资金上限\n100 USDT\n生效\n日亏损熔断\n20 USDT\n生效\nLive 开仓\n人工批准\n锁定\n允许交易所\nbinance, binance_perpetual, okx, okx_perpetual\n生效\nPolymarket\n研究模式\n锁定\n风控策略\n\n服务端当前加载的安全规则。\n\n实盘锁\n开启\n实盘开仓限制\n单笔上限\n100\n单笔 USDT\n日亏损熔断\n20\nUSDT\n写权限\nTG 校验\n白名单启用\nbinance\nbinance_perpetual\nokx\nokx_perpetual\n紧急停止新开仓\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "日志",
+      "filename": "05-日志.png",
+      "activeNav": "日志",
+      "header": "日志",
+      "panels": [
+        "操作记录\n\n每次判断、拒绝、执行和人工操作都会留下记录。\n\n10:47\nControl API\n\n聚合 Hummingbot 状态\n\n完成\n10:47\nRisk Gate\n\n保持只读和 paper 优先\n\n生效\n02:36\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:21\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:05\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:50\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:35\nxing hailong\n\npaper.strategy-run · grid-range-paper/"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n日志\n纸盘模式\n记录\n服务\n接口\n操作记录\n\n每次判断、拒绝、执行和人工操作都会留下记录。\n\n10:47\nControl API\n\n聚合 Hummingbot 状态\n\n完成\n10:47\nRisk Gate\n\n保持只读和 paper 优先\n\n生效\n02:36\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:21\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:05\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:50\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:35\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:20\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:04\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n00:49\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n总览\n交易\n策略\n风控\n日志"
+    }
+  ],
+  "subSteps": [
+    {
+      "label": "交易-账户",
+      "filename": "trade-账户.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "账户 / 接口密钥\n\n这里只显示有没有配置密钥，不会显示密钥明文。\n\n添加\n账户\n1\n机器人账户\n已配置\n2\n交易所凭证\nmaster_account\n\nbinance_perpetual, binance\n\n生效\nbinance_perpetual\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\nbinance\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除",
+        "资产余额\n\n优先读缓存；点刷新会重新请求交易所。\n\n刷新\n暂无资产数据\n\n通常需要先添加交易所接口密钥，然后刷新资产。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n账户 / 接口密钥\n\n这里只显示有没有配置密钥，不会显示密钥明文。\n\n添加\n账户\n1\n机器人账户\n已配置\n2\n交易所凭证\nmaster_account\n\nbinance_perpetual, binance\n\n生效\nbinance_perpetual\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\nbinance\n\nmaster_account · 已配置，密钥不回显\n\n重配\n删除\n资产余额\n\n优先读缓存；点刷新会重新请求交易所。\n\n刷新\n暂无资产数据\n\n通常需要先添加交易所接口密钥，然后刷新资产。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "交易-任务",
+      "filename": "trade-任务.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "交易任务\n\n这里显示正在跑或正在观察的机器人任务；实盘前必须先过风控闸门。\n\n新建\n暂无运行中的交易任务\n\n当前还没有从交易机器人接口返回任务。可以先在“纸盘”里跑一次模拟交易。",
+        "实盘执行暂未开放\n\n当前小程序只允许纸盘、信号和停止动作。小资金实盘需要单独打开权限。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n交易任务\n\n这里显示正在跑或正在观察的机器人任务；实盘前必须先过风控闸门。\n\n新建\n暂无运行中的交易任务\n\n当前还没有从交易机器人接口返回任务。可以先在“纸盘”里跑一次模拟交易。\n\n实盘执行暂未开放\n\n当前小程序只允许纸盘、信号和停止动作。小资金实盘需要单独打开权限。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "交易-机器人",
+      "filename": "trade-机器人.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "机器人实例\n\n这里以后用来管理 Hummingbot 机器人：部署、停止、归档。\n\n暂无运行中的交易机器人\n\n后续会接入机器人管理能力，用来部署、停止和归档机器人。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n机器人实例\n\n这里以后用来管理 Hummingbot 机器人：部署、停止、归档。\n\n暂无运行中的交易机器人\n\n后续会接入机器人管理能力，用来部署、停止和归档机器人。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "交易-纸盘",
+      "filename": "trade-纸盘.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "纸盘模拟交易\n\n用真实行情跑虚拟账本；只记录模拟成交，不提交真实订单。\n\n交易对\nBTC-USDT\nETH-USDT\nSOL-USDT\nBNB-USDT\n方向\n买入\n卖出\n金额（USDT）\n刷新信号\n纸盘下单\n模拟测试\n实盘已锁",
+        "纸盘账户\n\n独立虚拟账户，不依赖 Binance 资产。\n\n虚拟权益\n7,482.36\nUSDT\n可用现金\n6,483.23\n可用虚拟现金\n敞口\n1,000.50\n已投入金额\n净盈亏\n-1.38\n含费用滑点\n净手续费\n0.50\n返利 0.50\n滑点成本\n0.20\n0.020%",
+        "最近信号\n\n根据行情数据生成的市场状态判断，仅供观察。\n\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59982.00\n\n24h涨跌 0.75%\n1h均幅 0.77%\n短长均线差 0.17%\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59835.69\n\n24h涨跌 1.04%\n1h均幅 0.77%\n短长均线差 0.13%\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59889.99\n\n24h涨跌 0.76%\n1h均幅 0.76%\n短长均线差 0.15%",
+        "持仓和订单\n\n这里都是纸盘记录，不会触发交易所订单。\n\nBTC-USDT\n\nbinance · 均价 60076.67 · 费用 0.50\n\n0.016654\n-1.38\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59994.00\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59847.66\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59901.97\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59900.91\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n60004.00"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n纸盘模拟交易\n\n用真实行情跑虚拟账本；只记录模拟成交，不提交真实订单。\n\n交易对\nBTC-USDT\nETH-USDT\nSOL-USDT\nBNB-USDT\n方向\n买入\n卖出\n金额（USDT）\n刷新信号\n纸盘下单\n模拟测试\n实盘已锁\n纸盘账户\n\n独立虚拟账户，不依赖 Binance 资产。\n\n虚拟权益\n7,482.36\nUSDT\n可用现金\n6,483.23\n可用虚拟现金\n敞口\n1,000.50\n已投入金额\n净盈亏\n-1.38\n含费用滑点\n净手续费\n0.50\n返利 0.50\n滑点成本\n0.20\n0.020%\n最近信号\n\n根据行情数据生成的市场状态判断，仅供观察。\n\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59982.00\n\n24h涨跌 0.75%\n1h均幅 0.77%\n短长均线差 0.17%\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59835.69\n\n24h涨跌 1.04%\n1h均幅 0.77%\n短长均线差 0.13%\nBTC-USDT · 震荡行情\n71%\n\n纸盘网格策略观察 · 59889.99\n\n24h涨跌 0.76%\n1h均幅 0.76%\n短长均线差 0.15%\n持仓和订单\n\n这里都是纸盘记录，不会触发交易所订单。\n\nBTC-USDT\n\nbinance · 均价 60076.67 · 费用 0.50\n\n0.016654\n-1.38\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59994.00\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59847.66\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59901.97\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n59900.91\n买入 BTC-USDT\n\ngrid-range-paper · 净费 0.00 · 滑点 0.00\n\n5.00 USDT\n60004.00\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "交易-LP",
+      "filename": "trade-LP.png",
+      "activeNav": "交易",
+      "header": "交易",
+      "panels": [
+        "流动性池\n\n这里以后管理 LP 仓位；当前只显示入口和状态。\n\nLP 管理尚未启用\n\n后续接入建仓、收手续费、平仓等能力。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n交易\n纸盘模式\n账户\n任务\n机器人\n纸盘\nLP\n流动性池\n\n这里以后管理 LP 仓位；当前只显示入口和状态。\n\nLP 管理尚未启用\n\n后续接入建仓、收手续费、平仓等能力。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "策略-智能",
+      "filename": "strategy-智能.png",
+      "activeNav": "策略",
+      "header": "策略",
+      "panels": [
+        "智能决策流程\n\n每一步都要留下理由、证据、风控结果和复盘记录。\n\n观察行情\n判断市场\n选择策略\n风控检查\n执行动作\n复盘记录",
+        "本轮结论\n\n人话版策略摘要\n\n当前优先观察资金费率套利；做市模块只做小额纸盘，智能路由器暂不放开实盘。\n\n系统可以给建议，但不能绕过实盘锁和资金上限；行情异常时先停止新开仓。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n策略\n纸盘模式\n智能\n插件\n脚本\n智能决策流程\n\n每一步都要留下理由、证据、风控结果和复盘记录。\n\n观察行情\n判断市场\n选择策略\n风控检查\n执行动作\n复盘记录\n本轮结论\n\n人话版策略摘要\n\n当前优先观察资金费率套利；做市模块只做小额纸盘，智能路由器暂不放开实盘。\n\n系统可以给建议，但不能绕过实盘锁和资金上限；行情异常时先停止新开仓。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "策略-插件",
+      "filename": "strategy-插件.png",
+      "activeNav": "策略",
+      "header": "策略",
+      "panels": [
+        "策略模块\n\n这里放可开关的策略模块；当前以资金费套利、做市执行和 智能路由为主。\n\n资金费率\n资金费率套利\n观察中\n\n比较 Hyperliquid 和 Binance 的资金费差，先看净收益、基差和滑点。\n\n一级信号\n做市\n做市执行模块\n已启用\n\n负责小额挂单和仓位控制，适合作为执行层，不单独当稳赚策略。\n\n二级纸盘\n调度\n智能策略路由器\n草稿\n\n根据资金费、波动、滑点、盈亏和成交质量决定开、停、降仓。\n\n草稿"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n策略\n纸盘模式\n智能\n插件\n脚本\n策略模块\n\n这里放可开关的策略模块；当前以资金费套利、做市执行和 智能路由为主。\n\n资金费率\n资金费率套利\n观察中\n\n比较 Hyperliquid 和 Binance 的资金费差，先看净收益、基差和滑点。\n\n一级信号\n做市\n做市执行模块\n已启用\n\n负责小额挂单和仓位控制，适合作为执行层，不单独当稳赚策略。\n\n二级纸盘\n调度\n智能策略路由器\n草稿\n\n根据资金费、波动、滑点、盈亏和成交质量决定开、停、降仓。\n\n草稿\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "策略-脚本",
+      "filename": "strategy-脚本.png",
+      "activeNav": "策略",
+      "header": "策略",
+      "panels": [
+        "脚本中心\n\n以后统一管理策略实验、回测和数据采集脚本。\n\n脚本中心待接入\n\n后续统一管理策略实验、回测和数据采集。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n策略\n纸盘模式\n智能\n插件\n脚本\n脚本中心\n\n以后统一管理策略实验、回测和数据采集脚本。\n\n脚本中心待接入\n\n后续统一管理策略实验、回测和数据采集。\n\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "日志-记录",
+      "filename": "logs-记录.png",
+      "activeNav": "日志",
+      "header": "日志",
+      "panels": [
+        "操作记录\n\n每次判断、拒绝、执行和人工操作都会留下记录。\n\n10:47\nControl API\n\n聚合 Hummingbot 状态\n\n完成\n10:47\nRisk Gate\n\n保持只读和 paper 优先\n\n生效\n02:36\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:21\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:05\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:50\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:35\nxing hailong\n\npaper.strategy-run · grid-range-paper/"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n日志\n纸盘模式\n记录\n服务\n接口\n操作记录\n\n每次判断、拒绝、执行和人工操作都会留下记录。\n\n10:47\nControl API\n\n聚合 Hummingbot 状态\n\n完成\n10:47\nRisk Gate\n\n保持只读和 paper 优先\n\n生效\n02:36\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:21\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n02:05\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:50\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:35\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:20\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n01:04\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n00:49\nxing hailong\n\npaper.strategy-run · grid-range-paper/binance/BTC-USDT\n\nsuccess\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "日志-服务",
+      "filename": "logs-服务.png",
+      "activeNav": "日志",
+      "header": "日志",
+      "panels": [
+        "服务状态\n\n控制接口、交易机器人接口、Telegram 入口和风控闸门状态。\n\n交易机器人接口\n1.0.1\n连接交易机器人，绿灯说明能读到账户、纸盘和任务数据。\n0ms\n控制接口\n风控保护中\n小程序后端，负责读数据、保存纸盘记录和执行权限校验。\n0ms\n风控闸门\n严格模式\n风控闸门，任何实盘动作都要先经过这里。\n0ms\nTelegram 小程序\n小程序入口\n小程序入口，待命表示入口正常等待使用。\n0ms"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n日志\n纸盘模式\n记录\n服务\n接口\n服务状态\n\n控制接口、交易机器人接口、Telegram 入口和风控闸门状态。\n\n交易机器人接口\n1.0.1\n连接交易机器人，绿灯说明能读到账户、纸盘和任务数据。\n0ms\n控制接口\n风控保护中\n小程序后端，负责读数据、保存纸盘记录和执行权限校验。\n0ms\n风控闸门\n严格模式\n风控闸门，任何实盘动作都要先经过这里。\n0ms\nTelegram 小程序\n小程序入口\n小程序入口，待命表示入口正常等待使用。\n0ms\n总览\n交易\n策略\n风控\n日志"
+    },
+    {
+      "label": "日志-接口",
+      "filename": "logs-接口.png",
+      "activeNav": "日志",
+      "header": "日志",
+      "panels": [
+        "接口状态\n\n线上接口和后端连接检查。\n\n/api/control/overview\n\n小程序会优先读取真实控制接口；失败时才显示演示数据。"
+      ],
+      "textSample": "HUMM.KLINE007.TOP\n日志\n纸盘模式\n记录\n服务\n接口\n接口状态\n\n线上接口和后端连接检查。\n\n/api/control/overview\n\n小程序会优先读取真实控制接口；失败时才显示演示数据。\n\n总览\n交易\n策略\n风控\n日志"
+    }
+  ],
+  "consoleMessages": [],
+  "requestFailures": [],
+  "apiResponses": [
+    {
+      "url": "https://humm.kline007.top/api/control/risk/policy",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "url": "https://humm.kline007.top/api/control/paper/state",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "url": "https://humm.kline007.top/api/control/overview",
+      "method": "GET",
+      "status": 200
+    }
+  ]
+}

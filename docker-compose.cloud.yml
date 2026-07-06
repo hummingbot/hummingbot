@@ -1,0 +1,48 @@
+# Cloud deployment compose for humm.kline007.top.
+# The public domain is handled by the host Nginx. Hummingbot itself is a CLI
+# trading bot, so this compose file does not expose a public web UI.
+
+services:
+  hummingbot:
+    container_name: hummingbot
+    image: ${HUMMINGBOT_IMAGE:-hummingbot/hummingbot:latest}
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    network_mode: host
+    volumes:
+      - ./conf:/home/hummingbot/conf
+      - ./conf/connectors:/home/hummingbot/conf/connectors
+      - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./conf/controllers:/home/hummingbot/conf/controllers
+      - ./conf/scripts:/home/hummingbot/conf/scripts
+      - ./logs:/home/hummingbot/logs
+      - ./data:/home/hummingbot/data
+      - ./certs:/home/hummingbot/certs
+      - ./scripts:/home/hummingbot/scripts
+      - ./controllers:/home/hummingbot/controllers
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  gateway:
+    profiles: ["gateway"]
+    container_name: hummingbot-gateway
+    image: ${HUMMINGBOT_GATEWAY_IMAGE:-hummingbot/gateway:latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:15888:15888"
+    volumes:
+      - ./gateway-files/conf:/home/gateway/conf
+      - ./gateway-files/logs:/home/gateway/logs
+      - ./certs:/home/gateway/certs
+    environment:
+      - GATEWAY_PASSPHRASE=${GATEWAY_PASSPHRASE:-admin}
+      - DEV=${GATEWAY_DEV:-true}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
