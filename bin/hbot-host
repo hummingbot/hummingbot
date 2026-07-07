@@ -10,6 +10,11 @@ set -euo pipefail
 
 container="${HBOT_CONTAINER:-hummingbot}"
 
+# HBOT_PREFER=docker skips the conda-env branch, for machines that have BOTH installs and want
+# `hbot` to drive the container (e.g. testing the Docker/MCP setup next to a source checkout).
+# Anything else (unset, empty, "conda") keeps the default order: source env first, then container.
+prefer="${HBOT_PREFER:-}"
+
 # 1) Source install: a `hummingbot` conda env that has the CLI. Exec the env's python DIRECTLY rather
 #    than via `conda run`, which prints a noisy "ERROR conda.cli.main_run:execute(148): ... failed"
 #    line on EVERY non-zero exit — including the CLI's normal ones (exit 2 for "no command, here's
@@ -17,7 +22,7 @@ container="${HBOT_CONTAINER:-hummingbot}"
 #    and set PATH/CONDA_PREFIX ourselves so the CLI and its subprocesses still run inside the env, and
 #    the CLI's real exit code passes straight through. Run the INSTALLED package (via conda develop) —
 #    not the name `hbot` (would re-resolve to this wrapper and recurse).
-if command -v conda >/dev/null 2>&1; then
+if [ "$prefer" != "docker" ] && command -v conda >/dev/null 2>&1; then
     prefix="$(conda env list | awk '$1=="hummingbot"{print $NF}')"
     if [ -n "$prefix" ] && [ -x "$prefix/bin/python" ]; then
         export CONDA_PREFIX="$prefix"
