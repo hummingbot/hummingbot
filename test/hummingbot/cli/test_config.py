@@ -123,8 +123,19 @@ class ConfigRunTest(unittest.TestCase):
         self._strategy("market: binance\n").unlink()
         payload = json.loads(self._run(as_json=True))
         self.assertIn("mqtt_bridge.mqtt_port", payload["global"])
+        # Schema stays stable: fields/live_fields always present, running always visible.
         self.assertEqual(payload["strategy"],
-                         {"file": "conf_x.yml", "type": "v2-script", "state": "missing"})
+                         {"file": "conf_x.yml", "type": "v2-script", "state": "missing",
+                          "running": False, "fields": {}, "live_fields": []})
+
+    def test_list_with_missing_config_but_running_bot_warns(self):
+        # A bot can still be RUNNING from a deleted config — that must stay visible.
+        self._strategy("market: binance\n", running=True).unlink()
+        out = self._run()
+        self.assertIn("STILL RUNNING", out)
+        payload = json.loads(self._run(as_json=True))
+        self.assertEqual(payload["strategy"]["state"], "missing")
+        self.assertTrue(payload["strategy"]["running"])
 
     def test_strategy_key_with_missing_loaded_config_fails_not_found(self):
         self._strategy("market: binance\n").unlink()

@@ -28,12 +28,19 @@ if command -v conda >/dev/null 2>&1; then
 fi
 
 # 2) Docker install: a running `hummingbot` container. `-i` forwards stdin (e.g. --password-stdin);
-#    add a TTY only when this shell has one, so piping still works.
+#    add a TTY only when this shell has one, so piping still works. The keystore password env vars
+#    must be forwarded explicitly — `docker exec` runs with the CONTAINER's env, so a password set
+#    on the host (or in an MCP server's env) would otherwise silently never reach the CLI. Bare
+#    `-e VAR` (no =value) copies the value from this process's env without putting it on argv.
+#    (The array expansion is guarded because bash 3.2 + `set -u` treats an empty array as unbound.)
 if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -qx "$container"; then
+    env_args=()
+    [ -n "${HBOT_PASSWORD:-}" ] && env_args+=(-e HBOT_PASSWORD)
+    [ -n "${CONFIG_PASSWORD:-}" ] && env_args+=(-e CONFIG_PASSWORD)
     if [ -t 0 ]; then
-        exec docker exec -it "$container" hbot "$@"
+        exec docker exec -it ${env_args[@]+"${env_args[@]}"} "$container" hbot "$@"
     fi
-    exec docker exec -i "$container" hbot "$@"
+    exec docker exec -i ${env_args[@]+"${env_args[@]}"} "$container" hbot "$@"
 fi
 
 echo "hbot: no Hummingbot install found." >&2

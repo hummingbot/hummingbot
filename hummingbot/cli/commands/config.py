@@ -74,9 +74,15 @@ def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]], as
         if not path.exists():
             # The loaded pointer can dangle (config deleted/renamed out-of-band). Still list the
             # globals, but say so explicitly rather than crashing or silently dropping the section.
-            out += (f"\n\nloaded strategy config {file} ({stype}) is missing on disk — "
-                    f"load another with `hbot import <file>`")
-            payload["strategy"] = {"file": file, "type": stype, "state": "missing"}
+            # A bot can still be RUNNING from the deleted file — that must stay visible.
+            if running:
+                out += (f"\n\nstrategy config {file} ({stype}) is missing on disk, but a bot is "
+                        f"STILL RUNNING from it — `hbot status` to inspect, `hbot stop` to stop it")
+            else:
+                out += (f"\n\nloaded strategy config {file} ({stype}) is missing on disk — "
+                        f"load another with `hbot import <file>`")
+            payload["strategy"] = {"file": file, "type": stype, "state": "missing",
+                                   "running": running, "fields": {}, "live_fields": []}
         else:
             data = read_yaml(path)
             updatable = updatable_for(stype, path)
@@ -112,8 +118,10 @@ def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Option
     file, stype, running = active
     path = config_path(stype, file)
     if not path.exists():
-        fail(f"loaded strategy config {file} ({stype}) no longer exists on disk — "
-             f"load another with `hbot import <file>`", ExitCode.NOT_FOUND)
+        state = ("a bot is STILL RUNNING from it — `hbot stop` to stop it" if running
+                 else "load another with `hbot import <file>`")
+        fail(f"loaded strategy config {file} ({stype}) no longer exists on disk — {state}",
+             ExitCode.NOT_FOUND)
     data = read_yaml(path)
     try:
         current = get_value(data, key)
