@@ -89,6 +89,12 @@ ORDER_OPTION_IMMEDIATE_OR_CANCEL = "immediate-or-cancel"
 # full-depth sweep price, so this only absorbs short-term movement; the order executes at
 # the resting book prices — this is just the protective limit.
 MARKET_ORDER_SLIPPAGE = Decimal("0.02")
+# Extra quote headroom (on top of the taker fee) reserved when capping an emulated market
+# buy's protective limit to what the available quote can fund. Gemini reserves amount *
+# limit_price PLUS the taker fee (in quote) for a buy, so a cap at exactly available / amount
+# leaves nothing for the fee and a near-all-in buy is rejected for insufficient funds. This
+# buffer absorbs fee-estimate and tick-rounding error so the amount*limit+fee check passes.
+MARKET_ORDER_FUNDING_BUFFER = Decimal("0.0005")
 
 # Time
 WS_HEARTBEAT_TIME_INTERVAL = 30

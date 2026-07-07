@@ -734,19 +734,23 @@ class GeminiExchangeTests(TestCase):
 
     def test_market_order_price_buy_caps_at_affordable_quote(self):
         # The +slippage limit would require more quote than the user holds; cap it so
-        # Gemini's amount*limit funds check passes, while still >= the sweep reference.
+        # Gemini's amount*limit + taker fee funds check passes, while still >= the sweep
+        # reference.
         self.exchange.get_price_for_volume = MagicMock(
             return_value=MagicMock(result_price=Decimal("100")))
         self.exchange.get_price = MagicMock(return_value=Decimal("100"))
         self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+        self.exchange.estimate_fee_pct = MagicMock(return_value=Decimal("0.004"))
         self.exchange._account_available_balances["USD"] = Decimal("101")  # < 1 * 100 * 1.02
 
         price = self.exchange._market_order_price(
             trading_pair="BTC-USD", trade_type=TradeType.BUY,
             amount=Decimal("1"), price=Decimal("NaN"))
 
-        self.assertEqual(Decimal("101"), price)
-        self.assertLessEqual(price * Decimal("1"), Decimal("101"))  # fundable
+        factor = Decimal("1") + Decimal("0.004") + CONSTANTS.MARKET_ORDER_FUNDING_BUFFER
+        self.assertEqual(Decimal("101") / (Decimal("1") * factor), price)
+        # The reserved notional + taker fee fits inside the available quote (fundable).
+        self.assertLessEqual(price * Decimal("1") * factor, Decimal("101"))
 
     def test_market_order_price_buy_not_capped_when_balance_is_ample(self):
         self.exchange.get_price_for_volume = MagicMock(
@@ -769,22 +773,124 @@ class GeminiExchangeTests(TestCase):
             return_value=MagicMock(result_price=Decimal("110")))
         self.exchange.get_price = MagicMock(return_value=Decimal("110"))
         self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
+        self.exchange.estimate_fee_pct = MagicMock(return_value=Decimal("0.004"))
         self.exchange._account_available_balances["USD"] = Decimal("105")  # < 110, < 110*1.02
 
         price = self.exchange._market_order_price(
             trading_pair="BTC-USD", trade_type=TradeType.BUY,
             amount=Decimal("1"), price=Decimal("NaN"))
 
-        self.assertEqual(Decimal("105"), price)
-        self.assertLessEqual(price * Decimal("1"), Decimal("105"))  # fundable, not rejected
+        factor = Decimal("1") + Decimal("0.004") + CONSTANTS.MARKET_ORDER_FUNDING_BUFFER
+        self.assertEqual(Decimal("105") / (Decimal("1") * factor), price)
+        self.assertLessEqual(price * Decimal("1") * factor, Decimal("105"))  # fundable, not rejected
 
     def test_affordable_buy_limit_price_guards(self):
         self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("0")))
         self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("1")))
         self.exchange._account_available_balances["USD"] = Decimal("-5")
         self.assertIsNone(self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("1")))
+        self.exchange.estimate_fee_pct = MagicMock(return_value=Decimal("0.004"))
         self.exchange._account_available_balances["USD"] = Decimal("200")
-        self.assertEqual(Decimal("100"), self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("2")))
+        factor = Decimal("1") + Decimal("0.004") + CONSTANTS.MARKET_ORDER_FUNDING_BUFFER
+        self.assertEqual(Decimal("200") / (Decimal("2") * factor),
+                         self.exchange._affordable_buy_limit_price("BTC-USD", Decimal("2")))
+
+    def test_affordable_buy_limit_price_reserves_taker_fee_headroom(self):
+        # The cap must leave room for the taker fee Gemini reserves in quote for a buy, so a
+        # near-all-in buy is fundable: amount * limit * (1 + fee) must fit the available quote.
+        # A bare available / amount cap (no fee headroom) would overshoot and be rejected.
+        self.exchange.estimate_fee_pct = MagicMock(return_value=Decimal("0.004"))
+        self.exchange._account_available_balances["USD"] = Decimal("1000")
+        amount = Decimal("3")
+
+        limit = self.exchange._affordable_buy_limit_price("BTC-USD", amount)
+
+        self.assertLessEqual(amount * limit * (Decimal("1") + Decimal("0.004")), Decimal("1000"))
+        naive_limit = Decimal("1000") / amount  # the old, fee-blind cap
+        self.assertGreater(
+            amount * naive_limit * (Decimal("1") + Decimal("0.004")), Decimal("1000"))
+
+    def test_place_order_market_reconciles_when_rest_fails_but_order_exists(self):
+        # A transient REST failure (e.g. connection reset) can be raised AFTER Gemini already
+        # accepted the immediate-or-cancel order. Reconcile by client id and keep the order
+        # tracked instead of surfacing a failure that would trigger a duplicate re-placement.
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("Connection reset by peer"),              # placement (order actually landed)
+            {"order_id": 555, "timestampms": 1700000000000},  # reconciliation finds it
+        ])
+
+        o_id, ts = self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+            trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+
+        self.assertEqual("555", o_id)
+        self.assertEqual(1700000000.0, ts)
+        self.assertEqual(2, self.exchange._api_post.await_count)
+        _, kwargs = self.exchange._api_post.call_args
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
+        self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_place_order_market_surfaces_failure_when_rest_fails_and_no_order(self):
+        # If placement fails and reconciliation finds no such order (a genuine rejection that
+        # never created an order), the failure is surfaced so the order is marked failed.
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("InsufficientFunds"),   # placement rejected outright
+            IOError("OrderNotFound"),       # reconciliation → not found
+        ])
+
+        with self.assertRaises(IOError):
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+                trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+        self.assertEqual(2, self.exchange._api_post.await_count)
+
+    def test_place_order_market_surfaces_original_error_when_reconciliation_fails(self):
+        # If the reconciliation lookup itself errors (not a clean not-found), the ambiguity is
+        # unresolved: surface the original placement error rather than masking it as success.
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("Connection reset by peer"),  # placement
+            IOError("503 Service Unavailable"),   # reconciliation lookup itself fails
+        ])
+
+        with self.assertRaises(IOError) as ctx:
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+                trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+        self.assertIn("Connection reset", str(ctx.exception))
+        self.assertEqual(2, self.exchange._api_post.await_count)
+
+    def test_place_order_market_propagates_cancellation_during_placement(self):
+        # Cancellation must propagate untouched — never be treated as a placement failure that
+        # triggers a reconcile/retry.
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._api_post = AsyncMock(side_effect=asyncio.CancelledError)
+        self.exchange._reconcile_order_by_client_id = AsyncMock()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+                trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+        self.exchange._reconcile_order_by_client_id.assert_not_awaited()
+
+    def test_place_order_market_propagates_cancellation_during_reconciliation(self):
+        # If the task is cancelled while reconciling, the cancellation propagates rather than
+        # being swallowed into a None (which would mis-surface the placement as a failure).
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange._api_post = AsyncMock(side_effect=IOError("Connection reset by peer"))
+        self.exchange._get_order_via_rest_by_client_id = AsyncMock(side_effect=asyncio.CancelledError)
+
+        with self.assertRaises(asyncio.CancelledError):
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+                trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
 
     # ------------------------------------------------------------------
     # Order cancellation — websocket-first
@@ -1477,6 +1583,21 @@ class GeminiExchangeTests(TestCase):
         self._drive_user_stream([balance_event])
         self.assertEqual(Decimal("207.39"), self.exchange._account_available_balances["USD"])
         self.assertEqual(Decimal("207.39"), self.exchange._account_balances["USD"])
+
+    def test_user_stream_balance_update_preserves_rest_total(self):
+        # The WS "f" is the free (available) balance; it must not clobber a larger REST-
+        # reported total (which includes funds locked in open orders). Otherwise the total
+        # is understated below the true holdings and inventory-based sizing is skewed.
+        self.exchange._account_balances["USD"] = Decimal("300")  # REST total, ~92.61 in orders
+        self.exchange._account_available_balances["USD"] = Decimal("300")
+        balance_event = {
+            "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
+            "E": 1700000000000,
+            "B": [{"a": "USD", "f": "207.39"}],
+        }
+        self._drive_user_stream([balance_event])
+        self.assertEqual(Decimal("207.39"), self.exchange._account_available_balances["USD"])
+        self.assertEqual(Decimal("300"), self.exchange._account_balances["USD"])  # total preserved
 
     def test_user_stream_balance_update_drops_non_positive(self):
         # A balanceUpdate that drives an asset to sub-cent negative dust removes it from
