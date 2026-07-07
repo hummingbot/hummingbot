@@ -2,7 +2,7 @@
   "mcpServers": {
     "hummingbot": {
       "command": "uv",
-      "args": ["run", "--no-project", "--with", "mcp", "python", "mcp_server.py"]
+      "args": ["run", "--no-project", "--with", "mcp>=1.10", "python", "mcp_server.py"]
     }
   }
 }

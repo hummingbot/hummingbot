@@ -33,9 +33,15 @@ services:
     # `docker exec -it hummingbot hbot <command>`.
     #   - for one dedicated bot instead:      command: hbot start <config> --foreground
     #   - for the legacy interactive client:  remove this command, then `docker attach hummingbot`
+    #   - to drive it from an MCP client (Claude Desktop & other URL-based clients) instead:
+    #       command: hbot-mcp --http
+    #     then add the connector URL http://localhost:8211/mcp and set HBOT_PASSWORD below.
+    #     Binds loopback only (the server has no auth); `hbot` commands still work via docker exec.
+    #     Requires host networking (Linux, or Docker Desktop with host networking enabled).
     command: tail -f /dev/null
   #  environment:
   #    - HBOT_PASSWORD=admin
+  #    - HBOT_MCP_PORT=8211
 
   gateway:
    profiles: ["gateway"]

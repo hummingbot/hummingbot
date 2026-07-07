@@ -14,7 +14,15 @@ Configuration via environment variables (all optional):
 * ``HBOT_PASSWORD`` — the keystore password, passed through to the CLI's environment.
                       Set it in the MCP server config; it is NEVER a tool argument.
 
-Run: ``uv run --no-project --with mcp python mcp_server.py`` (see .mcp.json).
+Transports:
+
+* **stdio** (default) — for local clients: ``uv run --no-project --with "mcp>=1.10" python
+  mcp_server.py`` (see .mcp.json), or ``bin/hbot-mcp``.
+* **streamable HTTP** — ``--http`` (or ``HBOT_MCP_TRANSPORT=http``): serves
+  ``http://<host>:<port>/mcp`` for URL-based clients (Claude Desktop connectors, the
+  Docker image's MCP mode). ``HBOT_MCP_HOST`` defaults to **127.0.0.1** — the server has
+  no auth and can trade real money, so bind beyond loopback only on purpose.
+  ``HBOT_MCP_PORT`` defaults to 8211.
 """
 import json
 import os
@@ -374,5 +382,25 @@ def history(name: str = "", days: Optional[float] = None) -> dict:
     return _run_hbot(args)
 
 
+def _transport_config(argv: list, environ: dict) -> tuple:
+    """Resolve (transport, host, port) from argv/env.
+
+    HTTP must be opt-in and loopback-bound by default: this server has no auth layer and
+    its tools move real money.
+    """
+    if "--http" in argv or environ.get("HBOT_MCP_TRANSPORT") == "http":
+        return ("streamable-http",
+                environ.get("HBOT_MCP_HOST", "127.0.0.1"),
+                int(environ.get("HBOT_MCP_PORT", "8211")))
+    return ("stdio", None, None)
+
+
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+    transport, host, port = _transport_config(sys.argv[1:], os.environ)
+    if transport == "streamable-http":
+        mcp.settings.host = host
+        mcp.settings.port = port
+        mcp.run(transport="streamable-http")
+    else:
+        mcp.run()

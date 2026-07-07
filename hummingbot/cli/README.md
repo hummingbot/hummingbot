@@ -306,12 +306,19 @@ the parsed `--json` payload where the CLI supports it). Same substrate, same one
 model; MCP is just a second transport.
 
 - **Claude Code** picks it up automatically from `.mcp.json` when started in the repo root.
-  Other MCP clients: run `uv run --no-project --with mcp python mcp_server.py` (stdio).
+  Other stdio clients: `bin/hbot-mcp` (uses the Docker image's baked-in venv, or `uv` on a
+  source install).
+- **Claude Desktop & other URL-based clients (no shell, no repo checkout):** the Docker image
+  ships the server. Set `command: hbot-mcp --http` in `docker-compose.yml` (plus `HBOT_PASSWORD`),
+  `make deploy`, then add the connector URL `http://localhost:8211/mcp` in the client. The server
+  binds **loopback only** by default — it has no auth and its tools trade real money; set
+  `HBOT_MCP_HOST=0.0.0.0` only if you understand what that exposes.
 - The server resolves `hbot` via `bin/hbot-host` (conda env or Docker container both work);
-  set `HBOT_BIN` to override.
+  set `HBOT_BIN` to override (the image presets it).
 - Set `HBOT_PASSWORD` in the server's environment for commands that need the keystore. **No tool
   accepts a password or API key** — key entry stays interactive (`hbot connect <connector>` in
-  your own terminal), so secrets never enter an agent's context.
+  your own terminal, or `docker exec -it hummingbot hbot connect <connector>`), so secrets never
+  enter an agent's context.
 - The operating manual (mental model, core loop, health caveats, secrets policy) ships as the
   server's MCP *instructions*, so every connected harness gets it with the tools — no separate
   skill required.

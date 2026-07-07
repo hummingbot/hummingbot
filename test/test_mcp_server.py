@@ -228,6 +228,26 @@ class MCPServerStubTest(unittest.TestCase):
                 for banned in ("password", "secret", "api_key", "private_key"):
                     self.assertNotIn(banned, param.lower(), f"{tool.name}.{param}")
 
+    # ── transport selection ─────────────────────────────────────────────
+
+    def test_default_transport_is_stdio(self):
+        self.assertEqual(mcp_server._transport_config([], {}), ("stdio", None, None))
+        # Unrelated args/env do not accidentally open a port.
+        self.assertEqual(mcp_server._transport_config(["--verbose"], {"HBOT_MCP_TRANSPORT": "sse"}),
+                         ("stdio", None, None))
+
+    def test_http_transport_binds_loopback_by_default(self):
+        # No auth on this server — 0.0.0.0 must never be the default.
+        self.assertEqual(mcp_server._transport_config(["--http"], {}),
+                         ("streamable-http", "127.0.0.1", 8211))
+        self.assertEqual(mcp_server._transport_config([], {"HBOT_MCP_TRANSPORT": "http"}),
+                         ("streamable-http", "127.0.0.1", 8211))
+
+    def test_http_transport_honors_host_and_port_env(self):
+        transport, host, port = mcp_server._transport_config(
+            ["--http"], {"HBOT_MCP_HOST": "0.0.0.0", "HBOT_MCP_PORT": "9000"})
+        self.assertEqual((transport, host, port), ("streamable-http", "0.0.0.0", 9000))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Launcher for the Hummingbot MCP server (mcp_server.py — a thin wrapper over the `hbot` CLI).
+#
+# Resolution order for a Python that has the `mcp` package:
+#   1. The Docker image's dedicated venv (/opt/mcp-venv) — baked in by the Dockerfile, isolated
+#      from the trading env so the server's deps can never conflict with the bot's.
+#   2. `uv` on a source install — resolves the mcp package on the fly, no env pollution.
+#
+# Pass-through args: `--http` serves streamable HTTP at http://$HBOT_MCP_HOST:$HBOT_MCP_PORT/mcp
+# (default 127.0.0.1:8211); no args = stdio for local MCP clients.
+set -euo pipefail
+
+# Resolve symlinks first: in the Docker image this script is reached via a symlink in the
+# conda env's bin (like `hbot` itself), and dirname of the SYMLINK would point the repo
+# root at /opt/conda/envs/hummingbot instead of /home/hummingbot.
+self="$0"
+while [ -L "$self" ]; do
+    target="$(readlink "$self")"
+    case "$target" in
+        /*) self="$target" ;;
+        *)  self="$(dirname "$self")/$target" ;;
+    esac
+done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+
+if [ -x /opt/mcp-venv/bin/python ]; then
+    exec /opt/mcp-venv/bin/python "$root/mcp_server.py" "$@"
+fi
+
+# Pin a floor: a stale `mcp` in the base interpreter's site-packages would otherwise satisfy
+# a bare `--with mcp` and lack the streamable-http transport.
+if command -v uv >/dev/null 2>&1; then
+    exec uv run --no-project --with "mcp>=1.10" python "$root/mcp_server.py" "$@"
+fi
+
+echo "hbot-mcp: no runtime for the MCP server found." >&2
+echo "  docker: use the hummingbot image (ships /opt/mcp-venv)" >&2
+echo "  source: install uv (https://docs.astral.sh/uv/) and re-run" >&2
+exit 1
