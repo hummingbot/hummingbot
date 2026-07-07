@@ -36,8 +36,10 @@ EXIT_NAMES = {
     5: "TIMEOUT",
 }
 
-# Ceiling for one subprocess call; per-command --timeout values stay well under it.
+# Floor for one subprocess call's kill ceiling; commands that take an operation --timeout
+# get that value plus slack, so the CLI's own timeout always fires first (exit code 5).
 SUBPROCESS_TIMEOUT = 300
+TIMEOUT_SLACK = 60
 
 INSTRUCTIONS = """\
 Operate a Hummingbot trading bot through the `hbot` CLI. Real money: prefer small sizes,
@@ -85,23 +87,31 @@ def _hbot_bin() -> str:
     return str(PROJECT_ROOT / "bin" / "hbot-host")
 
 
-def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = False) -> dict:
+def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = False,
+              op_timeout: float = 0.0) -> dict:
     """Run one hbot command and map it to the uniform tool result.
 
     ``json_output`` appends ``--json`` and parses stdout into ``data``; otherwise stdout
-    (compact Markdown) is returned verbatim as ``output``.
+    (compact Markdown) is returned verbatim as ``output``. ``op_timeout`` is the command's
+    own --timeout value, used to raise the subprocess kill ceiling above it.
+
+    The child NEVER inherits this process's stdin — that is the MCP JSON-RPC stream, and a
+    stray read would corrupt the session. No piped input means /dev/null.
     """
     cmd = [_hbot_bin(), *[str(a) for a in args]]
     if json_output:
         cmd.append("--json")
+    stdin_kwargs = ({"input": stdin_data} if stdin_data is not None
+                    else {"stdin": subprocess.DEVNULL})
+    kill_after = max(SUBPROCESS_TIMEOUT, op_timeout + TIMEOUT_SLACK)
     try:
         proc = subprocess.run(
             cmd,
-            input=stdin_data,
             capture_output=True,
             text=True,
-            timeout=SUBPROCESS_TIMEOUT,
+            timeout=kill_after,
             cwd=PROJECT_ROOT,
+            **stdin_kwargs,
         )
     except FileNotFoundError:
         return {
@@ -114,7 +124,7 @@ def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = 
         return {
             "ok": False, "exit_code": -1, "exit_status": "CLIENT_TIMEOUT",
             "data": None, "output": None,
-            "error": f"hbot did not return within {SUBPROCESS_TIMEOUT}s: {' '.join(cmd)}",
+            "error": f"hbot did not return within {kill_after:g}s: {' '.join(cmd)}",
         }
 
     result = {
@@ -143,6 +153,24 @@ def _set_args(values: Optional[dict]) -> tuple:
     return ["--values-stdin"], json.dumps(values)
 
 
+TYPE_FLAGS = {"v1-strategy": "--v1-strategy", "v2-script": "--v2-script", "controller": "--controller"}
+
+
+def _type_args(config_type: str) -> list:
+    """Map a config_type value to the CLI's disambiguation flag; raise on an unknown value."""
+    if not config_type:
+        return []
+    flag = TYPE_FLAGS.get(config_type)
+    if flag is None:
+        raise ValueError(f"config_type must be one of {sorted(TYPE_FLAGS)} (got '{config_type}')")
+    return [flag]
+
+
+def _bad_argument(message: str) -> dict:
+    return {"ok": False, "exit_code": -1, "exit_status": "BAD_ARGUMENT",
+            "data": None, "output": None, "error": message}
+
+
 # ── set up (connectors & funds) ──────────────────────────────────────────────
 
 @mcp.tool()
@@ -151,12 +179,12 @@ def connections(connector: str = "", show_fields: bool = False, show_all: bool =
 
     Read-only. With no arguments: the user's current connections (requires the keystore
     password, i.e. HBOT_PASSWORD). show_all=True: every connectable connector, no keys
-    needed. connector + show_fields=True: which API-key fields that connector requires.
+    needed. Passing a connector shows which API-key fields it requires.
 
     Adding keys is deliberately NOT a tool — never accept keys in chat. Have the user run
     `hbot connect <connector>` interactively in their own terminal instead.
     """
-    if connector and show_fields:
+    if connector:
         return _run_hbot(["connect", connector, "--fields"])
     if show_all:
         return _run_hbot(["connect", "--all"])
@@ -179,16 +207,21 @@ def balance(units_only: bool = False) -> dict:
 
 @mcp.tool()
 def create(strategy: str, values: Optional[dict] = None, name: str = "",
-           with_defaults: bool = False) -> dict:
+           with_defaults: bool = False, config_type: str = "") -> dict:
     """Create a strategy/controller/script config file and load it (without starting).
 
     `values` fills fields ({field: value}); a missing required field fails with the exact
     list of fields needed — use that error for field discovery instead of guessing.
     with_defaults=True scaffolds defaults + blank required fields to fill via config().
-    Prefer deploy() when the goal is a RUNNING bot.
+    config_type ('v1-strategy'|'v2-script'|'controller') is only needed when the strategy
+    name exists under more than one type. Prefer deploy() when the goal is a RUNNING bot.
     """
+    try:
+        type_args = _type_args(config_type)
+    except ValueError as e:
+        return _bad_argument(str(e))
     extra, stdin = _set_args(values)
-    args = ["create", strategy, *extra]
+    args = ["create", strategy, *type_args, *extra]
     if name:
         args += ["--name", name]
     if with_defaults:
@@ -197,10 +230,18 @@ def create(strategy: str, values: Optional[dict] = None, name: str = "",
 
 
 @mcp.tool()
-def import_config(config_file: str) -> dict:
+def import_config(config_file: str, config_type: str = "") -> dict:
     """Load an existing config file (from conf/strategies|scripts|controllers) as the
-    current strategy, so config() can edit it and start() can run it."""
-    return _run_hbot(["import", config_file])
+    current strategy, so config() can edit it and start() can run it.
+
+    config_type ('v1-strategy'|'v2-script'|'controller') is only needed when the file name
+    exists under more than one type — the error will say so.
+    """
+    try:
+        type_args = _type_args(config_type)
+    except ValueError as e:
+        return _bad_argument(str(e))
+    return _run_hbot(["import", config_file, *type_args])
 
 
 @mcp.tool()
@@ -223,37 +264,50 @@ def config(key: str = "", value: str = "") -> dict:
 
 @mcp.tool()
 def deploy(target: str, values: Optional[dict] = None, name: str = "",
-           replace: bool = False, timeout: float = 120.0) -> dict:
+           replace: bool = False, timeout: float = 120.0, config_type: str = "") -> dict:
     """One shot: config → RUNNING bot. The primary way to launch.
 
     `target` is either an existing config file name (deployed as-is, `values` edits it
     first) or a strategy/controller/script name (a ready-to-run config is created; every
     required field must then be in `values` — a miss fails listing the missing fields).
-    replace=True stops a currently running bot first. Verify with status() afterwards.
+    replace=True stops a currently running bot first. config_type
+    ('v1-strategy'|'v2-script'|'controller') disambiguates a name that exists under more
+    than one type. Verify with status() afterwards.
     """
+    try:
+        type_args = _type_args(config_type)
+    except ValueError as e:
+        return _bad_argument(str(e))
     extra, stdin = _set_args(values)
-    args = ["deploy", target, *extra, "--timeout", timeout]
+    args = ["deploy", target, *type_args, *extra, "--timeout", timeout]
     if name:
         args += ["--name", name]
     if replace:
         args.append("--replace")
-    return _run_hbot(args, stdin_data=stdin, json_output=True)
+    return _run_hbot(args, stdin_data=stdin, json_output=True, op_timeout=timeout)
 
 
 @mcp.tool()
-def start(config_file: str = "", replace: bool = False, timeout: float = 120.0) -> dict:
+def start(config_file: str = "", replace: bool = False, timeout: float = 120.0,
+          config_type: str = "") -> dict:
     """Start a bot from a config file (type auto-detected), detached.
 
     With no config_file, runs the currently loaded config (from create/import). Fails if a
-    bot is already running unless replace=True. Verify with status() afterwards.
+    bot is already running unless replace=True. config_type
+    ('v1-strategy'|'v2-script'|'controller') disambiguates a name that exists under more
+    than one type. Verify with status() afterwards.
     """
+    try:
+        type_args = _type_args(config_type)
+    except ValueError as e:
+        return _bad_argument(str(e))
     args = ["start"]
     if config_file:
         args.append(config_file)
-    args += ["--timeout", timeout]
+    args += [*type_args, "--timeout", timeout]
     if replace:
         args.append("--replace")
-    return _run_hbot(args, json_output=True)
+    return _run_hbot(args, json_output=True, op_timeout=timeout)
 
 
 @mcp.tool()
@@ -266,7 +320,7 @@ def stop(force: bool = False, timeout: float = 30.0) -> dict:
     args = ["stop", "--timeout", timeout]
     if force:
         args.append("--force")
-    return _run_hbot(args, json_output=True)
+    return _run_hbot(args, json_output=True, op_timeout=timeout)
 
 
 # ── observe ──────────────────────────────────────────────────────────────────

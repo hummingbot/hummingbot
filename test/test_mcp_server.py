@@ -94,6 +94,19 @@ class MCPServerStubTest(unittest.TestCase):
         self.assertIsNone(result["data"])
         self.assertEqual(result["output"], "not json")
 
+    def test_hung_cli_reports_client_timeout(self):
+        stub = self.stub_dir / "hbot"
+        stub.write_text("#!/bin/sh\nsleep 30\n")
+        old = (mcp_server.SUBPROCESS_TIMEOUT, mcp_server.TIMEOUT_SLACK)
+        mcp_server.SUBPROCESS_TIMEOUT, mcp_server.TIMEOUT_SLACK = 1, 0
+        try:
+            result = mcp_server.status()
+        finally:
+            mcp_server.SUBPROCESS_TIMEOUT, mcp_server.TIMEOUT_SLACK = old
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "CLIENT_TIMEOUT")
+        self.assertIn("did not return within 1s", result["error"])
+
     def test_missing_binary_reports_no_cli(self):
         os.environ["HBOT_BIN"] = str(self.stub_dir / "does-not-exist")
         result = mcp_server.status()
@@ -140,8 +153,30 @@ class MCPServerStubTest(unittest.TestCase):
         self.assertEqual(self.argv(), ["connect", "--all"])
         mcp_server.connections(connector="binance", show_fields=True)
         self.assertEqual(self.argv(), ["connect", "binance", "--fields"])
+        # A connector alone implies the fields listing — never the interactive key-entry path.
+        mcp_server.connections(connector="binance")
+        self.assertEqual(self.argv(), ["connect", "binance", "--fields"])
         mcp_server.import_config("conf_x.yml")
         self.assertEqual(self.argv(), ["import", "conf_x.yml"])
+
+    def test_config_type_maps_to_the_cli_disambiguation_flag(self):
+        self.script(stdout="x")
+        mcp_server.import_config("conf_x.yml", config_type="controller")
+        self.assertEqual(self.argv(), ["import", "conf_x.yml", "--controller"])
+        mcp_server.start("conf_x.yml", config_type="v2-script")
+        self.assertEqual(self.argv(), ["start", "conf_x.yml", "--v2-script", "--timeout", "120.0", "--json"])
+        mcp_server.deploy("conf_x.yml", config_type="v1-strategy")
+        self.assertEqual(self.argv(),
+                         ["deploy", "conf_x.yml", "--v1-strategy", "--timeout", "120.0", "--json"])
+        mcp_server.create("pmm_simple", config_type="controller")
+        self.assertEqual(self.argv(), ["create", "pmm_simple", "--controller"])
+
+    def test_invalid_config_type_fails_client_side(self):
+        result = mcp_server.import_config("conf_x.yml", config_type="script")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "BAD_ARGUMENT")
+        self.assertIn("v2-script", result["error"])
+        self.assertFalse((self.stub_dir / "argv").exists(), "hbot must not be invoked")
 
     # ── surface & secrets policy ────────────────────────────────────────
 
