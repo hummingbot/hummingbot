@@ -71,15 +71,22 @@ def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]], as
         file, stype, running = active
         from hummingbot.cli.strategy_configs import config_path, read_yaml, updatable_for
         path = config_path(stype, file)
-        data = read_yaml(path)
-        updatable = updatable_for(stype, path)
-        srows = [{"field": k, "value": cell(val), "live": k in updatable} for k, val in data.items()]
-        state = "running" if running else "loaded"
-        out += "\n\n" + render_table(
-            srows, columns=["field", "value", "live"],
-            title=f"strategy config — {file} ({stype}, {state})")
-        payload["strategy"] = {"file": file, "type": stype, "state": state,
-                               "fields": data, "live_fields": sorted(updatable)}
+        if not path.exists():
+            # The loaded pointer can dangle (config deleted/renamed out-of-band). Still list the
+            # globals, but say so explicitly rather than crashing or silently dropping the section.
+            out += (f"\n\nloaded strategy config {file} ({stype}) is missing on disk — "
+                    f"load another with `hbot import <file>`")
+            payload["strategy"] = {"file": file, "type": stype, "state": "missing"}
+        else:
+            data = read_yaml(path)
+            updatable = updatable_for(stype, path)
+            srows = [{"field": k, "value": cell(val), "live": k in updatable} for k, val in data.items()]
+            state = "running" if running else "loaded"
+            out += "\n\n" + render_table(
+                srows, columns=["field", "value", "live"],
+                title=f"strategy config — {file} ({stype}, {state})")
+            payload["strategy"] = {"file": file, "type": stype, "state": state,
+                                   "fields": data, "live_fields": sorted(updatable)}
     emit(payload, out, as_json)
 
 
@@ -104,6 +111,9 @@ def _read_or_set_strategy(active: Tuple[str, str, bool], key: str, value: Option
     from hummingbot.cli.strategy_configs import config_path, edit_config, get_value, read_yaml
     file, stype, running = active
     path = config_path(stype, file)
+    if not path.exists():
+        fail(f"loaded strategy config {file} ({stype}) no longer exists on disk — "
+             f"load another with `hbot import <file>`", ExitCode.NOT_FOUND)
     data = read_yaml(path)
     try:
         current = get_value(data, key)

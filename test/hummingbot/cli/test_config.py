@@ -111,6 +111,26 @@ class ConfigRunTest(unittest.TestCase):
         self.assertEqual(payload["strategy"]["fields"]["market"], "binance")
         self.assertEqual(payload["strategy"]["live_fields"], [])
 
+    def test_list_with_missing_loaded_config_notes_it(self):
+        # The loaded pointer can dangle (config deleted out-of-band): still list globals,
+        # say the strategy file is missing — never a raw traceback.
+        self._strategy("market: binance\n").unlink()
+        out = self._run()
+        self.assertIn("global settings", out)
+        self.assertIn("conf_x.yml (v2-script) is missing on disk", out)
+
+    def test_list_json_with_missing_loaded_config(self):
+        self._strategy("market: binance\n").unlink()
+        payload = json.loads(self._run(as_json=True))
+        self.assertIn("mqtt_bridge.mqtt_port", payload["global"])
+        self.assertEqual(payload["strategy"],
+                         {"file": "conf_x.yml", "type": "v2-script", "state": "missing"})
+
+    def test_strategy_key_with_missing_loaded_config_fails_not_found(self):
+        self._strategy("market: binance\n").unlink()
+        self.assertEqual(self._fail("market"), ExitCode.NOT_FOUND)
+        self.assertEqual(self._fail("market", "bybit"), ExitCode.NOT_FOUND)
+
     def test_running_without_meta_falls_back_to_loaded(self):
         # running() True but meta.json has no file/type, and nothing imported -> global only
         self.running.return_value = True
