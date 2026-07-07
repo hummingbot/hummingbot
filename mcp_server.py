@@ -14,13 +14,13 @@ Configuration via environment variables (all optional):
 * ``HBOT_PASSWORD`` — the keystore password, passed through to the CLI's environment.
                       Set it in the MCP server config; it is NEVER a tool argument.
 
-Run: ``uv run --with mcp python mcp_server.py`` (see .mcp.json).
+Run: ``uv run --no-project --with mcp python mcp_server.py`` (see .mcp.json).
 """
 import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -38,8 +38,11 @@ EXIT_NAMES = {
 
 # Floor for one subprocess call's kill ceiling; commands that take an operation --timeout
 # get that value plus slack, so the CLI's own timeout always fires first (exit code 5).
+# Tool timeout arguments are rejected above MAX_OP_TIMEOUT so a single MCP call can never
+# block a harness indefinitely.
 SUBPROCESS_TIMEOUT = 300
 TIMEOUT_SLACK = 60
+MAX_OP_TIMEOUT = 600
 
 INSTRUCTIONS = """\
 Operate a Hummingbot trading bot through the `hbot` CLI. Real money: prefer small sizes,
@@ -113,12 +116,15 @@ def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = 
             cwd=PROJECT_ROOT,
             **stdin_kwargs,
         )
-    except FileNotFoundError:
+    except OSError as e:
+        # Missing binary, no execute bit, HBOT_BIN pointing at a directory, ... — every
+        # spawn failure must come back as the uniform result, never a raw traceback.
         return {
             "ok": False, "exit_code": -1, "exit_status": "NO_CLI",
             "data": None, "output": None,
-            "error": f"hbot executable not found: {cmd[0]}. Set HBOT_BIN or install the CLI "
-                     f"(`make install`, or `make deploy && make link-cli` for Docker).",
+            "error": f"cannot execute hbot ({cmd[0]}): {e}. Set HBOT_BIN to the hbot "
+                     f"executable, or install the CLI (`make install`, or "
+                     f"`make deploy && make link-cli` for Docker).",
         }
     except subprocess.TimeoutExpired:
         return {
@@ -140,7 +146,11 @@ def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = 
         try:
             result["data"] = json.loads(stdout)
         except ValueError:
+            # The CLI promised --json and broke it — fail loudly, never degrade silently.
+            result["ok"] = False
+            result["exit_status"] = "PROTOCOL_ERROR"
             result["output"] = stdout or None
+            result["error"] = f"hbot --json emitted unparseable output: {' '.join(cmd)}"
     else:
         result["output"] = stdout or None
     return result
@@ -155,6 +165,10 @@ def _set_args(values: Optional[dict]) -> tuple:
 
 TYPE_FLAGS = {"v1-strategy": "--v1-strategy", "v2-script": "--v2-script", "controller": "--controller"}
 
+# Literal in the tool signatures pushes the allowed values into the MCP schema, so clients
+# reject a bad config_type before the call; this is the safety net for direct callers.
+ConfigType = Literal["", "v1-strategy", "v2-script", "controller"]
+
 
 def _type_args(config_type: str) -> list:
     """Map a config_type value to the CLI's disambiguation flag; raise on an unknown value."""
@@ -166,6 +180,13 @@ def _type_args(config_type: str) -> list:
     return [flag]
 
 
+def _timeout_error(timeout: float) -> Optional[dict]:
+    if timeout > MAX_OP_TIMEOUT:
+        return _bad_argument(f"timeout must be <= {MAX_OP_TIMEOUT}s (got {timeout:g}) — "
+                             f"one MCP call may not block the harness longer than that")
+    return None
+
+
 def _bad_argument(message: str) -> dict:
     return {"ok": False, "exit_code": -1, "exit_status": "BAD_ARGUMENT",
             "data": None, "output": None, "error": message}
@@ -174,12 +195,12 @@ def _bad_argument(message: str) -> dict:
 # ── set up (connectors & funds) ──────────────────────────────────────────────
 
 @mcp.tool()
-def connections(connector: str = "", show_fields: bool = False, show_all: bool = False) -> dict:
+def connections(connector: str = "", show_all: bool = False) -> dict:
     """Show connected connectors, list all connectable ones, or a connector's key fields.
 
     Read-only. With no arguments: the user's current connections (requires the keystore
     password, i.e. HBOT_PASSWORD). show_all=True: every connectable connector, no keys
-    needed. Passing a connector shows which API-key fields it requires.
+    needed. Passing a connector shows which API-key fields it requires (also keys-free).
 
     Adding keys is deliberately NOT a tool — never accept keys in chat. Have the user run
     `hbot connect <connector>` interactively in their own terminal instead.
@@ -207,21 +228,17 @@ def balance(units_only: bool = False) -> dict:
 
 @mcp.tool()
 def create(strategy: str, values: Optional[dict] = None, name: str = "",
-           with_defaults: bool = False, config_type: str = "") -> dict:
+           with_defaults: bool = False, config_type: ConfigType = "") -> dict:
     """Create a strategy/controller/script config file and load it (without starting).
 
     `values` fills fields ({field: value}); a missing required field fails with the exact
     list of fields needed — use that error for field discovery instead of guessing.
     with_defaults=True scaffolds defaults + blank required fields to fill via config().
-    config_type ('v1-strategy'|'v2-script'|'controller') is only needed when the strategy
-    name exists under more than one type. Prefer deploy() when the goal is a RUNNING bot.
+    config_type is only needed when the strategy name exists under more than one type.
+    Prefer deploy() when the goal is a RUNNING bot.
     """
-    try:
-        type_args = _type_args(config_type)
-    except ValueError as e:
-        return _bad_argument(str(e))
     extra, stdin = _set_args(values)
-    args = ["create", strategy, *type_args, *extra]
+    args = ["create", strategy, *_type_args(config_type), *extra]
     if name:
         args += ["--name", name]
     if with_defaults:
@@ -230,32 +247,30 @@ def create(strategy: str, values: Optional[dict] = None, name: str = "",
 
 
 @mcp.tool()
-def import_config(config_file: str, config_type: str = "") -> dict:
+def import_config(config_file: str, config_type: ConfigType = "") -> dict:
     """Load an existing config file (from conf/strategies|scripts|controllers) as the
     current strategy, so config() can edit it and start() can run it.
 
-    config_type ('v1-strategy'|'v2-script'|'controller') is only needed when the file name
-    exists under more than one type — the error will say so.
+    config_type is only needed when the file name exists under more than one type — the
+    error will say so.
     """
-    try:
-        type_args = _type_args(config_type)
-    except ValueError as e:
-        return _bad_argument(str(e))
-    return _run_hbot(["import", config_file, *type_args])
+    return _run_hbot(["import", config_file, *_type_args(config_type)])
 
 
 @mcp.tool()
-def config(key: str = "", value: str = "") -> dict:
+def config(key: Optional[str] = None, value: Optional[str] = None) -> dict:
     """View or set configuration — global client settings plus the loaded strategy's fields.
 
     No args: show everything. key only: read one field. key + value: set it (global keys
     win over strategy keys). On a RUNNING controller, live-updatable fields apply in ~10s;
     the reply says when a change takes effect.
     """
+    if value is not None and key is None:
+        return _bad_argument("a value requires a key — pass key and value to set a field")
     args = ["config"]
-    if key:
+    if key is not None:
         args.append(key)
-        if value:
+        if value is not None:
             args.append(value)
     return _run_hbot(args, json_output=True)
 
@@ -264,22 +279,19 @@ def config(key: str = "", value: str = "") -> dict:
 
 @mcp.tool()
 def deploy(target: str, values: Optional[dict] = None, name: str = "",
-           replace: bool = False, timeout: float = 120.0, config_type: str = "") -> dict:
+           replace: bool = False, timeout: float = 120.0, config_type: ConfigType = "") -> dict:
     """One shot: config → RUNNING bot. The primary way to launch.
 
     `target` is either an existing config file name (deployed as-is, `values` edits it
     first) or a strategy/controller/script name (a ready-to-run config is created; every
     required field must then be in `values` — a miss fails listing the missing fields).
-    replace=True stops a currently running bot first. config_type
-    ('v1-strategy'|'v2-script'|'controller') disambiguates a name that exists under more
-    than one type. Verify with status() afterwards.
+    replace=True stops a currently running bot first. config_type disambiguates a name
+    that exists under more than one type. Verify with status() afterwards.
     """
-    try:
-        type_args = _type_args(config_type)
-    except ValueError as e:
-        return _bad_argument(str(e))
+    if err := _timeout_error(timeout):
+        return err
     extra, stdin = _set_args(values)
-    args = ["deploy", target, *type_args, *extra, "--timeout", timeout]
+    args = ["deploy", target, *_type_args(config_type), *extra, "--timeout", timeout]
     if name:
         args += ["--name", name]
     if replace:
@@ -289,22 +301,19 @@ def deploy(target: str, values: Optional[dict] = None, name: str = "",
 
 @mcp.tool()
 def start(config_file: str = "", replace: bool = False, timeout: float = 120.0,
-          config_type: str = "") -> dict:
+          config_type: ConfigType = "") -> dict:
     """Start a bot from a config file (type auto-detected), detached.
 
     With no config_file, runs the currently loaded config (from create/import). Fails if a
-    bot is already running unless replace=True. config_type
-    ('v1-strategy'|'v2-script'|'controller') disambiguates a name that exists under more
-    than one type. Verify with status() afterwards.
+    bot is already running unless replace=True. config_type disambiguates a name that
+    exists under more than one type. Verify with status() afterwards.
     """
-    try:
-        type_args = _type_args(config_type)
-    except ValueError as e:
-        return _bad_argument(str(e))
+    if err := _timeout_error(timeout):
+        return err
     args = ["start"]
     if config_file:
         args.append(config_file)
-    args += [*type_args, "--timeout", timeout]
+    args += [*_type_args(config_type), "--timeout", timeout]
     if replace:
         args.append("--replace")
     return _run_hbot(args, json_output=True, op_timeout=timeout)
@@ -317,6 +326,8 @@ def stop(force: bool = False, timeout: float = 30.0) -> dict:
     force=True SIGKILLs if still alive after `timeout` seconds (open orders may survive on
     the exchange — check afterwards). exit_status NOT_RUNNING means it was already stopped.
     """
+    if err := _timeout_error(timeout):
+        return err
     args = ["stop", "--timeout", timeout]
     if force:
         args.append("--force")

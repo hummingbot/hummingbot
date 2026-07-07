@@ -87,12 +87,14 @@ class MCPServerStubTest(unittest.TestCase):
             self.assertEqual(result["exit_status"], name)
             self.assertIn("boom", result["error"])
 
-    def test_unparseable_json_falls_back_to_output(self):
+    def test_unparseable_json_is_a_loud_protocol_error(self):
         self.script(stdout="not json")
         result = mcp_server.status()
-        self.assertTrue(result["ok"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "PROTOCOL_ERROR")
         self.assertIsNone(result["data"])
         self.assertEqual(result["output"], "not json")
+        self.assertIn("unparseable", result["error"])
 
     def test_hung_cli_reports_client_timeout(self):
         stub = self.stub_dir / "hbot"
@@ -109,6 +111,16 @@ class MCPServerStubTest(unittest.TestCase):
 
     def test_missing_binary_reports_no_cli(self):
         os.environ["HBOT_BIN"] = str(self.stub_dir / "does-not-exist")
+        result = mcp_server.status()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "NO_CLI")
+        self.assertIn("HBOT_BIN", result["error"])
+
+    def test_non_executable_binary_reports_no_cli(self):
+        # PermissionError and friends must also come back as the uniform result.
+        plain = self.stub_dir / "not-executable"
+        plain.write_text("data")
+        os.environ["HBOT_BIN"] = str(plain)
         result = mcp_server.status()
         self.assertFalse(result["ok"])
         self.assertEqual(result["exit_status"], "NO_CLI")
@@ -144,16 +156,31 @@ class MCPServerStubTest(unittest.TestCase):
         self.assertEqual(self.argv(), ["history", "conf_old", "--days", "7"])
         mcp_server.config("total_amount_quote", "250")
         self.assertEqual(self.argv(), ["config", "total_amount_quote", "250", "--json"])
+        mcp_server.config("some_field", "")  # empty string is a SET, not a read
+        self.assertEqual(self.argv(), ["config", "some_field", "", "--json"])
         mcp_server.balance(units_only=True)
         self.assertEqual(self.argv(), ["balance", "--units-only", "--json"])
+
+    def test_config_value_without_key_fails_client_side(self):
+        result = mcp_server.config(value="250")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "BAD_ARGUMENT")
+        self.assertFalse((self.stub_dir / "argv").exists(), "hbot must not be invoked")
+
+    def test_timeout_above_cap_fails_client_side(self):
+        for call in (lambda: mcp_server.deploy("x", timeout=601),
+                     lambda: mcp_server.start("x", timeout=99999),
+                     lambda: mcp_server.stop(timeout=601)):
+            result = call()
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["exit_status"], "BAD_ARGUMENT")
+        self.assertFalse((self.stub_dir / "argv").exists(), "hbot must not be invoked")
 
     def test_connections_variants(self):
         self.script(stdout="x")
         mcp_server.connections(show_all=True)
         self.assertEqual(self.argv(), ["connect", "--all"])
-        mcp_server.connections(connector="binance", show_fields=True)
-        self.assertEqual(self.argv(), ["connect", "binance", "--fields"])
-        # A connector alone implies the fields listing — never the interactive key-entry path.
+        # A connector implies the fields listing — never the interactive key-entry path.
         mcp_server.connections(connector="binance")
         self.assertEqual(self.argv(), ["connect", "binance", "--fields"])
         mcp_server.import_config("conf_x.yml")
@@ -171,12 +198,19 @@ class MCPServerStubTest(unittest.TestCase):
         mcp_server.create("pmm_simple", config_type="controller")
         self.assertEqual(self.argv(), ["create", "pmm_simple", "--controller"])
 
-    def test_invalid_config_type_fails_client_side(self):
-        result = mcp_server.import_config("conf_x.yml", config_type="script")
-        self.assertFalse(result["ok"])
-        self.assertEqual(result["exit_status"], "BAD_ARGUMENT")
-        self.assertIn("v2-script", result["error"])
+    def test_invalid_config_type_raises_without_invoking_hbot(self):
+        # MCP clients are stopped by the Literal enum in the schema; direct callers get
+        # the ValueError from _type_args. Either way hbot is never invoked.
+        with self.assertRaises(ValueError):
+            mcp_server.import_config("conf_x.yml", config_type="script")
         self.assertFalse((self.stub_dir / "argv").exists(), "hbot must not be invoked")
+
+    def test_config_type_is_an_enum_in_the_tool_schema(self):
+        import asyncio
+        tools = asyncio.run(mcp_server.mcp.list_tools())
+        schema = next(t for t in tools if t.name == "import_config").inputSchema
+        self.assertEqual(schema["properties"]["config_type"]["enum"],
+                         ["", "v1-strategy", "v2-script", "controller"])
 
     # ── surface & secrets policy ────────────────────────────────────────
 
