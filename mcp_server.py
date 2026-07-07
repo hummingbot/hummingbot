@@ -1,554 +1,312 @@
-"""MCP server for managing Hummingbot v2 bots as detached TMUX sessions.
+"""MCP server for Hummingbot — a thin, faithful wrapper over the ``hbot`` CLI.
 
-Each bot runs in its own ``tmux`` session named ``hb-<config-stem>``. The server
-exposes MCP tools to deploy controllers, start/stop bots, tail their logs and read
-the live status panel — so an assistant can operate a fleet of bots without a human
-attaching to each terminal.
+Each tool maps 1:1 onto an ``hbot`` command and runs it as a short subprocess. The CLI is
+the substrate (headless engine, structured status, signal-based stop, stable exit codes);
+this server only adds MCP transport so harnesses without a shell — or users who prefer
+native tools — can drive the same bot. There is no tmux, no interactive client, and no
+screen-scraping (see hbot-cli-vs-mcp-eval.md for why that substrate was replaced).
 
 Configuration via environment variables (all optional):
 
-* ``HB_PYTHON``     — absolute path to the Python interpreter of the ``hummingbot``
-                      conda env. If unset, common conda locations are probed.
-* ``HB_PROJECT_ROOT`` — Hummingbot checkout to operate on. Defaults to this file's dir.
+* ``HBOT_BIN``      — the hbot executable to invoke. Defaults to ``bin/hbot-host`` next to
+                      this file, which auto-detects a ``hummingbot`` conda env or a running
+                      ``hummingbot`` Docker container.
+* ``HBOT_PASSWORD`` — the keystore password, passed through to the CLI's environment.
+                      Set it in the MCP server config; it is NEVER a tool argument.
 
-Requirements: ``tmux`` on PATH, and (for ``open_terminal``) macOS with ``osascript``.
+Run: ``uv run --with mcp python mcp_server.py`` (see .mcp.json).
 """
-
+import json
 import os
-import platform
-import shlex
 import subprocess
-import time
-from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-import yaml
 from mcp.server.fastmcp import FastMCP
 
-PROJECT_ROOT = Path(os.environ.get("HB_PROJECT_ROOT", Path(__file__).resolve().parent))
-SESSION_PREFIX = "hb-"
+PROJECT_ROOT = Path(__file__).resolve().parent
 
-# Timeouts (seconds) for the short, synchronous helper subprocesses.
-TMUX_TIMEOUT = 10
-PGREP_TIMEOUT = 5
+# hbot's stable exit-code contract (hummingbot/cli/output.py). Branch on these, not on text.
+EXIT_NAMES = {
+    0: "SUCCESS",
+    1: "ERROR",
+    2: "NOT_FOUND",
+    3: "NOT_RUNNING",
+    4: "CONFIG_ERROR",
+    5: "TIMEOUT",
+}
 
-# Bounds for log tailing so a tool call never returns an unbounded blob.
-MAX_LOG_LINES = 2000
+# Ceiling for one subprocess call; per-command --timeout values stay well under it.
+SUBPROCESS_TIMEOUT = 300
 
-# Seconds to let the pane's interactive shell finish initializing before we type the
-# launch command. On heavy prompts (oh-my-zsh + git status) send-keys sent too early is
-# silently dropped, so the bot never starts. 0.5s is the empirical floor; 0.75s adds margin.
-SHELL_SETTLE = float(os.environ.get("HB_SHELL_SETTLE", "0.75"))
+INSTRUCTIONS = """\
+Operate a Hummingbot trading bot through the `hbot` CLI. Real money: prefer small sizes,
+verify state after every mutating call, and stop the bot when the user is done.
+
+Mental model:
+- ONE bot per install. `start`/`deploy` fail if a bot is running unless replace=true.
+- Three config types, one folder each: v1-strategy (conf/strategies/), v2-script
+  (conf/scripts/), controller (conf/controllers/). File names are unique across folders,
+  so a bare filename is unambiguous; the type is auto-detected.
+- A config is first LOADED (create/import), then RUN (start). `deploy` does both in one
+  call — it is the primitive to reach for when the user just wants a bot running.
+- Controllers apply live-updatable field changes (~10s) while running via `config`.
+
+The core loop:
+  connections() → balance() → deploy(target, values) → status() → logs() → stop()
+  Field discovery: create/deploy with missing required fields FAILS listing exactly the
+  fields needed — that error is the documentation; don't invent field names.
+
+Read results like this: every tool returns {ok, exit_code, exit_status, data|output, error}.
+`data` is the parsed --json payload where the CLI supports it; `output` is compact Markdown
+otherwise. Branch on ok/exit_status, never on prose.
+
+Health: status() reporting running=true does NOT mean healthy — it includes a recent-errors
+count; check it. history() also fetches balances, so it is the slowest call.
+
+Secrets policy (strict):
+- NEVER ask the user to paste API keys, private keys, or the keystore password into chat,
+  and never accept them as tool inputs. Key entry is deliberately NOT a tool: have the user
+  run `hbot connect <connector>` interactively in their own terminal (input is hidden and
+  goes straight into the encrypted keystore).
+- The keystore password comes from HBOT_PASSWORD in the MCP server's environment. If a tool
+  fails with exit_status CONFIG_ERROR mentioning the password, tell the user to set
+  HBOT_PASSWORD in their MCP config — do not ask for the password itself.
+- On a brand-new install the first password used BECOMES the keystore password.
+"""
+
+mcp = FastMCP("hummingbot", instructions=INSTRUCTIONS)
 
 
-def _resolve_hb_python() -> str:
-    """Locate the hummingbot env interpreter.
-
-    We invoke python by absolute path instead of ``conda run`` because on some setups
-    ``conda run`` does not put the env's python on PATH (it can resolve to an unrelated
-    active venv), and when the env is mounted as ``base`` then ``conda run -n hummingbot``
-    builds a doubled, invalid path. ``HB_PYTHON`` always wins if set.
-    """
-    override = os.environ.get("HB_PYTHON")
+def _hbot_bin() -> str:
+    override = os.environ.get("HBOT_BIN")
     if override:
         return override
-    candidates = [
-        Path.home() / "anaconda3" / "envs" / "hummingbot" / "bin" / "python",
-        Path.home() / "miniconda3" / "envs" / "hummingbot" / "bin" / "python",
-        Path.home() / "miniforge3" / "envs" / "hummingbot" / "bin" / "python",
-        Path("/opt/anaconda3/envs/hummingbot/bin/python"),
-        Path("/opt/homebrew/anaconda3/envs/hummingbot/bin/python"),
-        Path("/opt/miniconda3/envs/hummingbot/bin/python"),
-    ]
-    for cand in candidates:
-        if cand.exists():
-            return str(cand)
-    # Fall back to the first well-known location; start_bot surfaces a clear error
-    # if it does not exist, rather than failing opaquely inside tmux.
-    return str(candidates[3])
+    return str(PROJECT_ROOT / "bin" / "hbot-host")
 
 
-HB_PYTHON = _resolve_hb_python()
+def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = False) -> dict:
+    """Run one hbot command and map it to the uniform tool result.
 
-mcp = FastMCP("hummingbot-manager")
-
-
-# ── Subprocess helpers ───────────────────────────────────────────────────────
-
-def _run(cmd: list[str], timeout: int) -> subprocess.CompletedProcess:
-    """Run a subprocess, converting environment failures into a CompletedProcess.
-
-    A missing binary or a timeout would otherwise raise and crash the tool call; we
-    surface them as returncode=-1 with a message on stderr so callers stay uniform.
+    ``json_output`` appends ``--json`` and parses stdout into ``data``; otherwise stdout
+    (compact Markdown) is returned verbatim as ``output``.
     """
+    cmd = [_hbot_bin(), *[str(a) for a in args]]
+    if json_output:
+        cmd.append("--json")
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(
+            cmd,
+            input=stdin_data,
+            capture_output=True,
+            text=True,
+            timeout=SUBPROCESS_TIMEOUT,
+            cwd=PROJECT_ROOT,
+        )
     except FileNotFoundError:
-        return subprocess.CompletedProcess(cmd, -1, "", f"command not found: {cmd[0]}")
+        return {
+            "ok": False, "exit_code": -1, "exit_status": "NO_CLI",
+            "data": None, "output": None,
+            "error": f"hbot executable not found: {cmd[0]}. Set HBOT_BIN or install the CLI "
+                     f"(`make install`, or `make deploy && make link-cli` for Docker).",
+        }
     except subprocess.TimeoutExpired:
-        return subprocess.CompletedProcess(cmd, -1, "", f"timed out after {timeout}s: {cmd[0]}")
-
-
-def _run_tmux(*args: str) -> subprocess.CompletedProcess:
-    return _run(["tmux", *args], TMUX_TIMEOUT)
-
-
-def _session_exists(name: str) -> bool:
-    return _run_tmux("has-session", "-t", name).returncode == 0
-
-
-def _get_session_config(name: str) -> str | None:
-    result = _run_tmux("show-environment", "-t", name, "HB_CONFIG")
-    if result.returncode == 0 and "=" in result.stdout:
-        return result.stdout.strip().split("=", 1)[1]
-    return None
-
-
-def _config_to_log_path(config_name: str) -> Path:
-    stem = Path(config_name).stem
-    return PROJECT_ROOT / "logs" / f"logs_{stem}.log"
-
-
-def _capture_pane(name: str, lines: int = 40) -> str:
-    result = _run_tmux("capture-pane", "-t", name, "-p", "-S", f"-{lines}")
-    return result.stdout if result.returncode == 0 else ""
-
-
-def _process_alive(name: str) -> bool:
-    """True if the session's pane shell has a child process (i.e. the bot is running)."""
-    pid_result = _run_tmux("list-panes", "-t", name, "-F", "#{pane_pid}")
-    out = pid_result.stdout.strip().splitlines() if pid_result.returncode == 0 else []
-    pane_pid = out[0].strip() if out else ""
-    if not pane_pid:
-        return False
-    return _run(["pgrep", "-P", pane_pid], PGREP_TIMEOUT).returncode == 0
-
-
-def _safe_stem(name: str) -> str | None:
-    """Return the sanitized stem of a user-supplied name, or None if unsafe.
-
-    Guards the filesystem paths built from run/config names against traversal
-    (``..``) and separators, which would otherwise let a name escape conf/.
-    """
-    stem = Path(name).stem.strip()
-    if not stem or stem in (".", "..") or "/" in name or "\\" in name:
-        return None
-    return stem
-
-
-def _quickstart_cmd(config_file: str, password: str) -> str:
-    """Build the shell command that launches the bot inside the tmux pane.
-
-    The password is passed via the ``CONFIG_PASSWORD`` env var (which quickstart reads)
-    rather than the ``-p`` flag, so it does not appear in the process argv / ``ps`` output.
-    ``VIRTUAL_ENV``/``PYTHONPATH`` are cleared so the absolute-path interpreter is not
-    shadowed by an active venv. Every interpolated value is shell-quoted.
-    """
-    return (
-        f"VIRTUAL_ENV= PYTHONPATH= CONFIG_PASSWORD={shlex.quote(password)} "
-        f"{shlex.quote(HB_PYTHON)} ./bin/hummingbot_quickstart.py "
-        f"--v2 {shlex.quote(config_file)}"
-    )
-
-
-def _start_session(config_file: str, session_name: str, password: str) -> dict:
-    """Create a detached TMUX session and launch the bot in it."""
-    if _session_exists(session_name):
-        return {"status": "error", "error": f"Session '{session_name}' already exists. Stop it first."}
-
-    if not Path(HB_PYTHON).exists():
         return {
-            "status": "error",
-            "error": f"Hummingbot interpreter not found: {HB_PYTHON}. "
-                     f"Set HB_PYTHON to the conda env's python.",
+            "ok": False, "exit_code": -1, "exit_status": "CLIENT_TIMEOUT",
+            "data": None, "output": None,
+            "error": f"hbot did not return within {SUBPROCESS_TIMEOUT}s: {' '.join(cmd)}",
         }
 
-    result = _run_tmux("new-session", "-d", "-s", session_name, "-c", str(PROJECT_ROOT))
-    if result.returncode != 0:
-        return {"status": "error", "error": f"Failed to create tmux session: {result.stderr.strip()}"}
-
-    _run_tmux("set-environment", "-t", session_name, "HB_CONFIG", config_file)
-    # Let the interactive shell settle so the launch command is not typed before the
-    # prompt is ready (otherwise send-keys is dropped and the bot never starts).
-    time.sleep(SHELL_SETTLE)
-    _run_tmux("send-keys", "-t", session_name, _quickstart_cmd(config_file, password), "Enter")
-
-    return {
-        "status": "ok",
-        "session_name": session_name,
-        "config_file": config_file,
-        "log_path": str(_config_to_log_path(config_file)),
+    result = {
+        "ok": proc.returncode == 0,
+        "exit_code": proc.returncode,
+        "exit_status": EXIT_NAMES.get(proc.returncode, "UNKNOWN"),
+        "data": None,
+        "output": None,
+        "error": proc.stderr.strip() or None,
     }
-
-
-def _write_deploy_config(
-    controllers: list[str],
-    config_name: str,
-    script_file_name: str,
-    max_global_drawdown_quote: float | None,
-    max_controller_drawdown_quote: float | None,
-) -> dict:
-    if not controllers:
-        return {"status": "error", "error": "Must provide at least one controller config."}
-
-    controllers_dir = PROJECT_ROOT / "conf" / "controllers"
-    normalized = []
-    for c in controllers:
-        if not c.endswith(".yml"):
-            c += ".yml"
-        if _safe_stem(c) is None:
-            return {"status": "error", "error": f"Invalid controller name: {c}"}
-        if not (controllers_dir / c).exists():
-            return {"status": "error", "error": f"Controller config not found: conf/controllers/{c}"}
-        normalized.append(c)
-
-    if _safe_stem(script_file_name) is None or not (PROJECT_ROOT / "scripts" / script_file_name).exists():
-        return {"status": "error", "error": f"Script not found: scripts/{script_file_name}"}
-
-    if not config_name.endswith(".yml"):
-        config_name += ".yml"
-    if _safe_stem(config_name) is None:
-        return {"status": "error", "error": f"Invalid config name: {config_name}"}
-
-    config_data = {
-        "controllers_config": normalized,
-        "script_file_name": script_file_name,
-        "max_global_drawdown_quote": max_global_drawdown_quote,
-        "max_controller_drawdown_quote": max_controller_drawdown_quote,
-    }
-    output_path = PROJECT_ROOT / "conf" / "scripts" / config_name
-    with open(output_path, "w") as f:
-        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-
-    return {"status": "ok", "config_file": config_name, "path": str(output_path), "content": config_data}
-
-
-def _tail(path: Path, n: int) -> list[str]:
-    """Return the last ``n`` lines of a file without reading it fully into memory."""
-    n = max(1, n)
-    with open(path, "rb") as f:
-        f.seek(0, os.SEEK_END)
-        pos = f.tell()
-        data = b""
-        block = 8192
-        while pos > 0 and data.count(b"\n") <= n:
-            read = min(block, pos)
-            pos -= read
-            f.seek(pos)
-            data = f.read(read) + data
-        lines = data.splitlines()[-n:]
-    return [ln.decode("utf-8", "replace") for ln in lines]
-
-
-# ── Deploy / start ─────────────────────────────────────────────────────────
-
-@mcp.tool()
-def deploy(
-    controllers: list[str],
-    run_name: str = "",
-    password: str = "a",
-    max_global_drawdown_quote: float | None = None,
-    max_controller_drawdown_quote: float | None = None,
-    script_file_name: str = "v2_with_controllers.py",
-) -> dict:
-    """Deploy one or more controllers as a new bot run.
-
-    This is the high-level entry point: you say WHICH controllers to run and it
-    builds the v2 deploy config for you with a UNIQUE name, so each run gets its own
-    sqlite DB (data/{config}.sqlite) and log file (logs/logs_{config}.log) — easier to
-    review in isolation. Then it starts the bot in a detached TMUX session.
-
-    Args:
-        controllers: Controller config filenames from conf/controllers/ (e.g. ["pmm_king_wld.yml"]).
-        run_name: Optional label for this run. If omitted, a unique name is auto-generated
-            from the first controller + timestamp (e.g. pmm_king_wld_0604_2103).
-        password: Hummingbot password. Defaults to "a".
-        max_global_drawdown_quote: Max global drawdown in quote. None = no limit.
-        max_controller_drawdown_quote: Max per-controller drawdown in quote. None = no limit.
-        script_file_name: v2 runner script. Defaults to v2_with_controllers.py.
-    """
-    if not controllers:
-        return {"status": "error", "error": "Must provide at least one controller config."}
-
-    if run_name:
-        stem = _safe_stem(run_name)
-        if stem is None:
-            return {"status": "error", "error": f"Invalid run_name: {run_name}"}
+    stdout = proc.stdout.strip()
+    if json_output and proc.returncode == 0:
+        try:
+            result["data"] = json.loads(stdout)
+        except ValueError:
+            result["output"] = stdout or None
     else:
-        first_stem = _safe_stem(controllers[0]) or "run"
-        stem = f"{first_stem}_{datetime.now().strftime('%m%d_%H%M')}"
-    config_name = f"conf_{stem}.yml"
-    session_name = f"{SESSION_PREFIX}{Path(config_name).stem}"
+        result["output"] = stdout or None
+    return result
 
-    created = _write_deploy_config(
-        controllers, config_name, script_file_name,
-        max_global_drawdown_quote, max_controller_drawdown_quote,
-    )
-    if created["status"] != "ok":
-        return created
 
-    started = _start_session(config_name, session_name, password)
-    if started["status"] != "ok":
-        return started
+def _set_args(values: Optional[dict]) -> tuple:
+    """Encode a {field: value} dict as (extra_args, stdin) using --values-stdin (bulk fill)."""
+    if not values:
+        return [], None
+    return ["--values-stdin"], json.dumps(values)
 
-    db_stem = Path(config_name).stem
-    return {
-        "status": "ok",
-        "session_name": session_name,
-        "config_file": config_name,
-        "controllers": created["content"]["controllers_config"],
-        "log_path": str(_config_to_log_path(config_name)),
-        "db_path": str(PROJECT_ROOT / "data" / f"{db_stem}.sqlite"),
-        "note": "Unique DB + logs for this run. Attach with open_terminal, stop with stop_bot.",
-    }
 
+# ── set up (connectors & funds) ──────────────────────────────────────────────
 
 @mcp.tool()
-def start_bot(config_file: str, session_name: str = "", password: str = "a") -> dict:
-    """Start a bot from an EXISTING deploy config in conf/scripts/ (low-level).
+def connections(connector: str = "", show_fields: bool = False, show_all: bool = False) -> dict:
+    """Show connected connectors, list all connectable ones, or a connector's key fields.
 
-    Prefer `deploy` for new runs (it builds a uniquely-named config for you). Use this
-    when you want to re-run a specific existing conf/scripts/ file as-is.
+    Read-only. With no arguments: the user's current connections (requires the keystore
+    password, i.e. HBOT_PASSWORD). show_all=True: every connectable connector, no keys
+    needed. connector + show_fields=True: which API-key fields that connector requires.
 
-    Args:
-        config_file: Config filename in conf/scripts/ (e.g. conf_pmm_king_wld.yml).
-        session_name: TMUX session name. Defaults to hb-{config_stem}.
-        password: Hummingbot password. Defaults to "a".
+    Adding keys is deliberately NOT a tool — never accept keys in chat. Have the user run
+    `hbot connect <connector>` interactively in their own terminal instead.
     """
-    if not config_file.endswith(".yml"):
-        config_file += ".yml"
-    if _safe_stem(config_file) is None:
-        return {"status": "error", "error": f"Invalid config name: {config_file}"}
-    if not (PROJECT_ROOT / "conf" / "scripts" / config_file).exists():
-        return {"status": "error", "error": f"Config not found: conf/scripts/{config_file}"}
+    if connector and show_fields:
+        return _run_hbot(["connect", connector, "--fields"])
+    if show_all:
+        return _run_hbot(["connect", "--all"])
+    return _run_hbot(["connect"])
 
-    name = session_name or f"{SESSION_PREFIX}{Path(config_file).stem}"
-    return _start_session(config_file, name, password)
-
-
-# ── Stop / cleanup ─────────────────────────────────────────────────────────
 
 @mcp.tool()
-def stop_bot(session_name: str, force: bool = False, cancel_timeout: int = 25) -> dict:
-    """Stop a bot and ALWAYS clean up its TMUX session.
+def balance(units_only: bool = False) -> dict:
+    """Balances per connected connector with USD value; perps also show positions + net value.
 
-    Graceful by default: sends the hummingbot `stop` command (which cancels all open
-    orders on the exchange) and waits for confirmation, then `exit`s the app, then
-    kills the TMUX session so nothing is left behind. With force=True it skips the
-    graceful cancel and kills the session immediately (orders may stay open!).
-
-    Args:
-        session_name: TMUX session name (e.g. hb-conf_pmm_king_wld).
-        force: Skip graceful order-cancel and kill the session immediately.
-        cancel_timeout: Seconds to wait for graceful stop confirmation before exiting.
+    units_only=True skips the price fetch (token amounts only — faster).
     """
-    if not _session_exists(session_name):
-        return {"status": "error", "error": f"Session '{session_name}' not found."}
+    args = ["balance"]
+    if units_only:
+        args.append("--units-only")
+    return _run_hbot(args, json_output=True)
 
-    method = "force-killed"
-    if not force:
-        _run_tmux("send-keys", "-t", session_name, "stop", "Enter")
-        stopped = False
-        for _ in range(max(1, cancel_timeout)):
-            time.sleep(1.0)
-            pane = _capture_pane(session_name, 40).lower()
-            if "stopped successfully" in pane or "no active maker orders" in pane:
-                stopped = True
-                break
-        _run_tmux("send-keys", "-t", session_name, "exit", "Enter")
-        time.sleep(2.0)
-        method = "graceful" if stopped else "graceful-timeout"
 
-    # Guarantee cleanup: the session is always killed.
-    _run_tmux("kill-session", "-t", session_name)
-    return {"status": "ok", "method": method, "session_name": session_name, "cleaned_up": True}
-
+# ── create, load & configure ─────────────────────────────────────────────────
 
 @mcp.tool()
-def kill_session(session_name: str) -> dict:
-    """Force-kill a single TMUX session immediately (no graceful stop).
+def create(strategy: str, values: Optional[dict] = None, name: str = "",
+           with_defaults: bool = False) -> dict:
+    """Create a strategy/controller/script config file and load it (without starting).
 
-    Use to clean up a dead/zombie session, or one where the bot already crashed.
-    Does NOT cancel exchange orders — use stop_bot for a running bot.
+    `values` fills fields ({field: value}); a missing required field fails with the exact
+    list of fields needed — use that error for field discovery instead of guessing.
+    with_defaults=True scaffolds defaults + blank required fields to fill via config().
+    Prefer deploy() when the goal is a RUNNING bot.
     """
-    if not _session_exists(session_name):
-        return {"status": "error", "error": f"Session '{session_name}' not found."}
-    _run_tmux("kill-session", "-t", session_name)
-    return {"status": "ok", "session_name": session_name, "killed": True}
+    extra, stdin = _set_args(values)
+    args = ["create", strategy, *extra]
+    if name:
+        args += ["--name", name]
+    if with_defaults:
+        args.append("--with-defaults")
+    return _run_hbot(args, stdin_data=stdin)
 
 
 @mcp.tool()
-def kill_all_bots() -> dict:
-    """Force-kill ALL Hummingbot (hb-) TMUX sessions. Cleanup sweep.
+def import_config(config_file: str) -> dict:
+    """Load an existing config file (from conf/strategies|scripts|controllers) as the
+    current strategy, so config() can edit it and start() can run it."""
+    return _run_hbot(["import", config_file])
 
-    Does NOT gracefully cancel orders. Use stop_bot per-session if bots are live.
+
+@mcp.tool()
+def config(key: str = "", value: str = "") -> dict:
+    """View or set configuration — global client settings plus the loaded strategy's fields.
+
+    No args: show everything. key only: read one field. key + value: set it (global keys
+    win over strategy keys). On a RUNNING controller, live-updatable fields apply in ~10s;
+    the reply says when a change takes effect.
     """
-    result = _run_tmux("list-sessions", "-F", "#{session_name}")
-    killed = []
-    if result.returncode == 0:
-        for line in result.stdout.strip().splitlines():
-            name = line.strip()
-            if name.startswith(SESSION_PREFIX):
-                _run_tmux("kill-session", "-t", name)
-                killed.append(name)
-    return {"status": "ok", "killed": killed}
+    args = ["config"]
+    if key:
+        args.append(key)
+        if value:
+            args.append(value)
+    return _run_hbot(args, json_output=True)
 
 
-# ── Inspect ────────────────────────────────────────────────────────────────
+# ── run & control ────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def list_bots() -> dict:
-    """List all Hummingbot TMUX sessions and whether each is actually running."""
-    result = _run_tmux("list-sessions", "-F", "#{session_name}")
-    if result.returncode != 0:
-        return {"status": "ok", "sessions": []}
+def deploy(target: str, values: Optional[dict] = None, name: str = "",
+           replace: bool = False, timeout: float = 120.0) -> dict:
+    """One shot: config → RUNNING bot. The primary way to launch.
 
-    sessions = []
-    for line in result.stdout.strip().splitlines():
-        name = line.strip()
-        if not name.startswith(SESSION_PREFIX):
-            continue
-        alive = _process_alive(name)
-        sessions.append({
-            "session_name": name,
-            "config": _get_session_config(name) or "unknown",
-            "process_alive": alive,
-            "state": "running" if alive else "idle/dead",
-        })
-    return {"status": "ok", "sessions": sessions}
-
-
-@mcp.tool()
-def open_terminal(session_name: str) -> dict:
-    """Open a new macOS Terminal window attached to the bot's TMUX session.
-
-    Lets you watch the live hummingbot UI directly. Detach with Ctrl-b then d
-    (this does NOT stop the bot). macOS only.
-
-    Args:
-        session_name: TMUX session name (e.g. hb-conf_pmm_king_wld).
+    `target` is either an existing config file name (deployed as-is, `values` edits it
+    first) or a strategy/controller/script name (a ready-to-run config is created; every
+    required field must then be in `values` — a miss fails listing the missing fields).
+    replace=True stops a currently running bot first. Verify with status() afterwards.
     """
-    if platform.system() != "Darwin":
-        return {
-            "status": "error",
-            "error": f"open_terminal is macOS-only. Attach manually: tmux attach -t {session_name}",
-        }
-    if not _session_exists(session_name):
-        return {"status": "error", "error": f"Session '{session_name}' not found."}
-    attach_cmd = f"tmux attach -t {shlex.quote(session_name)}"
-    r = _run(
-        [
-            "osascript",
-            "-e", 'tell application "Terminal" to activate',
-            "-e", f'tell application "Terminal" to do script "{attach_cmd}"',
-        ],
-        TMUX_TIMEOUT,
-    )
-    if r.returncode != 0:
-        return {"status": "error", "error": r.stderr.strip() or "osascript failed"}
-    return {"status": "ok", "session_name": session_name, "opened": True}
+    extra, stdin = _set_args(values)
+    args = ["deploy", target, *extra, "--timeout", timeout]
+    if name:
+        args += ["--name", name]
+    if replace:
+        args.append("--replace")
+    return _run_hbot(args, stdin_data=stdin, json_output=True)
 
 
 @mcp.tool()
-def read_logs(config_name: str = "", session_name: str = "", lines: int = 50) -> dict:
-    """Read recent log lines from a Hummingbot bot.
+def start(config_file: str = "", replace: bool = False, timeout: float = 120.0) -> dict:
+    """Start a bot from a config file (type auto-detected), detached.
 
-    Args:
-        config_name: Config filename to derive log path (e.g. conf_pmm_king_wld).
-        session_name: Alternatively, provide session name to look up config.
-        lines: Number of lines to read from end of log. Defaults to 50 (max 2000).
+    With no config_file, runs the currently loaded config (from create/import). Fails if a
+    bot is already running unless replace=True. Verify with status() afterwards.
     """
-    if not config_name and session_name:
-        config_name = _get_session_config(session_name) or ""
-    if not config_name:
-        return {"status": "error", "error": "Provide config_name or a valid session_name."}
-
-    log_path = _config_to_log_path(config_name)
-    if not log_path.exists():
-        return {"status": "error", "error": f"Log file not found: {log_path}"}
-
-    lines = min(max(1, lines), MAX_LOG_LINES)
-    try:
-        tail = _tail(log_path, lines)
-        return {
-            "status": "ok",
-            "log_path": str(log_path),
-            "lines_returned": len(tail),
-            "content": "\n".join(tail),
-        }
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    args = ["start"]
+    if config_file:
+        args.append(config_file)
+    args += ["--timeout", timeout]
+    if replace:
+        args.append("--replace")
+    return _run_hbot(args, json_output=True)
 
 
 @mcp.tool()
-def bot_status(session_name: str) -> dict:
-    """Get status of a Hummingbot bot TMUX session.
+def stop(force: bool = False, timeout: float = 30.0) -> dict:
+    """Stop the running bot gracefully — cancels its open orders first.
 
-    Sends the hummingbot `status` command and returns the live strategy panel
-    (curve, target/actual/gap, budgets, held inventory, resting orders) plus whether
-    the process is alive. Requires a running strategy for the status panel to populate.
-
-    Args:
-        session_name: TMUX session name (e.g. hb-conf_pmm_king_wld).
+    force=True SIGKILLs if still alive after `timeout` seconds (open orders may survive on
+    the exchange — check afterwards). exit_status NOT_RUNNING means it was already stopped.
     """
-    if not _session_exists(session_name):
-        return {"status": "error", "error": f"Session '{session_name}' not found."}
+    args = ["stop", "--timeout", timeout]
+    if force:
+        args.append("--force")
+    return _run_hbot(args, json_output=True)
 
-    alive = _process_alive(session_name)
-    if alive:
-        # Trigger a fresh status render, then read it back.
-        _run_tmux("send-keys", "-t", session_name, "status", "Enter")
-        time.sleep(2.0)
 
-    return {
-        "status": "ok",
-        "session_name": session_name,
-        "config": _get_session_config(session_name) or "unknown",
-        "process_alive": alive,
-        "terminal_output": _capture_pane(session_name, 60).strip(),
-    }
-
+# ── observe ──────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-def list_controllers() -> dict:
-    """List available controller config files in conf/controllers/."""
-    controllers_dir = PROJECT_ROOT / "conf" / "controllers"
-    if not controllers_dir.exists():
-        return {"status": "error", "error": "conf/controllers/ directory not found."}
-    configs = [f.name for f in sorted(controllers_dir.iterdir()) if f.suffix == ".yml"]
-    return {"status": "ok", "controllers": configs}
+def status() -> dict:
+    """Run state, live strategy status, and a recent-errors count.
 
-
-@mcp.tool()
-def create_config(
-    controllers: list[str],
-    config_name: str = "",
-    script_file_name: str = "v2_with_controllers.py",
-    max_global_drawdown_quote: float | None = None,
-    max_controller_drawdown_quote: float | None = None,
-) -> dict:
-    """Create a deploy config in conf/scripts/ without starting it (low-level).
-
-    Prefer `deploy` for new runs. Use this if you only want to write the config file.
-
-    Args:
-        controllers: Controller config filenames from conf/controllers/ (e.g. ["pmm_3.yml"]).
-        config_name: Output filename in conf/scripts/. Defaults to conf_v2_{first_controller_stem}.yml.
-        script_file_name: Script to use. Defaults to v2_with_controllers.py.
-        max_global_drawdown_quote: Max global drawdown in quote. None = no limit.
-        max_controller_drawdown_quote: Max per-controller drawdown in quote. None = no limit.
+    running=true does NOT mean healthy — a bot can be alive and erroring; check the error
+    count and read logs() when it is non-zero.
     """
-    if not config_name:
-        if not controllers:
-            return {"status": "error", "error": "Must provide at least one controller config."}
-        first_stem = _safe_stem(controllers[0])
-        if first_stem is None:
-            return {"status": "error", "error": f"Invalid controller name: {controllers[0]}"}
-        config_name = f"conf_v2_{first_stem}.yml"
-    return _write_deploy_config(
-        controllers, config_name, script_file_name,
-        max_global_drawdown_quote, max_controller_drawdown_quote,
-    )
+    return _run_hbot(["status"], json_output=True)
+
+
+@mcp.tool()
+def logs(name: str = "", lines: int = 100) -> dict:
+    """Trailing log lines (snapshot; there is no follow mode over MCP).
+
+    With no name: the current bot. Pass a name (a config stem from a previous start) to
+    read a past/stopped bot's log.
+    """
+    args = ["logs"]
+    if name:
+        args.append(name)
+    args += ["--lines", lines]
+    return _run_hbot(args, json_output=True)
+
+
+@mcp.tool()
+def history(name: str = "", days: Optional[float] = None) -> dict:
+    """PnL, fees, and volume per market (the slowest call — it also fetches balances).
+
+    With no name: the current bot. Pass a name to review a past/stopped bot indefinitely.
+    """
+    args = ["history"]
+    if name:
+        args.append(name)
+    if days is not None:
+        args += ["--days", days]
+    return _run_hbot(args)
 
 
 if __name__ == "__main__":
