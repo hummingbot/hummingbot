@@ -364,6 +364,36 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertTrue(trade_event["data"]["tradeId"], msg.trade_id)
 
+    def test_channel_originating_message_routes_execution_topic_to_trade_queue(self):
+        # Regression test for issue #7482: the public trade feed for KuCoin futures is the
+        # "/contractMarket/execution" topic (WS_TRADES_TOPIC). Messages on that topic must be
+        # routed to the trade queue key, otherwise listen_for_trades never receives them. Before
+        # the fix the data source subscribed to (and routed) "/contractMarket/ticker", so every
+        # public trade update was silently dropped.
+        event_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "subject": "match",
+            "data": {"symbol": self.trading_pair},
+        }
+
+        channel = self.data_source._channel_originating_message(event_message)
+
+        self.assertEqual(self.data_source._trade_messages_queue_key, channel)
+
+    def test_channel_originating_message_does_not_route_ticker_topic_to_trade_queue(self):
+        # The ticker topic is a different public feed and must never be mistaken for trades.
+        event_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_TICKER_INFO_TOPIC}:{self.trading_pair}",
+            "subject": "ticker",
+            "data": {"symbol": self.trading_pair},
+        }
+
+        channel = self.data_source._channel_originating_message(event_message)
+
+        self.assertNotEqual(self.data_source._trade_messages_queue_key, channel)
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
@@ -655,6 +685,12 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertTrue(result)
         # KuCoin perpetual sends 3 messages: match, level2, funding
         self.assertEqual(3, mock_ws.send.call_count)
+
+        # Regression for issue #7482: the per-pair subscription must use the public trade
+        # execution topic, never the ticker topic (which carries no trade prints).
+        sent_topics = [call.args[0].payload["topic"] for call in mock_ws.send.call_args_list]
+        self.assertIn(f"{CONSTANTS.WS_TRADES_TOPIC}:{new_pair}", sent_topics)
+        self.assertNotIn(f"{CONSTANTS.WS_TICKER_INFO_TOPIC}:{new_pair}", sent_topics)
 
         # Verify pair was added to trading pairs
         self.assertIn(new_pair, self.data_source._trading_pairs)

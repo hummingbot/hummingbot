@@ -319,7 +319,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/ticker:{symbol}",
+                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -328,7 +328,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             order_book_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/level2:{symbol}",
+                "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -377,7 +377,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "unsubscribe",
-                "topic": f"/contractMarket/ticker:{symbol}",
+                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -386,7 +386,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             order_book_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "unsubscribe",
-                "topic": f"/contractMarket/level2:{symbol}",
+                "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }
