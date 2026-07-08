@@ -296,6 +296,52 @@ as a container's command it would exit immediately and stop the container.) Eith
 
 ---
 
+## MCP server (agentic harnesses without a shell)
+
+`hbot` is already agent-friendly over a plain shell, and that is the recommended way to drive it
+from Claude Code or any harness with a Bash tool. For harnesses (or users) that prefer **native MCP
+tools**, the repo root ships `mcp_server.py` — a thin wrapper that runs each tool as one `hbot`
+subprocess call and returns `{ok, exit_code, exit_status, data|output, error}` (with `data` being
+the parsed `--json` payload where the CLI supports it). Same substrate, same one-bot-per-install
+model; MCP is just a second transport.
+
+The transport is **stdio only**, deliberately: the tools trade real money and MCP's HTTP
+transports ship no auth, so trading access stays behind credentials the OS already manages
+(process spawn rights, the Docker socket). No port is ever opened.
+
+- **Claude Code** picks it up automatically from `.mcp.json` when started in the repo root.
+  Other stdio clients on a source install: `bin/hbot-mcp`.
+- **Claude Desktop & other shell-less clients (Docker install):** the image ships the server;
+  the client spawns it *inside* the container and speaks stdio through the exec channel.
+  Nothing to install on the host but Docker. In `claude_desktop_config.json`:
+
+  ```json
+  {
+    "mcpServers": {
+      "hummingbot": {
+        "command": "docker",
+        "args": ["exec", "-i", "hummingbot", "hbot-mcp"]
+      }
+    }
+  }
+  ```
+
+  The container must be up (`make deploy`), with `HBOT_PASSWORD` set in its environment
+  (`docker-compose.yml`) for keystore commands. On macOS use the absolute path
+  (`"command": "/usr/local/bin/docker"`) — GUI apps get a minimal `PATH` that may not
+  include docker.
+- The server resolves `hbot` via `bin/hbot-host` (conda env or Docker container both work);
+  set `HBOT_BIN` to override (the image presets it).
+- Set `HBOT_PASSWORD` in the server's environment for commands that need the keystore. **No tool
+  accepts a password or API key** — key entry stays interactive (`hbot connect <connector>` in
+  your own terminal, or `docker exec -it hummingbot hbot connect <connector>`), so secrets never
+  enter an agent's context.
+- The operating manual (mental model, core loop, health caveats, secrets policy) ships as the
+  server's MCP *instructions*, so every connected harness gets it with the tools — no separate
+  skill required.
+
+---
+
 ## Files & state
 
 ```

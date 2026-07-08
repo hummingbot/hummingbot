@@ -33,6 +33,9 @@ services:
     # `docker exec -it hummingbot hbot <command>`.
     #   - for one dedicated bot instead:      command: hbot start <config> --foreground
     #   - for the legacy interactive client:  remove this command, then `docker attach hummingbot`
+    #   - MCP clients (Claude Desktop, etc.) need no changes here: they spawn the server
+    #     inside this container over stdio with `docker exec -i hummingbot hbot-mcp`
+    #     (set HBOT_PASSWORD below so keystore commands work). No port is opened.
     command: tail -f /dev/null
   #  environment:
   #    - HBOT_PASSWORD=admin
