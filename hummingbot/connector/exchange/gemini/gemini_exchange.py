@@ -207,14 +207,13 @@ class GeminiExchange(ExchangePyBase):
             # "exchange limit" priced aggressively through the book. This always goes over
             # REST (the documented path for the immediate-or-cancel option) rather than the
             # maker-oriented order-entry websocket.
-            return await self._place_order_via_rest(
+            return await self._place_market_order_via_rest(
                 order_id=order_id,
                 symbol=symbol,
                 amount=amount,
                 trade_type=trade_type,
-                order_type=order_type,
-                price=self._market_order_price(
-                    trading_pair=trading_pair, trade_type=trade_type, amount=amount, price=price))
+                trading_pair=trading_pair,
+                price=price)
 
         try:
             return await self._place_order_via_ws(
@@ -380,14 +379,22 @@ class GeminiExchange(ExchangePyBase):
     def _affordable_buy_limit_price(self, trading_pair: str, amount: Decimal) -> Optional[Decimal]:
         """Highest per-unit quote price the available quote balance can cover for `amount`
         base, used to keep an emulated market buy's protective limit fundable. Returns None
-        when the amount or the tracked quote balance is unusable, leaving the limit uncapped."""
+        when the amount or the tracked quote balance is unusable, leaving the limit uncapped.
+
+        Gemini reserves amount * limit_price PLUS the taker fee (charged in quote for a buy)
+        when it accepts a buy, so the cap divides the available quote by amount * (1 + taker
+        fee + a small funding buffer). Capping at a bare available / amount would leave nothing
+        for the fee and get every near-all-in market buy rejected for insufficient funds."""
         if amount <= Decimal("0"):
             return None
         _, quote = split_hb_trading_pair(trading_pair)
         available_quote = self._account_available_balances.get(quote)
         if available_quote is None or available_quote <= Decimal("0"):
             return None
-        return available_quote / amount
+        funding_factor = (Decimal("1")
+                          + self.estimate_fee_pct(is_maker=False)
+                          + CONSTANTS.MARKET_ORDER_FUNDING_BUFFER)
+        return available_quote / (amount * funding_factor)
 
     def _reference_price_for_market_order(self,
                                           trading_pair: str,
@@ -454,6 +461,60 @@ class GeminiExchange(ExchangePyBase):
         transact_time = order_result.get("timestampms", 0) * 1e-3
 
         return o_id, transact_time
+
+    async def _place_market_order_via_rest(self,
+                                           order_id: str,
+                                           symbol: str,
+                                           amount: Decimal,
+                                           trade_type: TradeType,
+                                           trading_pair: str,
+                                           price: Decimal) -> Tuple[str, float]:
+        """Places an emulated MARKET order (immediate-or-cancel exchange-limit) over REST,
+        reconciling by client order id if the REST call fails.
+
+        Unlike the WS limit path — which reconciles a GeminiWSAmbiguousResponseError before
+        retrying — the bare REST placement has no ack-reconciliation of its own. A transient
+        failure (connection reset, 429, 5xx, timeout) can be raised AFTER the exchange already
+        accepted the immediate-or-cancel order, so surfacing it as a failure would let the
+        framework mark the order failed and the strategy re-fire a duplicate. Ask REST whether
+        an order with this client id exists first; only surface the failure if it does not."""
+        market_price = self._market_order_price(
+            trading_pair=trading_pair, trade_type=trade_type, amount=amount, price=price)
+        try:
+            return await self._place_order_via_rest(
+                order_id=order_id,
+                symbol=symbol,
+                amount=amount,
+                trade_type=trade_type,
+                order_type=OrderType.MARKET,
+                price=market_price)
+        except asyncio.CancelledError:
+            raise
+        except Exception as rest_error:
+            # A definitive rejection (e.g. insufficient funds) never created an order, so the
+            # reconciliation below returns None and the error is re-raised as a real failure.
+            reconciled = await self._reconcile_order_by_client_id(order_id)
+            if reconciled is not None:
+                self.logger().warning(
+                    f"REST placement of MARKET order {order_id} failed ({rest_error}), but the "
+                    f"exchange reports an order for this client id — keeping it tracked instead "
+                    f"of surfacing a failure that would trigger a duplicate re-placement.")
+                return reconciled
+            raise
+
+    async def _reconcile_order_by_client_id(self, order_id: str) -> Optional[Tuple[str, float]]:
+        """Returns (exchange_order_id, transact_time) if the exchange has an order for this
+        client order id, else None. Swallows reconciliation errors (returning None) so a
+        failed lookup surfaces the original placement error rather than masking it."""
+        try:
+            order_status = await self._get_order_via_rest_by_client_id(order_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return None
+        if order_status is not None and order_status.get("order_id") is not None:
+            return str(order_status["order_id"]), order_status.get("timestampms", 0) * 1e-3
+        return None
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         if tracked_order.exchange_order_id is None:
@@ -834,7 +895,14 @@ class GeminiExchange(ExchangePyBase):
                             self._account_balances.pop(asset_name, None)
                         else:
                             self._account_available_balances[asset_name] = available
-                            self._account_balances[asset_name] = available
+                            # The event's "f" is the free (available) balance only. The TOTAL
+                            # (_account_balances) must stay >= available and is reported by REST
+                            # from the separate "amount" field; writing the free figure into it
+                            # would understate holdings locked in open orders and skew inventory-
+                            # based sizing. Keep any REST-reported total, only raising it to
+                            # `available` when we have no larger total on record yet.
+                            self._account_balances[asset_name] = max(
+                                self._account_balances.get(asset_name, available), available)
 
             except asyncio.CancelledError:
                 raise
