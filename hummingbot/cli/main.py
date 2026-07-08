@@ -16,6 +16,7 @@ from hummingbot.cli.commands import (
     connect as connect_cmd,
     create as create_cmd,
     deploy as deploy_cmd,
+    doctor as doctor_cmd,
     history as history_cmd,
     import_cmd,
     logs as logs_cmd,
@@ -69,6 +70,7 @@ app.command("status")(status_cmd.status)
 app.command("logs")(logs_cmd.logs)
 app.command("history")(history_cmd.history)
 app.command("update")(update_cmd.update)
+app.command("doctor")(doctor_cmd.doctor)
 
 
 def main() -> None:

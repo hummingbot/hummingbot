@@ -70,12 +70,19 @@ hbot
 │  ├─ start [config]             start a bot (defaults to the imported config); --replace to swap
 │  └─ stop                       stop gracefully (cancels orders); --force to kill
 │
-└─ ── observe ([name] = a past/stopped bot) ──
+└─ ── observe & maintain ([name] = a past/stopped bot) ──
    ├─ status                     run state, live status, recent errors
    ├─ logs [name]                tail the log (-f to follow)
    ├─ history [name]             PnL, fees, volume per market
+   ├─ doctor                     health check: keystore, clock skew, disk, stale state (exit 0 = healthy)
    └─ update                     update hbot itself to the branch's latest (--check to preview)
 ```
+
+`doctor` runs the checks whose failures otherwise surface one at a time as confusing runtime
+errors: install/extensions sanity, keystore unlockable (when `HBOT_PASSWORD` is set), **clock
+skew** vs internet time (signed exchange requests reject drifted clocks), free disk for the
+trades DB and logs, stale `bot.pid`, a dangling loaded-config pointer, and whether an MCP HTTP
+server is listening. Any `fail` row exits 1; warns are advisories and exit 0.
 
 `update` updates **the software**, per install type: a source checkout fast-forwards its branch
 and rebuilds the Cython extensions only when compiled sources changed; inside Docker it fails
@@ -193,7 +200,6 @@ Commands the interactive client never had, aimed at first-run experience and ope
 
 | proposed | what it would do | why |
 |---|---|---|
-| `doctor` | one-shot health check: install type + version, env sanity, keystore unlockable, **clock skew** (signed APIs reject drifted clocks), connector API reachability, disk space for DB/logs, stale `bot.pid` / dangling loaded pointer, MCP server reachable. Exit code = health. | today these surface one at a time as confusing runtime errors; agents and humans both need "why is it broken" as one command |
 | `bots` | list past/stopped bot runs (name, config, last run, quick PnL) | `logs`/`history <name>` already work by name, but nothing *lists* the names |
 | `connect --remove <connector>` | delete a connector's stored keys | key rotation/off-boarding currently means editing encrypted files by hand |
 | `start --paper` | run any config against paper-trade connectors | try a strategy with zero risk before funding it |
