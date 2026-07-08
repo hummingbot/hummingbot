@@ -73,8 +73,15 @@ hbot
 └─ ── observe ([name] = a past/stopped bot) ──
    ├─ status                     run state, live status, recent errors
    ├─ logs [name]                tail the log (-f to follow)
-   └─ history [name]             PnL, fees, volume per market
+   ├─ history [name]             PnL, fees, volume per market
+   └─ update                     update hbot itself to the branch's latest (--check to preview)
 ```
+
+`update` updates **the software**, per install type: a source checkout fast-forwards its branch
+and rebuilds the Cython extensions only when compiled sources changed; inside Docker it fails
+fast with the host-side commands (`docker compose pull && docker compose up -d`) — a container
+can't replace its own image. It refuses while a bot is running and refuses to guess on a
+diverged branch.
 
 See [Roadmap](#roadmap) for commands intentionally left out of v1 (`ticker`, `rate`, `positions`,
 `rules`, `book`, `connectors`, `trades`, config `clone`/`list`/`show`, `gateway`).
@@ -146,7 +153,7 @@ be a creatable strategy name, with every required field supplied via `--set` / `
 
 - **One bot per install.** `start` fails if one is already running; pass `--replace` to stop it
   first and start the new one. The config's type is auto-detected from its folder.
-- `update key value` writes the running bot's config file; controllers apply live-updatable fields
+- `config key value` writes the running bot's config file; controllers apply live-updatable fields
   within ~10s, other fields (and v1/v2 scripts) take effect on next start — the reply says which.
 - `status` reports run state, the strategy's live status, and a count of **recent errors** (a bot can
   be alive *and* erroring — check it). `stop` is graceful and cancels open orders.
@@ -179,6 +186,21 @@ return in later versions:
 
 Removing these is not a capability loss in the engine — only in the CLI surface — and each is tracked
 to come back once the core client parity is solid.
+
+### Future UX (proposed, beyond client parity)
+
+Commands the interactive client never had, aimed at first-run experience and operability:
+
+| proposed | what it would do | why |
+|---|---|---|
+| `doctor` | one-shot health check: install type + version, env sanity, keystore unlockable, **clock skew** (signed APIs reject drifted clocks), connector API reachability, disk space for DB/logs, stale `bot.pid` / dangling loaded pointer, MCP server reachable. Exit code = health. | today these surface one at a time as confusing runtime errors; agents and humans both need "why is it broken" as one command |
+| `bots` | list past/stopped bot runs (name, config, last run, quick PnL) | `logs`/`history <name>` already work by name, but nothing *lists* the names |
+| `connect --remove <connector>` | delete a connector's stored keys | key rotation/off-boarding currently means editing encrypted files by hand |
+| `start --paper` | run any config against paper-trade connectors | try a strategy with zero risk before funding it |
+| `backtest <config>` | run a controller config through the backtesting engine, report the same PnL table as `history` | the engine ships a backtester; the CLI can't reach it |
+| `status --watch` | re-render status every few seconds until interrupted (like `logs -f`) | agents poll; humans want a live panel without the interactive client |
+| `export [name]` | trades/orders as CSV to stdout | spreadsheets and tax tools; today it means opening the sqlite DB |
+| shell completion | re-enable typer's completion install | discoverability for humans |
 
 ---
 

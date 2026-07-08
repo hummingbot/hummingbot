@@ -22,6 +22,7 @@ from hummingbot.cli.commands import (
     start as start_cmd,
     status as status_cmd,
     stop as stop_cmd,
+    update as update_cmd,
 )
 from hummingbot.cli.output import SortedCommandsGroup
 
@@ -67,6 +68,7 @@ app.command("stop")(stop_cmd.stop)
 app.command("status")(status_cmd.status)
 app.command("logs")(logs_cmd.logs)
 app.command("history")(history_cmd.history)
+app.command("update")(update_cmd.update)
 
 
 def main() -> None:
