@@ -7,8 +7,8 @@
 #      from the trading env so the server's deps can never conflict with the bot's.
 #   2. `uv` on a source install — resolves the mcp package on the fly, no env pollution.
 #
-# Pass-through args: `--http` serves streamable HTTP at http://$HBOT_MCP_HOST:$HBOT_MCP_PORT/mcp
-# (default 127.0.0.1:8211); no args = stdio for local MCP clients.
+# The server speaks stdio only (its tools trade real money; MCP HTTP ships no auth).
+# From a host harness against the Docker container: `docker exec -i hummingbot hbot-mcp`.
 set -euo pipefail
 
 # Resolve symlinks first: in the Docker image this script is reached via a symlink in the
@@ -29,7 +29,7 @@ if [ -x /opt/mcp-venv/bin/python ]; then
 fi
 
 # Pin a floor: a stale `mcp` in the base interpreter's site-packages would otherwise satisfy
-# a bare `--with mcp` and lack the streamable-http transport.
+# a bare `--with mcp` and break at runtime (the server is developed against 1.10+).
 if command -v uv >/dev/null 2>&1; then
     exec uv run --no-project --with "mcp>=1.10" python "$root/mcp_server.py" "$@"
 fi

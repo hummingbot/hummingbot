@@ -305,14 +305,29 @@ subprocess call and returns `{ok, exit_code, exit_status, data|output, error}` (
 the parsed `--json` payload where the CLI supports it). Same substrate, same one-bot-per-install
 model; MCP is just a second transport.
 
+The transport is **stdio only**, deliberately: the tools trade real money and MCP's HTTP
+transports ship no auth, so trading access stays behind credentials the OS already manages
+(process spawn rights, the Docker socket). No port is ever opened.
+
 - **Claude Code** picks it up automatically from `.mcp.json` when started in the repo root.
-  Other stdio clients: `bin/hbot-mcp` (uses the Docker image's baked-in venv, or `uv` on a
-  source install).
-- **Claude Desktop & other URL-based clients (no shell, no repo checkout):** the Docker image
-  ships the server. Set `command: hbot-mcp --http` in `docker-compose.yml` (plus `HBOT_PASSWORD`),
-  `make deploy`, then add the connector URL `http://localhost:8211/mcp` in the client. The server
-  binds **loopback only** by default — it has no auth and its tools trade real money; set
-  `HBOT_MCP_HOST=0.0.0.0` only if you understand what that exposes.
+  Other stdio clients on a source install: `bin/hbot-mcp`.
+- **Claude Desktop & other shell-less clients (Docker install):** the image ships the server;
+  the client spawns it *inside* the container and speaks stdio through the exec channel.
+  Nothing to install on the host but Docker. In `claude_desktop_config.json`:
+
+  ```json
+  {
+    "mcpServers": {
+      "hummingbot": {
+        "command": "docker",
+        "args": ["exec", "-i", "hummingbot", "hbot-mcp"]
+      }
+    }
+  }
+  ```
+
+  The container must be up (`make deploy`), with `HBOT_PASSWORD` set in its environment
+  (`docker-compose.yml`) for keystore commands.
 - The server resolves `hbot` via `bin/hbot-host` (conda env or Docker container both work);
   set `HBOT_BIN` to override (the image presets it).
 - Set `HBOT_PASSWORD` in the server's environment for commands that need the keystore. **No tool

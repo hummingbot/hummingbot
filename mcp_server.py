@@ -14,15 +14,16 @@ Configuration via environment variables (all optional):
 * ``HBOT_PASSWORD`` — the keystore password, passed through to the CLI's environment.
                       Set it in the MCP server config; it is NEVER a tool argument.
 
-Transports:
+Transport: **stdio only**, deliberately. The server's tools trade real money and MCP's HTTP
+transports ship no auth; stdio keeps trading access behind credentials the OS already
+manages (process spawn rights, the Docker socket). Every client reaches it by spawning a
+process:
 
-* **stdio** (default) — for local clients: ``uv run --no-project --with "mcp>=1.10" python
-  mcp_server.py`` (see .mcp.json), or ``bin/hbot-mcp``.
-* **streamable HTTP** — ``--http`` (or ``HBOT_MCP_TRANSPORT=http``): serves
-  ``http://<host>:<port>/mcp`` for URL-based clients (Claude Desktop connectors, the
-  Docker image's MCP mode). ``HBOT_MCP_HOST`` defaults to **127.0.0.1** — the server has
-  no auth and can trade real money, so bind beyond loopback only on purpose.
-  ``HBOT_MCP_PORT`` defaults to 8211.
+* source install — ``uv run --no-project --with "mcp>=1.10" python mcp_server.py``
+  (see .mcp.json), or ``bin/hbot-mcp``.
+* Docker — ``docker exec -i hummingbot hbot-mcp``: the harness on the host spawns the
+  server inside the container and speaks stdio through the exec channel. Nothing to
+  install on the host but the docker CLI; no port is ever opened.
 """
 import json
 import os
@@ -418,25 +419,5 @@ def update(check: bool = True) -> dict:
     return _run_hbot(args, json_output=True, op_timeout=900)
 
 
-def _transport_config(argv: list, environ: dict) -> tuple:
-    """Resolve (transport, host, port) from argv/env.
-
-    HTTP must be opt-in and loopback-bound by default: this server has no auth layer and
-    its tools move real money.
-    """
-    if "--http" in argv or environ.get("HBOT_MCP_TRANSPORT") == "http":
-        return ("streamable-http",
-                environ.get("HBOT_MCP_HOST", "127.0.0.1"),
-                int(environ.get("HBOT_MCP_PORT", "8211")))
-    return ("stdio", None, None)
-
-
 if __name__ == "__main__":
-    import sys
-    transport, host, port = _transport_config(sys.argv[1:], os.environ)
-    if transport == "streamable-http":
-        mcp.settings.host = host
-        mcp.settings.port = port
-        mcp.run(transport="streamable-http")
-    else:
-        mcp.run()
+    mcp.run()  # stdio only — see the module docstring for why there is no HTTP mode
