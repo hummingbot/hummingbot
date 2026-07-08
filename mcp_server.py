@@ -75,7 +75,9 @@ Read results like this: every tool returns {ok, exit_code, exit_status, data|out
 otherwise. Branch on ok/exit_status, never on prose.
 
 Health: status() reporting running=true does NOT mean healthy — it includes a recent-errors
-count; check it. history() also fetches balances, so it is the slowest call.
+count; check it. history() also fetches balances, so it is the slowest call. When any tool
+fails unexpectedly (or the user reports breakage), run doctor() FIRST — it pinpoints
+keystore/clock/disk/stale-state problems and each failing check names its fix.
 
 Secrets policy (strict):
 - NEVER ask the user to paste API keys, private keys, or the keystore password into chat,
@@ -150,15 +152,19 @@ def _run_hbot(args: list, stdin_data: Optional[str] = None, json_output: bool = 
         "error": proc.stderr.strip() or None,
     }
     stdout = proc.stdout.strip()
-    if json_output and proc.returncode == 0:
+    if json_output and stdout:
+        # Some commands emit their --json payload AND a nonzero exit (doctor: the checks
+        # table plus health-as-exit-code) — parse whenever stdout parses. A broken payload
+        # on a SUCCESSFUL exit is a broken contract and fails loudly; on a failed exit the
+        # stdout is best-effort and returned as-is.
         try:
             result["data"] = json.loads(stdout)
         except ValueError:
-            # The CLI promised --json and broke it — fail loudly, never degrade silently.
-            result["ok"] = False
-            result["exit_status"] = "PROTOCOL_ERROR"
-            result["output"] = stdout or None
-            result["error"] = f"hbot --json emitted unparseable output: {' '.join(cmd)}"
+            result["output"] = stdout
+            if proc.returncode == 0:
+                result["ok"] = False
+                result["exit_status"] = "PROTOCOL_ERROR"
+                result["error"] = f"hbot --json emitted unparseable output: {' '.join(cmd)}"
     else:
         result["output"] = stdout or None
     return result
@@ -380,6 +386,36 @@ def history(name: str = "", days: Optional[float] = None) -> dict:
     if days is not None:
         args += ["--days", days]
     return _run_hbot(args)
+
+
+# ── maintain ─────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def doctor() -> dict:
+    """Health-check the install; run this FIRST when any tool fails unexpectedly.
+
+    data.checks rows (install, extensions, keystore, clock skew, disk, stale bot state,
+    dangling loaded config, MCP server) each carry ok/warn/fail/skip plus a one-line fix;
+    data.healthy is the verdict (an unhealthy run also returns exit_status ERROR).
+    """
+    return _run_hbot(["doctor"], json_output=True)
+
+
+@mcp.tool()
+def update(check: bool = True) -> dict:
+    """Update the hbot software itself (source installs: git fast-forward + rebuild).
+
+    check=True (the DEFAULT) only reports whether an update is available — safe anytime.
+    check=False performs the update: refuses while a bot is running, on a diverged branch,
+    and inside Docker (there it returns the host-side `docker compose pull` instructions —
+    a container cannot replace its own image). A real update can take minutes when the
+    compiled extensions rebuild.
+    """
+    args = ["update"]
+    if check:
+        args.append("--check")
+    # A rebuild legitimately runs for minutes; raise the kill ceiling well above it.
+    return _run_hbot(args, json_output=True, op_timeout=900)
 
 
 def _transport_config(argv: list, environ: dict) -> tuple:

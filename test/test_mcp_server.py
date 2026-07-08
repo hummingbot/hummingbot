@@ -176,6 +176,24 @@ class MCPServerStubTest(unittest.TestCase):
             self.assertEqual(result["exit_status"], "BAD_ARGUMENT")
         self.assertFalse((self.stub_dir / "argv").exists(), "hbot must not be invoked")
 
+    def test_doctor_and_update_argv(self):
+        self.script(stdout="{}")
+        mcp_server.doctor()
+        self.assertEqual(self.argv(), ["doctor", "--json"])
+        mcp_server.update()  # check-only is the DEFAULT — safe anytime
+        self.assertEqual(self.argv(), ["update", "--check", "--json"])
+        mcp_server.update(check=False)
+        self.assertEqual(self.argv(), ["update", "--json"])
+
+    def test_json_payload_on_nonzero_exit_is_parsed(self):
+        # doctor emits its checks payload AND exit 1 when unhealthy — data must come through.
+        self.script(stdout='{"healthy": false, "checks": []}',
+                    stderr="Error: doctor found problems (code 1)", exit_code=1)
+        result = mcp_server.doctor()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_status"], "ERROR")
+        self.assertEqual(result["data"], {"healthy": False, "checks": []})
+
     def test_connections_variants(self):
         self.script(stdout="x")
         mcp_server.connections(show_all=True)
@@ -222,6 +240,7 @@ class MCPServerStubTest(unittest.TestCase):
         self.assertEqual(names, {
             "connections", "balance", "create", "import_config", "config",
             "deploy", "start", "stop", "status", "logs", "history",
+            "doctor", "update",
         })
         for tool in tools:
             for param in tool.inputSchema.get("properties", {}):
