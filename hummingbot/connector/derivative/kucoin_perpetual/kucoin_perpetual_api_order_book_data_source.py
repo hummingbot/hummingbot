@@ -65,7 +65,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbols}",
+                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -116,7 +116,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         channel = ""
         if "data" in event_message and event_message.get("type") == "message":
             event_channel = event_message.get("topic")
-            if CONSTANTS.WS_TRADES_TOPIC in event_channel:
+            if CONSTANTS.WS_EXECUTION_DATA_TOPIC in event_channel:
                 channel = self._trade_messages_queue_key
             elif CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC in event_channel:
                 channel = self._diff_messages_queue_key
@@ -319,7 +319,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbol}",
+                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -377,7 +377,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "unsubscribe",
-                "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{symbol}",
+                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{symbol}",
                 "privateChannel": False,
                 "response": False,
             }

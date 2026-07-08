@@ -219,7 +219,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_trade_subscription = {
             "id": 1,
             "type": "subscribe",
-            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -306,7 +306,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
-            "channel": CONSTANTS.WS_TRADES_TOPIC,
+            "channel": CONSTANTS.WS_EXECUTION_DATA_TOPIC,
             "market": self.ex_trading_pair,
             "type": "update",
             "data": [
@@ -335,8 +335,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         mock_queue = AsyncMock()
         trade_event = {
             "type": "message",
-            "topic": f"/market/match:{self.trading_pair}",
-            "subject": "trade.l3match",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
+            "subject": "match",
             "data": {
                 "sequence": "1545896669145",
                 "type": "match",
@@ -366,13 +366,13 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
     def test_channel_originating_message_routes_execution_topic_to_trade_queue(self):
         # Regression test for issue #7482: the public trade feed for KuCoin futures is the
-        # "/contractMarket/execution" topic (WS_TRADES_TOPIC). Messages on that topic must be
+        # "/contractMarket/execution" topic (WS_EXECUTION_DATA_TOPIC). Messages on that topic must be
         # routed to the trade queue key, otherwise listen_for_trades never receives them. Before
         # the fix the data source subscribed to (and routed) "/contractMarket/ticker", so every
         # public trade update was silently dropped.
         event_message = {
             "type": "message",
-            "topic": f"{CONSTANTS.WS_TRADES_TOPIC}:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
             "subject": "match",
             "data": {"symbol": self.trading_pair},
         }
@@ -689,7 +689,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         # Regression for issue #7482: the per-pair subscription must use the public trade
         # execution topic, never the ticker topic (which carries no trade prints).
         sent_topics = [call.args[0].payload["topic"] for call in mock_ws.send.call_args_list]
-        self.assertIn(f"{CONSTANTS.WS_TRADES_TOPIC}:{new_pair}", sent_topics)
+        self.assertIn(f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{new_pair}", sent_topics)
         self.assertNotIn(f"{CONSTANTS.WS_TICKER_INFO_TOPIC}:{new_pair}", sent_topics)
 
         # Verify pair was added to trading pairs
