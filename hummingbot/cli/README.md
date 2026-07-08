@@ -327,7 +327,9 @@ transports ship no auth, so trading access stays behind credentials the OS alrea
   ```
 
   The container must be up (`make deploy`), with `HBOT_PASSWORD` set in its environment
-  (`docker-compose.yml`) for keystore commands.
+  (`docker-compose.yml`) for keystore commands. On macOS use the absolute path
+  (`"command": "/usr/local/bin/docker"`) — GUI apps get a minimal `PATH` that may not
+  include docker.
 - The server resolves `hbot` via `bin/hbot-host` (conda env or Docker container both work);
   set `HBOT_BIN` to override (the image presets it).
 - Set `HBOT_PASSWORD` in the server's environment for commands that need the keystore. **No tool
