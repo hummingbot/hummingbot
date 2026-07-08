@@ -12,7 +12,6 @@ trades DB.
 """
 import os
 import shutil
-import socket
 import time
 from pathlib import Path
 from typing import Callable, List, Optional
@@ -147,18 +146,9 @@ def _loaded_row() -> dict:
                 f"{file} ({stype}) is missing on disk — `hbot import <file>` to load another")
 
 
-def _mcp_row() -> dict:
-    port = int(os.environ.get("HBOT_MCP_PORT", "8211"))
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=0.3):
-            return _row("mcp", "ok", f"HTTP server listening — http://127.0.0.1:{port}/mcp")
-    except OSError:
-        return _row("mcp", "skip", f"no HTTP server on port {port} (optional; stdio needs none)")
-
-
 CHECKS: List[Callable[[], dict]] = [
     _install_row, _extensions_row, _keystore_row, _clock_row,
-    _disk_row, _bot_row, _loaded_row, _mcp_row,
+    _disk_row, _bot_row, _loaded_row,
 ]
 
 

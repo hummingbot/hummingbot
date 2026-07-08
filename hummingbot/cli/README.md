@@ -81,8 +81,8 @@ hbot
 `doctor` runs the checks whose failures otherwise surface one at a time as confusing runtime
 errors: install/extensions sanity, keystore unlockable (when `HBOT_PASSWORD` is set), **clock
 skew** vs internet time (signed exchange requests reject drifted clocks), free disk for the
-trades DB and logs, stale `bot.pid`, a dangling loaded-config pointer, and whether an MCP HTTP
-server is listening. Any `fail` row exits 1; warns are advisories and exit 0.
+trades DB and logs, stale `bot.pid`, and a dangling loaded-config pointer. Any `fail` row
+exits 1; warns are advisories and exit 0.
 
 `update` updates **the software**, per install type: a source checkout fast-forwards its branch
 and rebuilds the Cython extensions only when compiled sources changed; inside Docker it fails
