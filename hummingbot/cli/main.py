@@ -62,7 +62,10 @@ app.command("connect")(connect_cmd.connect)
 app.command("balance")(balance_cmd.balance)
 app.command("create")(create_cmd.create)
 app.command("import")(import_cmd.import_config)
-app.command("config")(config_cmd.config)
+# ignore_unknown_options: config values can legitimately start with '-' (negative spreads/pcts);
+# without it `hbot config <key> -1` dies at the parser with "No such option: -1". Known options
+# (--json, -h) still parse; anything else option-shaped falls through to the VALUE argument.
+app.command("config", context_settings={"ignore_unknown_options": True})(config_cmd.config)
 app.command("deploy")(deploy_cmd.deploy)
 app.command("start")(start_cmd.start)
 app.command("stop")(stop_cmd.stop)
