@@ -200,6 +200,23 @@ def _coerce(existing: Any, value: str) -> Any:
     return value
 
 
+def _normalize_pairs(key: str, value: Any) -> Any:
+    """Trading pairs are uppercase throughout Hummingbot (BTC-USDT) and runtime lookups match them
+    case-sensitively — a lowercase pair writes fine but never matches a live market. Uppercase
+    pair-holding fields at write time. `market`/`markets` are the v1 names for trading pairs; only
+    the exact keys match because prefixed ``*_market`` names hold exchange names (e.g. maker_market).
+    """
+    leaf = key.split(".")[-1]
+    if leaf not in ("trading_pair", "trading_pairs", "market", "markets") and \
+            not leaf.endswith(("_trading_pair", "_trading_pairs")):
+        return value
+    if isinstance(value, str):
+        return value.upper()
+    if isinstance(value, list):
+        return [v.upper() if isinstance(v, str) else v for v in value]
+    return value
+
+
 def get_value(data: dict, key: str) -> Any:
     node: Any = data
     for part in key.split("."):
@@ -222,7 +239,7 @@ def set_value_preserving_comments(path: Path, key: str, value: str) -> Any:
     leaf = parts[-1]
     if leaf not in node:
         raise KeyError(key)
-    new_value = _coerce(node[leaf], value)
+    new_value = _normalize_pairs(key, _coerce(node[leaf], value))
     node[leaf] = new_value
     with open(path, "w") as f:
         ruamel.dump(data, f)
@@ -418,7 +435,8 @@ def _set_in_template(data: dict, key: str, value: Any) -> None:
     leaf = parts[-1]
     if not isinstance(node, dict) or leaf not in node:
         raise ValueError(f"unknown field '{key}'")
-    node[leaf] = _coerce(node[leaf], value) if isinstance(value, str) else _yaml_safe(value)
+    new_value = _coerce(node[leaf], value) if isinstance(value, str) else _yaml_safe(value)
+    node[leaf] = _normalize_pairs(key, new_value)
 
 
 def fill_template(data: dict, required: List[str], stype: str, values: Dict[str, Any]) -> List[str]:

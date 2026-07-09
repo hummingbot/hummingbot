@@ -195,11 +195,30 @@ class ConfigRunTest(unittest.TestCase):
         self.assertEqual(code, int(ExitCode.CONFIG_ERROR))
 
     def test_set_strategy_key_writes_file(self):
-        path = self._strategy("market: binance\n")
-        out = self._run("market", "kraken")
-        self.assertIn("market: kraken", path.read_text())
+        path = self._strategy("exchange: binance\n")
+        out = self._run("exchange", "kraken")
+        self.assertIn("exchange: kraken", path.read_text())
         self.assertIn("set conf_x.yml", out)
         self.assertNotIn("applies", out)  # not running -> no applies note
+
+    def test_set_trading_pair_normalizes_to_uppercase(self):
+        # Pairs are uppercase throughout Hummingbot and matched case-sensitively at runtime;
+        # a lowercase pair must be normalized on write, not stored as typed.
+        path = self._strategy("trading_pair: BTC-USDT\n")
+        out = self._run("trading_pair", "eth-usdt")
+        self.assertIn("trading_pair: ETH-USDT", path.read_text())
+        self.assertIn("ETH-USDT", out)
+
+    def test_cli_accepts_bare_negative_value(self):
+        # `hbot config <key> -1` must reach the VALUE argument, not die at the option parser
+        # ("No such option: -1") — negative spreads/tolerances are legitimate config values.
+        from typer.testing import CliRunner
+
+        from hummingbot.cli.main import app
+        path = self._strategy("order_refresh_tolerance_pct: '0'\n")
+        result = CliRunner().invoke(app, ["config", "order_refresh_tolerance_pct", "-1"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("-1", path.read_text())
 
     def test_set_strategy_rejected_value_rolls_back(self):
         path = self._strategy("flag: true\n")
@@ -220,8 +239,8 @@ class ConfigRunTest(unittest.TestCase):
         self.assertIn("live (~10s)", out)
 
     def test_set_running_v2_script_applies_on_next_start(self):
-        self._strategy("market: binance\n", running=True)
-        out = self._run("market", "kraken")
+        self._strategy("exchange: binance\n", running=True)
+        out = self._run("exchange", "kraken")
         self.assertIn("on next start", out)
 
 

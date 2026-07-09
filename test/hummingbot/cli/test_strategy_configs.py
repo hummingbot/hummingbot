@@ -88,6 +88,35 @@ class StrategyConfigHelpersTest(unittest.TestCase):
                 edit_config(path, "v2-script", "flag", "maybe")
             self.assertIn("flag: true", path.read_text())  # unchanged
 
+    def test_set_uppercases_trading_pair_fields(self):
+        with TemporaryDirectory() as d:
+            path = Path(d) / "ctrl.yml"
+            path.write_text(
+                "trading_pair: BTC-USDT\n"
+                "market: eth-usdt\n"
+                "maker_market: gate_io\n"
+                "leverage: 1\n"
+            )
+            self.assertEqual(set_value_preserving_comments(path, "trading_pair", "btc-usdt"), "BTC-USDT")
+            self.assertEqual(set_value_preserving_comments(path, "market", "sol-usdt"), "SOL-USDT")
+            # *_market fields hold exchange names, not pairs — casing must be preserved
+            self.assertEqual(set_value_preserving_comments(path, "maker_market", "gate_io"), "gate_io")
+
+    def test_normalize_pairs_handles_lists_and_non_pair_keys(self):
+        from hummingbot.cli.strategy_configs import _normalize_pairs
+        self.assertEqual(_normalize_pairs("markets", "ltc-usdt,eth-usdt"), "LTC-USDT,ETH-USDT")
+        self.assertEqual(_normalize_pairs("taker_trading_pair", "btc-usdt"), "BTC-USDT")
+        self.assertEqual(_normalize_pairs("trading_pairs", ["btc-usdt", "eth-usdt"]), ["BTC-USDT", "ETH-USDT"])
+        self.assertEqual(_normalize_pairs("exchange", "gate_io"), "gate_io")
+
+    def test_fill_template_uppercases_trading_pair(self):
+        from hummingbot.cli.strategy_configs import fill_template
+        data = {"trading_pair": None, "exchange": None}
+        fill_template(data, required=[], stype="v2-script",
+                      values={"trading_pair": "btc-usdt", "exchange": "gate_io"})
+        self.assertEqual(data["trading_pair"], "BTC-USDT")
+        self.assertEqual(data["exchange"], "gate_io")
+
     def test_template_legacy_handles_raising_required_property(self):
         # pure_market_making's `required` evaluates a required_if lambda that touches still-unset
         # values and raises on access; template_legacy_data must tolerate that, not crash.
