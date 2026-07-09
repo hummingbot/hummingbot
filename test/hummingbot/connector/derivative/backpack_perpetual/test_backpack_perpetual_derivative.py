@@ -878,11 +878,20 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
-            self.quote_asset: {
-                "available": "100.5",
-                "locked": "50.5",
-                "staked": "0"
-            }
+            "netEquity": "151.0",
+            "netEquityAvailable": "100.5",
+            "collateral": [
+                {
+                    "symbol": "USDC",
+                    "totalQuantity": "150.0",
+                    "availableQuantity": "100.0"
+                },
+                {
+                    "symbol": "SOL",
+                    "totalQuantity": "0.01",
+                    "availableQuantity": "0.005"
+                }
+            ]
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
@@ -891,8 +900,48 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         available_balances = self.exchange.available_balances
         total_balances = self.exchange.get_all_balances()
 
-        self.assertEqual(Decimal("100.5"), available_balances[self.quote_asset])
-        self.assertEqual(Decimal("151"), total_balances[self.quote_asset])
+        # Should use USDC (CONSTANTS.CURRENCY) as the quote currency
+        self.assertEqual(Decimal("100.5"), available_balances[CONSTANTS.CURRENCY])
+        self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
+
+    @aioresponses()
+    async def test_in_flight_order_reserves_margin_not_full_notional(self, mock_api):
+        """Regression for #8168. Backpack has no balance websocket stream, so real_time_balance_update
+        is False and the base class locally reserves in-flight orders between REST polls. Because the
+        market is cross-margin and USDC-settled, in_flight_asset_balances() must reserve only the order's
+        initial margin (notional / leverage) against USDC -- NOT the full quote notional (the spot base
+        behaviour that over-reserved longs and triggered the false "Not enough budget" of #8168)."""
+        # No balance websocket -> local in-flight reservation must be active.
+        self.assertFalse(self.exchange.real_time_balance_update)
+        self.exchange._leverage = Decimal("10")
+        self.exchange._leverage_initialized = True
+
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "netEquity": "229.40",
+            "netEquityAvailable": "224.41",
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+        await self.exchange._update_balances()
+
+        self.exchange.start_tracking_order(
+            order_id="OID-MARGIN",
+            exchange_order_id="EID-1",
+            trading_pair="SOL-USDC",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),  # 199.465 USDC notional -> 19.9465 margin at 10x
+            position_action=PositionAction.OPEN,
+        )
+
+        notional = Decimal("2.87") * Decimal("69.5")
+        margin = notional / Decimal("10")
+        # Available reflects only the margin reservation...
+        self.assertEqual(Decimal("224.41") - margin, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+        # ...and explicitly NOT the full-notional over-deduction that caused #8168.
+        self.assertNotEqual(Decimal("224.41") - notional, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
 
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
@@ -1114,44 +1163,56 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
     @aioresponses()
     async def test_update_balances_with_asset_removal(self, mock_api):
-        """Test balance update that removes assets no longer present"""
+        """Test balance update - perpetual futures only track quote currency (USDC)"""
         url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        # First update with two assets
+        # First update
         response = {
-            self.quote_asset: {
-                "available": "100.5",
-                "locked": "50.5",
-                "staked": "0"
-            },
-            self.base_asset: {
-                "available": "200.0",
-                "locked": "0",
-                "staked": "0"
-            }
+            "netEquity": "250.0",
+            "netEquityAvailable": "200.5",
+            "collateral": [
+                {
+                    "symbol": "USDC",
+                    "totalQuantity": "200.0",
+                    "availableQuantity": "180.0"
+                },
+                {
+                    "symbol": "SOL",
+                    "totalQuantity": "1.0",
+                    "availableQuantity": "0.5"
+                }
+            ]
         }
 
         mock_api.get(regex_url, body=json.dumps(response))
         await self.exchange._update_balances()
 
-        self.assertIn(self.quote_asset, self.exchange.available_balances)
-        self.assertIn(self.base_asset, self.exchange.available_balances)
+        # For perpetual futures, only USDC (quote currency) is tracked
+        self.assertIn(CONSTANTS.CURRENCY, self.exchange.available_balances)
+        self.assertEqual(Decimal("200.5"), self.exchange.available_balances[CONSTANTS.CURRENCY])
+        self.assertEqual(Decimal("250.0"), self.exchange.get_all_balances()[CONSTANTS.CURRENCY])
 
-        # Second update with only one asset (base_asset removed)
+        # Second update with different equity values
         response2 = {
-            self.quote_asset: {
-                "available": "100.5",
-                "locked": "50.5",
-                "staked": "0"
-            }
+            "netEquity": "150.0",
+            "netEquityAvailable": "100.5",
+            "collateral": [
+                {
+                    "symbol": "USDC",
+                    "totalQuantity": "150.0",
+                    "availableQuantity": "100.0"
+                }
+            ]
         }
 
         mock_api.get(regex_url, body=json.dumps(response2))
         await self.exchange._update_balances()
 
-        self.assertIn(self.quote_asset, self.exchange.available_balances)
-        self.assertNotIn(self.base_asset, self.exchange.available_balances)
+        # Should update to new values
+        self.assertIn(CONSTANTS.CURRENCY, self.exchange.available_balances)
+        self.assertEqual(Decimal("100.5"), self.exchange.available_balances[CONSTANTS.CURRENCY])
+        self.assertEqual(Decimal("150.0"), self.exchange.get_all_balances()[CONSTANTS.CURRENCY])
 
     async def test_collateral_token_getters(self):
         """Test buy and sell collateral token getters"""
@@ -1164,6 +1225,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Both should return values from trading rules
         self.assertIsNotNone(buy_collateral)
         self.assertIsNotNone(sell_collateral)
+
+    @aioresponses()
+    async def test_leverage_initialization_signs_account_query(self, req_mock):
+        """The GET /api/v1/account request must be signed with the ``accountQuery`` instruction,
+        otherwise Backpack rejects it with 'Invalid signature' (regression for the leverage fetch).
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps({"leverageLimit": "5"}), status=200)
+
+        await self.exchange._initialize_leverage_if_needed()
+
+        self.assertTrue(self.exchange._leverage_initialized)
+        self.assertEqual(Decimal("5"), self.exchange._leverage)
+
+        # The request must be signed; the instruction is folded into the signature and must NOT
+        # leak as a plain query param.
+        request = next(iter(req_mock.requests.values()))[0]
+        self.assertIn("X-Signature", request.kwargs["headers"])
+        self.assertNotIn("instruction", request.kwargs.get("params") or {})
 
     @aioresponses()
     async def test_leverage_initialization_failure(self, req_mock):

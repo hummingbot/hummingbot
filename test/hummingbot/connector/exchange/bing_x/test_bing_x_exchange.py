@@ -148,7 +148,12 @@ class TestBingXExchange(unittest.TestCase):
         supported_types = self.exchange.supported_order_types()
         self.assertIn(OrderType.MARKET, supported_types)
         self.assertIn(OrderType.LIMIT, supported_types)
-        # self.assertIn(OrderType.LIMIT_MAKER, supported_types)
+        self.assertIn(OrderType.LIMIT_MAKER, supported_types)
+
+    def test_bingx_order_type_mapping(self):
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.LIMIT), "LIMIT")
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.MARKET), "MARKET")
+        self.assertEqual(BingXExchange.bingx_order_type(OrderType.LIMIT_MAKER), "LIMIT")
 
     @aioresponses()
     def test_check_network_success(self, mock_api):

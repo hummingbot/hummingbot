@@ -152,6 +152,8 @@ class BinancePerpetualLiquidations(LiquidationsBase):
         """
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+            if "data" in data:
+                data = data["data"]
             if data.get("e") == "forceOrder":
                 timestamp = int(data["o"]["T"])
                 trading_pair = self._trading_pairs_map.get(data["o"]["s"])

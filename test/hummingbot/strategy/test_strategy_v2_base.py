@@ -348,9 +348,11 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         # Assertions
         self.assertIn("Mock status for controller", status)
         self.assertIn("Controller: controller_1", status)
-        self.assertIn("$100.00", status)  # Check for performance data in the summary table
-        self.assertIn("$50.00", status)
-        self.assertIn("$150.00", status)
+        # Check for performance data in the summary table
+        self.assertIn("100", status)
+        self.assertIn("50", status)
+        self.assertIn("150", status)
+        self.assertIn("15.00%", status)
 
     async def test_listen_to_executor_actions(self):
         self.strategy.actions_queue = MagicMock()

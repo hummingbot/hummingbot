@@ -11,6 +11,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
+import aiomqtt
+import ujson
+
 from hummingbot import get_logging_conf
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
@@ -20,9 +23,6 @@ from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:  # pragma: no cover
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
     from hummingbot.core.event.event_listener import EventListener  # noqa: F401
-
-from commlib.node import Node, NodeState
-from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee
 from hummingbot.core.event import events
@@ -50,6 +50,34 @@ from hummingbot.remote_iface.messages import (
 mqtts_logger: HummingbotLogger = None
 
 
+def _make_primitive(val: Any) -> Any:
+    """Convert a value into JSON-serializable primitives.
+
+    Faithful port of ``commlib.serializer.JSONSerializer.make_primitive_value``
+    so the wire format is byte-compatible after dropping the commlib dependency
+    (Decimals/floats -> float, non-digit/unknown values -> str, etc.).
+    """
+    if isinstance(val, dict):
+        return {k: _make_primitive(v) for k, v in val.items()}
+    elif isinstance(val, (list, tuple)):
+        return [_make_primitive(v) for v in val]
+    elif isinstance(val, (Decimal, float)):
+        return float(val)
+    elif isinstance(val, int) and str(val).isdigit():
+        return int(val)
+    elif isinstance(val, bool):
+        return bool(val)
+    elif val is None:
+        return None
+    else:
+        return str(val)
+
+
+def mqtt_serialize(payload: Dict[str, Any]) -> str:
+    """Serialize an MQTT payload exactly as commlib did (ujson + primitives)."""
+    return ujson.dumps(_make_primitive(payload))
+
+
 class CommandTopicSpecs:
     START: str = '/start'
     STOP: str = '/stop'
@@ -69,24 +97,25 @@ class TopicSpecs:
     NOTIFICATIONS: str = '/notify'
     STATUS_UPDATES: str = '/status_updates'
     HEARTBEATS: str = '/hb'
-    EXTERNAL_EVENTS: str = '/external/event/*'
+    # MQTT multi-level wildcard ('#'); commlib used '*' and converted it internally.
+    EXTERNAL_EVENTS: str = '/external/event/#'
 
 
 class MQTTCommands:
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node):
+                 gateway: "MQTTGateway"):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTCommands can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._node = node
+        self._gateway = gateway
         self.logger = self._hb_app.logger
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._start_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.START}'
@@ -101,46 +130,22 @@ class MQTTCommands:
         self._init_commands()
 
     def _init_commands(self):
-        self._node.create_rpc(
-            rpc_name=self._start_uri,
-            msg_type=StartCommandMessage,
-            on_request=self._on_cmd_start
-        )
-        self._node.create_rpc(
-            rpc_name=self._stop_uri,
-            msg_type=StopCommandMessage,
-            on_request=self._on_cmd_stop
-        )
-        self._node.create_rpc(
-            rpc_name=self._config_uri,
-            msg_type=ConfigCommandMessage,
-            on_request=self._on_cmd_config
-        )
-        self._node.create_rpc(
-            rpc_name=self._import_uri,
-            msg_type=ImportCommandMessage,
-            on_request=self._on_cmd_import
-        )
-        self._node.create_rpc(
-            rpc_name=self._status_uri,
-            msg_type=StatusCommandMessage,
-            on_request=self._on_cmd_status
-        )
-        self._node.create_rpc(
-            rpc_name=self._history_uri,
-            msg_type=HistoryCommandMessage,
-            on_request=self._on_cmd_history
-        )
-        self._node.create_rpc(
-            rpc_name=self._balance_limit_uri,
-            msg_type=BalanceLimitCommandMessage,
-            on_request=self._on_cmd_balance_limit
-        )
-        self._node.create_rpc(
-            rpc_name=self._balance_paper_uri,
-            msg_type=BalancePaperCommandMessage,
-            on_request=self._on_cmd_balance_paper
-        )
+        self._gateway.register_command(
+            self._start_uri, StartCommandMessage, self._on_cmd_start)
+        self._gateway.register_command(
+            self._stop_uri, StopCommandMessage, self._on_cmd_stop)
+        self._gateway.register_command(
+            self._config_uri, ConfigCommandMessage, self._on_cmd_config)
+        self._gateway.register_command(
+            self._import_uri, ImportCommandMessage, self._on_cmd_import)
+        self._gateway.register_command(
+            self._status_uri, StatusCommandMessage, self._on_cmd_status)
+        self._gateway.register_command(
+            self._history_uri, HistoryCommandMessage, self._on_cmd_history)
+        self._gateway.register_command(
+            self._balance_limit_uri, BalanceLimitCommandMessage, self._on_cmd_balance_limit)
+        self._gateway.register_command(
+            self._balance_paper_uri, BalancePaperCommandMessage, self._on_cmd_balance_paper)
 
     def _on_cmd_start(self, msg: StartCommandMessage.Request):
         response = StartCommandMessage.Response()
@@ -343,6 +348,22 @@ class MQTTCommands:
 
 
 class MQTTMarketEventForwarder:
+    # Hoisted to a class attribute so it is built once, not per event (PERF-001).
+    EVENT_TYPES: Dict[int, str] = {
+        events.MarketEvent.BuyOrderCreated.value: "BuyOrderCreated",
+        events.MarketEvent.BuyOrderCompleted.value: "BuyOrderCompleted",
+        events.MarketEvent.SellOrderCreated.value: "SellOrderCreated",
+        events.MarketEvent.SellOrderCompleted.value: "SellOrderCompleted",
+        events.MarketEvent.OrderFilled.value: "OrderFilled",
+        events.MarketEvent.OrderCancelled.value: "OrderCancelled",
+        events.MarketEvent.OrderExpired.value: "OrderExpired",
+        events.MarketEvent.OrderFailure.value: "OrderFailure",
+        events.MarketEvent.FundingPaymentCompleted.value: "FundingPaymentCompleted",
+        events.MarketEvent.RangePositionLiquidityAdded.value: "RangePositionLiquidityAdded",
+        events.MarketEvent.RangePositionLiquidityRemoved.value: "RangePositionLiquidityRemoved",
+        events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
+    }
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
@@ -352,18 +373,18 @@ class MQTTMarketEventForwarder:
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node):
+                 gateway: "MQTTGateway"):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTMarketEventForwarder can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._node = node
+        self._gateway = gateway
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.INTERNAL_EVENTS}'
@@ -382,47 +403,13 @@ class MQTTMarketEventForwarder:
             (events.MarketEvent.FundingPaymentCompleted, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityAdded, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionLiquidityRemoved, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionUpdate, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionUpdateFailure, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionFeeCollected, self._mqtt_fowarder),
-            (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
 
-        self.event_fw_pub = self._node.create_publisher(
-            topic=self._topic, msg_type=InternalEventMessage
-        )
         self._start_event_listeners()
 
     def _send_mqtt_event(self, event_tag: int, pubsub: PubSub, event):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(
-                self._send_mqtt_event,
-                event_tag,
-                pubsub,
-                event
-            )
-            return
-        try:
-            event_types = {
-                events.MarketEvent.BuyOrderCreated.value: "BuyOrderCreated",
-                events.MarketEvent.BuyOrderCompleted.value: "BuyOrderCompleted",
-                events.MarketEvent.SellOrderCreated.value: "SellOrderCreated",
-                events.MarketEvent.SellOrderCompleted.value: "SellOrderCompleted",
-                events.MarketEvent.OrderFilled.value: "OrderFilled",
-                events.MarketEvent.OrderCancelled.value: "OrderCancelled",
-                events.MarketEvent.OrderExpired.value: "OrderExpired",
-                events.MarketEvent.OrderFailure.value: "OrderFailure",
-                events.MarketEvent.FundingPaymentCompleted.value: "FundingPaymentCompleted",
-                events.MarketEvent.RangePositionLiquidityAdded.value: "RangePositionLiquidityAdded",
-                events.MarketEvent.RangePositionLiquidityRemoved.value: "RangePositionLiquidityRemoved",
-                events.MarketEvent.RangePositionUpdate.value: "RangePositionUpdate",
-                events.MarketEvent.RangePositionUpdateFailure.value: "RangePositionUpdateFailure",
-                events.MarketEvent.RangePositionFeeCollected.value: "RangePositionFeeCollected",
-                events.MarketEvent.RangePositionClosed.value: "RangePositionClosed",
-            }
-            event_type = event_types[event_tag]
-        except KeyError:
-            event_type = "Unknown"
+        event_type = self.EVENT_TYPES.get(event_tag, "Unknown")
 
         if is_dataclass(event):
             event_data = asdict(event)
@@ -441,12 +428,14 @@ class MQTTMarketEventForwarder:
 
         event_data = self._make_event_payload(event_data)
 
-        self.event_fw_pub.publish(
+        self._gateway.publish(
+            self._topic,
             InternalEventMessage(
                 timestamp=int(timestamp),
                 type=event_type,
                 data=event_data
-            )
+            ).model_dump(),
+            qos=0
         )
 
     def _make_event_payload(self, event_data):
@@ -458,17 +447,23 @@ class MQTTMarketEventForwarder:
             event_data['trade_type'] = str(event_data['trade_type'])
 
         for key, val in event_data.items():
-            if isinstance(val, dict):
-                self._make_event_payload(val)
-            elif isinstance(val, Decimal):
-                event_data[key] = float(val)
-            elif isinstance(val, DeductedFromReturnsTradeFee):
-                event_data[key] = val.to_json()
-                self._make_event_payload(event_data[key])
-            elif isinstance(val, AddedToCostTradeFee):
-                event_data[key] = val.to_json()
-                self._make_event_payload(event_data[key])
+            event_data[key] = self._primitivize_event_value(val)
         return event_data
+
+    def _primitivize_event_value(self, val):
+        # Recurse through dicts and lists so nested Decimals/TradeFees are
+        # converted too (CORR-007: the old version skipped list elements).
+        if isinstance(val, dict):
+            for key, inner in val.items():
+                val[key] = self._primitivize_event_value(inner)
+            return val
+        elif isinstance(val, (list, tuple)):
+            return [self._primitivize_event_value(v) for v in val]
+        elif isinstance(val, Decimal):
+            return float(val)
+        elif isinstance(val, (DeductedFromReturnsTradeFee, AddedToCostTradeFee)):
+            return self._primitivize_event_value(val.to_json())
+        return val
 
     def _start_event_listeners(self):
         for market in self._markets:
@@ -487,27 +482,20 @@ class MQTTMarketEventForwarder:
 class MQTTNotifier(NotifierBase):
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node) -> None:
+                 gateway: "MQTTGateway") -> None:
         super().__init__()
-        self._node = node
+        self._gateway = gateway
         self._hb_app = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.NOTIFICATIONS}'
-        self.notify_pub = self._node.create_publisher(
-            topic=self._topic,
-            msg_type=NotifyMessage
-        )
 
     def add_msg_to_queue(self, msg: str):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self.add_msg_to_queue, msg)
-            return
-        self.notify_pub.publish(NotifyMessage(msg=msg))
+        self._gateway.publish(self._topic, NotifyMessage(msg=msg).model_dump(), qos=0)
 
     def start(self) -> None:
         return None
@@ -519,47 +507,38 @@ class MQTTNotifier(NotifierBase):
 class MQTTStatusUpdates:
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node) -> None:
-        self._node = node
+                 gateway: "MQTTGateway") -> None:
+        self._gateway = gateway
         self._hb_app = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.STATUS_UPDATES}'
-        self.status_updates_pub = self._node.create_publisher(
-            topic=self._topic,
-            msg_type=StatusUpdateMessage
-        )
-
-        if self._node.state == NodeState.RUNNING:
-            self.status_updates_pub.run()
 
     def add_msg_to_queue(self, msg: str, msg_type: str = 'hbapp'):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self.add_msg_to_queue, msg, msg_type)
-            return
-
-        self.status_updates_pub.publish(
+        self._gateway.publish(
+            self._topic,
             StatusUpdateMessage(
                 msg=msg,
                 type=msg_type,
                 timestamp=int(time.time() * 1e3)
-            )
+            ).model_dump(),
+            qos=0
         )
 
     def stop(self):
-        self.status_updates_pub.stop()
+        return None
 
 
-class MQTTGateway(Node):
+class MQTTGateway:
     NODE_NAME: str = 'hbot.$instance_id'
     _instance: Optional["MQTTGateway"] = None
-    _INTERVAL_HEALTH_CHECK = 1.0
-    _INTERVAL_RESTART_SHORT = 5.0
-    _INTERVAL_RESTART_LONG = 10.0
+
+    _QOS_COMMAND: int = 1
+    _QOS_PUBSUB: int = 0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -576,10 +555,6 @@ class MQTTGateway(Node):
                  hb_app: "HummingbotApplication",
                  *args, **kwargs
                  ):
-        self._health = False
-        self._initial_connection_succeeded = False
-        self._restarting = False
-        self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
         self._status_updates: MQTTStatusUpdates = None
         self._market_events: MQTTMarketEventForwarder = None
@@ -588,7 +563,22 @@ class MQTTGateway(Node):
         self._external_events: MQTTExternalEvents = None
         self._hb_app: "HummingbotApplication" = hb_app
         self._ev_loop = self._hb_app.ev_loop
-        self._params = self._create_mqtt_params_from_conf()
+
+        self._heartbeat_interval: float = 10.0
+        self._reconnect_interval: float = 5.0
+
+        # aiomqtt connection state (all MQTT I/O lives on hb_app.ev_loop).
+        self._client: Optional[aiomqtt.Client] = None
+        self._connected: bool = False
+        self._stopped: asyncio.Event = asyncio.Event()
+        self._run_task: Optional[asyncio.Task] = None
+        self._outgoing: "asyncio.Queue[Tuple[str, Dict[str, Any], int]]" = asyncio.Queue()
+        # RPC handlers keyed by exact command topic.
+        self._command_table: Dict[str, Tuple[Any, Callable]] = {}
+        # Pub/Sub callbacks keyed by topic pattern (supports +/# wildcards).
+        self._sub_callbacks: Dict[str, List[Callable[[str, Dict[str, Any]], None]]] = {}
+
+        self._read_mqtt_params_from_conf()
         self.namespace = self._hb_app.client_config_map.mqtt_bridge.mqtt_namespace
         if self.namespace[-1] in ('/', '.'):
             self.namespace = self.namespace[:-1]
@@ -597,22 +587,235 @@ class MQTTGateway(Node):
             namespace=self.namespace,
             instance_id=self._hb_app.instance_id
         )
-        _hb_topic = f'{self._topic_prefix}{TopicSpecs.HEARTBEATS}'
+        self._hb_topic = f'{self._topic_prefix}{TopicSpecs.HEARTBEATS}'
+        self._node_name = self.NODE_NAME.replace('$instance_id', hb_app.instance_id)
 
-        super().__init__(
-            node_name=self.NODE_NAME.replace('$instance_id', hb_app.instance_id),
-            connection_params=self._params,
-            heartbeats=True,
-            heartbeat_uri=_hb_topic,
-            *args,
-            **kwargs
-        )
         MQTTGateway._instance = self
 
     @property
     def health(self):
-        return self._health
+        return self._connected
 
+    # ------------------------------------------------------------------ #
+    # Connection params
+    # ------------------------------------------------------------------ #
+    def _read_mqtt_params_from_conf(self):
+        cfg = self._hb_app.client_config_map.mqtt_bridge
+        self._host = cfg.mqtt_host
+        self._port = int(cfg.mqtt_port)
+        self._username = cfg.mqtt_username
+        self._password = cfg.mqtt_password
+        self._use_ssl = bool(cfg.mqtt_ssl)
+
+    def _create_client(self) -> aiomqtt.Client:
+        # Seam: tests patch this to inject a fake client.
+        tls_params = aiomqtt.TLSParameters() if self._use_ssl else None
+        return aiomqtt.Client(
+            hostname=self._host,
+            port=self._port,
+            username=self._username or None,
+            password=self._password or None,
+            identifier=self._node_name,
+            tls_params=tls_params,
+            keepalive=60,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Connection / reconnection loop
+    # ------------------------------------------------------------------ #
+    async def _run(self):
+        while not self._stopped.is_set():
+            tasks: List[asyncio.Task] = []
+            try:
+                async with self._create_client() as client:
+                    self._client = client
+                    self._connected = True
+                    for topic, qos in self._desired_subscriptions().items():
+                        await client.subscribe(topic, qos=qos)
+                    self._hb_app.logger().debug(
+                        f'Started Heartbeat Publisher <{self._hb_topic}>')
+                    self.broadcast_status_update("online", msg_type="availability")
+                    tasks = [
+                        asyncio.create_task(self._drain_outgoing(client)),
+                        asyncio.create_task(self._heartbeat_loop(client)),
+                        asyncio.create_task(self._dispatch_incoming(client)),
+                    ]
+                    done, _ = await asyncio.wait(
+                        tasks, return_when=asyncio.FIRST_EXCEPTION)
+                    for t in done:
+                        exc = t.exception()
+                        if exc is not None:
+                            raise exc
+            except asyncio.CancelledError:
+                raise
+            except aiomqtt.MqttError as e:
+                self._hb_app.logger().warning(
+                    f'MQTT bridge disconnected: {e}. '
+                    f'Reconnecting in {self._reconnect_interval}s.')
+            except Exception as e:  # pragma: no cover
+                self._hb_app.logger().error(
+                    f'MQTT bridge error: {e}. '
+                    f'Reconnecting in {self._reconnect_interval}s.', exc_info=True)
+            finally:
+                self._connected = False
+                self._client = None
+                for t in tasks:
+                    t.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            if self._stopped.is_set():
+                break
+            await asyncio.sleep(self._reconnect_interval)
+
+    async def _drain_outgoing(self, client: aiomqtt.Client):
+        while True:
+            topic, payload, qos = await self._outgoing.get()
+            # A publish failure bubbles up to _run to force a reconnect.
+            await client.publish(topic, payload=mqtt_serialize(payload), qos=qos)
+
+    async def _heartbeat_loop(self, client: aiomqtt.Client):
+        while True:
+            ts = int((time.time() + 0.5) * 1000000)
+            await client.publish(
+                self._hb_topic, payload=mqtt_serialize({"ts": ts}), qos=self._QOS_PUBSUB)
+            await asyncio.sleep(self._heartbeat_interval)
+
+    async def _dispatch_incoming(self, client: aiomqtt.Client):
+        async for message in client.messages:
+            topic = str(message.topic)
+            try:
+                payload = ujson.loads(message.payload)
+            except (ValueError, TypeError):  # pragma: no cover
+                continue
+            if topic in self._command_table:
+                self._ev_loop.run_in_executor(None, self._dispatch_rpc, topic, payload)
+                continue
+            for pattern in list(self._sub_callbacks.keys()):
+                if self._topic_matches(pattern, topic):
+                    for cb in list(self._sub_callbacks.get(pattern, [])):
+                        try:
+                            cb(topic, payload)
+                        except Exception:  # pragma: no cover
+                            self._hb_app.logger().error(
+                                f'Error handling MQTT message on {topic}', exc_info=True)
+
+    @staticmethod
+    def _topic_matches(pattern: str, topic: str) -> bool:
+        p_parts = pattern.split('/')
+        t_parts = topic.split('/')
+        for i, seg in enumerate(p_parts):
+            if seg == '#':
+                return True
+            if i >= len(t_parts):
+                return False
+            if seg != '+' and seg != t_parts[i]:
+                return False
+        return len(p_parts) == len(t_parts)
+
+    # ------------------------------------------------------------------ #
+    # RPC server
+    # ------------------------------------------------------------------ #
+    def _dispatch_rpc(self, topic: str, payload: Dict[str, Any]):
+        # Runs in a thread-pool executor (not the event loop) because the
+        # command handlers use call_sync(), which blocks on the loop.
+        try:
+            msg_type, handler = self._command_table[topic]
+        except KeyError:  # pragma: no cover
+            return
+        header = payload.get("header", {}) if isinstance(payload, dict) else {}
+        data = payload.get("data", {}) if isinstance(payload, dict) else {}
+        reply_to = header.get("reply_to") if isinstance(header, dict) else None
+        try:
+            request = msg_type.Request(**(data or {}))
+            response = handler(request)
+        except Exception:  # pragma: no cover
+            self._hb_app.logger().error(
+                f'Error processing MQTT command {topic}', exc_info=True)
+            return
+        if reply_to:
+            self.publish(reply_to, self._wrap_response(response), qos=self._QOS_COMMAND)
+
+    def _wrap_response(self, response) -> Dict[str, Any]:
+        # Mirrors commlib RPCService reply envelope byte-for-byte.
+        return {
+            "header": {
+                "reply_to": "",
+                "timestamp": int(time.time() * 1000),
+                "content_type": "json",
+                "encoding": "utf8",
+                "agent": "commlib",
+            },
+            "data": response.model_dump(),
+        }
+
+    def register_command(self, topic: str, msg_type: Any, handler: Callable):
+        self._command_table[topic] = (msg_type, handler)
+
+    # ------------------------------------------------------------------ #
+    # Publish / Subscribe primitives
+    # ------------------------------------------------------------------ #
+    def publish(self, topic: str, payload: Dict[str, Any], qos: int = 0):
+        """Enqueue a publish from any thread; drained on the event loop."""
+        try:
+            self._ev_loop.call_soon_threadsafe(
+                self._outgoing.put_nowait, (topic, payload, qos))
+        except RuntimeError:  # pragma: no cover - loop already closed
+            pass
+
+    def subscribe(self, topic: str, callback: Callable[[str, Dict[str, Any]], None]):
+        self._sub_callbacks.setdefault(topic, [])
+        self._sub_callbacks[topic].append(callback)
+        self._schedule_subscribe(topic, self._QOS_PUBSUB)
+
+    def unsubscribe(self,
+                    topic: str,
+                    callback: Optional[Callable[[str, Dict[str, Any]], None]] = None):
+        cbs = self._sub_callbacks.get(topic)
+        if cbs is None:
+            return
+        if callback is None:
+            cbs.clear()
+        elif callback in cbs:
+            cbs.remove(callback)
+        if not cbs:
+            self._sub_callbacks.pop(topic, None)
+            self._schedule_unsubscribe(topic)
+
+    def _desired_subscriptions(self) -> Dict[str, int]:
+        subs = {topic: self._QOS_COMMAND for topic in self._command_table}
+        for topic in self._sub_callbacks:
+            subs.setdefault(topic, self._QOS_PUBSUB)
+        return subs
+
+    def _schedule_subscribe(self, topic: str, qos: int):
+        if not self._connected or self._client is None:
+            return
+        client = self._client
+
+        async def _do():
+            try:
+                await client.subscribe(topic, qos=qos)
+            except aiomqtt.MqttError:  # pragma: no cover
+                pass
+        self._ev_loop.call_soon_threadsafe(
+            lambda: safe_ensure_future(_do(), loop=self._ev_loop))
+
+    def _schedule_unsubscribe(self, topic: str):
+        if not self._connected or self._client is None:
+            return
+        client = self._client
+
+        async def _do():
+            try:
+                await client.unsubscribe(topic)
+            except aiomqtt.MqttError:  # pragma: no cover
+                pass
+        self._ev_loop.call_soon_threadsafe(
+            lambda: safe_ensure_future(_do(), loop=self._ev_loop))
+
+    # ------------------------------------------------------------------ #
+    # Logging handler patching
+    # ------------------------------------------------------------------ #
     def _safe_get_log_handlers(self, max_tries=3):  # pragma: no cover
         current_try = 0
         while current_try < max_tries:
@@ -675,6 +878,9 @@ class MQTTGateway(Node):
     def add_log_handler(self, logger: HummingbotLogger):
         logger.addHandler(self._logh)
 
+    # ------------------------------------------------------------------ #
+    # Sub-component lifecycle
+    # ------------------------------------------------------------------ #
     def _init_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
             self._notifier = MQTTNotifier(self._hb_app, self)
@@ -705,8 +911,6 @@ class MQTTGateway(Node):
         # Markets must be initialized via TradingCore before calling this method
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self._market_events = MQTTMarketEventForwarder(self._hb_app, self)
-            if self.state == NodeState.RUNNING:
-                self._market_events.event_fw_pub.run()
 
     def _remove_market_event_listeners(self):
         if self._market_events is not None:
@@ -732,154 +936,54 @@ class MQTTGateway(Node):
         else:
             self._external_events.remove_listener(event_name, callback)
 
-    def _create_mqtt_params_from_conf(self):
-        host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
-        port = self._hb_app.client_config_map.mqtt_bridge.mqtt_port
-        username = self._hb_app.client_config_map.mqtt_bridge.mqtt_username
-        password = self._hb_app.client_config_map.mqtt_bridge.mqtt_password
-        ssl = self._hb_app.client_config_map.mqtt_bridge.mqtt_ssl
-        conn_params = MQTTConnectionParameters(
-            host=host,
-            port=int(port),
-            username=username,
-            password=password,
-            ssl=ssl
-        )
-        return conn_params
-
-    def _check_connections(self) -> bool:
-        if self._restarting:
-            return False
-        for c in self._publishers:
-            if not c._transport.is_connected:
-                return False
-        for c in self._rpc_services:
-            if not c._transport.is_connected:
-                return False
-        # Will use if subscribtions are integrated
-        for c in self._subscribers:
-            if not c._transport.is_connected:
-                return False
-        # Will use if rpc clients are integrated
-        # for c in self._rpc_clients:
-        #     if not c._transport.is_connected:
-        #         return False
-        return True
-
-    def _start_health_monitoring_loop(self):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self._start_health_monitoring_loop)
-            return
-        self._stop_event_async.clear()
-        safe_ensure_future(self._monitor_health_loop(),
-                           loop=self._ev_loop)
-
-    async def _monitor_health_loop(self):
-        while not self._stop_event_async.is_set():
-            # Maybe we can include more checks here to determine the health!
-            self._health = await self._ev_loop.run_in_executor(
-                None, self._check_connections)
-            if self.health:
-                if not self._initial_connection_succeeded:
-                    self._initial_connection_succeeded = True
-                    self._hb_app.logger().debug('Monitoring MQTT Gateway health for disconnections.')
-
-                await asyncio.sleep(self._INTERVAL_HEALTH_CHECK)
-            elif self._initial_connection_succeeded and not self._stop_event_async.is_set():
-                await self._restart_gateway()
-
-    async def _restart_gateway(self):
-        self._hb_app.logger().warning('MQTT Gateway is disconnected, attempting to reconnect.')
-
-        try:
-            self._restarting = True
-            self.stop(False)
-            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
-
-            self._publishers = []
-            self._subscribers = []
-            self._rpc_services = []
-            # self._rpc_clients = []
-
-            self.start(False)
-            if self._hb_app.strategy is not None:
-                self.start_market_events_fw()
-
-            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
-
-            self._restarting = False
-
-            self._health = await self._ev_loop.run_in_executor(
-                None, self._check_connections)
-
-            if self._health:
-                self._hb_app.logger().warning('MQTT Gateway successfully reconnected.')
-
-        except Exception as e:
-            self._hb_app.logger().error(f'MQTT Gateway failed to reconnect: {e}. Sleeping 10 seconds before retry.')
-
-        await asyncio.sleep(self._INTERVAL_RESTART_LONG)
-
-    def _stop_health_monitoring_loop(self):
-        self._stop_event_async.set()
-
-    def start(self, with_health: bool = True) -> None:
+    # ------------------------------------------------------------------ #
+    # Start / Stop
+    # ------------------------------------------------------------------ #
+    def start(self) -> None:
+        self._stopped.clear()
         self._init_logger()
         self._init_notifier()
         self._init_status_updates()
         self._init_commands()
         self._init_external_events()
+        self._run_task = safe_ensure_future(self._run(), loop=self._ev_loop)
 
-        if with_health:
-            self._start_health_monitoring_loop()
-
-        self.run()
-        self.broadcast_status_update("online", msg_type="availability")
-
-    def stop(self, with_health: bool = True):
+    def stop(self):
+        # Best-effort offline notice (may not flush if we are mid-disconnect).
         self.broadcast_status_update("offline", msg_type="availability")
-        super().stop()
-        if self._hb_thread:
-            self._hb_thread.stop()
+        self._stopped.set()
+        self._connected = False
+        if self._run_task is not None:
+            self._run_task.cancel()
+            self._run_task = None
         self._remove_status_updates()
         self._remove_notifier()
         self._remove_log_handlers()
         self._remove_market_event_listeners()
 
-        if with_health:
-            self._stop_health_monitoring_loop()
-
-    def __del__(self):
-        self.stop()
-
 
 class MQTTLogHandler(logging.Handler):
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node):
+                 gateway: "MQTTGateway"):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTLogHandler can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._node = node
+        self._gateway = gateway
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.LOGS}'
 
         super().__init__()
         self.name = self.__class__.__name__
-        self.log_pub = self._node.create_publisher(topic=self._topic,
-                                                   msg_type=LogMessage)
 
     def emit(self, record: logging.LogRecord):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self.emit, record)
-            return
         msg_str = self.format(record)
         msg = LogMessage(
             timestamp=time.time(),
@@ -889,33 +993,39 @@ class MQTTLogHandler(logging.Handler):
             logger_name=record.name
 
         )
-        self.log_pub.publish(msg)
+        self._gateway.publish(self._topic, msg.model_dump(), qos=self._gateway._QOS_PUBSUB)
 
 
 class MQTTExternalEvents:
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 node: Node
+                 gateway: "MQTTGateway"
                  ):
-        self._node: Node = node
+        self._gateway: "MQTTGateway" = gateway
         self._hb_app: 'HummingbotApplication' = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
+            namespace=self._gateway.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.EXTERNAL_EVENTS}'
 
-        self._node.create_psubscriber(
-            topic=self._topic,
-            msg_type=ExternalEventMessage,
-            on_message=self._on_event_arrived
-        )
+        self._gateway.subscribe(self._topic, self._on_message)
         self._listeners: Dict[
             str,
             List[Callable[[ExternalEventMessage], str], None]
         ] = {'*': []}
+
+    def _on_message(self, topic: str, payload: Dict[str, Any]) -> None:
+        # Reconstruct the ExternalEventMessage so listeners keep receiving an
+        # object with a `.data` attribute (commlib msg_type behaviour).
+        try:
+            msg = ExternalEventMessage(**payload) if isinstance(payload, dict) \
+                else ExternalEventMessage()
+        except Exception:  # pragma: no cover
+            msg = ExternalEventMessage()
+        self._on_event_arrived(msg, topic)
 
     def _event_uri_to_name(self, topic: str) -> str:
         return topic.split('event/')[1].replace('/', '.')
@@ -924,10 +1034,6 @@ class MQTTExternalEvents:
                           msg: ExternalEventMessage,
                           topic: str
                           ) -> None:
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self._on_event_arrived,
-                                               msg, topic)
-            return
         event_name = self._event_uri_to_name(topic)
         self._hb_app.logger().debug(
             f'Received external event {event_name} -> {msg} - '
@@ -978,25 +1084,25 @@ class ETopicListener:
                  on_message: Callable[[Dict[str, Any], str], None],
                  use_bot_prefix: Optional[bool] = True
                  ):
-        self._node = MQTTGateway.main()
-        if self._node is None:
+        self._gateway = MQTTGateway.main()
+        if self._gateway is None:
             raise Exception('MQTT Gateway not yet initialized')
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
-            instance_id=self._node._hb_app.instance_id
+            namespace=self._gateway.namespace,
+            instance_id=self._gateway._hb_app.instance_id
         )
         if use_bot_prefix:
             self._topic = f'{topic_prefix}/{topic}'
         else:
             self._topic = topic
         self._on_message = on_message
-        self._sub = self._node.create_psubscriber(topic=self._topic,
-                                                  on_message=self._on_message)
-        if self._node.state == NodeState.RUNNING:
-            self._sub.run()
+        self._gateway.subscribe(self._topic, self._on_message_wrapper)
+
+    def _on_message_wrapper(self, topic: str, payload: Dict[str, Any]):
+        self._on_message(payload, topic)
 
     def stop(self):
-        self._sub.stop()
+        self._gateway.unsubscribe(self._topic, self._on_message_wrapper)
 
 
 class EEventQueueFactory:
@@ -1130,26 +1236,20 @@ class ETopicPublisher:
     def __init__(self,
                  topic: str,
                  use_bot_prefix: Optional[bool] = False):
-        self._node = MQTTGateway.main()
-        if self._node is None:
+        self._gateway = MQTTGateway.main()
+        if self._gateway is None:
             raise Exception('MQTT Gateway not yet initialized')
         self._topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
-            instance_id=self._node._hb_app.instance_id
+            namespace=self._gateway.namespace,
+            instance_id=self._gateway._hb_app.instance_id
         )
         if use_bot_prefix:
             self._topic = f'{self._topic_prefix}/{topic}'
         else:
             self._topic = topic
-        self._pub = self._node.create_mpublisher()
-        if self._node.state == NodeState.RUNNING:
-            self._pub.run()
 
     def send(self, msg: Dict[str, Any]):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            asyncio.get_event_loop().call_soon_threadsafe(self.send, msg)
-            return
-        self._pub.publish(msg, self._topic)
+        self._gateway.publish(self._topic, msg, qos=self._gateway._QOS_PUBSUB)
 
     def __call__(self, msg: Dict[str, Any]):
         self.send(msg)
@@ -1159,24 +1259,16 @@ class EMTopicPublisher:
     def __init__(self,
                  use_bot_prefix: Optional[bool] = False):
         self._use_bot_prefix = use_bot_prefix
-        self._node = MQTTGateway.main()
-        if self._node is None:
+        self._gateway = MQTTGateway.main()
+        if self._gateway is None:
             raise Exception('MQTT Gateway not yet initialized')
         self._topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
-            instance_id=self._node._hb_app.instance_id
+            namespace=self._gateway.namespace,
+            instance_id=self._gateway._hb_app.instance_id
         )
 
-        self._pub = self._node.create_mpublisher()
-        if self._node.state == NodeState.RUNNING:
-            self._pub.run()
-
     def send(self, topic: str, msg: Dict[str, Any]):
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            asyncio.get_event_loop().call_soon_threadsafe(self.send, msg)
-            return
-        _topic = self._make_topic(topic)
-        self._pub.publish(msg, _topic)
+        self._gateway.publish(self._make_topic(topic), msg, qos=self._gateway._QOS_PUBSUB)
 
     def _make_topic(self, topic: str):
         if self._use_bot_prefix:

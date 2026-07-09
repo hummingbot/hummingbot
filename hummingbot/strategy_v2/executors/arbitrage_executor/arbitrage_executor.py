@@ -57,13 +57,12 @@ class ArbitrageExecutor(ExecutorBase):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
-                         config=config, update_interval=update_interval)
+                         config=config, update_interval=update_interval, max_retries=max_retries)
         self.config = config
         self.buying_market = config.buying_market
         self.selling_market = config.selling_market
         self.min_profitability = config.min_profitability
         self.order_amount = config.order_amount
-        self.max_retries = max_retries
 
         # Order tracking
         self._buy_order: TrackedOrder = TrackedOrder()
@@ -172,14 +171,14 @@ class ArbitrageExecutor(ExecutorBase):
             except Exception as e:
                 self.logger().error(f"Error calculating profitability: {e}")
         elif self.status == RunnableStatus.SHUTTING_DOWN:
-            if self._cumulative_failures > self.max_retries:
+            if self._cumulative_failures > self._max_retries:
                 self.close_type = CloseType.FAILED
                 self.stop()
             else:
                 self.check_order_status()
 
     def early_stop(self, keep_position: bool = False):
-        self.close_type = CloseType.EARLY_STOP
+        self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self.stop()
 
     def check_order_status(self):
@@ -299,7 +298,6 @@ class ArbitrageExecutor(ExecutorBase):
                 price=price,
                 order_amount=order_amount,
                 token=asset,
-                exchange=connector,
             )
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):

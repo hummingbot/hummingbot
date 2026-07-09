@@ -241,11 +241,11 @@ class MultiGridStrike(ControllerBase):
 
                 # Data columns
                 level_dist_data = [
-                    f"NOT_ACTIVE: {len(executor.custom_info.get('levels_by_state', {}).get('NOT_ACTIVE', []))}",
-                    f"OPEN_ORDER_PLACED: {len(executor.custom_info.get('levels_by_state', {}).get('OPEN_ORDER_PLACED', []))}",
-                    f"OPEN_ORDER_FILLED: {len(executor.custom_info.get('levels_by_state', {}).get('OPEN_ORDER_FILLED', []))}",
-                    f"CLOSE_ORDER_PLACED: {len(executor.custom_info.get('levels_by_state', {}).get('CLOSE_ORDER_PLACED', []))}",
-                    f"COMPLETE: {len(executor.custom_info.get('levels_by_state', {}).get('COMPLETE', []))}"
+                    f"NOT_ACTIVE: {executor.custom_info.get('levels_by_state', {}).get('NOT_ACTIVE', 0)}",
+                    f"OPEN_ORDER_PLACED: {executor.custom_info.get('levels_by_state', {}).get('OPEN_ORDER_PLACED', 0)}",
+                    f"OPEN_ORDER_FILLED: {executor.custom_info.get('levels_by_state', {}).get('OPEN_ORDER_FILLED', 0)}",
+                    f"CLOSE_ORDER_PLACED: {executor.custom_info.get('levels_by_state', {}).get('CLOSE_ORDER_PLACED', 0)}",
+                    f"COMPLETE: {executor.custom_info.get('levels_by_state', {}).get('COMPLETE', 0)}"
                 ]
 
                 order_stats_data = [

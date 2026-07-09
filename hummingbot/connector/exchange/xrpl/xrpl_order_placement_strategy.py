@@ -26,6 +26,28 @@ class XRPLOrderPlacementStrategy(ABC):
         """Create the appropriate transaction for the order type"""
         pass
 
+    @staticmethod
+    def _get_digit_counts(value: Decimal) -> Tuple[int, int]:
+        """Get the number of integer-part digits and fractional-part digits for a Decimal value.
+
+        Uses Decimal.normalize().as_tuple() to reliably count significant digits,
+        avoiding issues with scientific notation (e.g. '0E-15', '5E+3') that would
+        break naive str().split('.') approaches.
+
+        Returns:
+            Tuple of (integer_digits, fractional_digits)
+        """
+        sign, digits, exponent = value.normalize().as_tuple()
+        num_digits = len(digits)
+        if exponent >= 0:
+            # No fractional part: e.g. Decimal("100"), Decimal("5E+3")
+            return num_digits + exponent, 0
+        else:
+            # Has fractional part: e.g. Decimal("123.456"), Decimal("0.000001")
+            int_digits = max(1, num_digits + exponent)
+            frac_digits = -exponent
+            return int_digits, frac_digits
+
     def get_base_quote_amounts(
         self, price: Optional[Decimal] = None
     ) -> Tuple[Union[str, IssuedCurrencyAmount], Union[str, IssuedCurrencyAmount]]:
@@ -47,14 +69,17 @@ class XRPLOrderPlacementStrategy(ABC):
         )
 
         # Handle precision for base and quote amounts
-        total_digits_base = len(str(amount_in_base).split(".")[1]) + len(str(amount_in_base).split(".")[0])
-        if total_digits_base > CONSTANTS.XRPL_MAX_DIGIT:  # XRPL_MAX_DIGIT
-            adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_base).split(".")[0])
+        # Use _get_digit_counts to safely handle scientific notation (e.g. '0E-15', '5E+3')
+        int_digits_base, frac_digits_base = self._get_digit_counts(amount_in_base)
+        total_digits_base = int_digits_base + frac_digits_base
+        if total_digits_base > CONSTANTS.XRPL_MAX_DIGIT:
+            adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - int_digits_base
             amount_in_base = Decimal(amount_in_base.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN))
 
-        total_digits_quote = len(str(amount_in_quote).split(".")[1]) + len(str(amount_in_quote).split(".")[0])
-        if total_digits_quote > CONSTANTS.XRPL_MAX_DIGIT:  # XRPL_MAX_DIGIT
-            adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - len(str(amount_in_quote).split(".")[0])
+        int_digits_quote, frac_digits_quote = self._get_digit_counts(amount_in_quote)
+        total_digits_quote = int_digits_quote + frac_digits_quote
+        if total_digits_quote > CONSTANTS.XRPL_MAX_DIGIT:
+            adjusted_quantum = CONSTANTS.XRPL_MAX_DIGIT - int_digits_quote
             amount_in_quote = Decimal(amount_in_quote.quantize(Decimal(f"1e-{adjusted_quantum}"), rounding=ROUND_DOWN))
 
         # Convert amounts based on currency type

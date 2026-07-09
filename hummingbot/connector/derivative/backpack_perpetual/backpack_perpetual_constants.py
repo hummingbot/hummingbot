@@ -2,6 +2,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "exchange"
+CURRENCY = "USDC"
 
 REST_URL = "https://api.backpack.{}/"
 WSS_URL = "wss://ws.backpack.{}/"
@@ -38,7 +39,7 @@ PING_PATH_URL = "api/v1/ping"
 SERVER_TIME_PATH_URL = "api/v1/time"
 EXCHANGE_INFO_PATH_URL = "api/v1/markets"
 SNAPSHOT_PATH_URL = "api/v1/depth"
-BALANCE_PATH_URL = "api/v1/capital"  # instruction balanceQuery
+BALANCE_PATH_URL = "api/v1/capital/collateral"  # instruction balanceQuery
 TICKER_BOOK_PATH_URL = "api/v1/tickers"
 TICKER_PRICE_CHANGE_PATH_URL = "api/v1/ticker"
 ORDER_PATH_URL = "api/v1/order"

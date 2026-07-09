@@ -295,7 +295,7 @@ class BinanceExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
+                # Refer to https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream
                 # As per the order update section in Binance the ID of the order being canceled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")

@@ -478,11 +478,13 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             pfos.assert_awaited_once()
             self.assertEqual(pfos.call_args[0][1], OrderState.CANCELED)
 
-    # ---- tests: "created"/"open" status with tolerance ----
+    # ---- tests: "created" status with balance-changes detection (issue #8132) ----
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_open_status_no_change(self, _get_account_mock):
-        """offer status 'created'/'open' with matching TakerGets/TakerPays → OPEN (no state change if already OPEN)."""
+    async def test_created_status_no_token_fill_stays_open(self, _get_account_mock):
+        """offer status 'created' with only XRP balance changes (fee) → OPEN.
+        This is the BBRL-RLUSD bug scenario from GitHub issue #8132: XRPL rounds
+        token amounts when storing offers, but no actual fill occurred."""
         order = self._make_limit_order()
         obc = self._obc(
             sequence=84437895,
@@ -490,21 +492,93 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             taker_gets={"currency": "XRP", "value": "100.0"},
             taker_pays={"currency": SOLO_HEX, "value": "50.0"},
         )
-        # Transaction with matching values
         tx = {
             "TakerGets": {"currency": "XRP", "value": "100.0"},
             "TakerPays": {"currency": SOLO_HEX, "value": "50.0"},
         }
+        # Event message with meta containing only AccountRoot (XRP fee) changes — no token fills
+        event_message = {
+            "transaction": tx,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": OUR_ACCOUNT,
+                                "Balance": "99990000",
+                                "Flags": 0,
+                                "OwnerCount": 3,
+                                "Sequence": 84437896,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "ABC123",
+                            "PreviousFields": {"Balance": "100000000", "Sequence": 84437895},
+                        }
+                    },
+                ],
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
 
         with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
              patch.object(self.connector._order_tracker, "process_order_update") as pou:
-            await self.connector._process_order_book_changes(obc, tx, {})
+            await self.connector._process_order_book_changes(obc, tx, event_message)
             # State is still OPEN → same state → no process_order_update call
             pou.assert_not_called()
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_open_status_partial_fill_detected(self, _get_account_mock):
-        """offer status 'created' but values differ beyond tolerance → PARTIALLY_FILLED."""
+    async def test_created_status_xrp_only_fee_stays_open(self, _get_account_mock):
+        """offer status 'created' with XRP fee deduction only → OPEN.
+        Simulates the exact scenario from the BBRL-RLUSD bug where XRPL rounds
+        on-ledger token amounts, causing a difference between submitted and stored
+        values, but get_balance_changes returns only XRP fee deductions."""
+        order = self._make_limit_order()
+        # Simulating XRPL rounding: submitted 2.916160370868855 RLUSD, stored as 2.9163 RLUSD
+        obc = self._obc(
+            sequence=84437895,
+            status="created",
+            taker_gets={"currency": SOLO_HEX, "value": "15"},
+            taker_pays={"currency": "524C555344000000000000000000000000000000", "value": "2.9163"},
+        )
+        tx = {
+            "TakerGets": {"currency": SOLO_HEX, "value": "15"},
+            "TakerPays": {"currency": "524C555344000000000000000000000000000000", "value": "2.916160370868855"},
+        }
+        # Only XRP fee change in balance_changes — no token fill
+        event_message = {
+            "transaction": tx,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": OUR_ACCOUNT,
+                                "Balance": "49999970",
+                                "Flags": 0,
+                                "OwnerCount": 5,
+                                "Sequence": 84437896,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "ABC123",
+                            "PreviousFields": {"Balance": "50000000", "Sequence": 84437895},
+                        }
+                    },
+                ],
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
+
+        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
+             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+            await self.connector._process_order_book_changes(obc, tx, event_message)
+            # Despite XRPL rounding causing value differences, no token fill → OPEN
+            pou.assert_not_called()
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
+    async def test_created_status_with_token_fill_partially_filled(self, _get_account_mock):
+        """offer status 'created' with token balance changes → PARTIALLY_FILLED.
+        This is the legitimate edge case: order partially crossed the book
+        and the remainder was placed on the book as a CreatedNode."""
         order = self._make_limit_order()
         obc = self._obc(
             sequence=84437895,
@@ -516,79 +590,76 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             "TakerGets": {"currency": "XRP", "value": "100.0"},  # Original was 100
             "TakerPays": {"currency": SOLO_HEX, "value": "50.0"},
         }
+        # Event message with token balance changes indicating a partial fill
+        event_message = {
+            "transaction": tx,
+            "meta": {
+                "AffectedNodes": [
+                    # XRP fee
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Account": OUR_ACCOUNT,
+                                "Balance": "49500000",
+                                "Flags": 0,
+                                "OwnerCount": 3,
+                                "Sequence": 84437896,
+                            },
+                            "LedgerEntryType": "AccountRoot",
+                            "LedgerIndex": "ABC123",
+                            "PreviousFields": {"Balance": "100000000", "Sequence": 84437895},
+                        }
+                    },
+                    # Token balance change (SOLO) — indicates a fill occurred
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "25.0",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": SOLO_ISSUER,
+                                    "value": "0",
+                                },
+                                "HighNode": "0",
+                                "LowLimit": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": OUR_ACCOUNT,
+                                    "value": "1000000000",
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "DEF456",
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "0.0",
+                                }
+                            },
+                        }
+                    },
+                ],
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
 
         with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
              patch.object(self.connector, "process_trade_fills", new_callable=AsyncMock, return_value=None), \
              patch.object(self.connector._order_tracker, "process_order_update") as pou:
-            await self.connector._process_order_book_changes(obc, tx, {})
+            await self.connector._process_order_book_changes(obc, tx, event_message)
             pou.assert_called_once()
             order_update_arg = pou.call_args[1]["order_update"]
             self.assertEqual(order_update_arg.new_state, OrderState.PARTIALLY_FILLED)
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_xrp_drops_conversion_taker_gets(self, _get_account_mock):
-        """String TakerGets (XRP drops) should be converted to XRP value."""
-        order = self._make_limit_order()
-        obc = self._obc(
-            sequence=84437895,
-            status="created",
-            taker_gets={"currency": "XRP", "value": "1.0"},
-            taker_pays={"currency": SOLO_HEX, "value": "2.0"},
-        )
-        tx = {
-            "TakerGets": "1000000",  # 1 XRP in drops
-            "TakerPays": {"currency": SOLO_HEX, "value": "2.0"},
-        }
-
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
-            await self.connector._process_order_book_changes(obc, tx, {})
-            # Values match after drops conversion → OPEN (no update since already OPEN)
-            pou.assert_not_called()
-
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_xrp_drops_conversion_taker_pays(self, _get_account_mock):
-        """String TakerPays (XRP drops) should be converted to XRP value."""
-        order = self._make_limit_order()
-        obc = self._obc(
-            sequence=84437895,
-            status="created",
-            taker_gets={"currency": SOLO_HEX, "value": "2.0"},
-            taker_pays={"currency": "XRP", "value": "1.0"},
-        )
-        tx = {
-            "TakerGets": {"currency": SOLO_HEX, "value": "2.0"},
-            "TakerPays": "1000000",  # 1 XRP in drops
-        }
-
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
-            await self.connector._process_order_book_changes(obc, tx, {})
-            pou.assert_not_called()
-
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_xrp_drops_both_sides(self, _get_account_mock):
-        """Both TakerGets and TakerPays as XRP drops strings."""
-        order = self._make_limit_order()
-        obc = self._obc(
-            sequence=84437895,
-            status="created",
-            taker_gets={"currency": "XRP", "value": "1.0"},
-            taker_pays={"currency": "XRP", "value": "2.0"},
-        )
-        tx = {
-            "TakerGets": "1000000",
-            "TakerPays": "2000000",
-        }
-
-        with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update") as pou:
-            await self.connector._process_order_book_changes(obc, tx, {})
-            pou.assert_not_called()
-
-    @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_zero_tx_values_no_division_by_zero(self, _get_account_mock):
-        """Zero values in transaction should not cause division errors."""
+    async def test_created_status_no_meta_defaults_to_open(self, _get_account_mock):
+        """offer status 'created' with no meta in event_message → defaults to OPEN."""
         order = self._make_limit_order()
         obc = self._obc(
             sequence=84437895,
@@ -597,32 +668,81 @@ class TestProcessOrderBookChanges(XRPLExchangeTestBase, unittest.IsolatedAsyncio
             taker_pays={"currency": SOLO_HEX, "value": "50.0"},
         )
         tx = {
-            "TakerGets": {"currency": "XRP", "value": "0"},
-            "TakerPays": {"currency": SOLO_HEX, "value": "0"},
+            "TakerGets": {"currency": "XRP", "value": "100.0"},
+            "TakerPays": {"currency": SOLO_HEX, "value": "50.0"},
         }
+        # No meta in event_message
+        event_message = {"transaction": tx}
 
-        # Should not raise
         with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update"):
-            await self.connector._process_order_book_changes(obc, tx, {})
+             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+            await self.connector._process_order_book_changes(obc, tx, event_message)
+            # No meta → defaults to OPEN → same state → no update
+            pou.assert_not_called()
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
-    async def test_missing_taker_gets_pays_in_offer_change(self, _get_account_mock):
-        """Offer change without taker_gets/taker_pays should be handled gracefully."""
+    async def test_created_status_other_account_balance_changes_ignored(self, _get_account_mock):
+        """offer status 'created' with token changes only for OTHER account → OPEN.
+        Only our account's balance changes should be considered."""
         order = self._make_limit_order()
         obc = self._obc(
             sequence=84437895,
             status="created",
-            # no taker_gets, no taker_pays
+            taker_gets={"currency": "XRP", "value": "100.0"},
+            taker_pays={"currency": SOLO_HEX, "value": "50.0"},
         )
         tx = {
             "TakerGets": {"currency": "XRP", "value": "100.0"},
             "TakerPays": {"currency": SOLO_HEX, "value": "50.0"},
         }
+        # Token changes exist but for a different account
+        event_message = {
+            "transaction": tx,
+            "meta": {
+                "AffectedNodes": [
+                    {
+                        "ModifiedNode": {
+                            "FinalFields": {
+                                "Balance": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "25.0",
+                                },
+                                "Flags": 1114112,
+                                "HighLimit": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": SOLO_ISSUER,
+                                    "value": "0",
+                                },
+                                "HighNode": "0",
+                                "LowLimit": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": OTHER_ACCOUNT,
+                                    "value": "1000000000",
+                                },
+                                "LowNode": "0",
+                            },
+                            "LedgerEntryType": "RippleState",
+                            "LedgerIndex": "DEF456",
+                            "PreviousFields": {
+                                "Balance": {
+                                    "currency": SOLO_HEX,
+                                    "issuer": "rrrrrrrrrrrrrrrrrrrrBZbvji",
+                                    "value": "0.0",
+                                }
+                            },
+                        }
+                    },
+                ],
+                "TransactionResult": "tesSUCCESS",
+            },
+        }
 
         with patch.object(self.connector, "get_order_by_sequence", return_value=order), \
-             patch.object(self.connector._order_tracker, "process_order_update"):
-            await self.connector._process_order_book_changes(obc, tx, {})
+             patch.object(self.connector._order_tracker, "process_order_update") as pou:
+            await self.connector._process_order_book_changes(obc, tx, event_message)
+            # Token changes for OTHER account only → no fill for us → OPEN
+            pou.assert_not_called()
 
     @patch("hummingbot.connector.exchange.xrpl.xrpl_auth.XRPLAuth.get_account", return_value=OUR_ACCOUNT)
     async def test_filled_with_trade_update(self, _get_account_mock):

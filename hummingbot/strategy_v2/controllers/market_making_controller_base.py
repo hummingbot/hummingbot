@@ -153,7 +153,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     @field_validator('buy_spreads', 'sell_spreads', mode="before")
     @classmethod
     def parse_spreads(cls, v):
-        return parse_comma_separated_list(v, "spreads")
+        return parse_comma_separated_list(v)
 
     @field_validator('buy_amounts_pct', 'sell_amounts_pct', mode="before")
     @classmethod
@@ -162,7 +162,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         if v is None or v == "":
             spread_field = field_name.replace('amounts_pct', 'spreads')
             return [1 for _ in validation_info.data[spread_field]]
-        parsed = parse_comma_separated_list(v, field_name)
+        parsed = parse_comma_separated_list(v)
         if isinstance(parsed, list) and len(parsed) != len(validation_info.data[field_name.replace('amounts_pct', 'spreads')]):
             raise ValueError(
                 f"The number of {field_name} must match the number of {field_name.replace('amounts_pct', 'spreads')}.")

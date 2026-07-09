@@ -47,7 +47,7 @@ def parse_enum_value(enum_class: Type[E], value, field_name: str = "field") -> E
     return value
 
 
-def parse_comma_separated_list(value, field_name: str = "field") -> List[float]:
+def parse_comma_separated_list(value) -> List[float]:
     """
     Parse a comma-separated string, scalar number, or list into a List[float].
 
@@ -56,7 +56,6 @@ def parse_comma_separated_list(value, field_name: str = "field") -> List[float]:
 
     Args:
         value: The value to parse (str, int, float, list, or None)
-        field_name: Name of the field for error messages
 
     Returns:
         A list of floats, or an empty list if value is None or empty string.

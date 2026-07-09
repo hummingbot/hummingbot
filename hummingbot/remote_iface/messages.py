@@ -1,11 +1,36 @@
 from typing import Any, Dict, List, Optional, Tuple
 
-from commlib.msg import PubSubMessage, RPCMessage
+from pydantic import BaseModel
 
 
 class MQTT_STATUS_CODE:
     ERROR: int = 400
     SUCCESS: int = 200
+
+
+class PubSubMessage(BaseModel):
+    """Base class for pub/sub messages.
+
+    Local replacement for ``commlib.msg.PubSubMessage`` (a bare pydantic
+    ``BaseModel``). Kept so the wire format and field semantics are identical
+    after dropping the commlib dependency.
+    """
+    pass
+
+
+class RPCMessage(BaseModel):
+    """Namespace base for RPC request/response messages.
+
+    Local replacement for ``commlib.msg.RPCMessage``: a ``BaseModel`` exposing
+    nested ``Request``/``Response`` ``BaseModel`` classes for subclasses to
+    extend.
+    """
+
+    class Request(BaseModel):
+        pass
+
+    class Response(BaseModel):
+        pass
 
 
 class NotifyMessage(PubSubMessage):

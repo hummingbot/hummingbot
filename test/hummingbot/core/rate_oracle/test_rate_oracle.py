@@ -2,10 +2,13 @@ from copy import deepcopy
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Dict, Optional
+from unittest.mock import MagicMock, patch
 
+import hummingbot.core.rate_oracle.utils as rate_oracle_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
@@ -80,6 +83,53 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         rate = find_rate(prices, "HBOT-GBP")
         self.assertEqual(rate, Decimal("75"))
 
+    def test_find_rate_unwraps_usd_quote_to_usdt(self):
+        # A USD-quoted lookup should resolve against the USDT market, including for
+        # tokens that only have a single USDT pair (e.g. HYPE) with no bridge route.
+        prices = {"HYPE-USDT": Decimal("60"), "SOL-USDT": Decimal("70")}
+        self.assertEqual(find_rate(prices, "HYPE-USD"), Decimal("60"))
+        self.assertEqual(find_rate(prices, "SOL-USD"), Decimal("70"))
+        # USD and USDT are interchangeable, so converting between them is 1:1.
+        self.assertEqual(find_rate(prices, "USD-USDT"), Decimal("1"))
+        self.assertEqual(find_rate(prices, "USDT-USD"), Decimal("1"))
+
+    def test_find_rate_usd_equivalence_is_a_fallback_not_an_override(self):
+        # A real USD-quoted market is matched directly (before normalizing), so the
+        # USDT-equivalence never collapses an actual USDT/USD price to 1:1 — the real
+        # de-peg is preserved with or without USD configured as equivalent.
+        self.assertEqual(find_rate({"USDT-USD": Decimal("0.999")}, "USDT-USD"), Decimal("0.999"))
+        with patch.object(rate_oracle_utils, "USD_EQUIVALENT_TOKENS", []):
+            self.assertEqual(find_rate({"USDT-USD": Decimal("0.999")}, "USDT-USD"), Decimal("0.999"))
+
+        # The equivalence only provides a fallback when no USD market exists, and it is
+        # gated by the configured list: removing USD leaves USD lookups with no route.
+        prices = {"HYPE-USDT": Decimal("60")}
+        with patch.object(rate_oracle_utils, "USD_EQUIVALENT_TOKENS", []):
+            self.assertIsNone(find_rate(prices, "HYPE-USD"))
+            self.assertIsNone(find_rate(prices, "USD-USDT"))
+            self.assertIsNone(find_rate(prices, "USDT-USD"))
+
+    def test_find_rate_skips_zero_prices(self):
+        """Test that find_rate doesn't cause DivisionByZero when prices contain zero values."""
+        # Test case 1: reverse pair has zero price - should skip division and return None
+        prices_with_zero_reverse = {"SOL-FARTCOIN": Decimal("0")}
+        rate = find_rate(prices_with_zero_reverse, "FARTCOIN-SOL")
+        self.assertIsNone(rate)
+
+        # Test case 2: common denominator pair has zero price - should skip that path
+        prices_with_zero_common = {
+            "HBOT-USDT": Decimal("100"),
+            "GBP-USDT": Decimal("0")  # Zero price in common denominator
+        }
+        rate = find_rate(prices_with_zero_common, "HBOT-GBP")
+        # Should return None since the only route involves dividing by zero
+        self.assertIsNone(rate)
+
+        # Test case 3: direct pair has zero price - should still return it (no division involved)
+        prices_with_zero_direct = {"FARTCOIN-SOL": Decimal("0")}
+        rate = find_rate(prices_with_zero_direct, "FARTCOIN-SOL")
+        self.assertEqual(rate, Decimal("0"))
+
     def test_rate_oracle_single_instance_rate_source_reset_after_configuration_change(self):
         config_map = ClientConfigAdapter(ClientConfigMap())
         config_map.rate_oracle_source = "binance"
@@ -99,3 +149,66 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         config_map.global_token.global_token_name = "EUR"
 
         self.assertEqual(0, len(rate_oracle.prices))
+
+    @staticmethod
+    def _make_connector(name: str, order_books: Dict[str, Decimal]) -> MagicMock:
+        connector = MagicMock()
+        connector.name = name
+        connector.order_books = {pair: MagicMock() for pair in order_books}
+        connector.get_price_by_type.side_effect = (
+            lambda pair, price_type: order_books.get(pair) if price_type == PriceType.MidPrice else None
+        )
+        return connector
+
+    def test_register_and_unregister_connector(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("2")})
+
+        rate_oracle.register_connector(connector)
+        self.assertIn("binance", rate_oracle._connectors)
+
+        rate_oracle.unregister_connector("binance")
+        self.assertNotIn("binance", rate_oracle._connectors)
+
+    def test_get_pair_rate_falls_back_to_connector_order_book(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("10.5")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("10.5"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_connector_reverse_pair(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector = self._make_connector("binance", {"USDT-HBOT": Decimal("0.1")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("1") / Decimal("0.1"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_prefers_configured_source_over_connector(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        rate_oracle._prices = {"HBOT-USDT": Decimal("100")}
+        connector = self._make_connector("binance", {"HBOT-USDT": Decimal("10")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("100"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_reverse_on_source_after_connector_miss(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        rate_oracle._prices = {"USDT-HBOT": Decimal("0.5")}
+        connector = self._make_connector("binance", {"FOO-BAR": Decimal("1")})
+        rate_oracle.register_connector(connector)
+
+        self.assertEqual(Decimal("2"), rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_returns_none_when_no_route(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        self.assertIsNone(rate_oracle.get_pair_rate("HBOT-USDT"))
+
+    def test_get_pair_rate_connector_iteration_is_deterministic(self):
+        rate_oracle = RateOracle(source=DummyRateSource(price_dict={}))
+        connector_b = self._make_connector("b_connector", {"HBOT-USDT": Decimal("2")})
+        connector_a = self._make_connector("a_connector", {"HBOT-USDT": Decimal("1")})
+        rate_oracle.register_connector(connector_b)
+        rate_oracle.register_connector(connector_a)
+
+        self.assertEqual(Decimal("1"), rate_oracle.get_pair_rate("HBOT-USDT"))

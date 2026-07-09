@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Set, Tuple
 
 from bidict import bidict
 
@@ -19,7 +19,12 @@ from hummingbot.connector.exchange.hyperliquid.hyperliquid_api_user_stream_data_
 from hummingbot.connector.exchange.hyperliquid.hyperliquid_auth import HyperliquidAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import (
+    TradeFillOrderDetails,
+    combine_to_hb_trading_pair,
+    get_new_client_order_id,
+    split_hb_trading_pair,
+)
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -62,6 +67,9 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
+        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
+        self._builder_fee_tenths_bps: int = 0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -121,6 +129,11 @@ class HyperliquidExchange(ExchangePyBase):
 
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
+
+    async def start_network(self):
+        await super().start_network()
+        if self._trading_required:
+            await self._initialize_builder_fee()
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -370,6 +383,10 @@ class HyperliquidExchange(ExchangePyBase):
                 "cloid": order_id,
             }
         }
+        # Builder code (HGP-87): part of the signed action dict.
+        builder_field = self._build_builder_field()
+        if builder_field is not None:
+            api_params["builder"] = builder_field
         order_result = await self._api_post(
             path_url = CONSTANTS.CREATE_ORDER_URL,
             data = api_params,
@@ -383,6 +400,51 @@ class HyperliquidExchange(ExchangePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
+
+    # === Builder code support (HGP-87) ===
+
+    @property
+    def _is_testnet(self) -> bool:
+        return self._domain == CONSTANTS.TESTNET_DOMAIN
+
+    def _should_inject_builder(self) -> bool:
+        """Builder attribution applies only on mainnet, non-vault orders — the venue rejects the
+        builder field on vault and testnet orders."""
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return False
+        if self._use_vault or self._is_testnet:
+            return False
+        return True
+
+    def _build_builder_field(self) -> Optional[Dict[str, Any]]:
+        """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
+        is lowercased (the venue rejects mixed-case)."""
+        if not self._should_inject_builder():
+            return None
+        return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
+
+    async def _initialize_builder_fee(self) -> None:
+        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
+        fails)."""
+        if not self._should_inject_builder():
+            return
+        try:
+            approved_max_tenths_bps = int(await self._api_post(
+                path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                data={
+                    "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
+                    "user": self.hyperliquid_address,
+                    "builder": self._builder_address,
+                },
+            ))
+        except Exception:
+            self.logger().exception(
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
+            )
+            self._builder_fee_tenths_bps = 0
+            return
+        self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -558,18 +620,25 @@ class HyperliquidExchange(ExchangePyBase):
         price_infos: list = exchange_info_dict[1]
 
         for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info_dict[0]["universe"]):
+            if not self._is_valid_spot_entry(exchange_info_dict, spot_info):
+                continue
             self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
             self.name_to_coin[spot_info["name"]] = spot_info["name"]
 
         return_val: list = []
         for coin_info, price_info in zip(coin_infos, price_infos):
-            base, quote = coin_info["tokens"]
             try:
+                if not self._is_valid_spot_entry(exchange_info_dict, coin_info):
+                    continue
+                base, quote = coin_info["tokens"]
                 ex_name = f'{exchange_info_dict[0]["tokens"][base]["name"].replace(" ", "").upper()}/{exchange_info_dict[0]["tokens"][quote]["name"].replace(" ", "").upper()}'
                 if ex_name not in self.name_to_coin:
                     self.name_to_coin[ex_name] = coin_info["name"]
 
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
+                try:
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
+                except KeyError:
+                    continue
                 step_size = Decimal(str(10 ** -exchange_info_dict[0]["tokens"][base].get("szDecimals")))
                 price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
                 return_val.append(
@@ -595,6 +664,8 @@ class HyperliquidExchange(ExchangePyBase):
         self.name_to_coin = {asset_info["name"]: asset_info["name"] for asset_info in exchange_info[0]["universe"]}
 
         for spot_info in filter(web_utils.is_exchange_information_valid, exchange_info[0]["universe"]):
+            if not self._is_valid_spot_entry(exchange_info, spot_info):
+                continue
             self.coin_to_asset[spot_info["name"]] = spot_info["index"] + 10000
             self.name_to_coin[spot_info["name"]] = spot_info["name"]
             base, quote = spot_info["tokens"]
@@ -631,6 +702,39 @@ class HyperliquidExchange(ExchangePyBase):
                 f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
+    @staticmethod
+    def _is_valid_spot_entry(exchange_info: List, spot_info: Dict[str, Any]) -> bool:
+        tokens = exchange_info[0].get("tokens", [])
+        pair_tokens = spot_info.get("tokens", [])
+
+        if len(pair_tokens) != 2:
+            return False
+
+        base, quote = pair_tokens
+        if not isinstance(base, int) or not isinstance(quote, int):
+            return False
+        if base < 0 or quote < 0:
+            return False
+        if base >= len(tokens) or quote >= len(tokens):
+            return False
+
+        return True
+
+    async def _tradable_assets(self) -> Set[str]:
+        """
+        Returns the set of token names (upper-cased) that belong to a USDC trading pair currently
+        present in the symbol map. These are the only tokens whose balance we can still price, so
+        the balances endpoint response is filtered against this set to skip delisted tokens.
+        """
+        symbol_map = await self.trading_pair_symbol_map()
+        tradable_assets: Set[str] = set()
+        for trading_pair in symbol_map.values():
+            base, quote = split_hb_trading_pair(trading_pair)
+            if quote.upper() == CONSTANTS.CURRENCY:
+                tradable_assets.add(base.upper())
+                tradable_assets.add(quote.upper())
+        return tradable_assets
+
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
@@ -642,9 +746,15 @@ class HyperliquidExchange(ExchangePyBase):
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
                                                   "user": self.hyperliquid_address},
                                             )
+        # Only track balances for tokens that are still part of an active USDC trading pair present
+        # in the symbol map. When a token is delisted it disappears from the map, but the exchange
+        # keeps reporting its balance; tracking it would add a position we can no longer price.
+        tradable_assets = await self._tradable_assets()
         balances = account_info["balances"]
         for balance_entry in balances:
             asset_name = balance_entry["coin"]
+            if asset_name.upper() not in tradable_assets:
+                continue
             free_balance = Decimal(balance_entry["total"]) - Decimal(balance_entry["hold"])
             total_balance = Decimal(balance_entry["total"])
             self._account_available_balances[asset_name] = free_balance
@@ -816,9 +926,9 @@ class HyperliquidExchange(ExchangePyBase):
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
-        price = 0
+        price = 0.0
         for token in response[1]:
             if token['coin'] == exchange_symbol:
-                price = token['markPx']
+                price = float(token['markPx'])
                 break
         return price

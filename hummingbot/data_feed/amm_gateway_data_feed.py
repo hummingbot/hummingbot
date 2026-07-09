@@ -158,7 +158,7 @@ class AmmGatewayDataFeed(NetworkBase):
 
             # Get chain and network from connector if not cached
             if not self._chain or not self._network:
-                chain, network, error = await self.gateway_client.get_connector_chain_network(
+                dex_name, trading_type, chain, network, error = await self.gateway_client.get_dex_info(
                     self.connector
                 )
                 if not error:
@@ -168,16 +168,13 @@ class AmmGatewayDataFeed(NetworkBase):
                     self.logger().warning(f"Failed to get chain/network for {self.connector}: {error}")
                     return None
 
-            # Use quote_swap which accepts the full connector name
+            # Use quote_swap - dex/trading_type will be fetched from network config
             response = await self.gateway_client.quote_swap(
                 network=self._network,
-                connector=self.connector,
                 base_asset=base,
                 quote_asset=quote,
                 amount=self.order_amount_in_base,
-                side=trade_type,
-                slippage_pct=None,
-                pool_address=None
+                side=trade_type
             )
 
             if response and "price" in response:

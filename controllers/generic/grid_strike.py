@@ -24,12 +24,12 @@ class GridStrikeConfig(ControllerConfigBase):
     position_mode: PositionMode = PositionMode.HEDGE
 
     # Boundaries
-    connector_name: str = "binance_perpetual"
+    connector_name: str = "okx"
     trading_pair: str = "WLD-USDT"
     side: TradeType = TradeType.BUY
-    start_price: Decimal = Field(default=Decimal("0.58"), json_schema_extra={"is_updatable": True})
-    end_price: Decimal = Field(default=Decimal("0.95"), json_schema_extra={"is_updatable": True})
-    limit_price: Decimal = Field(default=Decimal("0.55"), json_schema_extra={"is_updatable": True})
+    start_price: Decimal = Field(default=Decimal("0.38"), json_schema_extra={"is_updatable": True})
+    end_price: Decimal = Field(default=Decimal("0.75"), json_schema_extra={"is_updatable": True})
+    limit_price: Decimal = Field(default=Decimal("0.35"), json_schema_extra={"is_updatable": True})
 
     # Profiling
     total_amount_quote: Decimal = Field(default=Decimal("1000"), json_schema_extra={"is_updatable": True})
@@ -150,11 +150,11 @@ class GridStrike(ControllerBase):
             status.append(header_line)
             # Data for the three columns
             level_dist_data = [
-                f"NOT_ACTIVE: {len(level.custom_info['levels_by_state'].get('NOT_ACTIVE', []))}",
-                f"OPEN_ORDER_PLACED: {len(level.custom_info['levels_by_state'].get('OPEN_ORDER_PLACED', []))}",
-                f"OPEN_ORDER_FILLED: {len(level.custom_info['levels_by_state'].get('OPEN_ORDER_FILLED', []))}",
-                f"CLOSE_ORDER_PLACED: {len(level.custom_info['levels_by_state'].get('CLOSE_ORDER_PLACED', []))}",
-                f"COMPLETE: {len(level.custom_info['levels_by_state'].get('COMPLETE', []))}"
+                f"NOT_ACTIVE: {level.custom_info['levels_by_state'].get('NOT_ACTIVE', 0)}",
+                f"OPEN_ORDER_PLACED: {level.custom_info['levels_by_state'].get('OPEN_ORDER_PLACED', 0)}",
+                f"OPEN_ORDER_FILLED: {level.custom_info['levels_by_state'].get('OPEN_ORDER_FILLED', 0)}",
+                f"CLOSE_ORDER_PLACED: {level.custom_info['levels_by_state'].get('CLOSE_ORDER_PLACED', 0)}",
+                f"COMPLETE: {level.custom_info['levels_by_state'].get('COMPLETE', 0)}"
             ]
             order_stats_data = [
                 f"Total: {sum(len(level.custom_info[k]) for k in ['filled_orders', 'failed_orders', 'canceled_orders'])}",

@@ -1,7 +1,7 @@
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange_py_base import ExchangePyBase
@@ -19,6 +19,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
 from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executors import CloseType
 
 
 class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
@@ -169,3 +170,51 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def test_get_in_flight_order(self):
         in_flight_orders = self.component.get_in_flight_order("connector1", "OID-BUY-1")
         self.assertEqual(in_flight_orders, None)
+
+    async def test_control_loop_calls_control_task_and_evaluate_max_retries(self):
+        """Test that control_loop calls control_task and evaluate_max_retries, then sleeps."""
+        call_count = 0
+
+        async def mock_control_task():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                self.component.stop()
+
+        with patch.object(self.component, "control_task", side_effect=mock_control_task), \
+             patch.object(self.component, "evaluate_max_retries") as mock_eval, \
+             patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock), \
+             patch.object(self.component, "on_stop"):
+            self.component.update_interval = 0.01
+            await self.component.control_loop()
+            self.assertGreaterEqual(call_count, 2)
+            self.assertGreaterEqual(mock_eval.call_count, 1)
+
+    async def test_control_loop_handles_exception_in_control_task(self):
+        """Test that control_loop catches exceptions from control_task and continues."""
+        call_count = 0
+
+        async def mock_control_task():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("test error")
+            self.component.stop()
+
+        with patch.object(self.component, "control_task", side_effect=mock_control_task), \
+             patch.object(self.component, "evaluate_max_retries"), \
+             patch.object(self.component, "validate_sufficient_balance", new_callable=AsyncMock), \
+             patch.object(self.component, "on_stop"):
+            self.component.update_interval = 0.01
+            self.component.terminated.clear()
+            await self.component.control_loop()
+            self.assertGreaterEqual(call_count, 2)
+
+    async def test_evaluate_max_retries_sets_failed_close_type(self):
+        """Test that evaluate_max_retries sets CloseType.FAILED when retries exceeded."""
+        self.component._current_retries = 11
+        self.component._max_retries = 10
+        self.component._strategy.current_timestamp = 1234567890
+        self.component.evaluate_max_retries()
+        self.assertEqual(self.component.close_type, CloseType.FAILED)
+        self.assertEqual(self.component.status, RunnableStatus.TERMINATED)

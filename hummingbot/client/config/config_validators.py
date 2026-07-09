@@ -33,10 +33,10 @@ def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid connectors to ALL spot connectors, including paper trade and Gateway
     """
-    from hummingbot.client.settings import GATEWAY_CONNECTORS, AllConnectorSettings
+    from hummingbot.client.settings import GATEWAY_DEXS, AllConnectorSettings
     valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
     valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
-    valid_connectors.update(GATEWAY_CONNECTORS)
+    valid_connectors.update(GATEWAY_DEXS)
 
     if value not in valid_connectors:
         all_options = sorted(valid_connectors)

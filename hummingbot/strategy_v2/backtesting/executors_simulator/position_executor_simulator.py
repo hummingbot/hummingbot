@@ -42,11 +42,11 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
 
         returns_df = df_filtered[start_timestamp:]
         returns = returns_df['close'].pct_change().fillna(0)
-        cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - trade_cost
+        cumulative_returns = (((1 + returns).cumprod() - 1) * side_multiplier) - 2 * trade_cost
         df_filtered.loc[start_timestamp:, 'net_pnl_pct'] = cumulative_returns
         df_filtered.loc[start_timestamp:, 'filled_amount_quote'] = float(config.amount) * entry_price
         df_filtered['net_pnl_quote'] = df_filtered['net_pnl_pct'] * df_filtered['filled_amount_quote']
-        df_filtered['cum_fees_quote'] = trade_cost * df_filtered['filled_amount_quote']
+        df_filtered['cum_fees_quote'] = 2 * trade_cost * df_filtered['filled_amount_quote']
 
         # Make sure the trailing stop pct rises linearly to the net p/l pct when above the trailing stop trigger pct (if any)
         if trailing_sl_trigger_pct is not None and trailing_sl_delta_pct is not None:

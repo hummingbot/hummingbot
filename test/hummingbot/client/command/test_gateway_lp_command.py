@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.client.command.gateway_lp_command import GatewayLPCommand
 from hummingbot.connector.gateway.common_types import ConnectorType
-from hummingbot.connector.gateway.gateway_lp import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
+from hummingbot.connector.gateway.gateway import AMMPoolInfo, AMMPositionInfo, CLMMPoolInfo, CLMMPositionInfo
 
 
 class GatewayLPCommandTest(unittest.TestCase):
@@ -31,8 +31,8 @@ class GatewayLPCommandTest(unittest.TestCase):
         """Test gateway lp command without connector"""
         self.command.gateway_lp(None, None)
 
-        self.app.notify.assert_any_call("\nError: Connector is required")
-        self.app.notify.assert_any_call("Usage: gateway lp <connector> <action> [trading-pair]")
+        self.app.notify.assert_any_call("\nError: DEX type is required")
+        self.app.notify.assert_any_call("Usage: gateway lp <dex_type> <action> [trading-pair]")
 
     def test_gateway_lp_no_action(self):
         """Test gateway lp command without action"""
@@ -319,7 +319,7 @@ class GatewayLPCommandTest(unittest.TestCase):
         mock_chain_network.return_value = ("ethereum", "mainnet", None)
         mock_wallet.return_value = ("0xwallet123", None)
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_user_positions = AsyncMock(return_value=[])
             mock_lp.start_network = AsyncMock()
@@ -353,7 +353,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             )
         ]
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_user_positions = AsyncMock(return_value=positions)
             mock_lp.start_network = AsyncMock()
@@ -436,7 +436,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             quote_token="USDC"
         )
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
             mock_lp.start_network = AsyncMock()
@@ -497,7 +497,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             )
         ]
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="0xpool")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
@@ -565,7 +565,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             )
         ]
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)
@@ -631,7 +631,7 @@ class GatewayLPCommandTest(unittest.TestCase):
             )
         ]
 
-        with patch('hummingbot.connector.gateway.gateway_lp.GatewayLp') as MockLP:
+        with patch('hummingbot.connector.gateway.gateway.Gateway') as MockLP:
             mock_lp = MockLP.return_value
             mock_lp.get_pool_address = AsyncMock(return_value="3ucNos4NbumPLZNWztqGHNFFgkHeRMBQAVemeeomsUxv")
             mock_lp.get_pool_info = AsyncMock(return_value=pool_info)

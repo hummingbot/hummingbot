@@ -31,17 +31,12 @@ class GatewayApproveCommand:
         Allow the user to approve a token for spending using the connector.
         """
         try:
-            # Parse connector format (e.g., "uniswap/amm")
-            if "/" not in connector:
-                self.notify(f"Error: Invalid connector format '{connector}'. Use format like 'uniswap/amm'")
-                return
-
-            # Get chain and network from connector
-            chain, network, error = await self._get_gateway_instance().get_connector_chain_network(
+            # Get DEX info (dex_name, trading_type, chain, network)
+            dex_name, trading_type, chain, network, error = await self._get_gateway_instance().get_dex_info(
                 connector
             )
             if error:
-                self.notify(error)
+                self.notify(f"Error: {error}")
                 return
 
             # Get default wallet for the chain
@@ -189,11 +184,11 @@ class GatewayApproveCommand:
                     pending_msg_delay=3.0
                 )
 
-                # Add token-specific success/failure message
-                if result["completed"] and result["success"]:
-                    self.notify(f"✓ Token {token} is approved for spending on {connector}")
-                elif result["completed"] and not result["success"]:
-                    self.notify(f"✗ Token {token} approval failed. Please check your transaction.")
+                GatewayCommandUtils.handle_transaction_result(
+                    self, result,
+                    success_msg=f"Token {token} is approved for spending on {connector}",
+                    failure_msg=f"Token {token} approval failed. Please try again."
+                )
 
             finally:
                 await GatewayCommandUtils.exit_interactive_mode(self)

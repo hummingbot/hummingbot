@@ -2,7 +2,6 @@ import asyncio
 import copy
 import logging
 import math
-import typing
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
@@ -13,9 +12,6 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, TradeTyp
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 from hummingbot.logger import HummingbotLogger
-
-if typing.TYPE_CHECKING:  # avoid circular import problems
-    from hummingbot.connector.exchange_base import ExchangeBase
 
 s_decimal_0 = Decimal("0")
 
@@ -306,11 +302,13 @@ class InFlightOrder:
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    def cumulative_fee_paid(self, token: str, exchange: Optional['ExchangeBase'] = None) -> Decimal:
+    def cumulative_fee_paid(self, token: str) -> Decimal:
         """
-        Returns the total amount of fee paid for each trade update, expressed in the specified token
+        Returns the total amount of fee paid for each trade update, expressed in the specified token.
+        Rate conversions are resolved through :class:`RateOracle`, which transparently falls back to
+        live order books of registered connectors when the configured rate source lacks a pair.
+
         :param token: The token all partial fills' fees should be transformed to before summing them
-        :param exchange: The exchange being used. If specified the logic will try to use the order book to get the rate
         :return: the cumulative fee paid for all partial fills in the specified token
         """
         total_fee_in_token = Decimal("0")
@@ -321,10 +319,9 @@ class InFlightOrder:
                     price=trade_update.fill_price,
                     order_amount=trade_update.fill_base_amount,
                     token=token,
-                    exchange=exchange
                 )
-        except Exception as e:
-            self.logger().error(f"Error calculating fee paid in {token}: {e}")
+        except Exception:
+            self.logger().exception(f"Error calculating fee paid in {token}.")
         return total_fee_in_token
 
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:

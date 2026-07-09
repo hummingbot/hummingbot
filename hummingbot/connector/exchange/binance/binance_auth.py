@@ -23,7 +23,7 @@ class BinanceAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         """
         if request.method == RESTMethod.POST:
-            request.data = self.add_auth_to_params(params=json.loads(request.data))
+            request.data = self.add_auth_to_params(params=json.loads(request.data) if request.data is not None else {})
         else:
             request.params = self.add_auth_to_params(params=request.params)
 
@@ -56,6 +56,30 @@ class BinanceAuth(AuthBase):
 
     def header_for_authentication(self) -> Dict[str, str]:
         return {"X-MBX-APIKEY": self.api_key}
+
+    def generate_ws_signature(self, params: Dict[str, Any]) -> str:
+        """Generate HMAC-SHA256 signature for WebSocket API requests.
+
+        WS API signing differs from REST: params are sorted alphabetically,
+        not URL-encoded, and apiKey is included in the signed string.
+        """
+        sorted_params = sorted(params.items())
+        payload = "&".join(f"{k}={v}" for k, v in sorted_params)
+        return hmac.new(
+            self.secret_key.encode("utf8"),
+            payload.encode("utf8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+    def generate_ws_subscribe_params(self) -> Dict[str, Any]:
+        """Build the full params dict for userDataStream.subscribe.signature."""
+        timestamp = int(self.time_provider.time() * 1e3)
+        params: Dict[str, Any] = {
+            "apiKey": self.api_key,
+            "timestamp": timestamp,
+        }
+        params["signature"] = self.generate_ws_signature(params)
+        return params
 
     def _generate_signature(self, params: Dict[str, Any]) -> str:
 

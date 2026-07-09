@@ -11,6 +11,7 @@ from xrpl.utils import get_order_book_changes, ripple_time_to_posix
 
 from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.connector.exchange.xrpl.xrpl_order_book import XRPLOrderBook
+from hummingbot.connector.exchange.xrpl.xrpl_utils import mask_node_url
 from hummingbot.connector.exchange.xrpl.xrpl_worker_manager import XRPLWorkerPoolManager
 from hummingbot.connector.exchange.xrpl.xrpl_worker_pool import XRPLQueryWorkerPool
 from hummingbot.core.data_type.common import TradeType
@@ -165,18 +166,18 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     client._websocket.ping_timeout = CONSTANTS.WEBSOCKET_CONNECTION_TIMEOUT
 
                 self.logger().debug(
-                    f"[SUBSCRIPTION] Created dedicated connection for {trading_pair} to {url}"
+                    f"[SUBSCRIPTION] Created dedicated connection for {trading_pair} to {mask_node_url(url)}"
                 )
                 return client
 
             except asyncio.TimeoutError:
                 self.logger().warning(
-                    f"[SUBSCRIPTION] Connection timeout for {trading_pair} to {url}"
+                    f"[SUBSCRIPTION] Connection timeout for {trading_pair} to {mask_node_url(url)}"
                 )
                 self._connector._node_pool.mark_bad_node(url)
             except Exception as e:
                 self.logger().warning(
-                    f"[SUBSCRIPTION] Failed to connect for {trading_pair} to {url}: {e}"
+                    f"[SUBSCRIPTION] Failed to connect for {trading_pair} to {mask_node_url(url)}: {e}"
                 )
                 self._connector._node_pool.mark_bad_node(url)
 
@@ -353,7 +354,7 @@ class XRPLAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 # Subscribe to order book
                 await client.send(subscribe)
-                self.logger().debug(f"[SUBSCRIPTION] Subscribed to {trading_pair} order book via {client.url}")
+                self.logger().debug(f"[SUBSCRIPTION] Subscribed to {trading_pair} order book via {mask_node_url(client.url)}")
 
                 # Start health check task
                 health_check_task = asyncio.create_task(

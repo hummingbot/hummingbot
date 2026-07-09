@@ -49,6 +49,8 @@ class BingXExchange(ExchangePyBase):
 
     @staticmethod
     def bingx_order_type(order_type: OrderType) -> str:
+        if order_type is OrderType.LIMIT_MAKER:
+            return "LIMIT"
         return order_type.name.upper()
 
     @staticmethod
@@ -106,7 +108,7 @@ class BingXExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.MARKET, OrderType.LIMIT]
+        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
@@ -207,6 +209,8 @@ class BingXExchange(ExchangePyBase):
             # api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
             # bing x not has GTC
             pass
+        if order_type == OrderType.LIMIT_MAKER:
+            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_POC
 
         order_result = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,

@@ -12,6 +12,7 @@ from hummingbot.connector.exchange.xrpl.xrpl_order_placement_strategy import (
     LimitOrderStrategy,
     MarketOrderStrategy,
     OrderPlacementStrategyFactory,
+    XRPLOrderPlacementStrategy,
 )
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
@@ -244,7 +245,6 @@ class TestXRPLOrderPlacementStrategy(unittest.IsolatedAsyncioTestCase):
         self.connector._get_best_price.return_value = Decimal("0.5")
 
         # Mock the get_base_quote_amounts to return predefined values
-        # This avoids the issue with Decimal value splitting
         mock_get_base_quote.return_value = (
             IssuedCurrencyAmount(currency="USD", issuer="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R", value="50"),
             xrp_to_drops(Decimal("100")),
@@ -294,7 +294,6 @@ class TestXRPLOrderPlacementStrategy(unittest.IsolatedAsyncioTestCase):
         self.connector._get_best_price.return_value = Decimal("0.5")
 
         # Mock the get_base_quote_amounts to return predefined values
-        # This avoids the issue with Decimal value splitting
         mock_get_base_quote.return_value = (
             IssuedCurrencyAmount(currency="USD", issuer="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R", value="50"),
             xrp_to_drops(Decimal("100")),
@@ -376,3 +375,84 @@ class TestXRPLOrderPlacementStrategy(unittest.IsolatedAsyncioTestCase):
         # Test that ValueError is raised when calling get_base_quote_amounts
         with self.assertRaises(ValueError):
             strategy.get_base_quote_amounts()
+
+    def test_get_digit_counts_normal_decimal(self):
+        """Test _get_digit_counts with a normal decimal value."""
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("123.456"))
+        self.assertEqual(int_digits, 3)
+        self.assertEqual(frac_digits, 3)
+
+    def test_get_digit_counts_scientific_notation_zero(self):
+        """Test _get_digit_counts with '0E-15' — the exact value that caused the original crash.
+
+        normalize() converts 0E-15 to 0, so the digit count reflects that zero
+        has 1 integer digit and 0 fractional digits (no significant precision).
+        """
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("0E-15"))
+        self.assertEqual(int_digits, 1)
+        self.assertEqual(frac_digits, 0)
+
+    def test_get_digit_counts_integer(self):
+        """Test _get_digit_counts with a whole number (no decimal point in str)."""
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("100"))
+        self.assertEqual(int_digits, 3)
+        self.assertEqual(frac_digits, 0)
+
+    def test_get_digit_counts_scientific_positive_exponent(self):
+        """Test _get_digit_counts with positive exponent scientific notation."""
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("5E+3"))
+        self.assertEqual(int_digits, 4)
+        self.assertEqual(frac_digits, 0)
+
+    def test_get_digit_counts_small_decimal(self):
+        """Test _get_digit_counts with a small decimal value."""
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("0.000001"))
+        self.assertEqual(int_digits, 1)
+        self.assertEqual(frac_digits, 6)
+
+    def test_get_digit_counts_large_precision(self):
+        """Test _get_digit_counts with a value exceeding XRPL's 16-digit limit."""
+        # 17 significant digits — normalize() preserves all non-trailing-zero digits
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("12345.678901234567"))
+        self.assertEqual(int_digits, 5)
+        self.assertEqual(frac_digits, 12)
+
+    def test_get_digit_counts_trailing_zeros_stripped(self):
+        """Test that normalize() strips trailing fractional zeros (significant digits only)."""
+        int_digits, frac_digits = XRPLOrderPlacementStrategy._get_digit_counts(Decimal("15.50000"))
+        self.assertEqual(int_digits, 2)
+        self.assertEqual(frac_digits, 1)
+
+    @patch("hummingbot.connector.exchange.xrpl.xrpl_order_placement_strategy.IssuedCurrencyAmount")
+    async def test_get_base_quote_amounts_with_zero_price(self, mock_issued_currency):
+        """Test that get_base_quote_amounts does not crash with a zero price (0E-15).
+
+        This is a regression test for GitHub issue #8119 where BUY orders with
+        a zero price (from 100% buy spread in PMM v1) caused an IndexError
+        in the digit counting logic.
+        """
+        mock_issued_currency.return_value = IssuedCurrencyAmount(
+            currency="USD", issuer="rP9jPyP5kyvFRb6ZiLdcyzmUZ1Zp5t2V7R", value="0"
+        )
+
+        # Create a buy order with price that becomes 0E-15 after quantization
+        zero_price_order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            exchange_order_id="zero_price",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("0E-15"),
+            amount=Decimal("15.5"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN,
+        )
+
+        strategy = LimitOrderStrategy(self.connector, zero_price_order)
+
+        # This should NOT raise IndexError anymore
+        we_pay, we_get = strategy.get_base_quote_amounts()
+
+        # Verify it returns valid results (quote amount will be 0 since price is 0)
+        self.assertIsNotNone(we_pay)
+        self.assertIsNotNone(we_get)

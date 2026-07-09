@@ -43,38 +43,42 @@ class TestBinanceLiquidations(IsolatedAsyncioWrapperTestCase):
             record in self.log_records)
 
     def get_liquidations_ws_data_mock_1(self):
-        data = {"e": "forceOrder",
-                "E": 1714242617159,
-                "o": {"s": "GLMUSDT",
-                      "S": "BUY",
-                      "o": "LIMIT",
-                      "f": "IOC",
-                      "q": "9970",
-                      "p": "0.5088718",
-                      "ap": "0.5029243",
-                      "X": "FILLED",
-                      "l": "988",
-                      "z": "9970",
-                      "T": 1714242617155
-                      }
+        data = {"stream": "glmusdt@forceOrder",
+                "data": {"e": "forceOrder",
+                         "E": 1714242617159,
+                         "o": {"s": "GLMUSDT",
+                               "S": "BUY",
+                               "o": "LIMIT",
+                               "f": "IOC",
+                               "q": "9970",
+                               "p": "0.5088718",
+                               "ap": "0.5029243",
+                               "X": "FILLED",
+                               "l": "988",
+                               "z": "9970",
+                               "T": 1714242617155
+                               }
+                         }
                 }
         return data
 
     def get_liquidations_ws_data_mock_2(self):
-        data = {"e": "forceOrder",
-                "E": 1714242964102,
-                "o": {"s": "CTSIUSDT",
-                      "S": "SELL",
-                      "o": "LIMIT",
-                      "f": "IOC",
-                      "q": "975",
-                      "p": "0.2240",
-                      "ap": "0.2197",
-                      "X": "FILLED",
-                      "l": "975",
-                      "z": "975",
-                      "T": 1714242964100
-                      }
+        data = {"stream": "ctsiusdt@forceOrder",
+                "data": {"e": "forceOrder",
+                         "E": 1714242964102,
+                         "o": {"s": "CTSIUSDT",
+                               "S": "SELL",
+                               "o": "LIMIT",
+                               "f": "IOC",
+                               "q": "975",
+                               "p": "0.2240",
+                               "ap": "0.2197",
+                               "X": "FILLED",
+                               "l": "975",
+                               "z": "975",
+                               "T": 1714242964100
+                               }
+                         }
                 }
         return data
 
