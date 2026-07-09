@@ -13,7 +13,7 @@ WSS_URL = "wss://ws.gemini.com"
 # REST API versions / paths
 # Public
 SYMBOLS_PATH_URL = "/v1/symbols"
-SYMBOL_DETAILS_PATH_URL = "/v1/symbols/details/{}"
+SYMBOLS_DETAILS_ALL_PATH_URL = "/v1/symbols/details/all"
 TICKER_PATH_URL = "/v2/ticker/{}"
 ORDER_BOOK_PATH_URL = "/v1/book/{}"
 
@@ -173,7 +173,7 @@ RATE_LIMITS = [
     # Public REST
     RateLimit(limit_id=SYMBOLS_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=_PUBLIC_LINKS),
-    RateLimit(limit_id=SYMBOL_DETAILS_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
+    RateLimit(limit_id=SYMBOLS_DETAILS_ALL_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=_PUBLIC_LINKS),
     RateLimit(limit_id=TICKER_PATH_URL, limit=MAX_PUBLIC_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=_PUBLIC_LINKS),

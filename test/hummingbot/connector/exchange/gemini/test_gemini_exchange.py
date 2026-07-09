@@ -91,15 +91,6 @@ class GeminiExchangeTests(TestCase):
     def test_is_cancel_request_in_exchange_synchronous(self):
         self.assertTrue(self.exchange.is_cancel_request_in_exchange_synchronous)
 
-    def test_split_gemini_symbol(self):
-        self.assertEqual(("btc", "usd"), GeminiExchange._split_gemini_symbol("btcusd"))
-        self.assertEqual(("eth", "usd"), GeminiExchange._split_gemini_symbol("ethusd"))
-        self.assertEqual(("btc", "gusd"), GeminiExchange._split_gemini_symbol("btcgusd"))
-        self.assertEqual(("eth", "btc"), GeminiExchange._split_gemini_symbol("ethbtc"))
-        self.assertEqual(("sol", "usdt"), GeminiExchange._split_gemini_symbol("solusdt"))
-        self.assertEqual(("", ""), GeminiExchange._split_gemini_symbol("x"))
-        self.assertEqual(("matic", "usd"), GeminiExchange._split_gemini_symbol("maticusd"))
-
     def test_client_order_id_prefix(self):
         self.assertEqual("HBOT", self.exchange.client_order_id_prefix)
 
@@ -292,8 +283,8 @@ class GeminiExchangeTests(TestCase):
     def test_simple_properties(self):
         self.assertEqual("", self.exchange.domain)
         self.assertEqual(CONSTANTS.RATE_LIMITS, self.exchange.rate_limits_rules)
-        self.assertEqual(CONSTANTS.SYMBOLS_PATH_URL, self.exchange.trading_rules_request_path)
-        self.assertEqual(CONSTANTS.SYMBOLS_PATH_URL, self.exchange.trading_pairs_request_path)
+        self.assertEqual(CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL, self.exchange.trading_rules_request_path)
+        self.assertEqual(CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL, self.exchange.trading_pairs_request_path)
         self.assertEqual(CONSTANTS.SYMBOLS_PATH_URL, self.exchange.check_network_request_path)
         self.assertFalse(self.exchange.is_trading_required)
 
@@ -342,12 +333,54 @@ class GeminiExchangeTests(TestCase):
     def _set_symbol_map(self):
         self.exchange._set_trading_pair_symbol_map(bidict({"btcusd": "BTC-USD", "ethusd": "ETH-USD"}))
 
+    @staticmethod
+    def _details_entry(symbol, base, quote, product_type="spot",
+                       min_order_size="0.001", tick_size="0.000001", quote_increment="0.01"):
+        # A /v1/symbols/details/all row: symbol is UPPERCASE, base/quote are authoritative.
+        return {
+            "symbol": symbol,
+            "base_currency": base,
+            "quote_currency": quote,
+            "product_type": product_type,
+            "min_order_size": min_order_size,
+            "tick_size": tick_size,
+            "quote_increment": quote_increment,
+            "status": "open",
+        }
+
     def test_initialize_trading_pair_symbols_from_exchange_info(self):
-        self.exchange._initialize_trading_pair_symbols_from_exchange_info(["btcusd", "ethusd", "x"])
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info([
+            self._details_entry("BTCUSD", "BTC", "USD"),
+            self._details_entry("ETHUSD", "ETH", "USD"),
+            # non-spot (perp) entry is skipped
+            self._details_entry("BTCGUSDPERP", "BTC", "GUSD", product_type="perpetual"),
+        ])
         symbol_map = self._async_run(self.exchange.trading_pair_symbol_map())
+        # The endpoint returns UPPERCASE symbols, but the map is keyed lowercase to match
+        # the REST paths and @trade/@depth streams.
         self.assertEqual("BTC-USD", symbol_map["btcusd"])
         self.assertEqual("ETH-USD", symbol_map["ethusd"])
-        self.assertNotIn("x", symbol_map)
+        self.assertNotIn("btcgusdperp", symbol_map)
+
+    def test_initialize_trading_pair_symbols_maps_rlusd_pair(self):
+        # Regression: the old quote-suffix heuristic mis-split *RLUSD pairs. The
+        # authoritative base_currency/quote_currency fields map them correctly.
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info([
+            self._details_entry("SOLRLUSD", "SOL", "RLUSD"),
+        ])
+        symbol_map = self._async_run(self.exchange.trading_pair_symbol_map())
+        self.assertEqual("SOL-RLUSD", symbol_map["solrlusd"])
+
+    def test_initialize_trading_pair_symbols_skips_non_spot_and_hyphenated(self):
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info([
+            self._details_entry("BTCUSD", "BTC", "USD"),                      # valid spot, kept
+            self._details_entry("PERPX", "BTC", "GUSD", product_type="perpetual"),
+            self._details_entry("WEIRD", "GEMI-BTC", "USD"),                  # hyphenated base
+        ])
+        symbol_map = self._async_run(self.exchange.trading_pair_symbol_map())
+        self.assertEqual("BTC-USD", symbol_map["btcusd"])
+        self.assertNotIn("perpx", symbol_map)
+        self.assertNotIn("weird", symbol_map)
 
     # ------------------------------------------------------------------
     # Order placement — websocket-first
@@ -530,13 +563,17 @@ class GeminiExchangeTests(TestCase):
         self.assertNotIn("options", kwargs["data"])
 
     def test_place_order_ws_ambiguous_failure_reconciles_existing_order(self):
-        # Ack timeout / disconnect-after-send: the order may be live. If REST status
-        # finds an order with this client id, return it instead of re-placing.
+        # Ack timeout / disconnect-after-send: the order may be live. /v1/order/status by
+        # client_order_id returns a LIST — the reconcile must find the matching row and
+        # return its id instead of crashing on a list or re-placing.
         self._set_symbol_map()
         self.exchange._trade_ws_request = AsyncMock(
             side_effect=GeminiWSAmbiguousResponseError("ack timeout"))
-        self.exchange._api_post = AsyncMock(
-            return_value={"order_id": 555, "timestampms": 1700000000000, "is_live": True})
+        self.exchange._api_post = AsyncMock(return_value=[
+            {"order_id": 999, "client_order_id": "HBOTOTHER", "timestampms": 1699999999000},
+            {"order_id": 555, "client_order_id": "HBOT1",
+             "timestampms": 1700000000000, "is_live": True},
+        ])
 
         o_id, ts = self._async_run(self.exchange._place_order(
             order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
@@ -548,6 +585,34 @@ class GeminiExchangeTests(TestCase):
         _, kwargs = self.exchange._api_post.call_args
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_get_order_via_rest_by_client_id_returns_matching_list_row(self):
+        # /v1/order/status by client_order_id returns an ARRAY; the matching row (by
+        # client_order_id, not just [0]) is returned as a dict.
+        matching = {"order_id": 123, "client_order_id": "HBOT1", "timestampms": 1700000000000}
+        self.exchange._api_post = AsyncMock(return_value=[
+            {"order_id": 999, "client_order_id": "HBOTOTHER"},
+            matching,
+        ])
+        result = self._async_run(self.exchange._get_order_via_rest_by_client_id("HBOT1"))
+        self.assertEqual(matching, result)
+
+    def test_get_order_via_rest_by_client_id_list_without_match_returns_none(self):
+        self.exchange._api_post = AsyncMock(return_value=[
+            {"order_id": 999, "client_order_id": "HBOTOTHER"},
+        ])
+        self.assertIsNone(self._async_run(self.exchange._get_order_via_rest_by_client_id("HBOT1")))
+
+    def test_get_order_via_rest_by_client_id_dict_passthrough(self):
+        # An object response (as returned when querying by order_id) is returned as-is.
+        payload = {"order_id": 123, "client_order_id": "HBOT1"}
+        self.exchange._api_post = AsyncMock(return_value=payload)
+        self.assertEqual(payload, self._async_run(
+            self.exchange._get_order_via_rest_by_client_id("HBOT1")))
+
+    def test_get_order_via_rest_by_client_id_not_found_returns_none(self):
+        self.exchange._api_post = AsyncMock(side_effect=IOError("OrderNotFound: no such order"))
+        self.assertIsNone(self._async_run(self.exchange._get_order_via_rest_by_client_id("HBOT1")))
 
     def test_place_order_ws_ambiguous_failure_places_via_rest_when_not_found(self):
         self._set_symbol_map()
@@ -1401,49 +1466,46 @@ class GeminiExchangeTests(TestCase):
     # ------------------------------------------------------------------
 
     def test_format_trading_rules(self):
-        self._set_symbol_map()
-        mock_assistant = AsyncMock()
-        mock_assistant.execute_request = AsyncMock(return_value={
-            "min_order_size": "0.001",
-            "tick_size": "0.000001",
-            "quote_increment": "0.01",
-        })
-        self.exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=mock_assistant)
+        # /v1/symbols/details/all returns per-symbol dicts, so no per-symbol HTTP fetch.
+        rules = self._async_run(self.exchange._format_trading_rules([
+            self._details_entry("BTCUSD", "BTC", "USD",
+                                min_order_size="0.001", tick_size="0.000001", quote_increment="0.01"),
+            self._details_entry("ETHUSD", "ETH", "USD",
+                                min_order_size="0.01", tick_size="0.000001", quote_increment="0.01"),
+        ]))
 
-        rules = self._async_run(self.exchange._format_trading_rules(["btcusd", "ethusd", "unknownxyz"]))
-
-        # unknownxyz is not in the symbol map and is skipped
         self.assertEqual(2, len(rules))
         rule = next(r for r in rules if r.trading_pair == "BTC-USD")
         self.assertEqual(Decimal("0.001"), rule.min_order_size)
         self.assertEqual(Decimal("0.01"), rule.min_price_increment)
+        self.assertEqual(Decimal("0.000001"), rule.min_base_amount_increment)
+        # Gemini publishes no min-notional; it must be left at the default (not fabricated).
+        self.assertEqual(Decimal("0"), rule.min_notional_size)
 
-    def test_format_trading_rules_only_fetches_configured_pairs(self):
-        # The symbol map holds every Gemini symbol; the per-symbol details requests
-        # must be limited to the configured trading pairs to respect the 120/min
-        # public budget.
-        self.exchange._set_trading_pair_symbol_map(
-            bidict({"btcusd": "BTC-USD", "ethusd": "ETH-USD", "solusd": "SOL-USD"}))
-        mock_assistant = AsyncMock()
-        mock_assistant.execute_request = AsyncMock(return_value={
-            "min_order_size": "0.001",
-            "tick_size": "0.000001",
-            "quote_increment": "0.01",
-        })
-        self.exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=mock_assistant)
+    def test_format_trading_rules_only_configured_pairs_and_spot(self):
+        # The details list holds every Gemini symbol; only configured spot pairs yield rules.
+        rules = self._async_run(self.exchange._format_trading_rules([
+            self._details_entry("BTCUSD", "BTC", "USD"),
+            self._details_entry("ETHUSD", "ETH", "USD"),
+            self._details_entry("SOLUSD", "SOL", "USD"),                       # maps but not configured
+            self._details_entry("BTCPERP", "BTC", "GUSD", product_type="perpetual"),  # non-spot
+        ]))
 
-        rules = self._async_run(self.exchange._format_trading_rules(["btcusd", "ethusd", "solusd"]))
-
-        # SOL-USD maps but is not a configured pair — no details request for it
-        self.assertEqual(2, mock_assistant.execute_request.await_count)
         self.assertEqual({"BTC-USD", "ETH-USD"}, {rule.trading_pair for rule in rules})
 
+    def test_format_trading_rules_excludes_non_spot_even_when_pair_configured(self):
+        # A perp whose base/quote derive to a CONFIGURED pair (BTC-USD) must still be
+        # excluded by the spot filter; the configured-pairs filter alone would admit it.
+        rules = self._async_run(self.exchange._format_trading_rules([
+            self._details_entry("BTCUSDPERP", "BTC", "USD", product_type="perpetual"),
+        ]))
+        self.assertEqual(0, len(rules))
+
     def test_format_trading_rules_skips_on_error(self):
-        self._set_symbol_map()
-        mock_assistant = AsyncMock()
-        mock_assistant.execute_request = AsyncMock(side_effect=Exception("details unavailable"))
-        self.exchange._web_assistants_factory.get_rest_assistant = AsyncMock(return_value=mock_assistant)
-        rules = self._async_run(self.exchange._format_trading_rules(["btcusd"]))
+        # A malformed spot entry (missing base_currency) is logged and skipped, not fatal.
+        rules = self._async_run(self.exchange._format_trading_rules([
+            {"symbol": "BADUSD", "product_type": "spot"},
+        ]))
         self.assertEqual(0, len(rules))
 
     # ------------------------------------------------------------------
@@ -1575,39 +1637,55 @@ class GeminiExchangeTests(TestCase):
     # ------------------------------------------------------------------
 
     def test_user_stream_balance_update(self):
+        # "f" is available, "c" is the confirmed total; both are written and the
+        # empty-asset guard skips the malformed entry.
         balance_event = {
             "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
             "E": 1700000000000,
-            "B": [{"a": "USD", "f": "207.39"}, {"a": "", "f": "1"}],
+            "B": [{"a": "USD", "f": "150", "c": "300"}, {"a": "", "f": "1", "c": "1"}],
         }
         self._drive_user_stream([balance_event])
-        self.assertEqual(Decimal("207.39"), self.exchange._account_available_balances["USD"])
-        self.assertEqual(Decimal("207.39"), self.exchange._account_balances["USD"])
+        # available comes from "f", the confirmed TOTAL from "c" — distinct values so this
+        # would fail under the old f-only logic (which wrote available into the total).
+        self.assertEqual(Decimal("150"), self.exchange._account_available_balances["USD"])
+        self.assertEqual(Decimal("300"), self.exchange._account_balances["USD"])
+        self.assertNotIn("", self.exchange._account_balances)
 
-    def test_user_stream_balance_update_preserves_rest_total(self):
-        # The WS "f" is the free (available) balance; it must not clobber a larger REST-
-        # reported total (which includes funds locked in open orders). Otherwise the total
-        # is understated below the true holdings and inventory-based sizing is skewed.
-        self.exchange._account_balances["USD"] = Decimal("300")  # REST total, ~92.61 in orders
-        self.exchange._account_available_balances["USD"] = Decimal("300")
+    def test_user_stream_balance_update_uses_total_field_for_locked_asset(self):
+        # An asset fully committed to open orders has f=0 but c>0. The total must come
+        # from "c" — reading only "f" would wrongly drop the asset's total to 0.
         balance_event = {
             "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
             "E": 1700000000000,
-            "B": [{"a": "USD", "f": "207.39"}],
+            "B": [{"a": "BTC", "f": "0", "c": "1.5"}],
         }
         self._drive_user_stream([balance_event])
-        self.assertEqual(Decimal("207.39"), self.exchange._account_available_balances["USD"])
-        self.assertEqual(Decimal("300"), self.exchange._account_balances["USD"])  # total preserved
+        self.assertEqual(Decimal("0"), self.exchange._account_available_balances["BTC"])
+        self.assertEqual(Decimal("1.5"), self.exchange._account_balances["BTC"])
 
-    def test_user_stream_balance_update_drops_non_positive(self):
-        # A balanceUpdate that drives an asset to sub-cent negative dust removes it from
-        # the tracked balances rather than recording a negative figure.
+    def test_user_stream_balance_update_drops_when_total_is_zero(self):
+        # Dropping mirrors _update_balances (which drops on the total): an asset whose
+        # confirmed total "c" is zero is removed from both dicts even though it was tracked.
+        self.exchange._account_available_balances["BTC"] = Decimal("1")
+        self.exchange._account_balances["BTC"] = Decimal("1")
+        balance_event = {
+            "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
+            "E": 1700000000000,
+            "B": [{"a": "BTC", "f": "0", "c": "0"}],
+        }
+        self._drive_user_stream([balance_event])
+        self.assertNotIn("BTC", self.exchange._account_balances)
+        self.assertNotIn("BTC", self.exchange._account_available_balances)
+
+    def test_user_stream_balance_update_drops_non_positive_total(self):
+        # Sub-cent negative dust in the confirmed total drops the asset rather than
+        # recording a negative figure.
         self.exchange._account_available_balances["USD"] = Decimal("5")
         self.exchange._account_balances["USD"] = Decimal("5")
         balance_event = {
             "e": CONSTANTS.WS_EVENT_BALANCE_UPDATE,
             "E": 1700000000000,
-            "B": [{"a": "USD", "f": "-0.0020"}],
+            "B": [{"a": "USD", "f": "-0.0020", "c": "-0.0020"}],
         }
         self._drive_user_stream([balance_event])
         self.assertNotIn("USD", self.exchange._account_balances)
