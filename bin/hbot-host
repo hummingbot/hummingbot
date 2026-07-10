@@ -15,6 +15,20 @@ container="${HBOT_CONTAINER:-hummingbot}"
 # Anything else (unset, empty, "conda") keeps the default order: source env first, then container.
 prefer="${HBOT_PREFER:-}"
 
+# 0) Standing inside the compose project a RUNNING container was deployed from means you mean THAT
+#    deployment, even on a machine that also has a conda env: the conf/data/logs dirs here are bind
+#    mounts owned by the container's user, so running the source CLI against them just dies with
+#    PermissionError. Detected via the compose working_dir label; single-install machines and other
+#    directories are unaffected, and an explicit HBOT_PREFER (docker OR conda) still wins.
+if [ -z "$prefer" ] && command -v docker >/dev/null 2>&1 \
+        && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$container"; then
+    compose_dir="$(docker inspect --format \
+        '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$container" 2>/dev/null)" || compose_dir=""
+    if [ -n "$compose_dir" ]; then
+        case "$PWD/" in "$compose_dir"/*) prefer="docker" ;; esac
+    fi
+fi
+
 # 1) Source install: a `hummingbot` conda env that has the CLI. Exec the env's python DIRECTLY rather
 #    than via `conda run`, which prints a noisy "ERROR conda.cli.main_run:execute(148): ... failed"
 #    line on EVERY non-zero exit — including the CLI's normal ones (exit 2 for "no command, here's

@@ -66,7 +66,7 @@ Prefer containers? `hbot` works the same way — install [Docker Compose](https:
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 make setup            # answer `y` to "Include Gateway?" to add the DEX middleware
-make deploy           # start the container as an idle "hbot host"
+make deploy           # start the container (interactive client by default)
 make link-cli         # put the `hbot` command on your host PATH (dispatches into the container)
 
 hbot --help           # same commands as the source install above
@@ -74,15 +74,17 @@ hbot --help           # same commands as the source install above
 
 `make link-cli` installs a small wrapper that runs `hbot` inside the container, so every command
 above is identical whether you installed from source or Docker. (Or skip it and use
-`docker exec -it hummingbot hbot <command>`.)
+`docker exec -it hummingbot hbot <command>`.) To dedicate the container to `hbot` instead of the
+interactive client, uncomment `command: tail -f /dev/null` in `docker-compose.yml` before
+`make deploy` — see [Running in Docker](hummingbot/cli/README.md#running-in-docker).
 
 ---
 
 ### Other ways to run Hummingbot
 
-**Interactive (terminal UI) client.** Prefer the classic full-screen client? Remove the
-`command:` override from `docker-compose.yml`, `make deploy`, and `docker attach hummingbot` — or run
-it from source with `make install && make run`. With Gateway included it starts in development mode
+**Interactive (terminal UI) client.** The classic full-screen client is the Docker default:
+`make deploy`, then `docker attach hummingbot` — or run it from source with
+`make install && make run`. With Gateway included it starts in development mode
 (unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
 See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
 

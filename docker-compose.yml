@@ -24,16 +24,16 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
-    # init: true runs a real init (tini) as PID 1 so it REAPS exited children. Required for the idle-host
-    # model below: a bot started via `docker exec hbot start` reparents to PID 1 when the exec returns; a
-    # bare `tail` PID 1 won't reap it, leaving a zombie that makes `hbot stop` wait the full timeout.
+    # init: true runs a real init (tini) as PID 1 so it REAPS exited children — needed when a bot is
+    # started with `docker exec … hbot start`: it reparents to PID 1 when the exec returns, and without
+    # an init it lingers as a zombie that makes `hbot stop` wait its full timeout. Harmless otherwise.
     init: true
-    # Run as an idle "hbot host": the container stays up and you drive it with `hbot` commands — the
-    # same way as a source install. Use the host wrapper (`make link-cli`, then `hbot <command>`) or
-    # `docker exec -it hummingbot hbot <command>`.
-    #   - for one dedicated bot instead:      command: hbot start <config> --foreground
-    #   - for the legacy interactive client:  remove this command, then `docker attach hummingbot`
-    command: tail -f /dev/null
+    # By default the container runs the interactive Hummingbot client — `docker attach hummingbot`.
+    # To drive the container with `hbot` commands instead (`make link-cli`, then `hbot <command>`, or
+    # `docker exec -it hummingbot hbot <command>`), run it as an idle "hbot host" — uncomment:
+    #   command: tail -f /dev/null
+    # Or make one dedicated bot the container's main process:
+    #   command: hbot start <config> --foreground
   #  environment:
   #    - HBOT_PASSWORD=admin
 

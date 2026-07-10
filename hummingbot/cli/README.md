@@ -248,11 +248,16 @@ interactive client's first launch. Every later command must use that same passwo
 > multi-minute extension compile — just `make deploy && make link-cli`. Reach for the source install
 > only when you're building or modifying the code.
 
-`hbot` works the same in Docker as from source — same commands, same flow. `make deploy` brings up a
-`hummingbot` container as an **idle "hbot host"** (it stays up; you drive it with `hbot` commands),
-and `make link-cli` puts an `hbot` wrapper on your host PATH that dispatches into the container:
+`hbot` works the same in Docker as from source — same commands, same flow. By default `make deploy`
+brings up the `hummingbot` container running the classic **interactive client** (`docker attach
+hummingbot` to use it). To dedicate the container to `hbot` instead, opt in to the **idle "hbot
+host"** mode — the container just stays up and every `hbot` command execs into it — by uncommenting
+one line in `docker-compose.yml`:
 
 ```bash
+# docker-compose.yml, under the hummingbot service, uncomment:
+#   command: tail -f /dev/null
+
 make deploy        # start the container (an idle hbot host)
 make link-cli      # install the host `hbot` command (-> docker exec into the container)
 
@@ -262,9 +267,13 @@ hbot start conf_my_bot.yml
 hbot status ; hbot logs -f ; hbot stop
 ```
 
-The wrapper (`bin/hbot-host`) auto-detects: a `hummingbot` conda env → run there; else a running
-`hummingbot` container → `docker exec` into it. So one `hbot <command>` works regardless of how you
-installed. (Without the wrapper, `docker exec -it hummingbot hbot <command>` does the same thing.)
+The wrapper (`bin/hbot-host`) auto-detects where to run: standing inside a compose project whose
+`hummingbot` container is running → `docker exec` into it (the `conf`/`data`/`logs` dirs there are
+bind mounts owned by the container's user, so the host CLI couldn't write them anyway); else a
+`hummingbot` conda env → run there; else a running `hummingbot` container → `docker exec` into it.
+So one `hbot <command>` works regardless of how you installed, and `HBOT_PREFER=docker` forces the
+container on machines that have both. (Without the wrapper,
+`docker exec -it hummingbot hbot <command>` does the same thing.)
 
 > The idle-host container must run a real init (the compose file sets `init: true`) so the bot
 > process — which reparents to PID 1 after the `docker exec` that started it returns — gets **reaped**
