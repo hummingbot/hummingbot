@@ -38,8 +38,9 @@ async def _compute(fills: list, balances: Dict[str, Dict[str, float]]) -> List[d
             perf = await asyncio.wait_for(
                 PerformanceMetrics.create(symbol, trades, cur_balances), PERF_TIMEOUT)
         except Exception as e:
+            # str() of e.g. asyncio.TimeoutError is empty — always name the exception type.
             results.append({"market": market, "pair": symbol, "trades": len(trades),
-                            "error": str(e)})
+                            "error": str(e) or type(e).__name__})
             continue
         results.append({
             "market": market,
