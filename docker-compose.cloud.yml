@@ -10,6 +10,11 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
+    environment:
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:-}
+      - CONFIG_FILE_NAME=${CONFIG_FILE_NAME:-}
+      - SCRIPT_CONFIG=${SCRIPT_CONFIG:-}
+      - HEADLESS_MODE=${HEADLESS_MODE:-false}
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
@@ -21,6 +26,10 @@ services:
       - ./certs:/home/hummingbot/certs
       - ./scripts:/home/hummingbot/scripts
       - ./controllers:/home/hummingbot/controllers
+      - ./hummingbot/strategy_v2/routers:/home/hummingbot/hummingbot/strategy_v2/routers
+      - ./hummingbot/strategy_v2/executors/executor_base.py:/home/hummingbot/hummingbot/strategy_v2/executors/executor_base.py
+      - ./hummingbot/strategy_v2/executors/grid_executor/grid_executor.py:/home/hummingbot/hummingbot/strategy_v2/executors/grid_executor/grid_executor.py
+      - ./hummingbot/strategy_v2/executors/position_executor/position_executor.py:/home/hummingbot/hummingbot/strategy_v2/executors/position_executor/position_executor.py
     logging:
       driver: json-file
       options:

@@ -1,19 +1,13 @@
 from decimal import Decimal
 from types import SimpleNamespace
-import unittest
 from unittest import TestCase
 
-IMPORT_ERROR = None
-
-try:
-    from scripts.v2_funding_rate_arb import (
-        ArbitrageCandidate,
-        FundingRateArbitrage,
-        FundingRateArbitrageConfig,
-    )
-    from hummingbot.core.data_type.common import PriceType, TradeType
-except ModuleNotFoundError as exc:
-    IMPORT_ERROR = exc
+from scripts.v2_funding_rate_arb import (
+    ArbitrageCandidate,
+    FundingRateArbitrage,
+    FundingRateArbitrageConfig,
+)
+from hummingbot.core.data_type.common import TradeType
 
 
 class FakeConnector:
@@ -41,10 +35,6 @@ class FakeMarketDataProvider:
         return self.mid_prices[(connector_name, trading_pair)]
 
 
-@unittest.skipIf(
-    IMPORT_ERROR is not None,
-    f"Missing test dependency while importing funding arb script: {IMPORT_ERROR}",
-)
 class FundingRateArbitrageTest(TestCase):
     def make_config(self, **overrides):
         config = {
@@ -67,7 +57,7 @@ class FundingRateArbitrageTest(TestCase):
         strategy.market_data_provider = market_data_provider or FakeMarketDataProvider()
         strategy.active_funding_arbitrages = {}
         strategy.stopped_funding_arbitrages = {token: [] for token in strategy.config.tokens}
-        strategy._current_timestamp = 0
+        strategy._set_current_timestamp(0)
         strategy.get_all_executors = lambda: executors or []
         return strategy
 
@@ -151,7 +141,7 @@ class FundingRateArbitrageTest(TestCase):
             ),
         ]
         strategy = self.make_strategy(executors=executors)
-        strategy._current_timestamp = 10
+        strategy._set_current_timestamp(10)
         strategy.active_funding_arbitrages["WIF"] = {
             "connector_1": "hyperliquid_perpetual",
             "connector_2": "binance_perpetual",
@@ -175,7 +165,7 @@ class FundingRateArbitrageTest(TestCase):
             SimpleNamespace(id="short-leg", is_done=True, net_pnl_quote=Decimal("2")),
         ]
         strategy = self.make_strategy(executors=executors)
-        strategy._current_timestamp = 20
+        strategy._set_current_timestamp(20)
         strategy.active_funding_arbitrages["WIF"] = {
             "executors_ids": ["long-leg", "short-leg"],
             "funding_payments": [SimpleNamespace(amount=Decimal("0.5"))],
@@ -186,3 +176,38 @@ class FundingRateArbitrageTest(TestCase):
         self.assertNotIn("WIF", strategy.active_funding_arbitrages)
         self.assertEqual(strategy.stopped_funding_arbitrages["WIF"][0]["final_executor_pnl_quote"], Decimal("3"))
         self.assertEqual(strategy.stopped_funding_arbitrages["WIF"][0]["final_funding_pnl_quote"], Decimal("0.5"))
+
+    def test_stopping_retries_active_leg_and_cleans_up_incomplete_pair(self):
+        executor = SimpleNamespace(
+            id="long-leg",
+            is_active=True,
+            is_trading=True,
+            is_done=False,
+            close_type=None,
+            net_pnl_quote=Decimal("0"),
+        )
+        strategy = self.make_strategy(executors=[executor])
+        strategy._set_current_timestamp(10)
+        strategy.active_funding_arbitrages["WIF"] = {
+            "executors_ids": ["long-leg", "missing-short-leg"],
+            "funding_payments": [],
+            "created_at": 0,
+            "status": "stopping",
+            "stop_reason": "missing_executor_after_entry_timeout",
+        }
+
+        actions = strategy.stop_actions_proposal()
+
+        self.assertEqual([action.executor_id for action in actions], ["long-leg"])
+
+        executor.is_active = False
+        executor.is_trading = False
+        executor.is_done = True
+        strategy._set_current_timestamp(20)
+
+        self.assertEqual(strategy.stop_actions_proposal(), [])
+        self.assertNotIn("WIF", strategy.active_funding_arbitrages)
+        self.assertEqual(
+            strategy.stopped_funding_arbitrages["WIF"][0]["stop_reason"],
+            "missing_executor_after_entry_timeout",
+        )

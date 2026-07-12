@@ -116,7 +116,7 @@ class AIStrategyRouter(ControllerBase):
         active_executors = self._active_executors()
         candles = self.market_data_provider.get_candles_df(
             connector_name=self._market_data_connector_name(),
-            trading_pair=self.config.candles_trading_pair,
+            trading_pair=self._candles_trading_pair(),
             interval=self.config.interval,
             max_records=self.config.candles_records,
         )
@@ -339,6 +339,9 @@ class AIStrategyRouter(ControllerBase):
         connector_name = self.config.candles_connector or self.config.connector_name
         return self.config._paper_trade_base_connector(connector_name)
 
+    def _candles_trading_pair(self) -> str:
+        return self.config.candles_trading_pair or self.config.trading_pair
+
     def _is_paper_trade_connector(self) -> bool:
         return self.config.connector_name.endswith("_paper_trade")
 
@@ -349,7 +352,7 @@ class AIStrategyRouter(ControllerBase):
         return [
             CandlesConfig(
                 connector=self._market_data_connector_name(),
-                trading_pair=self.config.candles_trading_pair,
+                trading_pair=self._candles_trading_pair(),
                 interval=self.config.interval,
                 max_records=self.config.candles_records,
             )

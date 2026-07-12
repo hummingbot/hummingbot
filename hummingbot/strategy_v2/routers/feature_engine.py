@@ -23,7 +23,8 @@ class RouterFeatureEngine:
         ema_slow_length: int = 26,
         range_length: int = 50,
     ) -> MarketFeatures:
-        if candles is None or candles.empty or len(candles) < max(atr_length, bb_length, ema_slow_length, range_length):
+        required_records = max(atr_length, bb_length, ema_slow_length, range_length + 1)
+        if candles is None or candles.empty or len(candles) < required_records:
             return MarketFeatures(
                 timestamp=timestamp,
                 mid_price=float(mid_price or 0),
@@ -59,8 +60,10 @@ class RouterFeatureEngine:
         volume_std = volume.rolling(range_length).std().iloc[-1]
         volume_zscore = (volume.iloc[-1] - volume_mean) / volume_std if volume_std and not pd.isna(volume_std) else 0
 
-        range_high = high.tail(range_length).max()
-        range_low = low.tail(range_length).min()
+        # Compare the current close against the completed range that preceded it. Including
+        # the current candle would make buffered breakouts mathematically unreachable.
+        range_high = high.iloc[:-1].tail(range_length).max()
+        range_low = low.iloc[:-1].tail(range_length).min()
         range_width = range_high - range_low
         close_price = close.iloc[-1]
         range_position = (close_price - range_low) / range_width if range_width else 0.5

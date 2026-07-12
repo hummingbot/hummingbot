@@ -275,7 +275,14 @@ class FundingRateArbitrage(StrategyV2Base):
         for token, funding_arbitrage_info in list(self.active_funding_arbitrages.items()):
             executors = self._get_arbitrage_executors(funding_arbitrage_info)
             expected_executors = len(funding_arbitrage_info["executors_ids"])
-            if len(executors) == expected_executors and all(executor.is_done for executor in executors):
+            all_known_executors_done = bool(executors) and all(executor.is_done for executor in executors)
+            complete_arbitrage_done = len(executors) == expected_executors and all_known_executors_done
+            incomplete_arbitrage_stopped = (
+                funding_arbitrage_info.get("status") == "stopping"
+                and len(executors) < expected_executors
+                and all_known_executors_done
+            )
+            if complete_arbitrage_done or incomplete_arbitrage_stopped:
                 funding_arbitrage_info["closed_at"] = self.current_timestamp
                 funding_arbitrage_info["final_executor_pnl_quote"] = sum(
                     executor.net_pnl_quote for executor in executors
@@ -298,7 +305,9 @@ class FundingRateArbitrage(StrategyV2Base):
                                     executors: List[ExecutorInfo]) -> List[StopExecutorAction]:
         expected_executors = len(funding_arbitrage_info["executors_ids"])
         if funding_arbitrage_info.get("status") == "stopping":
-            return []
+            # Stop actions are idempotent. Re-issue them while an executor remains active so a
+            # transient action-processing failure cannot leave an unhedged leg running forever.
+            return [StopExecutorAction(executor_id=executor.id) for executor in executors if executor.is_active]
 
         if len(executors) < expected_executors:
             if self.current_timestamp - funding_arbitrage_info["created_at"] <= self.config.single_leg_timeout:
