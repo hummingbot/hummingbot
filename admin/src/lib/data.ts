@@ -3,7 +3,7 @@ import "server-only";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import type { IterationSnapshot, RuntimeSnapshot, StrategyCatalog } from "./types";
+import type { IterationSnapshot, RuntimeSnapshot, StrategyCatalog, StrategyPromotionState } from "./types";
 
 function projectRoot(): string {
   const candidates = [
@@ -49,6 +49,16 @@ export function getStrategyCatalog(): StrategyCatalog {
 export function getIterationSnapshot(): IterationSnapshot {
   const root = projectRoot();
   return readJson<IterationSnapshot>(resolve(root, "reports/ai_strategy_router_iteration_latest.json"), {});
+}
+
+export function getStrategyPromotionState(): StrategyPromotionState {
+  const root = projectRoot();
+  return readJson<StrategyPromotionState>(resolve(root, "reports/strategy_promotion_state.json"), {
+    version: "0",
+    generated_at: "",
+    default_live_state: "disabled",
+    strategies: [],
+  });
 }
 
 export function getRuntimeSnapshot(): RuntimeSnapshot {

@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-07-12T12:03:01.675823+00:00",
+  "default_live_state": "disabled",
+  "strategies": [
+    {
+      "strategy": "supertrend_v1",
+      "adapter": "supertrend_adapter",
+      "stage": "shadow",
+      "live_enabled": false,
+      "completed_gates": [
+        "adapter_tests_passed"
+      ],
+      "blocking_gates": [
+        "stop_path_verification_required",
+        "cost_adjusted_walk_forward_required",
+        "paper_scorecard_24h_required",
+        "manual_canary_approval_required",
+        "manual_live_release_approval_required"
+      ],
+      "target": "controllers.directional_trading.supertrend_v1",
+      "execution_mode": "controller_profile",
+      "intended_regimes": [
+        "trend_up",
+        "trend_down",
+        "breakout_up",
+        "breakout_down"
+      ],
+      "minimum_paper_hours": 24,
+      "required_features": [
+        "supertrend_direction",
+        "atr",
+        "trend_strength"
+      ],
+      "risk_controls": [
+        "allow_short_gate",
+        "stop_loss",
+        "take_profit",
+        "time_limit",
+        "protect_stop"
+      ]
+    },
+    {
+      "strategy": "pmm_mister",
+      "adapter": "pmm_mister_adapter",
+      "stage": "shadow",
+      "live_enabled": false,
+      "completed_gates": [
+        "adapter_tests_passed"
+      ],
+      "blocking_gates": [
+        "stop_path_verification_required",
+        "cost_adjusted_walk_forward_required",
+        "paper_scorecard_72h_required",
+        "manual_canary_approval_required",
+        "manual_live_release_approval_required"
+      ],
+      "target": "controllers.generic.pmm_mister",
+      "execution_mode": "controller_profile",
+      "intended_regimes": [
+        "range_low_vol",
+        "range_high_vol"
+      ],
+      "minimum_paper_hours": 72,
+      "required_features": [
+        "mid_price",
+        "spread",
+        "inventory_pct",
+        "realized_volatility"
+      ],
+      "risk_controls": [
+        "maker_only",
+        "portfolio_allocation_cap",
+        "max_active_executors_by_level",
+        "global_stop_loss",
+        "protect_stop"
+      ]
+    },
+    {
+      "strategy": "funding_rate_arb",
+      "adapter": "funding_rate_arb_adapter",
+      "stage": "shadow",
+      "live_enabled": false,
+      "completed_gates": [
+        "adapter_tests_passed",
+        "stop_path_verified"
+      ],
+      "blocking_gates": [
+        "cost_adjusted_walk_forward_required",
+        "paper_scorecard_72h_required",
+        "manual_canary_approval_required",
+        "manual_live_release_approval_required"
+      ],
+      "target": "scripts.v2_funding_rate_arb",
+      "execution_mode": "strategy_script",
+      "intended_regimes": [
+        "arbitrage"
+      ],
+      "minimum_paper_hours": 72,
+      "required_features": [
+        "normalized_funding_rate",
+        "executable_basis",
+        "entry_fees",
+        "exit_cost_buffer"
+      ],
+      "risk_controls": [
+        "two_leg_balance",
+        "single_leg_timeout",
+        "max_entry_basis_loss",
+        "funding_stop_loss",
+        "protect_unwind"
+      ]
+    }
+  ]
+}

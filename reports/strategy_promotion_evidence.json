@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "strategies": {
+    "supertrend_v1": {
+      "adapter_tests_passed": true,
+      "stop_path_verified": false,
+      "backtest_passed": false,
+      "walk_forward_passed": false,
+      "costs_included": false,
+      "paper_hours": 0,
+      "paper_scorecard_passed": false,
+      "canary_approved": false,
+      "live_release_approved": false
+    },
+    "pmm_mister": {
+      "adapter_tests_passed": true,
+      "stop_path_verified": false,
+      "backtest_passed": false,
+      "walk_forward_passed": false,
+      "costs_included": false,
+      "paper_hours": 0,
+      "paper_scorecard_passed": false,
+      "canary_approved": false,
+      "live_release_approved": false
+    },
+    "funding_rate_arb": {
+      "adapter_tests_passed": true,
+      "stop_path_verified": true,
+      "backtest_passed": false,
+      "walk_forward_passed": false,
+      "costs_included": false,
+      "paper_hours": 0,
+      "paper_scorecard_passed": false,
+      "canary_approved": false,
+      "live_release_approved": false
+    }
+  }
+}

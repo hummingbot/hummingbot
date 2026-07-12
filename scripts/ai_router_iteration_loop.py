@@ -28,8 +28,10 @@ from ai_router_monitor import (
 CORE_COMPILE_TARGETS = [
     "controllers/generic/ai_strategy_router.py",
     "hummingbot/strategy_v2/routers/__init__.py",
+    "hummingbot/strategy_v2/routers/adapters.py",
     "hummingbot/strategy_v2/routers/data_types.py",
     "hummingbot/strategy_v2/routers/feature_engine.py",
+    "hummingbot/strategy_v2/routers/promotion.py",
     "hummingbot/strategy_v2/routers/router.py",
     "hummingbot/strategy_v2/routers/strategy_registry.py",
     "hummingbot/strategy_v2/executors/executor_base.py",

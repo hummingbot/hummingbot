@@ -34,6 +34,28 @@ export interface StrategyCatalog {
   strategies: StrategyItem[];
 }
 
+export interface StrategyPromotionItem {
+  strategy: string;
+  adapter: string;
+  stage: string;
+  live_enabled: boolean;
+  completed_gates: string[];
+  blocking_gates: string[];
+  target: string;
+  execution_mode: string;
+  intended_regimes: string[];
+  minimum_paper_hours: number;
+  required_features: string[];
+  risk_controls: string[];
+}
+
+export interface StrategyPromotionState {
+  version: string;
+  generated_at: string;
+  default_live_state: string;
+  strategies: StrategyPromotionItem[];
+}
+
 export interface RouterDecision {
   regime?: string;
   action?: string;

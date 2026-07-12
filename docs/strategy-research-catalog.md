@@ -26,6 +26,16 @@ Promotion requires an adapter, cost model, stop/protect path, walk-forward evide
 
 The machine-readable catalog is [`reports/strategy_catalog.json`](../reports/strategy_catalog.json). It is consumed directly by the management admin and records family, source, evidence level, regime fit, risk, adapter state and promotion status.
 
+## Core promotion adapters
+
+The first executable promotion cohort is intentionally small:
+
+- `supertrend_v1` covers directional trend and breakout regimes through `supertrend_adapter`.
+- `pmm_mister` covers range regimes through `pmm_mister_adapter`.
+- `funding_rate_arb` covers structural funding opportunities through `funding_rate_arb_adapter`.
+
+All three use the same fail-closed gate engine in `hummingbot/strategy_v2/routers/promotion.py`. Evidence is recorded in `reports/strategy_promotion_evidence.json`; `scripts/strategy_promotion_report.py` generates the state consumed by the admin. No adapter can reach live stages without cost-adjusted walk-forward evidence, a minimum paper window and explicit canary and live approvals.
+
 ## Current coverage
 
 The catalog covers structural arbitrage, grid, trend, mean reversion, market making, liquidity provision, portfolio hedge, execution algorithms and observation features. Position-sizing schemes without an independent market edge are outside the product scope.

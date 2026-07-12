@@ -23,6 +23,10 @@ docker compose -f docker-compose.cloud.yml --profile admin up -d --build admin
 ## 数据边界
 
 - 策略目录：`reports/strategy_catalog.json`
+- 核心策略证据：`reports/strategy_promotion_evidence.json`
+- 核心策略晋级状态：`reports/strategy_promotion_state.json`
 - 最近迭代快照：`reports/ai_strategy_router_iteration_latest.json`
 - 运行态：本机 Docker、Git HEAD 和工作区状态；容器部署时 Docker 状态会显示为未知，因为后台不会挂载 Docker socket。
 - 策略默认禁用，只有依次通过样本外回测、纸面运行和小额灰度的策略才能晋级。
+
+更新证据后运行 `python3 scripts/strategy_promotion_report.py` 重新生成晋级状态。该命令只计算门禁，不会启动实盘。
