@@ -98,9 +98,9 @@ def apply_cost_model(
 
 def validation_score(metrics: Dict, drawdown_penalty: float = 1.0, turnover_penalty: float = 0.00002) -> float:
     return (
-        float(metrics["adjusted_return"])
-        - drawdown_penalty * float(metrics["max_drawdown_pct"])
-        - turnover_penalty * float(metrics["turnover_ratio"])
+        float(metrics.get("adjusted_return", 0))
+        - drawdown_penalty * float(metrics.get("max_drawdown_pct", 0))
+        - turnover_penalty * float(metrics.get("turnover_ratio", 0))
     )
 
 

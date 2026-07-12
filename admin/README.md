@@ -26,6 +26,8 @@ docker compose -f docker-compose.cloud.yml --profile admin up -d --build admin
 - 核心策略证据：`reports/strategy_promotion_evidence.json`
 - 核心策略晋级状态：`reports/strategy_promotion_state.json`
 - 超级趋势滚动验证：`reports/supertrend_walk_forward_latest.json`
+- 高级纯做市滚动验证：`reports/pmm_mister_walk_forward_latest.json`
+- 资金费率套利滚动验证：`reports/funding_arb_walk_forward_latest.json`
 - 最近迭代快照：`reports/ai_strategy_router_iteration_latest.json`
 - 运行态：本机 Docker、代码提交版本和工作区状态；容器部署时 Docker 状态会显示为未知，因为后台不会挂载 Docker 通信接口。
 - 策略默认禁用，只有依次通过样本外回测、纸面运行和小额灰度的策略才能晋级。

@@ -61,12 +61,14 @@ export function getStrategyPromotionState(): StrategyPromotionState {
   });
 }
 
-export function getSuperTrendWalkForwardReport(): WalkForwardReport | null {
+export function getCoreWalkForwardReports(): WalkForwardReport[] {
   const root = projectRoot();
-  return readJson<WalkForwardReport | null>(
-    resolve(root, "reports/supertrend_walk_forward_latest.json"),
-    null,
-  );
+  return [
+    "supertrend_walk_forward_latest.json",
+    "pmm_mister_walk_forward_latest.json",
+    "funding_arb_walk_forward_latest.json",
+  ].map((filename) => readJson<WalkForwardReport | null>(resolve(root, "reports", filename), null))
+    .filter((report): report is WalkForwardReport => report !== null);
 }
 
 export function getRuntimeSnapshot(): RuntimeSnapshot {

@@ -47,6 +47,34 @@ python scripts/walk_forward_supertrend.py \
 
 当前 7 天快速验证完成 3 个样本外折，3 折均未盈利，费用后净收益为负。因此 `supertrend_v1` 必须继续保持影子状态，不能进入纸面晋级。
 
+## 高级纯做市验证
+
+```bash
+python scripts/walk_forward_pmm_mister.py
+```
+
+结果写入：
+
+- `reports/pmm_mister_walk_forward_latest.json`
+- `reports/pmm_mister_walk_forward_latest.md`
+
+当前 ETH-USDT 永续 7 天验证完成 3 个样本外折，3 折均盈利，费用后净收益为正，保护性停止路径也已通过单元验证。策略已晋级到“回测通过”，但 72 小时纸面评分和人工灰度批准仍未完成，因此不会自动进入实盘。
+
+## 资金费率套利验证
+
+```bash
+python scripts/walk_forward_funding_arb.py
+```
+
+验证器直接读取 Binance 资金费率与标记价格历史，以及 Hyperliquid 小时资金费率与 K 线历史。模拟同时计入双腿资金费率现金流、基差变化、两边开平仓手续费和滑点，并根据 Binance 历史结算时间动态推断 4 小时或 8 小时结算周期。
+
+结果写入：
+
+- `reports/funding_arb_walk_forward_latest.json`
+- `reports/funding_arb_walk_forward_latest.md`
+
+当前 WIF 60 天验证完成 6 个样本外折，没有盈利折，费用后净收益为负，因此继续保持影子状态。
+
 ## 使用边界
 
 - 短窗口结果只用于验证框架和发现明显问题，不代表长期策略结论。

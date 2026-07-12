@@ -1,0 +1,1101 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-07-12T12:58:08.014897+00:00",
+  "strategy": "funding_rate_arb",
+  "strategy_label": "资金费率套利",
+  "status": "completed",
+  "validation_passed": false,
+  "configuration": {
+    "coin": "WIF",
+    "binance_symbol": "WIFUSDT",
+    "interval": "1h",
+    "start": 1778677062,
+    "end": 1783861062,
+    "train_days": 14,
+    "test_days": 7,
+    "purge_hours": 1,
+    "position_size_quote_per_leg": 1000,
+    "candidate_count": 3,
+    "snapshot_count": 1440
+  },
+  "cost_model": {
+    "binance_taker_bps": 5.0,
+    "hyperliquid_taker_bps": 4.5,
+    "slippage_bps_per_leg": 2.0,
+    "round_trip_pct": 0.0027
+  },
+  "data_sources": {
+    "binance_funding": "https://fapi.binance.com/fapi/v1/fundingRate",
+    "binance_prices": "https://fapi.binance.com/fapi/v1/markPriceKlines",
+    "hyperliquid": "https://api.hyperliquid.xyz/info"
+  },
+  "summary": {
+    "completed_folds": 6,
+    "profitable_folds": 0,
+    "profitable_fold_ratio": 0.0,
+    "total_adjusted_net_quote": -1.8987062007396562,
+    "maximum_drawdown_pct": 0.004278040221214894,
+    "total_positions": 1,
+    "passed": false,
+    "criteria": {
+      "minimum_folds": 3,
+      "minimum_profitable_fold_ratio": 0.5,
+      "maximum_drawdown_pct": 0.15,
+      "minimum_adjusted_net_quote": 0.0
+    }
+  },
+  "folds": [
+    {
+      "index": 1,
+      "status": "completed",
+      "window": {
+        "index": 1,
+        "train_start": 1778677062,
+        "train_end": 1779886662,
+        "test_start": 1779890262,
+        "test_end": 1780495062
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.003,
+        "take_profit_pct": 0.008,
+        "maximum_hold_hours": 72,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -11.01538431780846,
+            "adjusted_return": -0.01101538431780846,
+            "max_drawdown_pct": 0.012209622048787947,
+            "total_positions": 5,
+            "profitable_positions": 0,
+            "costs_quote": 13.500000000000002,
+            "funding_pnl_quote": 2.1070105,
+            "basis_pnl_quote": 0.3776051821915427,
+            "turnover_ratio": 20.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1778846400,
+                "exit_timestamp": 1778932800,
+                "long_venue": "binance",
+                "funding_pct": 0.0005357874999999999,
+                "basis_pct": 0.0003152474244885184,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0018489650755114818,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779004800,
+                "exit_timestamp": 1779091200,
+                "long_venue": "binance",
+                "funding_pct": 0.0002613899999999999,
+                "basis_pct": 9.289012116719952e-05,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002345719878832801,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779192000,
+                "exit_timestamp": 1779278400,
+                "long_venue": "binance",
+                "funding_pct": 0.0006760391999999999,
+                "basis_pct": -0.0006336180183581508,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002657578818358151,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779278400,
+                "exit_timestamp": 1779364800,
+                "long_venue": "binance",
+                "funding_pct": 0.00012000000000000006,
+                "basis_pct": -7.433265521705756e-05,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002654332655217058,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779627600,
+                "exit_timestamp": 1779714000,
+                "long_venue": "binance",
+                "funding_pct": 0.0005137938000000001,
+                "basis_pct": 0.0006774183101110332,
+                "cost_pct": 0.0027,
+                "net_pct": -0.001508787889888967,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.023625006366596406
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -2.1452325486332415,
+            "adjusted_return": -0.0021452325486332417,
+            "max_drawdown_pct": 0.0038102129738101713,
+            "total_positions": 1,
+            "profitable_positions": 0,
+            "costs_quote": 2.7,
+            "funding_pnl_quote": 0.5604799999999998,
+            "basis_pnl_quote": -0.005712548633240999,
+            "turnover_ratio": 4.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1779004800,
+                "exit_timestamp": 1779177600,
+                "long_venue": "binance",
+                "funding_pct": 0.0005604799999999997,
+                "basis_pct": -5.712548633240999e-06,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0021452325486332417,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.006035445522443414
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": 0.0,
+        "adjusted_return": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_positions": 0,
+        "profitable_positions": 0,
+        "costs_quote": 0.0,
+        "funding_pnl_quote": 0.0,
+        "basis_pnl_quote": 0.0,
+        "turnover_ratio": 0.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.003,
+          "take_profit_pct": 0.008,
+          "maximum_hold_hours": 72,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [],
+        "validation_score": 0.0
+      }
+    },
+    {
+      "index": 2,
+      "status": "completed",
+      "window": {
+        "index": 2,
+        "train_start": 1779281862,
+        "train_end": 1780491462,
+        "test_start": 1780495062,
+        "test_end": 1781099862
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.002,
+        "take_profit_pct": 0.005,
+        "maximum_hold_hours": 48,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -5.987541228270436,
+            "adjusted_return": -0.005987541228270435,
+            "max_drawdown_pct": 0.007650280697843626,
+            "total_positions": 3,
+            "profitable_positions": 0,
+            "costs_quote": 8.1,
+            "funding_pnl_quote": 0.898939,
+            "basis_pnl_quote": 1.2135197717295654,
+            "turnover_ratio": 12.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1779282000,
+                "exit_timestamp": 1779368400,
+                "long_venue": "binance",
+                "funding_pct": 0.00012000000000000006,
+                "basis_pct": -0.0003290230695387475,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0029090230695387478,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779627600,
+                "exit_timestamp": 1779714000,
+                "long_venue": "binance",
+                "funding_pct": 0.0005137938000000001,
+                "basis_pct": 0.0006774183101110332,
+                "cost_pct": 0.0027,
+                "net_pct": -0.001508787889888967,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1779958800,
+                "exit_timestamp": 1780045200,
+                "long_venue": "binance",
+                "funding_pct": 0.0002651451999999999,
+                "basis_pct": 0.0008651245311572797,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0015697302688427205,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.013877821926114062
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": 0.0,
+        "adjusted_return": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_positions": 0,
+        "profitable_positions": 0,
+        "costs_quote": 0.0,
+        "funding_pnl_quote": 0.0,
+        "basis_pnl_quote": 0.0,
+        "turnover_ratio": 0.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.002,
+          "take_profit_pct": 0.005,
+          "maximum_hold_hours": 48,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [],
+        "validation_score": 0.0
+      }
+    },
+    {
+      "index": 3,
+      "status": "completed",
+      "window": {
+        "index": 3,
+        "train_start": 1779886662,
+        "train_end": 1781096262,
+        "test_start": 1781099862,
+        "test_end": 1781704662
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.002,
+        "take_profit_pct": 0.005,
+        "maximum_hold_hours": 48,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -9.153399251904352,
+            "adjusted_return": -0.009153399251904351,
+            "max_drawdown_pct": 0.011086080146615987,
+            "total_positions": 5,
+            "profitable_positions": 0,
+            "costs_quote": 13.500000000000002,
+            "funding_pnl_quote": 1.1427131,
+            "basis_pnl_quote": 3.203887648095649,
+            "turnover_ratio": 20.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1779958800,
+                "exit_timestamp": 1780045200,
+                "long_venue": "binance",
+                "funding_pct": 0.0002651451999999999,
+                "basis_pct": 0.0008651245311572797,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0015697302688427205,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1780635600,
+                "exit_timestamp": 1780678800,
+                "long_venue": "hyperliquid",
+                "funding_pct": 4.3362199999999976e-05,
+                "basis_pct": 0.0012878635731923271,
+                "cost_pct": 0.0027,
+                "net_pct": -0.001368774226807673,
+                "exit_reason": "funding_reversal"
+              },
+              {
+                "entry_timestamp": 1780678800,
+                "exit_timestamp": 1780765200,
+                "long_venue": "binance",
+                "funding_pct": -6.246039999999998e-05,
+                "basis_pct": 0.0005773203475641919,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002185140052435808,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1780801200,
+                "exit_timestamp": 1780887600,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.0005594783,
+                "basis_pct": -0.0010306080889439517,
+                "cost_pct": 0.0027,
+                "net_pct": -0.003171129788943952,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1780894800,
+                "exit_timestamp": 1780981200,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.0003371878,
+                "basis_pct": 0.001504187285125802,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0008586249148741982,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.02063947939852034
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": 0.0,
+        "adjusted_return": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_positions": 0,
+        "profitable_positions": 0,
+        "costs_quote": 0.0,
+        "funding_pnl_quote": 0.0,
+        "basis_pnl_quote": 0.0,
+        "turnover_ratio": 0.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.002,
+          "take_profit_pct": 0.005,
+          "maximum_hold_hours": 48,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [],
+        "validation_score": 0.0
+      }
+    },
+    {
+      "index": 4,
+      "status": "completed",
+      "window": {
+        "index": 4,
+        "train_start": 1780491462,
+        "train_end": 1781701062,
+        "test_start": 1781704662,
+        "test_end": 1782309462
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.002,
+        "take_profit_pct": 0.005,
+        "maximum_hold_hours": 48,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -7.583668983061631,
+            "adjusted_return": -0.00758366898306163,
+            "max_drawdown_pct": 0.00980108827058889,
+            "total_positions": 4,
+            "profitable_positions": 0,
+            "costs_quote": 10.8,
+            "funding_pnl_quote": 0.8775679,
+            "basis_pnl_quote": 2.3387631169383694,
+            "turnover_ratio": 16.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1780635600,
+                "exit_timestamp": 1780678800,
+                "long_venue": "hyperliquid",
+                "funding_pct": 4.3362199999999976e-05,
+                "basis_pct": 0.0012878635731923271,
+                "cost_pct": 0.0027,
+                "net_pct": -0.001368774226807673,
+                "exit_reason": "funding_reversal"
+              },
+              {
+                "entry_timestamp": 1780678800,
+                "exit_timestamp": 1780765200,
+                "long_venue": "binance",
+                "funding_pct": -6.246039999999998e-05,
+                "basis_pct": 0.0005773203475641919,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002185140052435808,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1780801200,
+                "exit_timestamp": 1780887600,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.0005594783,
+                "basis_pct": -0.0010306080889439517,
+                "cost_pct": 0.0027,
+                "net_pct": -0.003171129788943952,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1780894800,
+                "exit_timestamp": 1780981200,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.0003371878,
+                "basis_pct": 0.001504187285125802,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0008586249148741982,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.01770475725365052
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": -1.8987062007396562,
+        "adjusted_return": -0.0018987062007396562,
+        "max_drawdown_pct": 0.004278040221214894,
+        "total_positions": 1,
+        "profitable_positions": 0,
+        "costs_quote": 2.7,
+        "funding_pnl_quote": 0.12511040000000004,
+        "basis_pnl_quote": 0.6761833992603439,
+        "turnover_ratio": 4.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.002,
+          "take_profit_pct": 0.005,
+          "maximum_hold_hours": 48,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [
+          {
+            "entry_timestamp": 1781805600,
+            "exit_timestamp": 1781978400,
+            "long_venue": "hyperliquid",
+            "funding_pct": 0.00012511040000000003,
+            "basis_pct": 0.0006761833992603439,
+            "cost_pct": 0.0027,
+            "net_pct": -0.0018987062007396562,
+            "exit_reason": "maximum_hold"
+          }
+        ],
+        "validation_score": -0.00625674642195455
+      }
+    },
+    {
+      "index": 5,
+      "status": "completed",
+      "window": {
+        "index": 5,
+        "train_start": 1781096262,
+        "train_end": 1782305862,
+        "test_start": 1782309462,
+        "test_end": 1782914262
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.003,
+        "take_profit_pct": 0.008,
+        "maximum_hold_hours": 72,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -3.378703465020986,
+            "adjusted_return": -0.003378703465020986,
+            "max_drawdown_pct": 0.005552552420531079,
+            "total_positions": 2,
+            "profitable_positions": 0,
+            "costs_quote": 5.4,
+            "funding_pnl_quote": 0.2676606000000001,
+            "basis_pnl_quote": 1.7536359349790143,
+            "turnover_ratio": 8.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1781762400,
+                "exit_timestamp": 1781848800,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.00033169680000000003,
+                "basis_pct": 0.0011513907008511293,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0012169124991488708,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1782295200,
+                "exit_timestamp": 1782302400,
+                "long_venue": "hyperliquid",
+                "funding_pct": -6.40362e-05,
+                "basis_pct": 0.000602245234127885,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002161790965872115,
+                "exit_reason": "window_end"
+              }
+            ],
+            "validation_score": -0.009091255885552065
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -1.8987062007396562,
+            "adjusted_return": -0.0018987062007396562,
+            "max_drawdown_pct": 0.004278040221214894,
+            "total_positions": 1,
+            "profitable_positions": 0,
+            "costs_quote": 2.7,
+            "funding_pnl_quote": 0.12511040000000004,
+            "basis_pnl_quote": 0.6761833992603439,
+            "turnover_ratio": 4.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1781805600,
+                "exit_timestamp": 1781978400,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.00012511040000000003,
+                "basis_pct": 0.0006761833992603439,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0018987062007396562,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.00625674642195455
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": 0.0,
+        "adjusted_return": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_positions": 0,
+        "profitable_positions": 0,
+        "costs_quote": 0.0,
+        "funding_pnl_quote": 0.0,
+        "basis_pnl_quote": 0.0,
+        "turnover_ratio": 0.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.003,
+          "take_profit_pct": 0.008,
+          "maximum_hold_hours": 72,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [],
+        "validation_score": 0.0
+      }
+    },
+    {
+      "index": 6,
+      "status": "completed",
+      "window": {
+        "index": 6,
+        "train_start": 1781701062,
+        "train_end": 1782910662,
+        "test_start": 1782914262,
+        "test_end": 1783519062
+      },
+      "selected_parameters": {
+        "minimum_daily_rate_difference": 0.003,
+        "take_profit_pct": 0.008,
+        "maximum_hold_hours": 72,
+        "reversal_stop_pct": -0.001,
+        "maximum_entry_basis_pct": 0.02
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.001,
+            "take_profit_pct": 0.003,
+            "maximum_hold_hours": 24,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -10.921990294880812,
+            "adjusted_return": -0.010921990294880812,
+            "max_drawdown_pct": 0.02121397080792317,
+            "total_positions": 5,
+            "profitable_positions": 0,
+            "costs_quote": 13.500000000000002,
+            "funding_pnl_quote": 0.39424200000000004,
+            "basis_pnl_quote": 2.1837677051191884,
+            "turnover_ratio": 20.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.001,
+              "take_profit_pct": 0.003,
+              "maximum_hold_hours": 24,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1781762400,
+                "exit_timestamp": 1781848800,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.00033169680000000003,
+                "basis_pct": 0.0011513907008511293,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0012169124991488708,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1782295200,
+                "exit_timestamp": 1782334800,
+                "long_venue": "hyperliquid",
+                "funding_pct": -0.0002520087,
+                "basis_pct": -0.00031959265886494226,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0032716013588649424,
+                "exit_reason": "funding_reversal"
+              },
+              {
+                "entry_timestamp": 1782334800,
+                "exit_timestamp": 1782421200,
+                "long_venue": "binance",
+                "funding_pct": 0.0003182183,
+                "basis_pct": -2.334346025967271e-05,
+                "cost_pct": 0.0027,
+                "net_pct": -0.002405125160259673,
+                "exit_reason": "maximum_hold"
+              },
+              {
+                "entry_timestamp": 1782450000,
+                "exit_timestamp": 1782478800,
+                "long_venue": "binance",
+                "funding_pct": -2.05578e-05,
+                "basis_pct": 0.00036268830064489777,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0023578694993551023,
+                "exit_reason": "funding_reversal"
+              },
+              {
+                "entry_timestamp": 1782478800,
+                "exit_timestamp": 1782565200,
+                "long_venue": "hyperliquid",
+                "funding_pct": 1.6893400000000003e-05,
+                "basis_pct": 0.0010126248227477763,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0016704817772522239,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.03253596110280398
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.002,
+            "take_profit_pct": 0.005,
+            "maximum_hold_hours": 48,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": -1.8987062007396562,
+            "adjusted_return": -0.0018987062007396562,
+            "max_drawdown_pct": 0.004278040221214894,
+            "total_positions": 1,
+            "profitable_positions": 0,
+            "costs_quote": 2.7,
+            "funding_pnl_quote": 0.12511040000000004,
+            "basis_pnl_quote": 0.6761833992603439,
+            "turnover_ratio": 4.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.002,
+              "take_profit_pct": 0.005,
+              "maximum_hold_hours": 48,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [
+              {
+                "entry_timestamp": 1781805600,
+                "exit_timestamp": 1781978400,
+                "long_venue": "hyperliquid",
+                "funding_pct": 0.00012511040000000003,
+                "basis_pct": 0.0006761833992603439,
+                "cost_pct": 0.0027,
+                "net_pct": -0.0018987062007396562,
+                "exit_reason": "maximum_hold"
+              }
+            ],
+            "validation_score": -0.00625674642195455
+          }
+        },
+        {
+          "parameters": {
+            "minimum_daily_rate_difference": 0.003,
+            "take_profit_pct": 0.008,
+            "maximum_hold_hours": 72,
+            "reversal_stop_pct": -0.001,
+            "maximum_entry_basis_pct": 0.02
+          },
+          "metrics": {
+            "adjusted_net_quote": 0.0,
+            "adjusted_return": 0.0,
+            "max_drawdown_pct": 0.0,
+            "total_positions": 0,
+            "profitable_positions": 0,
+            "costs_quote": 0.0,
+            "funding_pnl_quote": 0.0,
+            "basis_pnl_quote": 0.0,
+            "turnover_ratio": 0.0,
+            "parameters": {
+              "minimum_daily_rate_difference": 0.003,
+              "take_profit_pct": 0.008,
+              "maximum_hold_hours": 72,
+              "reversal_stop_pct": -0.001,
+              "maximum_entry_basis_pct": 0.02
+            },
+            "trades": [],
+            "validation_score": 0.0
+          }
+        }
+      ],
+      "metrics": {
+        "adjusted_net_quote": 0.0,
+        "adjusted_return": 0.0,
+        "max_drawdown_pct": 0.0,
+        "total_positions": 0,
+        "profitable_positions": 0,
+        "costs_quote": 0.0,
+        "funding_pnl_quote": 0.0,
+        "basis_pnl_quote": 0.0,
+        "turnover_ratio": 0.0,
+        "parameters": {
+          "minimum_daily_rate_difference": 0.003,
+          "take_profit_pct": 0.008,
+          "maximum_hold_hours": 72,
+          "reversal_stop_pct": -0.001,
+          "maximum_entry_basis_pct": 0.02
+        },
+        "trades": [],
+        "validation_score": 0.0
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-07-12T12:44:33.463338+00:00",
+  "generated_at": "2026-07-12T13:04:54.976782+00:00",
   "default_live_state": "disabled",
   "strategies": [
     {
@@ -77,26 +77,26 @@
     {
       "strategy": "pmm_mister",
       "adapter": "pmm_mister_adapter",
-      "stage": "shadow",
+      "stage": "backtest_passed",
       "live_enabled": false,
       "completed_gates": [
-        "adapter_tests_passed"
+        "adapter_tests_passed",
+        "stop_path_verified",
+        "backtest_and_walk_forward_passed"
       ],
       "blocking_gates": [
-        "stop_path_verification_required",
-        "cost_adjusted_walk_forward_required",
         "paper_scorecard_72h_required",
         "manual_canary_approval_required",
         "manual_live_release_approval_required"
       ],
       "strategy_label": "高级纯做市",
-      "stage_label": "影子评估",
+      "stage_label": "回测已通过",
       "completed_gate_labels": [
-        "适配器测试通过"
+        "适配器测试通过",
+        "停止路径已验证",
+        "回测与滚动验证通过"
       ],
       "blocking_gate_labels": [
-        "需要验证停止路径",
-        "需要完成计费滚动验证",
         "需要通过至少 72 小时纸面评分",
         "需要人工批准小额灰度",
         "需要人工批准实盘发布"
@@ -139,7 +139,9 @@
         "全局止损",
         "保护模式停止路径"
       ],
-      "evidence_refs": []
+      "evidence_refs": [
+        "reports/pmm_mister_walk_forward_latest.json"
+      ]
     },
     {
       "strategy": "funding_rate_arb",
@@ -204,7 +206,9 @@
         "资金费率止损",
         "保护性平仓"
       ],
-      "evidence_refs": []
+      "evidence_refs": [
+        "reports/funding_arb_walk_forward_latest.json"
+      ]
     }
   ]
 }

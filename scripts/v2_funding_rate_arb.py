@@ -41,72 +41,72 @@ class FundingRateArbitrageConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
     leverage: int = Field(
         default=20, gt=0,
-        json_schema_extra={"prompt": lambda mi: "Enter the leverage (e.g. 20): ", "prompt_on_new": True},
+        json_schema_extra={"prompt": lambda mi: "请输入杠杆倍数（例如 20）：", "prompt_on_new": True},
     )
     min_funding_rate_profitability: Decimal = Field(
         default=0.001,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the min funding rate profitability to enter in a position (e.g. 0.001): ",
+            "prompt": lambda mi: "请输入开仓所需的最低资金费率收益率（例如 0.001）：",
             "prompt_on_new": True}
     )
     connectors: Set[str] = Field(
         default="hyperliquid_perpetual,binance_perpetual",
         json_schema_extra={
-            "prompt": lambda mi: "Enter the connectors separated by commas (e.g. hyperliquid_perpetual,binance_perpetual): ",
+            "prompt": lambda mi: "请输入以逗号分隔的连接器（例如 hyperliquid_perpetual,binance_perpetual）：",
             "prompt_on_new": True}
     )
     tokens: Set[str] = Field(
         default="WIF,FET",
-        json_schema_extra={"prompt": lambda mi: "Enter the tokens separated by commas (e.g. WIF,FET): ", "prompt_on_new": True},
+        json_schema_extra={"prompt": lambda mi: "请输入以逗号分隔的代币（例如 WIF,FET）：", "prompt_on_new": True},
     )
     position_size_quote: Decimal = Field(
         default=100,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the position size in quote asset (e.g. order amount 100 will open 100 long on hyperliquid and 100 short on binance): ",
+            "prompt": lambda mi: "请输入单腿计价币仓位金额（例如 100 表示两边各开 100）：",
             "prompt_on_new": True
         }
     )
     profitability_to_take_profit: Decimal = Field(
         default=0.01,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the profitability to take profit (including PNL of positions and fundings received): ",
+            "prompt": lambda mi: "请输入止盈收益率（包含仓位盈亏和资金费收入）：",
             "prompt_on_new": True}
     )
     funding_rate_diff_stop_loss: Decimal = Field(
         default=-0.001,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the funding rate difference to stop the position (e.g. -0.001): ",
+            "prompt": lambda mi: "请输入停止持仓的资金费率差阈值（例如 -0.001）：",
             "prompt_on_new": True}
     )
     min_net_profitability: Decimal = Field(
         default=0.001,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the min net profitability after costs (e.g. 0.001): ",
+            "prompt": lambda mi: "请输入扣除成本后的最低净收益率（例如 0.001）：",
             "prompt_on_new": True}
     )
     max_trade_profitability_loss: Decimal = Field(
         default=0.002,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the max entry basis/slippage/fee loss allowed (e.g. 0.002): ",
+            "prompt": lambda mi: "请输入允许的最大入场基差、滑点和费用损失（例如 0.002）：",
             "prompt_on_new": True}
     )
     estimated_exit_cost_buffer: Decimal = Field(
         default=0.0005,
         json_schema_extra={
-            "prompt": lambda mi: "Enter the estimated exit cost buffer for closing both legs (e.g. 0.0005): ",
+            "prompt": lambda mi: "请输入双腿平仓的预估成本缓冲（例如 0.0005）：",
             "prompt_on_new": True}
     )
     single_leg_timeout: int = Field(
         default=5,
         ge=0,
         json_schema_extra={
-            "prompt": lambda mi: "Enter seconds to wait before unwinding an unbalanced single-leg entry (e.g. 5): ",
+            "prompt": lambda mi: "请输入单腿成交失衡后等待保护性平仓的秒数（例如 5）：",
             "prompt_on_new": True}
     )
     trade_profitability_condition_to_enter: bool = Field(
         default=False,
         json_schema_extra={
-            "prompt": lambda mi: "Do you want to check the trade profitability condition to enter? (True/False): ",
+            "prompt": lambda mi: "是否检查交易收益条件后再入场？（True/False）：",
             "prompt_on_new": True}
     )
 

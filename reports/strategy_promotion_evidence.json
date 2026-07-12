@@ -15,25 +15,27 @@
     },
     "pmm_mister": {
       "adapter_tests_passed": true,
-      "stop_path_verified": false,
-      "backtest_passed": false,
-      "walk_forward_passed": false,
-      "costs_included": false,
+      "stop_path_verified": true,
+      "backtest_passed": true,
+      "walk_forward_passed": true,
+      "costs_included": true,
       "paper_hours": 0,
       "paper_scorecard_passed": false,
       "canary_approved": false,
-      "live_release_approved": false
+      "live_release_approved": false,
+      "evidence_refs": ["reports/pmm_mister_walk_forward_latest.json"]
     },
     "funding_rate_arb": {
       "adapter_tests_passed": true,
       "stop_path_verified": true,
       "backtest_passed": false,
       "walk_forward_passed": false,
-      "costs_included": false,
+      "costs_included": true,
       "paper_hours": 0,
       "paper_scorecard_passed": false,
       "canary_approved": false,
-      "live_release_approved": false
+      "live_release_approved": false,
+      "evidence_refs": ["reports/funding_arb_walk_forward_latest.json"]
     }
   }
 }
