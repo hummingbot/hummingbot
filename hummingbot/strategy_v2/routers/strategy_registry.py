@@ -186,16 +186,6 @@ def default_strategy_registry() -> Dict[str, StrategyCandidate]:
             priority=60,
             enabled=False,
         ),
-        StrategyCandidate(
-            name="bounded_martingale",
-            family=StrategyFamily.MEAN_REVERSION,
-            executor_type="dca_executor",
-            supported_regimes=[MarketRegime.RANGE_LOW_VOL],
-            description="Capped martingale overlay; permanently shadow-only until ruin and gap stress tests pass.",
-            priority=100,
-            enabled=False,
-        ),
-
         # Market-making candidates.
         StrategyCandidate(
             name="pmm_dynamic",

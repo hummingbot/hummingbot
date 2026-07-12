@@ -1,6 +1,6 @@
 # Cloud deployment compose for humm.kline007.top.
-# The public domain is handled by the host Nginx. Hummingbot itself is a CLI
-# trading bot, so this compose file does not expose a public web UI.
+# The public domain is handled by the host Nginx. The optional read-only admin
+# profile binds to localhost and must not be exposed without proxy auth and TLS.
 
 services:
   hummingbot:
@@ -55,3 +55,22 @@ services:
       options:
         max-size: 10m
         max-file: "5"
+
+  admin:
+    profiles: ["admin"]
+    container_name: hummingbot-ai-admin
+    build:
+      context: ./admin
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3217:3217"
+    environment:
+      - HUMMINGBOT_ROOT=/workspace
+    volumes:
+      - ./:/workspace:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3217/admin"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

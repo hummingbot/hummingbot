@@ -105,3 +105,8 @@ coverage.xml
 
 # GRVT
 /grvt
+
+# Admin frontend build artifacts
+**/node_modules/
+**/.next/
+*.tsbuildinfo

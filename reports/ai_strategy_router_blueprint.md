@@ -60,7 +60,7 @@ Hummingbot 官方文档把 V2 分为 Executors、Scripts、Controllers。Control
 |---|---|---|---|
 | GridExecutor | `hummingbot/strategy_v2/executors/grid_executor/` | 开仓网格、止盈平仓、网格循环 | 震荡策略的核心执行器 |
 | PositionExecutor | `hummingbot/strategy_v2/executors/position_executor/` | 带止盈/止损/时间限制的方向仓位 | 趋势、突破、均值回归都可复用 |
-| DCAExecutor | `hummingbot/strategy_v2/executors/dca_executor/` | 分批建仓/平仓 | 趋势回撤、马丁/反马丁变体 |
+| DCAExecutor | `hummingbot/strategy_v2/executors/dca_executor/` | 分批建仓/平仓 | 定额分批执行与受控仓位调整 |
 | OrderExecutor | `hummingbot/strategy_v2/executors/order_executor/` | 单笔订单、限价追踪等 | 通用下单执行 |
 | ArbitrageExecutor | `hummingbot/strategy_v2/executors/arbitrage_executor/` | 两腿套利 | 价差策略 |
 | XEMMExecutor | `hummingbot/strategy_v2/executors/xemm_executor/` | maker-taker 对冲 | 跨所做市 |

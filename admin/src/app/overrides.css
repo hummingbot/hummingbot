@@ -1,0 +1,13 @@
+/* Keep nested operational copy block-level without overriding status pills. */
+.gap-item > .pill {
+  align-items: center;
+  display: inline-flex;
+  flex: none;
+  font-size: 11px;
+  margin-top: 0;
+}
+
+.gap-item > .pill-red { color: var(--red); }
+.gap-item > .pill-amber { color: var(--amber); }
+.gap-item > .pill-blue { color: var(--cyan); }
+.gap-item > .pill-green { color: var(--green); }

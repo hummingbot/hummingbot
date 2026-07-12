@@ -1,0 +1,80 @@
+import "server-only";
+
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import type { IterationSnapshot, RuntimeSnapshot, StrategyCatalog } from "./types";
+
+function projectRoot(): string {
+  const candidates = [
+    process.env.HUMMINGBOT_ROOT,
+    resolve(process.cwd(), ".."),
+    process.cwd(),
+  ].filter((value): value is string => Boolean(value));
+  return candidates.find((candidate) => existsSync(resolve(candidate, "reports/strategy_catalog.json"))) ?? candidates[0];
+}
+
+function readJson<T>(path: string, fallback: T): T {
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function command(args: string[], cwd: string): string {
+  try {
+    return execFileSync(args[0], args.slice(1), {
+      cwd,
+      encoding: "utf8",
+      timeout: 2500,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+export function getStrategyCatalog(): StrategyCatalog {
+  const root = projectRoot();
+  return readJson<StrategyCatalog>(resolve(root, "reports/strategy_catalog.json"), {
+    version: "0",
+    generated_at: "",
+    policy: { profitability_claim: "Catalog unavailable", promotion_path: [], default_live_state: "disabled" },
+    sources: [],
+    strategies: [],
+  });
+}
+
+export function getIterationSnapshot(): IterationSnapshot {
+  const root = projectRoot();
+  return readJson<IterationSnapshot>(resolve(root, "reports/ai_strategy_router_iteration_latest.json"), {});
+}
+
+export function getRuntimeSnapshot(): RuntimeSnapshot {
+  const root = projectRoot();
+  const reportPath = resolve(root, "reports/ai_strategy_router_iteration_latest.json");
+  let reportAgeHours: number | null = null;
+  if (existsSync(reportPath)) {
+    reportAgeHours = Math.max(0, (Date.now() - statSync(reportPath).mtimeMs) / 3_600_000);
+  }
+
+  const containerLine = command([
+    "docker", "ps", "-a", "--filter", "name=hummingbot-ai-router-paper", "--format", "{{.Status}}",
+  ], root);
+  let containerState: RuntimeSnapshot["containerState"] = "unknown";
+  if (!containerLine) containerState = "missing";
+  else if (containerLine.startsWith("Up")) containerState = "running";
+  else if (containerLine.startsWith("Exited") || containerLine.startsWith("Created")) containerState = "stopped";
+
+  const dirty = command(["git", "status", "--porcelain"], root);
+  return {
+    root,
+    container: containerLine || "not found",
+    containerState,
+    reportAgeHours,
+    reportStale: reportAgeHours === null || reportAgeHours > 1,
+    gitHead: command(["git", "rev-parse", "--short", "HEAD"], root) || "unknown",
+    gitDirtyCount: dirty ? dirty.split("\n").filter(Boolean).length : 0,
+  };
+}
