@@ -60,6 +60,8 @@ python scripts/walk_forward_pmm_mister.py
 
 当前 ETH-USDT 永续 7 天验证完成 3 个样本外折，3 折均盈利，费用后净收益为正，保护性停止路径也已通过单元验证。策略已晋级到“回测通过”，但 72 小时纸面评分和人工灰度批准仍未完成，因此不会自动进入实盘。
 
+纸面观察配置已经落在 `conf/controllers/conf_pmm_mister_paper.yml` 和 `conf/scripts/conf_pmm_mister_paper.yml`。运行实例名称为 `hummingbot-pmm-mister-paper`；PaperTrade 不支持 `LIMIT_MAKER` 的价格模拟，因此纸面配置用 `LIMIT` 等价模拟挂单，生产配置仍必须使用 `LIMIT_MAKER`。纸面观察期间仍需执行最大回撤、成交质量、库存偏离和停止路径评分，不能用短期回测结果替代。
+
 ## 资金费率套利验证
 
 ```bash

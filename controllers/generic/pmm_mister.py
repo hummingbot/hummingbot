@@ -257,7 +257,10 @@ class PMMister(ControllerBase):
         super().__init__(config, *args, **kwargs)
         self.config = config
         self.market_data_provider.initialize_rate_sources(
-            [ConnectorPair(connector_name=config.connector_name, trading_pair=config.trading_pair)]
+            [ConnectorPair(
+                connector_name=self.rate_source_connector(config.connector_name),
+                trading_pair=config.trading_pair,
+            )]
         )
         self.price_history = []
         self.max_price_history = 60
@@ -268,6 +271,11 @@ class PMMister(ControllerBase):
         self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
         self._global_close_side: Optional[TradeType] = None  # Side of the position when TP/SL triggered
         self._global_close_retries: int = 0  # Count how many times PHASE 2 has created a close executor
+
+    @staticmethod
+    def rate_source_connector(connector_name: str) -> str:
+        """纸面连接器使用对应真实市场作为汇率数据源。"""
+        return connector_name.removesuffix("_paper_trade")
 
     def _verify_position_mode(self) -> bool:
         """Check that the connector's position mode matches the config. Blocks trading until confirmed."""

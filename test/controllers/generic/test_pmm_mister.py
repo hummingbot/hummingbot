@@ -8,6 +8,10 @@ from hummingbot.strategy_v2.executors.order_executor.data_types import Execution
 
 
 class PMMisterStopPathTest(TestCase):
+    def test_paper_connector_uses_the_underlying_market_as_rate_source(self):
+        self.assertEqual("gate_io", PMMister.rate_source_connector("gate_io_paper_trade"))
+        self.assertEqual("binance_perpetual", PMMister.rate_source_connector("binance_perpetual"))
+
     def make_controller(self):
         controller = PMMister.__new__(PMMister)
         controller.config = PMMisterConfig(

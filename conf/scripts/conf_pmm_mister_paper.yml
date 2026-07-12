@@ -1,0 +1,5 @@
+script_file_name: v2_with_controllers.py
+controllers_config:
+  - conf_pmm_mister_paper.yml
+max_global_drawdown_quote: 50
+max_controller_drawdown_quote: 25

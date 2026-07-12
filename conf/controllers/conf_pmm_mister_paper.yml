@@ -1,0 +1,38 @@
+id: pmm_mister_paper
+controller_type: generic
+controller_name: pmm_mister
+total_amount_quote: 1000
+initial_positions: []
+
+connector_name: gate_io_paper_trade
+trading_pair: ETH-USDT
+portfolio_allocation: 0.2
+target_base_pct: 0.5
+min_base_pct: 0.3
+max_base_pct: 0.7
+
+buy_spreads: 0.002
+sell_spreads: 0.002
+buy_amounts_pct: 1
+sell_amounts_pct: 1
+executor_refresh_time: 120
+buy_cooldown_time: 120
+sell_cooldown_time: 120
+buy_position_effectivization_time: 240
+sell_position_effectivization_time: 240
+price_distance_tolerance: 0.002
+refresh_tolerance: 0.002
+tolerance_scaling: 1.2
+
+leverage: 1
+position_mode: ONEWAY
+position_side: BUY
+take_profit: 0.003
+# PaperTrade currently simulates maker orders through LIMIT; production remains LIMIT_MAKER.
+take_profit_order_type: LIMIT
+open_order_type: LIMIT
+max_active_executors_by_level: 2
+position_profit_protection: true
+global_tp_enabled: false
+global_sl_enabled: true
+global_stop_loss: 0.05
