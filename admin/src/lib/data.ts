@@ -40,7 +40,7 @@ export function getStrategyCatalog(): StrategyCatalog {
   return readJson<StrategyCatalog>(resolve(root, "reports/strategy_catalog.json"), {
     version: "0",
     generated_at: "",
-    policy: { profitability_claim: "Catalog unavailable", promotion_path: [], default_live_state: "disabled" },
+    policy: { profitability_claim: "策略目录不可用", promotion_path: [], default_live_state: "disabled" },
     sources: [],
     strategies: [],
   });
@@ -78,13 +78,16 @@ export function getRuntimeSnapshot(): RuntimeSnapshot {
   else if (containerLine.startsWith("Exited") || containerLine.startsWith("Created")) containerState = "stopped";
 
   const dirty = command(["git", "status", "--porcelain"], root);
+  const containerDisplay = !containerLine
+    ? "未找到纸面实例"
+    : containerLine.replace(/^Up/, "运行中").replace(/^Exited/, "已退出").replace(/^Created/, "已创建");
   return {
     root,
-    container: containerLine || "not found",
+    container: containerDisplay,
     containerState,
     reportAgeHours,
     reportStale: reportAgeHours === null || reportAgeHours > 1,
-    gitHead: command(["git", "rev-parse", "--short", "HEAD"], root) || "unknown",
+    gitHead: command(["git", "rev-parse", "--short", "HEAD"], root) || "未知",
     gitDirtyCount: dirty ? dirty.split("\n").filter(Boolean).length : 0,
   };
 }

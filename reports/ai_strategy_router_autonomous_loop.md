@@ -1,18 +1,18 @@
-# AI Strategy Router Autonomous Loop
+# AI 策略路由器自动迭代闭环
 
-## Goal
+## 目标
 
-Build a closed iteration loop for the AI strategy router:
+为 AI 策略路由器建立完整迭代闭环：
 
 ```text
-observe -> test -> evaluate -> repair plan -> deploy paper -> verify -> repeat
+观察 -> 测试 -> 评估 -> 制定修复计划 -> 部署纸面实例 -> 验证 -> 重复
 ```
 
-The loop is intentionally paper-first. Live trading promotion must remain gated by tests, risk limits, and an explicit release process.
+闭环始终坚持纸面优先。任何实盘晋级都必须经过测试、风险上限和明确的发布流程。
 
-## Current Implementation
+## 当前实现
 
-Implemented:
+已有组件：
 
 ```text
 scripts/ai_router_monitor.py
@@ -22,169 +22,137 @@ reports/ai_strategy_router_iteration_latest.json
 reports/ai_strategy_router_live_status.md
 ```
 
-Current loop command:
+单次运行：
 
 ```bash
 python3 scripts/ai_router_iteration_loop.py
 ```
 
-Run continuously:
+持续运行：
 
 ```bash
 python3 scripts/ai_router_iteration_loop.py --watch 300 --max-iterations 999
 ```
 
-Run tests, then restart the paper bot if tests pass:
+测试通过后重启纸面实例：
 
 ```bash
 python3 scripts/ai_router_iteration_loop.py --deploy-paper
 ```
 
-## What The Loop Does Now
+## 当前闭环能力
 
-1. Observes the current paper bot:
-   - Docker container status.
-   - Latest router decision.
-   - Latest protect event.
-   - Order and fill counts.
-   - Open/completed/cancelled order status distribution.
-   - Estimated inventory, fees, and mark-to-market equity.
+1. 观察纸面实例：
+   - Docker 容器状态。
+   - 最新路由决策和保护事件。
+   - 订单与成交数量。
+   - 挂单、完成和取消状态分布。
+   - 库存、费用和盯市权益估算。
 
-2. Tests code:
-   - Python compile checks for router/controller/executor/loop files.
-   - Synthetic router regime tests.
-   - Strategy registry integrity checks.
+2. 测试代码：
+   - 路由器、控制器、执行器和循环文件的 Python 编译检查。
+   - 路由器行情状态合成测试。
+   - 策略注册表完整性检查。
 
-3. Evaluates gaps:
-   - Paper bot not running.
-   - No orders/fills.
-   - Paper loss below threshold.
-   - Elevated open order count.
-   - Router currently in protect mode.
-   - Route/config mismatch, such as `trend_short` while `allow_short=false`.
-   - Shadow strategy adapter backlog.
-   - Uncommitted/unpinned release changes.
+3. 评估缺口：
+   - 纸面实例未运行。
+   - 没有订单或成交。
+   - 纸面亏损低于阈值。
+   - 挂单数量偏高。
+   - 路由器处于保护模式。
+   - 路由与配置冲突，例如做空权限关闭时推荐空头。
+   - 影子策略适配器待办。
+   - 未提交或未固定的发布变更。
 
-4. Optionally deploys:
-   - Restarts `hummingbot-ai-router-paper`.
-   - Mounts local controller/router/executor files into the Hummingbot Docker image.
-   - Keeps deployment paper-only.
+4. 可选部署：
+   - 重启 `hummingbot-ai-router-paper`。
+   - 把本地控制器、路由器和执行器文件挂载进 Hummingbot Docker 镜像。
+   - 始终保持纸面运行。
 
-5. Writes reports:
-   - Markdown report for humans.
-   - JSON report for future automation.
+5. 生成报告：
+   - 面向人的中文 Markdown 报告。
+   - 面向自动化的 JSON 报告。
 
-## What Is Still Missing
+## 尚未完成
 
-### 1. Code Auto-Iteration
+### 1. 代码自动迭代
 
-Current status: partial.
+当前状态：部分完成。
 
-The loop can detect failures and write repair tasks, but it does not yet rewrite code by itself.
+循环能发现失败并写出修复任务，但还不会自行改写代码。仍需要：
 
-Needed:
+- 读取 JSON 报告并提出最小补丁的代码代理。
+- 每轮只允许一次小变更的修改预算。
+- 每次修改后强制测试。
+- 部署验证失败时自动回滚。
+- 记录补丁、测试结果、部署编号和纸面结果的发布账本。
 
-- A patch-generation agent that reads the JSON report and proposes a minimal code patch.
-- A mutation budget: one small change per loop.
-- Mandatory tests after every patch.
-- Automatic rollback if deploy verification fails.
-- A release ledger recording patch, test result, deploy ID, and paper outcome.
-
-Suggested rule:
+允许自动修改的目录应限制为：
 
 ```text
-The loop may auto-change code only inside an allowlist:
-routers/, controllers/generic/ai_strategy_router.py, scripts/ai_router_*.py
+routers/
+controllers/generic/ai_strategy_router.py
+scripts/ai_router_*.py
 ```
 
-Everything else requires human review.
+其他位置必须人工审核。
 
-### 2. All Strategy Auto-Iteration
+### 2. 全策略自动迭代
 
-Current status: strategy universe registered, not fully executable.
+当前状态：策略集合已注册，但并非全部可执行。
 
-Registered candidates:
+每个影子策略仍需要：
 
-- 26 total candidates.
-- 5 enabled direct routes.
-- 21 shadow candidates.
+- 适配器：把路由决策映射为策略配置或执行器动作。
+- 特征要求：明确所需行情和账户数据。
+- 风险上限：最大仓位、最大亏损、陈旧订单上限和冷却期。
+- 回测与纸面验证配置。
+- 从影子状态晋级到启用状态的标准。
 
-Needed for each shadow strategy:
+任何策略都不得从注册表直接跳到实盘路由。
 
-- Adapter: map route decision into that strategy's config/executor actions.
-- Feature requirements: what market data and account data it needs.
-- Risk limits: max position, max loss, max stale orders, cooldown.
-- Backtest/paper validation profile.
-- Promotion criteria from shadow to enabled.
+### 3. 自动修复与自动部署
 
-Promotion rule should look like:
+当前状态：已有纸面自动部署。
+
+部署前必须确认：测试通过、纸面实例不在保护模式、估算亏损未越界、挂单不超过阈值或已有明确重启策略。
+
+部署后必须确认：容器运行、K 线就绪、路由决策已记录、没有异常堆栈，并在限定时间内出现纸面订单或明确的不交易原因。
+
+回滚必须恢复最近一个已知良好版本、重新部署纸面实例并生成事故报告。
+
+### 4. 数据与评分
+
+当前状态：指标来自日志和 SQLite。
+
+仍需要：
+
+- 存储 K 线、决策、候选评分、成交和盈亏的特征库。
+- 按行情状态生成评分卡，包括震荡中的网格、趋势中的趋势策略、尖峰中的保护策略和影子策略模拟。
+
+目标函数：
 
 ```text
-shadow -> paper-enabled -> small-live-canary -> full-live
+评分 = 净盈亏 - 费用惩罚 - 回撤惩罚 - 频繁换手惩罚 - 陈旧订单惩罚
 ```
 
-No strategy should jump directly from registry to live routing.
+### 5. 安全边界
 
-### 3. Auto-Repair And Auto-Deploy
+必须硬编码保留：
 
-Current status: auto-deploy to paper exists.
+- 纸面优先。
+- 未经明确批准不得自动部署实盘。
+- 做空权限关闭时不得做空。
+- 循环不得提高杠杆。
+- 循环不得写入新的连接器或接口密钥。
+- 不得执行破坏性 Git 命令。
+- 停止与保护始终覆盖策略选择。
 
-Needed:
+## 推荐后续建设顺序
 
-- Pre-deploy check:
-  - tests pass;
-  - current paper bot not in protect;
-  - estimated loss above threshold;
-  - open orders below threshold, or explicit restart policy.
-
-- Post-deploy check:
-  - container up;
-  - candles ready;
-  - router decision logged;
-  - no traceback;
-  - paper order or intentional no-trade reason within N minutes.
-
-- Rollback:
-  - restore last known good release snapshot;
-  - redeploy paper;
-  - write incident report.
-
-### 4. Data And Scoring
-
-Current status: metrics are log/SQLite based.
-
-Needed:
-
-- A feature store for candles, decisions, candidate scores, fills, and PnL.
-- Per-regime scorecards:
-  - grid in range;
-  - trend in trend;
-  - protect during spikes;
-  - shadow strategy paper simulations.
-
-- Objective function:
-
-```text
-score = net_pnl - fee_penalty - drawdown_penalty - churn_penalty - stale_order_penalty
-```
-
-### 5. Safety Boundaries
-
-Must remain hard-coded:
-
-- Paper first.
-- No live auto-deploy without explicit approval.
-- No shorting when `allow_short=false`.
-- No leverage increase from the loop.
-- No new connector/API key writes from the loop.
-- No destructive git commands.
-- Stop/protect always overrides strategy selection.
-
-## Recommended Next Build Steps
-
-1. Add post-deploy verification to `ai_router_iteration_loop.py`.
-2. Add a strategy adapter checklist file for all 21 shadow candidates.
-3. Add a backtest batch runner for enabled strategies.
-4. Add a release ledger JSONL.
-5. Add auto-rollback for failed paper deploy.
-6. Only then add patch-generation automation.
+1. 完成部署后验证。
+2. 维护所有影子策略的适配器检查清单。
+3. 增加已启用策略批量回测器。
+4. 增加 JSONL 发布账本。
+5. 增加纸面部署失败自动回滚。
+6. 最后再加入自动生成补丁的能力。

@@ -36,17 +36,25 @@ export interface StrategyCatalog {
 
 export interface StrategyPromotionItem {
   strategy: string;
+  strategy_label?: string;
   adapter: string;
   stage: string;
+  stage_label?: string;
   live_enabled: boolean;
   completed_gates: string[];
+  completed_gate_labels?: string[];
   blocking_gates: string[];
+  blocking_gate_labels?: string[];
   target: string;
   execution_mode: string;
+  execution_mode_label?: string;
   intended_regimes: string[];
+  intended_regime_labels?: string[];
   minimum_paper_hours: number;
   required_features: string[];
+  required_feature_labels?: string[];
   risk_controls: string[];
+  risk_control_labels?: string[];
 }
 
 export interface StrategyPromotionState {
@@ -58,12 +66,15 @@ export interface StrategyPromotionState {
 
 export interface RouterDecision {
   regime?: string;
+  regime_label?: string;
   action?: string;
+  action_label?: string;
   active?: string;
   recommended?: string;
   confidence?: string;
   scale?: string;
   reasons?: string;
+  reason_labels?: string[];
   log_time?: string;
 }
 

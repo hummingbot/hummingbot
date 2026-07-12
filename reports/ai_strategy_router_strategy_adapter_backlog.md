@@ -1,78 +1,79 @@
-# AI Router Strategy Adapter Backlog
+# AI 路由器策略适配器待办
 
-This backlog turns the 21 shadow candidates into an executable promotion queue.
+本待办把影子策略转化为可执行的晋级队列。
 
-Promotion path:
-
-```text
-registered shadow -> adapter implemented -> paper-enabled -> paper scorecard pass -> live canary
-```
-## Promotion Gates
-
-Before any shadow strategy can become `enabled=True`:
-
-1. Adapter maps router decision into safe executor actions.
-2. Required features exist in the feature engine.
-3. Paper profile is configured.
-4. Strategy has a stop/protect path.
-5. Loop tests pass.
-6. Paper scorecard passes for its intended regime.
-
-Minimum paper scorecard:
+晋级路径：
 
 ```text
-observation_window >= 24h
-no tracebacks
-no stale orders above threshold
-max drawdown within limit
-fee-adjusted PnL not structurally negative
-protect behavior verified
+注册影子策略 -> 实现适配器 -> 纸面启用 -> 纸面评分通过 -> 小额灰度
 ```
 
-## Adapter Queue
+## 晋级门禁
 
-| Priority | Candidate | Family | Missing Adapter Work | Required Features | Paper Test |
+任何影子策略在变为 `enabled=True` 前必须满足：
+
+1. 适配器能把路由决策映射为安全的执行器动作。
+2. 特征引擎具备所需特征。
+3. 已配置纸面运行参数。
+4. 策略具备停止与保护路径。
+5. 循环测试通过。
+6. 策略在目标行情中的纸面评分通过。
+
+最低纸面评分要求：
+
+```text
+观察窗口不少于 24 小时
+没有异常堆栈
+陈旧订单不超过阈值
+最大回撤不超过上限
+扣除费用后的盈亏不存在结构性负值
+保护行为已验证
+```
+
+## 适配器队列
+
+| 优先级 | 候选 | 家族 | 待完成工作 | 必需特征 | 纸面测试 |
 |---:|---|---|---|---|---|
-| 1 | `pmm_dynamic` | market_making | PMM level adapter; inventory cap; maker-only guard | NATR, MACD shift, spread, inventory | Quiet range paper run |
-| 2 | `pmm_simple` | market_making | Basic PMM adapter; order refresh and inventory skew | mid price, spread, inventory | Quiet range paper run |
-| 3 | `supertrend_v1` | trend | Adapter registered; cost-adjusted walk-forward evidence pending | SuperTrend signal, ATR, trend strength | Trend replay + 24h paper |
-| 4 | `bollinger_v1` | mean_reversion | Mean reversion entry/exit adapter | BBP, BB width, range position | High-vol range replay |
-| 5 | `bollinger_v2` | mean_reversion | Same as v1 plus v2 config profile | BBP, BB width, range position | High-vol range replay |
-| 6 | `multi_grid_strike` | grid | Multi-grid allocation adapter | range bands, inventory, grid PnL | Range paper run |
-| 7 | `quantum_grid_allocator` | grid | Allocator state adapter | regime stability, inventory, volatility buckets | Range paper run |
-| 8 | `macd_bb_v1` | trend | Combined MACD/BB signal adapter | MACD, BBP, trend strength | Trend/range mixed replay |
-| 9 | `dman_v3` | trend | DCA risk adapter; max layered exposure | signal, DCA ladder, drawdown | Trend paper with tight cap |
-| 10 | `dman_maker_v2` | market_making | DCA maker adapter; inventory cap | spread, volatility, ladder state | Quiet range paper |
-| 11 | `pmm_v1` | market_making | Spread/inventory adapter | spread, inventory, volatility | Quiet range paper |
-| 12 | `pmm_mister` | market_making | Adapter registered; stop-path verification and walk-forward evidence pending | spread, inventory, skew, volatility | Quiet range replay + 72h paper |
-| 13 | `xemm_multiple_levels` | arbitrage | Maker/taker pair adapter | cross-exchange spread, taker liquidity | Two-connector paper |
-| 14 | `arbitrage_controller` | arbitrage | Multi-market route adapter | executable spread, fees, conversion rate | Two-market paper |
-| 15 | `stat_arb` | arbitrage | Pair feature engine; hedge constraints | z-score, hedge ratio, pair PnL | Pair replay + paper |
-| 16 | `funding_rate_arb` | hedge | Adapter registered; cost-adjusted walk-forward evidence pending | funding rate, executable basis, fees, exit cost | Two-perp replay + 72h paper |
-| 17 | `hedge_asset` | hedge | Portfolio exposure adapter | net inventory, hedge ratio, hedge venue | Inventory stress test |
-| 18 | `lp_rebalancer` | lp | AMM/gateway context adapter | pool range, LP value, gas, inventory | Gateway paper/dev |
-| 19 | `ai_livestream` | trend | External AI trust adapter; signal sanity checks | external signal, confidence, delay | Shadow-only first |
-| 20 | `market_status_monitor` | observe | Observation feature ingestion | order book health, latency | Metrics only |
-| 21 | `liquidations_monitor` | observe | Liquidation feature ingestion | liquidation spike, OI, volume | Metrics only |
+| 1 | `pmm_dynamic` | 做市 | 纯做市层级适配器、库存上限、仅挂单保护 | 波动率、动量偏移、价差、库存 | 平静震荡纸面运行 |
+| 2 | `pmm_simple` | 做市 | 基础纯做市适配器、订单刷新和库存偏斜 | 中间价、价差、库存 | 平静震荡纸面运行 |
+| 3 | `supertrend_v1` | 趋势 | 适配器已注册，等待计费滚动验证 | 超级趋势信号、平均真实波幅、趋势强度 | 趋势回放＋24 小时纸面运行 |
+| 4 | `bollinger_v1` | 均值回归 | 均值回归入场与退出适配器 | 布林位置、布林宽度、区间位置 | 高波动震荡回放 |
+| 5 | `bollinger_v2` | 均值回归 | 第一版能力加第二版配置 | 布林位置、布林宽度、区间位置 | 高波动震荡回放 |
+| 6 | `multi_grid_strike` | 网格 | 多网格资金分配适配器 | 区间边界、库存、网格盈亏 | 震荡纸面运行 |
+| 7 | `quantum_grid_allocator` | 网格 | 资金分配器状态适配器 | 行情稳定性、库存、波动分桶 | 震荡纸面运行 |
+| 8 | `macd_bb_v1` | 趋势 | 动量与布林带组合信号适配器 | 动量、布林位置、趋势强度 | 趋势与震荡混合回放 |
+| 9 | `dman_v3` | 趋势 | 分批风险适配器、分层敞口上限 | 信号、分批阶梯、回撤 | 严格限额的趋势纸面运行 |
+| 10 | `dman_maker_v2` | 做市 | 分批挂单适配器、库存上限 | 价差、波动、阶梯状态 | 平静震荡纸面运行 |
+| 11 | `pmm_v1` | 做市 | 价差与库存适配器 | 价差、库存、波动 | 平静震荡纸面运行 |
+| 12 | `pmm_mister` | 做市 | 适配器已注册，等待停止路径验证和滚动验证 | 价差、库存、偏斜、波动 | 平静震荡回放＋72 小时纸面运行 |
+| 13 | `xemm_multiple_levels` | 套利 | 挂单方与吃单方双市场适配器 | 跨所价差、吃单流动性 | 双连接器纸面运行 |
+| 14 | `arbitrage_controller` | 套利 | 多市场路由适配器 | 可执行价差、费用、换算率 | 双市场纸面运行 |
+| 15 | `stat_arb` | 套利 | 配对特征引擎、对冲约束 | 标准分、对冲比例、配对盈亏 | 配对回放＋纸面运行 |
+| 16 | `funding_rate_arb` | 对冲 | 适配器已注册，等待计费滚动验证 | 资金费率、可执行基差、费用、退出成本 | 双永续回放＋72 小时纸面运行 |
+| 17 | `hedge_asset` | 对冲 | 组合敞口适配器 | 净库存、对冲比例、对冲场所 | 库存压力测试 |
+| 18 | `lp_rebalancer` | 流动性 | 链上做市池与网关上下文适配器 | 池区间、流动性价值、Gas、库存 | 网关开发环境纸面运行 |
+| 19 | `ai_livestream` | 趋势 | 外部 AI 信任适配器与信号合理性检查 | 外部信号、置信度、延迟 | 先进行影子评估 |
+| 20 | `market_status_monitor` | 观察 | 观察特征采集 | 订单簿健康度、延迟 | 仅记录指标 |
+| 21 | `liquidations_monitor` | 观察 | 强平特征采集 | 强平突增、未平仓量、成交量 | 仅记录指标 |
 
-## Current Core Promotion Cohort
+## 当前核心晋级队列
 
-The unified gate engine now tracks `supertrend_v1`, `pmm_mister`, and `funding_rate_arb`.
+统一门禁引擎目前跟踪 `supertrend_v1`、`pmm_mister` 和 `funding_rate_arb`。
 
-Next work is evidence generation, not additional adapter count:
+下一步重点是生成证据，而不是继续增加适配器数量：
 
-- Run cost-adjusted walk-forward replay for all three.
-- Verify PMM Mister's protect/stop path under stale orders and inventory stress.
-- Start minimum paper windows only after replay gates pass.
-- Keep canary and live approvals manual.
+- 为三者运行扣除成本的滚动回放。
+- 在陈旧订单和库存压力下验证高级纯做市的保护与停止路径。
+- 只有回放门禁通过后才开始最低纸面观察窗口。
+- 小额灰度和实盘审批始终由人工完成。
 
-Shared acceptance criteria:
+共同验收标准：
 
 ```text
-adapter unit tests pass
-stop/protect path verified
-cost-adjusted walk-forward passes
-minimum paper window and scorecard pass
-manual canary approval recorded
-manual live approval recorded
+适配器单元测试通过
+停止与保护路径已验证
+计费滚动验证通过
+最低纸面窗口和评分通过
+已记录人工小额灰度审批
+已记录人工实盘审批
 ```

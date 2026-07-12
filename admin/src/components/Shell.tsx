@@ -21,7 +21,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark">H</div>
-          <div><strong>Hummingbot AI</strong><span>Strategy Operations</span></div>
+          <div><strong>Hummingbot AI</strong><span>策略运营中心</span></div>
         </div>
         <nav>
           {groups.map((group) => (
@@ -34,7 +34,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        <div className="sidebar-foot"><span className="status-dot" /> PAPER-FIRST<br /><small>实盘晋级默认关闭</small></div>
+        <div className="sidebar-foot"><span className="status-dot" /> 纸面优先<br /><small>实盘晋级默认关闭</small></div>
       </aside>
       <div className="main-frame">
         <header className="topbar">

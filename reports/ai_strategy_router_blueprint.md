@@ -1,23 +1,23 @@
-# AI Strategy Router Blueprint
+# AI 策略路由器工程蓝图
 
-本文档用于把“覆盖主流策略 + AI 根据盘面切换策略”的想法落成工程蓝图。核心结论是：不要让 AI 直接预测买卖点，而是让 AI 做市场状态识别、策略适配评分、策略失效预警和仓位渐进切换；具体下单继续交给 Hummingbot 的 Controller / Executor。
+本文档用于把“覆盖主流策略 + AI 根据盘面切换策略”的想法落成工程蓝图。核心结论是：不要让 AI 直接预测买卖点，而是让 AI 做市场状态识别、策略适配评分、策略失效预警和仓位渐进切换；具体下单继续交给 Hummingbot 的控制器与执行器。
 
 ## 1. 核心定位
 
 目标不是一次性写出“万能策略”，而是构建一个上层调度系统：
 
 ```text
-Market Data
-  -> Feature Engine
-  -> Market Regime Detector
-  -> Strategy Scoring
-  -> Risk Gate
-  -> Strategy Router
-  -> Hummingbot Controllers / Executors
-  -> Orders
+市场数据
+  -> 特征引擎
+  -> 行情状态识别
+  -> 策略评分
+  -> 风险门禁
+  -> 策略路由器
+  -> Hummingbot 控制器／执行器
+  -> 订单
 ```
 
-AI Router 每个周期回答的不是“现在买还是卖”，而是：
+AI 路由器每个周期回答的不是“现在买还是卖”，而是：
 
 ```text
 当前市场属于什么状态？
@@ -30,9 +30,9 @@ AI Router 每个周期回答的不是“现在买还是卖”，而是：
 
 ## 2. 当前仓库已有能力
 
-Hummingbot 官方文档把 V2 分为 Executors、Scripts、Controllers。Controllers 是生产级模块，可同时运行多个策略；Executors 负责具体订单工作流。当前仓库也符合这个结构。
+Hummingbot 官方文档把 V2 分为执行器、脚本和控制器。控制器是生产级模块，可同时运行多个策略；执行器负责具体订单工作流。当前仓库也符合这个结构。
 
-### 2.1 V2 Controllers
+### 2.1 V2 控制器
 
 | 类型 | 本地模块 | 可用策略能力 | 适合行情 | Router 复用方式 |
 |---|---|---|---|---|
@@ -54,7 +54,7 @@ Hummingbot 官方文档把 V2 分为 Executors、Scripts、Controllers。Control
 | 对冲 | `controllers/generic/hedge_asset.py` | 资产风险对冲 | 风险敞口管理 | 风控动作 |
 | LP | `controllers/generic/lp_rebalancer/lp_rebalancer.py` | CLMM LP + 再平衡 | DEX LP 收费 | LP 候选 |
 
-### 2.2 V2 Executors
+### 2.2 V2 执行器
 
 | Executor | 本地模块 | 作用 | Router 价值 |
 |---|---|---|---|
@@ -67,7 +67,7 @@ Hummingbot 官方文档把 V2 分为 Executors、Scripts、Controllers。Control
 | TWAPExecutor | `hummingbot/strategy_v2/executors/twap_executor/` | 时间加权执行 | 大单拆分、再平衡 |
 | LPExecutor | `hummingbot/strategy_v2/executors/lp_executor/` | LP 头寸 | DEX LP |
 
-### 2.3 V1 Legacy Strategies
+### 2.3 V1 旧版策略
 
 官方文档说明 V1 策略仍支持，但新功能主要集中到 V2。可作为成熟逻辑参考，不建议作为新路由核心。
 
@@ -115,7 +115,7 @@ Hummingbot 官方文档把 V2 分为 Executors、Scripts、Controllers。Control
 
 ## 5. 市场状态矩阵
 
-AI Router 的第一层是识别行情状态。状态不是单一标签，可多标签叠加。
+AI 路由器的第一层是识别行情状态。状态不是单一标签，可多标签叠加。
 
 | 市场状态 | 识别特征 | 首选策略 | 禁用/降权策略 | 关键风控 |
 |---|---|---|---|---|
@@ -130,7 +130,7 @@ AI Router 的第一层是识别行情状态。状态不是单一标签，可多�
 
 ## 6. 策略失效预警
 
-截图里提到的信号应成为第一批 Router 风控输入。
+截图里提到的信号应成为第一批路由器风控输入。
 
 | 失效信号 | 对网格的含义 | 对趋势的含义 | Router 动作 |
 |---|---|---|---|
@@ -143,7 +143,7 @@ AI Router 的第一层是识别行情状态。状态不是单一标签，可多�
 | maker fill 质量变差 | 做市被逆向选择 | 趋势可能增强 | 提高 spread 或停止做市 |
 | 策略盈亏偏离历史分布 | 策略环境变化 | 模型可能失效 | 冻结加仓，触发回测/复盘 |
 
-## 7. AI Router 输入特征
+## 7. AI 路由器输入特征
 
 ### 7.1 基础行情
 
@@ -171,9 +171,9 @@ AI Router 的第一层是识别行情状态。状态不是单一标签，可多�
 - 当前挂单数量、被撤单数量、成交等待时间。
 - 策略是否触发过 stop loss / time limit / limit price。
 
-## 8. Router 输出动作
+## 8. 路由器输出动作
 
-Router 不直接发交易订单，而是输出标准决策：
+路由器不直接发交易订单，而是输出标准决策：
 
 ```yaml
 decision:
@@ -191,16 +191,16 @@ decision:
   cooldown_seconds: 300
 ```
 
-Router 的动作语义：
+路由器的动作语义：
 
-| action | 含义 | 执行方式 |
+| 动作 | 含义 | 执行方式 |
 |---|---|---|
-| continue | 策略继续跑 | 不改动 |
-| reduce | 降仓/减少挂单 | Stop 部分 executor 或降低配置 |
-| stop | 停止当前策略 | StopExecutorAction / cancel orders |
-| switch | 切换策略 | 先降旧仓，再启动新 controller |
-| protect | 保护模式 | 停新开仓，只处理风险 |
-| observe | 观察 | 不启动策略，只收集信号 |
+| `continue` | 策略继续运行 | 不改动 |
+| `reduce` | 降仓或减少挂单 | 停止部分执行器或降低配置 |
+| `stop` | 停止当前策略 | 发出停止执行器动作并撤单 |
+| `switch` | 切换策略 | 先降低旧仓，再启动新控制器 |
+| `protect` | 保护模式 | 停止新开仓，只处理风险 |
+| `observe` | 观察 | 不启动策略，只收集信号 |
 
 ## 9. 策略切换原则
 
@@ -231,18 +231,18 @@ Router 的动作语义：
 
 ## 10. MVP 分期
 
-### Phase 0: 文档与接口冻结
+### 阶段 0：文档与接口冻结
 
 交付：
 
 - 策略能力地图。
 - 市场状态矩阵。
-- Router 输入/输出 schema。
+- 路由器输入／输出结构。
 - 策略失效信号字典。
 
 目标：先让团队知道“AI 控什么，不控什么”。
 
-### Phase 1: Rule-Based Router
+### 阶段 1：规则型路由器
 
 先不用大模型，写确定性规则：
 
@@ -253,7 +253,7 @@ Router 的动作语义：
 
 目标：验证路由架构是否能跑通。
 
-### Phase 2: Scoring Router
+### 阶段 2：评分型路由器
 
 每个策略生成分数：
 
@@ -268,7 +268,7 @@ strategy_score =
 
 目标：允许多个候选策略排序，而不是硬规则。
 
-### Phase 3: AI-Assisted Router
+### 阶段 3：AI 辅助路由器
 
 引入 ML / LLM：
 
@@ -278,13 +278,13 @@ strategy_score =
 
 目标：AI 参与判断，但不绕过风控。
 
-### Phase 4: Auto-Retrain / Strategy Lab
+### 阶段 4：自动再训练与策略实验室
 
 参考 FreqAI、Qlib、VectorBT：
 
 - 自动训练市场状态识别模型。
 - 批量回测策略参数。
-- 记录每次 Router 决策和后验表现。
+- 记录每次路由器决策和后验表现。
 - 定期淘汰失效策略。
 
 目标：形成策略进化闭环。
@@ -299,7 +299,7 @@ strategy_score =
 | 趋势 | Supertrend / MACD | `supertrend_v1` / `macd_bb_v1` |
 | 极端风险 | 保护模式 | 新建 `risk_guard` 或 Router 内置 |
 
-第一版 Router 只做三件事：
+第一版路由器只做三件事：
 
 1. 判断网格还能不能继续跑。
 2. 判断是否进入趋势行情。
@@ -323,7 +323,7 @@ hummingbot/strategy_v2/routers/
   router.py
 ```
 
-更稳妥的路径是先做 Controller：
+更稳妥的路径是先做控制器：
 
 ```text
 controllers/generic/ai_strategy_router.py
@@ -331,10 +331,10 @@ controllers/generic/ai_strategy_router.py
 
 原因：
 
-- Controller 天然可以读取 MarketDataProvider。
-- Controller 可以发出 CreateExecutorAction / StopExecutorAction。
-- Controller 适合生产级多策略调度。
-- 不需要改交易所 connector。
+- 控制器天然可以读取市场数据提供器。
+- 控制器可以发出创建执行器和停止执行器动作。
+- 控制器适合生产级多策略调度。
+- 不需要改交易所连接器。
 
 ## 13. 成败关键
 
@@ -346,7 +346,7 @@ controllers/generic/ai_strategy_router.py
 4. 风控是否硬约束，AI 不能越权。
 5. 每次决策是否记录，能否后验复盘。
 
-如果只把很多策略堆起来，没有 Router 纪律，反而会变成多策略互相打架。真正的竞争力是：
+如果只把很多策略堆起来，没有路由纪律，反而会变成多策略互相打架。真正的竞争力是：
 
 ```text
 策略库覆盖面 + AI 路由判断 + 风控硬门 + 持续复盘进化
@@ -354,19 +354,19 @@ controllers/generic/ai_strategy_router.py
 
 ## 14. 下一步开发建议
 
-建议下一步直接实现 Phase 1：
+建议下一步直接实现阶段 1：
 
-1. 新建 `ai_strategy_router` Controller。
+1. 新建 `ai_strategy_router` 控制器。
 2. 定义 `MarketRegime`、`RouterDecision`、`StrategyCandidate` 数据结构。
 3. 实现第一批特征：ATR、BB width、EMA slope、volume z-score、price range break、grid floating loss。
 4. 实现规则路由：range -> grid，trend -> supertrend，extreme -> protect。
-5. 先用 paper trade / backtest 验证路由日志，不急着实盘自动切换。
+5. 先用纸面交易和回测验证路由日志，不急着实盘自动切换。
 
 第一版不要追求“AI 很聪明”，先追求“路由不会乱来”。
 
-## 15. Phase 1 当前落地状态
+## 15. 阶段 1 当前落地状态
 
-已经新增第一版规则型 Router 骨架：
+已经新增第一版规则型路由器骨架：
 
 ```text
 hummingbot/strategy_v2/routers/

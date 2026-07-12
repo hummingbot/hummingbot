@@ -88,22 +88,28 @@
     "latest_decision": {
       "log_time": "2026-07-01 00:29:32,325",
       "regime": "range_low_vol",
+      "regime_label": "低波动震荡",
       "action": "continue",
+      "action_label": "继续运行",
       "active": "grid_strike",
       "recommended": "grid_strike",
       "confidence": "0.70",
       "scale": "0.70",
-      "reasons": "['low_vol_range']"
+      "reasons": "['low_vol_range']",
+      "reason_labels": ["低波动震荡"]
     },
     "latest_protect": {
       "log_time": "2026-07-01 00:05:49,203",
       "regime": "extreme",
+      "regime_label": "极端风险",
       "action": "protect",
+      "action_label": "保护模式",
       "active": "none",
       "recommended": "protect_mode",
       "confidence": "0.90",
       "scale": "0.00",
-      "reasons": "['volume_spike']"
+      "reasons": "['volume_spike']",
+      "reason_labels": ["成交量突增"]
     },
     "recent_orders": [
       {
@@ -212,14 +218,14 @@
     {
       "severity": "medium",
       "area": "strategy_adapters",
-      "title": "21 shadow strategies still need adapters.",
-      "action": "Prioritize adapters by current shadow score and market regime coverage."
+      "title": "仍有 21 个影子策略需要适配器。",
+      "action": "按照影子评分和行情覆盖优先级实现适配器。"
     },
     {
       "severity": "low",
       "area": "release",
-      "title": "Router-related code has uncommitted or unpinned changes.",
-      "action": "Commit or tag a release snapshot before promoting beyond paper; rerun --deploy-paper after later code edits."
+      "title": "路由器相关代码存在未提交或未固定的变更。",
+      "action": "在纸面阶段之后晋级前提交或标记发布快照；后续代码变更后重新执行纸面部署。"
     }
   ],
   "deploy": null,

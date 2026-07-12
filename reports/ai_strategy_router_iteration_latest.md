@@ -1,25 +1,25 @@
-# AI Router Iteration Report
+# AI 路由器迭代报告
 
-- Generated: 2026-07-01 08:33:36
-- Loop iteration: 1
-- Container: hummingbot-ai-router-paper | Up 4 minutes
-- Router: range_low_vol / continue -> grid_strike
-- Orders/Fills: 84 / 47
-- Equity estimate: -0.594098574288003197021612395 USDT | base=0.00009210000000000004981327850249 BTC | fees=0.6128428182879999877697551797 USDT
+- 生成时间：2026-07-01 08:33:36
+- 循环轮次：1
+- 容器：`hummingbot-ai-router-paper`，运行 4 分钟
+- 路由：低波动震荡／继续运行 → `grid_strike`
+- 订单／成交：84／47
+- 权益估算：-0.594098574288003197021612395 USDT；基础资产=0.00009210000000000004981327850249 BTC；费用=0.6128428182879999877697551797 USDT
 
-## Tests
+## 测试
 
-- py_compile: PASS
-- router synthetic: PASS
+- Python 编译检查：通过
+- 路由器合成测试：通过
 
-## Strategy Universe
+## 策略集合
 
-- Total: 26
-- Enabled: 5 | grid_strike, bollingrid, trend_long, trend_short, protect_mode
-- Shadow: 21
-- Families: {'arbitrage': 3, 'grid': 4, 'hedge': 2, 'lp': 1, 'market_making': 5, 'mean_reversion': 2, 'observe': 2, 'protect': 1, 'trend': 6}
+- 总数：26
+- 已启用：5；`grid_strike`、`bollingrid`、`trend_long`、`trend_short`、`protect_mode`
+- 影子策略：21
+- 家族：套利 3、网格 4、对冲 2、流动性 1、做市 5、均值回归 2、观察 2、保护 1、趋势 6
 
-## Gaps / Next Actions
+## 缺口与下一步
 
-- [medium] strategy_adapters: 21 shadow strategies still need adapters. Action: Prioritize adapters by current shadow score and market regime coverage.
-- [low] release: Router-related code has uncommitted or unpinned changes. Action: Commit or tag a release snapshot before promoting beyond paper; rerun --deploy-paper after later code edits.
+- [中] 策略适配器：仍有 21 个影子策略需要适配器。下一步：按照影子评分和行情覆盖优先级实现适配器。
+- [低] 发布：路由器相关代码存在未提交或未固定的变更。下一步：在纸面阶段之后晋级前提交或标记发布快照。

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { StrategyItem, StrategyStatus } from "@/lib/types";
+import { zhAdapter, zhLabel, zhRisk } from "@/lib/i18n";
 import { StatusPill } from "./StatusPill";
 
 const statusLabel: Record<StrategyStatus, string> = { enabled: "已启用", shadow: "影子评估", research: "研究池", blocked: "禁止晋级" };
@@ -21,7 +22,7 @@ export function StrategyTable({ strategies }: { strategies: StrategyItem[] }) {
     <>
       <div className="filterbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索策略、来源或机制" />
-        <select value={family} onChange={(event) => setFamily(event.target.value)}><option value="all">全部家族</option>{families.map((value) => <option key={value}>{value}</option>)}</select>
+        <select value={family} onChange={(event) => setFamily(event.target.value)}><option value="all">全部家族</option>{families.map((value) => <option key={value} value={value}>{zhLabel(value)}</option>)}</select>
         <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">全部状态</option><option value="enabled">已启用</option><option value="shadow">影子评估</option><option value="research">研究池</option><option value="blocked">禁止晋级</option></select>
         <span className="filter-count">{visible.length} / {strategies.length}</span>
       </div>
@@ -31,9 +32,9 @@ export function StrategyTable({ strategies }: { strategies: StrategyItem[] }) {
           <tbody>{visible.map((item) => (
             <tr key={item.id}>
               <td><strong>{item.name}</strong><code>{item.id}</code><small>{item.summary}</small></td>
-              <td><span className="family-tag">{item.family}</span><small>{item.regimes.join(" · ")}</small></td>
-              <td><strong>{item.evidence.replaceAll("_", " ")}</strong><small>Adapter: {item.adapter}</small></td>
-              <td><span className="risk-text">{item.risk.replaceAll("_", " ")}</span></td>
+              <td><span className="family-tag">{zhLabel(item.family)}</span><small>{item.regimes.map(zhLabel).join(" · ")}</small></td>
+              <td><strong>{zhLabel(item.evidence)}</strong><small>适配器：{zhAdapter(item.adapter)}</small></td>
+              <td><span className="risk-text">{zhRisk(item.risk)}</span></td>
               <td><strong>{item.source}</strong><small>{item.license}</small></td>
               <td><StatusPill tone={tone[item.status]}>{statusLabel[item.status]}</StatusPill></td>
             </tr>

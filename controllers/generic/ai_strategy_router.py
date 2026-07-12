@@ -146,11 +146,11 @@ class AIStrategyRouter(ControllerBase):
         if not self.config.enable_trading:
             return []
         if self._mid_price() is None:
-            self._log_trade_gate("mid price is not ready; skipping executor action.")
+            self._log_trade_gate("中间价尚未就绪，跳过执行器动作。")
             return []
 
         if self._in_cooldown():
-            self._log_trade_gate("router cooldown active; skipping executor action.")
+            self._log_trade_gate("路由器仍在冷却期，跳过执行器动作。")
             return []
 
         active_executors = self._active_executors()
@@ -167,14 +167,14 @@ class AIStrategyRouter(ControllerBase):
                     actions.append(create_action)
                 else:
                     self.logger().info(
-                        "AI Router trade gate: no create action generated for "
-                        f"recommended={decision.recommended_strategy}, mid={features.mid_price:.4f}, "
-                        f"scale={decision.position_scale:.2f}."
+                        "AI 路由交易门禁：没有生成创建动作；"
+                        f"推荐策略={decision.recommended_strategy}，中间价={features.mid_price:.4f}，"
+                        f"仓位系数={decision.position_scale:.2f}。"
                     )
 
         if actions:
             self._last_action_timestamp = self.market_data_provider.time()
-            self.logger().info(f"AI Router sending {len(actions)} executor action(s): {actions}")
+            self.logger().info(f"AI 路由器正在发送 {len(actions)} 个执行器动作：{actions}")
         return actions
 
     def _create_action_for_decision(self, decision: RouterDecision, features: MarketFeatures) -> Optional[CreateExecutorAction]:
@@ -193,7 +193,7 @@ class AIStrategyRouter(ControllerBase):
                 "recommended_strategy": "protect_mode",
                 "position_scale": 0,
                 "reason_codes": decision.reason_codes + [ReasonCode.SHORT_DISABLED],
-                "message": "Short route blocked by allow_short=False; protecting or observing instead.",
+                "message": "做空权限未开启，空头路由已被拦截，改为保护或观察。",
             })
         return decision
 
@@ -315,7 +315,7 @@ class AIStrategyRouter(ControllerBase):
         if timestamp - self._last_trade_gate_log_timestamp < 30:
             return
         self._last_trade_gate_log_timestamp = timestamp
-        self.logger().info(f"AI Router trade gate: {message}")
+        self.logger().info(f"AI 路由交易门禁：{message}")
 
     def _active_executors(self):
         return self.filter_executors(
@@ -332,7 +332,7 @@ class AIStrategyRouter(ControllerBase):
             )
             return float(price)
         except Exception as exc:
-            self.logger().debug(f"Mid price is not ready for {self.config.trading_pair}: {exc}")
+            self.logger().debug(f"{self.config.trading_pair} 的中间价尚未就绪：{exc}")
             return None
 
     def _market_data_connector_name(self) -> str:
@@ -373,19 +373,19 @@ class AIStrategyRouter(ControllerBase):
         decision = self.processed_data.get("decision")
         features = self.processed_data.get("features")
         if not isinstance(decision, RouterDecision) or not isinstance(features, MarketFeatures):
-            return ["AI Router: waiting for data."]
+            return ["AI 策略路由器：正在等待数据。"]
 
         lines = [
-            "AI Strategy Router",
-            f"Trading Enabled: {self.config.enable_trading}",
-            f"Regime: {decision.regime.value} | Action: {decision.action.value} | Risk: {decision.risk_level.value}",
-            f"Active: {decision.active_strategy or 'none'} | Recommended: {decision.recommended_strategy or 'none'}",
-            f"Confidence: {decision.confidence:.2f} | Position Scale: {decision.position_scale:.2f}",
-            f"Reasons: {', '.join(reason.value for reason in decision.reason_codes) or 'none'}",
+            "AI 策略路由器",
+            f"交易已启用：{self.config.enable_trading}",
+            f"行情状态：{decision.regime.value} | 动作：{decision.action.value} | 风险：{decision.risk_level.value}",
+            f"当前策略：{decision.active_strategy or '无'} | 推荐策略：{decision.recommended_strategy or '无'}",
+            f"置信度：{decision.confidence:.2f} | 仓位系数：{decision.position_scale:.2f}",
+            f"原因：{', '.join(reason.value for reason in decision.reason_codes) or '无'}",
             (
-                f"Features: mid={features.mid_price:.4f}, atr={features.atr_pct:.4%}, "
-                f"bb_width={features.bb_width_pct:.4%}, ema_slope={features.ema_slope_pct:.4%}, "
-                f"vol_z={features.volume_zscore:.2f}"
+                f"特征：中间价={features.mid_price:.4f}，平均真实波幅={features.atr_pct:.4%}，"
+                f"布林宽度={features.bb_width_pct:.4%}，指数均线斜率={features.ema_slope_pct:.4%}，"
+                f"成交量标准分={features.volume_zscore:.2f}"
             ),
         ]
         candidate_scores = self.processed_data.get("candidate_scores", [])
@@ -394,5 +394,5 @@ class AIStrategyRouter(ControllerBase):
                 f"{score.name}:{score.score:.2f}{'' if score.enabled else '*'}"
                 for score in candidate_scores[:5]
             ]
-            lines.append(f"Top Candidates: {', '.join(formatted_scores)} (* shadow)")
+            lines.append(f"候选策略排名：{', '.join(formatted_scores)}（* 表示影子策略）")
         return lines

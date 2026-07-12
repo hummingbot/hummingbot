@@ -41,7 +41,7 @@ class RuleBasedStrategyRouter:
                 confidence=0,
                 position_scale=0,
                 reason_codes=[ReasonCode.NOT_ENOUGH_DATA],
-                message="Waiting for enough candle data.",
+                message="等待足够的 K 线数据。",
             )
 
         risk_reasons = self._risk_reasons(features)
@@ -56,7 +56,7 @@ class RuleBasedStrategyRouter:
                 confidence=0.9,
                 position_scale=0,
                 reason_codes=risk_reasons,
-                message="Risk gate triggered; protect capital before routing new risk.",
+                message="风险门禁已触发；在路由新增风险前先保护资金。",
             )
 
         regime, regime_reasons, confidence = self._detect_regime(features)
@@ -78,7 +78,7 @@ class RuleBasedStrategyRouter:
             confidence=confidence,
             position_scale=position_scale,
             reason_codes=reason_codes,
-            message=f"Route {features.active_strategy or 'none'} -> {recommended_strategy} for {regime.value}.",
+            message=f"行情状态为 {regime.value}，策略从 {features.active_strategy or '无'} 路由到 {recommended_strategy}。",
         )
 
     def _risk_reasons(self, features: MarketFeatures) -> List[ReasonCode]:

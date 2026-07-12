@@ -41,6 +41,40 @@ CORE_COMPILE_TARGETS = [
     "scripts/ai_router_iteration_loop.py",
 ]
 
+DECISION_LABELS = {
+    "unknown": "未知行情",
+    "range_low_vol": "低波动震荡",
+    "range_high_vol": "高波动震荡",
+    "trend_up": "上升趋势",
+    "trend_down": "下降趋势",
+    "breakout_up": "向上突破",
+    "breakout_down": "向下突破",
+    "extreme": "极端风险",
+    "arbitrage": "套利机会",
+    "continue": "继续运行",
+    "reduce": "降低仓位",
+    "stop": "停止",
+    "switch": "切换策略",
+    "protect": "保护模式",
+    "observe": "仅观察",
+    "low_vol_range": "低波动震荡",
+    "high_vol_range": "高波动震荡",
+    "volume_spike": "成交量突增",
+    "atr_spike": "平均真实波幅突增",
+    "active_loss_limit": "主动亏损达到上限",
+}
+
+
+def localized_decision(decision) -> Optional[Dict]:
+    if decision is None:
+        return None
+    payload = decision.__dict__.copy()
+    payload["regime_label"] = DECISION_LABELS.get(decision.regime, decision.regime)
+    payload["action_label"] = DECISION_LABELS.get(decision.action, decision.action)
+    reason_codes = decision.reasons.replace("[", "").replace("]", "").replace("'", "").split(",")
+    payload["reason_labels"] = [DECISION_LABELS.get(code.strip(), code.strip()) for code in reason_codes if code.strip()]
+    return payload
+
 
 def run_command(command: List[str], cwd: Path, timeout: int = 60) -> Dict:
     started = time.time()
@@ -179,8 +213,8 @@ def live_snapshot(root: Path, args) -> Dict:
         "fills": counts["fills"],
         "parsed_fills": len(fills),
         "status_counts": dict(status_counts),
-        "latest_decision": latest_decision.__dict__ if latest_decision else None,
-        "latest_protect": latest_protect.__dict__ if latest_protect else None,
+        "latest_decision": localized_decision(latest_decision),
+        "latest_protect": localized_decision(latest_protect),
         "recent_orders": [
             {
                 **order,
@@ -208,32 +242,32 @@ def evaluate_gaps(snapshot: Dict, registry: Dict, tests: Dict[str, Dict], git: D
         gaps.append({
             "severity": "blocker",
             "area": "code",
-            "title": "Tests are failing; block deployment.",
-            "action": "Fix failing py_compile/router synthetic tests before restarting paper or live bots.",
+            "title": "测试失败，阻止部署。",
+            "action": "修复 Python 编译检查或路由器合成测试后，才能重启纸面或实盘实例。",
         })
 
     if "Up" not in live.get("container_status", ""):
         gaps.append({
             "severity": "high",
             "area": "deployment",
-            "title": "Paper container is not running.",
-            "action": "Restart paper container after tests pass.",
+            "title": "纸面容器未运行。",
+            "action": "测试通过后重启纸面容器。",
         })
 
     if live["orders"] == 0 or live["fills"] == 0:
         gaps.append({
             "severity": "high",
             "area": "execution",
-            "title": "No orders or fills detected.",
-            "action": "Check connector readiness, trading rules, paper balances, and executor creation logs.",
+            "title": "没有检测到订单或成交。",
+            "action": "检查连接器就绪状态、交易规则、纸面余额和执行器创建日志。",
         })
 
     if pnl["equity_quote"] <= Decimal(str(args.max_paper_loss_quote)):
         gaps.append({
             "severity": "high",
             "area": "risk",
-            "title": f"Paper equity estimate is below loss gate: {pnl['equity_quote']} USDT.",
-            "action": "Reduce grid size, widen take-profit, or pause deployment until loss source is understood.",
+            "title": f"纸面权益估算低于亏损门禁：{pnl['equity_quote']} USDT。",
+            "action": "降低网格规模、放宽止盈，或暂停部署直至查明亏损来源。",
         })
 
     open_orders = sum(count for status, count in status_counts.items() if status.endswith("Created"))
@@ -241,48 +275,48 @@ def evaluate_gaps(snapshot: Dict, registry: Dict, tests: Dict[str, Dict], git: D
         gaps.append({
             "severity": "medium",
             "area": "execution",
-            "title": f"Open paper orders are elevated: {open_orders}.",
-            "action": "Inspect stale orders and executor state before adding more strategies.",
+            "title": f"纸面挂单数量偏高：{open_orders}。",
+            "action": "增加策略前先检查陈旧订单和执行器状态。",
         })
 
     if latest_decision.get("action") == "protect":
         gaps.append({
             "severity": "medium",
             "area": "router",
-            "title": "Router is currently in protect mode.",
-            "action": "Do not deploy new strategy candidates until protect clears and the reason is reviewed.",
+            "title": "路由器当前处于保护模式。",
+            "action": "保护状态解除并复核原因前，不得部署新策略候选。",
         })
 
     if latest_decision.get("recommended") == "trend_short" and not bool_config(controller_config, "allow_short"):
         gaps.append({
             "severity": "high",
             "area": "config_constraints",
-            "title": "Router recommended trend_short while allow_short=false.",
-            "action": "Deploy the config-constraint patch or enable short only after explicit risk approval.",
+            "title": "做空权限关闭时，路由器仍推荐了趋势做空。",
+            "action": "部署配置约束修复；只有经过明确风险审批后才能开启做空。",
         })
 
     if registry["disabled_count"] > registry["enabled_count"]:
         gaps.append({
             "severity": "medium",
             "area": "strategy_adapters",
-            "title": f"{registry['disabled_count']} shadow strategies still need adapters.",
-            "action": "Prioritize adapters by current shadow score and market regime coverage.",
+            "title": f"仍有 {registry['disabled_count']} 个影子策略需要适配器。",
+            "action": "按照影子评分和行情覆盖优先级实现适配器。",
         })
 
     if git["relevant_changes"]:
         gaps.append({
             "severity": "low",
             "area": "release",
-            "title": "Router-related code has uncommitted or unpinned changes.",
-            "action": "Commit or tag a release snapshot before promoting beyond paper; rerun --deploy-paper after later code edits.",
+            "title": "路由器相关代码存在未提交或未固定的变更。",
+            "action": "在纸面阶段之后晋级前提交或标记发布快照；后续代码变更后重新执行纸面部署。",
         })
 
     if not gaps:
         gaps.append({
             "severity": "info",
             "area": "system",
-            "title": "No blocking gap detected.",
-            "action": "Keep collecting paper data and promote the next adapter only after a clean observation window.",
+            "title": "未检测到阻断性缺口。",
+            "action": "继续收集纸面数据，只有完成干净观察窗口后才能晋级下一个适配器。",
         })
 
     return gaps
@@ -293,7 +327,7 @@ def deploy_paper(root: Path, args) -> Dict:
         return {
             "ok": False,
             "stdout": "",
-            "stderr": "conf/.password_verification is missing. Create it before deploying.",
+            "stderr": "缺少 conf/.password_verification，请在部署前创建。",
             "returncode": 1,
         }
 
@@ -372,49 +406,49 @@ def render_iteration_markdown(payload: Dict) -> str:
     latest_decision = live.get("latest_decision") or {}
 
     lines = [
-        "# AI Router Iteration Report",
+        "# AI 路由器迭代报告",
         "",
-        f"- Generated: {payload['generated_at']}",
-        f"- Loop iteration: {payload['iteration']}",
-        f"- Container: {live['container']} | {live['container_status']}",
-        f"- Router: {latest_decision.get('regime', 'n/a')} / {latest_decision.get('action', 'n/a')} -> {latest_decision.get('recommended', 'n/a')}",
-        f"- Orders/Fills: {live['orders']} / {live['fills']}",
-        f"- Equity estimate: {pnl['equity_quote']} USDT | base={pnl['base']} BTC | fees={pnl['fees_quote']} USDT",
+        f"- 生成时间：{payload['generated_at']}",
+        f"- 循环轮次：{payload['iteration']}",
+        f"- 容器：{live['container']} | {live['container_status']}",
+        f"- 路由：{latest_decision.get('regime', '无')} / {latest_decision.get('action', '无')} -> {latest_decision.get('recommended', '无')}",
+        f"- 订单／成交：{live['orders']} / {live['fills']}",
+        f"- 权益估算：{pnl['equity_quote']} USDT | 基础资产={pnl['base']} BTC | 费用={pnl['fees_quote']} USDT",
         "",
-        "## Tests",
+        "## 测试",
         "",
-        f"- py_compile: {'PASS' if tests['py_compile']['ok'] else 'FAIL'}",
-        f"- router synthetic: {'PASS' if tests['router_synthetic']['ok'] else 'FAIL'}",
+        f"- Python 编译检查：{'通过' if tests['py_compile']['ok'] else '失败'}",
+        f"- 路由器合成测试：{'通过' if tests['router_synthetic']['ok'] else '失败'}",
         "",
-        "## Strategy Universe",
+        "## 策略集合",
         "",
-        f"- Total: {registry['total']}",
-        f"- Enabled: {registry['enabled_count']} | {', '.join(registry['enabled'])}",
-        f"- Shadow: {registry['disabled_count']}",
-        f"- Families: {registry['families']}",
+        f"- 总数：{registry['total']}",
+        f"- 已启用：{registry['enabled_count']} | {', '.join(registry['enabled'])}",
+        f"- 影子策略：{registry['disabled_count']}",
+        f"- 策略家族：{registry['families']}",
         "",
-        "## Gaps / Next Actions",
+        "## 缺口与下一步",
         "",
     ]
     for gap in gaps:
-        lines.append(f"- [{gap['severity']}] {gap['area']}: {gap['title']} Action: {gap['action']}")
+        lines.append(f"- [{gap['severity']}] {gap['area']}：{gap['title']} 下一步：{gap['action']}")
 
     if deploy is not None:
         post_verify = deploy.get("post_verify") or {}
         lines.extend([
             "",
-            "## Deploy",
+            "## 部署",
             "",
-            f"- Result: {'PASS' if deploy.get('ok') else 'FAIL'}",
-            f"- stdout: `{deploy.get('stdout', '')[:300]}`",
-            f"- stderr: `{deploy.get('stderr', '')[:300]}`",
-            f"- Post verify: {'PASS' if post_verify.get('ok') else 'SKIPPED/FAIL'}",
+            f"- 结果：{'通过' if deploy.get('ok') else '失败'}",
+            f"- 标准输出：`{deploy.get('stdout', '')[:300]}`",
+            f"- 错误输出：`{deploy.get('stderr', '')[:300]}`",
+            f"- 部署后验证：{'通过' if post_verify.get('ok') else '跳过或失败'}",
         ])
         if post_verify:
-            lines.append(f"- Post container: {post_verify.get('container_status')}")
-            lines.append(f"- Post latest decision: {post_verify.get('latest_decision')}")
+            lines.append(f"- 部署后容器：{post_verify.get('container_status')}")
+            lines.append(f"- 部署后最新决策：{post_verify.get('latest_decision')}")
             if post_verify.get("errors"):
-                lines.append(f"- Post errors: {post_verify.get('errors')}")
+                lines.append(f"- 部署后错误：{post_verify.get('errors')}")
     return "\n".join(lines)
 
 
@@ -468,7 +502,7 @@ def run_iteration(root: Path, args, iteration: int) -> Dict:
 
 def main():
     root = repo_root()
-    parser = argparse.ArgumentParser(description="AI router observe-test-evaluate-deploy iteration loop.")
+    parser = argparse.ArgumentParser(description="AI 路由器的观察、测试、评估与部署循环。")
     parser.add_argument("--db", default=str(root / "data" / "conf_ai_strategy_router_paper.sqlite"))
     parser.add_argument("--log", default=str(root / "logs" / "logs_conf_ai_strategy_router_paper.log"))
     parser.add_argument("--container", default="hummingbot-ai-router-paper")
@@ -477,9 +511,9 @@ def main():
     parser.add_argument("--config-password", default="admin")
     parser.add_argument("--log-lines", type=int, default=100000)
     parser.add_argument("--recent", type=int, default=8)
-    parser.add_argument("--watch", type=int, default=0, help="Run forever, sleeping N seconds between iterations.")
+    parser.add_argument("--watch", type=int, default=0, help="持续运行，每轮之间等待 N 秒。")
     parser.add_argument("--max-iterations", type=int, default=1)
-    parser.add_argument("--deploy-paper", action="store_true", help="Restart the paper container after tests pass.")
+    parser.add_argument("--deploy-paper", action="store_true", help="测试通过后重启纸面容器。")
     parser.add_argument("--deploy-verify-seconds", type=int, default=90)
     parser.add_argument("--deploy-verify-log-lines", type=int, default=500)
     parser.add_argument("--max-paper-loss-quote", type=Decimal, default=Decimal("-5"))

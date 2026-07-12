@@ -235,9 +235,9 @@ def docker_status(container: str) -> str:
             timeout=5,
         )
     except Exception:
-        return "docker unavailable"
+        return "Docker 不可用"
     status = result.stdout.strip()
-    return status or "not found"
+    return status or "未找到"
 
 
 def fmt_decimal(value: Decimal, places: int = 6) -> str:
@@ -269,51 +269,51 @@ def render_report(
     fill_sides = Counter(fill.side for fill in fills)
 
     report = []
-    report.append("AI Strategy Router Monitor")
-    report.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report.append(f"Container: {container} | {docker_status(container)}")
-    report.append(f"Database: {db_path}")
-    report.append(f"Log: {log_path}")
+    report.append("AI 策略路由器监控")
+    report.append(f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    report.append(f"容器：{container} | {docker_status(container)}")
+    report.append(f"数据库：{db_path}")
+    report.append(f"日志：{log_path}")
     report.append("")
 
     if latest_decision:
         report.append(
-            "Router: "
+            "路由器："
             f"{latest_decision.regime} / {latest_decision.action} -> {latest_decision.recommended} "
-            f"(active={latest_decision.active}, confidence={latest_decision.confidence}, "
-            f"scale={latest_decision.scale}, reasons={latest_decision.reasons})"
+            f"（当前策略={latest_decision.active}，置信度={latest_decision.confidence}，"
+            f"仓位系数={latest_decision.scale}，原因={latest_decision.reasons}）"
         )
     else:
-        report.append("Router: no decision found in parsed log window")
+        report.append("路由器：解析的日志窗口中没有找到决策")
     if latest_protect:
         report.append(
-            "Last protect: "
-            f"{latest_protect.log_time} | active={latest_protect.active} | reasons={latest_protect.reasons}"
+            "最近一次保护："
+            f"{latest_protect.log_time} | 当前策略={latest_protect.active} | 原因={latest_protect.reasons}"
         )
     report.append("")
 
-    status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "none"
+    status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "无"
     report.append(
-        f"Orders/Fills: orders={counts['orders']} | fills={counts['fills']} | "
-        f"parsed_fills={len(fills)} | BUY={fill_sides.get('BUY', 0)} | SELL={fill_sides.get('SELL', 0)}"
+        f"订单／成交：订单={counts['orders']} | 成交={counts['fills']} | "
+        f"已解析成交={len(fills)} | 买入={fill_sides.get('BUY', 0)} | 卖出={fill_sides.get('SELL', 0)}"
     )
-    report.append(f"Order statuses: {status_text}")
+    report.append(f"订单状态：{status_text}")
     report.append("")
 
     report.append(
-        "PnL estimate from fills: "
-        f"base={fmt_decimal(pnl['base'], 8)} BTC | "
-        f"quote_cash={fmt_money(pnl['quote_cash'])} USDT | "
-        f"fees={fmt_money(pnl['fees_quote'])} USDT | "
-        f"mark={fmt_money(pnl['mark_price'])} | "
-        f"equity={fmt_money(pnl['equity_quote'])} USDT"
+        "根据成交估算盈亏："
+        f"基础资产={fmt_decimal(pnl['base'], 8)} BTC | "
+        f"计价现金={fmt_money(pnl['quote_cash'])} USDT | "
+        f"费用={fmt_money(pnl['fees_quote'])} USDT | "
+        f"标记价格={fmt_money(pnl['mark_price'])} | "
+        f"权益={fmt_money(pnl['equity_quote'])} USDT"
     )
     report.append(
-        f"Volume: buy={fmt_money(pnl['buy_quote'])} USDT | sell={fmt_money(pnl['sell_quote'])} USDT"
+        f"成交额：买入={fmt_money(pnl['buy_quote'])} USDT | 卖出={fmt_money(pnl['sell_quote'])} USDT"
     )
     report.append("")
 
-    report.append("Recent orders:")
+    report.append("最近订单：")
     if recent_orders:
         for order in recent_orders:
             report.append(
@@ -321,10 +321,10 @@ def render_report(
                 f"{fmt_decimal(order['amount'], 8)} BTC @ {fmt_money(order['price'])} | {order['status']}"
             )
     else:
-        report.append("- none")
+        report.append("- 无")
 
     report.append("")
-    report.append("Recent fills:")
+    report.append("最近成交：")
     if fills:
         for fill in fills[-recent:][::-1]:
             report.append(
@@ -333,21 +333,21 @@ def render_report(
                 f"{fmt_money(fill.price)} | fee={fmt_money(fill.fee_quote)}"
             )
     else:
-        report.append("- none")
+        report.append("- 无")
 
     return "\n".join(report)
 
 
 def main():
     root = repo_root()
-    parser = argparse.ArgumentParser(description="Monitor the AI strategy router paper-trading run.")
+    parser = argparse.ArgumentParser(description="监控 AI 策略路由器的纸面运行。")
     parser.add_argument("--db", default=str(root / "data" / "conf_ai_strategy_router_paper.sqlite"))
     parser.add_argument("--log", default=str(root / "logs" / "logs_conf_ai_strategy_router_paper.log"))
     parser.add_argument("--container", default="hummingbot-ai-router-paper")
     parser.add_argument("--log-lines", type=int, default=100000)
     parser.add_argument("--recent", type=int, default=8)
-    parser.add_argument("--watch", type=int, default=0, help="Refresh every N seconds. 0 means print once.")
-    parser.add_argument("--report", default="", help="Optional markdown/text report path to write.")
+    parser.add_argument("--watch", type=int, default=0, help="每 N 秒刷新一次；0 表示只输出一次。")
+    parser.add_argument("--report", default="", help="可选的 Markdown 或文本报告输出路径。")
     args = parser.parse_args()
 
     db_path = Path(args.db).expanduser().resolve()

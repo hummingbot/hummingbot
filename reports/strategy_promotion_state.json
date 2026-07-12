@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-07-12T12:03:01.675823+00:00",
+  "generated_at": "2026-07-12T12:24:04.855646+00:00",
   "default_live_state": "disabled",
   "strategies": [
     {
@@ -18,13 +18,32 @@
         "manual_canary_approval_required",
         "manual_live_release_approval_required"
       ],
+      "strategy_label": "超级趋势",
+      "stage_label": "影子评估",
+      "completed_gate_labels": [
+        "适配器测试通过"
+      ],
+      "blocking_gate_labels": [
+        "需要验证停止路径",
+        "需要完成计费滚动验证",
+        "需要通过至少 24 小时纸面评分",
+        "需要人工批准小额灰度",
+        "需要人工批准实盘发布"
+      ],
       "target": "controllers.directional_trading.supertrend_v1",
       "execution_mode": "controller_profile",
+      "execution_mode_label": "控制器配置",
       "intended_regimes": [
         "trend_up",
         "trend_down",
         "breakout_up",
         "breakout_down"
+      ],
+      "intended_regime_labels": [
+        "上升趋势",
+        "下降趋势",
+        "向上突破",
+        "向下突破"
       ],
       "minimum_paper_hours": 24,
       "required_features": [
@@ -32,12 +51,24 @@
         "atr",
         "trend_strength"
       ],
+      "required_feature_labels": [
+        "超级趋势方向",
+        "平均真实波幅",
+        "趋势强度"
+      ],
       "risk_controls": [
         "allow_short_gate",
         "stop_loss",
         "take_profit",
         "time_limit",
         "protect_stop"
+      ],
+      "risk_control_labels": [
+        "做空权限门禁",
+        "止损",
+        "止盈",
+        "持仓时间限制",
+        "保护模式停止路径"
       ]
     },
     {
@@ -55,11 +86,28 @@
         "manual_canary_approval_required",
         "manual_live_release_approval_required"
       ],
+      "strategy_label": "高级纯做市",
+      "stage_label": "影子评估",
+      "completed_gate_labels": [
+        "适配器测试通过"
+      ],
+      "blocking_gate_labels": [
+        "需要验证停止路径",
+        "需要完成计费滚动验证",
+        "需要通过至少 72 小时纸面评分",
+        "需要人工批准小额灰度",
+        "需要人工批准实盘发布"
+      ],
       "target": "controllers.generic.pmm_mister",
       "execution_mode": "controller_profile",
+      "execution_mode_label": "控制器配置",
       "intended_regimes": [
         "range_low_vol",
         "range_high_vol"
+      ],
+      "intended_regime_labels": [
+        "低波动震荡",
+        "高波动震荡"
       ],
       "minimum_paper_hours": 72,
       "required_features": [
@@ -68,12 +116,25 @@
         "inventory_pct",
         "realized_volatility"
       ],
+      "required_feature_labels": [
+        "中间价",
+        "买卖价差",
+        "库存比例",
+        "已实现波动率"
+      ],
       "risk_controls": [
         "maker_only",
         "portfolio_allocation_cap",
         "max_active_executors_by_level",
         "global_stop_loss",
         "protect_stop"
+      ],
+      "risk_control_labels": [
+        "仅挂单成交",
+        "组合资金分配上限",
+        "每层活动执行器上限",
+        "全局止损",
+        "保护模式停止路径"
       ]
     },
     {
@@ -91,10 +152,26 @@
         "manual_canary_approval_required",
         "manual_live_release_approval_required"
       ],
+      "strategy_label": "资金费率套利",
+      "stage_label": "影子评估",
+      "completed_gate_labels": [
+        "适配器测试通过",
+        "停止路径已验证"
+      ],
+      "blocking_gate_labels": [
+        "需要完成计费滚动验证",
+        "需要通过至少 72 小时纸面评分",
+        "需要人工批准小额灰度",
+        "需要人工批准实盘发布"
+      ],
       "target": "scripts.v2_funding_rate_arb",
       "execution_mode": "strategy_script",
+      "execution_mode_label": "策略脚本",
       "intended_regimes": [
         "arbitrage"
+      ],
+      "intended_regime_labels": [
+        "套利机会"
       ],
       "minimum_paper_hours": 72,
       "required_features": [
@@ -103,12 +180,25 @@
         "entry_fees",
         "exit_cost_buffer"
       ],
+      "required_feature_labels": [
+        "标准化资金费率",
+        "可执行基差",
+        "入场费用",
+        "退出成本缓冲"
+      ],
       "risk_controls": [
         "two_leg_balance",
         "single_leg_timeout",
         "max_entry_basis_loss",
         "funding_stop_loss",
         "protect_unwind"
+      ],
+      "risk_control_labels": [
+        "双腿平衡",
+        "单腿超时",
+        "最大入场基差损失",
+        "资金费率止损",
+        "保护性平仓"
       ]
     }
   ]
