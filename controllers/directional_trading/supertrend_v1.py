@@ -16,25 +16,25 @@ class SuperTrendConfig(DirectionalTradingControllerConfigBase):
     candles_connector: str = Field(
         default=None,
         json_schema_extra={
-            "prompt": "Enter the connector for the candles data, leave empty to use the same exchange as the connector: ",
+            "prompt": "请输入 K 线数据连接器；留空则使用交易连接器：",
             "prompt_on_new": True})
     candles_trading_pair: str = Field(
         default=None,
         json_schema_extra={
-            "prompt": "Enter the trading pair for the candles data, leave empty to use the same trading pair as the connector: ",
+            "prompt": "请输入 K 线交易对；留空则使用当前交易对：",
             "prompt_on_new": True})
     interval: str = Field(
         default="3m",
-        json_schema_extra={"prompt": "Enter the candle interval (e.g., 1m, 5m, 1h, 1d): ", "prompt_on_new": True})
+        json_schema_extra={"prompt": "请输入 K 线周期（例如 1m、5m、1h、1d）：", "prompt_on_new": True})
     length: int = Field(
         default=20,
-        json_schema_extra={"prompt": "Enter the supertrend length: ", "prompt_on_new": True})
+        json_schema_extra={"prompt": "请输入超级趋势计算长度：", "prompt_on_new": True})
     multiplier: float = Field(
         default=4.0,
-        json_schema_extra={"prompt": "Enter the supertrend multiplier: ", "prompt_on_new": True})
+        json_schema_extra={"prompt": "请输入超级趋势倍数：", "prompt_on_new": True})
     percentage_threshold: float = Field(
         default=0.01,
-        json_schema_extra={"prompt": "Enter the percentage threshold: ", "prompt_on_new": True})
+        json_schema_extra={"prompt": "请输入百分比阈值：", "prompt_on_new": True})
 
     @field_validator("candles_connector", mode="before")
     @classmethod
@@ -62,22 +62,34 @@ class SuperTrend(DirectionalTradingControllerBase):
                                                       trading_pair=self.config.candles_trading_pair,
                                                       interval=self.config.interval,
                                                       max_records=self.max_records)
-        # Add indicators
-        df.ta.supertrend(length=self.config.length, multiplier=self.config.multiplier, append=True)
-        df["percentage_distance"] = abs(df["close"] - df[f"SUPERT_{self.config.length}_{self.config.multiplier}"]) / df["close"]
+        df = self.calculate_features(
+            df,
+            length=self.config.length,
+            multiplier=self.config.multiplier,
+            percentage_threshold=self.config.percentage_threshold,
+        )
 
-        # Generate long and short conditions
-        long_condition = (df[f"SUPERTd_{self.config.length}_{self.config.multiplier}"] == 1) & (df["percentage_distance"] < self.config.percentage_threshold)
-        short_condition = (df[f"SUPERTd_{self.config.length}_{self.config.multiplier}"] == -1) & (df["percentage_distance"] < self.config.percentage_threshold)
+        self.processed_data["signal"] = df["signal"].iloc[-1]
+        self.processed_data["features"] = df
 
-        # Choose side
+    @staticmethod
+    def calculate_features(df, length: int, multiplier: float, percentage_threshold: float):
+        """计算无空值的超级趋势特征，保证回测合并不会把所有 K 线删除。"""
+        df = df.copy()
+        df.ta.supertrend(length=length, multiplier=multiplier, append=True)
+        indicator_columns = [column for column in df.columns if column.startswith("SUPERT")]
+        df[indicator_columns] = df[indicator_columns].fillna(0)
+        trend_column = f"SUPERT_{length}_{multiplier}"
+        direction_column = f"SUPERTd_{length}_{multiplier}"
+        df["percentage_distance"] = abs(df["close"] - df[trend_column]) / df["close"]
+
+        long_condition = (df[direction_column] == 1) & (df["percentage_distance"] < percentage_threshold)
+        short_condition = (df[direction_column] == -1) & (df["percentage_distance"] < percentage_threshold)
+
         df['signal'] = 0
         df.loc[long_condition, 'signal'] = 1
         df.loc[short_condition, 'signal'] = -1
-
-        # Update processed data
-        self.processed_data["signal"] = df["signal"].iloc[-1]
-        self.processed_data["features"] = df
+        return df
 
     def get_candles_config(self) -> List[CandlesConfig]:
         return [CandlesConfig(

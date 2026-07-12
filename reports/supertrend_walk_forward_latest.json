@@ -1,0 +1,365 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-07-12T12:43:31.610808+00:00",
+  "strategy": "supertrend_v1",
+  "strategy_label": "超级趋势",
+  "status": "completed",
+  "validation_passed": false,
+  "configuration": {
+    "connector": "binance_perpetual",
+    "trading_pair": "BTC-USDT",
+    "interval": "3m",
+    "start": 1783255336,
+    "end": 1783860136,
+    "train_days": 3.0,
+    "test_days": 1.0,
+    "purge_minutes": 3,
+    "capital_quote": 1000,
+    "leverage": 1,
+    "candidate_count": 3
+  },
+  "cost_model": {
+    "fee_bps": 4.0,
+    "slippage_bps": 2.0,
+    "switch_bps": 1.0,
+    "funding_rate_daily": 0.0001
+  },
+  "summary": {
+    "completed_folds": 3,
+    "profitable_folds": 0,
+    "profitable_fold_ratio": 0.0,
+    "total_adjusted_net_quote": -166.72925792377214,
+    "maximum_drawdown_pct": 0.05841679789057665,
+    "total_positions": 96,
+    "passed": false,
+    "criteria": {
+      "minimum_folds": 3,
+      "minimum_profitable_fold_ratio": 0.5,
+      "maximum_drawdown_pct": 0.15,
+      "minimum_adjusted_net_quote": 0.0
+    }
+  },
+  "folds": [
+    {
+      "index": 1,
+      "status": "completed",
+      "window": {
+        "index": 1,
+        "train_start": 1783255336,
+        "train_end": 1783514536,
+        "test_start": 1783514716,
+        "test_end": 1783601116
+      },
+      "selected_parameters": {
+        "length": 20,
+        "multiplier": 4.0,
+        "percentage_threshold": 0.01
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "length": 10,
+            "multiplier": 3.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -125.4839546848452,
+            "engine_fees_quote": 84.80000000000001,
+            "slippage_quote": 42.4,
+            "switching_quote": 10.6,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -178.7839546848452,
+            "adjusted_return": -0.1787839546848452,
+            "max_drawdown_pct": 0.12562808061083022,
+            "sharpe_ratio": -1.1441395440099893,
+            "profit_factor": 0.45216685319801664,
+            "total_positions": 106,
+            "total_volume": 212000.0,
+            "turnover_ratio": 212.0,
+            "validation_score": -0.3086520352956754,
+            "elapsed_seconds": 5.672
+          }
+        },
+        {
+          "parameters": {
+            "length": 20,
+            "multiplier": 4.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -98.84438491324308,
+            "engine_fees_quote": 82.4,
+            "slippage_quote": 41.2,
+            "switching_quote": 10.3,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -150.6443849132431,
+            "adjusted_return": -0.1506443849132431,
+            "max_drawdown_pct": 0.09884438491324309,
+            "sharpe_ratio": -1.2743863710508145,
+            "profit_factor": 0.5205428193334377,
+            "total_positions": 103,
+            "total_volume": 206000.0,
+            "turnover_ratio": 206.0,
+            "validation_score": -0.2536087698264862,
+            "elapsed_seconds": 6.493
+          }
+        },
+        {
+          "parameters": {
+            "length": 30,
+            "multiplier": 4.5,
+            "percentage_threshold": 0.015
+          },
+          "metrics": {
+            "raw_net_quote": -118.16815637110966,
+            "engine_fees_quote": 81.60000000000001,
+            "slippage_quote": 40.8,
+            "switching_quote": 10.2,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -169.46815637110967,
+            "adjusted_return": -0.16946815637110968,
+            "max_drawdown_pct": 0.11898111878158671,
+            "sharpe_ratio": -1.1051028651163182,
+            "profit_factor": 0.45737213872710625,
+            "total_positions": 102,
+            "total_volume": 204000.0,
+            "turnover_ratio": 204.0,
+            "validation_score": -0.29252927515269633,
+            "elapsed_seconds": 9.05
+          }
+        }
+      ],
+      "metrics": {
+        "raw_net_quote": -56.58225130479333,
+        "engine_fees_quote": 27.200000000000003,
+        "slippage_quote": 13.6,
+        "switching_quote": 3.4,
+        "funding_quote": 0.1,
+        "adjusted_net_quote": -73.68225130479333,
+        "adjusted_return": -0.07368225130479332,
+        "max_drawdown_pct": 0.05841679789057665,
+        "sharpe_ratio": -1.721044253146971,
+        "profit_factor": 0.21125985413294812,
+        "total_positions": 34,
+        "total_volume": 68000.0,
+        "turnover_ratio": 68.0,
+        "validation_score": -0.13345904919536997,
+        "elapsed_seconds": 4.186
+      }
+    },
+    {
+      "index": 2,
+      "status": "completed",
+      "window": {
+        "index": 2,
+        "train_start": 1783341736,
+        "train_end": 1783600936,
+        "test_start": 1783601116,
+        "test_end": 1783687516
+      },
+      "selected_parameters": {
+        "length": 30,
+        "multiplier": 4.5,
+        "percentage_threshold": 0.015
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "length": 10,
+            "multiplier": 3.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -140.65399020050106,
+            "engine_fees_quote": 85.60000000000001,
+            "slippage_quote": 42.8,
+            "switching_quote": 10.7,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -194.45399020050104,
+            "adjusted_return": -0.19445399020050103,
+            "max_drawdown_pct": 0.17104854109144907,
+            "sharpe_ratio": -0.8022753627507121,
+            "profit_factor": 0.394074817348444,
+            "total_positions": 107,
+            "total_volume": 214000.0,
+            "turnover_ratio": 214.0,
+            "validation_score": -0.3697825312919501,
+            "elapsed_seconds": 6.966
+          }
+        },
+        {
+          "parameters": {
+            "length": 20,
+            "multiplier": 4.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -114.209141802627,
+            "engine_fees_quote": 80.80000000000001,
+            "slippage_quote": 40.4,
+            "switching_quote": 10.1,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -165.009141802627,
+            "adjusted_return": -0.165009141802627,
+            "max_drawdown_pct": 0.1522722035856136,
+            "sharpe_ratio": -0.5292046783484649,
+            "profit_factor": 0.4377600030231726,
+            "total_positions": 101,
+            "total_volume": 202000.0,
+            "turnover_ratio": 202.0,
+            "validation_score": -0.3213213453882406,
+            "elapsed_seconds": 6.161
+          }
+        },
+        {
+          "parameters": {
+            "length": 30,
+            "multiplier": 4.5,
+            "percentage_threshold": 0.015
+          },
+          "metrics": {
+            "raw_net_quote": -115.55735205482827,
+            "engine_fees_quote": 79.2,
+            "slippage_quote": 39.6,
+            "switching_quote": 9.9,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -165.35735205482828,
+            "adjusted_return": -0.1653573520548283,
+            "max_drawdown_pct": 0.14723698790891301,
+            "sharpe_ratio": -0.7206828781868074,
+            "profit_factor": 0.4478564580958352,
+            "total_positions": 99,
+            "total_volume": 198000.0,
+            "turnover_ratio": 198.0,
+            "validation_score": -0.3165543399637413,
+            "elapsed_seconds": 5.377
+          }
+        }
+      ],
+      "metrics": {
+        "raw_net_quote": -24.887958520518016,
+        "engine_fees_quote": 24.8,
+        "slippage_quote": 12.4,
+        "switching_quote": 3.1,
+        "funding_quote": 0.1,
+        "adjusted_net_quote": -40.48795852051802,
+        "adjusted_return": -0.04048795852051802,
+        "max_drawdown_pct": 0.0282614346830272,
+        "sharpe_ratio": -1.5375873451049844,
+        "profit_factor": 0.4637039685679708,
+        "total_positions": 31,
+        "total_volume": 62000.0,
+        "turnover_ratio": 62.0,
+        "validation_score": -0.06998939320354523,
+        "elapsed_seconds": 5.987
+      }
+    },
+    {
+      "index": 3,
+      "status": "completed",
+      "window": {
+        "index": 3,
+        "train_start": 1783428136,
+        "train_end": 1783687336,
+        "test_start": 1783687516,
+        "test_end": 1783773916
+      },
+      "selected_parameters": {
+        "length": 30,
+        "multiplier": 4.5,
+        "percentage_threshold": 0.015
+      },
+      "training_runs": [
+        {
+          "parameters": {
+            "length": 10,
+            "multiplier": 3.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -163.61073893010487,
+            "engine_fees_quote": 86.4,
+            "slippage_quote": 43.2,
+            "switching_quote": 10.8,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -217.9107389301049,
+            "adjusted_return": -0.2179107389301049,
+            "max_drawdown_pct": 0.16361073893010475,
+            "sharpe_ratio": -1.8608160337718307,
+            "profit_factor": 0.2625501602075651,
+            "total_positions": 108,
+            "total_volume": 216000.0,
+            "turnover_ratio": 216.0,
+            "validation_score": -0.3858414778602096,
+            "elapsed_seconds": 5.96
+          }
+        },
+        {
+          "parameters": {
+            "length": 20,
+            "multiplier": 4.0,
+            "percentage_threshold": 0.01
+          },
+          "metrics": {
+            "raw_net_quote": -139.78697529498666,
+            "engine_fees_quote": 80.80000000000001,
+            "slippage_quote": 40.4,
+            "switching_quote": 10.1,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -190.58697529498667,
+            "adjusted_return": -0.19058697529498667,
+            "max_drawdown_pct": 0.1499966474327372,
+            "sharpe_ratio": -1.484537077326812,
+            "profit_factor": 0.3209858104269378,
+            "total_positions": 101,
+            "total_volume": 202000.0,
+            "turnover_ratio": 202.0,
+            "validation_score": -0.34462362272772384,
+            "elapsed_seconds": 6.657
+          }
+        },
+        {
+          "parameters": {
+            "length": 30,
+            "multiplier": 4.5,
+            "percentage_threshold": 0.015
+          },
+          "metrics": {
+            "raw_net_quote": -114.78197468270743,
+            "engine_fees_quote": 78.4,
+            "slippage_quote": 39.2,
+            "switching_quote": 9.8,
+            "funding_quote": 0.3,
+            "adjusted_net_quote": -164.08197468270745,
+            "adjusted_return": -0.16408197468270747,
+            "max_drawdown_pct": 0.12954196421128342,
+            "sharpe_ratio": -1.4197894920916685,
+            "profit_factor": 0.3920538717892577,
+            "total_positions": 98,
+            "total_volume": 196000.0,
+            "turnover_ratio": 196.0,
+            "validation_score": -0.29754393889399083,
+            "elapsed_seconds": 7.064
+          }
+        }
+      ],
+      "metrics": {
+        "raw_net_quote": -36.9590480984608,
+        "engine_fees_quote": 24.8,
+        "slippage_quote": 12.4,
+        "switching_quote": 3.1,
+        "funding_quote": 0.1,
+        "adjusted_net_quote": -52.5590480984608,
+        "adjusted_return": -0.0525590480984608,
+        "max_drawdown_pct": 0.03695904809846081,
+        "sharpe_ratio": -1.5894778287633555,
+        "profit_factor": 0.11597332574641296,
+        "total_positions": 31,
+        "total_volume": 62000.0,
+        "turnover_ratio": 62.0,
+        "validation_score": -0.09075809619692161,
+        "elapsed_seconds": 5.519
+      }
+    }
+  ]
+}

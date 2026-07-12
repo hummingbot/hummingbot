@@ -28,6 +28,7 @@ class PromotionEvidence(BaseModel):
     paper_scorecard_passed: bool = False
     canary_approved: bool = False
     live_release_approved: bool = False
+    evidence_refs: List[str] = Field(default_factory=list)
 
 
 class StrategyAdapterSpec(BaseModel):

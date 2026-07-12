@@ -37,8 +37,10 @@ CORE_COMPILE_TARGETS = [
     "hummingbot/strategy_v2/executors/executor_base.py",
     "hummingbot/strategy_v2/executors/grid_executor/grid_executor.py",
     "hummingbot/strategy_v2/executors/position_executor/position_executor.py",
+    "hummingbot/strategy_v2/backtesting/walk_forward.py",
     "scripts/ai_router_monitor.py",
     "scripts/ai_router_iteration_loop.py",
+    "scripts/walk_forward_supertrend.py",
 ]
 
 DECISION_LABELS = {

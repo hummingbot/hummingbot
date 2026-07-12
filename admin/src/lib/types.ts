@@ -55,6 +55,7 @@ export interface StrategyPromotionItem {
   required_feature_labels?: string[];
   risk_controls: string[];
   risk_control_labels?: string[];
+  evidence_refs?: string[];
 }
 
 export interface StrategyPromotionState {
@@ -62,6 +63,22 @@ export interface StrategyPromotionState {
   generated_at: string;
   default_live_state: string;
   strategies: StrategyPromotionItem[];
+}
+
+export interface WalkForwardReport {
+  generated_at: string;
+  strategy: string;
+  strategy_label: string;
+  status: string;
+  validation_passed: boolean;
+  summary: {
+    completed_folds: number;
+    profitable_folds: number;
+    profitable_fold_ratio: number;
+    total_adjusted_net_quote: number;
+    maximum_drawdown_pct: number;
+    total_positions: number;
+  };
 }
 
 export interface RouterDecision {

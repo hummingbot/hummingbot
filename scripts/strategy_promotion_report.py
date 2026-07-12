@@ -106,6 +106,7 @@ def build_report(evidence_path: Path) -> dict:
                 "required_feature_labels": [zh_label(value) for value in adapters[name].spec.required_features],
                 "risk_controls": adapters[name].spec.risk_controls,
                 "risk_control_labels": [zh_label(value) for value in adapters[name].spec.risk_controls],
+                "evidence_refs": evidence.get(name, PromotionEvidence()).evidence_refs,
             }
             for name, assessment in assessments.items()
         ],

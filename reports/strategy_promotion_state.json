@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-07-12T12:24:04.855646+00:00",
+  "generated_at": "2026-07-12T12:44:33.463338+00:00",
   "default_live_state": "disabled",
   "strategies": [
     {
@@ -69,6 +69,9 @@
         "止盈",
         "持仓时间限制",
         "保护模式停止路径"
+      ],
+      "evidence_refs": [
+        "reports/supertrend_walk_forward_latest.json"
       ]
     },
     {
@@ -135,7 +138,8 @@
         "每层活动执行器上限",
         "全局止损",
         "保护模式停止路径"
-      ]
+      ],
+      "evidence_refs": []
     },
     {
       "strategy": "funding_rate_arb",
@@ -199,7 +203,8 @@
         "最大入场基差损失",
         "资金费率止损",
         "保护性平仓"
-      ]
+      ],
+      "evidence_refs": []
     }
   ]
 }

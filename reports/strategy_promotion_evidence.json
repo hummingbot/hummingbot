@@ -6,11 +6,12 @@
       "stop_path_verified": false,
       "backtest_passed": false,
       "walk_forward_passed": false,
-      "costs_included": false,
+      "costs_included": true,
       "paper_hours": 0,
       "paper_scorecard_passed": false,
       "canary_approved": false,
-      "live_release_approved": false
+      "live_release_approved": false,
+      "evidence_refs": ["reports/supertrend_walk_forward_latest.json"]
     },
     "pmm_mister": {
       "adapter_tests_passed": true,

@@ -3,7 +3,7 @@ import "server-only";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import type { IterationSnapshot, RuntimeSnapshot, StrategyCatalog, StrategyPromotionState } from "./types";
+import type { IterationSnapshot, RuntimeSnapshot, StrategyCatalog, StrategyPromotionState, WalkForwardReport } from "./types";
 
 function projectRoot(): string {
   const candidates = [
@@ -59,6 +59,14 @@ export function getStrategyPromotionState(): StrategyPromotionState {
     default_live_state: "disabled",
     strategies: [],
   });
+}
+
+export function getSuperTrendWalkForwardReport(): WalkForwardReport | null {
+  const root = projectRoot();
+  return readJson<WalkForwardReport | null>(
+    resolve(root, "reports/supertrend_walk_forward_latest.json"),
+    null,
+  );
 }
 
 export function getRuntimeSnapshot(): RuntimeSnapshot {
