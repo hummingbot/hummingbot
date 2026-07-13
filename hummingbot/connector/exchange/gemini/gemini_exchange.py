@@ -98,11 +98,11 @@ class GeminiExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.SYMBOLS_PATH_URL
+        return CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL
 
     @property
     def trading_pairs_request_path(self):
-        return CONSTANTS.SYMBOLS_PATH_URL
+        return CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL
 
     @property
     def check_network_request_path(self):
@@ -327,9 +327,15 @@ class GeminiExchange(ExchangePyBase):
     async def _get_order_via_rest_by_client_id(self, order_id: str) -> Optional[Dict[str, Any]]:
         """Looks an order up over REST by its client order id (supported by
         /v1/order/status as an alternative to order_id). Returns None when the
-        exchange reports that no such order exists."""
+        exchange reports that no such order exists.
+
+        Per Gemini docs, /v1/order/status returns an object when queried by
+        order_id but an ARRAY when queried by client_order_id. This normalizes the
+        array to the single row whose client_order_id matches (client_order_id is
+        not guaranteed unique, so the match is explicit rather than taking [0]),
+        returning None when no row matches, so all callers see a plain dict/None."""
         try:
-            return await self._api_post(
+            response = await self._api_post(
                 path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
                 data={
                     "request": CONSTANTS.ORDER_STATUS_PATH_URL,
@@ -342,6 +348,13 @@ class GeminiExchange(ExchangePyBase):
             if self._is_order_not_found_during_status_update_error(status_error):
                 return None
             raise
+
+        if isinstance(response, list):
+            for row in response:
+                if isinstance(row, dict) and str(row.get("client_order_id", "")) == order_id:
+                    return row
+            return None
+        return response
 
     def _market_order_price(self,
                             trading_pair: str,
@@ -758,40 +771,37 @@ class GeminiExchange(ExchangePyBase):
         await super().stop_network()
         await self._reset_trade_ws(self._trade_ws)
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: List[Dict[str, Any]]) -> List[TradingRule]:
         """
-        Gemini's /v1/symbols returns a list of symbol strings.
-        We need to fetch details for each symbol individually.
+        Builds TradingRules from /v1/symbols/details/all, which returns a list of
+        per-symbol dicts carrying authoritative base/quote and increments — so no
+        per-symbol details fetch is needed. Gemini publishes no min-notional, so it
+        is left to default rather than fabricated.
         """
         retval = []
-        # exchange_info_dict is the response from /v1/symbols, which is a list of symbol strings
-        symbols = exchange_info_dict if isinstance(exchange_info_dict, list) else []
+        # exchange_info_dict is the /v1/symbols/details/all response: a list of dicts
+        entries = exchange_info_dict if isinstance(exchange_info_dict, list) else []
 
-        for symbol in symbols:
+        for entry in entries:
             try:
-                # Check if this symbol maps to one of our trading pairs
-                try:
-                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=symbol)
-                except KeyError:
+                # Only spot pairs are tradeable through this connector; perps are non-spot.
+                if entry.get("product_type") != "spot":
                     continue
 
-                # The symbol map contains every Gemini symbol (~300+). Fetch the
-                # per-symbol details only for the configured pairs — sweeping them all
-                # would burn ~3x Gemini's whole public budget (120 req/min) per update.
+                base = entry["base_currency"]
+                quote = entry["quote_currency"]
+                # Hyphens break hummingbot's trading-pair parsing (mirrors the symbol-map build).
+                if "-" in base or "-" in quote:
+                    continue
+                trading_pair = combine_to_hb_trading_pair(base=base.upper(), quote=quote.upper())
+
+                # The response lists every Gemini symbol; keep only the configured pairs.
                 if self._trading_pairs and trading_pair not in self._trading_pairs:
                     continue
 
-                rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-                details = await rest_assistant.execute_request(
-                    url=web_utils.public_rest_url(
-                        path_url=CONSTANTS.SYMBOL_DETAILS_PATH_URL.format(symbol)),
-                    method=RESTMethod.GET,
-                    throttler_limit_id=CONSTANTS.SYMBOL_DETAILS_PATH_URL,
-                )
-
-                min_order_size = Decimal(str(details.get("min_order_size", "0.00001")))
-                tick_size = Decimal(str(details.get("tick_size", "1e-8")))
-                quote_increment = Decimal(str(details.get("quote_increment", "0.01")))
+                min_order_size = Decimal(str(entry.get("min_order_size", "0.00001")))
+                tick_size = Decimal(str(entry.get("tick_size", "1e-8")))
+                quote_increment = Decimal(str(entry.get("quote_increment", "0.01")))
 
                 retval.append(
                     TradingRule(
@@ -799,10 +809,10 @@ class GeminiExchange(ExchangePyBase):
                         min_order_size=min_order_size,
                         min_price_increment=quote_increment,
                         min_base_amount_increment=tick_size,
-                        min_notional_size=min_order_size * quote_increment,
                     ))
             except Exception:
-                self.logger().exception(f"Error parsing trading pair rule for {symbol}. Skipping.")
+                self.logger().exception(
+                    f"Error parsing trading pair rule for {entry}. Skipping.")
         return retval
 
     async def _status_polling_loop_fetch_updates(self):
@@ -820,7 +830,8 @@ class GeminiExchange(ExchangePyBase):
         - Order events: {"E": <ns>, "s": "BTCUSD", "i": <id>, "c": <client_id>,
                          "S": "BUY", "o": "LIMIT", "X": "NEW", "p": "1.00",
                          "q": "0.001", "z": "0", "T": <ns>}
-        - Balance updates: {"e": "balanceUpdate", "E": <ms>, "B": [{"a": "USD", "f": "207.39"}]}
+        - Balance updates: {"e": "balanceUpdate", "E": <ms>, "B": [{"a": "USD", "f": "207.39", "c": "300.00"}]}
+          where "f" is the available (free) balance and "c" is the confirmed total.
         """
         async for event_message in self._iter_user_event_queue():
             try:
@@ -882,27 +893,26 @@ class GeminiExchange(ExchangePyBase):
                         self._order_tracker.process_order_update(order_update=order_update)
 
                 elif event_type == CONSTANTS.WS_EVENT_BALANCE_UPDATE:
-                    # Balance update: {"e": "balanceUpdate", "B": [{"a": "USD", "f": "207.39"}]}
+                    # Balance update: {"e": "balanceUpdate",
+                    #                  "B": [{"a": "USD", "f": "207.39", "c": "300.00"}]}
+                    # "f" is the available (free) balance (reduced by order/withdrawal holds)
+                    # and "c" is the confirmed TOTAL balance (including funds locked in open
+                    # orders). An asset fully committed to open orders has f=0 but c>0, so the
+                    # total must come from "c" — reading only "f" would wrongly zero it out.
                     for balance_entry in event_message.get("B", []):
                         asset_name = balance_entry.get("a", "")
                         if not asset_name:
                             continue
+                        total = Decimal(str(balance_entry.get("c", "0")))
                         available = Decimal(str(balance_entry.get("f", "0")))
-                        if available <= Decimal("0"):
-                            # Mirror _update_balances: drop non-positive dust instead of
-                            # tracking a negative/zero balance for the asset.
+                        if total <= Decimal("0"):
+                            # Mirror _update_balances, which drops on the total "amount":
+                            # remove the asset rather than tracking a zero/negative holding.
                             self._account_available_balances.pop(asset_name, None)
                             self._account_balances.pop(asset_name, None)
                         else:
                             self._account_available_balances[asset_name] = available
-                            # The event's "f" is the free (available) balance only. The TOTAL
-                            # (_account_balances) must stay >= available and is reported by REST
-                            # from the separate "amount" field; writing the free figure into it
-                            # would understate holdings locked in open orders and skew inventory-
-                            # based sizing. Keep any REST-reported total, only raising it to
-                            # `available` when we have no larger total on record yet.
-                            self._account_balances[asset_name] = max(
-                                self._account_balances.get(asset_name, available), available)
+                            self._account_balances[asset_name] = total
 
             except asyncio.CancelledError:
                 raise
@@ -1032,37 +1042,35 @@ class GeminiExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
-        # exchange_info is the response from /v1/symbols — a list of symbol strings like ["btcusd", "ethusd"]
-        symbols = exchange_info if isinstance(exchange_info, list) else []
-        for symbol in symbols:
+        # exchange_info is the /v1/symbols/details/all response: a list of per-symbol dicts
+        # carrying authoritative base/quote, replacing the old quote-suffix split heuristic.
+        entries = exchange_info if isinstance(exchange_info, list) else []
+        for entry in entries:
             try:
-                # Gemini symbols are lowercase concatenated, e.g., "btcusd"
-                # We need to split them into base and quote currencies
-                base, quote = self._split_gemini_symbol(symbol)
-                if base and quote:
-                    hb_pair = combine_to_hb_trading_pair(base=base.upper(), quote=quote.upper())
-                    mapping[symbol] = hb_pair
+                # Only spot pairs are tradeable through this connector; perps are non-spot.
+                if entry.get("product_type") != "spot":
+                    continue
+                base = entry.get("base_currency")
+                quote = entry.get("quote_currency")
+                # Hyphens break hummingbot's trading-pair parsing (e.g. dated contracts).
+                if not base or not quote or "-" in base or "-" in quote:
+                    continue
+                # The endpoint returns UPPERCASE symbols, but the symbol map MUST be keyed
+                # lowercase to match the REST paths and the @trade/@depth stream names.
+                exchange_symbol = entry["symbol"].lower()
+                hb_pair = combine_to_hb_trading_pair(base=base.upper(), quote=quote.upper())
+                if hb_pair in mapping.inverse:
+                    # bidict raises on duplicate values; skip the collision rather than
+                    # aborting the whole map build.
+                    self.logger().debug(
+                        f"Duplicate trading pair {hb_pair} for symbol {exchange_symbol}, skipping.")
+                    continue
+                mapping[exchange_symbol] = hb_pair
             except Exception:
-                self.logger().debug(f"Could not parse symbol {symbol}, skipping.")
+                self.logger().debug(f"Could not parse symbol entry {entry}, skipping.")
         self._set_trading_pair_symbol_map(mapping)
-
-    @staticmethod
-    def _split_gemini_symbol(symbol: str) -> Tuple[str, str]:
-        """
-        Splits a Gemini symbol like 'btcusd' into ('btc', 'usd').
-        Gemini uses well-known currency codes. Common quote currencies are:
-        usd, btc, eth, gbp, eur, sgd, gusd, dai, usdt
-        """
-        symbol = symbol.lower()
-        # Try known quote currencies (longest first to avoid ambiguity)
-        known_quotes = ["gusd", "usdt", "usdc", "dai", "sgd", "gbp", "eur", "usd", "btc", "eth"]
-        for quote in known_quotes:
-            if symbol.endswith(quote) and len(symbol) > len(quote):
-                base = symbol[:-len(quote)]
-                return base, quote
-        return "", ""
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
