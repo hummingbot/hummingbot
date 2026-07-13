@@ -1,3 +1,4 @@
 *.yml
 *.json
+!strategy_evolution.json
 .password_verification

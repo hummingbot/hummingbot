@@ -281,18 +281,21 @@ class OrderExecutor(ExecutorBase):
         """
         Process the order created event.
         """
+        self.sync_paper_in_flight_order(event)
         self.update_tracked_order_with_order_id(event.order_id)
 
     def process_order_filled_event(self, _, market, event: OrderFilledEvent):
         """
         Process the order filled event.
         """
+        self.sync_paper_in_flight_order(event)
         self.update_tracked_order_with_order_id(event.order_id)
 
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         """
         Process the order completed event.
         """
+        self.sync_paper_in_flight_order(event)
         self.update_tracked_order_with_order_id(event.order_id)
         if self._order and self._order.order_id == event.order_id:
             self._held_position_orders.append(self._order.order.to_json())
@@ -303,6 +306,7 @@ class OrderExecutor(ExecutorBase):
         """
         Process the order canceled event.
         """
+        self.sync_paper_in_flight_order(event)
         if self._order and event.order_id == self._order.order_id:
             if self._order.executed_amount_base > Decimal("0"):
                 self._partial_filled_orders.append(self._order)

@@ -22,6 +22,7 @@ except ImportError:
     pass
 
 from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase  # noqa: E402
+from hummingbot.strategy_v2.backtesting.candidate_io import load_parameter_candidates  # noqa: E402
 from hummingbot.strategy_v2.backtesting.walk_forward import (  # noqa: E402
     CostModel,
     ValidationCriteria,
@@ -108,7 +109,9 @@ async def run_walk_forward(args) -> Dict:
         maximum_drawdown_pct=args.maximum_drawdown_pct,
         minimum_adjusted_net_quote=args.minimum_adjusted_net_quote,
     )
-    candidates = DEFAULT_CANDIDATES[:args.candidate_count]
+    candidates = load_parameter_candidates(
+        args.candidates_json, SuperTrendParameters, DEFAULT_CANDIDATES, args.candidate_count,
+    )
     folds: List[Dict] = []
 
     for window in windows:
@@ -245,6 +248,7 @@ async def main():
     parser.add_argument("--test-days", type=float, default=3)
     parser.add_argument("--purge-minutes", type=int, default=3)
     parser.add_argument("--candidate-count", type=int, choices=[1, 2, 3], default=3)
+    parser.add_argument("--candidates-json", default="")
     parser.add_argument("--capital", type=float, default=1_000)
     parser.add_argument("--leverage", type=int, default=1)
     parser.add_argument("--cooldown-seconds", type=int, default=300)

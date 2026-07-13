@@ -5,6 +5,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError, URLError
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ from hummingbot.strategy_v2.backtesting.funding_arbitrage import (  # noqa: E402
     FundingArbitrageParameters,
     simulate_funding_arbitrage,
 )
+from hummingbot.strategy_v2.backtesting.candidate_io import load_parameter_candidates  # noqa: E402
 from hummingbot.strategy_v2.backtesting.walk_forward import (  # noqa: E402
     ValidationCriteria,
     generate_rolling_windows,
@@ -35,11 +37,31 @@ DEFAULT_CANDIDATES = [
 ]
 
 
-def request_json(url: str, payload: Dict = None):
+def request_json(url: str, payload: Dict = None, retries: int = 4):
     body = json.dumps(payload).encode() if payload else None
-    request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read())
+    request = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "hummingbot-strategy-evolution/1.0",
+        },
+    )
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.loads(response.read())
+        except HTTPError as exc:
+            if exc.code != 429 or attempt >= retries:
+                raise
+            retry_after = exc.headers.get("Retry-After")
+            delay = float(retry_after) if retry_after else min(60, 2 ** (attempt + 1))
+        except URLError:
+            if attempt >= retries:
+                raise
+            delay = min(30, 2 ** (attempt + 1))
+        time.sleep(max(1.0, delay))
+    raise RuntimeError("unreachable retry state")
 
 
 def fetch_binance_funding(symbol: str, start_ms: int, end_ms: int) -> List[Dict]:
@@ -137,7 +159,9 @@ def run_walk_forward(args) -> Dict:
     costs = FundingArbitrageCosts(args.binance_taker_bps, args.hyperliquid_taker_bps, args.slippage_bps)
     criteria = ValidationCriteria(args.minimum_folds, args.minimum_profitable_fold_ratio,
                                   args.maximum_drawdown_pct, args.minimum_adjusted_net_quote)
-    candidates = DEFAULT_CANDIDATES[:args.candidate_count]
+    candidates = load_parameter_candidates(
+        args.candidates_json, FundingArbitrageParameters, DEFAULT_CANDIDATES, args.candidate_count,
+    )
     folds = []
     for window in windows:
         training_rows = [row for row in snapshots if window.train_start <= row["timestamp"] < window.train_end]
@@ -220,6 +244,7 @@ def main():
     parser.add_argument("--test-days", type=float, default=7)
     parser.add_argument("--purge-hours", type=int, default=1)
     parser.add_argument("--candidate-count", type=int, choices=[1, 2, 3], default=3)
+    parser.add_argument("--candidates-json", default="")
     parser.add_argument("--position-size", type=float, default=1_000)
     parser.add_argument("--binance-taker-bps", type=float, default=5.0)
     parser.add_argument("--hyperliquid-taker-bps", type=float, default=4.5)

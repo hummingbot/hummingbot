@@ -361,6 +361,13 @@ class ExecutorBase(RunnableBase):
             order.executed_amount_quote = event.quote_asset_amount
             order.current_state = OrderState.FILLED
             order.last_update_timestamp = event.timestamp
+            return
+
+        if isinstance(event, OrderCancelledEvent):
+            order = self._paper_in_flight_orders.get(order_id)
+            if order is not None:
+                order.current_state = OrderState.CANCELED
+                order.last_update_timestamp = event.timestamp
 
     def register_events(self):
         """
@@ -539,7 +546,7 @@ class ExecutorBase(RunnableBase):
         :param market: The market where the event occurred.
         :param event: The event.
         """
-        pass
+        self.sync_paper_in_flight_order(event)
 
     def process_order_filled_event(self,
                                    event_tag: int,

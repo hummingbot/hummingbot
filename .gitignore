@@ -94,6 +94,8 @@ coverage.xml
 /**/.injective_cookie
 
 .env
+/.deploy.env
+/.deploy.lan.env
 
 **/.claude/settings.local.json
 

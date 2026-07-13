@@ -4,7 +4,7 @@ controller_name: pmm_mister
 total_amount_quote: 1000
 initial_positions: []
 
-connector_name: gate_io_paper_trade
+connector_name: binance_paper_trade
 trading_pair: ETH-USDT
 portfolio_allocation: 0.2
 target_base_pct: 0.5

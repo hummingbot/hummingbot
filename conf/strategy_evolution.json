@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "policy": {
+    "same_problem_limit": 3,
+    "recovery_healthy_cycles": 2,
+    "max_parameter_changes_per_cycle": 1,
+    "minimum_challenger_improvement": 0.02,
+    "maximum_drawdown_degradation": 0.0,
+    "experiment_runtime": "docker",
+    "docker_image": "hummingbot/hummingbot@sha256:0911b7cfa2612d7293341dc87f2661c906dd18a454a723b0ba8e69f69b3a4d7a",
+    "auto_start_paper_candidates": false,
+    "paper_startup_timeout_seconds": 600,
+    "research_rejection_cooldown_seconds": 3600,
+    "maximum_research_rejection_cooldown_seconds": 86400,
+    "allow_live_actions": false,
+    "require_manual_canary": true,
+    "require_manual_live_release": true
+  },
+  "strategies": [
+    {
+      "id": "pmm_mister",
+      "name": "高级纯做市",
+      "family": "market_making",
+      "thesis": "在震荡行情中用受控 maker 报价获取价差，同时限制库存和逆向选择。",
+      "target": "controllers.generic.pmm_mister",
+      "evidence_file": "reports/strategy_promotion_evidence.json",
+      "walk_forward_file": "reports/pmm_mister_walk_forward_latest.json",
+      "runtime_file": "data/pmm_mister_paper_runtime.json",
+      "database_file": "data/conf_pmm_mister_paper.sqlite",
+      "minimum_paper_hours": 72,
+      "minimum_paper_fills": 50,
+      "maximum_paper_loss_quote": -25,
+      "maximum_evidence_age_hours": 168,
+      "maximum_runtime_age_seconds": 120,
+      "checks": [
+        ["python3", "-m", "pytest", "-q", "test/controllers/generic/test_pmm_mister.py", "test/hummingbot/strategy_v2/test_walk_forward.py"]
+      ],
+      "automation": [
+        {
+          "action": "refresh_walk_forward",
+          "command": ["python3", "scripts/walk_forward_pmm_mister.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        },
+        {
+          "action": "run_cost_walk_forward",
+          "command": ["python3", "scripts/walk_forward_pmm_mister.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        }
+      ]
+    },
+    {
+      "id": "funding_rate_arb",
+      "name": "资金费率套利",
+      "family": "arbitrage",
+      "thesis": "只在标准化资金费率能够覆盖双腿费用、基差和退出缓冲时建立市场中性仓位。",
+      "target": "scripts.v2_funding_rate_arb",
+      "evidence_file": "reports/strategy_promotion_evidence.json",
+      "walk_forward_file": "reports/funding_arb_walk_forward_latest.json",
+      "minimum_paper_hours": 72,
+      "minimum_paper_fills": 30,
+      "maximum_paper_loss_quote": -25,
+      "maximum_evidence_age_hours": 168,
+      "checks": [
+        ["python3", "-m", "pytest", "-q", "test/hummingbot/strategy_v2/test_funding_arbitrage_validation.py", "test/scripts/test_v2_funding_rate_arb.py"]
+      ],
+      "automation": [
+        {
+          "action": "refresh_walk_forward",
+          "command": ["python3", "scripts/walk_forward_funding_arb.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        },
+        {
+          "action": "run_cost_walk_forward",
+          "command": ["python3", "scripts/walk_forward_funding_arb.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        }
+      ]
+    },
+    {
+      "id": "supertrend_v1",
+      "name": "超级趋势",
+      "family": "trend",
+      "thesis": "在趋势行情中跟随方向，在震荡和极端行情中依靠止损、时间限制与保护模式退出。",
+      "target": "controllers.directional_trading.supertrend_v1",
+      "evidence_file": "reports/strategy_promotion_evidence.json",
+      "walk_forward_file": "reports/supertrend_walk_forward_latest.json",
+      "minimum_paper_hours": 24,
+      "minimum_paper_fills": 20,
+      "maximum_paper_loss_quote": -15,
+      "maximum_evidence_age_hours": 168,
+      "checks": [
+        ["python3", "-m", "py_compile", "controllers/directional_trading/supertrend_v1.py"]
+      ],
+      "automation": [
+        {
+          "action": "refresh_walk_forward",
+          "command": ["python3", "scripts/walk_forward_supertrend.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        },
+        {
+          "action": "run_cost_walk_forward",
+          "command": ["python3", "scripts/walk_forward_supertrend.py", "--candidates-json", "{candidate_json}", "--json-output", "{artifact_json}", "--markdown-output", "{artifact_md}"],
+          "artifact_json": "data/strategy-evolution/experiments/{experiment_id}/report.json",
+          "timeout_seconds": 1800
+        }
+      ]
+    }
+  ]
+}

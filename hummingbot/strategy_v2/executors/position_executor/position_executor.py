@@ -679,6 +679,7 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for processing the order canceled event
         """
+        self.sync_paper_in_flight_order(event)
         if self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
             self._close_order = None

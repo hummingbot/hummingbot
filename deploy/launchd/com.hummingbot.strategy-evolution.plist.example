@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.hummingbot.strategy-evolution</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/bash</string>
+      <string>__ROOT__/scripts/run_strategy_evolution_daemon.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__ROOT__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>STRATEGY_EVOLUTION_PYTHON</key>
+      <string>__PYTHON__</string>
+      <key>STRATEGY_EVOLUTION_INTERVAL</key>
+      <string>300</string>
+      <key>STRATEGY_EVOLUTION_AUTO_EXPERIMENT</key>
+      <string>1</string>
+      <key>STRATEGY_EVOLUTION_LOG_FILE</key>
+      <string>__ROOT__/data/strategy-evolution/logs/daemon.log</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+    </dict>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>/dev/null</string>
+    <key>StandardErrorPath</key>
+    <string>/dev/null</string>
+  </dict>
+</plist>

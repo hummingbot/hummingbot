@@ -4,6 +4,9 @@
 /dist
 /.git
 /.github
+/.env
+/.env.*
+!/.env.example
 .DS_Store
 /conf_backup
 /conf/strategies/*.yml

@@ -774,6 +774,7 @@ class GridExecutor(ExecutorBase):
         """
         This method is responsible for processing the order canceled event
         """
+        self.sync_paper_in_flight_order(event)
         self.update_grid_levels()
         levels_open_order_placed = [level for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_PLACED]]
         levels_close_order_placed = [level for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]]

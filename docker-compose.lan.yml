@@ -1,0 +1,26 @@
+# LAN deployment for the separate Hummingbot execution-engine directory.
+# It intentionally contains only the local admin console. The paper strategy
+# is created by scripts/run_pmm_mister_paper.sh after an operator supplies a
+# remote CONFIG_PASSWORD once. The engine deployment includes Hummingbot's
+# encrypted password-verification file but never connector credentials.
+
+services:
+  admin:
+    container_name: hummingbot-ai-admin
+    build:
+      context: ./admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_BIND_HOST:-127.0.0.1}:${ADMIN_PORT:-3217}:3217"
+    environment:
+      - HUMMINGBOT_ROOT=/workspace
+    volumes:
+      - ./:/workspace:ro
+      - ./data:/workspace/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3217/admin"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
