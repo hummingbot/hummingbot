@@ -150,6 +150,11 @@ class PaperCandidateStager:
         if active.get("status") in {"rolled_back", "rollback_blocked"}:
             return active
         if active and str(active.get("status") or "").startswith("rollback"):
+            recovered = self._recover_observation_rollback(
+                spec, strategy_dir, active, evidence
+            )
+            if recovered is not None:
+                return recovered
             return self._rollback_active(
                 spec,
                 strategy_dir,
@@ -316,6 +321,58 @@ class PaperCandidateStager:
             deployment,
         )
         return deployment
+
+    def _recover_observation_rollback(
+        self,
+        spec: StrategySpec,
+        strategy_dir: Path,
+        deployment: dict[str, Any],
+        evidence: EvidenceSnapshot | None,
+    ) -> dict[str, Any] | None:
+        """Cancel only a transient stale-snapshot rollback after full recovery proof."""
+        reasons = set(deployment.get("rollback_reasons") or [])
+        if not reasons or not reasons.issubset({"runtime_stale"}):
+            return None
+        if (
+            evidence is None
+            or evidence.source_errors
+            or not evidence.runtime_exists
+            or not evidence.runtime_fresh
+            or not evidence.paper_only
+            or not evidence.candidate_binding_valid
+            or evidence.accepted_candidate_id != deployment.get("candidate_id")
+            or evidence.runtime_candidate_id != deployment.get("candidate_id")
+            or evidence.paper_pnl_quote <= spec.maximum_paper_loss_quote
+        ):
+            return None
+        runtime = _read_json(
+            self.root / str(deployment.get("runtime_file") or spec.runtime_file or "")
+        )
+        if runtime.get("evolution_config_hash") != deployment.get("config_hash"):
+            return None
+        recovered = dict(deployment)
+        recovered["status"] = "active_verified"
+        recovered["rollback_recovered_at"] = datetime.now(timezone.utc).isoformat()
+        recovered["rollback_recovery"] = {
+            "reasons": sorted(reasons),
+            "evidence_collected_at": evidence.collected_at,
+            "runtime_candidate_id": evidence.runtime_candidate_id,
+        }
+        recovered.pop("rollback_reasons", None)
+        recovered.pop("rollback_requested_at", None)
+        _atomic_json(strategy_dir / "paper/active.json", recovered)
+        _persist_staged(
+            strategy_dir / "paper/staged.json",
+            strategy_dir / "paper/release-manifest.json",
+            recovered,
+        )
+        _atomic_json(
+            strategy_dir
+            / "paper/rollback-events"
+            / f"{deployment['deployment_id']}-recovered.json",
+            recovered,
+        )
+        return recovered
 
     def _rollback_active(
         self,

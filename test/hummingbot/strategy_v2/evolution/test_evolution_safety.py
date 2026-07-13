@@ -500,6 +500,60 @@ class PaperCandidateStagerTest(TestCase):
 
             self.assertEqual("rollback_blocked_open_exposure", result["status"])
 
+    def test_transient_stale_rollback_recovers_without_restarting_worker(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self._write_pmm_fixture(root, {"positions": [], "open_orders": []})
+            spec = strategy(runtime_file="data/runtime.json")
+            config = EvolutionConfig(root, EvolutionPolicy(), (spec,))
+            stager = PaperCandidateStager(config)
+            deployment = stager.stage(spec, self._candidate())
+            candidate_runtime = root / deployment["runtime_file"]
+            candidate_runtime.write_text(
+                json.dumps(
+                    {
+                        "positions": [{"amount": 1}],
+                        "open_orders": [],
+                        "evolution_candidate_id": deployment["candidate_id"],
+                        "evolution_config_hash": deployment["config_hash"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            strategy_dir = root / "data/strategy-evolution/strategies/pmm_mister/paper"
+            blocked = {
+                **deployment,
+                "status": "rollback_blocked_open_exposure",
+                "rollback_reasons": ["runtime_stale"],
+                "rollback_requested_at": NOW.isoformat(),
+            }
+            for name in ("active.json", "staged.json", "release-manifest.json"):
+                (strategy_dir / name).write_text(json.dumps(blocked), encoding="utf-8")
+            evidence = EvidenceSnapshot(
+                collected_at=NOW.isoformat(),
+                runtime_exists=True,
+                runtime_fresh=True,
+                paper_only=True,
+                paper_pnl_quote=-1,
+                accepted_candidate_id=deployment["candidate_id"],
+                runtime_candidate_id=deployment["candidate_id"],
+                candidate_binding_valid=True,
+            )
+
+            with patch("hummingbot.strategy_v2.evolution.paper.subprocess.run") as run:
+                recovered = stager.reconcile_and_maybe_activate(spec, evidence)
+
+            self.assertEqual("active_verified", recovered["status"])
+            self.assertEqual(
+                ["runtime_stale"], recovered["rollback_recovery"]["reasons"]
+            )
+            self.assertNotIn("rollback_reasons", recovered)
+            run.assert_not_called()
+            release = json.loads(
+                (strategy_dir / "release-manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("active_verified", release["status"])
+
     @staticmethod
     def _candidate():
         return {
