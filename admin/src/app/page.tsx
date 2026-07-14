@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MetricCard, StatusPill } from "@/components/StatusPill";
-import { getIterationSnapshot, getRuntimeSnapshot, getStrategyCatalog } from "@/lib/data";
+import { getIterationSnapshot, getStrategyCatalog, getUnifiedOperationsSnapshot } from "@/lib/data";
 import { zhLabel, zhReasons } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +8,11 @@ export const dynamic = "force-dynamic";
 const gapTranslations: Record<string, { title: string; action: string }> = {
   "shadow strategies": {
     title: "影子策略尚未接入统一执行适配器",
-    action: "按风险与行情覆盖优先级补齐 Adapter，并逐个通过回测、纸面和小额灰度门槛。",
+    action: "按风险与行情覆盖优先级补齐适配器，并逐个通过回测、纸面和小额灰度门槛。",
   },
   "strategy adapters": {
     title: "影子策略尚未接入统一执行适配器",
-    action: "按风险与证据优先级补齐 Adapter，并逐个通过回测、纸面和小额灰度门槛。",
+    action: "按风险与证据优先级补齐适配器，并逐个通过回测、纸面和小额灰度门槛。",
   },
   "working tree": {
     title: "路由器相关变更尚未形成可追溯版本",
@@ -33,25 +33,24 @@ function localizeGap(area: string, title: string, action: string) {
 export default function OverviewPage() {
   const catalog = getStrategyCatalog();
   const iteration = getIterationSnapshot();
-  const runtime = getRuntimeSnapshot();
+  const unified = getUnifiedOperationsSnapshot();
+  const { runtime, execution } = unified;
   const enabled = catalog.strategies.filter((item) => item.status === "enabled").length;
   const structural = catalog.strategies.filter((item) => item.evidence === "structural_edge").length;
   const decision = iteration.live?.latest_decision;
-  const equity = Number(iteration.live?.pnl?.equity_quote ?? 0);
   const gaps = iteration.gaps ?? [];
-  const runtimeTone = runtime.containerState === "running" ? "green" : runtime.containerState === "stopped" ? "red" : "amber";
   return (
     <div className="page-stack">
-      <section className="page-hero"><div><span className="eyebrow">策略舰队</span><h1>运营总览</h1><p>把行情判断、策略资产、执行状态和晋级风险放在同一个决策面板。</p></div><div className="hero-actions"><StatusPill tone={runtimeTone}>{runtime.containerState === "running" ? "纸面实例运行中" : "纸面实例未运行"}</StatusPill><span className="snapshot">代码版本 {runtime.gitHead}</span></div></section>
-      {runtime.reportStale && <div className="alert-banner alert-danger"><strong>运行数据已过期</strong><span>最近报告 {runtime.reportAgeHours === null ? "不可用" : `${runtime.reportAgeHours.toFixed(1)} 小时前`}；当前容器：{runtime.container}。历史盈亏不能当作当前状态。</span></div>}
+      <section className="page-hero"><div><span className="eyebrow">策略舰队</span><h1>运营总览</h1><p>策略目录、路由报告和交易账本各有边界；当前执行状态只取自同一份纸盘运行快照。</p></div><div className="hero-actions"><StatusPill tone={execution.tone}>{execution.stateLabel}</StatusPill><Link className="snapshot" href="/trading">查看交易账本 →</Link></div></section>
+      {runtime.reportStale && <div className="alert-banner alert-danger"><strong>路由评估报告已过期</strong><span>最近报告 {runtime.reportAgeHours === null ? "不可用" : `${runtime.reportAgeHours.toFixed(1)} 小时前`}；不影响交易账本的实时口径。当前实例请以“交易账本”为准。</span></div>}
       <section className="metric-grid">
-        <MetricCard label="策略资产" value={String(catalog.strategies.length)} hint={`${enabled} 个已启用，其余需晋级`} tone="blue" />
+        <MetricCard label="策略资产" value={String(catalog.strategies.length)} hint={`${enabled} 个目录已启用，不等于当前容器运行`} tone="blue" />
         <MetricCard label="结构性收益候选" value={String(structural)} hint="资金费率、基差与跨市场价差" tone="green" />
-        <MetricCard label="历史订单 / 成交" value={`${iteration.live?.orders ?? 0} / ${iteration.live?.fills ?? 0}`} hint="来自最近一次纸面快照" />
-        <MetricCard label="历史估算权益" value={`${equity >= 0 ? "+" : ""}${equity.toFixed(3)} USDT`} hint="仅监控估算，不代表已证明收益" tone={equity >= 0 ? "green" : "red"} />
+        <MetricCard label="当前纸盘委托 / 成交" value={`${execution.activeOrderCount} / ${execution.fillCount}`} hint={execution.scopeLabel} tone="blue" />
+        <MetricCard label="当前账本状态" value={execution.stateLabel} hint={execution.stateDetail} tone={execution.tone} />
       </section>
       <section className="two-column">
-        <div className="panel"><div className="panel-head"><div><span className="eyebrow">策略路由</span><h2>最近路由决策</h2></div><Link href="/router">查看路由规则 →</Link></div><div className="decision-card"><div className="decision-route"><span>{decision?.active && decision.active !== "none" ? decision.active : "无活动策略"}</span><b>→</b><span>{decision?.recommended || "protect_mode"}</span></div><div className="decision-meta"><StatusPill tone="blue">{decision?.regime_label || zhLabel(decision?.regime)}</StatusPill><StatusPill tone={decision?.action === "protect" ? "red" : "green"}>{decision?.action_label || zhLabel(decision?.action || "observe")}</StatusPill><span>置信度 {decision?.confidence || "0"}</span><span>仓位系数 {decision?.scale || "0"}</span></div><p>{decision?.reason_labels?.join("、") || zhReasons(decision?.reasons)}</p></div></div>
+        <div className="panel"><div className="panel-head"><div><span className="eyebrow">策略路由</span><h2>最近记录的路由决策</h2></div><Link href="/router">查看路由规则 →</Link></div><div className="decision-card"><div className="decision-route"><span>{decision?.active && decision.active !== "none" ? zhLabel(decision.active) : "无活动策略"}</span><b>→</b><span>{zhLabel(decision?.recommended || "protect_mode")}</span></div><div className="decision-meta"><StatusPill tone="blue">{decision?.regime_label || zhLabel(decision?.regime)}</StatusPill><StatusPill tone={decision?.action === "protect" ? "red" : "green"}>{decision?.action_label || zhLabel(decision?.action || "observe")}</StatusPill><span>置信度 {decision?.confidence || "0"}</span><span>仓位系数 {decision?.scale || "0"}</span></div><p>{decision?.reason_labels?.join("、") || zhReasons(decision?.reasons)}</p></div></div>
         <div className="panel"><div className="panel-head"><div><span className="eyebrow">晋级门禁</span><h2>晋级与运营缺口</h2></div><Link href="/operations">进入迭代中心 →</Link></div><div className="gap-list">{gaps.length ? gaps.slice(0, 5).map((gap, index) => {
           const copy = localizeGap(gap.area, gap.title, gap.action);
           return <div className="gap-item" key={`${gap.area}-${index}`}><StatusPill tone={gap.severity === "high" || gap.severity === "blocker" ? "red" : gap.severity === "medium" ? "amber" : "neutral"}>{zhLabel(gap.severity)}</StatusPill><div><strong>{copy.title}</strong><span>{copy.action}</span></div></div>;

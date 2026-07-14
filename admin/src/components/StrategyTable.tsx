@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { StrategyItem, StrategyStatus } from "@/lib/types";
-import { zhAdapter, zhLabel, zhRisk } from "@/lib/i18n";
+import { zhAdapter, zhLabel, zhRisk, zhText } from "@/lib/i18n";
 import { StatusPill } from "./StatusPill";
 
 const statusLabel: Record<StrategyStatus, string> = { enabled: "已启用", shadow: "影子评估", research: "研究池", blocked: "禁止晋级" };
@@ -31,7 +31,7 @@ export function StrategyTable({ strategies }: { strategies: StrategyItem[] }) {
           <thead><tr><th>策略</th><th>家族 / 行情</th><th>证据</th><th>风险</th><th>来源</th><th>状态</th></tr></thead>
           <tbody>{visible.map((item) => (
             <tr key={item.id}>
-              <td><strong>{item.name}</strong><code>{item.id}</code><small>{item.summary}</small></td>
+              <td><strong>{item.name}</strong><code>{item.id}</code><small>{zhText(item.summary)}</small></td>
               <td><span className="family-tag">{zhLabel(item.family)}</span><small>{item.regimes.map(zhLabel).join(" · ")}</small></td>
               <td><strong>{zhLabel(item.evidence)}</strong><small>适配器：{zhAdapter(item.adapter)}</small></td>
               <td><span className="risk-text">{zhRisk(item.risk)}</span></td>

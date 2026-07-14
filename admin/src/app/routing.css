@@ -1,0 +1,71 @@
+.routing-console { padding-bottom: 24px; }
+.routing-primary { padding: 9px 13px; border: 1px solid rgba(10,132,255,.45); border-radius: 9px; color: #fff; background: rgba(10,132,255,.25); font: 700 12px var(--mono); cursor: pointer; }
+.routing-primary:hover:not(:disabled) { border-color: rgba(100,210,255,.78); background: rgba(10,132,255,.36); }
+.routing-primary:disabled { opacity: .48; cursor: not-allowed; }
+.routing-conflict { display: grid; grid-template-columns: 220px 1fr; gap: 20px; padding: 17px 18px; border: 1px solid rgba(255,83,112,.32); border-radius: 14px; background: linear-gradient(110deg,rgba(255,83,112,.12),rgba(255,83,112,.035)); }
+.routing-conflict strong,.routing-conflict span { display: block; }
+.routing-conflict strong { margin-top: 4px; color: var(--red); font-size: 16px; }
+.routing-conflict ul { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px 18px; margin: 0; padding: 0; list-style: none; color: var(--t2); }
+.routing-conflict li:before { content: '×'; margin-right: 8px; color: var(--red); font-weight: 800; }
+.routing-message { padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font: 12px var(--mono); }
+.routing-message-green { color: var(--green); border-color: rgba(0,214,143,.28); background: rgba(0,214,143,.08); }
+.routing-message-red { color: var(--red); border-color: rgba(255,83,112,.28); background: rgba(255,83,112,.08); }
+.routing-message-amber { color: var(--amber); border-color: rgba(255,179,71,.28); background: rgba(255,179,71,.08); }
+.routing-message-blue { color: var(--cyan); border-color: rgba(10,132,255,.28); background: rgba(10,132,255,.08); }
+.routing-safety-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.routing-safety-grid > div { padding: 15px; border: 1px solid var(--border); border-radius: 13px; background: var(--card); }
+.routing-safety-grid strong,.routing-safety-grid span:not(.pill) { display: block; }
+.routing-safety-grid strong { margin: 11px 0 3px; }
+.routing-safety-grid span:not(.pill) { color: var(--t3); font-size: 12px; }
+.routing-flow { align-items: stretch; }
+.routing-flow .router-node { min-width: 155px; flex: 1; }
+.routing-main-grid { grid-template-columns: 1.25fr .75fr; }
+.routing-account-table { min-width: 1320px; }
+.routing-account-table td { min-width: 160px; }
+.routing-account-table td:first-child { min-width: 205px; }
+.routing-account-table .pill { margin-top: 9px; }
+.account-limit-form { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.account-limit-form .panel-head,.account-limit-form .account-config-warning,.account-limit-form .account-limit-submit { grid-column: 1 / -1; }
+.account-limit-form label { display: flex; flex-direction: column; gap: 6px; color: var(--t2); font-size: 12px; }
+.account-limit-form input,.account-limit-form select { width: 100%; padding: 10px 11px; border: 1px solid var(--border); border-radius: 9px; outline: none; color: var(--t1); background: var(--control); }
+.account-limit-form input:focus,.account-limit-form select:focus { border-color: rgba(10,132,255,.65); }
+.account-limit-form option { background: #12151b; }
+.account-config-warning { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid rgba(0,214,143,.24); border-radius: 10px; background: rgba(0,214,143,.06); }
+.account-config-warning strong { flex: none; color: var(--green); }
+.account-config-warning span { color: var(--t2); font-size: 12px; }
+.account-limit-submit { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 3px; }
+.account-limit-submit span { color: var(--t3); font: 11px var(--mono); }
+.route-allocation-list,.audit-list { display: flex; flex-direction: column; gap: 9px; }
+.route-allocation-list article,.audit-list article { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--control); }
+.route-allocation-list article > div:first-child { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 10px; }
+.route-allocation-list article strong { color: var(--t1); }
+.route-allocation-list article span,.route-allocation-list article small,.audit-list article small { color: var(--t3); font-size: 11px; }
+.route-allocation-list article > div:first-child > span { grid-column: 2; }
+.route-allocation-list article > div:nth-child(2),.audit-list article > div:last-child { display: flex; align-items: flex-end; flex-direction: column; gap: 4px; }
+.route-allocation-list article b,.audit-list article b { color: var(--cyan); font: 700 15px var(--mono); }
+.route-allocation-list article > small { flex-basis: 100%; color: var(--red); }
+.routing-facts { margin-top: 16px; }
+.routing-link { display: block; margin-top: 14px; color: var(--cyan); font-size: 12px; }
+.compatibility-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(310px,1fr)); gap: 8px; margin-top: 14px; }
+.compatibility-list > div { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 8px; align-items: center; padding: 10px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--control); font: 11px var(--mono); }
+.compatibility-list b { color: var(--t3); }
+.compatibility-list small { grid-column: 1 / -1; color: var(--t3); }
+.transfer-layout { grid-template-columns: .9fr 1.1fr; }
+.transfer-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.transfer-form .panel-head,.transfer-form .alert-banner,.transfer-form .transfer-policy,.transfer-form > button { grid-column: 1 / -1; }
+.transfer-form label { display: flex; flex-direction: column; gap: 6px; color: var(--t2); font-size: 12px; }
+.transfer-form input,.transfer-form select { width: 100%; padding: 10px 11px; border: 1px solid var(--border); border-radius: 9px; outline: none; color: var(--t1); background: var(--control); }
+.transfer-form input:focus,.transfer-form select:focus { border-color: rgba(10,132,255,.65); }
+.transfer-form option { background: #12151b; }
+.transfer-policy { display: flex; flex-wrap: wrap; gap: 8px; }
+.transfer-policy span { padding: 6px 8px; border-radius: 7px; color: var(--t3); background: var(--control); font: 11px var(--mono); }
+.transfer-policy b { color: var(--cyan); }
+.audit-list article strong,.audit-list article small { display: block; }
+.audit-list article strong { color: var(--t1); font-size: 12px; }
+.routing-footer-actions { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 17px 19px; border: 1px solid rgba(10,132,255,.28); border-radius: 14px; background: rgba(10,132,255,.07); }
+.routing-footer-actions strong,.routing-footer-actions span { display: block; }
+.routing-footer-actions span { margin-top: 3px; color: var(--t2); font-size: 12px; }
+.routing-footer-actions a { flex: none; color: var(--cyan); font: 700 12px var(--mono); }
+
+@media(max-width:1200px){.routing-safety-grid{grid-template-columns:repeat(2,1fr)}.routing-conflict{grid-template-columns:1fr}.routing-conflict ul{grid-template-columns:1fr}.routing-main-grid,.transfer-layout{grid-template-columns:1fr}.account-limit-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:800px){.routing-safety-grid{grid-template-columns:1fr}.transfer-form,.account-limit-form{grid-template-columns:1fr}.transfer-form label,.account-limit-form label{grid-column:1/-1}.account-limit-submit,.account-config-warning{align-items:flex-start;flex-direction:column}.routing-footer-actions{align-items:flex-start;flex-direction:column}.routing-flow .router-node{min-width:180px}}

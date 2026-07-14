@@ -1,0 +1,28 @@
+{
+  "accounts": [
+    {
+      "account_id": "binance-mm",
+      "observed_at": 1783887600.0,
+      "equity_quote": 2500.0,
+      "available_quote": 2200.0
+    },
+    {
+      "account_id": "binance-directional",
+      "observed_at": 1783887600.0,
+      "equity_quote": 2500.0,
+      "available_quote": 2200.0
+    },
+    {
+      "account_id": "binance-arbitrage",
+      "observed_at": 1783887600.0,
+      "equity_quote": 2500.0,
+      "available_quote": 2200.0
+    },
+    {
+      "account_id": "binance-hedge",
+      "observed_at": 1783887600.0,
+      "equity_quote": 2500.0,
+      "available_quote": 2200.0
+    }
+  ]
+}

@@ -48,7 +48,10 @@ class ConnectionsFactory:
         Lazily create a shared aiohttp.ClientSession if not already available.
         """
         if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
+            # Let locally configured HTTP(S) proxies carry both REST and WebSocket
+            # market-data traffic. aiohttp ignores proxy environment variables unless
+            # this flag is explicitly enabled.
+            self._shared_client = aiohttp.ClientSession(trust_env=True)
         return self._shared_client
 
     async def close(self) -> None:

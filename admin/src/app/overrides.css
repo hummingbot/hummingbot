@@ -11,3 +11,5 @@
 .gap-item > .pill-amber { color: var(--amber); }
 .gap-item > .pill-blue { color: var(--cyan); }
 .gap-item > .pill-green { color: var(--green); }
+
+.metric-purple { border-top-color: var(--purple); }

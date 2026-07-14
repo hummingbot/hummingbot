@@ -6,9 +6,10 @@ import { useState, type ReactNode } from "react";
 
 const nav = [
   { href: "/", label: "运营总览", icon: "◫", group: "决策中心" },
-  { href: "/router", label: "行情与路由", icon: "⌁", group: "决策中心" },
+  { href: "/router", label: "策略路由编排", icon: "⌁", group: "决策中心" },
   { href: "/strategies", label: "策略资产库", icon: "◇", group: "策略运营" },
   { href: "/risk", label: "风险中心", icon: "△", group: "策略运营" },
+  { href: "/trading", label: "交易账本", icon: "≋", group: "交易执行" },
   { href: "/operations", label: "迭代与部署", icon: "◎", group: "系统运维" },
 ];
 
@@ -21,7 +22,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <aside className={`sidebar ${open ? "sidebar-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark">H</div>
-          <div><strong>Hummingbot AI</strong><span>策略运营中心</span></div>
+          <div><strong>Hummingbot 智能策略</strong><span>策略运营中心</span></div>
         </div>
         <nav>
           {groups.map((group) => (
@@ -34,13 +35,13 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        <div className="sidebar-foot"><span className="status-dot" /> 纸面优先<br /><small>实盘晋级默认关闭</small></div>
+        <div className="sidebar-foot">纸面优先<br /><small>实盘晋级默认关闭</small></div>
       </aside>
       <div className="main-frame">
         <header className="topbar">
           <button className="menu-button" onClick={() => setOpen((value) => !value)} aria-label="打开导航">☰</button>
-          <div><span className="eyebrow">AI 策略运营台</span><strong>收益证据优先于策略数量</strong></div>
-          <div className="operator"><span className="status-dot" /> 本机运营节点</div>
+          <div><span className="eyebrow">智能策略运营台</span><strong>收益证据优先于策略数量</strong></div>
+          <div className="operator">纸盘模式 · 实盘默认关闭</div>
         </header>
         <main>{children}</main>
       </div>

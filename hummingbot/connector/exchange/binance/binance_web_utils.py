@@ -16,7 +16,8 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
+    base_url = CONSTANTS.PUBLIC_REST_URL if domain == CONSTANTS.DEFAULT_DOMAIN else CONSTANTS.REST_URL.format(domain)
+    return base_url + CONSTANTS.PUBLIC_API_VERSION + path_url
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:

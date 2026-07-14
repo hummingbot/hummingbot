@@ -25,6 +25,15 @@ const labels: Record<string, string> = {
   blocker: "阻断",
   info: "提示",
   grid: "网格",
+  grid_strike: "网格突击",
+  multi_grid_strike: "多层网格突击",
+  bollingrid: "布林网格",
+  trend_long: "趋势做多",
+  trend_short: "趋势做空",
+  protect_mode: "保护模式",
+  pmm_mister: "高级纯做市",
+  supertrend_v1: "超级趋势",
+  funding_rate_arb: "资金费率套利",
   market_making: "做市",
   trend: "趋势",
   mean_reversion: "均值回归",
@@ -87,6 +96,59 @@ const labels: Record<string, string> = {
   no_active_strategy: "当前没有活动策略",
   cooldown: "策略冷却中",
   short_disabled: "做空权限未开启",
+  paper: "纸盘",
+  master: "主账户",
+  subaccount: "子账户",
+  independent: "独立账户",
+  directional: "趋势",
+  relative_value: "相对价值",
+  reserve: "资金储备",
+  unavailable: "不可读取",
+  stable: "稳定",
+  start: "启动候选",
+  drain: "排空旧策略",
+  observing: "观察中",
+  circuit_open: "熔断中",
+  paper_running: "纸盘运行",
+  rollback_blocked_open_exposure: "回滚受持仓阻挡",
+  active_verified: "已验证激活",
+  paper_champion: "纸盘冠军版本",
+  conditional: "有条件兼容",
+  compatible: "兼容",
+  exclusive: "互斥",
+  healthy: "健康",
+  unsafe: "不安全",
+  degraded: "已降级",
+  starting: "启动中",
+  safe: "安全",
+  ready: "已就绪",
+  simulated: "已模拟",
+  paper_plan: "纸盘计划",
+  HEDGE: "双向持仓",
+  ONEWAY: "单向持仓",
+  ONE_WAY: "单向持仓",
+  ISOLATED: "逐仓",
+  CROSS: "全仓",
+  BUY: "买入",
+  SELL: "卖出",
+  runtime_stale: "运行快照过期",
+  different_accounts: "使用不同账户",
+  global_net_exposure_within_limit: "全局净敞口保持在限制内",
+  same_pair_position_owner: "同交易对单一持仓所有者",
+  market_neutral_two_leg: "市场中性双腿",
+  portfolio_overlay: "组合对冲覆盖",
+  pass: "通过",
+  passed: "已通过",
+  collecting: "样本收集中",
+  manual: "等待人工批准",
+  active: "活动中",
+  pending: "等待中",
+  failed: "失败",
+  deepseek: "DeepSeek",
+  Gas: "链上手续费",
+  MEV: "最大可提取价值",
+  Dashboard: "控制面板",
+  CTA: "商品交易顾问",
 };
 
 const riskLabels: Record<string, string> = {
@@ -99,7 +161,7 @@ const riskLabels: Record<string, string> = {
   basis_and_borrow: "基差与借贷风险",
   maker_fill_hedge_latency: "挂单成交与对冲延迟",
   latency_slippage_conversion: "延迟、滑点与换算风险",
-  gas_finality_mev: "Gas、终局性与 MEV 风险",
+  gas_finality_mev: "链上手续费、终局性与最大可提取价值风险",
   relationship_breakdown: "统计关系失效",
   adverse_selection_inventory: "逆向选择与库存风险",
   inventory_and_spread: "库存与价差风险",
@@ -113,7 +175,7 @@ const riskLabels: Record<string, string> = {
   roll_leverage_correlation: "换月、杠杆与相关性风险",
   trend_breakout: "趋势突破风险",
   persistent_oversold: "持续超卖风险",
-  impermanent_loss_gas: "无常损失与 Gas 风险",
+  impermanent_loss_gas: "无常损失与链上手续费风险",
   basis_and_overhedge: "基差与过度对冲",
   layered_exposure: "分层敞口风险",
   market_drift: "市场漂移风险",
@@ -127,6 +189,61 @@ export function zhLabel(value?: string): string {
     return `需要通过至少 ${hours} 小时纸面评分`;
   }
   return labels[value] ?? value;
+}
+
+export function zhText(value?: string | null): string {
+  if (!value) return "—";
+  return Object.entries(labels)
+    .filter(([key]) => /[_A-Z]/.test(key) || ["shadow", "unsafe", "degraded", "healthy", "simulated"].includes(key))
+    .sort(([left], [right]) => right.length - left.length)
+    .reduce((text, [key, label]) => text.replaceAll(key, label), value);
+}
+
+export function zhExchange(value?: string): string {
+  if (!value) return "未知交易所";
+  return ({
+    binance: "币安",
+    binance_paper_trade: "币安纸盘",
+    gate_io: "Gate.io",
+    okx: "欧易",
+    bybit: "Bybit",
+  } as Record<string, string>)[value.toLowerCase()] ?? value;
+}
+
+export function zhInstance(value?: string): string {
+  if (!value) return "未知实例";
+  if (value === "pmm_mister_paper") return "高级纯做市纸盘实例";
+  if (value === "ai_strategy_router_paper") return "智能策略路由纸盘实例";
+  return value;
+}
+
+export function zhOrderType(value?: string): string {
+  if (!value) return "—";
+  return ({
+    LIMIT: "限价单",
+    LIMIT_MAKER: "只挂单限价单",
+    MARKET: "市价单",
+    IOC: "立即成交否则取消",
+    FOK: "全部成交否则取消",
+    POST_ONLY: "只挂单",
+  } as Record<string, string>)[value.toUpperCase()] ?? value;
+}
+
+export function zhOrderStatus(value?: string): string {
+  if (!value) return "—";
+  return ({
+    OPEN: "活动中",
+    ACTIVE: "活动中",
+    PENDING: "等待中",
+    NEW: "已创建",
+    PARTIALLY_FILLED: "部分成交",
+    FILLED: "全部成交",
+    COMPLETED: "已完成",
+    CANCELED: "已取消",
+    CANCELLED: "已取消",
+    FAILED: "失败",
+    EXPIRED: "已过期",
+  } as Record<string, string>)[value.toUpperCase()] ?? value;
 }
 
 export function zhRisk(value: string): string {

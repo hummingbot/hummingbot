@@ -23,3 +23,12 @@ class ConnectionsFactoryTest(IsolatedAsyncioWrapperTestCase):
         rest_connection = await factory.get_ws_connection()
 
         self.assertIsInstance(rest_connection, WSConnection)
+
+    async def test_shared_client_trusts_proxy_environment(self):
+        factory = ConnectionsFactory()
+
+        try:
+            client = await factory._get_shared_client()
+            self.assertTrue(client.trust_env)
+        finally:
+            await factory.close()

@@ -1,0 +1,8 @@
+{
+  "runtime_snapshots": {
+    "binance-mm": {
+      "path": "data/paper-pmm_mister-1f3cb6f6ac8e-8d4a34a6_runtime.json",
+      "settlement_asset": "USDT"
+    }
+  }
+}

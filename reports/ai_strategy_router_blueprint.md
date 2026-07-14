@@ -1,5 +1,7 @@
 # AI 策略路由器工程蓝图
 
+> 本文记录第一版单账户规则路由器及其落地过程。多账户、主账户/子账户、并行资金槽、AI 有界评分和安全切换的 V2 目标设计见 [`strategy_router_v2_design.md`](strategy_router_v2_design.md)，账户配置示例见 [`examples/strategy_router_accounts.example.yml`](examples/strategy_router_accounts.example.yml)。
+
 本文档用于把“覆盖主流策略 + AI 根据盘面切换策略”的想法落成工程蓝图。核心结论是：不要让 AI 直接预测买卖点，而是让 AI 做市场状态识别、策略适配评分、策略失效预警和仓位渐进切换；具体下单继续交给 Hummingbot 的控制器与执行器。
 
 ## 1. 核心定位

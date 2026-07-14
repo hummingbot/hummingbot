@@ -6,9 +6,14 @@ DEFAULT_DOMAIN = "com"
 HBOT_ORDER_ID_PREFIX = "x-MG43PCSN"
 MAX_ORDER_ID_LEN = 32
 
-# Base URL
+# Base URLs. Keep private account requests on api.binance.com; paper trading
+# uses only public market data and therefore routes those calls through
+# Binance's dedicated public data endpoint.
 REST_URL = "https://api.binance.{}/api/"
-WSS_URL = "wss://stream.binance.{}:9443/ws"
+PUBLIC_REST_URL = "https://data-api.binance.vision/api/"
+# Binance documents data-stream.binance.vision for public market data. This
+# avoids coupling paper-market data to the main account API endpoint.
+WSS_URL = "wss://data-stream.binance.vision:443/ws"
 WSS_API_URL = "wss://ws-api.binance.{}:443/ws-api/v3"
 
 PUBLIC_API_VERSION = "v3"

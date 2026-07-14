@@ -19,11 +19,15 @@
       "backtest_passed": true,
       "walk_forward_passed": true,
       "costs_included": true,
+      "recovery_verified": true,
       "paper_hours": 0,
       "paper_scorecard_passed": false,
       "canary_approved": false,
       "live_release_approved": false,
-      "evidence_refs": ["reports/pmm_mister_walk_forward_latest.json"]
+      "evidence_refs": [
+        "reports/pmm_mister_walk_forward_latest.json",
+        "reports/strategy_router_paper_cutover_evidence.json"
+      ]
     },
     "funding_rate_arb": {
       "adapter_tests_passed": true,

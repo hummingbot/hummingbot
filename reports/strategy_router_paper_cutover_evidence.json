@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "environment": "paper",
+  "account_id": "binance-mm",
+  "worker_id": "hummingbot-pmm-mister-paper",
+  "strategy_id": "pmm_mister",
+  "candidate_id": "pmm_mister-1f3cb6f6ac8e",
+  "config_hash": "3106cf1f4c0be890aad5f2d92df691fe64eac0816c40daa2c6ae241777731b95",
+  "trading_pair": "ETH-USDT",
+  "connector": "binance_paper_trade",
+  "runtime_file": "data/paper-pmm_mister-1f3cb6f6ac8e-8d4a34a6_runtime.json",
+  "cutover": {
+    "legacy_worker_adopted": true,
+    "distinct_route_confirmations": 3,
+    "drain_returncode": 0,
+    "start_returncode": 0,
+    "runtime_candidate_verified": true,
+    "runtime_config_hash_verified": true,
+    "runtime_paper_only_verified": true,
+    "reconcile_blockers": []
+  },
+  "canary": {
+    "started_at": "2026-07-12T21:52:53.593238+00:00",
+    "stable_at": "2026-07-12T22:05:06.030537+00:00",
+    "required_seconds": 600,
+    "observed_seconds": 732.437299,
+    "final_state": "stable",
+    "last_error": null
+  },
+  "safety": {
+    "ai_enabled": false,
+    "live_actions": false,
+    "automatic_transfers": false,
+    "evolution_auto_start": false
+  },
+  "verification": {
+    "routing_and_evolution_tests": 64,
+    "container_tests": 7,
+    "config_validation": "passed",
+    "ruff": "passed",
+    "py_compile": "passed"
+  }
+}

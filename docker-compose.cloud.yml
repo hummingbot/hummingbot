@@ -15,6 +15,14 @@ services:
       - CONFIG_FILE_NAME=${CONFIG_FILE_NAME:-}
       - SCRIPT_CONFIG=${SCRIPT_CONFIG:-}
       - HEADLESS_MODE=${HEADLESS_MODE:-false}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - ALL_PROXY=${ALL_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+      - all_proxy=${all_proxy:-}
+      - no_proxy=${no_proxy:-}
     volumes:
       - ./conf:/home/hummingbot/conf
       - ./conf/connectors:/home/hummingbot/conf/connectors
@@ -29,7 +37,11 @@ services:
       - ./hummingbot/strategy_v2/routers:/home/hummingbot/hummingbot/strategy_v2/routers
       - ./hummingbot/strategy_v2/executors/executor_base.py:/home/hummingbot/hummingbot/strategy_v2/executors/executor_base.py
       - ./hummingbot/strategy_v2/executors/grid_executor/grid_executor.py:/home/hummingbot/hummingbot/strategy_v2/executors/grid_executor/grid_executor.py
+      - ./hummingbot/strategy_v2/executors/order_executor/order_executor.py:/home/hummingbot/hummingbot/strategy_v2/executors/order_executor/order_executor.py
       - ./hummingbot/strategy_v2/executors/position_executor/position_executor.py:/home/hummingbot/hummingbot/strategy_v2/executors/position_executor/position_executor.py
+      - ./hummingbot/core/web_assistant/connections/connections_factory.py:/home/hummingbot/hummingbot/core/web_assistant/connections/connections_factory.py
+      - ./hummingbot/connector/exchange/binance/binance_constants.py:/home/hummingbot/hummingbot/connector/exchange/binance/binance_constants.py
+      - ./hummingbot/connector/exchange/binance/binance_web_utils.py:/home/hummingbot/hummingbot/connector/exchange/binance/binance_web_utils.py
     logging:
       driver: json-file
       options:
@@ -61,6 +73,7 @@ services:
     container_name: hummingbot-ai-admin
     build:
       context: ./admin
+    image: ${HUMMINGBOT_ADMIN_IMAGE:-hummingbot-admin}
     restart: unless-stopped
     ports:
       - "127.0.0.1:3217:3217"
@@ -68,9 +81,32 @@ services:
       - HUMMINGBOT_ROOT=/workspace
     volumes:
       - ./:/workspace:ro
+      - ./data:/workspace/data
+      - ./conf/runtime:/workspace/conf/runtime
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3217/admin"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3217/admin/api/routing"]
       interval: 30s
       timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  strategy-router:
+    profiles: ["admin"]
+    container_name: hummingbot-strategy-router
+    image: ${HUMMINGBOT_ADMIN_IMAGE:-hummingbot-admin}
+    restart: unless-stopped
+    working_dir: /workspace
+    command: ["python3", "scripts/strategy_router_daemon.py"]
+    environment:
+      - STRATEGY_ROUTER_APPLY_WORKERS=0
+    volumes:
+      - ./:/workspace:ro
+      - ./data:/workspace/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "python3", "scripts/check_strategy_router_health.py"]
+      interval: 30s
+      timeout: 10s
       retries: 3
       start_period: 20s

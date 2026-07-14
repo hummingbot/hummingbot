@@ -1,5 +1,9 @@
+import Link from "next/link";
 import { StatusPill } from "@/components/StatusPill";
+import { getUnifiedOperationsSnapshot } from "@/lib/data";
 import { zhLabel } from "@/lib/i18n";
+
+export const dynamic = "force-dynamic";
 
 const controls = [
   { name: "数据充足性", state: "enabled", detail: "K 线不足时只能观察，禁止创建执行器" },
@@ -12,5 +16,6 @@ const controls = [
 ];
 
 export default function RiskPage() {
-  return <div className="page-stack"><section className="page-hero"><div><span className="eyebrow">资金保护</span><h1>风险中心</h1><p>收益优化只能在硬风控之内运行；保护模式的优先级永远高于策略选择。</p></div><StatusPill tone="green">纸面优先</StatusPill></section><section className="control-grid">{controls.map((control) => <div className="control-card" key={control.name}><StatusPill tone={control.state === "enabled" ? "green" : control.state === "missing" ? "red" : "amber"}>{control.state === "policy" ? "策略约束" : zhLabel(control.state)}</StatusPill><strong>{control.name}</strong><span>{control.detail}</span></div>)}</section><section className="panel"><div className="panel-head"><div><span className="eyebrow">晋级门禁</span><h2>实盘晋级前置条件</h2></div></div><div className="gate-steps">{["适配器与停止路径完整","样本外回测已扣除费用","纸面观察窗口通过","极端场景与断线恢复通过","小资金灰度人工批准","持续监控与自动降级"].map((item, index) => <div key={item}><span>{String(index + 1).padStart(2, "0")}</span><strong>{item}</strong></div>)}</div></section></div>;
+  const { execution } = getUnifiedOperationsSnapshot();
+  return <div className="page-stack"><section className="page-hero"><div><span className="eyebrow">资金保护</span><h1>风险中心</h1><p>收益优化只能在硬风控之内运行；保护模式的优先级永远高于策略选择。</p></div><StatusPill tone={execution.tone}>{execution.stateLabel}</StatusPill></section><div className="alert-banner alert-info"><strong>当前执行范围：{execution.scopeLabel}</strong><span>{execution.stateDetail} 持仓、委托、成交与盈亏只在交易账本展示，避免在风险页重复计算。</span><Link href="/trading">查看交易账本 →</Link></div><section className="control-grid">{controls.map((control) => <div className="control-card" key={control.name}><StatusPill tone={control.state === "enabled" ? "green" : control.state === "missing" ? "red" : "amber"}>{control.state === "policy" ? "策略约束" : zhLabel(control.state)}</StatusPill><strong>{control.name}</strong><span>{control.detail}</span></div>)}</section><section className="panel"><div className="panel-head"><div><span className="eyebrow">晋级门禁</span><h2>实盘晋级前置条件</h2></div></div><div className="gate-steps">{["适配器与停止路径完整","样本外回测已扣除费用","纸面观察窗口通过","极端场景与断线恢复通过","小资金灰度人工批准","持续监控与自动降级"].map((item, index) => <div key={item}><span>{String(index + 1).padStart(2, "0")}</span><strong>{item}</strong></div>)}</div></section></div>;
 }

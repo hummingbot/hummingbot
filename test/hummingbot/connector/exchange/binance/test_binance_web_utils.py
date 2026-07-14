@@ -9,6 +9,12 @@ class BinanceUtilTestCases(unittest.TestCase):
     def test_public_rest_url(self):
         path_url = "/TEST_PATH"
         domain = "com"
+        expected_url = CONSTANTS.PUBLIC_REST_URL + CONSTANTS.PUBLIC_API_VERSION + path_url
+        self.assertEqual(expected_url, web_utils.public_rest_url(path_url, domain))
+
+    def test_public_rest_url_uses_domain_endpoint_outside_default_domain(self):
+        path_url = "/TEST_PATH"
+        domain = "us"
         expected_url = CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
         self.assertEqual(expected_url, web_utils.public_rest_url(path_url, domain))
 

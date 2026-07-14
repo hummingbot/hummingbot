@@ -1,7 +1,7 @@
 import { StrategyTable } from "@/components/StrategyTable";
 import { MetricCard, StatusPill } from "@/components/StatusPill";
 import { getCoreWalkForwardReports, getStrategyCatalog, getStrategyPromotionState } from "@/lib/data";
-import { zhLabel } from "@/lib/i18n";
+import { zhLabel, zhText } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +17,13 @@ export default function StrategiesPage() {
         <div>
           <span className="eyebrow">策略资产</span>
           <h1>策略资产库</h1>
-          <p>收集不等于启用。每个策略都保留来源、许可证、收益证据、适用行情、风险与适配器状态。</p>
+          <p>这是策略目录与晋级证据，不是实时交易状态。持仓、委托、成交与盈亏只在交易账本按当前实例展示。</p>
         </div>
       </section>
       <section className="metric-grid">
-        <MetricCard label="已启用" value={String(statusCount("enabled"))} hint="路由器可直接执行" tone="green" />
+        <MetricCard label="目录已启用" value={String(statusCount("enabled"))} hint="具备路由资格，不等于当前容器正在运行" tone="green" />
         <MetricCard label="影子评估" value={String(statusCount("shadow"))} hint="已有实现，等待验证证据" tone="blue" />
-        <MetricCard label="研究池" value={String(statusCount("research"))} hint="只收集机制与来源" />
+        <MetricCard label="研究池" value={String(statusCount("research"))} hint="只收集机制与来源" tone="purple" />
         <MetricCard label="核心晋级链" value={String(promotion.strategies.length)} hint="趋势、震荡、套利" tone="amber" />
       </section>
       <div className="alert-banner alert-info">
@@ -64,7 +64,7 @@ export default function StrategiesPage() {
         <div className="source-grid">
           {catalog.sources.map((source) => (
             <a className="source-card" href={source.url} target="_blank" rel="noreferrer" key={source.repo}>
-              <strong>{source.name}</strong><code>{source.repo}</code><span>{source.role}</span><small>{source.license}</small>
+              <strong>{zhText(source.name)}</strong><code>{source.repo}</code><span>{zhText(source.role)}</span><small>{source.license}</small>
             </a>
           ))}
         </div>

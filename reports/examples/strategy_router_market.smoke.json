@@ -1,0 +1,13 @@
+{
+  "timestamp": 1783887600.0,
+  "symbol": "ETH-USDT",
+  "direction": "flat",
+  "trend_strength": 0.2,
+  "volatility_bucket": "normal",
+  "realized_volatility": 0.1,
+  "liquidity_bucket": "healthy",
+  "spread_bps": 2.0,
+  "depth_10bps_quote": 100000.0,
+  "mean_reversion_score": 0.75,
+  "data_fresh": true
+}

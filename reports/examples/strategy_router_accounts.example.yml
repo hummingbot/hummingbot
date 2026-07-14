@@ -1,0 +1,351 @@
+# Multi-strategy account-routing configuration example.
+#
+# This is the validated paper-routing configuration used by the current
+# supervisor, worker lifecycle, admin status view, and paper transfer simulator.
+# The numeric limits are paper-only operating values, not calibrated live
+# defaults. Never place API keys, secrets, passwords, or wallet material here.
+
+version: 1
+environment: paper
+
+router:
+  route_interval_seconds: 300
+  require_closed_candle: true
+  reserve_quote_pct: 0.25
+  minimum_candidate_score: 0.50
+  score_weights:
+    regime_fit: 0.35
+    expected_edge_after_cost: 0.25
+    execution_quality: 0.15
+    strategy_health: 0.15
+    ai_adjustment: 0.10
+  switch_policy:
+    minimum_score_delta: 0.08
+    confirmation_cycles: 3
+    minimum_dwell_seconds: 1800
+    cooldown_seconds: 900
+    drain_timeout_seconds: 300
+    canary_seconds: 600
+
+ai:
+  enabled: false
+  mode: shadow
+  provider: deepseek
+  base_url: https://api.deepseek.com
+  credential_ref: env:DEEPSEEK_API_KEY
+  primary_model: deepseek-v4-flash
+  review_model: deepseek-v4-pro
+  request_timeout_seconds: 12
+  max_adjustment: 0.10
+  response_ttl_seconds: 300
+  circuit_breaker_failures: 3
+  circuit_breaker_cooldown_seconds: 900
+
+global_risk:
+  maximum_total_allocation_pct: 0.75
+  minimum_reserve_quote_pct: 0.25
+  maximum_exchange_allocation_pct: 0.75
+  maximum_symbol_gross_exposure_pct: 0.35
+  maximum_symbol_net_exposure_pct: 0.20
+  maximum_directional_sleeve_pct: 0.25
+  maximum_market_making_sleeve_pct: 0.35
+  maximum_relative_value_sleeve_pct: 0.30
+  maximum_hedge_sleeve_pct: 0.20
+  maximum_global_drawdown_quote: 250
+  snapshot_stale_after_seconds: 20
+
+accounts:
+  - id: binance-treasury
+    kind: master
+    parent_id: null
+    exchange: binance
+    exchange_account_ref: paper:binance-treasury
+    connector: binance_paper_trade
+    credential_ref: paper:none
+    environment: paper
+    worker_id: null
+    trading_enabled: false
+    settlement_asset: USDT
+    allowed_sleeves: [reserve]
+    allowed_pairs: []
+    position_mode: HEDGE
+    margin_mode: ISOLATED
+    permissions:
+      account_read: true
+      trade: false
+      internal_transfer: false
+      withdraw: false
+    allocation:
+      minimum_reserve_quote: 2500
+      maximum_capital_quote: 10000
+    risk:
+      maximum_drawdown_quote: 0
+      maximum_gross_exposure_quote: 0
+      maximum_open_orders: 0
+      market_data_stale_after_seconds: 20
+    transfer_policy:
+      enabled: true
+      require_manual_approval: true
+      allowed_counterparties:
+        - binance-mm
+        - binance-directional
+        - binance-arbitrage
+        - binance-hedge
+      minimum_transfer_quote: 100
+      maximum_transfer_quote: 1000
+      maximum_daily_transfer_quote: 2000
+      cooldown_seconds: 3600
+
+  - id: binance-mm
+    kind: subaccount
+    parent_id: binance-treasury
+    exchange: binance
+    exchange_account_ref: paper:binance-mm
+    connector: binance_paper_trade
+    connector_alias: binance_paper_trade_mm
+    credential_ref: paper:none
+    environment: paper
+    worker_id: hummingbot-pmm-mister-paper
+    trading_enabled: true
+    settlement_asset: USDT
+    allowed_sleeves: [market_making]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    position_mode: HEDGE
+    margin_mode: ISOLATED
+    permissions:
+      account_read: true
+      trade: true
+      internal_transfer: false
+      withdraw: false
+    allocation:
+      minimum_reserve_quote: 500
+      maximum_capital_quote: 3500
+    risk:
+      maximum_drawdown_quote: 75
+      maximum_gross_exposure_quote: 2500
+      maximum_open_orders: 12
+      maximum_leverage: 1
+      market_data_stale_after_seconds: 20
+    transfer_policy:
+      enabled: false
+      require_manual_approval: true
+      allowed_counterparties: [binance-treasury]
+      minimum_transfer_quote: 100
+      maximum_transfer_quote: 750
+      maximum_daily_transfer_quote: 1000
+      cooldown_seconds: 3600
+
+  - id: binance-directional
+    kind: subaccount
+    parent_id: binance-treasury
+    exchange: binance
+    exchange_account_ref: paper:binance-directional
+    connector: binance_paper_trade
+    connector_alias: binance_paper_trade_directional
+    credential_ref: paper:none
+    environment: paper
+    worker_id: hummingbot-router-directional-paper
+    trading_enabled: true
+    settlement_asset: USDT
+    allowed_sleeves: [directional]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    position_mode: HEDGE
+    margin_mode: ISOLATED
+    permissions:
+      account_read: true
+      trade: true
+      internal_transfer: false
+      withdraw: false
+    allocation:
+      minimum_reserve_quote: 500
+      maximum_capital_quote: 2500
+    risk:
+      maximum_drawdown_quote: 75
+      maximum_gross_exposure_quote: 2000
+      maximum_open_orders: 4
+      maximum_leverage: 1
+      market_data_stale_after_seconds: 20
+    transfer_policy:
+      enabled: false
+      require_manual_approval: true
+      allowed_counterparties: [binance-treasury]
+      minimum_transfer_quote: 100
+      maximum_transfer_quote: 500
+      maximum_daily_transfer_quote: 750
+      cooldown_seconds: 3600
+
+  - id: binance-arbitrage
+    kind: subaccount
+    parent_id: binance-treasury
+    exchange: binance
+    exchange_account_ref: paper:binance-arbitrage
+    connector: binance_paper_trade
+    connector_alias: binance_paper_trade_arbitrage
+    credential_ref: paper:none
+    environment: paper
+    worker_id: hummingbot-router-arbitrage-paper
+    trading_enabled: true
+    settlement_asset: USDT
+    allowed_sleeves: [relative_value]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    position_mode: HEDGE
+    margin_mode: ISOLATED
+    permissions:
+      account_read: true
+      trade: true
+      internal_transfer: false
+      withdraw: false
+    allocation:
+      minimum_reserve_quote: 750
+      maximum_capital_quote: 3000
+    risk:
+      maximum_drawdown_quote: 60
+      maximum_gross_exposure_quote: 5000
+      maximum_unhedged_exposure_quote: 250
+      maximum_open_orders: 8
+      maximum_leverage: 1
+      market_data_stale_after_seconds: 20
+    transfer_policy:
+      enabled: false
+      require_manual_approval: true
+      allowed_counterparties: [binance-treasury]
+      minimum_transfer_quote: 100
+      maximum_transfer_quote: 750
+      maximum_daily_transfer_quote: 1000
+      cooldown_seconds: 3600
+
+  - id: binance-hedge
+    kind: subaccount
+    parent_id: binance-treasury
+    exchange: binance
+    exchange_account_ref: paper:binance-hedge
+    connector: binance_paper_trade
+    connector_alias: binance_paper_trade_hedge
+    credential_ref: paper:none
+    environment: paper
+    worker_id: hummingbot-router-hedge-paper
+    trading_enabled: true
+    settlement_asset: USDT
+    allowed_sleeves: [hedge]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    position_mode: HEDGE
+    margin_mode: ISOLATED
+    permissions:
+      account_read: true
+      trade: true
+      internal_transfer: false
+      withdraw: false
+    allocation:
+      minimum_reserve_quote: 500
+      maximum_capital_quote: 2000
+    risk:
+      maximum_drawdown_quote: 40
+      maximum_gross_exposure_quote: 2000
+      maximum_open_orders: 4
+      maximum_leverage: 1
+      market_data_stale_after_seconds: 20
+    transfer_policy:
+      enabled: false
+      require_manual_approval: true
+      allowed_counterparties: [binance-treasury]
+      minimum_transfer_quote: 100
+      maximum_transfer_quote: 500
+      maximum_daily_transfer_quote: 750
+      cooldown_seconds: 3600
+
+# Independent exchange accounts use the same schema. Example:
+#
+# - id: binance-independent-arbitrage
+#   kind: independent
+#   parent_id: null
+#   exchange: binance
+#   exchange_account_ref: paper:binance-independent-arbitrage
+#   connector: binance_perpetual
+#   connector_alias: binance_perpetual_arbitrage
+#   credential_ref: paper:none
+#   environment: paper
+#   worker_id: hummingbot-router-binance-arbitrage-paper
+#   trading_enabled: true
+#   settlement_asset: USDT
+#   allowed_sleeves: [relative_value]
+#   allowed_pairs: [BTC-USDT]
+#   position_mode: HEDGE
+#   margin_mode: ISOLATED
+
+strategy_bindings:
+  - strategy_id: pmm_mister
+    sleeve: market_making
+    account_selector:
+      account_ids: [binance-mm]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    compatibility_group: same_pair_position_owner
+    maximum_instances_per_account: 1
+
+  - strategy_id: grid_strike
+    sleeve: market_making
+    account_selector:
+      account_ids: [binance-mm]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    compatibility_group: same_pair_position_owner
+    maximum_instances_per_account: 1
+
+  - strategy_id: supertrend_v1
+    sleeve: directional
+    account_selector:
+      account_ids: [binance-directional]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    compatibility_group: same_pair_position_owner
+    maximum_instances_per_account: 1
+
+  - strategy_id: funding_rate_arb
+    sleeve: relative_value
+    account_selector:
+      account_ids: [binance-arbitrage]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    compatibility_group: market_neutral_two_leg
+    maximum_instances_per_account: 1
+
+  - strategy_id: hedge_asset
+    sleeve: hedge
+    account_selector:
+      account_ids: [binance-hedge]
+    allowed_pairs: [BTC-USDT, ETH-USDT]
+    compatibility_group: portfolio_overlay
+    maximum_instances_per_account: 1
+
+compatibility:
+  default_same_account_pair: exclusive
+  rules:
+    - left: pmm_mister
+      right: grid_strike
+      relation: conditional
+      conditions: [different_accounts]
+    - left: pmm_mister
+      right: funding_rate_arb
+      relation: compatible
+    - left: grid_strike
+      right: funding_rate_arb
+      relation: compatible
+    - left: supertrend_v1
+      right: hedge_asset
+      relation: compatible
+    - left: pmm_mister
+      right: supertrend_v1
+      relation: conditional
+      conditions: [different_accounts, global_net_exposure_within_limit]
+
+integration:
+  evolution:
+    enabled: true
+    evolution_config_path: conf/strategy_evolution.json
+    release_manifest_glob: data/strategy-evolution/strategies/*/paper/release-manifest.json
+    fail_closed_without_manifest: true
+    # Runtime activation belongs to StrategyRoutingSupervisor only.
+    allow_evolution_auto_start: false
+
+release:
+  allow_live_actions: false
+  allow_automatic_transfers: false
+  require_manual_canary_approval: true
+  require_manual_live_release: true
+  require_manual_transfer_approval: true
