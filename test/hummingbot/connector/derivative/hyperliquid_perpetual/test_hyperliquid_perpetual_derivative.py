@@ -3807,6 +3807,20 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
         self.assertEqual("exception", hydrated[4]["name"])
 
+    def test_quantize_order_price_aligns_to_min_price_increment(self):
+        arb_pair = combine_to_hb_trading_pair("ARB", "USD")
+        self.exchange._trading_rules[arb_pair] = TradingRule(
+            arb_pair,
+            min_price_increment=Decimal("0.00001"),
+            min_order_size=Decimal("0.1"),
+            min_notional_size=Decimal("10"),
+        )
+        # Market SELL slippage (BestAsk * 0.95) can land off-tick; HL rejects with "Order has invalid price."
+        self.assertEqual(
+            Decimal("0.08803"),
+            self.exchange.quantize_order_price(arb_pair, Decimal("0.088027")),
+        )
+
 
 class HyperliquidPerpetualBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid perpetual connector."""

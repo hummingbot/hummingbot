@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import time
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
 from bidict import bidict
@@ -189,8 +189,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Applies trading rule to quantize order price.
         """
-        d_price = Decimal(round(float(f"{price:.5g}"), 6))
-        return d_price
+        trading_rule = self._trading_rules.get(trading_pair)
+        if trading_rule is not None and trading_rule.min_price_increment:
+            tick = trading_rule.min_price_increment
+            return (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
+        return Decimal(round(float(f"{price:.5g}"), 6))
 
     @staticmethod
     def _is_all_perp_metas_response(exchange_info_dex: Any) -> bool:
