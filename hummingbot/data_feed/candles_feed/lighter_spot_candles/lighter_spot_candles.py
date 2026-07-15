@@ -104,6 +104,13 @@ class LighterSpotCandles(CandlesBase):
         now_ms = int(time.time() * 1000)
         start_ms = int(start_time * 1000) if start_time is not None else now_ms - self.interval_in_seconds * 1000
         end_ms = int(end_time * 1000) if end_time is not None else now_ms
+        # Validate the range client-side: Lighter rejects end <= start with a 400, which otherwise
+        # surfaces as an opaque 500 to callers.
+        if end_ms <= start_ms:
+            raise ValueError(
+                f"Invalid candle time range for {self._trading_pair}: end_timestamp ({end_ms}) "
+                f"must be greater than start_timestamp ({start_ms})."
+            )
         interval_ms = self.interval_in_seconds * 1000
         count_back = max(1, int((end_ms - start_ms) / interval_ms))
         return {
