@@ -38,6 +38,9 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
+        # Last execution sequence emitted per trading pair, used to drop duplicate/out-of-order
+        # trades that a websocket reconnect can replay (see _parse_trade_message).
+        self._last_trade_sequence: Dict[str, int] = {}
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -168,9 +171,19 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_data: Dict[str, Any] = raw_message["data"]
         timestamp: float = int(trade_data["ts"]) * 1e-9
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["symbol"])
+        # On a websocket reconnect the execution feed can replay recent matches, and the order-book
+        # snapshot taken on re-subscribe overlaps the live stream. Processing the same match twice
+        # double-counts the trade and distorts anything built from the feed. KuCoin's per-symbol
+        # execution sequence is monotonic, so a sequence at or below the last one already emitted for
+        # this pair is a replay/duplicate and is skipped -- which also keeps the emitted trade
+        # timestamps monotonically non-decreasing.
+        sequence = int(trade_data["sequence"])
+        if sequence <= self._last_trade_sequence.get(trading_pair, -1):
+            return
+        self._last_trade_sequence[trading_pair] = sequence
         message_content = {
             "trade_id": str(trade_data["tradeId"]),
-            "update_id": int(trade_data["sequence"]),
+            "update_id": sequence,
             "trading_pair": trading_pair,
             "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
                 TradeType.SELL.value),

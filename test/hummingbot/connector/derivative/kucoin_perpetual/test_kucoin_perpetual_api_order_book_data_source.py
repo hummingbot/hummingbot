@@ -394,6 +394,49 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
         self.assertNotEqual(self.data_source._trade_messages_queue_key, channel)
 
+    async def test_parse_trade_message_dedupes_and_orders_on_reconnect(self):
+        # Regression for the #7482 review: once the trade feed is correctly subscribed, a websocket
+        # reconnect can replay recent executions (and the re-subscribe order-book snapshot overlaps the
+        # live stream). The data source must drop that overlap so trades are not double-counted, and
+        # the emitted trades must stay ordered by exchange sequence and timestamp -- otherwise a
+        # corrected feed still distorts anything built from it when the overlap is processed twice.
+        self._simulate_trading_rules_initialized()
+
+        def raw(seq, ts, tid):
+            return {
+                "type": "message",
+                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
+                "subject": "match",
+                "data": {
+                    "sequence": str(seq), "type": "match", "symbol": self.trading_pair,
+                    "side": "buy", "price": "0.082", "size": "0.01", "tradeId": tid, "ts": str(ts),
+                },
+            }
+
+        queue: asyncio.Queue = asyncio.Queue()
+        # First connection: three ordered matches.
+        for seq, ts, tid in [(100, 1000, "t100"), (101, 1100, "t101"), (102, 1200, "t102")]:
+            await self.data_source._parse_trade_message(raw(seq, ts, tid), queue)
+        # Reconnect: the feed replays 101 and 102 (overlap) before delivering a new match 103,
+        # and a stale/out-of-order match (99) also arrives late.
+        for seq, ts, tid in [(101, 1100, "t101"), (102, 1200, "t102"),
+                             (99, 990, "t099"), (103, 1300, "t103")]:
+            await self.data_source._parse_trade_message(raw(seq, ts, tid), queue)
+
+        emitted = []
+        while not queue.empty():
+            emitted.append(queue.get_nowait())
+
+        # Duplicate suppression: the replayed matches (101, 102) and the stale match (99) are dropped,
+        # so each match is emitted exactly once and in order.
+        self.assertEqual(["t100", "t101", "t102", "t103"], [m.trade_id for m in emitted])
+        # Monotonic exchange timestamps: the emitted trade timestamps are non-decreasing.
+        timestamps = [m.timestamp for m in emitted]
+        self.assertEqual(timestamps, sorted(timestamps))
+        # And a repeat of the last seen sequence stays suppressed (idempotent on further replays).
+        await self.data_source._parse_trade_message(raw(103, 1300, "t103"), queue)
+        self.assertTrue(queue.empty())
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
