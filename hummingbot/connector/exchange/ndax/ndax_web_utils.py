@@ -13,7 +13,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param domain: the Mexc domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the NDAX domain to connect to. Unknown values fall back to the main NDAX endpoint
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URLS.get(domain, CONSTANTS.REST_URLS["ndax_main"]) + path_url
@@ -23,7 +23,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the Mexc domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the NDAX domain to connect to. Unknown values fall back to the main NDAX endpoint
     :return: the full URL to the endpoint
     """
     return CONSTANTS.REST_URLS.get(domain, CONSTANTS.REST_URLS["ndax_main"]) + path_url
