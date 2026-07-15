@@ -3815,7 +3815,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             min_order_size=Decimal("0.1"),
             min_notional_size=Decimal("10"),
         )
-        # Market SELL slippage (BestAsk * 0.95) can land off-tick; HL rejects with "Order has invalid price."
+        # ARB carries szDecimals=1, so limitPx accepts 5 decimals. Market slippage
+        # lands on 6 and HL rejects with "Order has invalid price."
         self.assertEqual(
             Decimal("0.08803"),
             self.exchange.quantize_order_price(arb_pair, Decimal("0.088027")),
@@ -3829,12 +3830,28 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             min_order_size=Decimal("0.00001"),
             min_notional_size=Decimal("10"),
         )
-        # Market BUY slippage (BestBid * 1.05) can yield 6 sig figs after tick-only rounding
-        # (e.g. 68013.8); HL rejects with "Price must be divisible by tick size."
+        # BTC carries szDecimals=5, so the 0.1 tick alone would allow 68013.8 -
+        # six significant figures, one more than HL accepts. The 5-sig-fig pass
+        # runs first so tick rounding cannot reintroduce a sixth.
         self.assertEqual(
             Decimal("68014"),
             self.exchange.quantize_order_price(btc_pair, Decimal("68013.75")),
         )
+
+    def test_quantize_order_price_does_not_pad_the_scale(self):
+        pair = combine_to_hb_trading_pair("ETH", "USD")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.0001"),
+            min_order_size=Decimal("0.0001"),
+            min_notional_size=Decimal("10"),
+        )
+        # Multiplying back by the tick would otherwise return Decimal("10000.0000"):
+        # numerically correct, but it changes how the price renders in logs and in
+        # order events.
+        quantized = self.exchange.quantize_order_price(pair, Decimal("10000"))
+        self.assertEqual(Decimal("10000"), quantized)
+        self.assertEqual("10000", str(quantized))
 
 
 class HyperliquidPerpetualBuilderCodeTests(TestCase):

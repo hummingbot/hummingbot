@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import time
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
 from bidict import bidict
@@ -187,18 +187,28 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
-        Align price to Hyperliquid rules: max 5 significant figures, then tick size.
+        Align price to Hyperliquid's limitPx rules: at most 5 significant figures
+        and at most ``MAX_DECIMALS - szDecimals`` decimal places.
 
-        Tick-only rounding can produce prices like 68013.8 (6 significant figures),
-        which Hyperliquid rejects with "Price must be divisible by tick size."
-        The legacy .5g-only path can produce off-tick prices like 0.088027 for ARB-USD.
+        Rounding to 6 decimals satisfies neither on its own. ARB-USD carries
+        szDecimals=1, so it accepts 5 decimals, but a market order priced at
+        BestBid * 1.05 quantizes to 0.094605 and the exchange rejects it with
+        "Order has invalid price." Rounding to min_price_increment fixes that:
+        the increment is derived from the markPx decimals, which for perpetuals
+        is never finer than szDecimals allows.
         """
         # HL allows at most 5 significant figures on limitPx
         price = Decimal(str(float(f"{price:.5g}")))
         trading_rule = self._trading_rules.get(trading_pair)
         if trading_rule is not None and trading_rule.min_price_increment:
             tick = trading_rule.min_price_increment
-            return (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
+            quantized = (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
+            # Multiplying back by the tick inflates the scale (10000 -> 10000.0000).
+            # Strip the padding, without letting normalize() pick exponent form (1E+4).
+            quantized = quantized.normalize()
+            if quantized.as_tuple().exponent > 0:
+                quantized = quantized.quantize(Decimal("1"))
+            return quantized
         return price
 
     @staticmethod

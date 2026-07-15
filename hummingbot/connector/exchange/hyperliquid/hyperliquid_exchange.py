@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Set, Tuple
 
 from bidict import bidict
@@ -181,19 +181,10 @@ class HyperliquidExchange(ExchangePyBase):
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
-        Align price to Hyperliquid rules: max 5 significant figures, then tick size.
-
-        Tick-only rounding can produce prices like 68013.8 (6 significant figures),
-        which Hyperliquid rejects with "Price must be divisible by tick size."
-        The legacy .5g-only path can produce off-tick prices like 0.088027 for ARB-USD.
+        Applies trading rule to quantize order price.
         """
-        # HL allows at most 5 significant figures on limitPx
-        price = Decimal(str(float(f"{price:.5g}")))
-        trading_rule = self._trading_rules.get(trading_pair)
-        if trading_rule is not None and trading_rule.min_price_increment:
-            tick = trading_rule.min_price_increment
-            return (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
-        return price
+        d_price = Decimal(round(float(f"{price:.5g}"), 6))
+        return d_price
 
     async def _update_trading_rules(self):
         exchange_info = await self._api_post(path_url=self.trading_rules_request_path,
