@@ -586,8 +586,8 @@ class AbstractPerpetualDerivativeTests:
 
             self.assertTrue(
                 self.is_logged(
-                    log_level="NETWORK",
-                    message=f"Error switching {self.trading_pair} mode to {PositionMode.HEDGE}: {error_msg}"
+                    log_level="ERROR",
+                    message=f"Failed to set position mode to {PositionMode.HEDGE}: {error_msg}"
                 )
             )
 
@@ -604,7 +604,7 @@ class AbstractPerpetualDerivativeTests:
 
             self.assertTrue(
                 self.is_logged(
-                    log_level="DEBUG",
+                    log_level="INFO",
                     message=f"Position mode switched to {PositionMode.HEDGE}.",
                 )
             )
@@ -620,7 +620,7 @@ class AbstractPerpetualDerivativeTests:
 
             self.assertTrue(
                 self.is_logged(
-                    log_level="DEBUG",
+                    log_level="INFO",
                     message=f"Position mode switched to {PositionMode.ONEWAY}.",
                 )
             )

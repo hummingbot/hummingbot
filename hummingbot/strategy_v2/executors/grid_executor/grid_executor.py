@@ -700,7 +700,7 @@ class GridExecutor(ExecutorBase):
             "realized_pnl_pct": self.realized_pnl_pct,
             "position_size_quote": self.position_size_quote,
             "position_fees_quote": self.position_fees_quote,
-            "break_even_price": self.position_break_even_price,
+            "current_position_average_price": self.position_break_even_price,
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,

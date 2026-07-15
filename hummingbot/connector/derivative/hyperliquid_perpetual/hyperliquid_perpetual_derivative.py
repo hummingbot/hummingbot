@@ -69,6 +69,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
+        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
+        self._builder_fee_tenths_bps: int = 0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -132,6 +135,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
+
+    async def start_network(self):
+        await super().start_network()
+        if self._trading_required:
+            await self._initialize_builder_fee()
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -619,6 +627,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "cloid": order_id,
             }
         }
+        # Builder code (HGP-87): part of the signed action dict.
+        builder_field = self._build_builder_field()
+        if builder_field is not None:
+            api_params["builder"] = builder_field
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
@@ -632,6 +644,51 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
+
+    # === Builder code support (HGP-87) ===
+
+    @property
+    def _is_testnet(self) -> bool:
+        return self._domain == CONSTANTS.TESTNET_DOMAIN
+
+    def _should_inject_builder(self) -> bool:
+        """Builder attribution applies only on mainnet, non-vault orders — the venue rejects the
+        builder field on vault and testnet orders."""
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return False
+        if self._use_vault or self._is_testnet:
+            return False
+        return True
+
+    def _build_builder_field(self) -> Optional[Dict[str, Any]]:
+        """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
+        is lowercased (the venue rejects mixed-case)."""
+        if not self._should_inject_builder():
+            return None
+        return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
+
+    async def _initialize_builder_fee(self) -> None:
+        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
+        fails)."""
+        if not self._should_inject_builder():
+            return
+        try:
+            approved_max_tenths_bps = int(await self._api_post(
+                path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                data={
+                    "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
+                    "user": self.hyperliquid_perpetual_address,
+                    "builder": self._builder_address,
+                },
+            ))
+        except Exception:
+            self.logger().exception(
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
+            )
+            self._builder_fee_tenths_bps = 0
+            return
+        self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())

@@ -259,6 +259,10 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
+        elif position_action == PositionAction.CLOSE:
+            # In ONEWAY mode, reduceOnly ensures the order can only reduce the position,
+            # never open a new one or flip direction. This prevents over-selling.
+            api_params["reduceOnly"] = "true"
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_URL,
@@ -721,17 +725,19 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(new_order_update)
 
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        response = await self._api_get(
+            path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
+        )
+        self._position_mode = PositionMode.HEDGE if response.get("dualSidePosition") else PositionMode.ONEWAY
+        return self._position_mode
+
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            response = await self._api_get(
-                path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
-                is_auth_required=True,
-                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
-                return_err=True
-            )
-            self._position_mode = PositionMode.HEDGE if response.get("dualSidePosition") else PositionMode.ONEWAY
-
+            await self._fetch_account_position_mode()
         return self._position_mode
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:

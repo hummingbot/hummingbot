@@ -16,7 +16,6 @@ from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
 from xrpl.models import Currency, IssuedCurrency, Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
-from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
 from xrpl.utils.txn_parser.utils.order_book_parser import (
     _get_change_amount,
@@ -162,8 +161,7 @@ def represent_xrpl_market(dumper, data):
 SafeRepresenter.add_representer(XRPLMarket, represent_xrpl_market)
 
 
-@require_kwargs_on_init
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Ledger(Request, LookupByLedgerRequest):
     """
     Retrieve information about the public ledger.

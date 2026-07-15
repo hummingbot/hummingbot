@@ -888,7 +888,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "label": "1666",
             "detail": "",
         }
-        mock_api.get(regex_get_position_url, body=json.dumps(get_position_mock_response), callback=callback)
+        mock_api.get(regex_get_position_url, body=json.dumps(get_position_mock_response))
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url, f"{error_msg}"

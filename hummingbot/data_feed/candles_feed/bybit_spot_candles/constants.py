@@ -26,6 +26,14 @@ INTERVALS = bidict({
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
+# Shared GET/POST pool of the bybit spot connector (bybit_constants.REQUEST_GET_POST_SHARED).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+REQUEST_GET_POST_SHARED = "ALL"
+SHARED_RATE_LIMIT = 600  # per 5 seconds
+
 RATE_LIMITS = [
-    RateLimit(CANDLES_ENDPOINT, limit=20000, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20000, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+    RateLimit(REQUEST_GET_POST_SHARED, limit=SHARED_RATE_LIMIT, time_interval=5),
+    RateLimit(CANDLES_ENDPOINT, limit=20000, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_GET_POST_SHARED, 1)]),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20000, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_GET_POST_SHARED, 1)])]

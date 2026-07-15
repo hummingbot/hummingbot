@@ -23,6 +23,7 @@ class TestKucoinSpotCandles(TestCandlesBase):
     def setUp(self) -> None:
         super().setUp()
         self.data_feed = KucoinSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
+        self.data_feed._exchange_data_initialized = True  # pre-set to skip initialize_exchange_data API call
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
