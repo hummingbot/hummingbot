@@ -3929,3 +3929,58 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
             self.async_run_with_timeout(connector._initialize_builder_fee())
             self.assertEqual(0, connector._builder_fee_tenths_bps)
             api_post_mock.assert_not_called()
+
+
+class HyperliquidPerpetualKeyAuthorityTests(TestCase):
+    """Connect-time key-authority check (#7866, api_wallet gap): verify a wrong-but-well-formed key
+    surfaces at connect via the extraAgents approved-agent lookup, mode-agnostically."""
+
+    api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+    owner_address = "0x836eE2b55d173245832995082a8600709c38D099"          # api_secret derives to this
+    other_account = "0x000000000000000000000000000000000000dEaD"
+    other_agent = "0x0000000000000000000000000000000000000001"
+
+    def async_run_with_timeout(self, coroutine, timeout: int = 1):
+        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _build_connector(self, address, mode="arb_wallet", use_vault=False):
+        return HyperliquidPerpetualDerivative(
+            hyperliquid_perpetual_secret_key=self.api_secret,
+            hyperliquid_perpetual_address=address,
+            hyperliquid_perpetual_mode=mode,
+            use_vault=use_vault,
+            trading_pairs=["BTC-USD"],
+            trading_required=True,
+        )
+
+    def test_owner_key_authorized_without_network_call(self):
+        connector = self._build_connector(self.owner_address)
+        connector._api_post = AsyncMock(side_effect=AssertionError("owner key must not hit the network"))
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+
+    def test_approved_agent_authorized(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value=[{"address": self.owner_address, "name": "hb"}])
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+        connector._api_post.assert_awaited_once()
+
+    def test_unapproved_agent_raises(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value=[{"address": self.other_agent}])
+        with self.assertRaises(ValueError) as ctx:
+            self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertIn("approved", str(ctx.exception).lower())
+
+    def test_vault_mode_skips_check(self):
+        connector = self._build_connector(self.other_account, use_vault=True)
+        connector._api_post = AsyncMock(side_effect=AssertionError("vault mode must not hit the network"))
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+
+    def test_unexpected_extra_agents_response_does_not_block_connect(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value={"unexpected": "shape"})
+        # Must not raise: an endpoint quirk should not false-reject a possibly-valid key.
+        self.async_run_with_timeout(connector._verify_key_authority())

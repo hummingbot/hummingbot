@@ -77,6 +77,28 @@ class HyperliquidPerpetualAuth(AuthBase):
         self._vault_address = api_address if use_vault else None
         self.wallet = wallet
 
+    @staticmethod
+    def is_key_authorized(derived_address: str, account_address: str, approved_agents) -> bool:
+        """Whether a private key may trade for an account, mode-agnostically.
+
+        True if the key's address IS the account (owner / arb_wallet), or is an APPROVED AGENT of it
+        (api_wallet). ``approved_agents`` is the account's agent list from Hyperliquid's ``extraAgents``
+        info query -- entries carry an "address" field. Comparison is checksum-normalised.
+
+        The exchange cannot surface a wrong-but-well-formed agent key the usual way -- its balance query
+        is an unauthenticated ``/info`` request keyed by address, so it succeeds for any address -- so the
+        connector uses this predicate to make the check explicit at connect time (#7866).
+        """
+        derived = to_checksum_address(derived_address)
+        if derived == to_checksum_address(account_address):
+            return True
+        approved = {
+            to_checksum_address(agent["address"])
+            for agent in (approved_agents or [])
+            if isinstance(agent, dict) and agent.get("address")
+        }
+        return derived in approved
+
     @classmethod
     def address_to_bytes(cls, address: str) -> bytes:
         """
