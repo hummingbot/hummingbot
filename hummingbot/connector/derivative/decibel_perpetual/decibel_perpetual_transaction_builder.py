@@ -74,7 +74,7 @@ class DecibelPerpetualTransactionBuilder:
 
             self.logger().debug(f"[GAS_STATION] Initializing SDK with domain: {self._domain}")
             self.logger().debug(f"[GAS_STATION] Base config gas_station_url: {base_config.gas_station_url}")
-            self.logger().debug(f"[GAS_STATION] Base config gas_station_api_key: {base_config.gas_station_api_key}")
+            self.logger().debug(f"[GAS_STATION] Base config gas_station_api_key: {'Provided' if base_config.gas_station_api_key else 'None'}")
 
             # Create a new config with gas_station_api_key
             if self._gas_station_api_key:
