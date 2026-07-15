@@ -187,13 +187,19 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
-        Applies trading rule to quantize order price.
+        Align price to Hyperliquid rules: max 5 significant figures, then tick size.
+
+        Tick-only rounding can produce prices like 68013.8 (6 significant figures),
+        which Hyperliquid rejects with "Price must be divisible by tick size."
+        The legacy .5g-only path can produce off-tick prices like 0.088027 for ARB-USD.
         """
+        # HL allows at most 5 significant figures on limitPx
+        price = Decimal(str(float(f"{price:.5g}")))
         trading_rule = self._trading_rules.get(trading_pair)
         if trading_rule is not None and trading_rule.min_price_increment:
             tick = trading_rule.min_price_increment
             return (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
-        return Decimal(round(float(f"{price:.5g}"), 6))
+        return price
 
     @staticmethod
     def _is_all_perp_metas_response(exchange_info_dex: Any) -> bool:

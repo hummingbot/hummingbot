@@ -3821,6 +3821,21 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             self.exchange.quantize_order_price(arb_pair, Decimal("0.088027")),
         )
 
+    def test_quantize_order_price_respects_five_significant_figures(self):
+        btc_pair = combine_to_hb_trading_pair("BTC", "USD")
+        self.exchange._trading_rules[btc_pair] = TradingRule(
+            btc_pair,
+            min_price_increment=Decimal("0.1"),
+            min_order_size=Decimal("0.00001"),
+            min_notional_size=Decimal("10"),
+        )
+        # Market BUY slippage (BestBid * 1.05) can yield 6 sig figs after tick-only rounding
+        # (e.g. 68013.8); HL rejects with "Price must be divisible by tick size."
+        self.assertEqual(
+            Decimal("68014"),
+            self.exchange.quantize_order_price(btc_pair, Decimal("68013.75")),
+        )
+
 
 class HyperliquidPerpetualBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid perpetual connector."""
