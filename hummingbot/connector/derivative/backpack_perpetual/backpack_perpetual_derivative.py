@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -97,6 +98,35 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             margin = outstanding_amount * order.price / leverage
             asset_balances[order.quote_asset] = asset_balances.get(order.quote_asset, Decimal("0")) + margin
         return asset_balances
+
+    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal) -> Decimal:
+        """
+        Cross-margin, USDC-settled perpetual version of the snapshot reconciliation.
+
+        The base (spot) implementation mixes two incompatible units:
+          - in_flight_asset_balances() returns *margin* (notional / leverage) -- overridden above
+          - order_filled_balances() returns *full notional* (not divided by leverage)
+
+        That mismatch causes ~leverage-fold over-reservation after each fill, driving
+        get_available_balance() negative and triggering false "Not enough budget" errors
+        (root cause of the post-fill failure observed after PR #8323).
+
+        Backpack's REST `netEquityAvailable` already nets out the margin of open positions and
+        open orders, so we only need to bridge the gap since the last poll:
+          - subtract the margin of currently in-flight orders (not yet reflected by REST)
+          - add back the margin of fills that happened since the last snapshot (already debited
+            from `netEquityAvailable` at the next poll, but not yet visible at this tick)
+
+        The `snapshot_bal` term from the base implementation is dropped because the snapshot is
+        refreshed in `_update_balances()` (see below), so `in_flight_bal` already reflects the
+        current state and `snapshot_bal` would double-count.
+        """
+        if currency != CONSTANTS.CURRENCY:
+            return super().apply_balance_update_since_snapshot(currency, available_balance)
+        leverage = self._leverage if self._leverage and self._leverage > 0 else Decimal("1")
+        in_flight_margin = self.in_flight_asset_balances(self.in_flight_orders).get(currency, Decimal("0"))
+        fills_full_notional = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency, Decimal("0"))
+        return available_balance + fills_full_notional / leverage - in_flight_margin
 
     @staticmethod
     def backpack_order_type(order_type: OrderType) -> str:
@@ -593,6 +623,15 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         quote = CONSTANTS.CURRENCY
         self._account_balances[quote] = Decimal(account_info["netEquity"])
         self._account_available_balances[quote] = Decimal(account_info["netEquityAvailable"])
+        # Refresh the in-flight orders snapshot so that apply_balance_update_since_snapshot()
+        # and order_filled_balances(snapshot_timestamp) only consider orders/fills since the
+        # last REST poll. Without this, the snapshot timestamp stays at 0.0 for the bot's
+        # lifetime (perpetual_derivative_py_base bypasses _update_all_balances which normally
+        # refreshes it), causing cumulative double-counting of fills and a negative available
+        # balance -- root cause of the persistent "Not enough budget" after the first fill.
+        if not self.real_time_balance_update:
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()
