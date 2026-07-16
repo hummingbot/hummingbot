@@ -111,22 +111,28 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         get_available_balance() negative and triggering false "Not enough budget" errors
         (root cause of the post-fill failure observed after PR #8323).
 
-        Backpack's REST `netEquityAvailable` already nets out the margin of open positions and
-        open orders, so we only need to bridge the gap since the last poll:
-          - subtract the margin of currently in-flight orders (not yet reflected by REST)
-          - add back the margin of fills that happened since the last snapshot (already debited
-            from `netEquityAvailable` at the next poll, but not yet visible at this tick)
+        Backpack's REST `netEquityAvailable` is the *free collateral* -- it already nets out the
+        margin of open positions AND open orders (confirmed empirically: with 79.14$ total,
+        25.78$ position margin and 14.92$ open-orders margin, REST returns 38.44$; with no open
+        orders it returns total - position_margin). See `MarginAccountSummary` in Backpack docs:
+        `netExposureFutures` is "Total exposure of positions as well potential open positions".
 
-        The `snapshot_bal` term from the base implementation is dropped because the snapshot is
-        refreshed in `_update_balances()` (see below), so `in_flight_bal` already reflects the
-        current state and `snapshot_bal` would double-count.
+        Therefore the reconciliation must NOT double-subtract the snapshot-time orders margin:
+          - `available_balance` (REST) already subtracts `snapshot_margin` at time T0
+          - `in_flight_margin` covers ALL current in-flight orders (snapshot + new ones)
+          - adding `snapshot_margin` back cancels the part already netted out by REST, leaving
+            only the margin of orders created since T0 to subtract
+          - `fills_margin` adds back the margin of fills since T0 (their collateral moved from
+            "open order" to "open position" but is still locked, so REST would debit it at the
+            next poll -- between polls the local view must keep it as available)
         """
         if currency != CONSTANTS.CURRENCY:
             return super().apply_balance_update_since_snapshot(currency, available_balance)
         leverage = self._leverage if self._leverage and self._leverage > 0 else Decimal("1")
+        snapshot_margin = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, Decimal("0"))
         in_flight_margin = self.in_flight_asset_balances(self.in_flight_orders).get(currency, Decimal("0"))
         fills_full_notional = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency, Decimal("0"))
-        return available_balance + fills_full_notional / leverage - in_flight_margin
+        return available_balance + snapshot_margin - in_flight_margin + fills_full_notional / leverage
 
     @staticmethod
     def backpack_order_type(order_type: OrderType) -> str:
