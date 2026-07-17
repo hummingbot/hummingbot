@@ -782,6 +782,24 @@ class GatewayHttpClient:
             raise ValueError(f"Invalid swap provider format '{swap_provider}' - expected 'dex/trading_type'")
         return swap_provider.split("/", 1)
 
+    @staticmethod
+    def _to_chain_network(network: str, chain: Optional[str] = None) -> str:
+        """
+        Build the full "chain-network" identifier the unified /trading endpoints expect.
+
+        The unified endpoints reject a bare network (e.g. "mainnet-beta" -> "Unsupported
+        chain: mainnet"), so combine the chain with the network when a chain is supplied.
+        A network that already carries its chain prefix (e.g. "solana-mainnet-beta") is
+        returned unchanged.
+
+        "mainnet-beta" + "solana" -> "solana-mainnet-beta"
+        "solana-mainnet-beta" + "solana" -> "solana-mainnet-beta"
+        "solana-mainnet-beta" + None -> "solana-mainnet-beta"
+        """
+        if chain and not network.startswith(f"{chain}-"):
+            return f"{chain}-{network}"
+        return network
+
     async def quote_swap(
         self,
         network: str,
@@ -793,10 +811,11 @@ class GatewayHttpClient:
         trading_type: Optional[str] = None,
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get a swap quote from the specified DEX.
+        Get a swap quote from the specified DEX via Gateway's unified /trading/swap/quote endpoint.
 
         :param network: Network name - accepts both full format (e.g., "solana-mainnet-beta") or short format (e.g., "mainnet-beta")
         :param base_asset: Base token symbol
@@ -807,6 +826,7 @@ class GatewayHttpClient:
         :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
         :param slippage_pct: Optional slippage percentage
         :param pool_address: Pool address for CLMM/AMM swaps
+        :param chain: Chain name (e.g., "solana", "ethereum"); combined with a short network to form the "chain-network" the endpoint requires.
         :param fail_silently: Whether to fail silently on error
         :return: Quote response with price, amountIn, amountOut
         """
@@ -820,24 +840,25 @@ class GatewayHttpClient:
                 raise ValueError(f"No swap provider configured for network {network}")
             dex, trading_type = self._parse_swap_provider(swap_provider)
 
-        # Parse network to extract just the network portion for API call
-        api_network = self._parse_network(network)
-
-        request_payload = {
-            "network": api_network,
+        # Gateway's unified swap endpoint keys the request by the full "chain-network"
+        # identifier and a "connector/type" swap provider, instead of encoding the
+        # provider in the path (the legacy /connectors/{dex}/{type}/quote-swap route).
+        request_payload: Dict[str, Any] = {
+            "chainNetwork": self._to_chain_network(network, chain),
+            "connector": f"{dex}/{trading_type}",
             "baseToken": base_asset,
             "quoteToken": quote_asset,
-            "amount": float(amount),
-            "side": side.name
+            "amount": str(amount),
+            "side": side.name,
         }
         if slippage_pct is not None:
-            request_payload["slippagePct"] = float(slippage_pct)
+            request_payload["slippagePct"] = str(slippage_pct)
         if trading_type in ("clmm", "amm") and pool_address is not None:
             request_payload["poolAddress"] = pool_address
 
         return await self.api_request(
             "get",
-            f"connectors/{dex}/{trading_type}/quote-swap",
+            "trading/swap/quote",
             request_payload,
             fail_silently=fail_silently
         )
@@ -852,7 +873,8 @@ class GatewayHttpClient:
         dex: Optional[str] = None,
         trading_type: Optional[str] = None,
         fail_silently: bool = False,
-        pool_address: Optional[str] = None
+        pool_address: Optional[str] = None,
+        chain: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Wrapper for quote_swap.
@@ -866,6 +888,7 @@ class GatewayHttpClient:
         :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
         :param fail_silently: Whether to fail silently on error
         :param pool_address: Pool address for CLMM/AMM swaps
+        :param chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
         """
         try:
             response = await self.quote_swap(
@@ -876,7 +899,8 @@ class GatewayHttpClient:
                 side=side,
                 dex=dex,
                 trading_type=trading_type,
-                pool_address=pool_address
+                pool_address=pool_address,
+                chain=chain,
             )
             return response
         except Exception as e:
@@ -899,9 +923,10 @@ class GatewayHttpClient:
         slippage_pct: Optional[Decimal] = None,
         pool_address: Optional[str] = None,
         wallet_address: Optional[str] = None,
+        chain: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Execute a swap on the specified DEX.
+        Execute a swap on the specified DEX via Gateway's unified /trading/swap/execute endpoint.
 
         :param network: Network name (e.g., "solana-mainnet-beta")
         :param base_asset: Base token symbol
@@ -913,6 +938,7 @@ class GatewayHttpClient:
         :param slippage_pct: Optional slippage percentage
         :param pool_address: Pool address for CLMM/AMM swaps
         :param wallet_address: Wallet address to execute the swap
+        :param chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
         """
         if side not in [TradeType.BUY, TradeType.SELL]:
             raise ValueError("Only BUY and SELL prices are supported.")
@@ -924,15 +950,14 @@ class GatewayHttpClient:
                 raise ValueError(f"No swap provider configured for network {network}")
             dex, trading_type = self._parse_swap_provider(swap_provider)
 
-        # Parse network to extract just the network portion for API call
-        api_network = self._parse_network(network)
-
+        # Unified /trading/swap/execute (see quote_swap for the keying rationale).
         request_payload: Dict[str, Any] = {
+            "chainNetwork": self._to_chain_network(network, chain),
+            "connector": f"{dex}/{trading_type}",
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
             "side": side.name,
-            "network": api_network,
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
@@ -942,7 +967,7 @@ class GatewayHttpClient:
             request_payload["walletAddress"] = wallet_address
         return await self.api_request(
             "post",
-            f"connectors/{dex}/{trading_type}/execute-swap",
+            "trading/swap/execute",
             request_payload
         )
 
