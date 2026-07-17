@@ -163,6 +163,7 @@ def doctor(as_json: bool = json_option()) -> None:
                              f"check crashed: {e!r}"))
     healthy = all(r["status"] != "fail" for r in rows)
     payload = {"healthy": healthy, "checks": rows}
-    emit(payload, render_table(rows, columns=["check", "status", "detail"], title="doctor"), as_json)
+    emit(payload, render_table(rows, columns=["check", "status", "detail"], title="doctor",
+                               max_widths={"detail": 120}), as_json)
     if not healthy:
         fail("doctor found problems (see failed checks above)", ExitCode.ERROR)

@@ -65,7 +65,8 @@ def _active_strategy() -> Optional[Tuple[str, str, bool]]:
 
 def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]], as_json: bool) -> None:
     rows = [{"key": item.config_path, "value": item.printable_value} for item in _leaf_items(cm)]
-    out = render_table(rows, columns=["key", "value"], title="global settings")
+    out = render_table(rows, columns=["key", "value"], title="global settings",
+                       max_widths={"key": 55, "value": 120})
     payload: dict = {"global": {r["key"]: r["value"] for r in rows}, "strategy": None}
     if active is not None:
         file, stype, running = active
@@ -90,7 +91,8 @@ def _list(cm: "ClientConfigAdapter", active: Optional[Tuple[str, str, bool]], as
             state = "running" if running else "loaded"
             out += "\n\n" + render_table(
                 srows, columns=["field", "value", "live"],
-                title=f"strategy config — {file} ({stype}, {state})")
+                title=f"strategy config — {file} ({stype}, {state})",
+                max_widths={"field": 55, "value": 120})
             payload["strategy"] = {"file": file, "type": stype, "state": state,
                                    "fields": data, "live_fields": sorted(updatable)}
     emit(payload, out, as_json)

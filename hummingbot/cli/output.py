@@ -6,8 +6,9 @@ status, logs, config, balance, deploy) also take ``--json`` for a machine-readab
 values. Either way, the machine contract for outcomes is the stable **exit code** (branch on it).
 """
 import json
+import textwrap
 from enum import IntEnum
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import typer
 from typer.core import TyperGroup
@@ -42,17 +43,45 @@ def cell(v: Any) -> str:
     return str(v).replace("|", "\\|").replace("\n", " ")
 
 
+def _wrap_cell(value: str, width: Optional[int]) -> List[str]:
+    """Split one formatted cell value into lines no wider than ``width`` (one line if it fits)."""
+    if width is None or len(value) <= width:
+        return [value]
+    return textwrap.wrap(value, width=width, break_long_words=True, break_on_hyphens=False) or [""]
+
+
 def render_table(rows: Sequence[dict], columns: Optional[List[str]] = None,
-                 title: Optional[str] = None) -> str:
-    """Render a list of records as a Markdown table (token-economic format for tabular output)."""
+                 title: Optional[str] = None,
+                 max_widths: Optional[Dict[str, int]] = None) -> str:
+    """Render a list of records as an aligned Markdown table (token-economic format for tabular
+    output).
+
+    ``max_widths`` bounds named columns (e.g. ``{"value": 120}``): a cell wider than its bound
+    wraps onto continuation lines whose sibling cells stay blank, so one large structured value
+    can't stretch its whole row into an unreadable line.
+
+    The last column is not padded (a ragged right edge): the trailing padding would buy nothing
+    for readability but costs ~10% more tokens on table-heavy commands.
+    """
     head = f"## {title}\n\n" if title else ""
     rows = list(rows)
     if not rows:
         return head + "_(none)_"
     cols = columns or list(rows[0].keys())
-    lines = ["| " + " | ".join(cols) + " |",
-             "| " + " | ".join("---" for _ in cols) + " |"]
-    lines += ["| " + " | ".join(cell(r.get(c)) for c in cols) + " |" for r in rows]
+    limits = max_widths or {}
+    wrapped = [[_wrap_cell(cell(r.get(c)), limits.get(c)) for c in cols] for r in rows]
+    widths = [max(len(c), *(len(seg) for row in wrapped for seg in row[i]))
+              for i, c in enumerate(cols)]
+
+    def line(values: List[str]) -> str:
+        cells = [v.ljust(w) for v, w in zip(values, widths)]
+        cells[-1] = values[-1]
+        return "| " + " | ".join(cells) + " |"
+
+    lines = [line(cols), "| " + " | ".join("-" * w for w in widths) + " |"]
+    for row in wrapped:
+        for i in range(max(len(segs) for segs in row)):
+            lines.append(line([segs[i] if i < len(segs) else "" for segs in row]))
     return head + "\n".join(lines)
 
 

@@ -1,5 +1,6 @@
 import asyncio
 import io
+import re
 import unittest
 from contextlib import redirect_stdout
 from types import SimpleNamespace
@@ -17,6 +18,11 @@ from hummingbot.cli.commands.connect import (
 from hummingbot.cli.output import ExitCode
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import AllConnectorSettings
+
+
+def _squash(text: str) -> str:
+    """Collapse runs of spaces so assertions target cell content, not column padding."""
+    return re.sub(r" +", " ", text)
 
 
 def _field(attr, secure=False, prompt="enter"):
@@ -114,8 +120,8 @@ class ConnectCommandTest(unittest.TestCase):
         self.security.connector_config_file_exists.side_effect = lambda n: n == "binance"
         out = self._run(show_all=True)
         self.assertIn("connectable connectors", out)
-        self.assertIn("| binance | yes |", out)
-        self.assertIn("| kraken | no |", out)
+        self.assertIn("| binance | yes |", _squash(out))
+        self.assertIn("| kraken | no |", _squash(out))
 
     def test_no_arg_none_connected(self):
         out = self._run()
@@ -131,8 +137,8 @@ class ConnectCommandTest(unittest.TestCase):
             ub_cls.instance.return_value = ub
             out = self._run()
         self.assertIn("connections", out)
-        self.assertIn("| binance | yes | yes |", out)         # confirmed, no error
-        self.assertIn("| kraken | yes | no | bad api key |", out)
+        self.assertIn("| binance | yes | yes |", _squash(out))   # confirmed, no error
+        self.assertIn("| kraken | yes | no | bad api key |", _squash(out))
 
     def test_no_arg_invalid_password(self):
         self.security.connector_config_file_exists.side_effect = lambda n: True

@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import re
 import unittest
 from contextlib import redirect_stdout
 from decimal import Decimal
@@ -11,6 +12,11 @@ import typer
 
 from hummingbot.cli.commands.balance import _render, balance
 from hummingbot.cli.output import ExitCode
+
+
+def _squash(text: str) -> str:
+    """Collapse runs of spaces so assertions target cell content, not column padding."""
+    return re.sub(r" +", " ", text)
 
 
 def _sample():
@@ -32,7 +38,7 @@ class BalanceRenderTest(unittest.TestCase):
     def test_render_markdown_table_totals_and_grand_total(self):
         text = _render(_sample(), "$")
         self.assertIn("## kraken", text)                       # per-connector heading
-        self.assertIn("| asset | total | value($) | allocated |", text)  # Markdown table header
+        self.assertIn("| asset | total | value($) | allocated |", _squash(text))  # Markdown table header
         self.assertIn("BTC", text)
         self.assertIn("balances: $", text)                     # per-connector balances line
         self.assertIn("allocated:", text)                      # allocated % line
@@ -46,7 +52,7 @@ class BalanceRenderTest(unittest.TestCase):
 
     def test_render_units_only_hides_value_and_grand_total(self):
         text = _render(_sample(), "$", units_only=True)
-        self.assertIn("| asset | total | available |", text)   # units-only columns
+        self.assertIn("| asset | total | available |", _squash(text))   # units-only columns
         self.assertNotIn("value($)", text)                     # no USD value column
         self.assertNotIn("connectors total", text)             # no grand total when priceless
 
@@ -140,7 +146,7 @@ class BalanceCommandTest(unittest.TestCase):
     def test_units_only_skips_prices_and_positions(self):
         out = self._run(units_only=True)
         self.oracle_cls.get_instance.assert_not_called()       # no rate-oracle fetch
-        self.assertIn("| asset | total | available |", out)
+        self.assertIn("| asset | total | available |", _squash(out))
         self.assertNotIn("positions:", out)
         self.assertNotIn("connectors total", out)
 
@@ -183,7 +189,7 @@ class BalanceCommandTest(unittest.TestCase):
         out = self._run()
         self.assertIn("positions:", out)
         self.assertIn("ETH-USDT", out)
-        self.assertNotIn("| asset |", out)
+        self.assertNotIn("| asset |", _squash(out))
 
     def test_positions_skipped_without_account_positions_or_on_update_error(self):
         self.ub._markets = {"binance_perpetual": SimpleNamespace()}  # no account_positions attr
@@ -205,7 +211,7 @@ class BalanceCommandTest(unittest.TestCase):
     def test_single_connector_units_only(self):
         out = self._run("binance_perpetual", units_only=True)
         self.oracle_cls.get_instance.assert_not_called()
-        self.assertIn("| asset | total | available |", out)
+        self.assertIn("| asset | total | available |", _squash(out))
         self.assertNotIn("positions:", out)
 
     def test_single_connector_unknown_fails(self):

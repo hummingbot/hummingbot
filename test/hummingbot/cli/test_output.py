@@ -50,15 +50,45 @@ class RenderHelpersTest(unittest.TestCase):
         out = render_table(rows, columns=["pair", "amount"], title="Fills")
         lines = out.splitlines()
         self.assertEqual(lines[0], "## Fills")
-        self.assertEqual(lines[2], "| pair | amount |")
-        self.assertEqual(lines[3], "| --- | --- |")
-        self.assertEqual(lines[4], "| BTC-USDT | 1.5 |")
-        self.assertEqual(lines[5], "| ETH-USDT |  |")   # None -> empty cell
-        self.assertNotIn("hidden", out)                  # unselected column dropped
+        self.assertEqual(lines[2], "| pair     | amount |")   # columns padded to widest cell
+        self.assertEqual(lines[3], "| -------- | ------ |")
+        self.assertEqual(lines[4], "| BTC-USDT | 1.5 |")      # ...except the last: ragged right edge
+        self.assertEqual(lines[5], "| ETH-USDT |  |")         # None -> empty cell
+        self.assertNotIn("hidden", out)                        # unselected column dropped
 
     def test_render_table_defaults_columns_from_first_row(self):
         out = render_table([{"a": 1, "b": 2}])
         self.assertEqual(out.splitlines()[0], "| a | b |")
+
+    def test_render_table_lines_stay_aligned(self):
+        rows = [{"key": "short", "mid": "a" * 20, "value": "x"},
+                {"key": "a_much_longer_key_name", "mid": "b", "value": "y" * 30}]
+        lines = render_table(rows, columns=["key", "mid", "value"]).splitlines()
+        # every column boundary except the ragged right edge sits at the same offset on every line
+        boundaries = {tuple(i for i, ch in enumerate(line) if ch == "|")[:-1] for line in lines}
+        self.assertEqual(len(boundaries), 1)
+
+    def test_render_table_wraps_oversized_cells_into_continuation_rows(self):
+        big = " ".join(f"'ex_{i}': {{}}," for i in range(20))
+        rows = [{"key": "balance_asset_limit", "value": big},
+                {"key": "log_level", "value": "INFO"}]
+        out = render_table(rows, columns=["key", "value"], max_widths={"value": 40})
+        lines = out.splitlines()
+        self.assertGreater(len(lines), 4)                     # wrapped row spans multiple lines
+        for line in lines:
+            self.assertLessEqual(len(line), len(lines[1]))    # separator row marks the full width
+        boundaries = {tuple(i for i, ch in enumerate(line) if ch == "|")[:-1] for line in lines}
+        self.assertEqual(len(boundaries), 1)                  # interior columns stay aligned
+        # continuation lines keep the key cell blank so the table stays a readable grid
+        continuations = [line for line in lines[3:] if line.startswith("| " + " " * len("balance_asset_limit"))]
+        self.assertTrue(continuations)
+        # the whole value survives the wrap (modulo the whitespace it was wrapped on)
+        rejoined = " ".join(line.split("|")[2].strip() for line in lines[2:-1])
+        self.assertIn("'ex_19': {},", rejoined)
+
+    def test_render_table_max_widths_leaves_fitting_cells_alone(self):
+        out = render_table([{"k": "a", "v": "tiny"}], max_widths={"v": 120})
+        self.assertEqual(len(out.splitlines()), 3)            # header + separator + one row
 
     def test_render_kv_empty_record(self):
         self.assertEqual(render_kv({}, title="Bot"), "## Bot\n\n_(empty)_")

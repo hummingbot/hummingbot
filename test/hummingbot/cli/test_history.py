@@ -1,3 +1,4 @@
+import re
 import unittest
 from decimal import Decimal
 from types import SimpleNamespace
@@ -5,6 +6,11 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.cli import bot
 from hummingbot.cli.commands.history import _balances_for_market, history
+
+
+def _squash(text: str) -> str:
+    """Collapse runs of spaces so assertions target cell content, not column padding."""
+    return re.sub(r" +", " ", text)
 
 
 def fill(market="binance", symbol="BTC-USDT"):
@@ -59,8 +65,8 @@ class HistoryCommandTest(unittest.TestCase):
         status = {"balances": {"binance": {"BTC": 1.0}, "kucoin": {"ETH": 2.0}}}
         printed, get_trades, _ = self._run(fills, balances_status=status)
         self.assertIn("## history", printed)
-        self.assertIn("| binance | BTC-USDT | 2 |", printed)
-        self.assertIn("| kucoin | ETH-USDT | 2 |", printed)  # perf.num_trades, not fill count
+        self.assertIn("| binance | BTC-USDT | 2 |", _squash(printed))
+        self.assertIn("| kucoin | ETH-USDT | 2 |", _squash(printed))  # perf.num_trades, not fill count
         self.assertIn("averaged return: 5.00%", printed)
         self.assertNotIn("balances unavailable", printed)
         get_trades.assert_called_once_with("/tmp/db.sqlite", config_file_path="conf_x.yml", days=None)

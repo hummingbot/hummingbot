@@ -75,7 +75,7 @@ def _show_connections(ccm, password_stdin: bool) -> None:
         err = err_msgs.get(ex)
         rows.append({"connector": ex, "keys_added": True, "keys_confirmed": err is None, "error": err})
     echo(render_table(rows, columns=["connector", "keys_added", "keys_confirmed", "error"],
-                      title="connections"))
+                      title="connections", max_widths={"error": 100}))
 
 
 def _collect_key_values(fields: List[Any], cfg: "ClientConfigAdapter",
@@ -137,7 +137,7 @@ def connect(
         described = [{"field": f.attr, "prompt": _prompt_text(f, cfg),
                       "secret": bool(f.client_field_data.is_secure)} for f in fields]
         echo(render_table(described, columns=["field", "secret", "prompt"],
-                          title=f"key fields for {connector}"))
+                          title=f"key fields for {connector}", max_widths={"prompt": 100}))
         return
 
     if Security.connector_config_file_exists(connector) and not replace:
