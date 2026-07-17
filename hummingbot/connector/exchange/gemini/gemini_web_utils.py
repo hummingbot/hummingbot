@@ -16,8 +16,10 @@ def private_rest_url(path_url: str, domain: str = "") -> str:
     return CONSTANTS.REST_URL + path_url
 
 
-def wss_url() -> str:
-    return CONSTANTS.WSS_URL
+def wss_url(snapshot: Optional[int] = None) -> str:
+    if snapshot is None:
+        return CONSTANTS.WSS_URL
+    return f"{CONSTANTS.WSS_URL}?snapshot={snapshot}"
 
 
 def build_api_factory(

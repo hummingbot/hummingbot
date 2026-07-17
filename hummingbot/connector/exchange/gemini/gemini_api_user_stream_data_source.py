@@ -39,12 +39,13 @@ class GeminiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Authentication is done during the WebSocket handshake via headers.
         """
         ws = await self._get_ws_assistant()
-        auth_headers = self._auth.get_ws_auth_headers()
-        await ws.connect(
-            ws_url=web_utils.wss_url(),
-            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
-            ws_headers=auth_headers,
-        )
+        async with self._auth.request_lock:
+            auth_headers = self._auth.get_ws_auth_headers()
+            await ws.connect(
+                ws_url=web_utils.wss_url(),
+                ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                ws_headers=auth_headers,
+            )
         self.logger().info("Successfully connected to authenticated user stream")
         return ws
 

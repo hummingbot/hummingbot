@@ -884,6 +884,54 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(position_executor.status, RunnableStatus.SHUTTING_DOWN)
 
+    def test_force_stop_with_position_hold_preserves_partial_execution(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._open_order = TrackedOrder("OID-BUY-1")
+        position_executor._open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID1",
+            trading_pair=position_config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PARTIALLY_FILLED,
+        )
+        position_executor._open_order.order.update_with_trade_update(TradeUpdate(
+            trade_id="1",
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID1",
+            trading_pair=position_config.trading_pair,
+            fill_price=position_config.entry_price,
+            fill_base_amount=Decimal("0.4"),
+            fill_quote_amount=Decimal("40"),
+            fee=AddedToCostTradeFee(flat_fees=[
+                TokenAmount(token="ETH", amount=Decimal("0"))]),
+            fill_timestamp=10,
+        ))
+
+        position_executor.force_stop_with_position_hold()
+
+        self.strategy.cancel.assert_called_once_with(
+            connector_name="binance", trading_pair="ETH-USDT", order_id="OID-BUY-1")
+        self.assertEqual(CloseType.POSITION_HOLD, position_executor.close_type)
+        self.assertEqual(RunnableStatus.TERMINATED, position_executor.status)
+        self.assertEqual(1, len(position_executor._held_position_orders))
+        self.assertEqual("OID-BUY-1", position_executor._held_position_orders[0]["client_order_id"])
+        self.assertEqual("0.4", position_executor._held_position_orders[0]["executed_amount_base"])
+
+    def test_force_stop_without_execution_is_failed(self):
+        position_executor = self.get_position_executor_running_from_config(
+            self.get_position_config_market_long())
+
+        position_executor.force_stop_with_position_hold()
+
+        self.assertEqual(CloseType.FAILED, position_executor.close_type)
+        self.assertEqual(RunnableStatus.TERMINATED, position_executor.status)
+        self.assertEqual([], position_executor._held_position_orders)
+
     # ── close position action (ONEWAY netting vs HEDGE reduce-only) ────────
 
     def _make_perpetual_executor(self, position_mode: PositionMode) -> PositionExecutor:

@@ -378,6 +378,33 @@ class ExecutorOrchestrator:
                     for executor in executors_list]):
                 break  # All executors are done, exit early
             await asyncio.sleep(2.0)
+
+        unfinished_executors = [
+            (controller_id, executor)
+            for controller_id, executors_list in self.active_executors.items()
+            for executor in executors_list
+            if not executor.executor_info.is_done
+        ]
+        if unfinished_executors:
+            executor_ids = [executor.config.id for _, executor in unfinished_executors]
+            self.logger().error(
+                f"Executors {executor_ids} did not finish closing before shutdown. "
+                f"Stopping their control loops before markets are deregistered and preserving "
+                f"any remaining position exposure.")
+            for controller_id, executor in unfinished_executors:
+                try:
+                    if isinstance(executor, PositionExecutor) and abs(executor.amount_to_close) > Decimal("0"):
+                        executor.force_stop_with_position_hold()
+                    else:
+                        executor.close_type = CloseType.FAILED
+                        executor.stop()
+                except Exception:
+                    self.logger().exception(
+                        f"Error forcing executor {executor.config.id} for controller {controller_id} to stop.")
+
+        # Convert timed-out PositionExecutors into persisted PositionHold records
+        # while connector prices and strategy market registrations are still available.
+        self._update_positions_from_done_executors()
         # Store all positions and executors
         self.store_all_positions()
         self.store_all_executors()

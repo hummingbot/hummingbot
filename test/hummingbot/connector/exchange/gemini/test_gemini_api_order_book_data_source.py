@@ -190,6 +190,10 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         ws = await self.data_source._connected_websocket_assistant()
         self.assertIsNotNone(ws)
         ws_connect_mock.assert_called_once()
+        self.assertEqual(
+            web_utils.wss_url(snapshot=-1),
+            ws_connect_mock.call_args.args[0],
+        )
 
     # ------------------------------------------------------------------
     # Message parsing
@@ -213,6 +217,14 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg: OrderBookMessage = queue.get_nowait()
         self.assertEqual(self.trading_pair, msg.content["trading_pair"])
 
+    async def test_parse_order_book_snapshot_message_queues_sequence_bearing_snapshot(self):
+        queue = asyncio.Queue()
+        await self.data_source._parse_order_book_snapshot_message(self._diff_event(), queue)
+        msg: OrderBookMessage = queue.get_nowait()
+        self.assertEqual(self.trading_pair, msg.content["trading_pair"])
+        self.assertEqual(110, msg.update_id)
+        self.assertEqual([["9", "1"]], msg.content["bids"])
+
     async def test_parse_order_book_diff_message_skips_non_depth(self):
         queue = asyncio.Queue()
         await self.data_source._parse_order_book_diff_message({"result": None}, queue)
@@ -221,13 +233,33 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(0, queue.qsize())
 
     def test_channel_originating_message(self):
+        snapshot_event = self._diff_event()
+        self.assertEqual(
+            self.data_source._snapshot_messages_queue_key,
+            self.data_source._channel_originating_message(snapshot_event))
+        next_diff = self._diff_event()
+        next_diff.update({"U": 111, "u": 120})
         self.assertEqual(
             self.data_source._diff_messages_queue_key,
-            self.data_source._channel_originating_message({"e": CONSTANTS.WS_EVENT_DEPTH_UPDATE}))
+            self.data_source._channel_originating_message(next_diff))
         self.assertEqual(
             self.data_source._trade_messages_queue_key,
             self.data_source._channel_originating_message({"t": 123}))
         self.assertEqual("", self.data_source._channel_originating_message({"result": None}))
+
+    def test_channel_originating_message_ignores_stale_depth_update(self):
+        self.data_source._channel_originating_message(self._diff_event())
+        stale = self._diff_event()
+        stale.update({"U": 100, "u": 109})
+        self.assertEqual("", self.data_source._channel_originating_message(stale))
+
+    def test_channel_originating_message_reconnects_on_sequence_gap(self):
+        self.data_source._channel_originating_message(self._diff_event())
+        gap = self._diff_event()
+        gap.update({"U": 112, "u": 120})
+        with self.assertRaisesRegex(ConnectionError, "sequence gap"):
+            self.data_source._channel_originating_message(gap)
+        self.assertNotIn(self.ex_trading_pair, self.data_source._snapshot_symbols)
 
     # ------------------------------------------------------------------
     # Dynamic (un)subscribe

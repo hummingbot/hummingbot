@@ -17,7 +17,9 @@ class GeminiOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg.get("lastUpdateId", int(timestamp * 1e3)),
+            # REST /v1/book has no sequence that can be compared with Fast API U/u.
+            # Use zero until the sequence-bearing websocket snapshot replaces it.
+            "update_id": msg.get("lastUpdateId", 0),
             "bids": msg["bids"],
             "asks": msg["asks"]
         }, timestamp=timestamp)

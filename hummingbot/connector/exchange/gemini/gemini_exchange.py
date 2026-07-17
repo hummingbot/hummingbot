@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -13,7 +13,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -67,6 +67,8 @@ class GeminiExchange(ExchangePyBase):
         self._trade_ws_lock = asyncio.Lock()
         self._trade_ws_stopped: bool = False
         self._trade_ws_last_connect_failure: float = 0.0
+        self._market_order_status_results: Dict[str, Dict[str, Any]] = {}
+        self._trade_history_poll_cache: Optional[Dict[str, List[Dict[str, Any]]]] = None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -163,6 +165,19 @@ class GeminiExchange(ExchangePyBase):
             time_synchronizer=self._time_synchronizer,
             auth=self._auth)
 
+    async def _api_request(self, *args, **kwargs) -> Dict[str, Any]:
+        # The authenticator's nonce mutex makes values unique. This request-level
+        # mutex additionally preserves their arrival order by keeping authentication
+        # and network dispatch serialized across REST and authenticated WS handshakes.
+        is_auth_required = kwargs.get(
+            "is_auth_required",
+            args[5] if len(args) > 5 else False,
+        )
+        if is_auth_required:
+            async with self._auth.request_lock:
+                return await super()._api_request(*args, **kwargs)
+        return await super()._api_request(*args, **kwargs)
+
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         return GeminiAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
@@ -252,6 +267,58 @@ class GeminiExchange(ExchangePyBase):
             order_type=order_type,
             price=price)
 
+    async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
+        exchange_order_id, update_timestamp = await self._place_order(
+            order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            amount=order.amount,
+            trade_type=order.trade_type,
+            order_type=order.order_type,
+            price=order.price,
+            **kwargs,
+        )
+        authoritative_status = self._market_order_status_results.pop(order.client_order_id, None)
+
+        # Establish the exchange id and emit the creation event only if the order is still
+        # pending. A terminal user-stream event may have arrived while placement was in
+        # flight; publishing OPEN after that would resurrect a cached terminal order.
+        if order.is_pending_create:
+            await self._order_tracker.process_order_update(OrderUpdate(
+                client_order_id=order.client_order_id,
+                exchange_order_id=str(exchange_order_id),
+                trading_pair=order.trading_pair,
+                update_timestamp=update_timestamp,
+                new_state=OrderState.OPEN,
+            ))
+        elif order.exchange_order_id is None:
+            order.update_exchange_order_id(str(exchange_order_id))
+
+        if authoritative_status is not None:
+            executed_amount = Decimal(str(authoritative_status.get("executed_amount", "0")))
+            if executed_amount > Decimal("0"):
+                for trade_update in await self._all_trade_updates_for_order(order):
+                    self._order_tracker.process_trade_update(trade_update)
+
+            authoritative_state = self._order_state_from_status(authoritative_status)
+            # Never allow a lagging placement response to regress a terminal stream update.
+            # ``is_done`` also becomes true when fills reach the requested amount, even
+            # while the state is still OPEN, so use the explicit state here to ensure the
+            # authoritative FILLED transition is published after restoring trades.
+            should_process_status = (
+                order.current_state not in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
+                or (order.is_cancelled and authoritative_state is OrderState.FILLED)
+            )
+            if should_process_status:
+                await self._order_tracker.process_order_update(OrderUpdate(
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=str(exchange_order_id),
+                    trading_pair=order.trading_pair,
+                    update_timestamp=authoritative_status.get("timestampms", 0) * 1e-3,
+                    new_state=authoritative_state,
+                ))
+
+        return exchange_order_id
+
     async def _place_order_via_ws(self,
                                   order_id: str,
                                   symbol: str,
@@ -324,7 +391,10 @@ class GeminiExchange(ExchangePyBase):
             f"Order {order_id} received an order.place ack but no order event arrived and "
             f"REST reports no such order — treating the placement as not executed.")
 
-    async def _get_order_via_rest_by_client_id(self, order_id: str) -> Optional[Dict[str, Any]]:
+    async def _get_order_via_rest_by_client_id(
+            self,
+            order_id: str,
+            order_match: Optional[Callable[[Dict[str, Any]], bool]] = None) -> Optional[Dict[str, Any]]:
         """Looks an order up over REST by its client order id (supported by
         /v1/order/status as an alternative to order_id). Returns None when the
         exchange reports that no such order exists.
@@ -349,12 +419,16 @@ class GeminiExchange(ExchangePyBase):
                 return None
             raise
 
-        if isinstance(response, list):
-            for row in response:
-                if isinstance(row, dict) and str(row.get("client_order_id", "")) == order_id:
-                    return row
-            return None
-        return response
+        candidates = response if isinstance(response, list) else [response]
+        for row in candidates:
+            if not isinstance(row, dict):
+                continue
+            client_order_id = row.get("client_order_id")
+            if client_order_id is not None and str(client_order_id) != order_id:
+                continue
+            if order_match is None or order_match(row):
+                return row
+        return None
 
     def _market_order_price(self,
                             trading_pair: str,
@@ -470,6 +544,12 @@ class GeminiExchange(ExchangePyBase):
             data=api_params,
             is_auth_required=True)
 
+        if order_type is OrderType.MARKET:
+            # IOC placement responses already contain the authoritative Order Status
+            # fields. Preserve them so immediate fills/cancellation are not overwritten
+            # by the base OPEN update while the user stream is delayed or reconnecting.
+            self._market_order_status_results[order_id] = order_result
+
         o_id = str(order_result["order_id"])
         transact_time = order_result.get("timestampms", 0) * 1e-3
 
@@ -506,27 +586,63 @@ class GeminiExchange(ExchangePyBase):
         except Exception as rest_error:
             # A definitive rejection (e.g. insufficient funds) never created an order, so the
             # reconciliation below returns None and the error is re-raised as a real failure.
-            reconciled = await self._reconcile_order_by_client_id(order_id)
+            reconciled = await self._reconcile_order_by_client_id(
+                order_id=order_id,
+                symbol=symbol,
+                amount=amount,
+                trade_type=trade_type,
+                price=market_price,
+            )
             if reconciled is not None:
+                self._market_order_status_results[order_id] = reconciled
                 self.logger().warning(
                     f"REST placement of MARKET order {order_id} failed ({rest_error}), but the "
-                    f"exchange reports an order for this client id — keeping it tracked instead "
-                    f"of surfacing a failure that would trigger a duplicate re-placement.")
-                return reconciled
+                    f"exchange reports the matching IOC order for this client id. Restoring its "
+                    f"exchange id, fills, and authoritative state instead of re-placing it.")
+                return str(reconciled["order_id"]), reconciled.get("timestampms", 0) * 1e-3
             raise
 
-    async def _reconcile_order_by_client_id(self, order_id: str) -> Optional[Tuple[str, float]]:
-        """Returns (exchange_order_id, transact_time) if the exchange has an order for this
-        client order id, else None. Swallows reconciliation errors (returning None) so a
-        failed lookup surfaces the original placement error rather than masking it."""
+    async def _reconcile_order_by_client_id(
+            self,
+            order_id: str,
+            symbol: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            price: Decimal) -> Optional[Dict[str, Any]]:
+        """Returns the exact IOC order matching the failed placement, else None.
+
+        Gemini allows client order ids to be reused, so finding any row with the same id is
+        insufficient: it could associate a rejected placement with an older order. Validate
+        the immutable placement fields before restoring exchange state. Reconciliation errors
+        are swallowed so the original placement error remains the one surfaced to callers.
+        """
+        expected_side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
+
+        def order_matches(order_status: Dict[str, Any]) -> bool:
+            options = order_status.get("options", [])
+            if isinstance(options, str):
+                options = [options]
+            try:
+                return (
+                    str(order_status["client_order_id"]) == order_id
+                    and str(order_status["symbol"]).lower() == symbol.lower()
+                    and str(order_status["side"]).lower() == expected_side
+                    and str(order_status["type"]).lower() == CONSTANTS.ORDER_TYPE_LIMIT
+                    and Decimal(str(order_status["original_amount"])) == amount
+                    and Decimal(str(order_status["price"])) == price
+                    and CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL in options
+                )
+            except (KeyError, TypeError, ValueError, ArithmeticError):
+                return False
+
         try:
-            order_status = await self._get_order_via_rest_by_client_id(order_id)
+            order_status = await self._get_order_via_rest_by_client_id(order_id, order_match=order_matches)
         except asyncio.CancelledError:
             raise
         except Exception:
             return None
         if order_status is not None and order_status.get("order_id") is not None:
-            return str(order_status["order_id"]), order_status.get("timestampms", 0) * 1e-3
+            return order_status
         return None
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -638,7 +754,9 @@ class GeminiExchange(ExchangePyBase):
                 f"Timed out waiting {CONSTANTS.WS_ORDER_REQUEST_TIMEOUT}s for the response to "
                 f"the {method} websocket request.")
         except Exception as send_error:
-            raise GeminiWSTransportError(
+            # Once send() begins, a connection reset cannot prove that no bytes reached
+            # Gemini. Reconcile placement by client id before any REST retry.
+            raise GeminiWSAmbiguousResponseError(
                 f"Failed to send the {method} websocket request: {send_error}")
         finally:
             self._trade_ws_pending_requests.pop(request_id, None)
@@ -662,13 +780,14 @@ class GeminiExchange(ExchangePyBase):
                     ws = await self._web_assistants_factory.get_ws_assistant()
                     # Time-boxed: this runs under the trade WS lock, and an un-bounded
                     # handshake would head-of-line block every placement and cancel.
-                    await asyncio.wait_for(
-                        ws.connect(
-                            ws_url=web_utils.wss_url(),
-                            ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
-                            ws_headers=self._auth.get_ws_auth_headers(),
-                        ),
-                        timeout=CONSTANTS.WS_CONNECT_TIMEOUT)
+                    async with self._auth.request_lock:
+                        await asyncio.wait_for(
+                            ws.connect(
+                                ws_url=web_utils.wss_url(),
+                                ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                                ws_headers=self._auth.get_ws_auth_headers(),
+                            ),
+                            timeout=CONSTANTS.WS_CONNECT_TIMEOUT)
                 except asyncio.CancelledError:
                     raise
                 except Exception:
@@ -818,6 +937,15 @@ class GeminiExchange(ExchangePyBase):
     async def _status_polling_loop_fetch_updates(self):
         await super()._status_polling_loop_fetch_updates()
 
+    async def _update_order_status(self):
+        # /v1/mytrades returns symbol-level history. Reuse one response for every
+        # active/cached order on the symbol during this polling pass.
+        self._trade_history_poll_cache = {}
+        try:
+            await super()._update_order_status()
+        finally:
+            self._trade_history_poll_cache = None
+
     async def _update_trading_fees(self):
         pass
 
@@ -842,29 +970,35 @@ class GeminiExchange(ExchangePyBase):
                     order_status = event_message.get("X", "")
                     client_order_id = event_message.get("c", "")
 
-                    # When a fill occurs, extract fill details from WS event fields.
-                    # Per Gemini Fast API docs:
-                    #   Z = CUMULATIVE executed base quantity for the order
-                    #   L = price of the most recent execution (last fill price)
-                    #   t = trade ID for the most recent execution
-                    # Because `update_with_trade_update` accumulates `fill_base_amount`,
-                    # we must convert the cumulative `Z` into a per-fill delta by
-                    # subtracting what we've already tracked for this order. We also
-                    # require a stable `t` to safely dedupe duplicate/stale events.
+                    # For FILLED/PARTIALLY_FILLED, Gemini defines Z as the quantity in
+                    # this execution (not cumulative). Trade ID t provides idempotency.
                     if order_status in ("PARTIALLY_FILLED", "FILLED"):
                         tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
                         trade_id_raw = event_message.get("t")
                         if tracked_order is not None and trade_id_raw not in (None, ""):
-                            cumulative_z = Decimal(str(event_message.get("Z", "0")))
-                            prior_filled = tracked_order.executed_amount_base
-                            fill_amount = max(Decimal("0"), cumulative_z - prior_filled)
+                            fill_amount = Decimal(str(event_message.get("Z", "0")))
                             if fill_amount > Decimal("0"):
                                 fill_price = Decimal(str(event_message["L"]))
                                 trade_id = str(trade_id_raw)
-                                is_maker = tracked_order.order_type in (
-                                    OrderType.LIMIT, OrderType.LIMIT_MAKER)
-                                fee = DeductedFromReturnsTradeFee(
-                                    percent=self.estimate_fee_pct(is_maker=is_maker))
+                                maker_flag = event_message.get("m")
+                                is_maker = (
+                                    bool(maker_flag)
+                                    if maker_flag is not None
+                                    else tracked_order.order_type is OrderType.LIMIT_MAKER
+                                )
+                                fee_amount_raw = event_message.get("n")
+                                if fee_amount_raw not in (None, ""):
+                                    fee = TradeFeeBase.new_spot_fee(
+                                        fee_schema=self.trade_fee_schema(),
+                                        trade_type=tracked_order.trade_type,
+                                        flat_fees=[TokenAmount(
+                                            amount=Decimal(str(fee_amount_raw)),
+                                            token=tracked_order.quote_asset,
+                                        )],
+                                    )
+                                else:
+                                    fee = DeductedFromReturnsTradeFee(
+                                        percent=self.estimate_fee_pct(is_maker=is_maker))
                                 trade_update = TradeUpdate(
                                     trade_id=trade_id,
                                     client_order_id=client_order_id,
@@ -878,15 +1012,28 @@ class GeminiExchange(ExchangePyBase):
                                         event_message.get("E", 0)),
                                 )
                                 self._order_tracker.process_trade_update(trade_update)
+                    elif order_status == "CANCELED":
+                        # On cancellation Z is cumulative. If it is ahead of local fills
+                        # (notably for IOC), recover authoritative trades before closing.
+                        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                        cumulative_filled = Decimal(str(event_message.get("Z", "0")))
+                        if (tracked_order is not None
+                                and cumulative_filled > tracked_order.executed_amount_base
+                                and tracked_order.exchange_order_id is not None):
+                            for trade_update in await self._all_trade_updates_for_order(tracked_order):
+                                self._order_tracker.process_trade_update(trade_update)
 
                     # Process order status update
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
                     if tracked_order is not None and order_status in CONSTANTS.ORDER_STATE:
+                        new_state = CONSTANTS.ORDER_STATE[order_status]
+                        if order_status == "CANCELED" and tracked_order.is_filled:
+                            new_state = OrderState.FILLED
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
                             update_timestamp=CONSTANTS.convert_timestamp_to_seconds(
                                 event_message.get("E", 0)),
-                            new_state=CONSTANTS.ORDER_STATE[order_status],
+                            new_state=new_state,
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message.get("i", "")),
                         )
@@ -926,15 +1073,20 @@ class GeminiExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             try:
-                all_fills_response = await self._api_post(
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    data={
-                        "request": CONSTANTS.MY_TRADES_PATH_URL,
-                        "symbol": symbol,
-                        "limit_trades": 500,
-                    },
-                    is_auth_required=True,
-                    limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                if self._trade_history_poll_cache is not None and symbol in self._trade_history_poll_cache:
+                    all_fills_response = self._trade_history_poll_cache[symbol]
+                else:
+                    all_fills_response = await self._api_post(
+                        path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                        data={
+                            "request": CONSTANTS.MY_TRADES_PATH_URL,
+                            "symbol": symbol,
+                            "limit_trades": 500,
+                        },
+                        is_auth_required=True,
+                        limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+                    if self._trade_history_poll_cache is not None:
+                        self._trade_history_poll_cache[symbol] = all_fills_response
 
                 for trade in all_fills_response:
                     if str(trade.get("order_id", "")) == order.exchange_order_id:
@@ -975,25 +1127,35 @@ class GeminiExchange(ExchangePyBase):
             },
             is_auth_required=True)
 
-        # Determine the order state from the response
-        if updated_order_data.get("is_cancelled", False):
-            new_state = CONSTANTS.ORDER_STATE["cancelled"]
-        elif updated_order_data.get("is_live", False):
-            new_state = CONSTANTS.ORDER_STATE["live"]
-        elif Decimal(str(updated_order_data.get("remaining_amount", "0"))) == Decimal("0"):
-            new_state = CONSTANTS.ORDER_STATE["closed"]
-        else:
-            new_state = CONSTANTS.ORDER_STATE.get("live")
-
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(updated_order_data["order_id"]),
             trading_pair=tracked_order.trading_pair,
             update_timestamp=updated_order_data.get("timestampms", 0) * 1e-3,
-            new_state=new_state,
+            new_state=self._order_state_from_status(updated_order_data),
         )
 
         return order_update
+
+    @staticmethod
+    def _order_state_from_status(order_status: Dict[str, Any]) -> OrderState:
+        executed_amount = Decimal(str(order_status.get("executed_amount", "0")))
+        remaining_amount = Decimal(str(order_status.get("remaining_amount", "0")))
+        original_amount = Decimal(str(order_status.get("original_amount", "0")))
+
+        if (executed_amount > Decimal("0")
+                and ((original_amount > Decimal("0") and executed_amount >= original_amount)
+                     or remaining_amount == Decimal("0"))):
+            return OrderState.FILLED
+        if order_status.get("is_cancelled", False):
+            return OrderState.CANCELED
+        if order_status.get("is_live", False):
+            return OrderState.PARTIALLY_FILLED if executed_amount > Decimal("0") else OrderState.OPEN
+        if remaining_amount == Decimal("0"):
+            return OrderState.FILLED
+        if executed_amount > Decimal("0"):
+            return OrderState.PARTIALLY_FILLED
+        return OrderState.OPEN
 
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())

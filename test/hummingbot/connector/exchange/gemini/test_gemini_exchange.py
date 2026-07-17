@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.gemini.gemini_exchange import (
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState
+from hummingbot.core.data_type.in_flight_order import OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee
 from hummingbot.core.web_assistant.connections.data_types import WSResponse
 
@@ -138,7 +138,7 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(Decimal("0.004"), fee.percent)
 
     # ------------------------------------------------------------------
-    # P0-1 helpers + tests: WS Z field is cumulative, must convert to delta
+    # User stream fill processing
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -165,7 +165,7 @@ class GeminiExchangeTests(TestCase):
 
     @staticmethod
     def _make_fill_event(client_order_id, exchange_order_id, status,
-                         cumulative_z, last_price, trade_id,
+                         fill_z, last_price, trade_id,
                          event_ts_ns=1_700_000_000_000_000_000):
         return {
             "e": "executionReport",
@@ -178,8 +178,8 @@ class GeminiExchangeTests(TestCase):
             "X": status,
             "p": "100",
             "q": "1",
-            "z": str(cumulative_z),
-            "Z": str(cumulative_z),
+            "z": "0",
+            "Z": str(fill_z),
             "L": str(last_price),
             "t": trade_id,
             "T": event_ts_ns,
@@ -197,14 +197,14 @@ class GeminiExchangeTests(TestCase):
         except asyncio.CancelledError:
             pass
 
-    def test_user_stream_partial_fill_uses_delta(self):
+    def test_user_stream_fill_uses_per_execution_quantity(self):
         order = self._start_tracking_limit_buy(amount="1")
 
         partial = self._make_fill_event(
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status="PARTIALLY_FILLED",
-            cumulative_z="0.3",
+            fill_z="0.3",
             last_price="100",
             trade_id="trade-1",
         )
@@ -212,7 +212,7 @@ class GeminiExchangeTests(TestCase):
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status="FILLED",
-            cumulative_z="1.0",
+            fill_z="0.7",
             last_price="101",
             trade_id="trade-2",
         )
@@ -238,7 +238,7 @@ class GeminiExchangeTests(TestCase):
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status="PARTIALLY_FILLED",
-            cumulative_z="0.5",
+            fill_z="0.5",
             last_price="100",
             trade_id="trade-1",
         )
@@ -247,7 +247,7 @@ class GeminiExchangeTests(TestCase):
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status="PARTIALLY_FILLED",
-            cumulative_z="0.5",
+            fill_z="0.5",
             last_price="100",
             trade_id="trade-1",
         )
@@ -265,7 +265,7 @@ class GeminiExchangeTests(TestCase):
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             status="PARTIALLY_FILLED",
-            cumulative_z="0.5",
+            fill_z="0.5",
             last_price="100",
             trade_id="trade-1",
         )
@@ -275,6 +275,56 @@ class GeminiExchangeTests(TestCase):
 
         self.assertEqual(Decimal("0"), order.executed_amount_base)
         self.assertEqual(0, len(order.order_fills))
+
+    def test_user_stream_fill_uses_reported_fee_and_liquidity(self):
+        order = self._start_tracking_limit_buy(amount="1")
+        event = self._make_fill_event(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            status="PARTIALLY_FILLED",
+            fill_z="0.5",
+            last_price="100",
+            trade_id="trade-1",
+        )
+        event.update({"m": False, "n": "0.4"})
+        self.exchange.estimate_fee_pct = MagicMock(side_effect=AssertionError(
+            "The exchange-reported fee must take precedence over an estimate."))
+
+        self._drive_user_stream([event])
+
+        fill_fee = order.order_fills["trade-1"].fee
+        self.assertEqual(1, len(fill_fee.flat_fees))
+        self.assertEqual("USD", fill_fee.flat_fees[0].token)
+        self.assertEqual(Decimal("0.4"), fill_fee.flat_fees[0].amount)
+
+    def test_user_stream_cancelled_ioc_recovers_missing_fill_before_terminal_state(self):
+        order = self._start_tracking_limit_buy(amount="1", order_type=OrderType.MARKET)
+        recovered_trade = TradeUpdate(
+            trade_id="trade-1",
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=DeductedFromReturnsTradeFee(percent=Decimal("0.004")),
+            fill_timestamp=1_700_000_000,
+        )
+        self.exchange._all_trade_updates_for_order = AsyncMock(return_value=[recovered_trade])
+        event = self._make_fill_event(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            status="CANCELED",
+            fill_z="1",
+            last_price="100",
+            trade_id="",
+        )
+
+        self._drive_user_stream([event])
+
+        self.exchange._all_trade_updates_for_order.assert_awaited_once_with(order)
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, order.current_state)
 
     # ------------------------------------------------------------------
     # Misc property / predicate coverage
@@ -691,6 +741,34 @@ class GeminiExchangeTests(TestCase):
         self.exchange.get_price = MagicMock(return_value=Decimal(top_price))
         self.exchange.quantize_order_price = MagicMock(side_effect=lambda tp, p: p)
 
+    @staticmethod
+    def _reconciled_market_status(
+            order_id=555,
+            client_order_id="HBOT1",
+            symbol="ETHUSD",
+            side="sell",
+            amount="2",
+            price="98",
+            executed_amount="0",
+            remaining_amount="2",
+            is_live=True,
+            is_cancelled=False):
+        return {
+            "order_id": order_id,
+            "client_order_id": client_order_id,
+            "symbol": symbol,
+            "side": side,
+            "type": CONSTANTS.ORDER_TYPE_LIMIT,
+            "options": [CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL],
+            "original_amount": amount,
+            "price": price,
+            "executed_amount": executed_amount,
+            "remaining_amount": remaining_amount,
+            "is_live": is_live,
+            "is_cancelled": is_cancelled,
+            "timestampms": 1700000000000,
+        }
+
     def test_place_order_market_buy_uses_rest_ioc_above_market(self):
         self._set_symbol_map()
         self._prime_market_price(volume_price="100")
@@ -881,9 +959,11 @@ class GeminiExchangeTests(TestCase):
         # tracked instead of surfacing a failure that would trigger a duplicate re-placement.
         self._set_symbol_map()
         self._prime_market_price(volume_price="100")
+        reconciled_status = self._reconciled_market_status()
+        same_client_id_different_order = self._reconciled_market_status(symbol="BTCUSD")
         self.exchange._api_post = AsyncMock(side_effect=[
             IOError("Connection reset by peer"),              # placement (order actually landed)
-            {"order_id": 555, "timestampms": 1700000000000},  # reconciliation finds it
+            [same_client_id_different_order, reconciled_status],  # reconciliation finds exact IOC
         ])
 
         o_id, ts = self._async_run(self.exchange._place_order(
@@ -896,6 +976,93 @@ class GeminiExchangeTests(TestCase):
         _, kwargs = self.exchange._api_post.call_args
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+        self.assertEqual(reconciled_status, self.exchange._market_order_status_results["HBOT1"])
+
+    def test_place_order_market_reconciliation_restores_fills_and_filled_state(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="ETH-USD",
+            order_type=OrderType.MARKET, trade_type=TradeType.SELL,
+            price=Decimal("NaN"), amount=Decimal("2"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+        reconciled_status = self._reconciled_market_status(
+            executed_amount="2", remaining_amount="0", is_live=False)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("Connection reset by peer"),
+            reconciled_status,
+            [{"tid": 42, "order_id": 555, "amount": "2", "price": "100",
+              "fee_amount": "0.2", "fee_currency": "USD", "timestampms": 1700000000000}],
+        ])
+
+        exchange_order_id = self._async_run(self.exchange._place_order_and_process_update(order))
+
+        self.assertEqual("555", exchange_order_id)
+        self.assertEqual("555", order.exchange_order_id)
+        self.assertEqual(Decimal("2"), order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, order.current_state)
+        self.assertNotIn("HBOT1", self.exchange._market_order_status_results)
+
+    def test_place_order_market_reconciliation_restores_partial_fill_and_cancelled_state(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="ETH-USD",
+            order_type=OrderType.MARKET, trade_type=TradeType.SELL,
+            price=Decimal("NaN"), amount=Decimal("2"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+        reconciled_status = self._reconciled_market_status(
+            executed_amount="1", remaining_amount="1", is_live=False, is_cancelled=True)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("HTTP 406 InsufficientFunds"),
+            reconciled_status,
+            [{"tid": 43, "order_id": 555, "amount": "1", "price": "100",
+              "fee_amount": "0.1", "fee_currency": "USD", "timestampms": 1700000000000}],
+        ])
+
+        self._async_run(self.exchange._place_order_and_process_update(order))
+
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(OrderState.CANCELED, order.current_state)
+
+    def test_place_order_market_success_restores_terminal_ioc_response(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="ETH-USD",
+            order_type=OrderType.MARKET, trade_type=TradeType.SELL,
+            price=Decimal("NaN"), amount=Decimal("2"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+        terminal_status = self._reconciled_market_status(
+            executed_amount="2", remaining_amount="0", is_live=False)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            terminal_status,
+            [{"tid": 42, "order_id": 555, "amount": "2", "price": "100",
+              "fee_amount": "0.2", "fee_currency": "USD", "timestampms": 1700000000000}],
+        ])
+
+        exchange_order_id = self._async_run(self.exchange._place_order_and_process_update(order))
+
+        self.assertEqual("555", exchange_order_id)
+        self.assertEqual(Decimal("2"), order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, order.current_state)
+        self.assertNotIn("HBOT1", self.exchange._market_order_status_results)
+
+    def test_place_order_market_does_not_reconcile_a_different_order_with_same_client_id(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        mismatched_status = self._reconciled_market_status(symbol="BTCUSD")
+        self.exchange._api_post = AsyncMock(side_effect=[
+            IOError("InsufficientFunds"),
+            [mismatched_status],
+        ])
+
+        with self.assertRaisesRegex(IOError, "InsufficientFunds"):
+            self._async_run(self.exchange._place_order(
+                order_id="HBOT1", trading_pair="ETH-USD", amount=Decimal("2"),
+                trade_type=TradeType.SELL, order_type=OrderType.MARKET, price=Decimal("NaN")))
+
+        self.assertNotIn("HBOT1", self.exchange._market_order_status_results)
 
     def test_place_order_market_surfaces_failure_when_rest_fails_and_no_order(self):
         # If placement fails and reconciliation finds no such order (a genuine rejection that
@@ -1075,12 +1242,12 @@ class GeminiExchangeTests(TestCase):
                 method=CONSTANTS.WS_METHOD_ORDER_PLACE, params={},
                 throttler_limit_id=CONSTANTS.NEW_ORDER_PATH_URL))
 
-    def test_trade_ws_request_send_failure_raises_transport_error(self):
+    def test_trade_ws_request_send_failure_raises_ambiguous_error(self):
         mock_ws = AsyncMock()
         mock_ws.send = AsyncMock(side_effect=Exception("broken pipe"))
         self.exchange._connected_trade_ws = AsyncMock(return_value=mock_ws)
 
-        with self.assertRaises(GeminiWSTransportError):
+        with self.assertRaises(GeminiWSAmbiguousResponseError):
             self._async_run(self.exchange._trade_ws_request(
                 method=CONSTANTS.WS_METHOD_ORDER_PLACE, params={},
                 throttler_limit_id=CONSTANTS.NEW_ORDER_PATH_URL))
@@ -1525,11 +1692,26 @@ class GeminiExchangeTests(TestCase):
         update = self._request_status({"order_id": 123, "is_live": True, "remaining_amount": "1"})
         self.assertEqual(OrderState.OPEN, update.new_state)
 
+    def test_request_order_status_partially_filled(self):
+        update = self._request_status({
+            "order_id": 123, "is_live": True, "executed_amount": "0.5", "remaining_amount": "0.5"})
+        self.assertEqual(OrderState.PARTIALLY_FILLED, update.new_state)
+
     def test_request_order_status_closed(self):
         update = self._request_status({"order_id": 123, "remaining_amount": "0"})
         self.assertEqual(OrderState.FILLED, update.new_state)
 
-    def test_request_order_status_partial_falls_back_to_live(self):
+    def test_request_order_status_fully_executed_ioc_takes_precedence_over_cancelled_flag(self):
+        update = self._request_status({
+            "order_id": 123,
+            "original_amount": "1",
+            "executed_amount": "1",
+            "remaining_amount": "0",
+            "is_cancelled": True,
+        })
+        self.assertEqual(OrderState.FILLED, update.new_state)
+
+    def test_request_order_status_without_execution_falls_back_to_live(self):
         update = self._request_status({"order_id": 123, "remaining_amount": "0.5"})
         self.assertEqual(OrderState.OPEN, update.new_state)
 
@@ -1557,6 +1739,25 @@ class GeminiExchangeTests(TestCase):
         self.exchange._api_post = AsyncMock(side_effect=Exception("boom"))
         updates = self._async_run(self.exchange._all_trade_updates_for_order(order))
         self.assertEqual([], updates)
+
+    def test_all_trade_updates_for_orders_reuses_symbol_history_within_poll(self):
+        self._set_symbol_map()
+        first_order = self._start_tracking_limit_buy(order_id="HBOT1", exchange_order_id="100234")
+        second_order = self._start_tracking_limit_buy(order_id="HBOT2", exchange_order_id="100235")
+        self.exchange._api_post = AsyncMock(return_value=[
+            {"tid": 1, "order_id": 100234, "amount": "0.5", "price": "100",
+             "fee_amount": "0.1", "fee_currency": "USD", "timestampms": 1700000000000},
+            {"tid": 2, "order_id": 100235, "amount": "0.2", "price": "101",
+             "fee_amount": "0.05", "fee_currency": "USD", "timestampms": 1700000000000},
+        ])
+        self.exchange._trade_history_poll_cache = {}
+
+        first_updates = self._async_run(self.exchange._all_trade_updates_for_order(first_order))
+        second_updates = self._async_run(self.exchange._all_trade_updates_for_order(second_order))
+
+        self.assertEqual(["1"], [update.trade_id for update in first_updates])
+        self.assertEqual(["2"], [update.trade_id for update in second_updates])
+        self.assertEqual(1, self.exchange._api_post.await_count)
 
     def test_all_trade_updates_for_order_no_exchange_id(self):
         order = self._start_tracking_limit_buy(order_id="HBOT1", exchange_order_id="100234")

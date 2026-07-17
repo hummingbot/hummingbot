@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import json
+from concurrent.futures import ThreadPoolExecutor
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -63,7 +64,7 @@ class GeminiAuthTests(TestCase):
         # Verify payload contains nonce
         decoded_payload = json.loads(base64.b64decode(payload_b64))
         self.assertIn("nonce", decoded_payload)
-        self.assertEqual(int(now), decoded_payload["nonce"])
+        self.assertEqual(now, decoded_payload["nonce"])
 
         # Verify body is cleared (Gemini uses headers, not body)
         self.assertIsNone(configured_request.data)
@@ -87,7 +88,7 @@ class GeminiAuthTests(TestCase):
         self.assertEqual("keep-me", configured_request.headers["X-Custom"])
         decoded_payload = json.loads(base64.b64decode(configured_request.headers["X-GEMINI-PAYLOAD"]))
         self.assertEqual("/v1/balances", decoded_payload["request"])
-        self.assertEqual(int(now), decoded_payload["nonce"])
+        self.assertEqual(now, decoded_payload["nonce"])
 
     def test_nonce_is_monotonically_increasing(self):
         mock_time_provider = MagicMock()
@@ -98,19 +99,48 @@ class GeminiAuthTests(TestCase):
         first = auth._get_nonce()
         second = auth._get_nonce()
         third = auth._get_nonce()
-        self.assertEqual(1234567890, first)
-        self.assertEqual(1234567891, second)
-        self.assertEqual(1234567892, third)
+        self.assertEqual(1234567890.0, first)
+        self.assertLess(first, second)
+        self.assertLess(second, third)
+        self.assertLess(third - first, 1e-5)
 
-    def test_nonce_resets_when_counter_drifts_ahead(self):
+    def test_nonce_remains_monotonic_when_clock_moves_back(self):
         mock_time_provider = MagicMock()
-        mock_time_provider.time.return_value = 1234567890.000
+        mock_time_provider.time.side_effect = [1234567890.000, 1234567880.000, 1234567890.000]
 
         auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
-        # Simulate a counter that drifted far ahead of current time (e.g. clock correction)
-        auth._last_nonce = 1234567890 + 100
-        nonce = auth._get_nonce()
-        self.assertEqual(1234567890, nonce)
+        nonces = [auth._get_nonce() for _ in range(3)]
+
+        self.assertEqual(1234567890.0, nonces[0])
+        self.assertEqual(nonces, sorted(nonces))
+        self.assertEqual(3, len(set(nonces)))
+        self.assertLess(nonces[-1] - nonces[0], 1e-5)
+
+    def test_nonce_does_not_repeat_during_sustained_requests(self):
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.side_effect = [1234567890.000 + index / 5 for index in range(100)]
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+
+        nonces = [auth._get_nonce() for _ in range(100)]
+
+        self.assertEqual(100, len(set(nonces)))
+        self.assertEqual(nonces, sorted(nonces))
+
+    def test_nonce_generation_is_serialized_across_threads(self):
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.return_value = 1234567890.000
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            nonces = list(executor.map(lambda _: auth._get_nonce(), range(100)))
+
+        self.assertEqual(100, len(set(nonces)))
+        self.assertEqual(1234567890.0, min(nonces))
+        # ThreadPoolExecutor.map returns results in input order, which is not the
+        # order in which workers acquire the nonce lock. Uniqueness and the compact
+        # strictly increasing allocated range are the thread-safety guarantees.
+        self.assertEqual(100, len(sorted(nonces)))
+        self.assertLess(max(nonces) - min(nonces), 1e-4)
 
     def test_nonce_uses_local_time_without_provider(self):
         auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=None)
@@ -134,6 +164,7 @@ class GeminiAuthTests(TestCase):
         self.assertIn("X-GEMINI-SIGNATURE", configured_request.headers)
 
         self.assertEqual(self._api_key, configured_request.headers["X-GEMINI-APIKEY"])
+        self.assertEqual(str(int(now)), configured_request.headers["X-GEMINI-NONCE"])
 
         # Verify WS signature
         nonce = configured_request.headers["X-GEMINI-NONCE"]

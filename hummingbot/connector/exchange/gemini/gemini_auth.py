@@ -1,7 +1,10 @@
+import asyncio
 import base64
 import hashlib
 import hmac
 import json
+import math
+import threading
 import time
 from typing import Any, Dict, Optional
 
@@ -15,7 +18,16 @@ class GeminiAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self._last_nonce: int = 0
+        self._last_nonce: float = 0.0
+        self._nonce_lock = threading.Lock()
+        # Gemini compares nonces per API-key session. The exchange serializes every
+        # authenticated REST dispatch and websocket handshake with this lock so nonce
+        # generation order cannot diverge from network-send order across transports.
+        self._request_lock = asyncio.Lock()
+
+    @property
+    def request_lock(self) -> asyncio.Lock:
+        return self._request_lock
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -66,7 +78,7 @@ class GeminiAuth(AuthBase):
         """
         Fast API WebSocket authentication via handshake headers.
         """
-        nonce = str(self._get_nonce())
+        nonce = self._format_nonce(self._get_nonce())
         payload_b64 = base64.b64encode(nonce.encode("utf-8")).decode("utf-8")
 
         signature = hmac.new(
@@ -89,7 +101,7 @@ class GeminiAuth(AuthBase):
         Generate authentication headers for WebSocket connection.
         Used when connecting via raw websocket libraries that need headers at connect time.
         """
-        nonce = str(self._get_nonce())
+        nonce = self._format_nonce(self._get_nonce())
         payload_b64 = base64.b64encode(nonce.encode("utf-8")).decode("utf-8")
 
         signature = hmac.new(
@@ -105,19 +117,24 @@ class GeminiAuth(AuthBase):
             "X-GEMINI-SIGNATURE": signature,
         }
 
-    def _get_nonce(self) -> int:
-        """Nonce must be in seconds and within 30s of Gemini server time.
-        We ensure monotonic increase to avoid collisions on rapid requests,
-        but reset if the counter drifted too far ahead (e.g., after clock correction)."""
-        if self.time_provider is not None:
-            nonce = int(self.time_provider.time())
-        else:
-            nonce = int(time.time())
-        # Reset counter if it drifted more than 15 seconds ahead of current time
-        if self._last_nonce > nonce + 15:
-            self._last_nonce = 0
-        # Ensure strictly increasing nonce for rapid sequential requests
-        if nonce <= self._last_nonce:
-            nonce = self._last_nonce + 1
-        self._last_nonce = nonce
-        return nonce
+    @staticmethod
+    def _format_nonce(nonce: float) -> str:
+        # Nine fractional digits preserve every representable increment around Unix
+        # epoch seconds while avoiding scientific notation in handshake headers.
+        return f"{nonce:.9f}".rstrip("0").rstrip(".")
+
+    def _get_nonce(self) -> float:
+        """Return a strictly increasing time-based nonce expressed in epoch seconds.
+
+        Gemini's authenticated websocket requires a time-based account key, and the
+        same key is used for REST fallback. ``nextafter`` gives overlapping calls a
+        unique value without advancing the nonce by whole seconds and eventually
+        leaving Gemini's allowed server-time window.
+        """
+        timestamp = float(self.time_provider.time() if self.time_provider is not None else time.time())
+        with self._nonce_lock:
+            nonce = timestamp
+            if nonce <= self._last_nonce:
+                nonce = math.nextafter(self._last_nonce, math.inf)
+            self._last_nonce = nonce
+            return nonce

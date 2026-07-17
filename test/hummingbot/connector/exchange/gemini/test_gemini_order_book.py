@@ -16,6 +16,7 @@ class GeminiOrderBookTests(TestCase):
         )
         self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot.type)
         self.assertEqual("BTC-USD", snapshot.content["trading_pair"])
+        self.assertEqual(0, snapshot.update_id)
         self.assertEqual(2, len(snapshot.content["bids"]))
         self.assertEqual(2, len(snapshot.content["asks"]))
 
