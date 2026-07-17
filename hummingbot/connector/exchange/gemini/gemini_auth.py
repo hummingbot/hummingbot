@@ -12,7 +12,8 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
-NONCE_DRIFT_RESET_MS = 15_000
+NONCE_DRIFT_RESET_US = 15_000_000
+NONCE_DRIFT_RESET_MS = NONCE_DRIFT_RESET_US // 1_000
 
 
 class GeminiAuth(AuthBase):
@@ -20,7 +21,7 @@ class GeminiAuth(AuthBase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self._last_nonce: int = 0
+        self._last_nonce_us: int = 0
         self._nonce_lock = threading.Lock()
         # Gemini compares nonces per API-key session. The exchange serializes every
         # authenticated REST dispatch and websocket handshake with this lock so nonce
@@ -120,21 +121,21 @@ class GeminiAuth(AuthBase):
         }
 
     @staticmethod
-    def _format_nonce(nonce: int) -> str:
-        return str(nonce)
+    def _format_nonce(nonce: float) -> str:
+        return f"{nonce:.6f}"
 
-    def _get_nonce(self) -> int:
-        """Return a strictly increasing time-based nonce expressed in epoch milliseconds.
+    def _get_nonce(self) -> float:
+        """Return a strictly increasing time-based nonce expressed in epoch seconds.
 
-        Gemini's authenticated websocket requires a time-based account key, and the
-        same key is used for REST fallback. The synchronizer feeds this timestamp,
-        so InvalidNonce time resyncs can move the base clock down; the drift reset
-        prevents a previously poisoned high nonce from pinning retries out of range.
+        Gemini requires time-based API keys to send nonces in seconds within
+        +/- 30 seconds of epoch time. Keep an integer microsecond counter
+        internally so rapid concurrent requests remain unique and monotonic while
+        the value sent to Gemini stays in seconds.
         """
-        timestamp_ms = int((self.time_provider.time() if self.time_provider is not None else time.time()) * 1e3)
+        timestamp_us = int((self.time_provider.time() if self.time_provider is not None else time.time()) * 1e6)
         with self._nonce_lock:
-            if self._last_nonce > timestamp_ms + NONCE_DRIFT_RESET_MS:
-                self._last_nonce = timestamp_ms - 1
-            nonce = max(timestamp_ms, self._last_nonce + 1)
-            self._last_nonce = nonce
-            return nonce
+            if self._last_nonce_us > timestamp_us + NONCE_DRIFT_RESET_US:
+                self._last_nonce_us = timestamp_us - 1
+            nonce_us = max(timestamp_us, self._last_nonce_us + 1)
+            self._last_nonce_us = nonce_us
+            return nonce_us / 1e6
