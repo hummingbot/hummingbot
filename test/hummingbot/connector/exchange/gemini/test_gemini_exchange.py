@@ -567,9 +567,10 @@ class GeminiExchangeTests(TestCase):
                 trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
 
         self.assertEqual("888", o_id)
-        # REST was used once, for the status reconcile — never for a second placement
-        self.exchange._api_post.assert_awaited_once()
-        _, kwargs = self.exchange._api_post.call_args
+        # REST is used first for status reconcile and then for placement fallback
+        # when Gemini reports no order for the websocket ack.
+        self.assertEqual(2, self.exchange._api_post.await_count)
+        _, kwargs = self.exchange._api_post.await_args_list[0]
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
 

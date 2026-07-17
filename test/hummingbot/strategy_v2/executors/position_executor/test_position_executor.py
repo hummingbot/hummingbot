@@ -961,7 +961,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             fill_timestamp=10,
         ))
         position_executor._close_order.order = stale_close_order
-        self.strategy.connectors["binance"]._order_tracker.fetch_order.return_value = fresh_close_order
+        position_executor.get_in_flight_order = MagicMock(return_value=fresh_close_order)
 
         position_executor.force_stop_with_position_hold()
 

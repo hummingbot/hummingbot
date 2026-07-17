@@ -107,11 +107,10 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     # REST snapshot
     # ------------------------------------------------------------------
 
-    @aioresponses()
-    async def test_get_new_order_book_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_PATH_URL.format(self.ex_trading_pair))
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
+    async def test_get_new_order_book_successful(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(return_value=self._snapshot_response())
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
 
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
@@ -134,11 +133,11 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         _, kwargs = rest_assistant.execute_request.call_args
         self.assertEqual({"limit_bids": 0, "limit_asks": 0}, kwargs["params"])
 
-    @aioresponses()
-    async def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_PATH_URL.format(self.ex_trading_pair))
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, status=400)
+    async def test_get_new_order_book_raises_exception(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(side_effect=IOError)
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+
         with self.assertRaises(IOError):
             await self.data_source.get_new_order_book(self.trading_pair)
 
