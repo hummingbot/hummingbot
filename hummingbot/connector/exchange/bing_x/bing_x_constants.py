@@ -113,6 +113,12 @@ RATE_LIMITS = {
 
 
 EXCHANGE_NAME = "bing_x"
+
+# Error codes for order not found detection
+ORDER_NOT_EXIST_ERROR_CODE = "80016"
+ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+UNKNOWN_ORDER_ERROR_CODE = "109421"
+UNKNOWN_ORDER_MESSAGE = "The specified order does not exist"
 HBOT_BROKER_ID = "hummingbot"
 HBOT_ORDER_ID = "t-HBOT"
 
