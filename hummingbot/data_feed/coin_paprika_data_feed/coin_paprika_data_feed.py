@@ -66,7 +66,8 @@ class CoinPaprikaDataFeed(DataFeedBase):
 
     async def get_all_prices(self, quote_token: str) -> Dict[str, Decimal]:
         """
-        Fetches prices of all active coins on coinpaprika.com in a single request.
+        Fetches prices of all active coins on coinpaprika.com in a single request. The keyless API
+        returns the top 2000 coins by rank.
 
         Ticker symbols are not unique on CoinPaprika (several coins can share one symbol), so entries
         are processed in rank order and only the highest-ranked coin is kept for each symbol.

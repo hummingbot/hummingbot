@@ -18,9 +18,9 @@ SUPPORTED_QUOTE_TOKENS = frozenset(
     )
 )
 
-# The keyless API allows 10 requests per second per IP and 20,000 requests per month. Caching the
-# /tickers response for 3 minutes keeps a bot that runs around the clock at roughly 14,400 requests
-# per month, within the keyless quota.
+# The keyless API allows 10 requests per second per IP and 20,000 requests per month, and its
+# /tickers data refreshes about every 5 minutes. Caching the response for 3 minutes keeps a bot
+# that runs around the clock at roughly 14,400 requests per month, within the keyless quota.
 TICKERS_CACHE_TTL = 3 * 60.0
 
 REQUESTS_LIMIT_ID = "requestsLimitID"
