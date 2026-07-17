@@ -96,6 +96,7 @@ class XEMMExecutor(ExecutorBase):
         self._tx_cost = Decimal("1")
         self._tx_cost_pct = Decimal("1")
         self._current_trade_profitability = Decimal("0")
+        self._cancel_pending = False
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
@@ -223,7 +224,7 @@ class XEMMExecutor(ExecutorBase):
         self.logger().info(f"Created maker order {order_id} at price {self._maker_target_price}.")
 
     async def control_shutdown_process(self):
-        if self.maker_order.is_done and self.taker_order.is_done:
+        if self.maker_order.is_done and self.taker_order and self.taker_order.is_done:
             self.logger().info("Both orders are done, executor terminated.")
             self.stop()
 
@@ -231,12 +232,12 @@ class XEMMExecutor(ExecutorBase):
         await self.update_current_trade_profitability()
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
+            self._cancel_pending = True
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-            self.maker_order = None
         elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order.")
+            self._cancel_pending = True
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-            self.maker_order = None
 
     async def update_current_trade_profitability(self):
         trade_profitability = Decimal("0")
@@ -275,6 +276,7 @@ class XEMMExecutor(ExecutorBase):
                                       market: ConnectorBase,
                                       event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         if self.maker_order and event.order_id == self.maker_order.order_id:
+            self._cancel_pending = False
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
             self.place_taker_order()
             self._status = RunnableStatus.SHUTTING_DOWN
