@@ -18,8 +18,10 @@ def stop(
     if not bot.exists():
         fail("no bot has been started", ExitCode.NOT_FOUND)
 
+    # is_engine_pid (not just pid_alive): after an abrupt kill or container restart the recorded pid
+    # can be reused by an unrelated process — never signal a stranger.
     pid = bot.read_pid()
-    if pid is None or not bot.pid_alive(pid):
+    if pid is None or not bot.is_engine_pid(pid):
         bot.clear_pid()
         fail("the bot is not running", ExitCode.NOT_RUNNING)
 

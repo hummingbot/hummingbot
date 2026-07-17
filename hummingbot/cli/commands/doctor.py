@@ -127,10 +127,10 @@ def _bot_row() -> dict:
     pid = bot.read_pid()
     if pid is None:
         return _row("bot", "ok", "no bot running")
-    if bot.pid_alive(pid):
+    if bot.is_engine_pid(pid):
         return _row("bot", "ok", f"bot running (pid {pid})")
     return _row("bot", "warn",
-                f"stale bot.pid (pid {pid} is dead) — harmless; cleared by the next start/stop")
+                f"stale bot.pid (pid {pid} is dead or reused) — harmless; cleared by the next start/stop")
 
 
 def _loaded_row() -> dict:

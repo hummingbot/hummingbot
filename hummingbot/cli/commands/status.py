@@ -29,7 +29,7 @@ def _recent_log_errors() -> Dict[str, Any]:
 def _request_fresh_snapshot(timeout: float = REFRESH_TIMEOUT) -> None:
     """Ask the running engine (via SIGUSR1) to write a current snapshot, and wait for it."""
     pid = bot.read_pid()
-    if pid is None or not bot.pid_alive(pid):
+    if pid is None or not bot.is_engine_pid(pid):
         return
     prev = (bot.read_status() or {}).get("updated_at", 0)
     try:
@@ -62,10 +62,27 @@ def status(as_json: bool = json_option()) -> None:
         emit(record, render_kv(record, title="status"), as_json)
         return
 
-    _request_fresh_snapshot()
     running = bot.running()
-    snapshot = bot.read_status() or {}
     meta = bot.read_meta() or {}
+
+    # A config imported after the last run supersedes the stopped bot's record: `hbot start` would
+    # run the imported file, so that's what status must surface (matching what `hbot config` shows);
+    # the previous run stays visible as last_run.
+    if not running:
+        loaded = bot.read_loaded()
+        if loaded and loaded.get("file") and loaded["file"] != meta.get("file"):
+            record = {"running": False, "note": "imported, not started",
+                      "config": loaded["file"], "type": loaded.get("type") or "-",
+                      "last_run": meta.get("name") or meta.get("file") or "-",
+                      "next": "hbot start"}
+            emit(record, render_kv(record, title="status"), as_json)
+            return
+
+    if running:
+        _request_fresh_snapshot()
+    # The snapshot describes the run that wrote it. Once the bot is stopped it's history, not status —
+    # rendering its markets/orders/balances (or the stale pid) would present a dead run as live.
+    snapshot = (bot.read_status() or {}) if running else {}
     engine = snapshot.get("engine") or {}
     started_at = meta.get("started_at")
     snapshot_age = (time.time() - snapshot["updated_at"]) if snapshot.get("updated_at") else None
@@ -80,7 +97,7 @@ def status(as_json: bool = json_option()) -> None:
         emit({
             "running": running,
             "name": name,
-            "pid": bot.read_pid(),
+            "pid": bot.read_pid() if running else None,
             "config": meta.get("file"),
             "type": meta.get("type"),
             "strategy": strategy_name,
@@ -95,7 +112,7 @@ def status(as_json: bool = json_option()) -> None:
     fields = {
         "name": name,
         "state": "running" if running else "stopped",
-        "pid": bot.read_pid() or "-",
+        "pid": (bot.read_pid() if running else None) or "-",
         "config": meta.get("file") or "-",       # the strategy config file this bot runs
         "type": meta.get("type") or "-",          # v1-strategy / v2-script / controller
         "strategy": strategy_name or "-",

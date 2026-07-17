@@ -99,6 +99,31 @@ class PidAliveTest(unittest.TestCase):
             self.assertTrue(bot.pid_alive(1))
 
 
+class IsEnginePidTest(unittest.TestCase):
+    def test_dead_pid_is_not_engine(self):
+        with patch.object(bot, "pid_alive", return_value=False):
+            self.assertFalse(bot.is_engine_pid(12345))
+
+    def test_engine_cmdline_matches(self):
+        with patch.object(bot, "pid_alive", return_value=True), \
+                patch("psutil.Process") as proc:
+            proc.return_value.cmdline.return_value = [
+                "/usr/bin/python", "-m", "hummingbot.cli.engine", "--name", "test01"]
+            self.assertTrue(bot.is_engine_pid(123))
+
+    def test_reused_pid_with_foreign_cmdline_is_not_engine(self):
+        # abrupt kill / container restart: the recorded pid now belongs to a stranger
+        with patch.object(bot, "pid_alive", return_value=True), \
+                patch("psutil.Process") as proc:
+            proc.return_value.cmdline.return_value = ["/bin/sleep", "600"]
+            self.assertFalse(bot.is_engine_pid(123))
+
+    def test_uninspectable_live_pid_assumed_ours(self):
+        with patch.object(bot, "pid_alive", return_value=True), \
+                patch("psutil.Process", side_effect=Exception("denied")):
+            self.assertTrue(bot.is_engine_pid(123))
+
+
 class CorruptStateTest(unittest.TestCase):
     """Missing/corrupt state files must read as None, never crash a status command."""
 
@@ -126,10 +151,13 @@ class CorruptStateTest(unittest.TestCase):
         self.assertIsNone(bot.read_loaded())
         self.assertIsNone(bot.read_pid())
 
-    def test_running_false_without_pid_true_with_live_pid(self):
+    def test_running_false_without_pid_true_with_live_engine_pid(self):
         self.assertFalse(bot.running())
         bot.write_pid(os.getpid())
-        self.assertTrue(bot.running())
+        # the test process is alive but is not the engine, so a reused pid reads as not running
+        self.assertFalse(bot.running())
+        with patch.object(bot, "is_engine_pid", return_value=True):
+            self.assertTrue(bot.running())
 
     def test_clear_pid_noop_when_absent(self):
         bot.clear_pid()  # no pid file -> nothing to unlink, no error

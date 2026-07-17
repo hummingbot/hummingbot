@@ -113,15 +113,14 @@ class ResolveDbForCommandTest(unittest.TestCase):
     def test_current_bot_reports_db_filter_and_running(self):
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "resolve_db_path", return_value="/data/n.sqlite"), \
-                patch.object(bot, "read_pid", return_value=123), \
-                patch.object(bot, "pid_alive", return_value=True), \
+                patch.object(bot, "running", return_value=True), \
                 patch.object(bot, "config_file_path", return_value="conf_x.yml"):
             self.assertEqual(resolve_db_for_command(None), ("/data/n.sqlite", "conf_x.yml", True))
 
     def test_current_bot_not_running_without_pid(self):
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "resolve_db_path", return_value="/data/n.sqlite"), \
-                patch.object(bot, "read_pid", return_value=None), \
+                patch.object(bot, "running", return_value=False), \
                 patch.object(bot, "config_file_path", return_value=None):
             self.assertEqual(resolve_db_for_command(None), ("/data/n.sqlite", None, False))
 

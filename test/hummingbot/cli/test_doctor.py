@@ -52,7 +52,7 @@ class DoctorRowTest(unittest.TestCase):
     def test_stale_pid_warns(self):
         patch("hummingbot.cli.bot.exists", return_value=True).start()
         patch("hummingbot.cli.bot.read_pid", return_value=99999999).start()
-        patch("hummingbot.cli.bot.pid_alive", return_value=False).start()
+        patch("hummingbot.cli.bot.is_engine_pid", return_value=False).start()
         row = doctor_mod._bot_row()
         self.assertEqual(row["status"], "warn")
         self.assertIn("stale bot.pid", row["detail"])
@@ -60,7 +60,7 @@ class DoctorRowTest(unittest.TestCase):
     def test_running_bot_is_ok(self):
         patch("hummingbot.cli.bot.exists", return_value=True).start()
         patch("hummingbot.cli.bot.read_pid", return_value=42).start()
-        patch("hummingbot.cli.bot.pid_alive", return_value=True).start()
+        patch("hummingbot.cli.bot.is_engine_pid", return_value=True).start()
         self.assertEqual(doctor_mod._bot_row()["status"], "ok")
 
     # -- loaded pointer --

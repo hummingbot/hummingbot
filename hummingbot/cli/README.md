@@ -319,3 +319,9 @@ logs/logs_<name>.log                                   # a bot's structured log
 `history` reads the SQLite DB; `logs` tails `logs/logs_<name>.log`; `import` / `start` record the
 loaded config in `data/bot/loaded.json`. Because the DB and log are named by the config stem, a
 stopped bot's logs/history stay viewable **by name** indefinitely.
+
+Stale state never masquerades as live: the snapshot (markets/orders/balances) is only rendered
+while the bot is running, a recorded pid is only trusted if it is actually a hummingbot engine
+process (an abruptly killed bot — `kill -9`, container restart — can leave `bot.pid` pointing at a
+dead or reused pid), and a config imported after the last run supersedes the stopped bot's record
+in `status` (shown as `imported, not started`, with the previous run as `last_run`).

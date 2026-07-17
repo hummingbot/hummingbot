@@ -25,10 +25,10 @@ class StopCommandTest(unittest.TestCase):
         self.assertEqual(ctx.exception.exit_code, int(ExitCode.NOT_RUNNING))
         clear_pid.assert_called_once()
 
-    def test_dead_pid_exits_not_running(self):
+    def test_dead_or_reused_pid_exits_not_running(self):
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "read_pid", return_value=4242), \
-                patch.object(bot, "pid_alive", return_value=False), \
+                patch.object(bot, "is_engine_pid", return_value=False), \
                 patch.object(bot, "clear_pid") as clear_pid:
             with self.assertRaises(typer.Exit) as ctx:
                 stop(timeout=30.0, force=False, as_json=False)
@@ -39,7 +39,8 @@ class StopCommandTest(unittest.TestCase):
         # alive on the initial check, dead on the first poll after SIGTERM
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "read_pid", return_value=4242), \
-                patch.object(bot, "pid_alive", side_effect=[True, False, False]), \
+                patch.object(bot, "is_engine_pid", return_value=True), \
+                patch.object(bot, "pid_alive", side_effect=[False, False]), \
                 patch.object(bot, "clear_pid") as clear_pid, \
                 patch("hummingbot.cli.commands.stop.os") as os_mock, \
                 patch("hummingbot.cli.commands.stop.time") as time_mock, \
@@ -55,6 +56,7 @@ class StopCommandTest(unittest.TestCase):
         # stays alive through one poll (sleep), then the deadline expires
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "read_pid", return_value=4242), \
+                patch.object(bot, "is_engine_pid", return_value=True), \
                 patch.object(bot, "pid_alive", return_value=True), \
                 patch.object(bot, "clear_pid") as clear_pid, \
                 patch("hummingbot.cli.commands.stop.os") as os_mock, \
@@ -70,6 +72,7 @@ class StopCommandTest(unittest.TestCase):
     def test_force_kills_after_timeout(self):
         with patch.object(bot, "exists", return_value=True), \
                 patch.object(bot, "read_pid", return_value=4242), \
+                patch.object(bot, "is_engine_pid", return_value=True), \
                 patch.object(bot, "pid_alive", return_value=True), \
                 patch.object(bot, "clear_pid") as clear_pid, \
                 patch("hummingbot.cli.commands.stop.os") as os_mock, \

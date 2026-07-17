@@ -75,6 +75,4 @@ def resolve_db_for_command(name: Optional[str]) -> Tuple[Path, Optional[str], bo
     db_path = bot.resolve_db_path()
     if db_path is None:
         fail("no trades database yet (no fills?)", ExitCode.ERROR)
-    pid = bot.read_pid()
-    running = pid is not None and bot.pid_alive(pid)
-    return db_path, bot.config_file_path(), running
+    return db_path, bot.config_file_path(), bot.running()

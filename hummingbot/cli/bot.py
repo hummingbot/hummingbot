@@ -71,6 +71,25 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
+def is_engine_pid(pid: int) -> bool:
+    """True if ``pid`` is alive AND is a hummingbot engine process.
+
+    After an abrupt stop (kill -9, container restart) bot.pid goes stale, and in a restarted
+    container's fresh PID namespace the recorded pid is easily reused by an unrelated process. A
+    liveness check alone would then report a dead bot as running — and stop/status would signal a
+    stranger — so the pid must also look like our engine."""
+    if not pid_alive(pid):
+        return False
+    try:
+        import psutil
+        cmdline = psutil.Process(pid).cmdline()
+    except Exception:
+        # Alive but uninspectable (e.g. AccessDenied): assume it's ours — mis-reporting a live bot
+        # as stopped is worse than keeping a stale record one command longer.
+        return True
+    return any("hummingbot.cli.engine" in part for part in cmdline)
+
+
 def tail_lines(path: Path, n: int) -> List[str]:
     """Read the last ``n`` lines by seeking from the end — avoids loading the whole file."""
     if n <= 0 or not path.exists():
@@ -132,7 +151,7 @@ def clear_pid() -> None:
 
 def running() -> bool:
     pid = read_pid()
-    return pid is not None and pid_alive(pid)
+    return pid is not None and is_engine_pid(pid)
 
 
 def read_status() -> Optional[Dict[str, Any]]:
