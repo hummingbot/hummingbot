@@ -199,7 +199,11 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
 
     @property
     def expected_fill_trade_id(self) -> str:
-        return str(28458)
+        return str(11405092864)
+
+    @property
+    def expected_fill_api_id(self) -> str:
+        return str(2238)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -655,7 +659,8 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
         return [
             {
                 "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                "id": self.expected_fill_trade_id,
+                "id": self.expected_fill_api_id,
+                "cursorId": self.expected_fill_trade_id,
                 "orderId": order.exchange_order_id,
                 "price": str(self.expected_partial_fill_price),
                 "qty": str(self.expected_partial_fill_amount),
@@ -672,7 +677,8 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
         return [
             {
                 "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                "id": self.expected_fill_trade_id,
+                "id": self.expected_fill_api_id,
+                "cursorId": self.expected_fill_trade_id,
                 "orderId": order.exchange_order_id,
                 "price": str(order.price),
                 "qty": str(order.amount),
@@ -797,6 +803,40 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
 
         self.assertEqual(expected_user_maker_fee, user_maker_fee)
         self.assertEqual(expected_user_taker_fee, user_taker_fee)
+
+    @aioresponses()
+    async def test_rest_trade_cursor_deduplicates_websocket_fill(self, mock_api):
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        websocket_event = self.order_event_for_full_fill_websocket_update(order=order)
+        websocket_event.update(
+            {
+                "X": "PARTIALLY_FILLED",
+                "l": str(self.expected_partial_fill_amount),
+                "z": str(self.expected_partial_fill_amount),
+                "L": str(self.expected_partial_fill_price),
+                "t": int(self.expected_fill_trade_id),
+            }
+        )
+        self.exchange._process_order_update(event_message=websocket_event)
+
+        self.configure_partial_fill_trade_response(order=order, mock_api=mock_api)
+        rest_updates = await self.exchange._all_trade_updates_for_order(order=order)
+
+        self.assertEqual(1, len(rest_updates))
+        self.assertEqual(self.expected_fill_trade_id, rest_updates[0].trade_id)
+        self.exchange._order_tracker.process_trade_update(rest_updates[0])
+        self.assertEqual(self.expected_partial_fill_amount, order.executed_amount_base)
+        self.assertEqual(1, len(order.order_fills))
 
     @aioresponses()
     async def test_canceling_an_order_that_has_already_been_canceled_detects_order_as_already_canceled(self, mock_api):

@@ -423,7 +423,7 @@ class LambdaplexExchange(ExchangePyBase):
                     flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
                 )
                 trade_update = TradeUpdate(
-                    trade_id=str(trade["id"]),
+                    trade_id=str(trade.get("cursorId", trade["id"])),
                     client_order_id=order.client_order_id,
                     exchange_order_id=exchange_order_id,
                     trading_pair=trading_pair,
