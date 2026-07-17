@@ -125,8 +125,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
-        # KuCoin only supports ONEWAY mode for all perpetuals, no hedge mode
-        return [PositionMode.ONEWAY]
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -151,7 +150,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
-        self.set_position_mode(PositionMode.ONEWAY)
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
@@ -869,14 +867,28 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         msg = ""
         success = True
-
-        if mode == PositionMode.HEDGE:
-            msg = "KuCoin Perpetuals don't allow for a position mode change."
-            success = False
-        else:
-            msg = "Success"
+        api_mode = CONSTANTS.POSITION_MODE_MAP.get(mode)
+        if api_mode is None:
+            return False, f"Unsupported position mode: {mode}"
+        response = await self._api_post(
+            path_url=CONSTANTS.CHANGE_POSITION_MODE_PATH_URL,
+            data={"mode": api_mode},
+            is_auth_required=True,
+            return_err=True,
+        )
+        code = str(response.get("code", ""))
+        if code == CONSTANTS.RET_CODE_OK or response.get("msg") == "success":
             success = True
-
+            msg = ""
+        elif code == CONSTANTS.RET_CODE_MODE_NOT_MODIFIED:
+            success = True
+            msg = ""
+        elif code == CONSTANTS.RET_CODE_MODE_POSITION_NOT_EMPTY:
+            success = False
+            msg = "Cannot change position mode while there are open positions. Close all positions first."
+        else:
+            success = False
+            msg = str(response)
         return success, msg
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
