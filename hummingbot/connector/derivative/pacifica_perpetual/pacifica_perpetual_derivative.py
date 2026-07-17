@@ -21,7 +21,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -79,6 +79,12 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         self._order_history_last_poll_timestamp: Dict[str, float] = {}
 
         self._fee_tier = 0
+
+        # Builder code (HGP-88). Injected only once the user's approval is confirmed at startup
+        # (_initialize_builder_code) — Pacifica rejects orders carrying an unapproved code.
+        self._builder_code: str = CONSTANTS.FOUNDATION_BUILDER_CODE
+        self._builder_approved: bool = False
+        self._builder_max_fee_rate: Decimal = Decimal("0")
 
         super().__init__(balance_asset_limit=balance_asset_limit, rate_limits_share_pct=rate_limits_share_pct)
 
@@ -345,6 +351,10 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         rules = []
 
         for pair_info in exchange_info_dict.get("data", []):
+            # Pacifica lists spot instruments (e.g. "SOL-USDC") in the same market-info response;
+            # this connector only handles perpetuals.
+            if pair_info.get("instrument_type", "perpetual") != "perpetual":
+                continue
             rules.append(
                 TradingRule(
                     trading_pair=await self.trading_pair_associated_to_exchange_symbol(symbol=pair_info["symbol"]),
@@ -406,6 +416,10 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             data["type"] = "create_market_order"
             data["slippage_percent"] = CONSTANTS.MARKET_ORDER_MAX_SLIPPAGE
 
+        # Builder code (HGP-88): part of the signed payload (the auth layer signs the whole dict).
+        if self._should_inject_builder():
+            data["builder_code"] = self._builder_code
+
         response = await self._api_post(
             path_url=api_endpoint_url,
             data=data,
@@ -436,27 +450,34 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_balances(self):
         """
         https://docs.pacifica.fi/api-documentation/api/rest-api/account/get-account-info
+
+        Since the unified-margin rollout, account_equity and available_to_spend are computed
+        venue-side to include LTV-adjusted spot collateral and exclude spot order locks, so they
+        remain the correct totals for a perp connector.
         ```
         {
           "success": true,
-          "data": [{
+          "data": {
             "balance": "2000.000000",
             "fee_level": 0,
             "maker_fee": "0.00015",
             "taker_fee": "0.0004",
             "account_equity": "2150.250000",
+            "cross_account_equity": "2150.250000",
+            "spot_market_value": "0",
+            "spot_collateral": "0",
             "available_to_spend": "1800.750000",
             "available_to_withdraw": "1500.850000",
             "pending_balance": "0.000000",
+            "pending_interest": "0",
             "total_margin_used": "349.500000",
             "cross_mmr": "420.690000",
             "positions_count": 2,
             "orders_count": 3,
             "stop_orders_count": 1,
-            "updated_at": 1716200000000,
-            "use_ltp_for_stop_orders": false
-          }
-        ],
+            "spot_balances": [],
+            "updated_at": 1716200000000
+          },
           "error": null,
           "code": null
         }
@@ -488,7 +509,6 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances.clear()
         self._account_available_balances.clear()
 
-        self._account_balances[asset] = Decimal(str(data["account_equity"]))
         self._account_balances[asset] = Decimal(str(data["account_equity"]))
         self._account_available_balances[asset] = Decimal(str(data["available_to_spend"]))
         self._fee_tier = data.get("fee_level", 0)
@@ -651,8 +671,12 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         else:
             start_time = int(order.creation_timestamp * 1000)
 
-        current_time = self.current_timestamp
-        end_time = int(current_time * 1000)
+        # current_timestamp is the clock tick, floored to the whole second — a fill that happened
+        # later within the same second would fall outside the window. Use the wall clock plus a
+        # small buffer for venue clock skew instead; overlapping windows are safe because the
+        # order tracker dedups fills by trade_id.
+        current_time = time.time()
+        end_time = int((current_time + 2) * 1000)
 
         params = {
             "account": self.user_wallet_public_key,
@@ -838,31 +862,9 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_trading_fees(self):
         """
         https://docs.pacifica.fi/api-documentation/api/rest-api/account/get-account-info
-        ```
-        {
-          "success": true,
-          "data": [{
-            "balance": "2000.000000",
-            "fee_level": 0,
-            "maker_fee": "0.00015",
-            "taker_fee": "0.0004",
-            "account_equity": "2150.250000",
-            "available_to_spend": "1800.750000",
-            "available_to_withdraw": "1500.850000",
-            "pending_balance": "0.000000",
-            "total_margin_used": "349.500000",
-            "cross_mmr": "420.690000",
-            "positions_count": 2,
-            "orders_count": 3,
-            "stop_orders_count": 1,
-            "updated_at": 1716200000000,
-            "use_ltp_for_stop_orders": false
-          }
-        ],
-          "error": null,
-          "code": null
-        }
-        ```
+
+        See the _update_balances docstring for a full sample of the account-info response
+        (``data`` is a single object); only maker_fee / taker_fee are used here.
         """
         response = await self._api_get(
             path_url=CONSTANTS.GET_ACCOUNT_INFO_PATH_URL,
@@ -1023,6 +1025,8 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in exchange_info.get("data", []):
+            if symbol_data.get("instrument_type", "perpetual") != "perpetual":
+                continue
             exchange_symbol = symbol_data["symbol"]
             base = exchange_symbol
             quote = "USDC"
@@ -1112,6 +1116,25 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
             tracked_order = tracked_orders.get(exchange_order_id)
             if tracked_order:
                 order_status = CONSTANTS.ORDER_STATE[order_update_message["os"]]
+                if order_status in (OrderState.FILLED, OrderState.PARTIALLY_FILLED):
+                    # The account_trades WS channel has been observed (2026-07-17, live) not to
+                    # deliver the fill within the tracker's grace period, which completes the order
+                    # with zero amounts. If the fills known to the tracker don't cover the filled
+                    # amount this update reports ("f"), recover them via REST; when account_trades
+                    # already delivered, no request is made. Overlaps are deduped by trade_id.
+                    ws_filled_amount = order_update_message.get("f")
+                    needs_fills_fetch = True
+                    if ws_filled_amount is not None:
+                        needs_fills_fetch = tracked_order.executed_amount_base < Decimal(str(ws_filled_amount))
+                    if needs_fills_fetch:
+                        try:
+                            for trade_update in await self._all_trade_updates_for_order(tracked_order):
+                                self._order_tracker.process_trade_update(trade_update)
+                        except Exception:
+                            self.logger().exception(
+                                f"Could not fetch fills for order {tracked_order.client_order_id} after a "
+                                f"{order_status} update; relying on the account_trades stream."
+                            )
                 order_update = OrderUpdate(
                     trading_pair=tracked_order.trading_pair,
                     update_timestamp=order_update_message["ut"] / 1000,
@@ -1371,12 +1394,51 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
         """
         return round(fee_amount, 6)
 
+    # === Builder code support (HGP-88) ===
+
+    def _should_inject_builder(self) -> bool:
+        """Builder attribution applies only when the user has approved the Foundation builder code
+        on Pacifica — orders carrying an unapproved code are rejected by the venue (403)."""
+        return CONSTANTS.BUILDER_SUPPORTED and self._builder_approved
+
+    async def _initialize_builder_code(self) -> None:
+        """Resolve builder approval once at startup: inject the builder code only if it appears in
+        the user's approvals. Fails safe to no injection. The fee rate is registered venue-side by
+        the builder and capped by the user's approved max_fee_rate, so no fee is sent per order."""
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return
+        try:
+            response = await self._api_get(
+                path_url=CONSTANTS.GET_BUILDER_CODE_APPROVALS_PATH_URL,
+                params={"account": self.user_wallet_public_key},
+            )
+            approvals = {
+                str(entry["builder_code"]): Decimal(str(entry["max_fee_rate"]))
+                for entry in response.get("data") or []
+            }
+        except Exception:
+            self.logger().exception(
+                "Could not query approved Pacifica builder codes; omitting the builder code this session."
+            )
+            self._builder_approved = False
+            self._builder_max_fee_rate = Decimal("0")
+            return
+        max_fee_rate = approvals.get(self._builder_code)
+        if max_fee_rate is None:
+            self._builder_approved = False
+            self._builder_max_fee_rate = Decimal("0")
+            return
+        self._builder_approved = True
+        self._builder_max_fee_rate = max_fee_rate
+
     async def start_network(self):
         await self._fetch_or_create_api_config_key()
         # status polling is already started in super().start_network() -> _status_polling_loop()
         # but we need to ensure fee tier is fetched immediately
         # we call it before super() so that the rate limits are correctly set before the periodic loops start
         await self._update_balances()
+        if self._trading_required:
+            await self._initialize_builder_code()
         await super().start_network()
 
     async def get_all_pairs_prices(self) -> List[Dict[str, Any]]:
@@ -1431,8 +1493,13 @@ class PacificaPerpetualDerivative(PerpetualDerivativePyBase):
 
         results = []
         for price_data in response.get("data", []):
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=price_data["symbol"])
+            except KeyError:
+                # spot instruments are not in the perp symbol map
+                continue
             results.append({
-                "trading_pair": await self.trading_pair_associated_to_exchange_symbol(symbol=price_data["symbol"]),
+                "trading_pair": trading_pair,
                 "price": price_data["mark"]
             })
 

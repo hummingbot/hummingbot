@@ -5,6 +5,15 @@ EXCHANGE_NAME = "pacifica_perpetual"
 DEFAULT_DOMAIN = "pacifica_perpetual"
 HB_OT_ID_PREFIX = "HBOT"
 
+# === Builder code support (HGP-88) ===
+# Pacifica requires the user to pre-approve a builder code before it can be attached to any order
+# (orders carrying an unapproved code are rejected with 403). The connector therefore injects the
+# Foundation builder code only when it appears in the user's approvals; the approval itself is the
+# responsibility of the application UI layer — Hummingbot never calls the approve endpoint.
+# See PacificaPerpetualDerivative._initialize_builder_code.
+BUILDER_SUPPORTED = True
+FOUNDATION_BUILDER_CODE = "hummingbot"
+
 # Base URLs
 REST_URL = "https://api.pacifica.fi/api/v1"
 WSS_URL = "wss://ws.pacifica.fi/ws"
@@ -36,6 +45,7 @@ GET_ACCOUNT_API_CONFIG_KEYS = "/account/api_keys"
 CREATE_ACCOUNT_API_CONFIG_KEY = "/account/api_keys/create"
 GET_TRADE_HISTORY_PATH_URL = "/trades/history"
 GET_FEES_INFO_PATH_URL = "/info/fees"
+GET_BUILDER_CODE_APPROVALS_PATH_URL = "/account/builder_codes/approvals"
 
 # the API endpoints for market / limit / stop orders are different
 # the support for stop orders is out of the scope for this integration
@@ -121,6 +131,8 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
     RateLimit(limit_id=GET_FEES_INFO_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
               linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
+    RateLimit(limit_id=GET_BUILDER_CODE_APPROVALS_PATH_URL, limit=PACIFICA_TIER_1_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
+              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_1)]),
 ]
 
 RATE_LIMITS_TIER_2 = [
@@ -156,5 +168,7 @@ RATE_LIMITS_TIER_2 = [
     RateLimit(limit_id=GET_TRADE_HISTORY_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
               linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
     RateLimit(limit_id=GET_FEES_INFO_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
+              linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
+    RateLimit(limit_id=GET_BUILDER_CODE_APPROVALS_PATH_URL, limit=PACIFICA_TIER_2_LIMIT, time_interval=PACIFICA_LIMIT_INTERVAL,
               linked_limits=[LinkedLimitWeightPair(limit_id=PACIFICA_LIMIT_ID, weight=HEAVY_GET_REQUEST_COST_TIER_2)]),
 ]
