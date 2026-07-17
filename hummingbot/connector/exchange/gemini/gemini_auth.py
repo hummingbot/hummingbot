@@ -22,7 +22,7 @@ class GeminiAuth(AuthBase):
         self.secret_key = secret_key
         self.time_provider = time_provider
         self._last_nonce_us: int = 0
-        self._last_ws_nonce_ms: int = 0
+        self._last_ws_nonce_s: int = 0
         self._nonce_lock = threading.Lock()
         # Gemini compares nonces per API-key session. The exchange serializes every
         # authenticated REST dispatch and websocket handshake with this lock so nonce
@@ -122,18 +122,18 @@ class GeminiAuth(AuthBase):
         }
 
     def _get_ws_nonce(self) -> str:
-        """Return a strictly increasing integer millisecond nonce for WebSocket auth.
+        """Return a strictly increasing integer-second nonce for WebSocket auth.
 
-        Gemini REST time-based keys require seconds, but the Fast API WebSocket
-        authentication examples use integer millisecond nonces for the upgrade
-        headers. Keep this path separate so REST does not send millisecond
-        values while repeated WS reconnects still get unique nonces.
+        Gemini's crypto WebSocket authentication expects the nonce header to be
+        the current epoch timestamp in seconds. Keep this path separate from
+        REST because REST can safely use fractional seconds, while the websocket
+        handshake rejects non-integer formats on some accounts.
         """
         nonce_us = self._get_nonce_us()
         with self._nonce_lock:
-            nonce_ms = max(nonce_us // 1_000, self._last_ws_nonce_ms + 1)
-            self._last_ws_nonce_ms = nonce_ms
-        return str(nonce_ms)
+            nonce_s = max(nonce_us // 1_000_000, self._last_ws_nonce_s + 1)
+            self._last_ws_nonce_s = nonce_s
+        return str(nonce_s)
 
     def _get_nonce(self) -> float:
         """Return a strictly increasing time-based nonce expressed in epoch seconds.
