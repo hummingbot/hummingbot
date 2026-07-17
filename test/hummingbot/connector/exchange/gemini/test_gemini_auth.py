@@ -180,8 +180,8 @@ class GeminiAuthTests(TestCase):
         self.assertIn("X-GEMINI-SIGNATURE", configured_request.headers)
 
         self.assertEqual(self._api_key, configured_request.headers["X-GEMINI-APIKEY"])
-        self.assertEqual(f"{now:.6f}", configured_request.headers["X-GEMINI-NONCE"])
-        self.assertIn(".", configured_request.headers["X-GEMINI-NONCE"])
+        self.assertEqual(str(int(now * 1_000)), configured_request.headers["X-GEMINI-NONCE"])
+        self.assertNotIn(".", configured_request.headers["X-GEMINI-NONCE"])
 
         # Verify WS signature
         nonce = configured_request.headers["X-GEMINI-NONCE"]
@@ -206,5 +206,20 @@ class GeminiAuthTests(TestCase):
         self.assertIn("X-GEMINI-PAYLOAD", headers)
         self.assertIn("X-GEMINI-SIGNATURE", headers)
         self.assertEqual(self._api_key, headers["X-GEMINI-APIKEY"])
-        self.assertEqual(f"{now:.6f}", headers["X-GEMINI-NONCE"])
-        self.assertIn(".", headers["X-GEMINI-NONCE"])
+        self.assertEqual(str(int(now * 1_000)), headers["X-GEMINI-NONCE"])
+        self.assertNotIn(".", headers["X-GEMINI-NONCE"])
+
+    def test_ws_nonce_is_integer_milliseconds_and_unique_during_reconnect_burst(self):
+        now = 1234567890.000
+        mock_time_provider = MagicMock()
+        mock_time_provider.time.return_value = now
+
+        auth = GeminiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+        nonces = [auth.get_ws_auth_headers()["X-GEMINI-NONCE"] for _ in range(3)]
+
+        self.assertEqual(["1234567890000", "1234567890001", "1234567890002"], nonces)
+        self.assertTrue(all(nonce.isdigit() for nonce in nonces))
+
+        rest_nonce = auth._get_nonce()
+        self.assertIsInstance(rest_nonce, float)
+        self.assertAlmostEqual(now, rest_nonce, places=3)
