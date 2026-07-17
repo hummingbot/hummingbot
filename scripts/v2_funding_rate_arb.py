@@ -80,11 +80,15 @@ class FundingRateArbitrageConfig(StrategyV2ConfigBase):
 class FundingRateArbitrage(StrategyV2Base):
     quote_markets_map = {
         "hyperliquid_perpetual": "USD",
-        "binance_perpetual": "USDT"
+        "hyperliquid_perpetual_testnet": "USD",
+        "binance_perpetual": "USDT",
+        "binance_perpetual_testnet": "USDT",
     }
     funding_payment_interval_map = {
         "binance_perpetual": 60 * 60 * 8,
-        "hyperliquid_perpetual": 60 * 60 * 1
+        "binance_perpetual_testnet": 60 * 60 * 8,
+        "hyperliquid_perpetual": 60 * 60 * 1,
+        "hyperliquid_perpetual_testnet": 60 * 60 * 1,
     }
     funding_profitability_interval = 60 * 60 * 24
 
