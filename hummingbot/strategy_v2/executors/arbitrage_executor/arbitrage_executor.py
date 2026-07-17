@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from decimal import Decimal
 from typing import Dict, Union
 
@@ -86,6 +87,8 @@ class ArbitrageExecutor(ExecutorBase):
         self.quote_conversion_pair = f"{sell_quote_asset}-{buy_quote_asset}"
         self.rate_oracle = RateOracle.get_instance()
         self._cumulative_failures = 0
+        self._shutdown_start_time: float = 0
+        self._order_timeout: float = 120.0  # seconds before forcing FAILED on stale orders
 
     async def validate_sufficient_balance(self):
         base_asset_for_selling_exchange = self.connectors[self.selling_market.connector_name].get_available_balance(
@@ -174,6 +177,13 @@ class ArbitrageExecutor(ExecutorBase):
             if self._cumulative_failures > self._max_retries:
                 self.close_type = CloseType.FAILED
                 self.stop()
+            elif self._shutdown_start_time > 0 and (time.time() - self._shutdown_start_time) > self._order_timeout:
+                self.logger().warning(
+                    f"Arbitrage orders timed out after {self._order_timeout}s. "
+                    f"Buy filled: {self.buy_order.order.is_filled if self.buy_order.order else 'N/A'}, "
+                    f"Sell filled: {self.sell_order.order.is_filled if self.sell_order.order else 'N/A'}")
+                self.close_type = CloseType.FAILED
+                self.stop()
             else:
                 self.check_order_status()
 
@@ -186,9 +196,18 @@ class ArbitrageExecutor(ExecutorBase):
                 self.sell_order.order and self.sell_order.order.is_filled:
             self.close_type = CloseType.COMPLETED
             self.stop()
+        elif self.buy_order.order and self.buy_order.order.is_done and not self.buy_order.order.is_filled:
+            self.logger().warning("Buy order failed or was cancelled, marking arbitrage as failed.")
+            self.close_type = CloseType.FAILED
+            self.stop()
+        elif self.sell_order.order and self.sell_order.order.is_done and not self.sell_order.order.is_filled:
+            self.logger().warning("Sell order failed or was cancelled, marking arbitrage as failed.")
+            self.close_type = CloseType.FAILED
+            self.stop()
 
     async def execute_arbitrage(self):
         self._status = RunnableStatus.SHUTTING_DOWN
+        self._shutdown_start_time = time.time()
         self.place_buy_arbitrage_order()
         self.place_sell_arbitrage_order()
 
