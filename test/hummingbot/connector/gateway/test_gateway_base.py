@@ -331,5 +331,28 @@ class GatewayBaseEventOrderingTest(unittest.TestCase):
         )
 
 
+class GatewayBaseOrderSizeQuantumTest(unittest.TestCase):
+    """Tests for get_order_size_quantum's handling of tokens missing from the token list."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+        self.connector._amount_quantum_dict = {"SOL": Decimal("1e-9"), "USDC": Decimal("1e-6")}
+
+    def test_known_tokens_use_their_listed_quantum(self):
+        quantum = self.connector.get_order_size_quantum("SOL-USDC", Decimal("1"))
+        self.assertEqual(Decimal("1e-6"), quantum)  # max of SOL 1e-9 and USDC 1e-6
+
+    def test_unknown_base_token_falls_back_to_six_decimals(self):
+        # Memecoins are traded by mint address (symbols collide), so they don't appear in the
+        # symbol-keyed token dict. This used to raise KeyError and crash the order.
+        quantum = self.connector.get_order_size_quantum("PUMP-SOL", Decimal("1"))
+        self.assertEqual(Decimal("1e-6"), quantum)  # max of the 1e-6 fallback and SOL 1e-9
+
+    def test_both_tokens_unknown_falls_back_to_six_decimals(self):
+        quantum = self.connector.get_order_size_quantum("PUMP-WIF", Decimal("1"))
+        self.assertEqual(Decimal("1e-6"), quantum)
+
+
 if __name__ == "__main__":
     unittest.main()

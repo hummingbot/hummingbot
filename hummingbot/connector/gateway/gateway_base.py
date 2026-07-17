@@ -385,7 +385,13 @@ class GatewayBase(ConnectorBase):
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
-        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
+        # Memecoins are traded by mint address (symbols collide), so they aren't in
+        # the symbol-keyed token dict. Fall back to the SPL/pump.fun norm of 6
+        # decimals rather than KeyError-crashing the order.
+        default_quantum = Decimal("1e-6")
+        base_quantum = self._amount_quantum_dict.get(base, default_quantum)
+        quote_quantum = self._amount_quantum_dict.get(quote, default_quantum)
+        return max(base_quantum, quote_quantum)
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
