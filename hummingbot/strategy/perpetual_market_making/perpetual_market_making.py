@@ -115,6 +115,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
+        self._pending_cancel_order_ids = set()
         self._all_markets_ready = False
         self._logging_options = logging_options
         self._last_timestamp = 0
@@ -813,6 +814,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             proposal.sells[0].price = market.quantize_order_price(self.trading_pair, higher_sell_price)
 
     def did_fill_order(self, order_filled_event: OrderFilledEvent):
+        self._pending_cancel_order_ids.discard(order_filled_event.order_id)
         order_id = order_filled_event.order_id
         market_info = self._sb_order_tracker.get_shadow_market_pair_from_order_id(order_id)
 
@@ -826,6 +828,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 )
 
     def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
+        self._pending_cancel_order_ids.discard(order_completed_event.order_id)
         order_id = order_completed_event.order_id
         limit_order_record = self._sb_order_tracker.get_limit_order(self._market_info, order_id)
         if limit_order_record is None:
@@ -849,6 +852,7 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
         )
 
     def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
+        self._pending_cancel_order_ids.discard(order_completed_event.order_id)
         order_id = order_completed_event.order_id
         limit_order_record: LimitOrder = self._sb_order_tracker.get_limit_order(self._market_info, order_id)
         if limit_order_record is None:
@@ -919,6 +923,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
         if not to_defer_canceling:
             for order in self.active_orders:
+                if order.client_order_id in self._pending_cancel_order_ids:
+                    continue
+                self._pending_cancel_order_ids.add(order.client_order_id)
                 self.cancel_order(self._market_info, order.client_order_id)
                 self.logger().info(f"Canceling active order {order.client_order_id}.")
         else:
@@ -935,8 +942,10 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
                                    f" Canceling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
-                self.cancel_order(self._market_info, order.client_order_id)
-                self.logger().info(f"Canceling order {order.client_order_id} below min spread.")
+                if order.client_order_id not in self._pending_cancel_order_ids:
+                    self._pending_cancel_order_ids.add(order.client_order_id)
+                    self.cancel_order(self._market_info, order.client_order_id)
+                    self.logger().info(f"Canceling order {order.client_order_id} below min spread.")
 
     def to_create_orders(self, proposal: Proposal) -> bool:
         return (self._create_timestamp < self.current_timestamp and
