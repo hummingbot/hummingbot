@@ -354,5 +354,45 @@ class GatewayBaseOrderSizeQuantumTest(unittest.TestCase):
         self.assertEqual(Decimal("1e-6"), quantum)
 
 
+class GatewayBaseConnectorSettingsRegistrationTest(unittest.TestCase):
+    """A Gateway connector self-registers in AllConnectorSettings so it exists whether or
+    not the Gateway container / status monitor is running, without a 0.003-vs-0 fee mismatch."""
+
+    def tearDown(self) -> None:
+        from hummingbot.client.settings import AllConnectorSettings
+        AllConnectorSettings.get_connector_settings().pop("test_connector", None)
+        super().tearDown()
+
+    def test_construction_alone_does_not_register(self):
+        # Registration happens in start_network (after Gateway validates the name), not in
+        # __init__ — so an unstarted / invalid connector never pollutes AllConnectorSettings.
+        from hummingbot.client.settings import AllConnectorSettings
+        AllConnectorSettings.get_connector_settings().pop("test_connector", None)
+        MockGatewayConnector()
+        self.assertNotIn("test_connector", AllConnectorSettings.get_connector_settings())
+
+    def test_connector_registers_with_zero_fee_schema(self):
+        from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+        all_settings = AllConnectorSettings.get_connector_settings()
+        all_settings.pop("test_connector", None)
+
+        MockGatewayConnector()._ensure_registered_in_connector_settings()
+
+        self.assertIn("test_connector", all_settings)
+        cs = all_settings["test_connector"]
+        self.assertEqual(ConnectorType.GATEWAY_DEX, cs.type)
+        self.assertEqual(Decimal("0"), cs.trade_fee_schema.maker_percent_fee_decimal)
+        self.assertEqual(Decimal("0"), cs.trade_fee_schema.taker_percent_fee_decimal)
+
+    def test_registration_makes_build_trade_fee_not_raise(self):
+        # Without registration, build_trade_fee raises "does not exist in AllConnectorSettings".
+        from hummingbot.core.utils.estimate_fee import build_trade_fee
+        MockGatewayConnector()._ensure_registered_in_connector_settings()
+        fee = build_trade_fee(
+            "test_connector", False, "SOL", "USDC", OrderType.MARKET, TradeType.SELL, Decimal("1"), Decimal("1"),
+        )
+        self.assertEqual(Decimal("0"), fee.percent)
+
+
 if __name__ == "__main__":
     unittest.main()

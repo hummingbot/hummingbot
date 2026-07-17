@@ -306,10 +306,11 @@ class GatewayHttpClient:
                     centralised=False,
                     example_pair="ETH-USDC",
                     use_ethereum_wallet=False,  # Gateway handles wallet internally
-                    trade_fee_schema=TradeFeeSchema(
-                        maker_percent_fee_decimal=Decimal("0.003"),
-                        taker_percent_fee_decimal=Decimal("0.003"),
-                    ),
+                    # Zero schema to match GatewayBase.trade_fee_schema(): Gateway reports
+                    # actual swap/gas fees per fill via flat_fees in events, so there is no
+                    # percent schema to assume here (and self-registration on the connector
+                    # uses the same zero schema — keep the two in sync).
+                    trade_fee_schema=TradeFeeSchema(),
                     config_keys=None,
                     is_sub_domain=False,
                     parent_name=None,
