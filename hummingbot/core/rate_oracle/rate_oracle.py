@@ -19,6 +19,7 @@ from hummingbot.core.rate_oracle.sources.backpack_rate_source import BackpackRat
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
 from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRateSource
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
+from hummingbot.core.rate_oracle.sources.coin_paprika_rate_source import CoinPaprikaRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
 from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 from hummingbot.core.rate_oracle.sources.decibel_perpetual_rate_source import DecibelPerpetualRateSource
@@ -41,7 +42,8 @@ RATE_ORACLE_SOURCES = {
     "backpack": BackpackRateSource,
     "binance": BinanceRateSource,
     "coin_gecko": CoinGeckoRateSource,
-    "coin_cap": CoinCapRateSource,
+    "coin_cap": CoinCapRateSource,  # DEPRECATED: the CoinCap v2 API host no longer resolves
+    "coin_paprika": CoinPaprikaRateSource,
     "kucoin": KucoinRateSource,
     "ascend_ex": AscendExRateSource,
     "gate_io": GateIoRateSource,

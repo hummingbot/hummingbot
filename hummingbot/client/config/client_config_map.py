@@ -636,6 +636,14 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         return self
 
 
+class CoinPaprikaRateSourceMode(RateSourceModeBase):
+    name: str = Field(default="coin_paprika")
+    model_config = ConfigDict(title="coin_paprika")
+
+    def build_rate_source(self) -> RateSourceBase:
+        return RATE_ORACLE_SOURCES[self.model_config["title"]]()
+
+
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="kucoin")
     model_config = ConfigDict(title="kucoin")
@@ -754,6 +762,7 @@ RATE_SOURCE_MODES = {
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
+    CoinPaprikaRateSourceMode.model_config["title"]: CoinPaprikaRateSourceMode,
     DexalotRateSourceMode.model_config["title"]: DexalotRateSourceMode,
     EvedexPerpetualRateSourceMode.model_config["title"]: EvedexPerpetualRateSourceMode,
     DecibelPerpetualRateSourceMode.model_config["title"]: DecibelPerpetualRateSourceMode,
