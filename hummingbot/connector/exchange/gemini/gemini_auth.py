@@ -3,7 +3,6 @@ import base64
 import hashlib
 import hmac
 import json
-import math
 import threading
 import time
 from typing import Any, Dict, Optional
@@ -13,12 +12,15 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
+NONCE_DRIFT_RESET_MS = 15_000
+
+
 class GeminiAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str, time_provider: Optional[TimeSynchronizer] = None):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self._last_nonce: float = 0.0
+        self._last_nonce: int = 0
         self._nonce_lock = threading.Lock()
         # Gemini compares nonces per API-key session. The exchange serializes every
         # authenticated REST dispatch and websocket handshake with this lock so nonce
@@ -118,23 +120,21 @@ class GeminiAuth(AuthBase):
         }
 
     @staticmethod
-    def _format_nonce(nonce: float) -> str:
-        # Nine fractional digits preserve every representable increment around Unix
-        # epoch seconds while avoiding scientific notation in handshake headers.
-        return f"{nonce:.9f}".rstrip("0").rstrip(".")
+    def _format_nonce(nonce: int) -> str:
+        return str(nonce)
 
-    def _get_nonce(self) -> float:
-        """Return a strictly increasing time-based nonce expressed in epoch seconds.
+    def _get_nonce(self) -> int:
+        """Return a strictly increasing time-based nonce expressed in epoch milliseconds.
 
         Gemini's authenticated websocket requires a time-based account key, and the
-        same key is used for REST fallback. ``nextafter`` gives overlapping calls a
-        unique value without advancing the nonce by whole seconds and eventually
-        leaving Gemini's allowed server-time window.
+        same key is used for REST fallback. The synchronizer feeds this timestamp,
+        so InvalidNonce time resyncs can move the base clock down; the drift reset
+        prevents a previously poisoned high nonce from pinning retries out of range.
         """
-        timestamp = float(self.time_provider.time() if self.time_provider is not None else time.time())
+        timestamp_ms = int((self.time_provider.time() if self.time_provider is not None else time.time()) * 1e3)
         with self._nonce_lock:
-            nonce = timestamp
-            if nonce <= self._last_nonce:
-                nonce = math.nextafter(self._last_nonce, math.inf)
+            if self._last_nonce > timestamp_ms + NONCE_DRIFT_RESET_MS:
+                self._last_nonce = timestamp_ms - 1
+            nonce = max(timestamp_ms, self._last_nonce + 1)
             self._last_nonce = nonce
             return nonce

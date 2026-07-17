@@ -922,6 +922,55 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("OID-BUY-1", position_executor._held_position_orders[0]["client_order_id"])
         self.assertEqual("0.4", position_executor._held_position_orders[0]["executed_amount_base"])
 
+    def test_force_stop_with_position_hold_cancels_and_refreshes_close_order(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._close_order = TrackedOrder("OID-SELL-1")
+        stale_close_order = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID-CLOSE",
+            trading_pair=position_config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN,
+        )
+        fresh_close_order = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID-CLOSE",
+            trading_pair=position_config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.OPEN,
+        )
+        fresh_close_order.update_with_trade_update(TradeUpdate(
+            trade_id="close-fill-1",
+            client_order_id="OID-SELL-1",
+            exchange_order_id="EOID-CLOSE",
+            trading_pair=position_config.trading_pair,
+            fill_price=position_config.entry_price,
+            fill_base_amount=Decimal("0.3"),
+            fill_quote_amount=Decimal("30"),
+            fee=AddedToCostTradeFee(flat_fees=[
+                TokenAmount(token="USDT", amount=Decimal("0"))]),
+            fill_timestamp=10,
+        ))
+        position_executor._close_order.order = stale_close_order
+        self.strategy.connectors["binance"]._order_tracker.fetch_order.return_value = fresh_close_order
+
+        position_executor.force_stop_with_position_hold()
+
+        self.strategy.cancel.assert_called_once_with(
+            connector_name="binance", trading_pair="ETH-USDT", order_id="OID-SELL-1")
+        self.assertEqual(1, len(position_executor._held_position_orders))
+        self.assertEqual("OID-SELL-1", position_executor._held_position_orders[0]["client_order_id"])
+        self.assertEqual("0.3", position_executor._held_position_orders[0]["executed_amount_base"])
+
     def test_force_stop_without_execution_is_failed(self):
         position_executor = self.get_position_executor_running_from_config(
             self.get_position_config_market_long())

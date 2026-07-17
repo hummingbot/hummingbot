@@ -36,6 +36,9 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._api_factory = api_factory
         self._snapshot_symbols: Set[str] = set()
         self._last_update_ids: Dict[str, int] = {}
+        self._subscription_ack_futures: Dict[str, asyncio.Future] = {}
+        self._dynamic_snapshot_futures: Dict[str, asyncio.Future] = {}
+        self._pending_dynamic_snapshots: Dict[str, Dict[str, Any]] = {}
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
@@ -54,6 +57,7 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         data = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_PATH_URL.format(symbol)),
             method=RESTMethod.GET,
+            params={"limit_bids": 0, "limit_asks": 0},
             throttler_limit_id=CONSTANTS.ORDER_BOOK_PATH_URL,
         )
 
@@ -115,13 +119,18 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = GeminiOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            snapshot_timestamp,
-            metadata={"trading_pair": trading_pair}
-        )
+        symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        pending_snapshot = self._pending_dynamic_snapshots.pop(symbol.lower(), None)
+        if pending_snapshot is not None:
+            snapshot_msg = await self._snapshot_message_from_depth_update(pending_snapshot, snapshot_timestamp)
+        else:
+            snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+            snapshot_msg: OrderBookMessage = GeminiOrderBook.snapshot_message_from_exchange(
+                snapshot,
+                snapshot_timestamp,
+                metadata={"trading_pair": trading_pair}
+            )
         return snapshot_msg
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -166,23 +175,31 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_queue.put_nowait(order_book_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        snapshot_message = await self._snapshot_message_from_depth_update(raw_message)
+        message_queue.put_nowait(snapshot_message)
+
+    async def _snapshot_message_from_depth_update(
+            self,
+            raw_message: Dict[str, Any],
+            timestamp: Optional[float] = None) -> OrderBookMessage:
         symbol = raw_message["s"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=symbol)
-        timestamp = CONSTANTS.convert_timestamp_to_seconds(raw_message.get("E", 0)) or time.time()
+        timestamp = timestamp or CONSTANTS.convert_timestamp_to_seconds(raw_message.get("E", 0)) or time.time()
         snapshot = {
             "lastUpdateId": int(raw_message["u"]),
             "bids": raw_message.get("b", []),
             "asks": raw_message.get("a", []),
         }
-        snapshot_message = GeminiOrderBook.snapshot_message_from_exchange(
+        return GeminiOrderBook.snapshot_message_from_exchange(
             snapshot,
             timestamp,
             {"trading_pair": trading_pair},
         )
-        message_queue.put_nowait(snapshot_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
+        if self._resolve_subscription_ack(event_message):
+            return channel
         if "result" not in event_message:
             event_type = event_message.get("e")
             if event_type == CONSTANTS.WS_EVENT_DEPTH_UPDATE:
@@ -192,7 +209,13 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if symbol not in self._snapshot_symbols:
                     self._snapshot_symbols.add(symbol)
                     self._last_update_ids[symbol] = last_update_id
-                    channel = self._snapshot_messages_queue_key
+                    snapshot_future = self._dynamic_snapshot_futures.get(symbol)
+                    if snapshot_future is not None:
+                        self._pending_dynamic_snapshots[symbol] = dict(event_message)
+                        if not snapshot_future.done():
+                            snapshot_future.set_result(dict(event_message))
+                    else:
+                        channel = self._snapshot_messages_queue_key
                 else:
                     previous_update_id = self._last_update_ids[symbol]
                     if last_update_id <= previous_update_id:
@@ -210,14 +233,42 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 channel = self._trade_messages_queue_key
         return channel
 
+    def _resolve_subscription_ack(self, event_message: Dict[str, Any]) -> bool:
+        request_id = event_message.get("id")
+        if request_id is None or not any(key in event_message for key in ("result", "status", "error")):
+            return False
+        future = self._subscription_ack_futures.get(str(request_id))
+        if future is not None and not future.done():
+            future.set_result(dict(event_message))
+        return True
+
+    @staticmethod
+    def _is_successful_subscription_ack(ack: Dict[str, Any]) -> bool:
+        status = ack.get("status")
+        return status in (None, 200) and "error" not in ack
+
+    async def _send_subscription_request_and_wait_for_ack(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        request_id = str(payload["id"])
+        future = asyncio.get_event_loop().create_future()
+        self._subscription_ack_futures[request_id] = future
+        try:
+            await self._ws_assistant.send(WSJSONRequest(payload=payload))
+            return await asyncio.wait_for(future, timeout=CONSTANTS.WS_SUBSCRIPTION_REQUEST_TIMEOUT)
+        finally:
+            self._subscription_ack_futures.pop(request_id, None)
+
     async def subscribe_to_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
             self.logger().warning(f"Cannot subscribe to {trading_pair}: WebSocket not connected")
             return False
+        subscribed = False
         try:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             self._snapshot_symbols.discard(symbol.lower())
             self._last_update_ids.pop(symbol.lower(), None)
+            self._pending_dynamic_snapshots.pop(symbol.lower(), None)
+            snapshot_future = asyncio.get_event_loop().create_future()
+            self._dynamic_snapshot_futures[symbol.lower()] = snapshot_future
             payload = {
                 "id": str(self._get_next_subscribe_id()),
                 "method": CONSTANTS.WS_METHOD_SUBSCRIBE,
@@ -226,16 +277,30 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     CONSTANTS.WS_DEPTH_STREAM.format(symbol),
                 ]
             }
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
-            await self._ws_assistant.send(subscribe_request)
+            ack = await self._send_subscription_request_and_wait_for_ack(payload)
+            if not self._is_successful_subscription_ack(ack or {}):
+                self.logger().warning(f"Subscription to {trading_pair} failed: {ack}")
+                return False
+            await asyncio.wait_for(snapshot_future, timeout=CONSTANTS.WS_DYNAMIC_SNAPSHOT_TIMEOUT)
             self.add_trading_pair(trading_pair)
+            subscribed = True
             self.logger().info(f"Subscribed to {trading_pair} order book and trade channels")
             return True
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().warning(f"Timed out subscribing to {trading_pair} channels")
+            return False
         except Exception:
             self.logger().exception(f"Unexpected error subscribing to {trading_pair} channels")
             return False
+        finally:
+            if "symbol" in locals():
+                self._dynamic_snapshot_futures.pop(symbol.lower(), None)
+                if not subscribed:
+                    self._snapshot_symbols.discard(symbol.lower())
+                    self._last_update_ids.pop(symbol.lower(), None)
+                    self._pending_dynamic_snapshots.pop(symbol.lower(), None)
 
     async def unsubscribe_from_trading_pair(self, trading_pair: str) -> bool:
         if self._ws_assistant is None:
@@ -251,15 +316,21 @@ class GeminiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     CONSTANTS.WS_DEPTH_STREAM.format(symbol),
                 ]
             }
-            unsubscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
-            await self._ws_assistant.send(unsubscribe_request)
+            ack = await self._send_subscription_request_and_wait_for_ack(payload)
+            if not self._is_successful_subscription_ack(ack or {}):
+                self.logger().warning(f"Unsubscription from {trading_pair} failed: {ack}")
+                return False
             self.remove_trading_pair(trading_pair)
             self._snapshot_symbols.discard(symbol.lower())
             self._last_update_ids.pop(symbol.lower(), None)
+            self._pending_dynamic_snapshots.pop(symbol.lower(), None)
             self.logger().info(f"Unsubscribed from {trading_pair} order book and trade channels")
             return True
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().warning(f"Timed out unsubscribing from {trading_pair} channels")
+            return False
         except Exception:
             self.logger().exception(f"Unexpected error unsubscribing from {trading_pair} channels")
             return False

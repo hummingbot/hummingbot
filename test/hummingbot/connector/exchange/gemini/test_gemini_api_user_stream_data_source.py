@@ -11,6 +11,26 @@ from hummingbot.connector.exchange.gemini.gemini_exchange import GeminiExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 
 
+class _UserStreamAckWS:
+    def __init__(self, acks):
+        self.acks = list(acks)
+        self.sent_payloads = []
+
+    async def send(self, request):
+        self.sent_payloads.append(request.payload)
+
+    async def iter_messages(self):
+        if self.acks:
+            yield MagicMock(data=self.acks.pop(0))
+
+
+class _HangingUserStreamAckWS(_UserStreamAckWS):
+    async def iter_messages(self):
+        await asyncio.Event().wait()
+        if False:
+            yield None
+
+
 class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     level = 0
 
@@ -67,10 +87,12 @@ class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(self._is_logged("INFO", "Successfully connected to authenticated user stream"))
 
     async def test_subscribe_channels_sends_order_and_balance_requests(self):
-        mock_ws = MagicMock()
-        mock_ws.send = AsyncMock()
+        mock_ws = _UserStreamAckWS([
+            {"id": "user_orders", "status": 200, "result": {}},
+            {"id": "user_balances", "status": 200, "result": {}},
+        ])
         await self.data_source._subscribe_channels(mock_ws)
-        self.assertEqual(2, mock_ws.send.await_count)
+        self.assertEqual(2, len(mock_ws.sent_payloads))
         self.assertTrue(self._is_logged(
             "INFO", "Subscribed to user order events and balance update channels..."))
 
@@ -88,6 +110,27 @@ class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(self._is_logged(
             "ERROR", "Unexpected error occurred subscribing to user stream channels..."))
 
+    async def test_subscribe_channels_raises_on_error_ack(self):
+        mock_ws = _UserStreamAckWS([
+            {"id": "user_orders", "status": 401, "error": {"msg": "auth failed"}},
+        ])
+
+        with self.assertRaises(IOError):
+            await self.data_source._subscribe_channels(mock_ws)
+
+        self.assertEqual(1, len(mock_ws.sent_payloads))
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error occurred subscribing to user stream channels..."))
+
+    async def test_subscribe_channels_raises_on_ack_timeout(self):
+        mock_ws = _HangingUserStreamAckWS([])
+
+        with patch.object(CONSTANTS, "WS_SUBSCRIPTION_REQUEST_TIMEOUT", 0.01):
+            with self.assertRaises(IOError):
+                await self.data_source._subscribe_channels(mock_ws)
+
+        self.assertEqual(1, len(mock_ws.sent_payloads))
+
     async def test_on_user_stream_interruption_disconnects(self):
         mock_ws = MagicMock()
         mock_ws.disconnect = AsyncMock()
@@ -101,9 +144,11 @@ class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_subscribe_channel_constants(self, ws_connect_mock):
-        mock_ws = MagicMock()
-        mock_ws.send = AsyncMock()
+        mock_ws = _UserStreamAckWS([
+            {"id": "user_orders", "status": 200, "result": {}},
+            {"id": "user_balances", "status": 200, "result": {}},
+        ])
         await self.data_source._subscribe_channels(mock_ws)
-        sent_payloads = [call.args[0].payload for call in mock_ws.send.await_args_list]
+        sent_payloads = mock_ws.sent_payloads
         self.assertEqual([CONSTANTS.WS_ORDER_EVENTS_STREAM], sent_payloads[0]["params"])
         self.assertEqual([CONSTANTS.WS_BALANCE_STREAM], sent_payloads[1]["params"])

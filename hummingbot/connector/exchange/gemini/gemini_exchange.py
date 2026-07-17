@@ -251,7 +251,16 @@ class GeminiExchange(ExchangePyBase):
             self.logger().warning(
                 f"No response to the websocket placement of order {order_id} ({ws_error}). "
                 f"Reconciling over REST before retrying.")
-            order_status = await self._get_order_via_rest_by_client_id(order_id)
+            order_status = await self._get_order_via_rest_by_client_id(
+                order_id,
+                order_match=self._build_order_match(
+                    order_id=order_id,
+                    symbol=symbol,
+                    amount=amount,
+                    trade_type=trade_type,
+                    order_type=order_type,
+                    price=price,
+                ))
             if order_status is not None:
                 return str(order_status["order_id"]), order_status.get("timestampms", 0) * 1e-3
             # The exchange has no order with this client id — safe to place over REST.
@@ -300,6 +309,14 @@ class GeminiExchange(ExchangePyBase):
                     self._order_tracker.process_trade_update(trade_update)
 
             authoritative_state = self._order_state_from_status(authoritative_status)
+            if (authoritative_state in {OrderState.CANCELED, OrderState.FILLED}
+                    and executed_amount > order.executed_amount_base):
+                self.logger().warning(
+                    f"Gemini reports order {order.client_order_id} as {authoritative_state.name} "
+                    f"with executed amount {executed_amount}, but only "
+                    f"{order.executed_amount_base} has been reconciled locally. "
+                    f"Deferring the terminal state until fills are recovered.")
+                return exchange_order_id
             # Never allow a lagging placement response to regress a terminal stream update.
             # ``is_done`` also becomes true when fills reach the requested amount, even
             # while the state is still OPEN, so use the explicit state here to ensure the
@@ -346,6 +363,14 @@ class GeminiExchange(ExchangePyBase):
             throttler_limit_id=CONSTANTS.WS_ORDER_PLACE_LIMIT_ID)
         self._raise_for_ws_error(response)
         transact_time = self._time()
+        order_match = self._build_order_match(
+            order_id=order_id,
+            symbol=symbol,
+            amount=amount,
+            trade_type=trade_type,
+            order_type=order_type,
+            price=price,
+        )
 
         # Per Gemini engineering, the order.place ack intentionally carries no order
         # payload and is NOT proof of placement — the orders@account order event is the
@@ -353,11 +378,14 @@ class GeminiExchange(ExchangePyBase):
         # resolve the id from the order event, with REST status as the backstop.
         exchange_order_id = self._extract_exchange_order_id(response.get("result"))
         if exchange_order_id is None:
-            exchange_order_id = await self._resolve_acked_order_exchange_id(order_id)
+            exchange_order_id = await self._resolve_acked_order_exchange_id(order_id, order_match=order_match)
 
         return str(exchange_order_id), transact_time
 
-    async def _resolve_acked_order_exchange_id(self, order_id: str) -> str:
+    async def _resolve_acked_order_exchange_id(
+            self,
+            order_id: str,
+            order_match: Optional[Callable[[Dict[str, Any]], bool]] = None) -> str:
         """Resolves the exchange order id after an order.place ack. Primary source: the
         orders@account order event on the user stream (it carries the id in "i").
         Backstop if the user stream lags: REST order status by client order id.
@@ -377,7 +405,7 @@ class GeminiExchange(ExchangePyBase):
                 pass  # user stream lagging or reconnecting — reconcile over REST below
 
         try:
-            order_status = await self._get_order_via_rest_by_client_id(order_id)
+            order_status = await self._get_order_via_rest_by_client_id(order_id, order_match=order_match)
         except asyncio.CancelledError:
             raise
         except Exception as status_error:
@@ -429,6 +457,45 @@ class GeminiExchange(ExchangePyBase):
             if order_match is None or order_match(row):
                 return row
         return None
+
+    @staticmethod
+    def _build_order_match(
+            order_id: str,
+            symbol: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal) -> Callable[[Dict[str, Any]], bool]:
+        expected_side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
+        expected_options = []
+        if order_type is OrderType.LIMIT_MAKER:
+            expected_options = [CONSTANTS.ORDER_OPTION_MAKER_OR_CANCEL]
+        elif order_type is OrderType.MARKET:
+            expected_options = [CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL]
+
+        def order_matches(order_status: Dict[str, Any]) -> bool:
+            options = order_status.get("options", [])
+            if isinstance(options, str):
+                options = [options]
+            try:
+                immutable_fields_match = (
+                    str(order_status["client_order_id"]) == order_id
+                    and str(order_status["symbol"]).lower() == symbol.lower()
+                    and str(order_status["side"]).lower() == expected_side
+                    and str(order_status["type"]).lower() == CONSTANTS.ORDER_TYPE_LIMIT
+                    and Decimal(str(order_status["original_amount"])) == amount
+                    and Decimal(str(order_status["price"])) == price
+                )
+            except (KeyError, TypeError, ValueError, ArithmeticError):
+                return False
+            if not immutable_fields_match:
+                return False
+            if expected_options:
+                return all(option in options for option in expected_options)
+            return (CONSTANTS.ORDER_OPTION_MAKER_OR_CANCEL not in options
+                    and CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL not in options)
+
+        return order_matches
 
     def _market_order_price(self,
                             trading_pair: str,
@@ -616,27 +683,17 @@ class GeminiExchange(ExchangePyBase):
         the immutable placement fields before restoring exchange state. Reconciliation errors
         are swallowed so the original placement error remains the one surfaced to callers.
         """
-        expected_side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-
-        def order_matches(order_status: Dict[str, Any]) -> bool:
-            options = order_status.get("options", [])
-            if isinstance(options, str):
-                options = [options]
-            try:
-                return (
-                    str(order_status["client_order_id"]) == order_id
-                    and str(order_status["symbol"]).lower() == symbol.lower()
-                    and str(order_status["side"]).lower() == expected_side
-                    and str(order_status["type"]).lower() == CONSTANTS.ORDER_TYPE_LIMIT
-                    and Decimal(str(order_status["original_amount"])) == amount
-                    and Decimal(str(order_status["price"])) == price
-                    and CONSTANTS.ORDER_OPTION_IMMEDIATE_OR_CANCEL in options
-                )
-            except (KeyError, TypeError, ValueError, ArithmeticError):
-                return False
-
         try:
-            order_status = await self._get_order_via_rest_by_client_id(order_id, order_match=order_matches)
+            order_status = await self._get_order_via_rest_by_client_id(
+                order_id,
+                order_match=self._build_order_match(
+                    order_id=order_id,
+                    symbol=symbol,
+                    amount=amount,
+                    trade_type=trade_type,
+                    order_type=OrderType.MARKET,
+                    price=price,
+                ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -1025,19 +1082,24 @@ class GeminiExchange(ExchangePyBase):
 
                     # Process order status update
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                    if tracked_order is not None and order_status in CONSTANTS.ORDER_STATE:
-                        new_state = CONSTANTS.ORDER_STATE[order_status]
-                        if order_status == "CANCELED" and tracked_order.is_filled:
-                            new_state = OrderState.FILLED
-                        order_update = OrderUpdate(
-                            trading_pair=tracked_order.trading_pair,
-                            update_timestamp=CONSTANTS.convert_timestamp_to_seconds(
-                                event_message.get("E", 0)),
-                            new_state=new_state,
-                            client_order_id=client_order_id,
-                            exchange_order_id=str(event_message.get("i", "")),
-                        )
-                        self._order_tracker.process_order_update(order_update=order_update)
+                    if tracked_order is not None:
+                        if order_status in CONSTANTS.ORDER_STATE:
+                            new_state = CONSTANTS.ORDER_STATE[order_status]
+                            if order_status == "CANCELED" and tracked_order.is_filled:
+                                new_state = OrderState.FILLED
+                            order_update = OrderUpdate(
+                                trading_pair=tracked_order.trading_pair,
+                                update_timestamp=CONSTANTS.convert_timestamp_to_seconds(
+                                    event_message.get("E", 0)),
+                                new_state=new_state,
+                                client_order_id=client_order_id,
+                                exchange_order_id=str(event_message.get("i", "")),
+                            )
+                            self._order_tracker.process_order_update(order_update=order_update)
+                        else:
+                            self.logger().warning(
+                                f"Ignoring unknown Gemini order status {order_status} "
+                                f"for order {client_order_id}.")
 
                 elif event_type == CONSTANTS.WS_EVENT_BALANCE_UPDATE:
                     # Balance update: {"e": "balanceUpdate",
