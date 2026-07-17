@@ -18,7 +18,7 @@ class GateioPerpetualCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
-        self.quanto_multiplier = None
+        self.quanto_multiplier = 1
 
     @property
     def name(self):
