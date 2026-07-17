@@ -69,6 +69,8 @@ QUERY_ALL_ORDER_PATH_URL = f"{REST_API_VERSION}/orders"
 # Margin mode is read per symbol from API v2 (the connector follows the user's setting)
 GET_MARGIN_MODE_PATH_URL = "api/v2/position/getMarginMode?symbol={symbol}"
 
+CHANGE_POSITION_MODE_PATH_URL = f"{REST_API_VERSION}/position/changeMode"
+
 # Websocket
 PUBLIC_WS_DATA_PATH_URL = f"{REST_API_VERSION}/bullet-public"
 PRIVATE_WS_DATA_PATH_URL = f"{REST_API_VERSION}/bullet-private"
@@ -139,4 +141,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RISK_LIMIT_LEVEL_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_MARGIN_MODE_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=CHANGE_POSITION_MODE_PATH_URL, limit=9, time_interval=3),
 ]
