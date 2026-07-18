@@ -86,6 +86,7 @@ class ArbitrageExecutor(ExecutorBase):
         self.quote_conversion_pair = f"{sell_quote_asset}-{buy_quote_asset}"
         self.rate_oracle = RateOracle.get_instance()
         self._cumulative_failures = 0
+        self._exec_start_timestamp = None
 
     async def validate_sufficient_balance(self):
         base_asset_for_selling_exchange = self.connectors[self.selling_market.connector_name].get_available_balance(
@@ -186,9 +187,18 @@ class ArbitrageExecutor(ExecutorBase):
                 self.sell_order.order and self.sell_order.order.is_filled:
             self.close_type = CloseType.COMPLETED
             self.stop()
+        elif self._exec_start_timestamp is not None:
+            elapsed = self._strategy.current_timestamp - self._exec_start_timestamp
+            if elapsed > self.config.max_exec_duration:
+                self.logger().warning(
+                    f"Arbitrage timed out after {elapsed:.1f}s "
+                    f"(limit: {self.config.max_exec_duration}s)")
+                self.close_type = CloseType.TIME_LIMIT
+                self.stop()
 
     async def execute_arbitrage(self):
         self._status = RunnableStatus.SHUTTING_DOWN
+        self._exec_start_timestamp = self._strategy.current_timestamp
         self.place_buy_arbitrage_order()
         self.place_sell_arbitrage_order()
 
