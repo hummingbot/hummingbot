@@ -49,6 +49,10 @@ ORDER_STATE = {
     "FAILED": OrderState.FAILED,
 }
 
+# Error codes (verified from ccxt bingx mapping)
+ORDER_NOT_EXIST_ERROR_CODES = ["80016", "80017"]
+ORDER_NOT_EXIST_MESSAGE = "order not found"
+
 # Rate Limit Type
 REQUEST_GET = "GET"
 REQUEST_GET_BURST = "GET_BURST"
