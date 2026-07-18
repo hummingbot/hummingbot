@@ -446,7 +446,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 )
 
                 self._order_tracker.process_order_update(order_update)
-                self._schedule_balance_refresh()
+
+                # Gate balance refresh to states that change available margin:
+                # NEW (margin reserved), CANCELED/EXPIRED (margin freed)
+                # FILLED is handled by ACCOUNT_UPDATE which already updates balances
+                order_status = order_message.get("X")
+                if order_status in ("NEW", "CANCELED", "EXPIRED"):
+                    self._schedule_balance_refresh()
 
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
