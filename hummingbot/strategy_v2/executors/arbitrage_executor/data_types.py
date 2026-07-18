@@ -11,3 +11,4 @@ class ArbitrageExecutorConfig(ExecutorConfigBase):
     order_amount: Decimal
     min_profitability: Decimal
     gas_conversion_price: Optional[Decimal] = None
+    max_exec_duration: float = 120.0
