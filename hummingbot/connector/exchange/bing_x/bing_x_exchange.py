@@ -118,18 +118,14 @@ class BingXExchange(ExchangePyBase):
         # return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        error_str = str(status_update_exception)
+        return (any(code in error_str for code in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES)
+                and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in error_str.lower())
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        error_str = str(cancelation_exception)
+        return (any(code in error_str for code in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES)
+                and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in error_str.lower())
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -249,9 +245,7 @@ class BingXExchange(ExchangePyBase):
 
             return True
         else:
-            await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-
-            return False
+        return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -553,6 +547,9 @@ class BingXExchange(ExchangePyBase):
                     headers=local_headers,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
+                if isinstance(request_result, dict) and request_result.get("code", 0) != 0:
+                    error_msg = request_result.get("msg", "")
+                    raise IOError(f"BingX API error: code={request_result['code']}, msg={error_msg}")
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
