@@ -28,7 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -382,6 +382,19 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
                 await self._sleep(5.0)
 
+    def _schedule_balance_refresh(self):
+        if not self._balance_refresh_pending:
+            self._balance_refresh_pending = True
+            safe_ensure_future(self._refresh_balance_and_clear_flag())
+
+    async def _refresh_balance_and_clear_flag(self):
+        try:
+            await self._update_balances()
+        except Exception:
+            self.logger().error("Error refreshing balance from user stream", exc_info=True)
+        finally:
+            self._balance_refresh_pending = False
+
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
         event_type = event_message.get("e")
         if event_type == "ORDER_TRADE_UPDATE":
@@ -433,6 +446,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 )
 
                 self._order_tracker.process_order_update(order_update)
+                self._schedule_balance_refresh()
 
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
