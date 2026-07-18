@@ -125,8 +125,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
-        # KuCoin only supports ONEWAY mode for all perpetuals, no hedge mode
-        return [PositionMode.ONEWAY]
+        # KuCoin supports both ONEWAY and HEDGE position modes
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
@@ -151,7 +151,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
-        self.set_position_mode(PositionMode.ONEWAY)
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
@@ -192,7 +191,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "size": self.get_quantity_of_contracts(trading_pair, amount),
             "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
-            "reduceOnly": position_action == PositionAction.CLOSE,
             "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
             # Match the symbol's selected margin mode (read from KuCoin and cached at leverage
@@ -200,6 +198,14 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             # explicitly for a CROSS symbol; a mismatch is rejected at runtime (error 330005).
             "marginMode": self._margin_modes.get(trading_pair, CONSTANTS.DEFAULT_MARGIN_MODE),
         }
+        # In hedge mode, use positionSide instead of reduceOnly
+        if self._position_mode == PositionMode.HEDGE:
+            position_side = "long" if trade_type is TradeType.BUY else "short"
+            if position_action == PositionAction.CLOSE:
+                position_side = "short" if trade_type is TradeType.BUY else "long"
+            data["positionSide"] = position_side
+        else:
+            data["reduceOnly"] = position_action == PositionAction.CLOSE
         if order_type.is_limit_type():
             data["price"] = float(price)
             if order_type is OrderType.LIMIT_MAKER:
