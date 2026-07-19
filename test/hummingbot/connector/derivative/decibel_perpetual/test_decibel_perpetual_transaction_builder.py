@@ -134,6 +134,34 @@ class TestDecibelPerpetualTransactionBuilder(IsolatedAsyncioWrapperTestCase):
 
     @patch("decibel.GasPriceManager")
     @patch(f"{TX_BUILDER_MODULE}.DecibelWriteDex")
+    async def test_get_write_dex_masks_base_config_gas_station_api_key(self, mock_write_dex, mock_gas_price_manager):
+        # Regression for #8358: the base-config gas_station_api_key must be MASKED in debug logs,
+        # never emitted in cleartext (a secret in logs is a credential-leak).
+        import logging
+        from dataclasses import dataclass
+
+        @dataclass
+        class _Cfg:
+            gas_station_url: str = "https://gas.example"
+            gas_station_api_key: str = "sk-base-secret-must-never-be-logged"
+
+        mock_gas_price_manager.return_value = AsyncMock()
+        mock_write_dex.return_value = AsyncMock()
+
+        builder = self._create_builder(domain=CONSTANTS.DEFAULT_DOMAIN)  # mainnet -> uses MAINNET_CONFIG
+        DecibelPerpetualTransactionBuilder._logger = None
+        builder.logger().setLevel(logging.DEBUG)
+        builder.logger().addHandler(self)
+
+        with patch(f"{TX_BUILDER_MODULE}.MAINNET_CONFIG", _Cfg()):
+            await builder._get_write_dex()
+
+        logged = " ".join(r.getMessage() for r in self.log_records)
+        self.assertNotIn("sk-base-secret-must-never-be-logged", logged)
+        self.assertTrue(self._is_logged("DEBUG", "Base config gas_station_api_key: Provided"))
+
+    @patch("decibel.GasPriceManager")
+    @patch(f"{TX_BUILDER_MODULE}.DecibelWriteDex")
     async def test_place_order_success(self, mock_write_dex_cls, mock_gas_price_manager):
         mock_gas_instance = AsyncMock()
         mock_gas_price_manager.return_value = mock_gas_instance
