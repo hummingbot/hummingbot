@@ -97,15 +97,20 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "a": [["11", "2"]],
         }
 
+    def _set_symbol_map_with_extra_pair(self, trading_pair: str, exchange_symbol: str):
+        self.connector._set_trading_pair_symbol_map(bidict({
+            self.ex_trading_pair: self.trading_pair,
+            exchange_symbol: trading_pair,
+        }))
+
     # ------------------------------------------------------------------
     # REST snapshot
     # ------------------------------------------------------------------
 
-    @aioresponses()
-    async def test_get_new_order_book_successful(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_PATH_URL.format(self.ex_trading_pair))
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
+    async def test_get_new_order_book_successful(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(return_value=self._snapshot_response())
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
 
         order_book: OrderBook = await self.data_source.get_new_order_book(self.trading_pair)
 
@@ -118,11 +123,21 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(11, asks[0].price)
         self.assertEqual(2, asks[0].amount)
 
-    @aioresponses()
-    async def test_get_new_order_book_raises_exception(self, mock_api):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDER_BOOK_PATH_URL.format(self.ex_trading_pair))
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, status=400)
+    async def test_request_order_book_snapshot_requests_full_depth(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(return_value=self._snapshot_response())
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+
+        await self.data_source._request_order_book_snapshot(self.trading_pair)
+
+        _, kwargs = rest_assistant.execute_request.call_args
+        self.assertEqual({"limit_bids": 0, "limit_asks": 0}, kwargs["params"])
+
+    async def test_get_new_order_book_raises_exception(self):
+        rest_assistant = MagicMock()
+        rest_assistant.execute_request = AsyncMock(side_effect=IOError)
+        self.data_source._api_factory.get_rest_assistant = AsyncMock(return_value=rest_assistant)
+
         with self.assertRaises(IOError):
             await self.data_source.get_new_order_book(self.trading_pair)
 
@@ -273,12 +288,71 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "WARNING", f"Cannot subscribe to {self.trading_pair}: WebSocket not connected"))
 
     async def test_subscribe_to_trading_pair_successful(self):
+        new_pair = "ETH-USD"
+        exchange_symbol = "ethusd"
+        self._set_symbol_map_with_extra_pair(new_pair, exchange_symbol)
         mock_ws = MagicMock()
-        mock_ws.send = AsyncMock()
+        snapshot = self._diff_event()
+        snapshot.update({"s": exchange_symbol, "U": 200, "u": 200})
+
+        async def send(request):
+            self.data_source._channel_originating_message({
+                "id": request.payload["id"],
+                "status": 200,
+                "result": {},
+            })
+            self.data_source._channel_originating_message(snapshot)
+
+        mock_ws.send = AsyncMock(side_effect=send)
         self.data_source._ws_assistant = mock_ws
-        result = await self.data_source.subscribe_to_trading_pair(self.trading_pair)
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
         self.assertTrue(result)
         mock_ws.send.assert_awaited_once()
+        snapshot_message = await self.data_source._order_book_snapshot(new_pair)
+        self.assertEqual(200, snapshot_message.update_id)
+
+    async def test_subscribe_to_trading_pair_error_ack_does_not_mutate_state(self):
+        new_pair = "ETH-USD"
+        exchange_symbol = "ethusd"
+        self._set_symbol_map_with_extra_pair(new_pair, exchange_symbol)
+        mock_ws = MagicMock()
+
+        async def send(request):
+            self.data_source._channel_originating_message({
+                "id": request.payload["id"],
+                "status": 400,
+                "error": {"msg": "bad stream"},
+            })
+
+        mock_ws.send = AsyncMock(side_effect=send)
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertNotIn(new_pair, self.data_source._trading_pairs)
+
+    async def test_subscribe_to_trading_pair_times_out_without_initial_snapshot(self):
+        new_pair = "ETH-USD"
+        exchange_symbol = "ethusd"
+        self._set_symbol_map_with_extra_pair(new_pair, exchange_symbol)
+        mock_ws = MagicMock()
+
+        async def send(request):
+            self.data_source._channel_originating_message({
+                "id": request.payload["id"],
+                "status": 200,
+                "result": {},
+            })
+
+        mock_ws.send = AsyncMock(side_effect=send)
+        self.data_source._ws_assistant = mock_ws
+
+        with patch.object(CONSTANTS, "WS_DYNAMIC_SNAPSHOT_TIMEOUT", 0.01):
+            result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertNotIn(new_pair, self.data_source._trading_pairs)
 
     async def test_subscribe_to_trading_pair_handles_exception(self):
         mock_ws = MagicMock()
@@ -296,12 +370,38 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         mock_ws = MagicMock()
-        mock_ws.send = AsyncMock()
+        async def send(request):
+            self.data_source._channel_originating_message({
+                "id": request.payload["id"],
+                "status": 200,
+                "result": {},
+            })
+
+        mock_ws.send = AsyncMock(side_effect=send)
         self.data_source._ws_assistant = mock_ws
         self.data_source.add_trading_pair(self.trading_pair)
         result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
         self.assertTrue(result)
         mock_ws.send.assert_awaited_once()
+
+    async def test_unsubscribe_from_trading_pair_error_ack_does_not_mutate_state(self):
+        mock_ws = MagicMock()
+
+        async def send(request):
+            self.data_source._channel_originating_message({
+                "id": request.payload["id"],
+                "status": 400,
+                "error": {"msg": "bad stream"},
+            })
+
+        mock_ws.send = AsyncMock(side_effect=send)
+        self.data_source._ws_assistant = mock_ws
+        self.data_source.add_trading_pair(self.trading_pair)
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertIn(self.trading_pair, self.data_source._trading_pairs)
 
     async def test_unsubscribe_from_trading_pair_handles_exception(self):
         mock_ws = MagicMock()

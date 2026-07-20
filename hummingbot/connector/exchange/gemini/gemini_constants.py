@@ -45,6 +45,8 @@ WS_TIME_IN_FORCE_MOC = "MOC"
 # Seconds to wait for the {id, status, result|error} ack of a WS order request
 # before treating the websocket path as failed and falling back to REST.
 WS_ORDER_REQUEST_TIMEOUT = 10.0
+WS_SUBSCRIPTION_REQUEST_TIMEOUT = 10.0
+WS_DYNAMIC_SNAPSHOT_TIMEOUT = 10.0
 # Seconds allowed for the trade websocket handshake. Connecting holds the trade WS
 # lock, so an un-timeboxed connect would head-of-line block order placement/cancels.
 WS_CONNECT_TIMEOUT = 10.0
@@ -126,6 +128,7 @@ ORDER_STATE = {
     "live": OrderState.OPEN,
     "accepted": OrderState.OPEN,
     "NEW": OrderState.OPEN,
+    "OPEN": OrderState.OPEN,
     "FILLED": OrderState.FILLED,
     "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "cancelled": OrderState.CANCELED,

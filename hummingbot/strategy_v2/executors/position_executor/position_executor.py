@@ -642,6 +642,10 @@ class PositionExecutor(ExecutorBase):
             # The position still has to be persisted and the control loop stopped
             # even if shutdown has already made strategy-level cancellation unavailable.
             self.logger().exception("Failed to cancel open orders while preserving shutdown position.")
+        try:
+            self.cancel_close_order()
+        except Exception:
+            self.logger().exception("Failed to cancel close order while preserving shutdown position.")
         self.close_type = CloseType.POSITION_HOLD
         self._held_position_orders.clear()
 
@@ -664,6 +668,20 @@ class PositionExecutor(ExecutorBase):
             # No execution means there is no exposure to preserve.
             self.close_type = CloseType.FAILED
         self.stop()
+
+    def cancel_close_order(self):
+        if self._close_order is None:
+            return
+        in_flight_order = self.get_in_flight_order(self.config.connector_name, self._close_order.order_id)
+        if in_flight_order is not None:
+            self._close_order.order = in_flight_order
+        if self._close_order.order and self._close_order.order.is_open:
+            self._strategy.cancel(
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                order_id=self._close_order.order_id
+            )
+            self.logger().debug("Removing close order")
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         """

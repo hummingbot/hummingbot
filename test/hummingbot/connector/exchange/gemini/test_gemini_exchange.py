@@ -326,6 +326,57 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(Decimal("1"), order.executed_amount_base)
         self.assertEqual(OrderState.FILLED, order.current_state)
 
+    def test_user_stream_cancelled_ioc_defers_terminal_state_when_fills_are_not_recovered(self):
+        order = self._start_tracking_limit_buy(amount="1", order_type=OrderType.MARKET)
+        self.exchange._all_trade_updates_for_order = AsyncMock(return_value=[])
+        event = self._make_fill_event(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            status="CANCELED",
+            fill_z="1",
+            last_price="100",
+            trade_id="",
+        )
+
+        self._drive_user_stream([event])
+
+        self.exchange._all_trade_updates_for_order.assert_awaited_once_with(order)
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+        self.assertNotIn(order.current_state, {OrderState.CANCELED, OrderState.FILLED})
+
+    def test_user_stream_open_status_updates_order_state(self):
+        order = self._start_tracking_limit_buy(exchange_order_id=None)
+        event = self._make_fill_event(
+            client_order_id=order.client_order_id,
+            exchange_order_id="100234",
+            status="OPEN",
+            fill_z="0",
+            last_price="0",
+            trade_id="",
+        )
+
+        self._drive_user_stream([event])
+
+        self.assertEqual("100234", order.exchange_order_id)
+        self.assertEqual(OrderState.OPEN, order.current_state)
+
+    def test_user_stream_unknown_status_is_logged(self):
+        order = self._start_tracking_limit_buy()
+        event = self._make_fill_event(
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            status="MODIFIED",
+            fill_z="0",
+            last_price="0",
+            trade_id="",
+        )
+
+        with patch.object(self.exchange.logger(), "warning") as warning_mock:
+            self._drive_user_stream([event])
+
+        warning_mock.assert_called_once()
+        self.assertIn("Ignoring unknown Gemini order status MODIFIED", warning_mock.call_args.args[0])
+
     # ------------------------------------------------------------------
     # Misc property / predicate coverage
     # ------------------------------------------------------------------
@@ -526,7 +577,10 @@ class GeminiExchangeTests(TestCase):
         self.exchange._trade_ws_request = AsyncMock(
             return_value={"id": "1", "status": 200, "result": {}})
         self.exchange._api_post = AsyncMock(
-            return_value={"order_id": 888, "timestampms": 1700000000000, "is_live": True})
+            return_value={"order_id": 888, "client_order_id": "HBOT1",
+                          "timestampms": 1700000000000, "is_live": True,
+                          "symbol": "btcusd", "side": "buy", "type": CONSTANTS.ORDER_TYPE_LIMIT,
+                          "original_amount": "1", "price": "100", "options": []})
 
         with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
             o_id, _ = self._async_run(self.exchange._place_order(
@@ -534,11 +588,32 @@ class GeminiExchangeTests(TestCase):
                 trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
 
         self.assertEqual("888", o_id)
-        # REST was used once, for the status reconcile — never for a second placement
         self.exchange._api_post.assert_awaited_once()
         _, kwargs = self.exchange._api_post.call_args
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_place_order_ws_ack_without_id_mismatched_status_fails_closed(self):
+        self._set_symbol_map()
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="BTC-USD",
+            order_type=OrderType.LIMIT, trade_type=TradeType.BUY,
+            price=Decimal("100"), amount=Decimal("1"))
+        self.exchange._trade_ws_request = AsyncMock(
+            return_value={"id": "1", "status": 200, "result": {}})
+        self.exchange._api_post = AsyncMock(
+            return_value=[{"order_id": 888, "client_order_id": "HBOT1",
+                           "timestampms": 1700000000000, "is_live": True,
+                           "symbol": "ethusd", "side": "buy", "type": CONSTANTS.ORDER_TYPE_LIMIT,
+                           "original_amount": "1", "price": "100", "options": []}])
+
+        with patch("hummingbot.core.data_type.in_flight_order.GET_EX_ORDER_ID_TIMEOUT", 0.05):
+            with self.assertRaises(IOError):
+                self._async_run(self.exchange._place_order(
+                    order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.exchange._api_post.assert_awaited_once()
 
     def test_place_order_ws_ack_without_order_event_places_via_rest(self):
         # Per Gemini: an order.place ack is not proof of placement. No order event
@@ -622,7 +697,9 @@ class GeminiExchangeTests(TestCase):
         self.exchange._api_post = AsyncMock(return_value=[
             {"order_id": 999, "client_order_id": "HBOTOTHER", "timestampms": 1699999999000},
             {"order_id": 555, "client_order_id": "HBOT1",
-             "timestampms": 1700000000000, "is_live": True},
+             "timestampms": 1700000000000, "is_live": True,
+             "symbol": "btcusd", "side": "buy", "type": CONSTANTS.ORDER_TYPE_LIMIT,
+             "original_amount": "1", "price": "100", "options": []},
         ])
 
         o_id, ts = self._async_run(self.exchange._place_order(
@@ -635,6 +712,26 @@ class GeminiExchangeTests(TestCase):
         _, kwargs = self.exchange._api_post.call_args
         self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, kwargs["path_url"])
         self.assertEqual("HBOT1", kwargs["data"]["client_order_id"])
+
+    def test_place_order_ws_ambiguous_failure_rejects_stale_reused_client_order_id(self):
+        self._set_symbol_map()
+        self.exchange._trade_ws_request = AsyncMock(
+            side_effect=GeminiWSAmbiguousResponseError("ack timeout"))
+        self.exchange._api_post = AsyncMock(side_effect=[
+            [{"order_id": 555, "client_order_id": "HBOT1",
+              "timestampms": 1700000000000, "is_live": True,
+              "symbol": "ethusd", "side": "buy", "type": CONSTANTS.ORDER_TYPE_LIMIT,
+              "original_amount": "1", "price": "100", "options": []}],
+            {"order_id": 9876, "timestampms": 1700000001000},
+        ])
+
+        o_id, ts = self._async_run(self.exchange._place_order(
+            order_id="HBOT1", trading_pair="BTC-USD", amount=Decimal("1"),
+            trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100")))
+
+        self.assertEqual("9876", o_id)
+        self.assertEqual(1700000001.0, ts)
+        self.assertEqual(2, self.exchange._api_post.await_count)
 
     def test_get_order_via_rest_by_client_id_returns_matching_list_row(self):
         # /v1/order/status by client_order_id returns an ARRAY; the matching row (by
@@ -1024,6 +1121,26 @@ class GeminiExchangeTests(TestCase):
 
         self.assertEqual(Decimal("1"), order.executed_amount_base)
         self.assertEqual(OrderState.CANCELED, order.current_state)
+
+    def test_place_order_market_defers_terminal_state_when_fills_are_not_recovered(self):
+        self._set_symbol_map()
+        self._prime_market_price(volume_price="100")
+        self.exchange.start_tracking_order(
+            order_id="HBOT1", exchange_order_id=None, trading_pair="ETH-USD",
+            order_type=OrderType.MARKET, trade_type=TradeType.SELL,
+            price=Decimal("NaN"), amount=Decimal("2"))
+        order = self.exchange.in_flight_orders["HBOT1"]
+        terminal_status = self._reconciled_market_status(
+            executed_amount="1", remaining_amount="1", is_live=False, is_cancelled=True)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            terminal_status,
+            IOError("mytrades unavailable"),
+        ])
+
+        self._async_run(self.exchange._place_order_and_process_update(order))
+
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+        self.assertEqual(OrderState.OPEN, order.current_state)
 
     def test_place_order_market_success_restores_terminal_ioc_response(self):
         self._set_symbol_map()
@@ -1702,18 +1819,75 @@ class GeminiExchangeTests(TestCase):
         self.assertEqual(OrderState.FILLED, update.new_state)
 
     def test_request_order_status_fully_executed_ioc_takes_precedence_over_cancelled_flag(self):
-        update = self._request_status({
+        order = self._start_tracking_limit_buy(order_id="HBOT1", exchange_order_id="123")
+        recovered_trade = TradeUpdate(
+            trade_id="trade-1",
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=DeductedFromReturnsTradeFee(percent=Decimal("0.004")),
+            fill_timestamp=1_700_000_000,
+        )
+        self.exchange._api_post = AsyncMock(return_value={
             "order_id": 123,
             "original_amount": "1",
             "executed_amount": "1",
             "remaining_amount": "0",
             "is_cancelled": True,
         })
+        self.exchange._all_trade_updates_for_order = AsyncMock(return_value=[recovered_trade])
+
+        update = self._async_run(self.exchange._request_order_status(order))
+
         self.assertEqual(OrderState.FILLED, update.new_state)
 
     def test_request_order_status_without_execution_falls_back_to_live(self):
         update = self._request_status({"order_id": 123, "remaining_amount": "0.5"})
         self.assertEqual(OrderState.OPEN, update.new_state)
+
+    def test_request_order_status_defers_terminal_state_when_fills_are_not_recovered(self):
+        order = self._start_tracking_limit_buy(order_id="HBOT1", exchange_order_id="123")
+        self.exchange._api_post = AsyncMock(return_value={
+            "order_id": 123,
+            "original_amount": "1",
+            "executed_amount": "1",
+            "remaining_amount": "0",
+        })
+        self.exchange._all_trade_updates_for_order = AsyncMock(return_value=[])
+
+        update = self._async_run(self.exchange._request_order_status(order))
+
+        self.exchange._all_trade_updates_for_order.assert_awaited_once_with(order)
+        self.assertEqual(order.current_state, update.new_state)
+
+    def test_request_order_status_restores_missing_fills_before_terminal_state(self):
+        order = self._start_tracking_limit_buy(order_id="HBOT1", exchange_order_id="123")
+        recovered_trade = TradeUpdate(
+            trade_id="trade-1",
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=DeductedFromReturnsTradeFee(percent=Decimal("0.004")),
+            fill_timestamp=1_700_000_000,
+        )
+        self.exchange._api_post = AsyncMock(return_value={
+            "order_id": 123,
+            "original_amount": "1",
+            "executed_amount": "1",
+            "remaining_amount": "0",
+        })
+        self.exchange._all_trade_updates_for_order = AsyncMock(return_value=[recovered_trade])
+
+        update = self._async_run(self.exchange._request_order_status(order))
+
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, update.new_state)
 
     # ------------------------------------------------------------------
     # Trade updates

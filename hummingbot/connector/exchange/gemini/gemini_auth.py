@@ -3,7 +3,6 @@ import base64
 import hashlib
 import hmac
 import json
-import math
 import threading
 import time
 from typing import Any, Dict, Optional
@@ -13,12 +12,17 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
+NONCE_DRIFT_RESET_US = 15_000_000
+NONCE_DRIFT_RESET_MS = NONCE_DRIFT_RESET_US // 1_000
+
+
 class GeminiAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str, time_provider: Optional[TimeSynchronizer] = None):
         self.api_key = api_key
         self.secret_key = secret_key
         self.time_provider = time_provider
-        self._last_nonce: float = 0.0
+        self._last_nonce_us: int = 0
+        self._last_ws_nonce_s: int = 0
         self._nonce_lock = threading.Lock()
         # Gemini compares nonces per API-key session. The exchange serializes every
         # authenticated REST dispatch and websocket handshake with this lock so nonce
@@ -78,7 +82,7 @@ class GeminiAuth(AuthBase):
         """
         Fast API WebSocket authentication via handshake headers.
         """
-        nonce = self._format_nonce(self._get_nonce())
+        nonce = self._get_ws_nonce()
         payload_b64 = base64.b64encode(nonce.encode("utf-8")).decode("utf-8")
 
         signature = hmac.new(
@@ -101,7 +105,7 @@ class GeminiAuth(AuthBase):
         Generate authentication headers for WebSocket connection.
         Used when connecting via raw websocket libraries that need headers at connect time.
         """
-        nonce = self._format_nonce(self._get_nonce())
+        nonce = self._get_ws_nonce()
         payload_b64 = base64.b64encode(nonce.encode("utf-8")).decode("utf-8")
 
         signature = hmac.new(
@@ -117,24 +121,35 @@ class GeminiAuth(AuthBase):
             "X-GEMINI-SIGNATURE": signature,
         }
 
-    @staticmethod
-    def _format_nonce(nonce: float) -> str:
-        # Nine fractional digits preserve every representable increment around Unix
-        # epoch seconds while avoiding scientific notation in handshake headers.
-        return f"{nonce:.9f}".rstrip("0").rstrip(".")
+    def _get_ws_nonce(self) -> str:
+        """Return a strictly increasing integer-second nonce for WebSocket auth.
+
+        Gemini's crypto WebSocket authentication expects the nonce header to be
+        the current epoch timestamp in seconds. Keep this path separate from
+        REST because REST can safely use fractional seconds, while the websocket
+        handshake rejects non-integer formats on some accounts.
+        """
+        nonce_us = self._get_nonce_us()
+        with self._nonce_lock:
+            nonce_s = max(nonce_us // 1_000_000, self._last_ws_nonce_s + 1)
+            self._last_ws_nonce_s = nonce_s
+        return str(nonce_s)
 
     def _get_nonce(self) -> float:
         """Return a strictly increasing time-based nonce expressed in epoch seconds.
 
-        Gemini's authenticated websocket requires a time-based account key, and the
-        same key is used for REST fallback. ``nextafter`` gives overlapping calls a
-        unique value without advancing the nonce by whole seconds and eventually
-        leaving Gemini's allowed server-time window.
+        Gemini requires time-based API keys to send nonces in seconds within
+        +/- 30 seconds of epoch time. Keep an integer microsecond counter
+        internally so rapid concurrent requests remain unique and monotonic while
+        the value sent to Gemini stays in seconds.
         """
-        timestamp = float(self.time_provider.time() if self.time_provider is not None else time.time())
+        return self._get_nonce_us() / 1e6
+
+    def _get_nonce_us(self) -> int:
+        timestamp_us = int((self.time_provider.time() if self.time_provider is not None else time.time()) * 1e6)
         with self._nonce_lock:
-            nonce = timestamp
-            if nonce <= self._last_nonce:
-                nonce = math.nextafter(self._last_nonce, math.inf)
-            self._last_nonce = nonce
-            return nonce
+            if self._last_nonce_us > timestamp_us + NONCE_DRIFT_RESET_US:
+                self._last_nonce_us = timestamp_us - 1
+            nonce_us = max(timestamp_us, self._last_nonce_us + 1)
+            self._last_nonce_us = nonce_us
+            return nonce_us
