@@ -48,6 +48,7 @@ class LambdaplexExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_lambdaplex_timestamp = 1.0
+        self._asset_decimals: Dict[str, int] = {}
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -307,8 +308,16 @@ class LambdaplexExchange(ExchangePyBase):
         balances = event_message["B"]
         for balance_entry in balances:
             asset_name = balance_entry["a"]
-            free_balance = Decimal(balance_entry["f"])
-            total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
+            asset_decimals = self._asset_decimals.get(asset_name)
+            if asset_decimals is None:
+                self.logger().warning(
+                    f"Ignoring balance update for {asset_name} because its asset precision is unknown."
+                )
+                continue
+
+            free_balance = Decimal(balance_entry["f"]).scaleb(-asset_decimals)
+            locked_balance = Decimal(balance_entry["l"]).scaleb(-asset_decimals)
+            total_balance = free_balance + locked_balance
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
 
@@ -487,6 +496,7 @@ class LambdaplexExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
+        asset_decimals = {}
         for symbol_data in exchange_info["exchangeSymbols"]:
             try:
                 exchange_symbol = symbol_data["symbol"]
@@ -494,10 +504,13 @@ class LambdaplexExchange(ExchangePyBase):
                 quote = symbol_data["quoteAsset"]
                 trading_pair = combine_to_hb_trading_pair(base, quote)
                 mapping[exchange_symbol] = trading_pair
+                asset_decimals[base] = int(symbol_data["baseAssetPrecision"])
+                asset_decimals[quote] = int(symbol_data["quoteAssetPrecision"])
             except Exception as exception:
                 self.logger().error(
                     f"There was an error parsing a trading pair information ({exception})"
                 )
+        self._asset_decimals = asset_decimals
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:

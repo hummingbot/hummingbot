@@ -143,7 +143,10 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
             "e": "balanceChange",
             "E": 1564034571105,
             "u": 1564034571073,
-            "B": [{"a": self.base_asset, "f": "10", "l": "5"}],
+            "B": [
+                {"a": self.base_asset, "f": "1000000000", "l": "500000000"},
+                {"a": self.quote_asset, "f": "2000000000", "l": "0"},
+            ],
         }
 
     @property
@@ -219,6 +222,12 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
             lambdaplex_api_key=self.api_key,
             lambdaplex_private_key=self.private_key,
             trading_pairs=[self.trading_pair],
+        )
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(
+            exchange_info=self.all_symbols_request_mock_response
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -601,6 +610,14 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
             )
         return fee
 
+    def test_process_balance_change_scales_atomic_units_using_asset_precision(self):
+        self.exchange._process_balance_change(self.balance_event_websocket_update)
+
+        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+        self.assertEqual(Decimal("2000"), self.exchange.available_balances[self.quote_asset])
+        self.assertEqual(Decimal("2000"), self.exchange.get_balance(self.quote_asset))
+
     def _exchange_rules_mock_response(self):
         response = {
             "exchangeSymbols": [
@@ -608,8 +625,8 @@ class LambdaplexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTe
                     "symbol": self.exchange_trading_pair,
                     "baseAsset": self.base_asset,
                     "quoteAsset": self.quote_asset,
-                    "baseAssetPrecision": 6,
-                    "quoteAssetPrecision": 8,
+                    "baseAssetPrecision": 8,
+                    "quoteAssetPrecision": 6,
                     "filters": [
                         {
                             "filterType": "PRICE_FILTER",
