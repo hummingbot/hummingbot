@@ -1,11 +1,16 @@
 import asyncio
+import json
+from base64 import b64decode
 from decimal import Decimal
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aioresponses import aioresponses
+from aioresponses.core import RequestCall
 from bidict import bidict
 
-from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS
+from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS, gemini_web_utils as web_utils
 from hummingbot.connector.exchange.gemini.gemini_exchange import (
     GeminiExchange,
     GeminiWSAmbiguousResponseError,
@@ -13,9 +18,12 @@ from hummingbot.connector.exchange.gemini.gemini_exchange import (
     GeminiWSTransportError,
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, TradeUpdate
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
 from hummingbot.core.web_assistant.connections.data_types import WSResponse
 
 
@@ -2074,3 +2082,737 @@ class GeminiExchangeTests(TestCase):
             self._drive_user_stream([bad_event])
         # No fills recorded because the Decimal conversion failed and was handled
         self.assertEqual(0, len(self.exchange.in_flight_orders["HBOT1"].order_fills))
+
+
+class GeminiExchangeStandardTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
+    """Standardized connector test suite (AbstractExchangeConnectorTests) adapted for Gemini.
+
+    The bespoke ``GeminiExchangeTests`` above keeps covering the WS order-entry plumbing,
+    market-order emulation and reconciliation logic the abstract base does not touch.
+    Gemini specifics honored here:
+    - GeminiAuth moves the request body into the base64 ``X-GEMINI-PAYLOAD`` header and sets
+      ``data=None`` — all request validation decodes that header.
+    - Every private endpoint is POST (including balances), so the base GET balance helper is
+      overridden.
+    - ``_trade_ws_stopped`` is set on the fresh instance so the WS-first order/cancel paths
+      deterministically raise ``GeminiWSTransportError`` and fall back to the mocked REST
+      endpoints.
+    """
+
+    # keep the numeric base-class defaults for client_order_id_prefix ("1") and
+    # exchange_order_id_prefix ("2"): Gemini REST cancel/status call int() on exchange ids
+
+    # ----- URLs -----
+    @property
+    def all_symbols_url(self):
+        return web_utils.public_rest_url(path_url=CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL)
+
+    @property
+    def latest_prices_url(self):
+        return web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL.format(self.exchange_trading_pair))
+
+    @property
+    def network_status_url(self):
+        return web_utils.public_rest_url(path_url=CONSTANTS.SYMBOLS_PATH_URL)
+
+    @property
+    def trading_rules_url(self):
+        return web_utils.public_rest_url(path_url=CONSTANTS.SYMBOLS_DETAILS_ALL_PATH_URL)
+
+    @property
+    def order_creation_url(self):
+        return web_utils.private_rest_url(path_url=CONSTANTS.NEW_ORDER_PATH_URL)
+
+    @property
+    def balance_url(self):
+        return web_utils.private_rest_url(path_url=CONSTANTS.BALANCES_PATH_URL)
+
+    # ----- mock payload helpers -----
+    def _symbol_details_entry(
+        self,
+        symbol: Optional[str] = None,
+        base: Optional[str] = None,
+        quote: Optional[str] = None,
+        product_type: str = "spot",
+    ) -> Dict[str, Any]:
+        return {
+            "symbol": symbol or self.exchange_trading_pair.upper(),  # the endpoint returns UPPERCASE
+            "base_currency": base or self.base_asset,
+            "quote_currency": quote or self.quote_asset,
+            "tick_size": 1e-06,  # -> min_base_amount_increment
+            "quote_increment": 0.01,  # -> min_price_increment
+            "min_order_size": "0.00001",
+            "status": "open",
+            "wrap_enabled": False,
+            "product_type": product_type,
+            "contract_type": "vanilla",
+            "contract_price_currency": quote or self.quote_asset,
+        }
+
+    @property
+    def all_symbols_request_mock_response(self):
+        return [self._symbol_details_entry()]
+
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        response = [
+            self._symbol_details_entry(),
+            # Filtered out because it is not a spot product
+            self._symbol_details_entry(
+                symbol="INVALIDPAIRPERP", base="INVALID", quote="PAIR", product_type="swap"),
+        ]
+        return "INVALID-PAIR", response
+
+    @property
+    def latest_prices_request_mock_response(self):
+        return {
+            "symbol": self.exchange_trading_pair.upper(),
+            "open": "9000.00",
+            "high": "10000.00",
+            "low": "8900.00",
+            "close": str(self.expected_latest_price),
+            "changes": ["9500.00"],
+            "bid": "9997.0",
+            "ask": "9999.0",
+        }
+
+    @property
+    def network_status_request_successful_mock_response(self):
+        return ["btcusd", "ethusd", self.exchange_trading_pair]
+
+    @property
+    def trading_rules_request_mock_response(self):
+        return [self._symbol_details_entry()]
+
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        # A spot entry missing base_currency raises KeyError inside _format_trading_rules
+        return [{
+            "symbol": self.exchange_trading_pair.upper(),
+            "quote_currency": self.quote_asset,
+            "product_type": "spot",
+        }]
+
+    @property
+    def order_creation_request_successful_mock_response(self):
+        return self._order_status_response_template(
+            exchange_order_id=self.expected_exchange_order_id,
+            client_order_id="dummy-not-checked-by-the-connector",
+            side="buy",
+            price="10000",
+            original_amount="100",
+            executed_amount="0",
+            remaining_amount="100",
+            is_live=True,
+            is_cancelled=False,
+        )
+
+    @property
+    def balance_request_mock_response_for_base_and_quote(self):
+        return [
+            {"type": "exchange", "currency": self.base_asset, "amount": "15", "available": "10",
+             "availableForWithdrawal": "10"},
+            {"type": "exchange", "currency": self.quote_asset, "amount": "2000", "available": "2000",
+             "availableForWithdrawal": "2000"},
+        ]
+
+    @property
+    def balance_request_mock_response_only_base(self):
+        return [
+            {"type": "exchange", "currency": self.base_asset, "amount": "15", "available": "10"},
+        ]
+
+    @property
+    def balance_event_websocket_update(self):
+        return {
+            "e": "balanceUpdate",
+            "E": 1640780000000,  # balance events carry milliseconds
+            "B": [{"a": self.base_asset, "f": "10", "c": "15"}],
+        }
+
+    # ----- expectations -----
+    @property
+    def expected_latest_price(self):
+        return 9999.9
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
+    @property
+    def expected_trading_rule(self):
+        entry = self.trading_rules_request_mock_response[0]
+        return TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=Decimal(str(entry["min_order_size"])),
+            min_price_increment=Decimal(str(entry["quote_increment"])),
+            min_base_amount_increment=Decimal(str(entry["tick_size"])),
+        )
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        entry = self.trading_rules_request_erroneous_mock_response[0]
+        return f"Error parsing trading pair rule for {entry}. Skipping."
+
+    @property
+    def expected_exchange_order_id(self):
+        return "123456789"  # numeric: REST cancel/status call int() on it
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return True  # _update_order_status fetches /v1/mytrades before the status poll
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False  # fills arrive inside the WS order event itself
+
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        return Decimal("10500")
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        return Decimal("0.5")
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        # REST /v1/mytrades fills: new_spot_fee(..., percent_token=fee_currency, flat quote fee)
+        return DeductedFromReturnsTradeFee(
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+
+    @property
+    def expected_ws_fill_fee(self) -> TradeFeeBase:
+        # The user-stream fill path builds the same fee WITHOUT percent_token
+        return DeductedFromReturnsTradeFee(
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        return "5678"
+
+    # ----- instance / validation -----
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return f"{base_token}{quote_token}".lower()
+
+    def create_exchange_instance(self):
+        exchange = GeminiExchange(
+            gemini_api_key="testAPIKey",
+            gemini_api_secret="testSecret",
+            trading_pairs=[self.trading_pair],
+        )
+        # Deterministically force order entry/cancel onto REST: with this flag the
+        # trade-websocket path raises GeminiWSTransportError without touching the network.
+        exchange._trade_ws_stopped = True
+        return exchange
+
+    def _request_payload(self, request_call: RequestCall) -> Dict[str, Any]:
+        # GeminiAuth moves the JSON body into the base64 X-GEMINI-PAYLOAD header
+        return json.loads(b64decode(request_call.kwargs["headers"]["X-GEMINI-PAYLOAD"]))
+
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        headers = request_call.kwargs["headers"]
+        self.assertEqual("testAPIKey", headers["X-GEMINI-APIKEY"])
+        self.assertIn("X-GEMINI-SIGNATURE", headers)
+        payload = self._request_payload(request_call)
+        self.assertIn("request", payload)
+        self.assertGreater(payload["nonce"], 0)
+
+    def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
+        payload = self._request_payload(request_call)
+        self.assertEqual(CONSTANTS.NEW_ORDER_PATH_URL, payload["request"])
+        self.assertEqual(self.exchange_trading_pair, payload["symbol"])
+        self.assertEqual(order.trade_type.name.lower(), payload["side"])
+        self.assertEqual(CONSTANTS.ORDER_TYPE_LIMIT, payload["type"])  # "exchange limit"
+        self.assertEqual(order.amount, Decimal(payload["amount"]))
+        self.assertEqual(order.price, Decimal(payload["price"]))
+        self.assertEqual(order.client_order_id, payload["client_order_id"])
+
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        payload = self._request_payload(request_call)
+        self.assertEqual(CONSTANTS.CANCEL_ORDER_PATH_URL, payload["request"])
+        self.assertEqual(int(order.exchange_order_id), payload["order_id"])
+
+    def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
+        payload = self._request_payload(request_call)
+        self.assertEqual(CONSTANTS.ORDER_STATUS_PATH_URL, payload["request"])
+        self.assertEqual(int(order.exchange_order_id), payload["order_id"])
+
+    def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
+        # /v1/mytrades is symbol-scoped: there is no order id in the request
+        payload = self._request_payload(request_call)
+        self.assertEqual(CONSTANTS.MY_TRADES_PATH_URL, payload["request"])
+        self.assertEqual(self.exchange_trading_pair, payload["symbol"])
+        self.assertEqual(500, payload["limit_trades"])
+
+    # ----- order-status response builders -----
+    def _order_status_response_template(self, exchange_order_id, client_order_id, side, price,
+                                        original_amount, executed_amount, remaining_amount,
+                                        is_live, is_cancelled, avg_execution_price="0.00") -> Dict[str, Any]:
+        return {
+            "order_id": str(exchange_order_id),
+            "id": str(exchange_order_id),
+            "symbol": self.exchange_trading_pair,
+            "exchange": "gemini",
+            "avg_execution_price": avg_execution_price,
+            "side": side,
+            "type": "exchange limit",
+            "timestamp": "1640780000",
+            "timestampms": 1640780000000,
+            "is_live": is_live,
+            "is_cancelled": is_cancelled,
+            "is_hidden": False,
+            "was_forced": False,
+            "executed_amount": executed_amount,
+            "remaining_amount": remaining_amount,
+            "options": [],
+            "price": price,
+            "original_amount": original_amount,
+            "client_order_id": client_order_id,
+        }
+
+    def _order_status_response(self, order: InFlightOrder, executed_amount: Decimal,
+                               is_live: bool, is_cancelled: bool) -> Dict[str, Any]:
+        remaining = order.amount - executed_amount
+        return self._order_status_response_template(
+            exchange_order_id=order.exchange_order_id or self.expected_exchange_order_id,
+            client_order_id=order.client_order_id,
+            side="buy" if order.trade_type == TradeType.BUY else "sell",
+            price=str(order.price),
+            original_amount=str(order.amount),
+            executed_amount=str(executed_amount),
+            remaining_amount=str(remaining),
+            is_live=is_live,
+            is_cancelled=is_cancelled,
+            avg_execution_price=str(order.price) if executed_amount > 0 else "0.00",
+        )
+
+    # ----- configure hooks (every private Gemini endpoint is POST) -----
+    def configure_successful_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
+        response = self._order_status_response(
+            order, executed_amount=Decimal("0"), is_live=False, is_cancelled=True)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
+        mock_api.post(url, status=400, callback=callback)
+        return url
+
+    def configure_order_not_found_error_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
+        response = {"result": "error", "reason": "OrderNotFound",
+                    "message": f"Order {order.exchange_order_id} not found"}
+        mock_api.post(url, status=404, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_one_successful_one_erroneous_cancel_all_response(
+            self,
+            successful_order: InFlightOrder,
+            erroneous_order: InFlightOrder,
+            mock_api: aioresponses) -> List[str]:
+        # Both cancels POST the same URL — aioresponses serves mocks FIFO and the cancels
+        # run in the in-flight orders' insertion order, serialized by the auth request lock.
+        return [
+            self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api),
+            self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api),
+        ]
+
+    def configure_completely_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        response = self._order_status_response(
+            order, executed_amount=order.amount, is_live=False, is_cancelled=False)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_canceled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        response = self._order_status_response(
+            order, executed_amount=Decimal("0"), is_live=False, is_cancelled=True)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_open_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        response = self._order_status_response(
+            order, executed_amount=Decimal("0"), is_live=True, is_cancelled=False)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_http_error_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        mock_api.post(url, status=401, callback=callback)
+        return url
+
+    def configure_partially_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        response = self._order_status_response(
+            order, executed_amount=self.expected_partial_fill_amount, is_live=True, is_cancelled=False)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_order_not_found_error_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_STATUS_PATH_URL)
+        response = {"result": "error", "reason": "OrderNotFound",
+                    "message": f"Order {order.exchange_order_id} not found"}
+        mock_api.post(url, status=404, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def _trade_fill_row(self, order: InFlightOrder, amount: Decimal, price: Decimal) -> Dict[str, Any]:
+        return {
+            "price": str(price),
+            "amount": str(amount),
+            "timestamp": 1640780000,
+            "timestampms": 1640780000000,
+            "type": "Buy" if order.trade_type == TradeType.BUY else "Sell",
+            "aggressor": False,
+            "fee_currency": self.quote_asset,
+            "fee_amount": "30",
+            "tid": int(self.expected_fill_trade_id),
+            "order_id": str(order.exchange_order_id or self.expected_exchange_order_id),
+            "exchange": "gemini",
+            "is_auction_fill": False,
+            "client_order_id": order.client_order_id,
+        }
+
+    def configure_partial_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        response = [self._trade_fill_row(order, self.expected_partial_fill_amount,
+                                         self.expected_partial_fill_price)]
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_http_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        mock_api.post(url, status=400, callback=callback)
+        return url
+
+    def configure_full_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = None) -> str:
+        callback = callback or (lambda *args, **kwargs: None)
+        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        response = [self._trade_fill_row(order, order.amount, order.price)]
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    # ----- websocket events (flat dicts; the "X" key identifies order events) -----
+    def _ws_order_event(self, order: InFlightOrder, status: str, **extra) -> Dict[str, Any]:
+        event = {
+            "e": "executionReport",
+            "E": 1640780000000000000,  # order events carry nanoseconds
+            "s": self.exchange_trading_pair,
+            "i": int(order.exchange_order_id or self.expected_exchange_order_id),
+            "c": order.client_order_id,
+            "S": "BUY" if order.trade_type == TradeType.BUY else "SELL",
+            "o": "LIMIT",
+            "X": status,
+            "p": str(order.price),
+            "q": str(order.amount),
+            "z": "0",
+            "T": 1640780000000000000,
+        }
+        event.update(extra)
+        return event
+
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return self._ws_order_event(order, "NEW")
+
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        return self._ws_order_event(order, "CANCELED", Z="0")
+
+    def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return self._ws_order_event(
+            order, "FILLED",
+            t=int(self.expected_fill_trade_id),
+            Z=str(order.amount),  # quantity of THIS execution (not cumulative)
+            L=str(order.price),  # execution price
+            n="30",  # fee amount, charged in the quote asset
+            m=False,
+            z=str(order.amount),
+        )
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return None  # the order event above already carries the fill
+
+    # ----- non-abstract overrides -----
+    def _configure_balance_response(
+            self,
+            response: Dict[str, Any],
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        # Gemini balances are POST /v1/balances (the base helper mocks GET)
+        url = self.balance_url
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
+
+    def _expected_initial_status_dict(self) -> Dict[str, bool]:
+        status = super()._expected_initial_status_dict()
+        status["trade_websocket_connected"] = False  # trading_required=True and no WS in tests
+        return status
+
+    # ----- Gemini-specific test overrides -----
+    @aioresponses()
+    async def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(
+            self, mock_api):
+        # Overridden: the generic test assumes a FILLED status closes the order even when the
+        # fills request errors. Gemini's _should_defer_terminal_order_update intentionally
+        # SUPPRESSES the FILLED transition until the fills are recovered, so this verifies the
+        # two-phase behavior instead: defer while fills are unavailable (phase 1), then apply
+        # the terminal state once the trade history is available again (phase 2).
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        # Phase 1: the trade-fill request fails -> the FILLED state is deferred
+        trade_url = self.configure_erroneous_http_fill_trade_response(order=order, mock_api=mock_api)
+        urls = self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+
+        await self.exchange._update_order_status()
+        await asyncio.sleep(0.1)
+
+        for url in (urls if isinstance(urls, list) else [urls]):
+            order_status_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(order_status_request)
+            self.validate_order_status_request(order=order, request_call=order_status_request)
+
+        trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+        self.validate_auth_credentials_present(trades_request)
+        self.validate_trades_request(order=order, request_call=trades_request)
+
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_open)
+        self.assertFalse(order.is_filled)
+        self.assertEqual(0, len(self.order_filled_logger.event_log))
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertTrue(
+            self.is_logged(
+                "WARNING",
+                f"Gemini reports order {order.client_order_id} as FILLED with executed amount 1, "
+                f"but only 0 has been reconciled locally. "
+                f"Deferring the terminal state until fills are recovered."
+            )
+        )
+
+        # Phase 2: the fills become available again -> the FILLED state is applied
+        self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+        self.configure_completely_filled_order_status_response(order=order, mock_api=mock_api)
+
+        await self.exchange._update_order_status()
+        await order.wait_until_completely_filled()
+        await asyncio.sleep(0.1)
+
+        self.assertTrue(order.is_filled)
+        self.assertTrue(order.is_done)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.price, fill_event.price)
+        self.assertEqual(order.amount, fill_event.amount)
+        self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(order.client_order_id, buy_event.order_id)
+        self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
+
+    @aioresponses()
+    async def test_user_stream_update_for_order_full_fill(self, mock_api):
+        # Overridden only to expect expected_ws_fill_fee: user-stream fills build their fee
+        # without percent_token while REST fills carry percent_token=fee_currency, and
+        # TradeFeeBase equality includes percent_token.
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        order_event = self.order_event_for_full_fill_websocket_update(order=order)
+        trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+        if order_event:
+            event_messages.append(order_event)
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
+
+        try:
+            await (self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+        # Execute one more synchronization to ensure the async task that processes the update is finished
+        await (order.wait_until_completely_filled())
+        await asyncio.sleep(0.1)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(order.price, fill_event.price)
+        self.assertEqual(order.amount, fill_event.amount)
+        expected_fee = self.expected_ws_fill_fee
+        self.assertEqual(expected_fee, fill_event.trade_fee)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
+        self.assertEqual(order.client_order_id, buy_event.order_id)
+        self.assertEqual(order.base_asset, buy_event.base_asset)
+        self.assertEqual(order.quote_asset, buy_event.quote_asset)
+        self.assertEqual(order.amount, buy_event.base_asset_amount)
+        self.assertEqual(order.amount * fill_event.price, buy_event.quote_asset_amount)
+        self.assertEqual(order.order_type, buy_event.order_type)
+        self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_filled)
+        self.assertTrue(order.is_done)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
+
+    @aioresponses()
+    async def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
+        # Overridden only to expect expected_ws_fill_fee (same reason as
+        # test_user_stream_update_for_order_full_fill).
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            await (
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        order_event = self.order_event_for_full_fill_websocket_update(order=order)
+        trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+        if order_event:
+            event_messages.append(order_event)
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
+            self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
+
+        try:
+            await (self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+        # Execute one more synchronization to ensure the async task that processes the update is finished
+        await (order.wait_until_completely_filled())
+        await asyncio.sleep(0.1)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(order.trade_type, fill_event.trade_type)
+        self.assertEqual(order.order_type, fill_event.order_type)
+        self.assertEqual(order.price, fill_event.price)
+        self.assertEqual(order.amount, fill_event.amount)
+        expected_fee = self.expected_ws_fill_fee
+        self.assertEqual(expected_fee, fill_event.trade_fee)
+
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertTrue(order.is_filled)
+        self.assertTrue(order.is_failure)
