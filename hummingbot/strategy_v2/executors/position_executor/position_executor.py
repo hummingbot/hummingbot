@@ -628,6 +628,61 @@ class PositionExecutor(ExecutorBase):
         self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
         self._status = RunnableStatus.SHUTTING_DOWN
 
+    def force_stop_with_position_hold(self):
+        """Stop the control loop while preserving any remaining exchange exposure.
+
+        This is the shutdown timeout fallback. Markets are still registered when it
+        runs, so open entry/take-profit orders can be canceled before event listeners
+        are removed. Every executed order is retained so the orchestrator can rebuild
+        and persist the net position for recovery on the next start.
+        """
+        try:
+            self.cancel_open_orders()
+        except Exception:
+            # The position still has to be persisted and the control loop stopped
+            # even if shutdown has already made strategy-level cancellation unavailable.
+            self.logger().exception("Failed to cancel open orders while preserving shutdown position.")
+        try:
+            self.cancel_close_order()
+        except Exception:
+            self.logger().exception("Failed to cancel close order while preserving shutdown position.")
+        self.close_type = CloseType.POSITION_HOLD
+        self._held_position_orders.clear()
+
+        tracked_orders = [
+            self._open_order,
+            self._close_order,
+            self._take_profit_limit_order,
+            *self._failed_orders,
+        ]
+        seen_order_ids = set()
+        for tracked_order in tracked_orders:
+            order = tracked_order.order if tracked_order is not None else None
+            if (order is not None
+                    and order.executed_amount_base > Decimal("0")
+                    and order.client_order_id not in seen_order_ids):
+                self._held_position_orders.append(order.to_json())
+                seen_order_ids.add(order.client_order_id)
+
+        if not self._held_position_orders:
+            # No execution means there is no exposure to preserve.
+            self.close_type = CloseType.FAILED
+        self.stop()
+
+    def cancel_close_order(self):
+        if self._close_order is None:
+            return
+        in_flight_order = self.get_in_flight_order(self.config.connector_name, self._close_order.order_id)
+        if in_flight_order is not None:
+            self._close_order.order = in_flight_order
+        if self._close_order.order and self._close_order.order.is_open:
+            self._strategy.cancel(
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                order_id=self._close_order.order_id
+            )
+            self.logger().debug("Removing close order")
+
     def update_tracked_orders_with_order_id(self, order_id: str):
         """
         This method is responsible for updating the tracked orders with the information from the InFlightOrder, using
