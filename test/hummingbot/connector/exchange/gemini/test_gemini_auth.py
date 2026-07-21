@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from typing_extensions import Awaitable
 
-from hummingbot.connector.exchange.gemini.gemini_auth import GeminiAuth, NONCE_DRIFT_RESET_US
+from hummingbot.connector.exchange.gemini.gemini_auth import NONCE_DRIFT_RESET_US, GeminiAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
