@@ -1,6 +1,7 @@
 import asyncio
 from unittest import TestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+
+from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS
 from hummingbot.connector.exchange.gemini.gemini_web_utils import (
@@ -47,22 +48,32 @@ class GeminiWebUtilsTests(TestCase):
         self.assertIsNotNone(api_factory)
         self.assertEqual(0, len(api_factory._rest_pre_processors))
 
-    @patch("aiohttp.ClientSession.head")
-    def test_get_current_server_time_parses_date_header(self, head_mock):
-        response = MagicMock()
-        response.headers = {"Date": "Wed, 21 Oct 2015 07:28:00 GMT"}
-        context = AsyncMock()
-        context.__aenter__.return_value = response
-        head_mock.return_value = context
+    @aioresponses()
+    def test_get_current_server_time_parses_date_header(self, mock_api):
+        url = public_rest_url(path_url=CONSTANTS.SYMBOLS_PATH_URL)
+        mock_api.get(
+            url,
+            body='["btcusd"]',
+            headers={"Date": "Wed, 21 Oct 2015 07:28:00 GMT"},
+        )
 
-        server_time = self.async_run_with_timeout(get_current_server_time())
+        server_time = self.async_run_with_timeout(get_current_server_time(throttler=create_throttler()))
 
         # 2015-10-21T07:28:00Z in epoch ms
         self.assertEqual(1445412480000.0, server_time)
 
-    @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("aiohttp.ClientSession.head")
-    def test_get_current_server_time_falls_back_to_local_clock(self, head_mock, _sleep_mock):
-        head_mock.side_effect = Exception("network down")
-        server_time = self.async_run_with_timeout(get_current_server_time())
-        self.assertGreater(server_time, 0)
+    @aioresponses()
+    def test_get_current_server_time_raises_when_date_header_missing(self, mock_api):
+        url = public_rest_url(path_url=CONSTANTS.SYMBOLS_PATH_URL)
+        mock_api.get(url, body="[]")
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(get_current_server_time())
+
+    @aioresponses()
+    def test_get_current_server_time_raises_on_http_error(self, mock_api):
+        url = public_rest_url(path_url=CONSTANTS.SYMBOLS_PATH_URL)
+        mock_api.get(url, status=500, body="oops")
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(get_current_server_time())
