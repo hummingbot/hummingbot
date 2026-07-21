@@ -11,7 +11,6 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
-
 NONCE_DRIFT_RESET_US = 15_000_000
 NONCE_DRIFT_RESET_MS = NONCE_DRIFT_RESET_US // 1_000
 

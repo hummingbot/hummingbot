@@ -1,11 +1,9 @@
 import asyncio
 import json
-import re
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aioresponses.core import aioresponses
 from bidict import bidict
 
 from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS, gemini_web_utils as web_utils
@@ -370,6 +368,7 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     async def test_unsubscribe_from_trading_pair_successful(self):
         mock_ws = MagicMock()
+
         async def send(request):
             self.data_source._channel_originating_message({
                 "id": request.payload["id"],
