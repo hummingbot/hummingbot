@@ -375,6 +375,45 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
 
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, 'get_trading_rules')
+    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    async def test_validate_sufficient_balance_perpetual_sets_position_close(
+            self, mock_adjust_order_candidates, mock_get_trading_rules, mock_current_market_price):
+        # Regression for #8314: the PerpetualOrderCandidate built for balance validation must carry
+        # position_close reflecting the executor's position_action, else a CLOSE order is budget-
+        # validated as if it were OPENING a position (wrong margin requirement).
+        from hummingbot.core.data_type.common import PositionAction
+
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        mock_current_market_price.return_value = Decimal("100")
+
+        for action, expected_close in [(PositionAction.CLOSE, True), (PositionAction.OPEN, False)]:
+            config = OrderExecutorConfig(
+                id="test",
+                timestamp=123,
+                side=TradeType.BUY,
+                connector_name="binance_perpetual",
+                trading_pair="ETH-USDT",
+                amount=Decimal("1"),
+                price=Decimal("100"),
+                execution_strategy=ExecutionStrategy.MARKET,
+                position_action=action,
+            )
+            executor = self.get_order_executor_from_config(config)
+            mock_adjust_order_candidates.return_value = [OrderCandidate(
+                trading_pair="ETH-USDT", is_maker=True, order_type=OrderType.LIMIT,
+                order_side=TradeType.BUY, amount=Decimal("1"), price=Decimal("100"))]
+
+            await executor.validate_sufficient_balance()
+
+            built_candidate = mock_adjust_order_candidates.call_args.args[1][0]
+            self.assertEqual(
+                built_candidate.position_close, expected_close,
+                f"position_close should be {expected_close} for position_action={action}")
+
     @patch.object(OrderExecutor, '_sleep')
     async def test_control_shutdown_process_with_open_order(self, mock_sleep):
         config = OrderExecutorConfig(
