@@ -10,8 +10,9 @@ from hummingbot.connector.exchange.gemini import gemini_constants as CONSTANTS, 
 from hummingbot.connector.exchange.gemini.gemini_api_order_book_data_source import GeminiAPIOrderBookDataSource
 from hummingbot.connector.exchange.gemini.gemini_exchange import GeminiExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
 class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -273,6 +274,165 @@ class GeminiAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaisesRegex(ConnectionError, "sequence gap"):
             self.data_source._channel_originating_message(gap)
         self.assertNotIn(self.ex_trading_pair, self.data_source._snapshot_symbols)
+
+    # ------------------------------------------------------------------
+    # Listen loops (trades / diffs / snapshots)
+    # ------------------------------------------------------------------
+
+    async def test_listen_for_trades_successful(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [self._trade_event(), asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue))
+
+        msg: OrderBookMessage = await msg_queue.get()
+
+        self.assertIs(OrderBookMessageType.TRADE, msg.type)
+        self.assertEqual(12345, msg.trade_id)
+        self.assertEqual(self.trading_pair, msg.content["trading_pair"])
+        self.assertEqual(float(TradeType.BUY.value), msg.content["trade_type"])
+        self.assertEqual("10.0", msg.content["price"])
+        self.assertEqual("0.5", msg.content["amount"])
+        self.assertEqual(1700000000.0, msg.timestamp)
+        self.assertEqual(1700000000000000000, msg.content["update_id"])
+
+    async def test_listen_for_trades_raises_cancel_exception(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_trades(self.local_event_loop, asyncio.Queue())
+
+    async def test_listen_for_trades_logs_exception(self):
+        bad_event = {"E": 1700000000000000000, "s": "unknownpair", "t": 999, "p": "1", "q": "1", "m": False}
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [bad_event, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
+
+        try:
+            await self.data_source.listen_for_trades(self.local_event_loop, asyncio.Queue())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error when processing public trade updates from exchange"))
+
+    async def test_listen_for_order_book_diffs_successful(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [self._diff_event(), asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue))
+
+        msg: OrderBookMessage = await msg_queue.get()
+
+        self.assertIs(OrderBookMessageType.DIFF, msg.type)
+        self.assertEqual(110, msg.update_id)
+        self.assertEqual(100, msg.first_update_id)
+        self.assertEqual(self.trading_pair, msg.content["trading_pair"])
+        self.assertEqual(9.0, msg.bids[0].price)
+        self.assertEqual(1.0, msg.bids[0].amount)
+        self.assertEqual(11.0, msg.asks[0].price)
+        self.assertEqual(2.0, msg.asks[0].amount)
+
+    async def test_listen_for_order_book_diffs_raises_cancel_exception(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, asyncio.Queue())
+
+    async def test_listen_for_order_book_diffs_logs_exception(self):
+        bad_event = {"e": CONSTANTS.WS_EVENT_DEPTH_UPDATE, "s": "unknownpair", "U": 1, "u": 2, "b": [], "a": []}
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [bad_event, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        try:
+            await self.data_source.listen_for_order_book_diffs(self.local_event_loop, asyncio.Queue())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error when processing public order book updates from exchange"))
+
+    async def test_listen_for_order_book_snapshots_successful(self):
+        event = self._diff_event()
+        event["E"] = 1700000000000000000
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event, asyncio.CancelledError]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
+
+        msg: OrderBookMessage = await msg_queue.get()
+
+        self.assertIs(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(110, msg.update_id)
+        self.assertEqual(1700000000.0, msg.timestamp)
+        self.assertEqual(self.trading_pair, msg.content["trading_pair"])
+        self.assertEqual([["9", "1"]], msg.content["bids"])
+        self.assertEqual([["11", "2"]], msg.content["asks"])
+
+    async def test_listen_for_order_book_snapshots_raises_cancel_exception(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
+
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    async def test_listen_for_order_book_snapshots_logs_exception_and_sleeps(self, sleep_mock):
+        bad_event = {"e": CONSTANTS.WS_EVENT_DEPTH_UPDATE, "u": 110}
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [bad_event]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        sleep_mock.side_effect = asyncio.CancelledError
+
+        try:
+            await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error when processing Gemini order book snapshots"))
+        sleep_mock.assert_called_once_with(1.0)
+
+    async def test_listen_for_order_book_snapshots_does_not_fall_back_to_rest(self):
+        # The Gemini override must NEVER issue the base class's hourly REST snapshot
+        # request: REST books carry no sequence id and would clobber the
+        # sequence-bearing websocket book (update_id 0). The instance shadow below
+        # makes the base class's timeout path reachable within the test if the
+        # override is ever reverted.
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 0.1
+        self.data_source._request_order_book_snapshots = AsyncMock()
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue))
+
+        await asyncio.sleep(0.3)
+        self.data_source._request_order_book_snapshots.assert_not_called()
+
+        event = self._diff_event()
+        event["E"] = 1700000000000000000
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].put_nowait(event)
+
+        msg: OrderBookMessage = await asyncio.wait_for(msg_queue.get(), timeout=1)
+
+        self.data_source._request_order_book_snapshots.assert_not_called()
+        self.assertIs(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(110, msg.update_id)
 
     # ------------------------------------------------------------------
     # Dynamic (un)subscribe

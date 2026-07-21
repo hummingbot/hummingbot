@@ -1,4 +1,5 @@
 import asyncio
+import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -76,6 +77,16 @@ class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
+    def _queue_subscription_success_acks(self, websocket_mock):
+        # listen_for_user_stream first awaits the "user_orders" and "user_balances" subscription
+        # acks (non-matching frames are consumed and dropped), so these MUST precede any event.
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=websocket_mock,
+            message=json.dumps({"id": "user_orders", "status": 200, "result": {}}))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=websocket_mock,
+            message=json.dumps({"id": "user_balances", "status": 200, "result": {}}))
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_connected_websocket_assistant_sends_auth_headers(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -152,3 +163,109 @@ class GeminiUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         sent_payloads = mock_ws.sent_payloads
         self.assertEqual([CONSTANTS.WS_ORDER_EVENTS_STREAM], sent_payloads[0]["params"])
         self.assertEqual([CONSTANTS.WS_BALANCE_STREAM], sent_payloads[1]["params"])
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_queues_order_event(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self._queue_subscription_success_acks(ws_connect_mock.return_value)
+
+        order_event = {
+            "e": "executionReport",
+            "E": 1700000000000000000,
+            "s": "btcusd",
+            "i": 123456789,
+            "c": "HBOTBUY123",
+            "S": "BUY",
+            "o": "LIMIT",
+            "X": "NEW",
+            "p": "10.00",
+            "q": "1.0",
+            "z": "0",
+            "T": 1700000000000000000,
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(order_event))
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue))
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertEqual(1, msg_queue.qsize())
+        self.assertEqual(order_event, msg_queue.get_nowait())
+        self.assertTrue(self._is_logged(
+            "INFO", "Subscribed to user order events and balance update channels..."))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_queues_balance_event(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self._queue_subscription_success_acks(ws_connect_mock.return_value)
+
+        balance_event = {
+            "e": "balanceUpdate",
+            "E": 1700000000000,
+            "B": [{"a": "USD", "f": "207.39", "c": "300.00"}],
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(balance_event))
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue))
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertEqual(1, msg_queue.qsize())
+        self.assertEqual(balance_event, msg_queue.get_nowait())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_does_not_queue_empty_payload(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self._queue_subscription_success_acks(ws_connect_mock.return_value)
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps({}))
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue))
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertEqual(0, msg_queue.qsize())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_logs_warning_on_connection_error(self, ws_connect_mock):
+        ws_connect_mock.side_effect = [ConnectionError("test"), asyncio.CancelledError]
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
+
+        self.assertTrue(self._is_logged("WARNING", "The websocket connection was closed (test)"))
+        self.assertTrue(self._is_logged("INFO", "User stream interrupted. Cleaning up..."))
+
+    @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_logs_exception_and_retries(self, ws_connect_mock, sleep_mock):
+        ws_connect_mock.side_effect = Exception("TEST ERROR")
+        sleep_mock.side_effect = asyncio.CancelledError
+
+        try:
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+        sleep_mock.assert_called_once_with(1.0)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_raises_cancel_exception_during_connect(self, ws_connect_mock):
+        ws_connect_mock.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(asyncio.Queue())
