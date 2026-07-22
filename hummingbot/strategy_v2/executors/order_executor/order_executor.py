@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_base import GatewayBase
@@ -149,6 +149,26 @@ class OrderExecutor(ExecutorBase):
         :return: None
         """
         self._status = RunnableStatus.SHUTTING_DOWN
+
+    def _cancel_outstanding_orders(self):
+        self.cancel_order()
+
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Same fills control_shutdown_process would retain: the tracked order if
+        filled, plus any partial fills from renewals.
+        """
+        held = list(self._held_position_orders)
+        seen = {order.get("client_order_id") for order in held}
+        candidates = list(self._partial_filled_orders)
+        if self._order and self._order.is_filled:
+            candidates.append(self._order)
+        for tracked in candidates:
+            if tracked.order and tracked.order.client_order_id not in seen:
+                seen.add(tracked.order.client_order_id)
+                held.append(tracked.order.to_json())
+        return held
 
     async def control_shutdown_process(self):
         """
