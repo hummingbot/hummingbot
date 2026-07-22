@@ -1590,6 +1590,58 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
 
+    def test_force_stop_mid_swap_holds_withdrawn_balance(self):
+        """A forced stop mid-SWAPPING converts the withdrawn tokens into a position hold.
+
+        Liquidity is out of the pool but the close-out swap has not confirmed, so the
+        base sits in the wallet as spot. The shutdown-deadline fallback must record the
+        net trade versus the ADD — the same record the keep_position path would have
+        stored at REMOVE — instead of terminating with nothing tracked.
+        """
+        executor = self.get_executor()
+        executor.close_type = CloseType.EARLY_STOP
+        executor._status = RunnableStatus.SHUTTING_DOWN
+        executor._current_price = Decimal("100")
+        executor._add_base_amount = Decimal("1.0")
+        executor._add_quote_amount = Decimal("100.0")
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
+        executor.lp_position_state.position_address = None
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.base_fee = Decimal("0.01")
+        executor.lp_position_state.quote_amount = Decimal("40.0")
+        executor.lp_position_state.quote_fee = Decimal("0.5")
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(CloseType.POSITION_HOLD, executor.close_type)
+        self.assertEqual(RunnableStatus.TERMINATED, executor.status)
+        self.assertEqual(1, len(executor._held_position_orders))
+        held = executor._held_position_orders[0]
+        # net_base = (1.5 + 0.01) - 1.0 = +0.51; net_quote = 40.5 - 100 = -59.5 -> BUY
+        self.assertEqual("BUY", held["trade_type"])
+        self.assertAlmostEqual(0.51, held["executed_amount_base"])
+        self.assertAlmostEqual(59.5, held["executed_amount_quote"])
+        self.assertIn("held_position_orders", executor.get_custom_info())
+
+    def test_force_stop_with_position_still_onchain_fails_loudly(self):
+        """A position that never got its REMOVE cannot be held as spot orders.
+
+        The forced stop must not fabricate a hold; it closes as FAILED and names the
+        on-chain address so the position can be recovered.
+        """
+        executor = self.get_executor()
+        executor.close_type = CloseType.EARLY_STOP
+        executor._status = RunnableStatus.SHUTTING_DOWN
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.position_address = "position-abc"
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(CloseType.FAILED, executor.close_type)
+        self.assertEqual(RunnableStatus.TERMINATED, executor.status)
+        self.assertEqual(0, len(executor._held_position_orders))
+        self.assertTrue(self.is_partially_logged("ERROR", "still on-chain at position-abc"))
+
     # Tests for _store_lp_event_from_remove variations
 
     def test_store_lp_event_from_remove_tx_fee_only(self):

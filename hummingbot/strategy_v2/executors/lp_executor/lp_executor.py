@@ -711,7 +711,25 @@ class LPExecutor(ExecutorBase):
         self._add_tx_fee_quote = float(tx_fee * native_to_quote)
 
     def _store_lp_event_from_remove(self, event: RangePositionLiquidityRemovedEvent):
-        """Calculate net trade from ADD/REMOVE and store single order.
+        """Calculate net trade from ADD/REMOVE and store single order."""
+        # TX fee for REMOVE
+        native_to_quote = self._get_native_to_quote_rate()
+        tx_fee = sum(fee.amount for fee in event.trade_fee.flat_fees) if event.trade_fee.flat_fees else Decimal("0")
+        remove_tx_fee_quote = float(tx_fee * native_to_quote)
+        self._store_net_trade_from_withdrawal(
+            total_base_returned=event.base_amount + event.base_fee,
+            total_quote_returned=event.quote_amount + event.quote_fee,
+            mid_price=event.mid_price,
+            remove_tx_fee_quote=remove_tx_fee_quote,
+            order_id=event.order_id,
+            exchange_order_id=event.exchange_order_id,
+            trading_pair=event.trading_pair,
+        )
+
+    def _store_net_trade_from_withdrawal(self, total_base_returned: Decimal, total_quote_returned: Decimal,
+                                         mid_price: Decimal, remove_tx_fee_quote: float,
+                                         order_id: str, exchange_order_id: str, trading_pair: str):
+        """Store the net trade of a liquidity withdrawal against the recorded ADD.
 
         The LP position net change determines if this was effectively a BUY or SELL:
         - net_base > 0, net_quote < 0: BUY (gained base, spent quote)
@@ -725,15 +743,8 @@ class LPExecutor(ExecutorBase):
 
         # Calculate net change (REMOVE - ADD)
         # Include LP fees earned in the returned amounts
-        total_base_returned = event.base_amount + event.base_fee
-        total_quote_returned = event.quote_amount + event.quote_fee
         net_base = total_base_returned - add_base
         net_quote = total_quote_returned - add_quote
-
-        # TX fee for REMOVE
-        native_to_quote = self._get_native_to_quote_rate()
-        tx_fee = sum(fee.amount for fee in event.trade_fee.flat_fees) if event.trade_fee.flat_fees else Decimal("0")
-        remove_tx_fee_quote = float(tx_fee * native_to_quote)
 
         # Total TX fees for this LP position
         total_tx_fee_quote = add_tx_fee + remove_tx_fee_quote
@@ -746,9 +757,9 @@ class LPExecutor(ExecutorBase):
             # But still track fees if any
             if total_tx_fee_quote > 0:
                 self._held_position_orders.append({
-                    "client_order_id": event.exchange_order_id,
+                    "client_order_id": exchange_order_id,
                     "trade_type": "BUY",  # Dummy, won't affect P&L with 0 amounts
-                    "price": float(event.mid_price),
+                    "price": float(mid_price),
                     "executed_amount_base": 0.0,
                     "executed_amount_quote": 0.0,
                     "cumulative_fee_paid_quote": total_tx_fee_quote,
@@ -762,13 +773,13 @@ class LPExecutor(ExecutorBase):
             trade_type = "BUY"
             amount_base = float(net_base)
             amount_quote = float(abs(net_quote))
-            price = amount_quote / amount_base if amount_base > 0 else float(event.mid_price)
+            price = amount_quote / amount_base if amount_base > 0 else float(mid_price)
         elif net_base < -threshold and net_quote > threshold:
             # Lost base, gained quote = SELL
             trade_type = "SELL"
             amount_base = float(abs(net_base))
             amount_quote = float(net_quote)
-            price = amount_quote / amount_base if amount_base > 0 else float(event.mid_price)
+            price = amount_quote / amount_base if amount_base > 0 else float(mid_price)
         elif abs(net_base) > threshold:
             # Base changed but quote didn't significantly - use mid_price
             # This happens when LP fees are collected in the same asset
@@ -778,14 +789,14 @@ class LPExecutor(ExecutorBase):
             else:
                 trade_type = "SELL"
                 amount_base = float(abs(net_base))
-            amount_quote = amount_base * float(event.mid_price)
-            price = float(event.mid_price)
+            amount_quote = amount_base * float(mid_price)
+            price = float(mid_price)
         else:
             # Only quote changed - record as 0-base trade (fees only)
             self._held_position_orders.append({
-                "client_order_id": event.exchange_order_id,
+                "client_order_id": exchange_order_id,
                 "trade_type": "BUY",
-                "price": float(event.mid_price),
+                "price": float(mid_price),
                 "executed_amount_base": 0.0,
                 "executed_amount_quote": float(abs(net_quote)),
                 "cumulative_fee_paid_quote": total_tx_fee_quote,
@@ -796,10 +807,10 @@ class LPExecutor(ExecutorBase):
 
         # Create single order representing the net trade
         self._held_position_orders.append({
-            "client_order_id": event.exchange_order_id,
-            "order_id": event.order_id,
-            "exchange_order_id": event.exchange_order_id,
-            "trading_pair": event.trading_pair,
+            "client_order_id": exchange_order_id,
+            "order_id": order_id,
+            "exchange_order_id": exchange_order_id,
+            "trading_pair": trading_pair,
             "trade_type": trade_type,
             "price": price,
             "amount": amount_base,
@@ -809,6 +820,38 @@ class LPExecutor(ExecutorBase):
             "lp_source": True,
             "lp_net_trade": True,
         })
+
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Mid-SWAPPING the liquidity is already out of the pool but the close-out swap
+        has not confirmed, so the withdrawn tokens sit in the wallet as spot. Record
+        the same net trade the keep_position path would have stored at REMOVE, so the
+        exposure becomes a tracked hold instead of invisible dust. (A swap submitted
+        in the same tick can still land after the stop; next-start reconciliation
+        absorbs that one fill.)
+
+        A position still on-chain (address set, REMOVE not confirmed) cannot be
+        represented as spot orders — log it loudly so it can be recovered.
+        """
+        if not self._held_position_orders and self.lp_position_state.state == LPExecutorStates.SWAPPING:
+            mid_price = self._current_price if self._current_price else Decimal("0")
+            self._store_net_trade_from_withdrawal(
+                total_base_returned=self.lp_position_state.base_amount + self.lp_position_state.base_fee,
+                total_quote_returned=self.lp_position_state.quote_amount + self.lp_position_state.quote_fee,
+                mid_price=mid_price,
+                remove_tx_fee_quote=0.0,
+                order_id=f"{self.config.id}-forced-hold",
+                exchange_order_id=f"{self.config.id}-forced-hold",
+                trading_pair=self.config.trading_pair,
+            )
+        if not self._held_position_orders and self.lp_position_state.position_address:
+            self.logger().error(
+                f"Forced stop with LP position still on-chain at {self.lp_position_state.position_address} "
+                f"({self.config.trading_pair}). An on-chain position cannot be held as spot orders; "
+                f"recover it on the next start or manually."
+            )
+        return list(self._held_position_orders)
 
     def early_stop(self, keep_position: bool = True):
         """Stop executor - transitions to CLOSING state.
