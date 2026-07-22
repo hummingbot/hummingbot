@@ -389,15 +389,17 @@ class ExecutorOrchestrator:
             executor_ids = [executor.config.id for _, executor in unfinished_executors]
             self.logger().error(
                 f"Executors {executor_ids} did not finish closing before shutdown. "
-                f"Stopping their control loops before markets are deregistered and preserving "
-                f"any remaining position exposure.")
+                f"Preserving any remaining position exposure before markets are deregistered.")
             for controller_id, executor in unfinished_executors:
+                # Only PositionExecutor can hand its exposure over as a PositionHold today.
+                # Every other executor type is left running, as before this change: an
+                # executor that is mid-unwind still needs its control loop to finish the
+                # job, and marking it FAILED would exclude it from position persistence
+                # below, which is the very outcome this method exists to prevent.
+                if not (isinstance(executor, PositionExecutor) and abs(executor.amount_to_close) > Decimal("0")):
+                    continue
                 try:
-                    if isinstance(executor, PositionExecutor) and abs(executor.amount_to_close) > Decimal("0"):
-                        executor.force_stop_with_position_hold()
-                    else:
-                        executor.close_type = CloseType.FAILED
-                        executor.stop()
+                    executor.force_stop_with_position_hold()
                 except Exception:
                     self.logger().exception(
                         f"Error forcing executor {executor.config.id} for controller {controller_id} to stop.")
