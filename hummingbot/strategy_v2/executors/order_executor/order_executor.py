@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Dict, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.gateway.gateway_base import GatewayBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
@@ -353,6 +354,17 @@ class OrderExecutor(ExecutorBase):
         return lines
 
     async def validate_sufficient_balance(self):
+        connector = self.connectors[self.config.connector_name]
+        # Gateway swap connectors have no order book and are not registered in
+        # AllConnectorSettings, so they carry no CEX fee schema. The BudgetChecker /
+        # OrderCandidate path raises trying to load that schema, so it cannot be used
+        # here. Skip the pre-flight check: Gateway itself rejects an under-funded swap
+        # (EVM reverts on gas estimation before submission, Solana fails the quote/sim),
+        # and the executor surfaces that failure through its normal retry path. This
+        # keeps the OrderExecutor identical across Hummingbot and Hummingbot API without
+        # a per-order network round-trip to price the swap.
+        if isinstance(connector, GatewayBase):
+            return
         price_for_validation = self.get_price_for_balance_validation()
         if self.is_perpetual_connector(self.config.connector_name):
             order_candidate = PerpetualOrderCandidate(

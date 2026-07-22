@@ -4,6 +4,7 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.gateway.gateway import Gateway
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
@@ -42,6 +43,7 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         type(connector).trading_rules = PropertyMock(return_value={"ETH-USDT": TradingRule(trading_pair="ETH-USDT")})
         strategy.connectors = {
             "binance": connector,
+            "binance_perpetual": connector,
         }
         return strategy
 
@@ -416,6 +418,43 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             candidate = captured_candidates[0]
             self.assertIsInstance(candidate, PerpetualOrderCandidate)
             self.assertEqual(candidate.position_close, position_action == PositionAction.CLOSE)
+
+    def get_gateway_executor(self, side: TradeType, amount: Decimal = Decimal("100")):
+        """An executor wired to a Gateway swap connector (no order book, no CEX fee schema)."""
+        connector = MagicMock(spec=Gateway)
+        self.strategy.connectors["jupiter"] = connector
+        config = OrderExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=side,
+            connector_name="jupiter",
+            trading_pair="PUMP-USDC",
+            amount=amount,
+            price=Decimal("1"),
+            execution_strategy=ExecutionStrategy.MARKET,
+        )
+        return self.get_order_executor_from_config(config), connector
+
+    async def test_validate_sufficient_balance_gateway_buy_skips_without_network(self):
+        # Gateway swap connectors are not in AllConnectorSettings, so the BudgetChecker /
+        # OrderCandidate path raises loading a fee schema. validate_sufficient_balance must
+        # skip cleanly for them — no crash, no stop, and no per-order network round-trip.
+        executor, connector = self.get_gateway_executor(TradeType.BUY)
+        await executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertNotEqual(executor.status, RunnableStatus.TERMINATED)
+        connector.get_order_price.assert_not_called()
+        connector.get_available_balance.assert_not_called()
+        connector.get_balance_by_address.assert_not_called()
+
+    async def test_validate_sufficient_balance_gateway_sell_skips_without_network(self):
+        executor, connector = self.get_gateway_executor(TradeType.SELL)
+        await executor.validate_sufficient_balance()
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertNotEqual(executor.status, RunnableStatus.TERMINATED)
+        connector.get_order_price.assert_not_called()
+        connector.get_available_balance.assert_not_called()
+        connector.get_balance_by_address.assert_not_called()
 
     @patch.object(OrderExecutor, '_sleep')
     async def test_control_shutdown_process_with_open_order(self, mock_sleep):
