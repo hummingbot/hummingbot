@@ -424,6 +424,14 @@ def gateway_connector_trading_pairs(connector: str) -> List[str]:
     return ret_val
 
 
+def connectable_exchange_names() -> Set[str]:
+    """Exchanges a user can store API keys for: CEX/native connectors (not Ethereum-wallet, not the
+    gateway/DEX generic connector), minus probit_kr. Shared by the interactive `connect` command and
+    the `hbot connect` CLI so the connectable set can't drift between the two."""
+    return {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
+            if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() and cs.name != "probit_kr"}
+
+
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
