@@ -369,6 +369,83 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTest
 
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
+    async def test_parse_order_book_diff_message_includes_first_update_id(self):
+        diff_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(
+            raw_message=self._orderbook_update_event(), message_queue=diff_queue)
+
+        result: OrderBookMessage = diff_queue.get_nowait()
+        self.assertEqual(OrderBookMessageType.DIFF, result.type)
+        self.assertEqual(752409360466, result.update_id)
+        self.assertEqual(752409354963, result.first_update_id)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        # The last applied `u` is tracked to validate the next diff's `pu`.
+        self.assertEqual(752409360466, self.data_source._last_update_id[self.trading_pair])
+
+    async def test_parse_order_book_diff_message_sequence_gap_forces_resync(self):
+        diff_queue: asyncio.Queue = asyncio.Queue()
+
+        # First diff establishes the sequence (the `pu` chain is not validated on the first event).
+        await self.data_source._parse_order_book_diff_message(
+            raw_message=self._orderbook_update_event(), message_queue=diff_queue)
+        self.assertEqual(1, diff_queue.qsize())
+        last_u = self.data_source._last_update_id[self.trading_pair]
+
+        # Second diff whose `pu` does not chain to the previous `u` -> sequence gap.
+        gapped = self._orderbook_update_event()
+        gapped["data"]["U"] = last_u + 100
+        gapped["data"]["u"] = last_u + 200
+        gapped["data"]["pu"] = last_u + 50
+
+        await self.data_source._parse_order_book_diff_message(raw_message=gapped, message_queue=diff_queue)
+
+        # The gapped diff is not forwarded to the diff stream.
+        self.assertEqual(1, diff_queue.qsize())
+        # A resync request for the pair is queued on the snapshot channel.
+        snapshot_requests = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        self.assertEqual(1, snapshot_requests.qsize())
+        self.assertEqual(self.trading_pair, snapshot_requests.get_nowait())
+        # The stale tracking is cleared so the post-snapshot diff is not falsely flagged.
+        self.assertNotIn(self.trading_pair, self.data_source._last_update_id)
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                f"Order book diff sequence gap for {self.trading_pair} "
+                f"(expected pu={last_u}, got pu={last_u + 50}). Forcing a snapshot resync.",
+            )
+        )
+
+    @aioresponses()
+    async def test_listen_for_order_book_snapshots_serves_on_demand_resync_request(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "lastUpdateId": 1027024,
+            "E": 1589436922972,
+            "T": 1589436922959,
+            "bids": [["10", "1"]],
+            "asks": [["11", "1"]],
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response), repeat=True)
+
+        # Queue an on-demand resync request (as the diff parser does on a gap) before starting the loop.
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].put_nowait(self.trading_pair)
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
+
+        # First snapshot comes from the initial hourly reset, the second from the on-demand resync request.
+        hourly_reset = await msg_queue.get()
+        on_demand = await msg_queue.get()
+
+        for snapshot in (hourly_reset, on_demand):
+            self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot.type)
+            self.assertEqual(self.trading_pair, snapshot.content["trading_pair"])
+            self.assertEqual(1027024, snapshot.update_id)
+
     @aioresponses()
     async def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
         url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)

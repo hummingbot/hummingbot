@@ -70,9 +70,17 @@ class LighterSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair: str) -> str:
         return trading_pair.replace("-", "/").upper()
 
-    async def initialize_exchange_data(self):
-        if self._market_id is not None:
-            return
+    async def _initialize_exchange_data(self):
+        # Reuse the connector's already-loaded market map when backed by a Lighter connector, avoiding
+        # the redundant orderBookDetails fetch. Any miss (map not loaded, pair absent) falls back.
+        if self._connector is not None:
+            try:
+                self._market_id = int(self._connector.market_info_for_trading_pair(self._trading_pair).market_id)
+                return
+            except Exception:
+                self.logger().debug(
+                    f"Could not resolve market_id for {self._trading_pair} via the connector; "
+                    f"falling back to the orderBookDetails fetch.", exc_info=True)
         exchange_symbol = self.get_exchange_trading_pair(self._trading_pair)
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
@@ -96,6 +104,13 @@ class LighterSpotCandles(CandlesBase):
         now_ms = int(time.time() * 1000)
         start_ms = int(start_time * 1000) if start_time is not None else now_ms - self.interval_in_seconds * 1000
         end_ms = int(end_time * 1000) if end_time is not None else now_ms
+        # Validate the range client-side: Lighter rejects end <= start with a 400, which otherwise
+        # surfaces as an opaque 500 to callers.
+        if end_ms <= start_ms:
+            raise ValueError(
+                f"Invalid candle time range for {self._trading_pair}: end_timestamp ({end_ms}) "
+                f"must be greater than start_timestamp ({start_ms})."
+            )
         interval_ms = self.interval_in_seconds * 1000
         count_back = max(1, int((end_ms - start_ms) / interval_ms))
         return {

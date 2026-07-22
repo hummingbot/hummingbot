@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 from aioresponses import aioresponses
@@ -33,6 +33,7 @@ class TestLighterSpotCandles(TestCandlesBase):
         super().setUp()
         self.data_feed = LighterSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
         self.data_feed._market_id = 1  # pre-set to skip initialize_exchange_data API call
+        self.data_feed._exchange_data_initialized = True  # pre-set to skip initialize_exchange_data API call
         self.log_records = []
         self.data_feed.logger().setLevel(1)
         self.data_feed.logger().addHandler(self)
@@ -168,11 +169,19 @@ class TestLighterSpotCandles(TestCandlesBase):
         )
         self.assertEqual(params["count_back"], 1)
 
+    def test_get_rest_candles_params_rejects_invalid_range(self):
+        # end <= start must fail client-side instead of producing an upstream 400/500.
+        with self.assertRaises(ValueError):
+            self.data_feed._get_rest_candles_params(start_time=1748954400, end_time=1748940000)
+        with self.assertRaises(ValueError):
+            self.data_feed._get_rest_candles_params(start_time=1748954400, end_time=1748954400)
+
     # ---- initialize_exchange_data tests ----
 
     @aioresponses()
     async def test_initialize_exchange_data_sets_market_id(self, mock_api):
         self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
         order_book_details_url = (
             f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}"
         )
@@ -196,6 +205,7 @@ class TestLighterSpotCandles(TestCandlesBase):
     @aioresponses()
     async def test_initialize_exchange_data_case_insensitive(self, mock_api):
         self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
         order_book_details_url = (
             f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}"
         )
@@ -211,16 +221,33 @@ class TestLighterSpotCandles(TestCandlesBase):
         self.assertEqual(self.data_feed._market_id, 1)
 
     async def test_initialize_exchange_data_skips_if_already_set(self):
-        # _market_id already set in setUp — no API call should be made
+        # exchange data already initialized in setUp — no API call should be made
         with patch.object(
             self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
         ) as mock_rest:
             await self.data_feed.initialize_exchange_data()
             mock_rest.assert_not_called()
 
+    async def test_initialize_exchange_data_reuses_connector_market_id(self):
+        # Backed by a connector: market_id comes from the connector's market map; no REST fetch.
+        self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
+        connector = MagicMock()
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
+        connector.market_info_for_trading_pair = MagicMock(return_value=MagicMock(market_id=5))
+        connector.throttler = None
+        self.data_feed.attach_connector(connector)
+        with patch.object(
+            self.data_feed._api_factory, "get_rest_assistant", new_callable=AsyncMock
+        ) as mock_rest:
+            await self.data_feed.initialize_exchange_data()
+            mock_rest.assert_not_called()
+        self.assertEqual(self.data_feed._market_id, 5)
+
     @aioresponses()
     async def test_initialize_exchange_data_raises_if_market_not_found(self, mock_api):
         self.data_feed._market_id = None
+        self.data_feed._exchange_data_initialized = False
         order_book_details_url = (
             f"{CONSTANTS.MAINNET_BASE_URL}{CONSTANTS.ORDER_BOOK_DETAILS_PATH_URL}"
         )

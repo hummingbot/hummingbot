@@ -21,7 +21,7 @@ class AevoPerpetualCandles(CandlesBase):
         self._ping_timeout = CONSTANTS.PING_TIMEOUT
         self._current_ws_candle: Optional[Dict[str, Any]] = None
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         if self._ex_trading_pair is None:
             self._ex_trading_pair = self.get_exchange_trading_pair(self._trading_pair)
 

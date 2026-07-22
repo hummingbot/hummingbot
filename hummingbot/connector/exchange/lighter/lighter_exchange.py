@@ -68,6 +68,9 @@ class LighterExchange(ExchangePyBase):
         self._markets_by_trading_pair = {}
         self._markets_by_exchange_symbol = {}
         self._tx_lock = asyncio.Lock()
+        # Serializes the lazy account/signer/auth bootstrap so concurrent callers can't each
+        # rebuild the authenticated web-assistants factory and race the user-stream tracker.
+        self._account_ready_lock = asyncio.Lock()
         self._signer_client = self._create_signer_client() if trading_required and self._account_index is not None else None
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -410,6 +413,12 @@ class LighterExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
+        # A non-trading connector instance (e.g. the market-data provider's price feed, created
+        # with trading_required=False) never runs the trading-rules polling loop, so the market
+        # map can be empty here. Lazily load it rather than raising "... is not a Lighter spot
+        # market". Mirrors the perpetual connector's behavior.
+        if trading_pair not in self._markets_by_trading_pair:
+            await self._update_trading_rules()
         market = self.market_info_for_trading_pair(trading_pair)
         response = await self._api_get(
             path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL,
@@ -488,13 +497,15 @@ class LighterExchange(ExchangePyBase):
     ) -> Decimal:
         if order_type is not OrderType.MARKET:
             return price
-        if price.is_nan():
-            reference_price = self.get_mid_price(trading_pair)
-            multiplier = Decimal("1") + CONSTANTS.MARKET_ORDER_SLIPPAGE
-            if trade_type is TradeType.SELL:
-                multiplier = Decimal("1") - CONSTANTS.MARKET_ORDER_SLIPPAGE
-            price = reference_price * multiplier
-        return self.quantize_order_price(trading_pair, price)
+        # A market order must cross the book to fill. A strategy may pass a reference/target price
+        # (e.g. a take-profit level) that for a SELL sits ABOVE the market — using it directly as
+        # Lighter's avg_execution_price makes the order unfillable and the exchange rejects it
+        # (issue #8326). Always apply slippage in the aggressive direction so the order fills.
+        reference_price = self.get_mid_price(trading_pair) if price.is_nan() else price
+        multiplier = Decimal("1") + CONSTANTS.MARKET_ORDER_SLIPPAGE
+        if trade_type is TradeType.SELL:
+            multiplier = Decimal("1") - CONSTANTS.MARKET_ORDER_SLIPPAGE
+        return self.quantize_order_price(trading_pair, reference_price * multiplier)
 
     def _create_signer_client(self):
         if self._account_index is None or self._api_key_index is None or self._api_private_key is None:
@@ -553,20 +564,21 @@ class LighterExchange(ExchangePyBase):
     async def _ensure_account_ready(self):
         if not self.is_trading_required:
             return
-        if self._markets_by_exchange_symbol == {}:
-            await self._update_trading_rules()
-        if self._account_index is None:
-            account_response = await self._api_get(
-                path_url=CONSTANTS.BALANCE_PATH_URL,
-                params=self._account_lookup_params(),
-            )
-            account = extract_account_snapshot(account_response, l1_address=self._l1_address)
-            self._set_account_index_from_account(account)
-        if self._signer_client is None:
-            self._signer_client = self._create_signer_client()
-            self._auth = self.authenticator
-            self._web_assistants_factory = self._create_web_assistants_factory()
-            self._user_stream_tracker = self._create_user_stream_tracker()
+        async with self._account_ready_lock:
+            if self._markets_by_exchange_symbol == {}:
+                await self._update_trading_rules()
+            if self._account_index is None:
+                account_response = await self._api_get(
+                    path_url=CONSTANTS.BALANCE_PATH_URL,
+                    params=self._account_lookup_params(),
+                )
+                account = extract_account_snapshot(account_response, l1_address=self._l1_address)
+                self._set_account_index_from_account(account)
+            if self._signer_client is None:
+                self._signer_client = self._create_signer_client()
+                self._auth = self.authenticator
+                self._web_assistants_factory = self._create_web_assistants_factory()
+                self._user_stream_tracker = self._create_user_stream_tracker()
 
     @staticmethod
     def _match_order(tracked_order: InFlightOrder, orders: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
