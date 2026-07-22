@@ -1356,8 +1356,13 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should transition to SWAPPING since base_diff > 0.000001
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
-    async def test_close_position_with_keep_position_false_no_swap_needed(self):
-        """Test _close_position goes to COMPLETE when no swap needed"""
+    async def test_close_position_with_keep_position_false_unwinds_unchanged_position(self):
+        """Regression: keep_position=False must swap back even when base is unchanged.
+
+        Withdrawing exactly what was deposited used to compute a zero difference
+        and skip the swap, completing cleanly while the base tokens stayed in the
+        wallet. The full balance must be sold instead.
+        """
         config = self.get_default_config()
         config_dict = config.model_dump()
         config_dict["keep_position"] = False
@@ -1390,7 +1395,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._close_position()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
     async def test_execute_closeout_swap_no_connector(self):
         """Test _execute_closeout_swap handles missing connector"""
@@ -1491,11 +1496,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertIsNone(executor.lp_position_state.active_swap_order)
 
     async def test_execute_closeout_swap_no_swap_needed(self):
-        """Test _execute_closeout_swap completes when no swap needed"""
+        """Test _execute_closeout_swap completes when no base token was withdrawn"""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
-        executor.lp_position_state.base_amount = Decimal("1.0")  # Same
+        executor.lp_position_state.base_amount = Decimal("0")  # Nothing came back
         executor.lp_position_state.base_fee = Decimal("0.0")
 
         await executor._execute_closeout_swap()
@@ -1521,8 +1526,12 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(call_kwargs["is_buy"])  # SELL
         self.assertIsNotNone(executor.lp_position_state.active_swap_order)
 
-    async def test_execute_closeout_swap_buy_back_base(self):
-        """Test _execute_closeout_swap buys back base tokens"""
+    async def test_execute_closeout_swap_sells_full_balance_when_base_shrank(self):
+        """Withdrawing less base than deposited still sells the whole balance.
+
+        A full unwind is always a SELL - there is no buy-back leg, since the goal
+        is to end holding no base token rather than to restore the deposit.
+        """
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
@@ -1534,10 +1543,10 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
-        # Should place a BUY order
         connector.place_order.assert_called_once()
         call_kwargs = connector.place_order.call_args[1]
-        self.assertTrue(call_kwargs["is_buy"])  # BUY
+        self.assertFalse(call_kwargs["is_buy"])  # SELL
+        self.assertEqual(call_kwargs["amount"], Decimal("0.51"))  # base + base_fee
         self.assertIsNotNone(executor.lp_position_state.active_swap_order)
 
     async def test_execute_closeout_swap_exception(self):
@@ -1689,40 +1698,39 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
-    # Tests for _calculate_net_base_difference
+    # Tests for _calculate_closeout_base_amount
 
-    def test_calculate_net_base_difference_positive(self):
-        """Test _calculate_net_base_difference returns positive when gained base"""
+    def test_calculate_closeout_base_amount_includes_fees(self):
+        """Close-out sells the withdrawn base plus accrued base fees"""
         executor = self.get_executor()
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("1.4")
         executor.lp_position_state.base_fee = Decimal("0.1")
 
-        # received = 1.4 + 0.1 = 1.5, initial = 1.0, diff = 0.5
-        diff = executor._calculate_net_base_difference()
-        self.assertEqual(diff, Decimal("0.5"))
+        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("1.5"))
 
-    def test_calculate_net_base_difference_negative(self):
-        """Test _calculate_net_base_difference returns negative when lost base"""
-        executor = self.get_executor()
-        executor.lp_position_state.initial_base_amount = Decimal("1.0")
-        executor.lp_position_state.base_amount = Decimal("0.4")
-        executor.lp_position_state.base_fee = Decimal("0.1")
+    def test_calculate_closeout_base_amount_ignores_initial_deposit(self):
+        """Regression: a position closing near its opening price must still fully unwind.
 
-        # received = 0.4 + 0.1 = 0.5, initial = 1.0, diff = -0.5
-        diff = executor._calculate_net_base_difference()
-        self.assertEqual(diff, Decimal("-0.5"))
-
-    def test_calculate_net_base_difference_zero(self):
-        """Test _calculate_net_base_difference returns zero when balanced"""
+        The old difference-based calculation returned 0 here, so no close-out swap
+        ran and the whole base position was silently left in the wallet as spot
+        while the executor reported a clean EARLY_STOP.
+        """
         executor = self.get_executor()
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("0.9")
         executor.lp_position_state.base_fee = Decimal("0.1")
 
-        # received = 0.9 + 0.1 = 1.0, initial = 1.0, diff = 0
-        diff = executor._calculate_net_base_difference()
-        self.assertEqual(diff, Decimal("0"))
+        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("1.0"))
+
+    def test_calculate_closeout_base_amount_zero_when_no_base_withdrawn(self):
+        """No swap when the position withdrew no base token at all"""
+        executor = self.get_executor()
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("0")
+        executor.lp_position_state.base_fee = Decimal("0")
+
+        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("0"))
 
     # Test for filled_amount_base property
 

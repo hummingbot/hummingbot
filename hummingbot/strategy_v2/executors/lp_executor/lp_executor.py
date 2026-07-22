@@ -526,17 +526,19 @@ class LPExecutor(ExecutorBase):
             # If keep_position=False, execute close-out swap to return to original position
             # Similar to how grid executor sells/buys back to rebalance
             if not self.config.keep_position and self.close_type != CloseType.POSITION_HOLD:
-                # Calculate net base change using helper (same calculation as position_hold)
-                base_diff = self._calculate_net_base_difference()
-                if abs(base_diff) > Decimal("0.000001"):  # Non-trivial difference
+                # keep_position=False means "leave me holding no base token" — swap the
+                # ENTIRE withdrawn base balance back to quote, not just the drift versus
+                # what was deposited.
+                closeout_base = self._calculate_closeout_base_amount()
+                if closeout_base > Decimal("0.000001"):
                     self.logger().info(
-                        f"Close-out swap needed: base_diff={base_diff:.6f} "
-                        f"(received={self.lp_position_state.base_amount + self.lp_position_state.base_fee:.6f}, "
-                        f"initial={self.lp_position_state.initial_base_amount:.6f})"
+                        f"Close-out swap needed: selling {closeout_base:.6f} base "
+                        f"(withdrawn={self.lp_position_state.base_amount:.6f}, "
+                        f"fees={self.lp_position_state.base_fee:.6f})"
                     )
                     self.lp_position_state.state = LPExecutorStates.SWAPPING
                 else:
-                    self.logger().info("No close-out swap needed (base amounts match)")
+                    self.logger().info("No close-out swap needed (no base token withdrawn)")
                     self.lp_position_state.state = LPExecutorStates.COMPLETE
             else:
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
@@ -603,23 +605,21 @@ class LPExecutor(ExecutorBase):
             # Otherwise still pending - wait for next tick
             return
 
-        # Calculate swap amount and direction using helper (consistent with _close_position)
-        base_diff = self._calculate_net_base_difference()
+        # Calculate swap amount using helper (consistent with _close_position)
+        amount = self._calculate_closeout_base_amount()
 
-        if abs(base_diff) < Decimal("0.000001"):
+        if amount < Decimal("0.000001"):
             # No swap needed
             self.lp_position_state.state = LPExecutorStates.COMPLETE
             return
 
-        # Determine trade direction
-        # If base_diff > 0: We received more base than deposited → SELL excess base
-        # If base_diff < 0: We received less base than deposited → BUY base to restore
-        is_buy = base_diff < 0
-        amount = abs(base_diff)
-        side = TradeType.BUY if is_buy else TradeType.SELL
+        # Full unwind is always a SELL: we hold base withdrawn from the pool and
+        # want to end denominated in quote.
+        is_buy = False
+        side = TradeType.SELL
 
         self.logger().info(
-            f"Executing close-out swap: {side.name} {amount:.6f} base (diff={base_diff:.6f})"
+            f"Executing close-out swap: {side.name} {amount:.6f} base (full unwind)"
         )
 
         try:
@@ -836,28 +836,29 @@ class LPExecutor(ExecutorBase):
             # No position was created, just complete
             self.lp_position_state.state = LPExecutorStates.COMPLETE
 
-    def _calculate_net_base_difference(self) -> Decimal:
+    def _calculate_closeout_base_amount(self) -> Decimal:
         """
-        Calculate net base token difference from LP position lifecycle.
+        Base token to sell back to quote when unwinding with keep_position=False.
 
-        This is the difference between what we received when closing the position
-        (including fees) and what we initially deposited.
+        This is the ENTIRE base balance withdrawn from the pool — the position's
+        base amount plus accrued base fees — because keep_position=False means the
+        executor must end holding no base token.
+
+        It is deliberately NOT the difference against initial_base_amount. A
+        two-sided position that is closed near its opening price withdraws roughly
+        what it deposited, so a difference-based amount rounds to zero and the
+        executor completes with a clean EARLY_STOP while the full base position
+        silently remains in the wallet as spot.
 
         Returns:
-            Positive: We have more base than we started with (need to SELL)
-            Negative: We have less base than we started with (need to BUY)
-            Zero: Position is balanced
+            The base amount to SELL. Zero if the position withdrew no base token
+            (e.g. a single-sided quote position that never crossed into range).
 
         Used by:
-            - _close_position: To determine if close-out swap is needed
-            - _execute_closeout_swap: To determine swap amount and direction
-            - position_hold: Uses same calculation (ADD as SELL, REMOVE+fees as BUY)
+            - _close_position: To determine if a close-out swap is needed
+            - _execute_closeout_swap: To determine the swap amount
         """
-        # What we received when closing: base_amount + base_fee
-        received_base = self.lp_position_state.base_amount + self.lp_position_state.base_fee
-        # What we deposited when opening: initial_base_amount
-        initial_base = self.lp_position_state.initial_base_amount
-        return received_base - initial_base
+        return self.lp_position_state.base_amount + self.lp_position_state.base_fee
 
     def _get_quote_to_global_rate(self) -> Decimal:
         """
