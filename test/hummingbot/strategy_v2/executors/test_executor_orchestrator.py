@@ -494,6 +494,24 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         asyncio.run(test_async())
 
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_logs_and_continues_when_force_stop_raises(self, store_all_executors, store_all_positions):
+        """One executor failing to force-stop must not prevent the others from being forced."""
+        async def test_async():
+            broken = self._make_unfinished_executor("broken", RunnableStatus.SHUTTING_DOWN)
+            broken.force_stop_with_position_hold.side_effect = RuntimeError("connector already gone")
+            healthy = self._make_unfinished_executor("healthy", RunnableStatus.SHUTTING_DOWN)
+            self.orchestrator.active_executors["test"] = [broken, healthy]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            broken.force_stop_with_position_hold.assert_called_once()
+            healthy.force_stop_with_position_hold.assert_called_once()
+            store_all_executors.assert_called_once()
+
+        asyncio.run(test_async())
+
     def test_stop_executor(self):
         position_executor = MagicMock(spec=PositionExecutor)
         position_executor.is_closed = False
