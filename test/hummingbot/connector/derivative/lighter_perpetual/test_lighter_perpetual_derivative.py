@@ -1209,6 +1209,33 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(Decimal("0.0002"), rate)
         self.assertEqual(Decimal("1.5"), amount)
 
+    async def test_lighter_ensure_account_ready_resolves_account_and_rebuilds(self):
+        # setUp replaces _ensure_account_ready with a mock; exercise the real implementation
+        # (the lazy account/signer/auth bootstrap that the private websocket depends on).
+        self.exchange._account_index = None
+        self.exchange._signer_client = None
+        self.exchange._markets_by_exchange_symbol = {}
+        self.exchange._update_trading_rules = AsyncMock()
+        self.exchange._api_get = AsyncMock(
+            return_value={"sub_accounts": [{"index": self.ACCOUNT_INDEX, "l1_address": self.exchange._l1_address}]})
+        self.exchange._create_signer_client = MagicMock(return_value="signer")
+        self.exchange._create_web_assistants_factory = MagicMock(return_value="factory")
+        self.exchange._create_user_stream_tracker = MagicMock(return_value="tracker")
+
+        await LighterPerpetualDerivative._ensure_account_ready(self.exchange)
+
+        self.exchange._update_trading_rules.assert_awaited_once()
+        self.assertEqual(self.ACCOUNT_INDEX, self.exchange._account_index)
+        self.assertEqual("signer", self.exchange._signer_client)
+        self.assertEqual("factory", self.exchange._web_assistants_factory)
+        self.assertEqual("tracker", self.exchange._user_stream_tracker)
+
+    async def test_lighter_ensure_account_ready_noop_when_not_trading_required(self):
+        self.exchange._trading_required = False
+        self.exchange._api_get = AsyncMock()
+        await LighterPerpetualDerivative._ensure_account_ready(self.exchange)
+        self.exchange._api_get.assert_not_awaited()
+
     async def test_lighter_update_balances(self):
         self.exchange._account_balances = {"OLD": Decimal("1")}
         self.exchange._account_available_balances = {"OLD": Decimal("1")}

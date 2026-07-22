@@ -117,6 +117,8 @@ class HyperliquidPerpetualCandles(CandlesBase):
         return {"Content-Type": "application/json"}
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
+        if not data:
+            return []
         return [
             [self.ensure_timestamp_in_seconds(row["t"]), row["o"], row["h"], row["l"], row["c"], row["v"], 0.,
              row["n"], 0., 0.] for row in data

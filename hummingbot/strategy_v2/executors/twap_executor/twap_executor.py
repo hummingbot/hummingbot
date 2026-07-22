@@ -285,3 +285,14 @@ class TWAPExecutor(ExecutorBase):
         Get the total executed amount of the orders in quote asset.
         """
         return self.get_total_executed_amount() * self.get_average_executed_price()
+
+    def get_custom_info(self) -> Dict:
+        return {
+            "side": self.config.side,
+            "current_position_average_price": self.get_average_executed_price(),
+            "filled_amount_base": self.get_total_executed_amount(),
+            "filled_amount_quote": self.get_total_executed_amount_quote(),
+            "current_retries": self._current_retries,
+            "max_retries": self._max_retries,
+            "order_ids": [order.order_id for order in self._order_plan.values() if order],
+        }

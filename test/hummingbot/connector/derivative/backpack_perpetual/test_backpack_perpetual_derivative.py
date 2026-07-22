@@ -904,6 +904,45 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("100.5"), available_balances[CONSTANTS.CURRENCY])
         self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
 
+    @aioresponses()
+    async def test_in_flight_order_reserves_margin_not_full_notional(self, mock_api):
+        """Regression for #8168. Backpack has no balance websocket stream, so real_time_balance_update
+        is False and the base class locally reserves in-flight orders between REST polls. Because the
+        market is cross-margin and USDC-settled, in_flight_asset_balances() must reserve only the order's
+        initial margin (notional / leverage) against USDC -- NOT the full quote notional (the spot base
+        behaviour that over-reserved longs and triggered the false "Not enough budget" of #8168)."""
+        # No balance websocket -> local in-flight reservation must be active.
+        self.assertFalse(self.exchange.real_time_balance_update)
+        self.exchange._leverage = Decimal("10")
+        self.exchange._leverage_initialized = True
+
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "netEquity": "229.40",
+            "netEquityAvailable": "224.41",
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+        await self.exchange._update_balances()
+
+        self.exchange.start_tracking_order(
+            order_id="OID-MARGIN",
+            exchange_order_id="EID-1",
+            trading_pair="SOL-USDC",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),  # 199.465 USDC notional -> 19.9465 margin at 10x
+            position_action=PositionAction.OPEN,
+        )
+
+        notional = Decimal("2.87") * Decimal("69.5")
+        margin = notional / Decimal("10")
+        # Available reflects only the margin reservation...
+        self.assertEqual(Decimal("224.41") - margin, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+        # ...and explicitly NOT the full-notional over-deduction that caused #8168.
+        self.assertNotEqual(Decimal("224.41") - notional, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
         account_update = self._get_account_update_ws_event_single_position_dict()
@@ -1186,6 +1225,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Both should return values from trading rules
         self.assertIsNotNone(buy_collateral)
         self.assertIsNotNone(sell_collateral)
+
+    @aioresponses()
+    async def test_leverage_initialization_signs_account_query(self, req_mock):
+        """The GET /api/v1/account request must be signed with the ``accountQuery`` instruction,
+        otherwise Backpack rejects it with 'Invalid signature' (regression for the leverage fetch).
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps({"leverageLimit": "5"}), status=200)
+
+        await self.exchange._initialize_leverage_if_needed()
+
+        self.assertTrue(self.exchange._leverage_initialized)
+        self.assertEqual(Decimal("5"), self.exchange._leverage)
+
+        # The request must be signed; the instruction is folded into the signature and must NOT
+        # leak as a plain query param.
+        request = next(iter(req_mock.requests.values()))[0]
+        self.assertIn("X-Signature", request.kwargs["headers"])
+        self.assertNotIn("instruction", request.kwargs.get("params") or {})
 
     @aioresponses()
     async def test_leverage_initialization_failure(self, req_mock):

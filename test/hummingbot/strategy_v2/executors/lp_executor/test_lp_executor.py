@@ -358,8 +358,8 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.quote_fee = Decimal("1.0")
 
         # Initial = 200, PnL = 2
-        # Pct = (2 / 200) * 100 = 1%
-        self.assertEqual(executor.get_net_pnl_pct(), Decimal("1"))
+        # Pct ratio = 2 / 200 = 0.01 (1%)
+        self.assertEqual(executor.get_net_pnl_pct(), Decimal("0.01"))
 
     def test_get_cum_fees_quote(self):
         """Test get_cum_fees_quote returns tx_fee converted to global token"""
@@ -1132,9 +1132,9 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.quote_fee = Decimal("1.0")
 
         # Initial = 200, Current = 200, Fees = 2, PnL = 2
-        # Pct = 2/200 * 100 = 1%
+        # Pct ratio = 2 / 200 = 0.01 (1%)
         pct = executor.get_net_pnl_pct()
-        self.assertEqual(pct, Decimal("1"))
+        self.assertEqual(pct, Decimal("0.01"))
 
     def test_get_net_pnl_pct_no_price_with_nonzero_pnl(self):
         """Test get_net_pnl_pct returns 0 when no price but pnl would be non-zero"""
