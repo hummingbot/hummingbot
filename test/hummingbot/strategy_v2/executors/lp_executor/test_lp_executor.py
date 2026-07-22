@@ -1397,6 +1397,42 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
+    async def test_close_position_with_keep_position_false_quote_only_completes(self):
+        """A quote-only withdrawal has no base to sell back, so no close-out swap is needed."""
+        config = self.get_default_config()
+        config_dict = config.model_dump()
+        config_dict["keep_position"] = False
+        config_dict["swap_provider"] = "jupiter/router"
+        new_config = LPExecutorConfig(**config_dict)
+
+        executor = self.get_executor(new_config)
+        executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.initial_base_amount = Decimal("0")
+        executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+
+        mock_position = MagicMock()
+        mock_position.price = 100.0
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector._clmm_close_position = AsyncMock(return_value="sig789")
+        connector._lp_orders_metadata = {
+            "order-123": {
+                "base_amount": Decimal("0"),  # Price moved below range: all base converted to quote
+                "quote_amount": Decimal("99.0"),
+                "base_fee": Decimal("0"),
+                "quote_fee": Decimal("0.5"),
+                "position_rent_refunded": Decimal("0.002"),
+                "tx_fee": Decimal("0.0001")
+            }
+        }
+        connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event(
+            base_amount=Decimal("0"), quote_amount=Decimal("99.0"), base_fee=Decimal("0")
+        ))
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+
     async def test_execute_closeout_swap_no_connector(self):
         """Test _execute_closeout_swap handles missing connector"""
         executor = self.get_executor()
