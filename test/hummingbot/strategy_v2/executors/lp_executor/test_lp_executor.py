@@ -1549,6 +1549,32 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(call_kwargs["amount"], Decimal("0.51"))  # base + base_fee
         self.assertIsNotNone(executor.lp_position_state.active_swap_order)
 
+    async def test_execute_closeout_swap_is_quote_asset_agnostic(self):
+        """The close-out sells the base balance whatever the quote asset is.
+
+        The rest of this suite runs on SOL-USDC (USDC quote); this covers the
+        other common shape, a token quoted in SOL. The amount is pure base-side
+        arithmetic, so it must not vary with the quote token.
+        """
+        config_dict = self.get_default_config().model_dump()
+        config_dict["trading_pair"] = "BONK-SOL"
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.initial_base_amount = Decimal("1000")
+        executor.lp_position_state.base_amount = Decimal("1400")
+        executor.lp_position_state.base_fee = Decimal("25")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.place_order = MagicMock(return_value="swap-order-123")
+
+        await executor._execute_closeout_swap()
+
+        connector.place_order.assert_called_once()
+        call_kwargs = connector.place_order.call_args[1]
+        self.assertFalse(call_kwargs["is_buy"])  # SELL base for quote
+        self.assertEqual(call_kwargs["trading_pair"], "BONK-SOL")
+        self.assertEqual(call_kwargs["amount"], Decimal("1425"))  # base + base_fee
+
     async def test_execute_closeout_swap_exception(self):
         """Test _execute_closeout_swap handles exception when placing swap"""
         executor = self.get_executor()

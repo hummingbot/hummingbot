@@ -362,6 +362,16 @@ class Gateway(GatewayBase):
         that spend the proceeds downstream (e.g. an LP open's ``base_amount``) must
         see the realized figure, or they will ask the chain for tokens that aren't
         there.
+
+        Base and quote are assigned from the trade side rather than from the token
+        identities, so this is independent of the quote asset (SOL, USDC, ...).
+
+        One caveat: for an SPL token Gateway diffs the token balance exactly, but a
+        NATIVE SOL leg is measured as a lamport delta that also absorbs the tx fee
+        and any rent. So on a SOL-quoted pair the quote leg carries a few thousand
+        lamports of noise, and on a SOL-BASE pair the base leg does. The error is
+        gas-sized (~1e-5 SOL) and, for a buy, understates what arrived - which is
+        the safe direction for anything that spends the proceeds.
         """
         data = order_result.get("data", {})
         amount_in = Decimal(str(data.get("amountIn", "0")))

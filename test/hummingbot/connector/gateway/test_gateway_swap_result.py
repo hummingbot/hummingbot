@@ -76,6 +76,54 @@ class GatewayStoreSwapResultTests(unittest.TestCase):
         # Re-deriving as base * price would give 7 * (0.3/7) with Decimal rounding.
         self.assertEqual(trade_update.fill_price, Decimal("0.3") / Decimal("7"))
 
+    def test_usdc_quote_buy_maps_by_side_not_by_token(self):
+        """Base/quote are assigned from the trade side, so any quote asset works.
+
+        Here both legs are SPL tokens (memecoin/USDC) rather than the memecoin/SOL
+        shape above - the mapping must be identical.
+        """
+        self.connector._store_swap_result(
+            order_id=self.ORDER_ID,
+            trade_type=TradeType.BUY,
+            trading_pair="ANSEM-USDC",
+            amount=Decimal("62"),
+            order_result={"status": 1, "data": {"amountIn": "40.25", "amountOut": "61.962753", "fee": "0.000005"}},
+            transaction_hash=self.TX_HASH,
+        )
+
+        trade_update = self._trade_update()
+        self.assertEqual(trade_update.fill_base_amount, Decimal("61.962753"))
+        self.assertEqual(trade_update.fill_quote_amount, Decimal("40.25"))
+
+    def test_usdc_quote_sell_maps_by_side_not_by_token(self):
+        self.connector._store_swap_result(
+            order_id=self.ORDER_ID,
+            trade_type=TradeType.SELL,
+            trading_pair="ANSEM-USDC",
+            amount=Decimal("62"),
+            order_result={"status": 1, "data": {"amountIn": "61.9", "amountOut": "40.1", "fee": "0.000005"}},
+            transaction_hash=self.TX_HASH,
+        )
+
+        trade_update = self._trade_update()
+        self.assertEqual(trade_update.fill_base_amount, Decimal("61.9"))
+        self.assertEqual(trade_update.fill_quote_amount, Decimal("40.1"))
+
+    def test_fee_asset_is_native_currency_not_the_quote(self):
+        """Gas is always paid in SOL even when the pair is quoted in USDC."""
+        self.connector._store_swap_result(
+            order_id=self.ORDER_ID,
+            trade_type=TradeType.BUY,
+            trading_pair="ANSEM-USDC",
+            amount=Decimal("62"),
+            order_result={"status": 1, "data": {"amountIn": "40.25", "amountOut": "61.9", "fee": "0.000005"}},
+            transaction_hash=self.TX_HASH,
+        )
+
+        trade_update = self._trade_update()
+        self.assertEqual(trade_update.fee.flat_fees[0].token, "SOL")
+        self.assertEqual(trade_update.fee.flat_fees[0].amount, Decimal("0.000005"))
+
     def test_unconfirmed_swap_is_not_marked_filled(self):
         """No realized amounts means the swap has not settled - leave the order open.
 
