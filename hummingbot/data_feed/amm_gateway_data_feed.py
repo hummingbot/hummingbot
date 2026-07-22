@@ -171,6 +171,7 @@ class AmmGatewayDataFeed(NetworkBase):
             # Use quote_swap - dex/trading_type will be fetched from network config
             response = await self.gateway_client.quote_swap(
                 network=self._network,
+                chain=self._chain,
                 base_asset=base,
                 quote_asset=quote,
                 amount=self.order_amount_in_base,

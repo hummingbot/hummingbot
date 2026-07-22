@@ -447,6 +447,30 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
 
+    def test_order_url_rate_limits_split_by_verb(self):
+        rate_limits = {rl.limit_id: rl for rl in CONSTANTS.RATE_LIMITS}
+
+        # ORDER_URL no longer has its own shared limit; each verb has a dedicated limit id.
+        self.assertNotIn(CONSTANTS.ORDER_URL, rate_limits)
+        self.assertIn(CONSTANTS.POST_ORDER_LIMIT_ID, rate_limits)
+        self.assertIn(CONSTANTS.GET_ORDER_LIMIT_ID, rate_limits)
+        self.assertIn(CONSTANTS.DELETE_ORDER_LIMIT_ID, rate_limits)
+
+        def linked_pools(limit_id):
+            return {pair.limit_id for pair in rate_limits[limit_id].linked_limits}
+
+        # Only New Order (POST) consumes the order-count pools.
+        post_pools = linked_pools(CONSTANTS.POST_ORDER_LIMIT_ID)
+        self.assertIn(CONSTANTS.ORDERS_1MIN, post_pools)
+        self.assertIn(CONSTANTS.ORDERS_1SEC, post_pools)
+
+        # Query Order (GET) and Cancel Order (DELETE) only count against the IP weight pool.
+        for limit_id in (CONSTANTS.GET_ORDER_LIMIT_ID, CONSTANTS.DELETE_ORDER_LIMIT_ID):
+            pools = linked_pools(limit_id)
+            self.assertEqual({CONSTANTS.REQUEST_WEIGHT}, pools)
+            self.assertNotIn(CONSTANTS.ORDERS_1MIN, pools)
+            self.assertNotIn(CONSTANTS.ORDERS_1SEC, pools)
+
     @aioresponses()
     async def test_set_position_mode_change_successful(self, mock_api):
         self._simulate_trading_rules_initialized()
@@ -1151,6 +1175,31 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
             "Margin Required: 0. Negative PnL assets: ."
         ))
 
+    async def test_account_update_event_does_not_overwrite_available_balance_with_cross_wallet(self):
+        self._simulate_trading_rules_initialized()
+
+        # Pre-existing available balance coming from a REST poll (the source of truth). It is lower than
+        # the wallet/cross balance because there is margin locked by an open position.
+        self.exchange._account_available_balances["USDT"] = Decimal("23.72469206")
+        self.exchange._account_balances["USDT"] = Decimal("100.0")
+
+        account_update = self._get_account_update_ws_event_single_position_dict()
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: account_update)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = self.local_event_loop.create_task(self.exchange._user_stream_event_listener())
+        await self.resume_test_event.wait()
+
+        # Total balance is updated from the wallet balance ("wb").
+        self.assertEqual(Decimal("122624.12345678"), self.exchange._account_balances["USDT"])
+        # Available balance must NOT be overwritten with the cross wallet balance ("cw"), which would
+        # overstate it; it stays as the REST-provided value.
+        self.assertEqual(Decimal("23.72469206"), self.exchange._account_available_balances["USDT"])
+
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualDerivative.current_timestamp")
@@ -1217,6 +1266,80 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
 
     @aioresponses()
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
+           "BinancePerpetualDerivative.current_timestamp")
+    async def test_update_order_fills_from_trades_constrains_query_with_start_time(
+            self, req_mock, mock_timestamp, mock_seconds_counter):
+        self._simulate_trading_rules_initialized()
+        self.exchange._last_poll_timestamp = 0
+        mock_timestamp.return_value = 1
+        # Drive the time synchronizer so the poll timestamp is deterministic.
+        mock_seconds_counter.return_value = 1640001112.0
+        self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position_action=PositionAction.OPEN,
+        )
+
+        trade = {"buyer": False,
+                 "commission": "0",
+                 "commissionAsset": self.quote_asset,
+                 "id": 698759,
+                 "maker": False,
+                 "orderId": "8886774",
+                 "price": "10000",
+                 "qty": "0.5",
+                 "quoteQty": "5000",
+                 "realizedPnl": "0",
+                 "side": "SELL",
+                 "positionSide": "SHORT",
+                 "symbol": "COINALPHAHBOT",
+                 "time": 1000}
+
+        url = web_utils.private_rest_url(
+            CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        # First poll: no previous trade history timestamp yet -> no startTime, fill is processed.
+        req_mock.get(regex_url, body=json.dumps([trade]))
+        await self.exchange._update_order_fills_from_trades()
+
+        first_request = next((value for key, value in req_mock.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        first_params = first_request[0].kwargs["params"]
+        self.assertNotIn("startTime", first_params)
+        in_flight_orders = self.exchange._order_tracker.active_orders
+        self.assertTrue("698759" in in_flight_orders["OID1"].order_fills.keys())
+
+        last_poll_ts = self.exchange._last_trade_history_timestamp
+        self.assertIsNotNone(last_poll_ts)
+
+        # Second poll on a later tick: a new fill on a new tick must still be picked up, and the request
+        # must now be bounded by startTime derived from the previous poll timestamp.
+        mock_timestamp.return_value = 1 + self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        req_mock.requests.clear()
+        new_trade = dict(trade, id=698760, time=2000)
+        req_mock.get(regex_url, body=json.dumps([new_trade]))
+        await self.exchange._update_order_fills_from_trades()
+
+        second_request = next((value for key, value in req_mock.requests.items()
+                               if key[1].human_repr().startswith(url)))
+        second_params = second_request[0].kwargs["params"]
+        self.assertIn("startTime", second_params)
+        self.assertEqual(int(last_poll_ts * 1e3), second_params["startTime"])
+        self.assertTrue("698760" in in_flight_orders["OID1"].order_fills.keys())
+
+    @aioresponses()
     async def test_update_order_fills_from_trades_failed(self, req_mock):
         self.exchange._set_current_timestamp(1640001112.0)
         self.exchange._last_poll_timestamp = 0
@@ -1265,6 +1388,59 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Error was logged
         self.assertTrue(self._is_logged("NETWORK",
                                         f"Error fetching trades update for the order {self.trading_pair}: ."))
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_filters_by_order_id(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+
+        trades = [{"buyer": False,
+                   "commission": "0",
+                   "commissionAsset": self.quote_asset,
+                   "id": 698759,
+                   "maker": False,
+                   "orderId": "8886774",
+                   "price": "10000",
+                   "qty": "0.5",
+                   "quoteQty": "5000",
+                   "realizedPnl": "0",
+                   "side": "SELL",
+                   "positionSide": "SHORT",
+                   "symbol": "COINALPHAHBOT",
+                   "time": 1000}]
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps(trades))
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+
+        # The request must constrain the query to this order via orderId
+        trade_request = next(((key, value) for key, value in req_mock.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_params = trade_request[1][0].kwargs["params"]
+        self.assertEqual("8886774", request_params["orderId"])
+        self.assertEqual("COINALPHAHBOT", request_params["symbol"])
+
+        # The fills of the order are parsed correctly
+        self.assertEqual(1, len(trade_updates))
+        trade_update = trade_updates[0]
+        self.assertEqual("698759", trade_update.trade_id)
+        self.assertEqual("OID1", trade_update.client_order_id)
+        self.assertEqual(Decimal("0.5"), trade_update.fill_base_amount)
+        self.assertEqual(Decimal("5000"), trade_update.fill_quote_amount)
+        self.assertEqual(Decimal("10000"), trade_update.fill_price)
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
