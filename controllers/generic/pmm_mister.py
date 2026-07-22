@@ -64,6 +64,7 @@ class PMMisterConfig(ControllerConfigBase):
     tick_mode: bool = Field(default=False, json_schema_extra={"is_updatable": True})
     position_profit_protection: bool = Field(default=False, json_schema_extra={"is_updatable": True})
     min_skew: Decimal = Field(default=Decimal("1.0"), json_schema_extra={"is_updatable": True})
+    min_notional_fallback: Decimal = Field(default=Decimal("0"), json_schema_extra={"is_updatable": True})
     global_take_profit: Decimal = Field(default=Decimal("0.03"), json_schema_extra={"is_updatable": True})
     global_stop_loss: Decimal = Field(default=Decimal("0.05"), json_schema_extra={"is_updatable": True})
 
@@ -268,6 +269,7 @@ class PMMister(ControllerBase):
         self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
         self._global_close_side: Optional[TradeType] = None  # Side of the position when TP/SL triggered
         self._global_close_retries: int = 0  # Count how many times PHASE 2 has created a close executor
+        self._last_close_executor_timestamp: float = 0.0  # Throttle close executor creation
 
     def _verify_position_mode(self) -> bool:
         """Check that the connector's position mode matches the config. Blocks trading until confirmed."""
@@ -422,7 +424,8 @@ class PMMister(ControllerBase):
             if self._global_close_retries >= 3:
                 self.logger().warning(
                     f"=== GLOBAL CLOSE ABORTED: {self._global_close_retries} close attempts failed. ===\n"
-                    f"  Position may be below minimum notional. Aborting to prevent infinite loop."
+                    f"  Position may be below minimum notional or budget checker keeps rejecting the close.\n"
+                    f"  MANUAL INTERVENTION REQUIRED: close the position on the exchange."
                 )
                 self._global_close_phase = None
                 self._global_close_side = None
@@ -461,6 +464,13 @@ class PMMister(ControllerBase):
                 self._global_close_side = None
                 self._global_close_retries = 0
                 return []
+
+            # Throttle: do not recreate a close executor more often than every 10 seconds
+            # to avoid log noise and budget-checker loops when the close keeps failing.
+            current_time = self.market_data_provider.time()
+            if current_time - self._last_close_executor_timestamp < 10:
+                return []
+            self._last_close_executor_timestamp = current_time
 
             # Determine close side from the EXCHANGE position side
             close_side = TradeType.SELL if exchange_side == TradeType.BUY else TradeType.BUY
@@ -915,6 +925,26 @@ class PMMister(ControllerBase):
         buy_skew = self.processed_data["buy_skew"]
         sell_skew = self.processed_data["sell_skew"]
 
+        # --- Min notional guard (e.g. Hyperliquid $10 minimum) ---
+        # Read the exchange's notional rule. `min_notional_size` is the canonical quote-notional
+        # field on Hummingbot's TradingRule; `min_order_value` is an older alias used by some connectors.
+        # `min_order_size` is a base-asset amount and must NOT be used here.
+        effective_min_notional = Decimal("0")
+        try:
+            trading_rules = self.market_data_provider.get_trading_rules(
+                self.config.connector_name, self.config.trading_pair
+            )
+            raw_min_notional = getattr(trading_rules, "min_notional_size", None) or getattr(trading_rules, "min_order_value", None)
+            effective_min_notional = Decimal(str(raw_min_notional)) if raw_min_notional is not None else Decimal("0")
+        except Exception as e:
+            self.logger().debug(f"Could not fetch min_notional_size/min_order_value: {e}")
+
+        # Optional user-supplied fallback for venues that do not expose a notional rule.
+        if effective_min_notional == Decimal("0") and self.config.min_notional_fallback > Decimal("0"):
+            effective_min_notional = self.config.min_notional_fallback
+
+        self.logger().debug(f"Effective min notional for {self.config.trading_pair}: {effective_min_notional}")
+
         for level_id in levels_to_execute:
             trade_type = self.get_trade_type_from_level_id(level_id)
             level = self.get_level_from_level_id(level_id)
@@ -929,11 +959,65 @@ class PMMister(ControllerBase):
             skew = buy_skew if trade_type == TradeType.BUY else sell_skew
             side_multiplier = Decimal("-1") if trade_type == TradeType.BUY else Decimal("1")
             price = reference_price * (Decimal("1") + side_multiplier * spread_in_pct)
+
+            # Apply skew, but keep notional value above exchange minimum.
+            # We clamp between effective_min_notional and the unskewed quote size so we never
+            # increase size beyond the original intent, but we avoid sub-minimal orders.
+            target_quote = amount_quote * skew
+            if effective_min_notional > Decimal("0") and target_quote < effective_min_notional:
+                target_quote = min(max(target_quote, effective_min_notional), amount_quote)
+                if target_quote < effective_min_notional:
+                    self.logger().warning(
+                        f"Level {level_id}: even unskewed size {amount_quote:.2f} is below min_notional {effective_min_notional}. Skipping."
+                    )
+                    continue
+                self.logger().info(
+                    f"Level {level_id}: skewed size raised from {amount_quote * skew:.2f} to {target_quote:.2f} "
+                    f"to satisfy min_notional {effective_min_notional}."
+                )
+
             amount = self.market_data_provider.quantize_order_amount(
                 self.config.connector_name,
                 self.config.trading_pair,
-                (amount_quote / price) * skew
+                target_quote / price
             )
+
+            # --- Post-quantization notional guard ---
+            # quantize_order_amount rounds the base amount to the exchange lot size,
+            # which can push the final notional below the minimum (e.g. Hyperliquid $10).
+            # We use the order price (limit entry) for the notional estimate because the
+            # exchange validates notional against the actual execution price, not the mid.
+            if effective_min_notional > Decimal("0") and amount > Decimal("0"):
+                notional = amount * price
+                if notional < effective_min_notional:
+                    # Compute the smallest quantized amount whose notional is >= the rule.
+                    # No extra margin: a level already sized between min and 1.1*min is valid
+                    # and should not be skipped.
+                    required_amount = effective_min_notional / price
+                    bumped_amount = self.market_data_provider.quantize_order_amount(
+                        self.config.connector_name,
+                        self.config.trading_pair,
+                        required_amount
+                    )
+                    # Never exceed the unskewed intended size
+                    max_amount = self.market_data_provider.quantize_order_amount(
+                        self.config.connector_name,
+                        self.config.trading_pair,
+                        amount_quote / price
+                    )
+                    bumped_notional = bumped_amount * price
+                    if bumped_amount > Decimal("0") and bumped_amount <= max_amount and bumped_notional >= effective_min_notional:
+                        self.logger().info(
+                            f"Level {level_id}: bumped amount from {amount} to {bumped_amount} "
+                            f"to keep notional {bumped_notional:.2f} above min_notional {effective_min_notional}."
+                        )
+                        amount = bumped_amount
+                    else:
+                        self.logger().warning(
+                            f"Level {level_id}: quantized notional {notional:.2f} is below min_notional {effective_min_notional} "
+                            f"(bumped={bumped_amount}, bumped_notional={bumped_notional:.2f}, max_amount={max_amount}). Skipping."
+                        )
+                        continue
 
             if amount == Decimal("0"):
                 self.logger().warning(f"The amount of the level {level_id} is 0. Skipping.")
