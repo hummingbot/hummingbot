@@ -479,11 +479,6 @@ class ExchangeRateSourceModeBase(RateSourceModeBase):
         return RATE_ORACLE_SOURCES[self.model_config["title"]]()
 
 
-class AscendExRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="ascend_ex")
-    model_config = ConfigDict(title="ascend_ex")
-
-
 class BinanceRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="binance")
     model_config = ConfigDict(title="binance")
@@ -492,11 +487,6 @@ class BinanceRateSourceMode(ExchangeRateSourceModeBase):
 class MexcRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(default="mexc")
     model_config = ConfigDict(title="mexc")
-
-
-class CubeRateSourceMode(ExchangeRateSourceModeBase):
-    name: str = Field(default="cube")
-    model_config = ConfigDict(title="cube")
 
 
 class CoinGeckoRateSourceMode(RateSourceModeBase):
@@ -758,7 +748,6 @@ class DeriveRateSourceMode(ExchangeRateSourceModeBase):
 
 
 RATE_SOURCE_MODES = {
-    AscendExRateSourceMode.model_config["title"]: AscendExRateSourceMode,
     BinanceRateSourceMode.model_config["title"]: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.model_config["title"]: CoinGeckoRateSourceMode,
     CoinCapRateSourceMode.model_config["title"]: CoinCapRateSourceMode,
@@ -770,7 +759,6 @@ RATE_SOURCE_MODES = {
     GateIoRateSourceMode.model_config["title"]: GateIoRateSourceMode,
     BackpackRateSourceMode.model_config["title"]: BackpackRateSourceMode,
     CoinbaseAdvancedTradeRateSourceMode.model_config["title"]: CoinbaseAdvancedTradeRateSourceMode,
-    CubeRateSourceMode.model_config["title"]: CubeRateSourceMode,
     HyperliquidRateSourceMode.model_config["title"]: HyperliquidRateSourceMode,
     HyperliquidPerpetualRateSourceMode.model_config["title"]: HyperliquidPerpetualRateSourceMode,
     ArchitectPerpetualRateSourceMode.model_config["title"]: ArchitectPerpetualRateSourceMode,
