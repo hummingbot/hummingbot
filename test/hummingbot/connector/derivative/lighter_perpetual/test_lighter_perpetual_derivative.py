@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -901,12 +902,41 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(PositionAction.CLOSE.value, create_event.position)
 
+    def _approval_snapshot(self, account_index=None, expires_in=3600) -> dict:
+        index = CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX if account_index is None else account_index
+        return {
+            "approved_integrators": [{
+                "account_index": index,
+                "approval_expiry": int((time.time() + expires_in) * 1000),
+            }]
+        }
+
+    def test_update_integrator_approval_detects_active_approval(self):
+        self.exchange._update_integrator_approval(self._approval_snapshot())
+        self.assertTrue(self.exchange._integrator_approved)
+
+    def test_update_integrator_approval_ignores_expired_approval(self):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval(self._approval_snapshot(expires_in=-3600))
+        self.assertFalse(self.exchange._integrator_approved)
+
+    def test_update_integrator_approval_ignores_other_integrator(self):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval(self._approval_snapshot(account_index=111111))
+        self.assertFalse(self.exchange._integrator_approved)
+
+    def test_update_integrator_approval_handles_account_without_approvals(self):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval({})
+        self.assertFalse(self.exchange._integrator_approved)
+
     @aioresponses()
-    def test_create_order_injects_integrator_attribution(self, mock_api):
+    def test_create_order_injects_integrator_attribution_once_approved(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_done = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._integrator_approved = True
 
         original = self.exchange._signer_client.create_order
 
@@ -929,13 +959,14 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(1, call_kwargs["integrator_maker_fee"])
 
     @aioresponses()
-    def test_create_order_omits_integrator_attribution_when_unconfigured(self, mock_api):
-        # The Foundation integrator index defaults to 0 (disabled) -> no integrator kwargs.
+    def test_create_order_credits_foundation_integrator_once_approved(self, mock_api):
+        # With the account's approval in place, mainnet volume is attributed to the
+        # Foundation's Lighter account at zero fees (attribution only).
         self._simulate_trading_rules_initialized()
         request_done = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
-        self.assertEqual(0, CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX)
+        self.exchange._integrator_approved = True
 
         original = self.exchange._signer_client.create_order
 
@@ -948,6 +979,88 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.place_buy_order()
         self.async_run_with_timeout(request_done.wait())
         self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertEqual(734601, CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX)
+        self.assertEqual(734601, call_kwargs["integrator_account_index"])
+        self.assertEqual(0, call_kwargs["integrator_taker_fee"])
+        self.assertEqual(0, call_kwargs["integrator_maker_fee"])
+
+    @aioresponses()
+    def test_create_order_omits_integrator_attribution_when_not_approved(self, mock_api):
+        # Default state: Lighter rejects an unapproved integrator (21149), so nothing is sent.
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.assertFalse(self.exchange._integrator_approved)
+
+        original = self.exchange._signer_client.create_order
+
+        async def _patched(**kwargs):
+            result = await original(**kwargs)
+            request_done.set()
+            return result
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_patched)
+        self.place_buy_order()
+        self.async_run_with_timeout(request_done.wait())
+        self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+        self.assertNotIn("integrator_taker_fee", call_kwargs)
+        self.assertNotIn("integrator_maker_fee", call_kwargs)
+
+    @aioresponses()
+    def test_place_order_resubmits_without_integrator_when_rejected(self, mock_api):
+        # A stale approval must never take the order down: on 21149 the connector drops
+        # attribution and resubmits instead of failing the order.
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._integrator_approved = True
+        calls = []
+
+        async def _reject_then_accept(**kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return (None, None, "HTTP response body: code=21149 message='integrator is not approved'")
+            request_done.set()
+            return (None, {"code": 200}, None)
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_reject_then_accept)
+        self.place_buy_order()
+        self.async_run_with_timeout(request_done.wait())
+        self.async_run_with_timeout(asyncio.sleep(0.1))
+
+        self.assertEqual(2, len(calls))
+        self.assertIn("integrator_account_index", calls[0])
+        self.assertNotIn("integrator_account_index", calls[1])
+        self.assertFalse(self.exchange._integrator_approved)
+
+    @aioresponses()
+    def test_create_order_omits_integrator_attribution_when_unconfigured(self, mock_api):
+        # An unset (0) integrator index disables attribution -> no integrator kwargs.
+        self._simulate_trading_rules_initialized()
+        request_done = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._integrator_approved = True
+
+        original = self.exchange._signer_client.create_order
+
+        async def _patched(**kwargs):
+            result = await original(**kwargs)
+            request_done.set()
+            return result
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_patched)
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 0):
+            self.place_buy_order()
+            self.async_run_with_timeout(request_done.wait())
+            self.async_run_with_timeout(asyncio.sleep(0.1))
 
         call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
         self.assertNotIn("integrator_account_index", call_kwargs)

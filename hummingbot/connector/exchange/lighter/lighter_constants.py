@@ -313,16 +313,20 @@ MARKET_ORDER_SLIPPAGE = Decimal(str(DEFAULT_MARKET_ORDER_SLIPPAGE))
 INTEGRATOR_ENABLED = True
 # The Hummingbot Foundation's Lighter *account index* (an integer). Lighter exposes no
 # address->index lookup for integrators (see the partner-integration docs:
-# https://apidocs.lighter.xyz/docs/partner-integration), so the index must be configured
-# directly here and the Foundation's Lighter account must already exist.
-# TODO: set to the Foundation's Lighter account index. 0 keeps attribution disabled.
-FOUNDATION_INTEGRATOR_ACCOUNT_INDEX = 0
+# https://apidocs.lighter.xyz/docs/partner-integration), so the index is configured
+# directly here. 734601 is the Foundation's Lighter mainnet account, owned by L1 address
+# 0x10BA451e6439Efc6a17dc20d21121Aa838100705. Set to 0 to disable attribution.
+FOUNDATION_INTEGRATOR_ACCOUNT_INDEX = 734601
 # Integrator fee, expressed on Lighter's raw scale where fee(bps) = size * (value / 1e6),
 # i.e. value 500 == 5 bps. 0 == attribution only, which needs no client ApproveIntegrator
 # approval (only the SDK's L2 signature). Non-zero fees would require each user to approve
 # the integrator first and are intentionally left at 0.
 FOUNDATION_INTEGRATOR_TAKER_FEE = 0
 FOUNDATION_INTEGRATOR_MAKER_FEE = 0
+# Lighter's rejection (code 21149) when an order names an integrator the trading account has
+# not authorised via ApproveIntegrator. That approval is signed with the user's L1 key, which
+# the connector never holds, so attribution is opt-in per account.
+INTEGRATOR_NOT_APPROVED_MESSAGE = "integrator is not approved"
 
 EXCHANGE_INFO_PATH_URL = ORDER_BOOK_DETAILS_PATH_URL
 SNAPSHOT_PATH_URL = ORDER_BOOK_ORDERS_PATH_URL
