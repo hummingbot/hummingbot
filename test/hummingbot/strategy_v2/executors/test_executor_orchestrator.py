@@ -390,74 +390,12 @@ class TestExecutorOrchestrator(unittest.TestCase):
             position_executor = MagicMock(spec=PositionExecutor)
             position_executor.is_closed = False
             position_executor.early_stop = MagicMock(return_value=None)
-            position_executor.stop = MagicMock(return_value=None)
             position_executor.executor_info = MagicMock()
             position_executor.executor_info.is_done = True
             position_executor.config = MagicMock()
             self.orchestrator.active_executors["test"] = [position_executor]
             await self.orchestrator.stop()
             position_executor.early_stop.assert_called_once()
-            position_executor.stop.assert_not_called()
-
-        asyncio.run(test_async())
-
-    @patch.object(ExecutorOrchestrator, "store_all_positions")
-    @patch.object(ExecutorOrchestrator, "store_all_executors")
-    def test_stop_preserves_unfinished_position_executor_exposure(
-            self, store_all_executors, store_all_positions):
-        async def test_async():
-            position_executor = MagicMock(spec=PositionExecutor)
-            position_executor.is_closed = False
-            position_executor.early_stop = MagicMock(return_value=None)
-            position_executor.stop = MagicMock(return_value=None)
-            position_executor.force_stop_with_position_hold = MagicMock(return_value=None)
-            position_executor.amount_to_close = Decimal("1")
-            position_executor.executor_info = MagicMock()
-            position_executor.executor_info.is_done = False
-            position_executor.config = MagicMock()
-            position_executor.config.id = "unfinished-position"
-            self.orchestrator.active_executors["test"] = [position_executor]
-
-            await self.orchestrator.stop(max_executors_close_attempts=0)
-
-            position_executor.early_stop.assert_called_once()
-            position_executor.force_stop_with_position_hold.assert_called_once()
-            position_executor.stop.assert_not_called()
-            store_all_positions.assert_called_once()
-            store_all_executors.assert_called_once()
-            self.assertEqual({}, self.orchestrator.active_executors)
-
-        asyncio.run(test_async())
-
-    @patch.object(ExecutorOrchestrator, "store_all_positions")
-    @patch.object(ExecutorOrchestrator, "store_all_executors")
-    def test_stop_leaves_unfinished_non_position_executors_running(
-            self, store_all_executors, store_all_positions):
-        """A non-PositionExecutor that misses the close-attempts budget is left alone.
-
-        Only PositionExecutor can hand its exposure over as a PositionHold. Forcing any
-        other type to stop would abandon whatever it has in flight - an LPExecutor that
-        has withdrawn liquidity but not yet swapped back, for instance - and setting
-        CloseType.FAILED would also exclude it from position persistence.
-        """
-        async def test_async():
-            executor = MagicMock()
-            executor.is_closed = False
-            executor.early_stop = MagicMock(return_value=None)
-            executor.stop = MagicMock(return_value=None)
-            executor.executor_info = MagicMock()
-            executor.executor_info.is_done = False
-            executor.config = MagicMock()
-            executor.config.id = "unfinished-lp"
-            self.orchestrator.active_executors["test"] = [executor]
-
-            await self.orchestrator.stop(max_executors_close_attempts=0)
-
-            executor.early_stop.assert_called_once()
-            executor.stop.assert_not_called()
-            self.assertNotEqual(CloseType.FAILED, executor.close_type)
-            store_all_positions.assert_called_once()
-            store_all_executors.assert_called_once()
 
         asyncio.run(test_async())
 

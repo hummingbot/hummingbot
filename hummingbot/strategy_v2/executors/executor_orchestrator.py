@@ -378,35 +378,6 @@ class ExecutorOrchestrator:
                     for executor in executors_list]):
                 break  # All executors are done, exit early
             await asyncio.sleep(2.0)
-
-        unfinished_executors = [
-            (controller_id, executor)
-            for controller_id, executors_list in self.active_executors.items()
-            for executor in executors_list
-            if not executor.executor_info.is_done
-        ]
-        if unfinished_executors:
-            executor_ids = [executor.config.id for _, executor in unfinished_executors]
-            self.logger().error(
-                f"Executors {executor_ids} did not finish closing before shutdown. "
-                f"Preserving any remaining position exposure before markets are deregistered.")
-            for controller_id, executor in unfinished_executors:
-                # Only PositionExecutor can hand its exposure over as a PositionHold today.
-                # Every other executor type is left running, as before this change: an
-                # executor that is mid-unwind still needs its control loop to finish the
-                # job, and marking it FAILED would exclude it from position persistence
-                # below, which is the very outcome this method exists to prevent.
-                if not (isinstance(executor, PositionExecutor) and abs(executor.amount_to_close) > Decimal("0")):
-                    continue
-                try:
-                    executor.force_stop_with_position_hold()
-                except Exception:
-                    self.logger().exception(
-                        f"Error forcing executor {executor.config.id} for controller {controller_id} to stop.")
-
-        # Convert timed-out PositionExecutors into persisted PositionHold records
-        # while connector prices and strategy market registrations are still available.
-        self._update_positions_from_done_executors()
         # Store all positions and executors
         self.store_all_positions()
         self.store_all_executors()
