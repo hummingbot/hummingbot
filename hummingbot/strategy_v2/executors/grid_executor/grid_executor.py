@@ -278,6 +278,26 @@ class GridExecutor(ExecutorBase):
         self._status = RunnableStatus.SHUTTING_DOWN
         self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
 
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Mirrors the POSITION_HOLD branch of control_shutdown_process without waiting
+        for open/close liquidity to drain: levels whose open order filled but whose
+        close order has not completed are the net exposure still on the exchange.
+        """
+        held = list(self._held_position_orders)
+        seen = {order.get("client_order_id") for order in held}
+        for state in (GridLevelStates.OPEN_ORDER_FILLED, GridLevelStates.CLOSE_ORDER_PLACED):
+            for level in self.levels_by_state.get(state, []):
+                tracked = (level.active_open_order if state == GridLevelStates.OPEN_ORDER_FILLED
+                           else level.active_close_order)
+                if tracked and tracked.order:
+                    order_json = tracked.order.to_json()
+                    if order_json.get("client_order_id") not in seen:
+                        seen.add(order_json.get("client_order_id"))
+                        held.append(order_json)
+        return held
+
     def update_grid_levels(self):
         self.levels_by_state = {state: [] for state in GridLevelStates}
         for level in self.grid_levels:

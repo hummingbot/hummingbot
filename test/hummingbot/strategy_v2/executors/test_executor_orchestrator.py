@@ -399,6 +399,119 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         asyncio.run(test_async())
 
+    @staticmethod
+    def _make_unfinished_executor(executor_id: str = "unfinished", status: RunnableStatus = RunnableStatus.RUNNING):
+        executor = MagicMock()
+        executor.is_closed = False
+        executor.status = status
+        executor.close_type = None
+        executor.early_stop = MagicMock(return_value=None)
+        executor.force_stop_with_position_hold = MagicMock(return_value=None)
+        executor.executor_info = MagicMock()
+        executor.executor_info.is_done = False
+        executor.executor_info.custom_info = {}
+        executor.config = MagicMock()
+        executor.config.id = executor_id
+        return executor
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_does_not_re_early_stop_shutting_down_executors(self, store_all_executors, store_all_positions):
+        """An executor already SHUTTING_DOWN keeps the close_type its controller chose.
+
+        Re-calling early_stop would overwrite it with the type's default keep_position —
+        e.g. flipping an LP mid-unwind from EARLY_STOP to POSITION_HOLD, which silently
+        skips its close-out swap.
+        """
+        async def test_async():
+            executor = self._make_unfinished_executor("mid-unwind", RunnableStatus.SHUTTING_DOWN)
+            self.orchestrator.active_executors["test"] = [executor]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            executor.early_stop.assert_not_called()
+            executor.force_stop_with_position_hold.assert_called_once()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_force_stops_unfinished_executors_with_position_hold(self, store_all_executors, store_all_positions):
+        async def test_async():
+            executor = self._make_unfinished_executor()
+            self.orchestrator.active_executors["test"] = [executor]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            executor.early_stop.assert_called_once()
+            executor.force_stop_with_position_hold.assert_called_once()
+            store_all_positions.assert_called_once()
+            store_all_executors.assert_called_once()
+            self.assertEqual({}, self.orchestrator.active_executors)
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_extends_wait_while_executor_makes_progress(self, store_all_executors, store_all_positions):
+        """The stall budget resets on observable progress, so a multi-tick unwind that
+        outlives the base budget still finishes without being force-stopped."""
+        async def test_async():
+            executor = self._make_unfinished_executor("slow-unwind", RunnableStatus.SHUTTING_DOWN)
+            # Advance through one custom_info state per poll — more polls than the
+            # stall budget (one attempt = 2 polls) would allow without progress.
+            states = iter(["CLOSING", "CLOSING_CONFIRMING", "SWAPPING", "SWAPPING_CONFIRMING", "COMPLETE"])
+
+            async def advance(_delay):
+                state = next(states, "COMPLETE")
+                executor.executor_info.custom_info = {"state": state}
+                if state == "COMPLETE":
+                    executor.executor_info.is_done = True
+
+            self.orchestrator.active_executors["test"] = [executor]
+            with patch("hummingbot.strategy_v2.executors.executor_orchestrator.asyncio.sleep", side_effect=advance):
+                await self.orchestrator.stop(max_executors_close_attempts=1)
+
+            executor.force_stop_with_position_hold.assert_not_called()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_gives_up_on_stalled_executor(self, store_all_executors, store_all_positions):
+        """No observable progress exhausts the stall budget and triggers the forced stop."""
+        async def test_async():
+            executor = self._make_unfinished_executor("hung", RunnableStatus.SHUTTING_DOWN)
+
+            async def no_progress(_delay):
+                pass
+
+            self.orchestrator.active_executors["test"] = [executor]
+            with patch("hummingbot.strategy_v2.executors.executor_orchestrator.asyncio.sleep", side_effect=no_progress):
+                await self.orchestrator.stop(max_executors_close_attempts=1)
+
+            executor.force_stop_with_position_hold.assert_called_once()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_logs_and_continues_when_force_stop_raises(self, store_all_executors, store_all_positions):
+        """One executor failing to force-stop must not prevent the others from being forced."""
+        async def test_async():
+            broken = self._make_unfinished_executor("broken", RunnableStatus.SHUTTING_DOWN)
+            broken.force_stop_with_position_hold.side_effect = RuntimeError("connector already gone")
+            healthy = self._make_unfinished_executor("healthy", RunnableStatus.SHUTTING_DOWN)
+            self.orchestrator.active_executors["test"] = [broken, healthy]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            broken.force_stop_with_position_hold.assert_called_once()
+            healthy.force_stop_with_position_hold.assert_called_once()
+            store_all_executors.assert_called_once()
+
+        asyncio.run(test_async())
+
     def test_stop_executor(self):
         position_executor = MagicMock(spec=PositionExecutor)
         position_executor.is_closed = False
