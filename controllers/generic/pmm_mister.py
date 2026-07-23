@@ -268,6 +268,7 @@ class PMMister(ControllerBase):
         self._global_close_phase: Optional[str] = None  # None | "stopping" | "closing"
         self._global_close_side: Optional[TradeType] = None  # Side of the position when TP/SL triggered
         self._global_close_retries: int = 0  # Count how many times PHASE 2 has created a close executor
+        self._global_close_cooling_down: bool = False  # True after a successful close until processed_data confirms 0
 
     def _verify_position_mode(self) -> bool:
         """Check that the connector's position mode matches the config. Blocks trading until confirmed."""
@@ -438,6 +439,7 @@ class PMMister(ControllerBase):
                 self._global_close_phase = None
                 self._global_close_side = None
                 self._global_close_retries = 0
+                self._global_close_cooling_down = True
                 return []
 
             # SAFETY: Detect position side flip — if position flipped direction, abort close
@@ -480,7 +482,19 @@ class PMMister(ControllerBase):
         position_amount = self.processed_data.get("position_amount", Decimal("0"))
 
         if position_amount == Decimal("0"):
+            self._global_close_cooling_down = False
             return []
+
+        # After a successful close, processed_data can lag behind the exchange by one tick.
+        # Suppress re-triggering until the exchange also confirms no position remains.
+        # If the exchange already shows a new non-zero position, a genuinely new position
+        # has opened and the cooldown no longer applies.
+        if self._global_close_cooling_down:
+            exchange_amount, _ = self._get_exchange_position()
+            if exchange_amount > Decimal("0"):
+                self._global_close_cooling_down = False
+            else:
+                return []
 
         triggered = False
         trigger_reason = ""
