@@ -945,3 +945,53 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # filled_amount_quote = 0.5 * 100 = 50
         self.assertEqual(executor.filled_amount_quote, Decimal("50"))
+
+    def test_force_stop_with_position_hold_holds_fills(self):
+        """A forced stop cancels the live order and hands over the filled exposure."""
+        config = OrderExecutorConfig(
+            id="test-forced",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        filled = InFlightOrder(
+            client_order_id="OID-FILLED",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        tracked = TrackedOrder("OID-FILLED")
+        tracked.order = filled
+        executor._order = tracked
+
+        partial = InFlightOrder(
+            client_order_id="OID-PARTIAL",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=config.side,
+            price=Decimal("99"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PARTIALLY_FILLED
+        )
+        tracked_partial = TrackedOrder("OID-PARTIAL")
+        tracked_partial.order = partial
+        executor._partial_filled_orders = [tracked_partial]
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        held_ids = {order["client_order_id"] for order in executor._held_position_orders}
+        self.assertEqual(held_ids, {"OID-FILLED", "OID-PARTIAL"})
