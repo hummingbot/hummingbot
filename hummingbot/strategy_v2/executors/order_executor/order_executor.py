@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.gateway_base import GatewayBase
-from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -375,6 +375,7 @@ class OrderExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=price_for_validation,
                 leverage=Decimal(self.config.leverage),
+                position_close=self.config.position_action == PositionAction.CLOSE,
             )
         else:
             order_candidate = OrderCandidate(
