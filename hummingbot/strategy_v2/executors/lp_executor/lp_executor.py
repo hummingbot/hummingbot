@@ -414,9 +414,31 @@ class LPExecutor(ExecutorBase):
             self._handle_create_failure(e)
 
     def _handle_create_failure(self, error: Exception):
-        """Handle position creation failure - transition to FAILED state."""
-        self.logger().error(f"Position creation failed: {error}")
+        """Handle position creation failure.
+
+        A position_address means add_liquidity already landed on-chain and only
+        the bookkeeping after it threw, so the funds are real. FAILED would stop
+        the executor without ever calling _close_position, stranding them: the
+        add-liquidity event that records the position for lphistory is emitted
+        after the code most likely to throw, so the position would survive only
+        in this log line. Close it instead, and name the address either way.
+
+        Retrying the open is not an option here -- the add succeeded, so a retry
+        would deposit a second position on top of the first.
+        """
         self.lp_position_state.active_open_order = None
+
+        if self.lp_position_state.position_address:
+            self.logger().error(
+                f"Position creation failed after the position was opened at "
+                f"{self.lp_position_state.position_address} ({self.config.trading_pair}): "
+                f"{error}. Closing it to recover the funds."
+            )
+            self.close_type = CloseType.FAILED
+            self.lp_position_state.state = LPExecutorStates.CLOSING
+            return
+
+        self.logger().error(f"Position creation failed: {error}")
         self.lp_position_state.state = LPExecutorStates.FAILED
 
     async def _close_position(self):

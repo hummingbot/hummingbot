@@ -463,6 +463,60 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertIsNone(executor.lp_position_state.active_open_order)
 
+    def test_handle_create_failure_closes_an_already_opened_position(self):
+        """A throw after add_liquidity landed must close the position, not abandon it.
+
+        FAILED stops the executor without ever calling _close_position, and the
+        add-liquidity event that records the position is emitted after the code
+        most likely to throw -- so the funds would survive only in a log line.
+        """
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+        executor.lp_position_state.active_open_order = MagicMock()
+        executor.lp_position_state.position_address = "position-abc"
+
+        executor._handle_create_failure(Exception("bad position_info field"))
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+        self.assertIsNone(executor.lp_position_state.active_open_order)
+        self.assertTrue(self.is_partially_logged("ERROR", "position-abc"))
+
+    async def test_recovery_close_records_no_hold_and_no_swap(self):
+        """The recovery close is pure cleanup: CloseType.FAILED holds nothing."""
+        executor = self.get_executor()
+        executor._get_native_to_quote_rate = MagicMock(return_value=Decimal("1"))
+        executor._current_price = Decimal("100")
+        executor.lp_position_state.position_address = "position-abc"
+        executor._handle_create_failure(Exception("bad position_info field"))
+
+        mock_position = MagicMock()
+        mock_position.price = 100.0
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector._clmm_close_position = AsyncMock(return_value="sig-remove")
+        connector._lp_orders_metadata = {
+            "order-123": {
+                "base_amount": Decimal("1.0"),
+                "quote_amount": Decimal("100.0"),
+                "base_fee": Decimal("0"),
+                "quote_fee": Decimal("0"),
+                "position_rent_refunded": Decimal("0.002"),
+                "tx_fee": Decimal("0"),
+            }
+        }
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(
+                base_amount=Decimal("1.0"), quote_amount=Decimal("100.0")
+            )
+        )
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+        self.assertEqual(executor._held_position_orders, [])
+
     def test_handle_close_failure_transitions_to_failed(self):
         """Test _handle_close_failure transitions to FAILED state (retry at connector level)"""
         executor = self.get_executor()
