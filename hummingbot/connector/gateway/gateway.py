@@ -203,6 +203,7 @@ class Gateway(GatewayBase):
         try:
             resp: Dict[str, Any] = await self._get_gateway_instance().quote_swap(
                 network=self.network,
+                chain=self.chain,
                 dex=dex,
                 trading_type=trading_type,
                 base_asset=base,
@@ -320,6 +321,7 @@ class Gateway(GatewayBase):
                     side=trade_type,
                     amount=amount,
                     network=self.network,
+                    chain=self.chain,
                     wallet_address=self.address,
                     pool_address=pool_address,
                     slippage_pct=slippage_pct
@@ -351,15 +353,46 @@ class Gateway(GatewayBase):
         order_result: Dict[str, Any],
         transaction_hash: str
     ):
-        """Store swap result data by creating a TradeUpdate for proper fill tracking."""
+        """Store swap result data by creating a TradeUpdate for proper fill tracking.
+
+        ``amountIn``/``amountOut`` are Gateway's REALIZED amounts, derived from the
+        wallet's on-chain pre/post token balance deltas for the settled transaction.
+        They are what actually moved, which is not the amount that was requested:
+        slippage and fees mean a swap for 62 base tokens may land 61.962753. Callers
+        that spend the proceeds downstream (e.g. an LP open's ``base_amount``) must
+        see the realized figure, or they will ask the chain for tokens that aren't
+        there.
+
+        Base and quote are assigned from the trade side rather than from the token
+        identities, so this is independent of the quote asset (SOL, USDC, ...).
+
+        One caveat: for an SPL token Gateway diffs the token balance exactly, but a
+        NATIVE SOL leg is measured as a lamport delta that also absorbs the tx fee
+        and any rent. So on a SOL-quoted pair the quote leg carries a few thousand
+        lamports of noise, and on a SOL-BASE pair the base leg does. The error is
+        gas-sized (~1e-5 SOL) and, for a buy, understates what arrived - which is
+        the safe direction for anything that spends the proceeds.
+        """
         data = order_result.get("data", {})
         amount_in = Decimal(str(data.get("amountIn", "0")))
         amount_out = Decimal(str(data.get("amountOut", "0")))
 
+        # Gateway only populates `data` once the swap is CONFIRMED. Without this
+        # guard a pending or failed swap yields zeroed amounts and would still be
+        # forced to FILLED below, reporting a phantom 0-amount fill. Leave the order
+        # OPEN so update_order_status() resolves it from the chain instead.
+        if amount_in <= 0 or amount_out <= 0:
+            self.logger().warning(
+                f"Swap {order_id} ({transaction_hash}) returned no realized amounts "
+                f"(status={order_result.get('status')!r}, amountIn={amount_in}, amountOut={amount_out}); "
+                f"not marking as filled. Order stays open for status polling."
+            )
+            return
+
         if trade_type == TradeType.SELL:
-            executed_price = amount_out / amount_in if amount_in > 0 and amount_out > 0 else Decimal("0")
+            executed_price = amount_out / amount_in
         else:
-            executed_price = amount_in / amount_out if amount_in > 0 and amount_out > 0 else Decimal("0")
+            executed_price = amount_in / amount_out
 
         tracked_order = self._order_tracker.fetch_order(order_id)
         if not tracked_order:
@@ -369,7 +402,11 @@ class Gateway(GatewayBase):
         fee_asset = self._native_currency
         trade_fee = AddedToCostTradeFee(flat_fees=[TokenAmount(fee_asset, fee)])
 
-        fill_base_amount = tracked_order.amount
+        # A SELL sends base and receives quote; a BUY is the mirror image.
+        if trade_type == TradeType.SELL:
+            fill_base_amount, fill_quote_amount = amount_in, amount_out
+        else:
+            fill_base_amount, fill_quote_amount = amount_out, amount_in
 
         trade_update = TradeUpdate(
             trade_id=transaction_hash,
@@ -379,13 +416,14 @@ class Gateway(GatewayBase):
             fill_timestamp=self.current_timestamp,
             fill_price=executed_price,
             fill_base_amount=fill_base_amount,
-            fill_quote_amount=fill_base_amount * executed_price,
+            fill_quote_amount=fill_quote_amount,
             fee=trade_fee
         )
 
         self.logger().info(
-            f"Processing trade update for {order_id}: fill_amount={fill_base_amount}, "
-            f"fill_price={executed_price}, trade_id={transaction_hash}"
+            f"Processing trade update for {order_id}: requested={amount}, "
+            f"realized fill_amount={fill_base_amount}, fill_price={executed_price}, "
+            f"trade_id={transaction_hash}"
         )
 
         # Process order update to mark order as FILLED (triggers OrderCompleted event)

@@ -1,10 +1,11 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -148,6 +149,26 @@ class OrderExecutor(ExecutorBase):
         :return: None
         """
         self._status = RunnableStatus.SHUTTING_DOWN
+
+    def _cancel_outstanding_orders(self):
+        self.cancel_order()
+
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Same fills control_shutdown_process would retain: the tracked order if
+        filled, plus any partial fills from renewals.
+        """
+        held = list(self._held_position_orders)
+        seen = {order.get("client_order_id") for order in held}
+        candidates = list(self._partial_filled_orders)
+        if self._order and self._order.is_filled:
+            candidates.append(self._order)
+        for tracked in candidates:
+            if tracked.order and tracked.order.client_order_id not in seen:
+                seen.add(tracked.order.client_order_id)
+                held.append(tracked.order.to_json())
+        return held
 
     async def control_shutdown_process(self):
         """
@@ -353,6 +374,17 @@ class OrderExecutor(ExecutorBase):
         return lines
 
     async def validate_sufficient_balance(self):
+        connector = self.connectors[self.config.connector_name]
+        # Gateway swap connectors have no order book and are not registered in
+        # AllConnectorSettings, so they carry no CEX fee schema. The BudgetChecker /
+        # OrderCandidate path raises trying to load that schema, so it cannot be used
+        # here. Skip the pre-flight check: Gateway itself rejects an under-funded swap
+        # (EVM reverts on gas estimation before submission, Solana fails the quote/sim),
+        # and the executor surfaces that failure through its normal retry path. This
+        # keeps the OrderExecutor identical across Hummingbot and Hummingbot API without
+        # a per-order network round-trip to price the swap.
+        if isinstance(connector, GatewayBase):
+            return
         price_for_validation = self.get_price_for_balance_validation()
         if self.is_perpetual_connector(self.config.connector_name):
             order_candidate = PerpetualOrderCandidate(
@@ -363,6 +395,7 @@ class OrderExecutor(ExecutorBase):
                 amount=self.config.amount,
                 price=price_for_validation,
                 leverage=Decimal(self.config.leverage),
+                position_close=self.config.position_action == PositionAction.CLOSE,
             )
         else:
             order_candidate = OrderCandidate(
