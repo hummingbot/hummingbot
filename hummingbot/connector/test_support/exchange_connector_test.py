@@ -12,7 +12,6 @@ from aioresponses.core import RequestCall
 from bidict import bidict
 
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
@@ -376,8 +375,8 @@ class AbstractExchangeConnectorTests:
             super().setUpClass()
             cls.base_asset = "COINALPHA"
             cls.quote_asset = "HBOT"
-            cls.trading_pair = combine_to_hb_trading_pair(base=cls.base_asset, quote=cls.quote_asset)
-            cls.trading_pair_2 = combine_to_hb_trading_pair(base=cls.base_asset, quote="USDT")
+            cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+            cls.trading_pair_2 = f"{cls.base_asset}-USDT"
 
         def setUp(self) -> None:
             super().setUp()
@@ -673,7 +672,7 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id = self.place_buy_order()
-            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await (request_sent_event.wait())
             await asyncio.sleep(0.1)
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -714,7 +713,7 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id = self.place_sell_order()
-            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await (request_sent_event.wait())
             await asyncio.sleep(0.1)
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -752,7 +751,7 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id = self.place_buy_order()
-            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await (request_sent_event.wait())
             await asyncio.sleep(0.1)
 
             order_request = self._all_executed_requests(mock_api, url)[0]
@@ -1079,9 +1078,9 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            await asyncio.wait_for(self.exchange._update_order_status(), timeout=1)
+            await (self.exchange._update_order_status())
             # Execute one more synchronization to ensure the async task that processes the update is finished
-            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await (request_sent_event.wait())
             await asyncio.sleep(0.1)
 
             for url in (urls if isinstance(urls, list) else [urls]):
@@ -1601,11 +1600,11 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            await asyncio.wait_for(self.exchange._update_order_status(), timeout=1)
+            await (self.exchange._update_order_status())
             # Execute one more synchronization to ensure the async task that processes the update is finished
-            await asyncio.wait_for(request_sent_event.wait(), timeout=1)
+            await (request_sent_event.wait())
 
-            await asyncio.wait_for(order.wait_until_completely_filled(), timeout=1)
+            await (order.wait_until_completely_filled())
             await asyncio.sleep(0.1)
 
             self.assertTrue(order.is_done)
