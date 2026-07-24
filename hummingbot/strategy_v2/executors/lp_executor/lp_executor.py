@@ -103,19 +103,35 @@ class LPExecutor(ExecutorBase):
             f"(dex={self.lp_dex_name}, type={self.lp_trading_type})"
         )
 
-        # Resolve swap_provider from network default if not provided and keep_position=False
-        # (needed for close-out swaps when returning to original quote asset)
-        if not self.config.keep_position and not self.config.swap_provider:
-            gateway = GatewayHttpClient.get_instance()
-            default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
-            if default_provider:
-                self.config = self.config.model_copy(update={'swap_provider': default_provider})
-                self.logger().info(f"Using network default swap provider: {default_provider}")
-            else:
-                self.logger().warning(
-                    f"No swap provider found for {self.config.connector_name}. "
-                    "Close-out swaps will not be available."
-                )
+        # Resolve swap_provider up front when the config already expects to unwind,
+        # so a missing provider surfaces at start instead of mid-close-out.
+        if not self.config.keep_position:
+            await self._resolve_swap_provider()
+
+    async def _resolve_swap_provider(self) -> bool:
+        """Fill in swap_provider from the network default if it is not set.
+
+        Also called lazily from the close-out path: early_stop(keep_position=False)
+        can unwind an executor whose config said keep_position=True, which never
+        resolved a provider at start.
+
+        Returns True if a provider is available.
+        """
+        if self.config.swap_provider:
+            return True
+
+        gateway = GatewayHttpClient.get_instance()
+        default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
+        if default_provider:
+            self.config = self.config.model_copy(update={'swap_provider': default_provider})
+            self.logger().info(f"Using network default swap provider: {default_provider}")
+            return True
+
+        self.logger().warning(
+            f"No swap provider found for {self.config.connector_name}. "
+            "Close-out swaps will not be available."
+        )
+        return False
 
     async def control_task(self):
         """Main control loop - simple state machine with direct await operations"""
@@ -383,9 +399,13 @@ class LPExecutor(ExecutorBase):
                 position_rent=self.lp_position_state.position_rent,
             )
 
-            # Store ADD event for position tracking (like spot grid stores orders)
-            if self.config.keep_position:
-                self._store_lp_event_from_add(event)
+            # Record the deposit unconditionally. This is bookkeeping, not a
+            # decision: whether the round trip is kept as a hold is settled at
+            # stop time by early_stop(keep_position=...), long after this runs.
+            # Gating it on config.keep_position left a runtime keep_position=True
+            # with no deposit to net against, booking the entire withdrawn
+            # balance as a BUY.
+            self._store_lp_event_from_add(event)
 
             # Update state immediately (don't wait for next tick)
             self.lp_position_state.update_state(current_price, self._strategy.current_timestamp)
@@ -516,29 +536,32 @@ class LPExecutor(ExecutorBase):
                 position_rent_refunded=self.lp_position_state.position_rent_refunded,
             )
 
-            # Store REMOVE event for position tracking (like spot grid stores orders)
-            if self.config.keep_position or self.close_type == CloseType.POSITION_HOLD:
+            # Store REMOVE event for position tracking (like spot grid stores orders).
+            # Keyed off close_type alone: that is the runtime decision made by
+            # early_stop(keep_position=...), which overrides config.keep_position.
+            if self.close_type == CloseType.POSITION_HOLD:
                 self._store_lp_event_from_remove(event)
 
             self.lp_position_state.active_close_order = None
             self.lp_position_state.position_address = None
 
-            # If keep_position=False, execute close-out swap to return to original position
-            # Similar to how grid executor sells/buys back to rebalance
-            if not self.config.keep_position and self.close_type != CloseType.POSITION_HOLD:
-                # keep_position=False means "leave me holding no base token" — swap the
-                # ENTIRE withdrawn base balance back to quote, not just the drift versus
-                # what was deposited.
-                closeout_base = self._calculate_closeout_base_amount()
-                if closeout_base > Decimal("0.000001"):
+            # Not holding the net means swapping back to the original position.
+            # Same runtime decision as the REMOVE gate above, and stated
+            # positively so an unexpected close_type skips the on-chain swap
+            # rather than firing one nobody asked for. Both transitions into
+            # CLOSING set close_type to POSITION_HOLD or EARLY_STOP first.
+            if self.close_type == CloseType.EARLY_STOP:
+                # Calculate net base change using helper (same calculation as position_hold)
+                base_diff = self._calculate_net_base_difference()
+                if abs(base_diff) > Decimal("0.000001"):  # Non-trivial difference
                     self.logger().info(
-                        f"Close-out swap needed: selling {closeout_base:.6f} base "
-                        f"(withdrawn={self.lp_position_state.base_amount:.6f}, "
-                        f"fees={self.lp_position_state.base_fee:.6f})"
+                        f"Close-out swap needed: base_diff={base_diff:.6f} "
+                        f"(received={self.lp_position_state.base_amount + self.lp_position_state.base_fee:.6f}, "
+                        f"initial={self.lp_position_state.initial_base_amount:.6f})"
                     )
                     self.lp_position_state.state = LPExecutorStates.SWAPPING
                 else:
-                    self.logger().info("No close-out swap needed (no base token withdrawn)")
+                    self.logger().info("No close-out swap needed (base amounts match)")
                     self.lp_position_state.state = LPExecutorStates.COMPLETE
             else:
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
@@ -570,7 +593,7 @@ class LPExecutor(ExecutorBase):
             self._handle_swap_failure(ValueError(f"Connector {self.config.connector_name} not found"))
             return
 
-        if not self.config.swap_provider:
+        if not await self._resolve_swap_provider():
             self.logger().error("No swap_provider configured for close-out swap")
             self._handle_swap_failure(ValueError("No swap_provider configured"))
             return
@@ -605,21 +628,23 @@ class LPExecutor(ExecutorBase):
             # Otherwise still pending - wait for next tick
             return
 
-        # Calculate swap amount using helper (consistent with _close_position)
-        amount = self._calculate_closeout_base_amount()
+        # Calculate swap amount and direction using helper (consistent with _close_position)
+        base_diff = self._calculate_net_base_difference()
 
-        if amount < Decimal("0.000001"):
+        if abs(base_diff) < Decimal("0.000001"):
             # No swap needed
             self.lp_position_state.state = LPExecutorStates.COMPLETE
             return
 
-        # Full unwind is always a SELL: we hold base withdrawn from the pool and
-        # want to end denominated in quote.
-        is_buy = False
-        side = TradeType.SELL
+        # Determine trade direction
+        # If base_diff > 0: We received more base than deposited → SELL excess base
+        # If base_diff < 0: We received less base than deposited → BUY base to restore
+        is_buy = base_diff < 0
+        amount = abs(base_diff)
+        side = TradeType.BUY if is_buy else TradeType.SELL
 
         self.logger().info(
-            f"Executing close-out swap: {side.name} {amount:.6f} base (full unwind)"
+            f"Executing close-out swap: {side.name} {amount:.6f} base (diff={base_diff:.6f})"
         )
 
         try:
@@ -694,6 +719,21 @@ class LPExecutor(ExecutorBase):
             position_rent_refunded=self.lp_position_state.position_rent,
         )
 
+        # Record the hold from the same last-known amounts. Without this the
+        # executor completes as POSITION_HOLD reporting no orders at all, and
+        # consumers fall back to filled_amount_base -- which for an LP executor
+        # is the base sitting in the pool, not base the executor acquired.
+        if self.close_type == CloseType.POSITION_HOLD:
+            self._store_net_trade_from_withdrawal(
+                total_base_returned=self.lp_position_state.base_amount + self.lp_position_state.base_fee,
+                total_quote_returned=self.lp_position_state.quote_amount + self.lp_position_state.quote_fee,
+                mid_price=current_price,
+                remove_tx_fee_quote=0.0,
+                order_id=order_id,
+                exchange_order_id="already-closed",
+                trading_pair=self.config.trading_pair,
+            )
+
     def _store_lp_event_from_add(self, event: RangePositionLiquidityAddedEvent):
         """Store ADD event data for later net trade calculation at REMOVE.
 
@@ -753,19 +793,22 @@ class LPExecutor(ExecutorBase):
         threshold = Decimal("0.0001")
 
         if abs(net_base) < threshold and abs(net_quote) < threshold:
-            # No significant conversion - don't record a trade
-            # But still track fees if any
-            if total_tx_fee_quote > 0:
-                self._held_position_orders.append({
-                    "client_order_id": exchange_order_id,
-                    "trade_type": "BUY",  # Dummy, won't affect P&L with 0 amounts
-                    "price": float(mid_price),
-                    "executed_amount_base": 0.0,
-                    "executed_amount_quote": 0.0,
-                    "cumulative_fee_paid_quote": total_tx_fee_quote,
-                    "lp_source": True,
-                    "lp_net_trade": True,
-                })
+            # No significant conversion - record a zero-amount order carrying only
+            # the fees. Appended even when there are no fees: an empty
+            # held_position_orders is indistinguishable from "this executor does
+            # not report orders", and consumers then fall back to
+            # filled_amount_base, which for an LP executor is the pool balance
+            # rather than acquired base. A zero-amount order says "nothing" plainly.
+            self._held_position_orders.append({
+                "client_order_id": exchange_order_id,
+                "trade_type": "BUY",  # Dummy, won't affect P&L with 0 amounts
+                "price": float(mid_price),
+                "executed_amount_base": 0.0,
+                "executed_amount_quote": 0.0,
+                "cumulative_fee_paid_quote": total_tx_fee_quote,
+                "lp_source": True,
+                "lp_net_trade": True,
+            })
             return
 
         if net_base > threshold and net_quote < -threshold:
@@ -879,29 +922,38 @@ class LPExecutor(ExecutorBase):
             # No position was created, just complete
             self.lp_position_state.state = LPExecutorStates.COMPLETE
 
-    def _calculate_closeout_base_amount(self) -> Decimal:
+    def _calculate_net_base_difference(self) -> Decimal:
         """
-        Base token to sell back to quote when unwinding with keep_position=False.
+        Calculate net base token difference from LP position lifecycle.
 
-        This is the ENTIRE base balance withdrawn from the pool — the position's
-        base amount plus accrued base fees — because keep_position=False means the
-        executor must end holding no base token.
+        This is the difference between what we received when closing the position
+        (including fees) and what we initially deposited.
 
-        It is deliberately NOT the difference against initial_base_amount. A
-        two-sided position that is closed near its opening price withdraws roughly
-        what it deposited, so a difference-based amount rounds to zero and the
-        executor completes with a clean EARLY_STOP while the full base position
-        silently remains in the wallet as spot.
+        Deliberately the net, NOT the entire withdrawn balance. The executor owns
+        the LP round trip, not the base it was handed: the deposit was funded by
+        whoever opened the slot (typically an entry order_executor that recorded a
+        PositionHold), so unwinding to the net leaves that hold accurate and the
+        executor position-neutral. Selling the full balance instead disposes of
+        base the ledger still counts as held -- and since the keep_position=False
+        path does not call _store_lp_event_from_remove, that sale is recorded
+        nowhere, stranding a phantom hold. Ending flat is the entry executor's
+        job, via its own keep_position=False.
 
         Returns:
-            The base amount to SELL. Zero if the position withdrew no base token
-            (e.g. a single-sided quote position that never crossed into range).
+            Positive: We have more base than we started with (need to SELL)
+            Negative: We have less base than we started with (need to BUY)
+            Zero: Position is balanced
 
         Used by:
-            - _close_position: To determine if a close-out swap is needed
-            - _execute_closeout_swap: To determine the swap amount
+            - _close_position: To determine if close-out swap is needed
+            - _execute_closeout_swap: To determine swap amount and direction
+            - position_hold: Uses same calculation (ADD as SELL, REMOVE+fees as BUY)
         """
-        return self.lp_position_state.base_amount + self.lp_position_state.base_fee
+        # What we received when closing: base_amount + base_fee
+        received_base = self.lp_position_state.base_amount + self.lp_position_state.base_fee
+        # What we deposited when opening: initial_base_amount
+        initial_base = self.lp_position_state.initial_base_amount
+        return received_base - initial_base
 
     def _get_quote_to_global_rate(self) -> Decimal:
         """
