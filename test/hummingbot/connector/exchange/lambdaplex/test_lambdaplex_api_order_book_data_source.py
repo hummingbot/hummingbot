@@ -197,7 +197,7 @@ class LambdaplexAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "method": "subscribe",
-            "params": [f"{self.ex_trading_pair}@depth@100ms"],
+            "params": [f"{self.ex_trading_pair}@depth"],
             "id": 2,
         }
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
@@ -488,7 +488,7 @@ class LambdaplexAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         depth_call = mock_ws.send.call_args_list[1]
         depth_payload = depth_call[0][0].payload
         self.assertEqual("subscribe", depth_payload["method"])
-        self.assertIn(f"{ex_new_pair}@depth@100ms", depth_payload["params"])
+        self.assertIn(f"{ex_new_pair}@depth", depth_payload["params"])
 
         # Verify pair was added to trading pairs
         self.assertIn(new_pair, self.data_source._trading_pairs)
@@ -574,7 +574,7 @@ class LambdaplexAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         depth_call = mock_ws.send.call_args_list[1]
         depth_payload = depth_call[0][0].payload
         self.assertEqual("unsubscribe", depth_payload["method"])
-        self.assertIn(f"{self.trading_pair}@depth@100ms", depth_payload["params"])
+        self.assertIn(f"{self.trading_pair}@depth", depth_payload["params"])
 
         # Verify pair was removed from trading pairs
         self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
