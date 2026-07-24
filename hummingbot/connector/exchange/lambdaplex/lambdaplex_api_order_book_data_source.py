@@ -206,7 +206,7 @@ class LambdaplexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         for trading_pair in trading_pairs:
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             trade_params.append(f"{symbol}@trade")
-            depth_params.append(f"{symbol}@depth@100ms")
+            depth_params.append(f"{symbol}@depth")
         payload = {
             "method": "subscribe" if subscribe else "unsubscribe",
             "params": trade_params,
@@ -226,7 +226,9 @@ class LambdaplexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message:
+        if "error" in event_message:
+            self.logger().error(f"Error in WS stream: {event_message}")
+        elif "result" not in event_message:
             event_type = event_message.get("e")
             channel = None
             if event_type == CONSTANTS.DIFF_EVENT_TYPE:
