@@ -623,6 +623,67 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # When keep_position=True (default), limit hit uses POSITION_HOLD
         self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
 
+    async def test_control_task_in_range_lower_limit(self):
+        """A limit price crossed while the position is still IN_RANGE must close it.
+
+        Regression for the QA scenario on a tight Meteora range: bin rounding at
+        open made the on-chain position one bin wider than configured, so the
+        price sat below lower_limit_price while the position was genuinely in
+        range - and the old code only checked limits in OUT_OF_RANGE.
+        """
+        config = self.get_default_config()
+        config.lower_limit_price = Decimal("98")  # Inside the [95, 105] range
+        config.keep_position = True
+        executor = self.get_executor(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        # Price is within the position's bounds but at/below the lower limit
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 96.0  # In range (95-105) but below lower_limit_price (98)
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+
+        await executor.control_task()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_control_task_in_range_upper_limit(self):
+        """An upper limit crossed while still IN_RANGE must close the position."""
+        config = self.get_default_config()
+        config.upper_limit_price = Decimal("102")  # Inside the [95, 105] range
+        config.keep_position = False
+        executor = self.get_executor(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 103.0  # In range (95-105) but above upper_limit_price (102)
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+
+        await executor.control_task()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+
     async def test_control_task_out_of_range_no_limit_no_close(self):
         """Test control_task does not close when out of range but no limit prices set"""
         config = self.get_default_config()

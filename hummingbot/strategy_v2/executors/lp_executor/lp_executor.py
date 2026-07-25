@@ -176,38 +176,37 @@ class LPExecutor(ExecutorBase):
                 self.close_type = CloseType.FAILED
                 self.stop()
 
-            case LPExecutorStates.IN_RANGE:
-                # Position active and in range - just monitor
-                pass
-
-            case LPExecutorStates.OUT_OF_RANGE:
-                # Position active but out of range
-                # Close if price exceeds limit prices (like grid executor)
-                if self._current_price is not None:
-                    should_close = False
-                    direction = ""
-
-                    # Check if price exceeded upper limit
-                    if self.config.upper_limit_price is not None and self._current_price >= self.config.upper_limit_price:
-                        should_close = True
-                        direction = "above upper limit"
-                    # Check if price exceeded lower limit
-                    elif self.config.lower_limit_price is not None and self._current_price <= self.config.lower_limit_price:
-                        should_close = True
-                        direction = "below lower limit"
-
-                    if should_close:
-                        self.logger().info(
-                            f"Price {self._current_price} {direction} "
-                            f"(upper_limit={self.config.upper_limit_price}, lower_limit={self.config.lower_limit_price}), closing"
-                        )
-                        # Respect keep_position config - use POSITION_HOLD to track net position, EARLY_STOP otherwise
-                        self.close_type = CloseType.POSITION_HOLD if self.config.keep_position else CloseType.EARLY_STOP
-                        self.lp_position_state.state = LPExecutorStates.CLOSING
+            case LPExecutorStates.IN_RANGE | LPExecutorStates.OUT_OF_RANGE:
+                # Position active - close if price exceeds limit prices (like grid
+                # executor). Checked in BOTH range states: limit prices are
+                # independent of the position's bounds, and the on-chain bounds can
+                # be wider than the configured ones (bin rounding at open), so a
+                # price beyond a limit can still be inside the position's range.
+                self._check_limit_prices()
 
             case LPExecutorStates.COMPLETE:
                 # Position closed - close_type already set by early_stop()
                 self.stop()
+
+    def _check_limit_prices(self):
+        """Close the position when the price crosses a configured limit price."""
+        if self._current_price is None:
+            return
+
+        if self.config.upper_limit_price is not None and self._current_price >= self.config.upper_limit_price:
+            direction = "above upper limit"
+        elif self.config.lower_limit_price is not None and self._current_price <= self.config.lower_limit_price:
+            direction = "below lower limit"
+        else:
+            return
+
+        self.logger().info(
+            f"Price {self._current_price} {direction} "
+            f"(upper_limit={self.config.upper_limit_price}, lower_limit={self.config.lower_limit_price}), closing"
+        )
+        # Respect keep_position config - use POSITION_HOLD to track net position, EARLY_STOP otherwise
+        self.close_type = CloseType.POSITION_HOLD if self.config.keep_position else CloseType.EARLY_STOP
+        self.lp_position_state.state = LPExecutorStates.CLOSING
 
     async def _update_position_info(self):
         """Fetch current position info from connector to update amounts and fees"""
