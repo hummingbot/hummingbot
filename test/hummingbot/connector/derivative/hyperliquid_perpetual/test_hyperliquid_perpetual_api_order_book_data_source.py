@@ -553,8 +553,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                 "ctx": {
                     "oraclePx": "36717.0",
                     "markPx": "36733.0",
-                    "openInterest": "0.00001793",  # This is used as the rate
-                    "funding": "0.00001793"
+                    "openInterest": "22368164",
+                    "funding": "0.000012"
                 }
             }
         }
@@ -576,8 +576,54 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(expected_mark_price, msg.mark_price)
         expected_funding_time = next_funding_time_mock.return_value
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal('0.00001793')
+        expected_rate = Decimal('0.000012')
         self.assertEqual(expected_rate, msg.rate)
+
+    async def test_parse_funding_info_never_uses_open_interest_as_rate(self):
+        message_queue: asyncio.Queue = asyncio.Queue()
+        funding_message = {
+            "data": {
+                "coin": self.base_asset,
+                "ctx": {
+                    "oraclePx": "36717.0",
+                    "markPx": "36733.0",
+                    "openInterest": "22368164",
+                },
+            }
+        }
+
+        await self.data_source._parse_funding_info_message(funding_message, message_queue)
+
+        self.assertTrue(message_queue.empty())
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                "Skipping Hyperliquid funding update: funding field is missing",
+            )
+        )
+
+    async def test_parse_funding_info_rejects_malformed_non_finite_and_boolean_rates(self):
+        for raw_funding in ("not-a-rate", "NaN", "Infinity", True):
+            with self.subTest(raw_funding=raw_funding):
+                message_queue: asyncio.Queue = asyncio.Queue()
+                funding_message = {
+                    "data": {
+                        "coin": self.base_asset,
+                        "ctx": {
+                            "oraclePx": "36717.0",
+                            "markPx": "36733.0",
+                            "openInterest": "22368164",
+                            "funding": raw_funding,
+                        },
+                    }
+                }
+
+                await self.data_source._parse_funding_info_message(
+                    funding_message,
+                    message_queue,
+                )
+
+                self.assertTrue(message_queue.empty())
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")

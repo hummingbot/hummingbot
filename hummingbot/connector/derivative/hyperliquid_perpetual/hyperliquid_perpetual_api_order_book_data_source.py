@@ -1,7 +1,7 @@
 import asyncio
 import time
 from collections import defaultdict
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
@@ -283,12 +283,35 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
 
             # Handle both regular and HIP-3 market formats
             ctx = data.get("ctx", data)  # Fallback to data itself if ctx doesn't exist
+            raw_funding = ctx.get("funding")
+            if raw_funding is None:
+                self.logger().warning(
+                    "Skipping Hyperliquid funding update: funding field is missing"
+                )
+                return
+            if isinstance(raw_funding, bool):
+                self.logger().warning(
+                    "Skipping Hyperliquid funding update: funding field is not a decimal"
+                )
+                return
+            try:
+                funding_rate = Decimal(str(raw_funding))
+            except (InvalidOperation, TypeError, ValueError):
+                self.logger().warning(
+                    "Skipping Hyperliquid funding update: funding field is not a decimal"
+                )
+                return
+            if not funding_rate.is_finite():
+                self.logger().warning(
+                    "Skipping Hyperliquid funding update: funding field is not finite"
+                )
+                return
             funding_info = FundingInfoUpdate(
                 trading_pair=trading_pair,
                 index_price=Decimal(str(ctx.get("oraclePx", "0"))),
                 mark_price=Decimal(str(ctx.get("markPx", "0"))),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal(str(ctx.get("openInterest", ctx.get("funding", "0")))),
+                rate=funding_rate,
             )
 
             message_queue.put_nowait(funding_info)
