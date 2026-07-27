@@ -59,7 +59,8 @@ class TestLPExecutorConfig(TestCase):
         self.assertIsNone(config.upper_limit_price)
         self.assertIsNone(config.lower_limit_price)
         self.assertIsNone(config.extra_params)
-        self.assertTrue(config.keep_position)
+        # Defaults to unwinding, matching GridExecutorConfig and the API's /stop
+        self.assertFalse(config.keep_position)
 
     def test_config_creation_full(self):
         """Test creating config with all fields"""

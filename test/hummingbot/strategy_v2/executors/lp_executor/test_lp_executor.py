@@ -463,6 +463,60 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertIsNone(executor.lp_position_state.active_open_order)
 
+    def test_handle_create_failure_closes_an_already_opened_position(self):
+        """A throw after add_liquidity landed must close the position, not abandon it.
+
+        FAILED stops the executor without ever calling _close_position, and the
+        add-liquidity event that records the position is emitted after the code
+        most likely to throw -- so the funds would survive only in a log line.
+        """
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+        executor.lp_position_state.active_open_order = MagicMock()
+        executor.lp_position_state.position_address = "position-abc"
+
+        executor._handle_create_failure(Exception("bad position_info field"))
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+        self.assertIsNone(executor.lp_position_state.active_open_order)
+        self.assertTrue(self.is_partially_logged("ERROR", "position-abc"))
+
+    async def test_recovery_close_records_no_hold_and_no_swap(self):
+        """The recovery close is pure cleanup: CloseType.FAILED holds nothing."""
+        executor = self.get_executor()
+        executor._get_native_to_quote_rate = MagicMock(return_value=Decimal("1"))
+        executor._current_price = Decimal("100")
+        executor.lp_position_state.position_address = "position-abc"
+        executor._handle_create_failure(Exception("bad position_info field"))
+
+        mock_position = MagicMock()
+        mock_position.price = 100.0
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector._clmm_close_position = AsyncMock(return_value="sig-remove")
+        connector._lp_orders_metadata = {
+            "order-123": {
+                "base_amount": Decimal("1.0"),
+                "quote_amount": Decimal("100.0"),
+                "base_fee": Decimal("0"),
+                "quote_fee": Decimal("0"),
+                "position_rent_refunded": Decimal("0.002"),
+                "tx_fee": Decimal("0"),
+            }
+        }
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(
+                base_amount=Decimal("1.0"), quote_amount=Decimal("100.0")
+            )
+        )
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+        self.assertEqual(executor._held_position_orders, [])
+
     def test_handle_close_failure_transitions_to_failed(self):
         """Test _handle_close_failure transitions to FAILED state (retry at connector level)"""
         executor = self.get_executor()
@@ -508,10 +562,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     async def test_control_task_out_of_range_upper_limit(self):
         """Test control_task closes when price exceeds upper_limit_price.
 
-        When keep_position=True (default), close_type should be POSITION_HOLD.
+        With keep_position=True, close_type should be POSITION_HOLD.
         """
         config = self.get_default_config()
         config.upper_limit_price = Decimal("115")  # Close when price >= 115
+        config.keep_position = True
         executor = self.get_executor(config)
         executor._status = RunnableStatus.RUNNING
         executor.lp_position_state.state = LPExecutorStates.OUT_OF_RANGE
@@ -539,10 +594,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     async def test_control_task_out_of_range_lower_limit(self):
         """Test control_task closes when price falls below lower_limit_price.
 
-        When keep_position=True (default), close_type should be POSITION_HOLD.
+        With keep_position=True, close_type should be POSITION_HOLD.
         """
         config = self.get_default_config()
         config.lower_limit_price = Decimal("90")  # Close when price <= 90
+        config.keep_position = True
         executor = self.get_executor(config)
         executor._status = RunnableStatus.RUNNING
         executor.lp_position_state.state = LPExecutorStates.OUT_OF_RANGE
@@ -566,6 +622,67 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
         # When keep_position=True (default), limit hit uses POSITION_HOLD
         self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_control_task_in_range_lower_limit(self):
+        """A limit price crossed while the position is still IN_RANGE must close it.
+
+        Regression for the QA scenario on a tight Meteora range: bin rounding at
+        open made the on-chain position one bin wider than configured, so the
+        price sat below lower_limit_price while the position was genuinely in
+        range - and the old code only checked limits in OUT_OF_RANGE.
+        """
+        config = self.get_default_config()
+        config.lower_limit_price = Decimal("98")  # Inside the [95, 105] range
+        config.keep_position = True
+        executor = self.get_executor(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        # Price is within the position's bounds but at/below the lower limit
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 96.0  # In range (95-105) but below lower_limit_price (98)
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+
+        await executor.control_task()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+
+    async def test_control_task_in_range_upper_limit(self):
+        """An upper limit crossed while still IN_RANGE must close the position."""
+        config = self.get_default_config()
+        config.upper_limit_price = Decimal("102")  # Inside the [95, 105] range
+        config.keep_position = False
+        executor = self.get_executor(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 103.0  # In range (95-105) but above upper_limit_price (102)
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+
+        await executor.control_task()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
     async def test_control_task_out_of_range_no_limit_no_close(self):
         """Test control_task does not close when out of range but no limit prices set"""
@@ -1330,6 +1447,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor.close_type = CloseType.EARLY_STOP  # set by early_stop(keep_position=False)
 
         # Position close returns more base than initial (IL scenario)
         mock_position = MagicMock()
@@ -1356,13 +1474,8 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should transition to SWAPPING since base_diff > 0.000001
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
-    async def test_close_position_with_keep_position_false_unwinds_unchanged_position(self):
-        """Regression: keep_position=False must swap back even when base is unchanged.
-
-        Withdrawing exactly what was deposited used to compute a zero difference
-        and skip the swap, completing cleanly while the base tokens stayed in the
-        wallet. The full balance must be sold instead.
-        """
+    async def test_close_position_with_keep_position_false_no_swap_needed(self):
+        """Test _close_position goes to COMPLETE when no swap needed"""
         config = self.get_default_config()
         config_dict = config.model_dump()
         config_dict["keep_position"] = False
@@ -1373,6 +1486,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor.close_type = CloseType.EARLY_STOP  # set by early_stop(keep_position=False)
 
         mock_position = MagicMock()
         mock_position.price = 100.0
@@ -1395,7 +1509,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._close_position()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_close_position_with_keep_position_false_quote_only_completes(self):
         """A quote-only withdrawal has no base to sell back, so no close-out swap is needed."""
@@ -1409,6 +1523,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
         executor.lp_position_state.initial_base_amount = Decimal("0")
         executor.lp_position_state.initial_quote_amount = Decimal("100.0")
+        executor.close_type = CloseType.EARLY_STOP  # set by early_stop(keep_position=False)
 
         mock_position = MagicMock()
         mock_position.price = 100.0
@@ -1532,11 +1647,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertIsNone(executor.lp_position_state.active_swap_order)
 
     async def test_execute_closeout_swap_no_swap_needed(self):
-        """Test _execute_closeout_swap completes when no base token was withdrawn"""
+        """Test _execute_closeout_swap completes when no swap needed"""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
-        executor.lp_position_state.base_amount = Decimal("0")  # Nothing came back
+        executor.lp_position_state.base_amount = Decimal("1.0")  # Same
         executor.lp_position_state.base_fee = Decimal("0.0")
 
         await executor._execute_closeout_swap()
@@ -1562,12 +1677,8 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertFalse(call_kwargs["is_buy"])  # SELL
         self.assertIsNotNone(executor.lp_position_state.active_swap_order)
 
-    async def test_execute_closeout_swap_sells_full_balance_when_base_shrank(self):
-        """Withdrawing less base than deposited still sells the whole balance.
-
-        A full unwind is always a SELL - there is no buy-back leg, since the goal
-        is to end holding no base token rather than to restore the deposit.
-        """
+    async def test_execute_closeout_swap_buy_back_base(self):
+        """Test _execute_closeout_swap buys back base tokens"""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
@@ -1579,14 +1690,14 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
+        # Should place a BUY order
         connector.place_order.assert_called_once()
         call_kwargs = connector.place_order.call_args[1]
-        self.assertFalse(call_kwargs["is_buy"])  # SELL
-        self.assertEqual(call_kwargs["amount"], Decimal("0.51"))  # base + base_fee
+        self.assertTrue(call_kwargs["is_buy"])  # BUY
         self.assertIsNotNone(executor.lp_position_state.active_swap_order)
 
     async def test_execute_closeout_swap_is_quote_asset_agnostic(self):
-        """The close-out sells the base balance whatever the quote asset is.
+        """The close-out swaps the net base change whatever the quote asset is.
 
         The rest of this suite runs on SOL-USDC (USDC quote); this covers the
         other common shape, a token quoted in SOL. The amount is pure base-side
@@ -1609,7 +1720,8 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         call_kwargs = connector.place_order.call_args[1]
         self.assertFalse(call_kwargs["is_buy"])  # SELL base for quote
         self.assertEqual(call_kwargs["trading_pair"], "BONK-SOL")
-        self.assertEqual(call_kwargs["amount"], Decimal("1425"))  # base + base_fee
+        # (base + base_fee) - initial_base: the net base the position handed back
+        self.assertEqual(call_kwargs["amount"], Decimal("425"))
 
     async def test_execute_closeout_swap_exception(self):
         """Test _execute_closeout_swap handles exception when placing swap"""
@@ -1812,39 +1924,40 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
-    # Tests for _calculate_closeout_base_amount
+    # Tests for _calculate_net_base_difference
 
-    def test_calculate_closeout_base_amount_includes_fees(self):
-        """Close-out sells the withdrawn base plus accrued base fees"""
+    def test_calculate_net_base_difference_positive(self):
+        """Test _calculate_net_base_difference returns positive when gained base"""
         executor = self.get_executor()
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("1.4")
         executor.lp_position_state.base_fee = Decimal("0.1")
 
-        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("1.5"))
+        # received = 1.4 + 0.1 = 1.5, initial = 1.0, diff = 0.5
+        diff = executor._calculate_net_base_difference()
+        self.assertEqual(diff, Decimal("0.5"))
 
-    def test_calculate_closeout_base_amount_ignores_initial_deposit(self):
-        """Regression: a position closing near its opening price must still fully unwind.
+    def test_calculate_net_base_difference_negative(self):
+        """Test _calculate_net_base_difference returns negative when lost base"""
+        executor = self.get_executor()
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("0.4")
+        executor.lp_position_state.base_fee = Decimal("0.1")
 
-        The old difference-based calculation returned 0 here, so no close-out swap
-        ran and the whole base position was silently left in the wallet as spot
-        while the executor reported a clean EARLY_STOP.
-        """
+        # received = 0.4 + 0.1 = 0.5, initial = 1.0, diff = -0.5
+        diff = executor._calculate_net_base_difference()
+        self.assertEqual(diff, Decimal("-0.5"))
+
+    def test_calculate_net_base_difference_zero(self):
+        """Test _calculate_net_base_difference returns zero when balanced"""
         executor = self.get_executor()
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("0.9")
         executor.lp_position_state.base_fee = Decimal("0.1")
 
-        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("1.0"))
-
-    def test_calculate_closeout_base_amount_zero_when_no_base_withdrawn(self):
-        """No swap when the position withdrew no base token at all"""
-        executor = self.get_executor()
-        executor.lp_position_state.initial_base_amount = Decimal("1.0")
-        executor.lp_position_state.base_amount = Decimal("0")
-        executor.lp_position_state.base_fee = Decimal("0")
-
-        self.assertEqual(executor._calculate_closeout_base_amount(), Decimal("0"))
+        # received = 0.9 + 0.1 = 1.0, initial = 1.0, diff = 0
+        diff = executor._calculate_net_base_difference()
+        self.assertEqual(diff, Decimal("0"))
 
     # Test for filled_amount_base property
 
@@ -1854,3 +1967,263 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.base_amount = Decimal("2.5")
 
         self.assertEqual(executor.filled_amount_base, Decimal("2.5"))
+
+    # ------------------------------------------------------------------
+    # keep_position matrix
+    #
+    # config.keep_position defaults to True, while hummingbot-api's /stop
+    # defaults keep_position=False and forwards it to early_stop(). The two
+    # therefore diverge routinely, so every downstream gate must follow the
+    # runtime decision (close_type) rather than the config.
+    # ------------------------------------------------------------------
+
+    async def _open_and_close(
+        self,
+        config_keep_position: bool,
+        stop_keep_position: bool,
+        deposited_base: Decimal = Decimal("5.0"),
+        deposited_quote: Decimal = Decimal("500.0"),
+        withdrawn_base: Decimal = Decimal("5.0"),
+        withdrawn_quote: Decimal = Decimal("500.0"),
+    ) -> LPExecutor:
+        """Drive open -> early_stop(...) -> close and hand back the executor."""
+        config_dict = self.get_default_config().model_dump()
+        config_dict["keep_position"] = config_keep_position
+        config_dict["swap_provider"] = "jupiter/router"
+        config_dict["base_amount"] = deposited_base
+        config_dict["quote_amount"] = deposited_quote
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor._get_native_to_quote_rate = MagicMock(return_value=Decimal("1"))
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+
+        position_info = MagicMock()
+        position_info.base_token_amount = float(deposited_base)
+        position_info.quote_token_amount = float(deposited_quote)
+        position_info.lower_price = 95.0
+        position_info.upper_price = 105.0
+        position_info.base_fee_amount = 0.0
+        position_info.quote_fee_amount = 0.0
+        position_info.price = 100.0
+        connector.get_position_info = AsyncMock(return_value=position_info)
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-add")
+        connector._lp_orders_metadata = {"order-123": {"position_address": "pos123"}}
+        connector._trigger_add_liquidity_event = MagicMock(
+            return_value=create_mock_add_event(
+                base_amount=deposited_base, quote_amount=deposited_quote
+            )
+        )
+        await executor._create_position()
+
+        executor.early_stop(keep_position=stop_keep_position)
+
+        connector._clmm_close_position = AsyncMock(return_value="sig-remove")
+        connector._lp_orders_metadata = {
+            "order-123": {
+                "base_amount": withdrawn_base,
+                "quote_amount": withdrawn_quote,
+                "base_fee": Decimal("0"),
+                "quote_fee": Decimal("0"),
+                "position_rent_refunded": Decimal("0.002"),
+                "tx_fee": Decimal("0"),
+            }
+        }
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(
+                base_amount=withdrawn_base,
+                quote_amount=withdrawn_quote,
+                base_fee=Decimal("0"),
+                quote_fee=Decimal("0"),
+                tx_fee=Decimal("0"),
+            )
+        )
+        await executor._close_position()
+        return executor
+
+    async def test_matrix_config_hold_stop_hold_records_only_the_net(self):
+        """config=True, stop=True: the hold is the round trip's net, not the deposit."""
+        executor = await self._open_and_close(
+            config_keep_position=True, stop_keep_position=True,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.5"),
+            deposited_quote=Decimal("500.0"), withdrawn_quote=Decimal("450.0"),
+        )
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        orders = [o for o in executor._held_position_orders if o["executed_amount_base"]]
+        self.assertEqual(len(orders), 1)
+        # Gained 0.5 base, spent 50 quote -> a BUY of the net only.
+        self.assertEqual(orders[0]["trade_type"], "BUY")
+        self.assertEqual(orders[0]["executed_amount_base"], 0.5)
+
+    async def test_matrix_config_unwind_stop_unwind_holds_nothing_and_swaps_net(self):
+        """config=False, stop=False: no hold recorded, close-out swaps the net."""
+        executor = await self._open_and_close(
+            config_keep_position=False, stop_keep_position=False,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.5"),
+        )
+
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertEqual(executor._held_position_orders, [])
+        self.assertEqual(executor._calculate_net_base_difference(), Decimal("0.5"))
+
+    async def test_matrix_config_unwind_stop_hold_records_only_the_net(self):
+        """config=False, stop=True: the ADD must still be on record.
+
+        Regression: _store_lp_event_from_add used to be gated on
+        config.keep_position, so a runtime keep_position=True found no deposit
+        to net against and booked the ENTIRE withdrawn balance as a BUY --
+        a hold for base the executor never acquired.
+        """
+        executor = await self._open_and_close(
+            config_keep_position=False, stop_keep_position=True,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.5"),
+            deposited_quote=Decimal("500.0"), withdrawn_quote=Decimal("450.0"),
+        )
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        orders = [o for o in executor._held_position_orders if o["executed_amount_base"]]
+        self.assertEqual(len(orders), 1)
+        self.assertEqual(orders[0]["trade_type"], "BUY")
+        self.assertEqual(orders[0]["executed_amount_base"], 0.5)
+        # No close-out swap: the caller asked to keep the net position.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+
+    async def test_matrix_config_hold_stop_unwind_swaps_and_records_nothing(self):
+        """config=True, stop=False: the runtime decision wins.
+
+        Regression: the close-out swap was gated on config.keep_position, so
+        the API's default stop (keep_position=False) against a default config
+        (keep_position=True) silently skipped the unwind AND still wrote a
+        hold -- a position the caller had asked to be flat out of.
+        """
+        executor = await self._open_and_close(
+            config_keep_position=True, stop_keep_position=False,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.5"),
+        )
+
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertEqual(executor._held_position_orders, [])
+
+    async def test_matrix_limit_auto_close_follows_config(self):
+        """The limit-price auto-close has no caller, so config.keep_position decides.
+
+        Every other gate keys off close_type; this is the one place the config
+        is still the source of truth, because nothing else has spoken.
+        """
+        config = self.get_default_config()
+        config.upper_limit_price = Decimal("115")
+        config.keep_position = False
+        executor = self.get_executor(config)
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.OUT_OF_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 120.0
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(return_value=mock_position)
+
+        await executor.control_task()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
+
+    async def test_balanced_round_trip_still_reports_an_order(self):
+        """A no-op round trip must report a zero order, not an empty list.
+
+        An empty held_position_orders is indistinguishable from "this executor
+        does not report orders", and consumers then fall back to
+        filled_amount_base -- the pool balance, not acquired base.
+        """
+        executor = await self._open_and_close(
+            config_keep_position=True, stop_keep_position=True,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.0"),
+            deposited_quote=Decimal("500.0"), withdrawn_quote=Decimal("500.0"),
+        )
+
+        self.assertEqual(len(executor._held_position_orders), 1)
+        self.assertEqual(executor._held_position_orders[0]["executed_amount_base"], 0.0)
+
+    async def test_already_closed_position_records_the_net_hold(self):
+        """A position closed on-chain behind our back still books its net hold."""
+        config_dict = self.get_default_config().model_dump()
+        config_dict["keep_position"] = True
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor._get_native_to_quote_rate = MagicMock(return_value=Decimal("1"))
+        executor.close_type = CloseType.POSITION_HOLD
+        executor._current_price = Decimal("100")
+        executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.base_amount = Decimal("5.5")
+        executor.lp_position_state.quote_amount = Decimal("450.0")
+        # The deposit is on record from the open.
+        executor._add_base_amount = Decimal("5.0")
+        executor._add_quote_amount = Decimal("500.0")
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info = AsyncMock(side_effect=Exception("Position closed: pos123"))
+        connector._trigger_remove_liquidity_event = MagicMock()
+
+        await executor._close_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        orders = [o for o in executor._held_position_orders if o["executed_amount_base"]]
+        self.assertEqual(len(orders), 1)
+        self.assertEqual(orders[0]["trade_type"], "BUY")
+        self.assertEqual(orders[0]["executed_amount_base"], 0.5)
+
+    @patch('hummingbot.strategy_v2.executors.lp_executor.lp_executor.GatewayHttpClient')
+    async def test_closeout_resolves_swap_provider_lazily(self, mock_gateway_client):
+        """A keep_position=True config unwound at runtime still finds a provider.
+
+        on_start only resolves one when the config already expects to unwind, so
+        the close-out path has to resolve it itself.
+        """
+        config_dict = self.get_default_config().model_dump()
+        config_dict["keep_position"] = True
+        config_dict["swap_provider"] = None
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor.lp_position_state.initial_base_amount = Decimal("1.0")
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.base_fee = Decimal("0")
+
+        mock_gateway = MagicMock()
+        mock_gateway.get_default_swap_provider = AsyncMock(return_value="jupiter/router")
+        mock_gateway_client.get_instance.return_value = mock_gateway
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.place_order = MagicMock(return_value="swap-order-123")
+
+        await executor._execute_closeout_swap()
+
+        self.assertEqual(executor.config.swap_provider, "jupiter/router")
+        connector.place_order.assert_called_once()
+        self.assertEqual(connector.place_order.call_args[1]["amount"], Decimal("0.5"))
+
+    async def test_forced_stop_mid_swapping_holds_only_the_net(self):
+        """A forced stop mid-close-out records the net, not the whole balance.
+
+        The deposited base is already carried by whoever funded the slot, so
+        booking the full withdrawn balance here would double-count it.
+        """
+        executor = await self._open_and_close(
+            config_keep_position=False, stop_keep_position=False,
+            deposited_base=Decimal("5.0"), withdrawn_base=Decimal("5.5"),
+            deposited_quote=Decimal("500.0"), withdrawn_quote=Decimal("450.0"),
+        )
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+
+        held = executor._collect_held_position_orders()
+
+        orders = [o for o in held if o["executed_amount_base"]]
+        self.assertEqual(len(orders), 1)
+        self.assertEqual(orders[0]["trade_type"], "BUY")
+        self.assertEqual(orders[0]["executed_amount_base"], 0.5)
