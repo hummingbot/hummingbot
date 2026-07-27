@@ -3807,6 +3807,52 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(1, len(hydrated[3]["assetCtxs"]))
         self.assertEqual("exception", hydrated[4]["name"])
 
+    def test_quantize_order_price_aligns_to_min_price_increment(self):
+        arb_pair = combine_to_hb_trading_pair("ARB", "USD")
+        self.exchange._trading_rules[arb_pair] = TradingRule(
+            arb_pair,
+            min_price_increment=Decimal("0.00001"),
+            min_order_size=Decimal("0.1"),
+            min_notional_size=Decimal("10"),
+        )
+        # ARB carries szDecimals=1, so limitPx accepts 5 decimals. Market slippage
+        # lands on 6 and HL rejects with "Order has invalid price."
+        self.assertEqual(
+            Decimal("0.08803"),
+            self.exchange.quantize_order_price(arb_pair, Decimal("0.088027")),
+        )
+
+    def test_quantize_order_price_respects_five_significant_figures(self):
+        btc_pair = combine_to_hb_trading_pair("BTC", "USD")
+        self.exchange._trading_rules[btc_pair] = TradingRule(
+            btc_pair,
+            min_price_increment=Decimal("0.1"),
+            min_order_size=Decimal("0.00001"),
+            min_notional_size=Decimal("10"),
+        )
+        # BTC carries szDecimals=5, so the 0.1 tick alone would allow 68013.8 -
+        # six significant figures, one more than HL accepts. The 5-sig-fig pass
+        # runs first so tick rounding cannot reintroduce a sixth.
+        self.assertEqual(
+            Decimal("68014"),
+            self.exchange.quantize_order_price(btc_pair, Decimal("68013.75")),
+        )
+
+    def test_quantize_order_price_does_not_pad_the_scale(self):
+        pair = combine_to_hb_trading_pair("ETH", "USD")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.0001"),
+            min_order_size=Decimal("0.0001"),
+            min_notional_size=Decimal("10"),
+        )
+        # Multiplying back by the tick would otherwise return Decimal("10000.0000"):
+        # numerically correct, but it changes how the price renders in logs and in
+        # order events.
+        quantized = self.exchange.quantize_order_price(pair, Decimal("10000"))
+        self.assertEqual(Decimal("10000"), quantized)
+        self.assertEqual("10000", str(quantized))
+
 
 class HyperliquidPerpetualBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid perpetual connector."""

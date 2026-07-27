@@ -929,3 +929,30 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             executor.place_take_profit_limit_order()
         self.strategy.sell.assert_called_once()
         self.assertEqual(PositionAction.CLOSE, self.strategy.sell.call_args.args[5])
+
+    def test_force_stop_with_position_hold_holds_entry_fill(self):
+        """A forced stop at the shutdown deadline hands over the filled entry."""
+        position_config = self.get_position_config_market_long()
+        executor = PositionExecutor(self.strategy, position_config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        entry = InFlightOrder(
+            client_order_id="OID-ENTRY",
+            trading_pair=position_config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=position_config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        tracked = TrackedOrder("OID-ENTRY")
+        tracked.order = entry
+        executor._open_order = tracked
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        held_ids = {order["client_order_id"] for order in executor._held_position_orders}
+        self.assertEqual(held_ids, {"OID-ENTRY"})
