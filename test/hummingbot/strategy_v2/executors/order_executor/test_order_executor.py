@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, PropertyMock, patch
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.gateway.gateway import Gateway
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.order_executor.data_types import (
@@ -376,6 +376,48 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(OrderExecutor, 'current_market_price', new_callable=PropertyMock)
+    @patch.object(OrderExecutor, 'get_trading_rules')
+    @patch.object(OrderExecutor, 'adjust_order_candidates')
+    async def test_validate_sufficient_balance_perpetual_position_close(self, mock_adjust_order_candidates,
+                                                                        mock_get_trading_rules,
+                                                                        mock_current_market_price):
+        """Test that PerpetualOrderCandidate.position_close is True for CLOSE and False for OPEN/NIL."""
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.1"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+        mock_current_market_price.return_value = Decimal("100")
+
+        captured_candidates = []
+
+        def capture_candidates(_, candidates):
+            captured_candidates.extend(candidates)
+            return candidates
+
+        mock_adjust_order_candidates.side_effect = capture_candidates
+
+        for position_action in [PositionAction.CLOSE, PositionAction.OPEN, PositionAction.NIL]:
+            captured_candidates.clear()
+            config = OrderExecutorConfig(
+                id=f"test-{position_action.name}",
+                timestamp=123,
+                side=TradeType.SELL,
+                connector_name="binance_perpetual",
+                trading_pair="ETH-USDT",
+                amount=Decimal("1"),
+                price=Decimal("100"),
+                execution_strategy=ExecutionStrategy.MARKET,
+                position_action=position_action,
+                leverage=10,
+            )
+            executor = self.get_order_executor_from_config(config)
+            await executor.validate_sufficient_balance()
+
+            self.assertEqual(len(captured_candidates), 1)
+            candidate = captured_candidates[0]
+            self.assertIsInstance(candidate, PerpetualOrderCandidate)
+            self.assertEqual(candidate.position_close, position_action == PositionAction.CLOSE)
 
     def get_gateway_executor(self, side: TradeType, amount: Decimal = Decimal("100")):
         """An executor wired to a Gateway swap connector (no order book, no CEX fee schema)."""
@@ -903,3 +945,53 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # filled_amount_quote = 0.5 * 100 = 50
         self.assertEqual(executor.filled_amount_quote, Decimal("50"))
+
+    def test_force_stop_with_position_hold_holds_fills(self):
+        """A forced stop cancels the live order and hands over the filled exposure."""
+        config = OrderExecutorConfig(
+            id="test-forced",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.MARKET
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        filled = InFlightOrder(
+            client_order_id="OID-FILLED",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        tracked = TrackedOrder("OID-FILLED")
+        tracked.order = filled
+        executor._order = tracked
+
+        partial = InFlightOrder(
+            client_order_id="OID-PARTIAL",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=config.side,
+            price=Decimal("99"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PARTIALLY_FILLED
+        )
+        tracked_partial = TrackedOrder("OID-PARTIAL")
+        tracked_partial.order = partial
+        executor._partial_filled_orders = [tracked_partial]
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        held_ids = {order["client_order_id"] for order in executor._held_position_orders}
+        self.assertEqual(held_ids, {"OID-FILLED", "OID-PARTIAL"})
