@@ -52,6 +52,7 @@ def main():
         "base58>=2.1.1",
         "bidict>=0.22.1",
         "bip-utils",
+        "Brotli>=1.2.0",
         "cachetools>=5.3.1",
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",
