@@ -519,7 +519,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -951,6 +951,27 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.assertEqual(order.position.name.lower(), request_data["tradeSide"])
         else:
             self.assertNotIn("tradeSide", request_data)
+
+    @aioresponses()
+    def test_create_limit_maker_order_sends_post_only(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_order(order_type=OrderType.LIMIT_MAKER)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("limit", request_data["orderType"])
+        self.assertEqual(CONSTANTS.POST_ONLY_TIME_IN_FORCE, request_data["force"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])

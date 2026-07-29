@@ -86,7 +86,7 @@ class DecibelPerpetualCandles(CandlesBase):
             return CONSTANTS.NETNA_WSS_URL
         return CONSTANTS.WSS_URL
 
-    async def initialize_exchange_data(self):
+    async def _initialize_exchange_data(self):
         """
         Initialize market address and perp engine global address.
         These are needed for both REST and WebSocket candle subscriptions.
