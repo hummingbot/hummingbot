@@ -185,7 +185,7 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 
 ## Other Hummingbot Repos
 
-* [Condor](https://github.com/hummingbot/condor): Telegram Interface for Hummingbot
+* [Condor](https://github.com/hummingbot/condor): AI harness for building and running agentic strategies and bot instances
 * [Hummingbot API](https://github.com/hummingbot/hummingbot-api): The central hub for running Hummingbot trading bots
 * [Quants Lab](https://github.com/hummingbot/quants-lab): Jupyter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
