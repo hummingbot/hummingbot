@@ -16,19 +16,24 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 * [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
-* [Spotify Podcast - The Bot Pod](https://open.spotify.com/show/1muzSO0SZqYBVQu2DXzGB1?si=ae9a9c0674c64b45): Weekly livestream and podcast by Hummingbot maintainers
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Reported Volumes](https://reporting.hummingbot.org/): Reported trading volumes across all Hummingbot instances
 * [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
 ## Getting Started
 
-The recommended way to run Hummingbot is the **`hbot` command-line interface**, installed from
+### Condor (AI harness)
+
+**[Condor](https://github.com/hummingbot/condor)** is the AI harness for building and running agentic strategies and bot instances. It connects LLM-powered decision-making to deterministic trade execution via the Hummingbot API, controlled through Telegram or its web dashboard. See **[condor.hummingbot.org](https://condor.hummingbot.org/)** to get started.
+
+### `hbot` CLI
+
+The recommended way to run the Hummingbot client directly is the **`hbot` command-line interface**, installed from
 source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
 and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
 stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-### Install and run with `hbot` (recommended)
+#### Install and run with `hbot`
 
 Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
@@ -45,6 +50,8 @@ conda activate hummingbot
 hbot --help
 ```
 
+To use `hbot` outside the conda environment, run `make link-cli` to add it to your host PATH.
+
 Then connect an exchange, create a config, and start a bot:
 
 ```bash
@@ -58,7 +65,7 @@ hbot stop                                              # stop gracefully
 
 Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
 
-### …or with `hbot` from Docker
+#### …or with `hbot` from Docker
 
 Prefer containers? `hbot` works the same way — install [Docker Compose](https://docs.docker.com/compose/install/), then:
 
@@ -87,8 +94,6 @@ interactive client, uncomment `command: tail -f /dev/null` in `docker-compose.ym
 `make install && make run`. With Gateway included it starts in development mode
 (unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
 See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
-
-**[Condor](https://github.com/hummingbot/condor) (Telegram bot).** Follow the instructions in the [Condor docs](https://hummingbot.org/condor/).
 
 ---
 
@@ -144,11 +149,11 @@ We are grateful for the following exchanges that support the development and mai
 
 ### Other Exchange Connectors
 
-Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/governance/) for more information.
+Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/about/governance/) for more information.
 
 | Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
 |------|------|------|-------|----------|
-| [0x Protocol](https://hummingbot.org/exchanges/gateway/0x/) | AMM DEX | Router | `0x` | - |
+| [0x Protocol](https://hummingbot.org/gateway/connectors/) | AMM DEX | Router | `0x` | - |
 | [Aevo](https://hummingbot.org/exchanges/aevo/) | CLOB CEX | Perpetual | `aevo_perpetual` | - |
 | [Architect](https://hummingbot.org/exchanges/architect/) | CLOB CEX | Perpetual | `architect_perpetual` | - |
 | [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
