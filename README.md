@@ -105,16 +105,6 @@ See [Development vs Production Modes](https://hummingbot.org/gateway/installatio
 
 For comprehensive installation instructions and troubleshooting, visit our [Installation](https://hummingbot.org/installation/) documentation.
 
-## Getting Help
-
-If you encounter issues or have questions, here's how you can get assistance:
-
-* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
-* To report bugs or suggest features, submit a [GitHub issue](https://github.com/hummingbot/hummingbot/issues)
-* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
-
-We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
-
 ## Strategies
 
 Hummingbot offers several frameworks for building and running algorithmic trading strategies — see the [Strategies docs](https://hummingbot.org/strategies/) for a full overview:
@@ -209,6 +199,16 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 * [Hummingbot API](https://github.com/hummingbot/hummingbot-api): The central hub for running Hummingbot trading bots
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
+
+## Getting Help
+
+If you encounter issues or have questions, here's how you can get assistance:
+
+* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
+* To report bugs or suggest features, submit a [GitHub issue](https://github.com/hummingbot/hummingbot/issues)
+* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
+
+We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
 
 ## Contributions
 
