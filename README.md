@@ -50,15 +50,23 @@ hbot --help
 
 To use `hbot` outside the conda environment, run `make link-cli` to add it to your host PATH.
 
-Then connect an exchange, create a config, and start a bot:
+Then create a config and start a **paper trading** bot — it simulates trading against live Binance market data, so no API keys are required:
+
+```bash
+hbot create simple_pmm --name conf_paper_bot.yml \
+     --set exchange=binance_paper_trade --set trading_pair=BTC-USDT
+hbot start conf_paper_bot.yml                          # run it (one bot per install)
+hbot status                                            # check on it
+hbot stop                                              # stop gracefully
+```
+
+To trade **live**, connect your exchange API keys and use a live connector:
 
 ```bash
 hbot connect binance                                   # store API keys (encrypted)
 hbot create pmm_simple --name conf_my_bot.yml \
      --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
 hbot start conf_my_bot.yml                             # run it (one bot per install)
-hbot status                                            # check on it
-hbot stop                                              # stop gracefully
 ```
 
 Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
