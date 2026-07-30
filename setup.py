@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260616"
+    version = "20260729"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -52,6 +52,7 @@ def main():
         "base58>=2.1.1",
         "bidict>=0.22.1",
         "bip-utils",
+        "Brotli>=1.2.0",
         "cachetools>=5.3.1",
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",

@@ -21,9 +21,14 @@ logger = logging.getLogger(__name__)
 class BacktestingDataProvider(MarketDataProvider):
     CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
                        ConnectorType.Derivative]
-    EXCLUDED_CONNECTORS = ["hyperliquid_perpetual", "dydx_perpetual",
+    # hyperliquid / hyperliquid_perpetual re-enabled for backtesting: their public
+    # `info` endpoints (meta, candleSnapshot) need no credentials, so
+    # `_update_trading_rules` and the candle feed both work without a connector config.
+    # Leaving them excluded made `initialize_trading_rules` dereference None
+    # ("'NoneType' object has no attribute '_update_trading_rules'").
+    EXCLUDED_CONNECTORS = ["dydx_perpetual",
                            "coinbase_advanced_trade", "kraken", "dydx_v4_perpetual", "hitbtc",
-                           "hyperliquid", "injective_v2_perpetual", "injective_v2"]
+                           "injective_v2_perpetual", "injective_v2"]
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)

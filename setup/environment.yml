@@ -26,6 +26,7 @@ dependencies:
   - async-timeout>=4.0.2,<5
   - bidict>=0.22.1
   - bip-utils
+  - brotli-python>=1.2.0  # aiohttp>=3.13.3 calls Decompressor.process(data, max_length); Brotli<1.2.0 takes only one arg
   - cachetools>=5.3.1
   - cryptography>=41.0.2
   - eth-account>=0.13.0

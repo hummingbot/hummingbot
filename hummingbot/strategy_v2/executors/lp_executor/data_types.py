@@ -31,7 +31,9 @@ class LPExecutorConfig(ExecutorConfigBase):
     - Creates position based on config bounds and amounts
     - Monitors position state (IN_RANGE, OUT_OF_RANGE)
     - Closes when price exceeds upper_limit_price or lower_limit_price
-    - Closes position when executor stops (unless keep_position=True)
+    - Always closes the position on-chain when the executor stops; keep_position
+      only decides whether the round trip's net change is kept and recorded as a
+      spot position, or swapped back so the executor ends position-neutral
 
     Provider Architecture:
     - connector_name: The network identifier (e.g., "solana-mainnet-beta")
@@ -84,8 +86,12 @@ class LPExecutorConfig(ExecutorConfigBase):
     # Connector-specific params
     extra_params: Optional[Dict] = None  # e.g., {"strategyType": 0} for Meteora
 
-    # Position tracking behavior
-    keep_position: bool = True  # If True, store net token change as spot position when closed
+    # What to do when the executor closes *itself* (a limit price is hit).
+    # A caller-initiated stop passes its own keep_position to early_stop(), which
+    # overrides this. True: keep the round trip's net token change and record it
+    # as a spot position. False: swap that net back, ending position-neutral.
+    # Defaults False to match GridExecutorConfig and hummingbot-api's /stop.
+    keep_position: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
