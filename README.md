@@ -50,6 +50,8 @@ hbot --help
 
 To use `hbot` outside the conda environment, run `make link-cli` to add it to your host PATH.
 
+On first use, `hbot` prompts for a keystore password that encrypts your exchange API keys — set `HBOT_PASSWORD` or pass `--password-stdin` to run non-interactively (e.g. in scripts or agent workflows).
+
 Then create a config and run the `simple_pmm` **paper trading script** — it simulates trading against live Binance market data, so no API keys are required:
 
 ```bash
