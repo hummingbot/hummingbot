@@ -197,7 +197,7 @@ The Hummingbot architecture features modular components that can be maintained a
 
 We welcome contributions from the community! Please review these [guidelines](./CONTRIBUTING.md) before submitting a pull request.
 
-To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/about/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
+If you represent an exchange that wants an official Hummingbot connector, see [How to Add a Hummingbot Connector](https://hummingbot.org/exchanges/#how-to-add-a-hummingbot-connector) for the available integration options. To have another pull request merged into the codebase, please submit a Pull Request Proposal following these [guidelines](https://hummingbot.org/about/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
 
 ## Legal
 
