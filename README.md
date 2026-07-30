@@ -33,8 +33,6 @@ source. `hbot` runs, controls, and monitors a trading bot non-interactively: sta
 and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
 stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-#### Install and run with `hbot`
-
 Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
 ```bash
@@ -65,7 +63,7 @@ hbot stop                                              # stop gracefully
 
 Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
 
-#### …or with `hbot` from Docker
+### Docker
 
 Prefer containers? `hbot` works the same way — install [Docker Compose](https://docs.docker.com/compose/install/), then:
 
@@ -85,11 +83,9 @@ above is identical whether you installed from source or Docker. (Or skip it and 
 interactive client, uncomment `command: tail -f /dev/null` in `docker-compose.yml` before
 `make deploy` — see [Running in Docker](hummingbot/cli/README.md#running-in-docker).
 
----
+### Interactive Client (TUI)
 
-### Other ways to run Hummingbot
-
-**Interactive (terminal UI) client.** The classic full-screen client is the Docker default:
+The classic full-screen client is the Docker default:
 `make deploy`, then `docker attach hummingbot` — or run it from source with
 `make install && make run`. With Gateway included it starts in development mode
 (unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
