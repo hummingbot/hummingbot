@@ -115,6 +115,15 @@ If you encounter issues or have questions, here's how you can get assistance:
 
 We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
 
+## Strategies
+
+Hummingbot offers several frameworks for building and running algorithmic trading strategies — see the [Strategies docs](https://hummingbot.org/strategies/) for a full overview:
+
+* **[Scripts](./scripts)**: Single-file Python strategies — the easiest way to build and customize your own bot. Example: [`simple_pmm.py`](./scripts/simple_pmm.py), a basic market making script.
+* **[Controllers](./controllers)**: Reusable V2 strategies whose configs can be backtested, deployed, and tuned live while running. Example: [`pmm_mister.py`](./controllers/generic/pmm_mister.py), a full-featured market making controller.
+* **[Executors](./hummingbot/strategy_v2/executors)**: Self-contained building blocks that manage order lifecycles for common patterns — position, DCA, grid, arbitrage, XEMM, TWAP, and LP. Example: [`position_executor`](./hummingbot/strategy_v2/executors/position_executor), which manages a directional position with triple-barrier risk controls.
+* **[V1 Strategies](./hummingbot/strategy)**: Classic legacy strategies such as Pure Market Making, Avellaneda Market Making, and Cross-Exchange Market Making.
+
 ## Exchange Connectors
 
 Hummingbot connectors standardize REST and WebSocket API interfaces to different types of exchanges, enabling you to build sophisticated trading strategies that can be deployed across many exchanges with minimal changes.
