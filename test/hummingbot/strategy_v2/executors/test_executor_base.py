@@ -17,7 +17,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
-from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.executor_base import ExecutorBase, sanitize_non_finite_decimals
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType
 
@@ -249,3 +249,31 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.component.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
         self.assertTrue(self.is_partially_logged("ERROR", "Failed to cancel outstanding orders during forced stop."))
+
+
+class TestSanitizeNonFiniteDecimals(IsolatedAsyncioWrapperTestCase):
+    """Guards issue #7330: non-finite Decimals in custom_info must not reach persistence."""
+
+    def test_replaces_nan_and_inf_with_zero(self):
+        self.assertEqual(sanitize_non_finite_decimals(Decimal("NaN")), Decimal("0"))
+        self.assertEqual(sanitize_non_finite_decimals(Decimal("Infinity")), Decimal("0"))
+        self.assertEqual(sanitize_non_finite_decimals(Decimal("-Infinity")), Decimal("0"))
+
+    def test_preserves_finite_decimals_and_other_types(self):
+        self.assertEqual(sanitize_non_finite_decimals(Decimal("1.5")), Decimal("1.5"))
+        self.assertEqual(sanitize_non_finite_decimals("NaN"), "NaN")  # a plain string is untouched
+        self.assertEqual(sanitize_non_finite_decimals(3), 3)
+        self.assertIsNone(sanitize_non_finite_decimals(None))
+
+    def test_recurses_into_dicts_lists_and_tuples(self):
+        raw = {
+            "price": Decimal("NaN"),
+            "orders": [Decimal("Infinity"), Decimal("2.0")],
+            "meta": {"pct": Decimal("-Infinity")},
+            "pair": (Decimal("NaN"), "AVAX-USDC"),
+        }
+        cleaned = sanitize_non_finite_decimals(raw)
+        self.assertEqual(cleaned["price"], Decimal("0"))
+        self.assertEqual(cleaned["orders"], [Decimal("0"), Decimal("2.0")])
+        self.assertEqual(cleaned["meta"]["pct"], Decimal("0"))
+        self.assertEqual(cleaned["pair"], (Decimal("0"), "AVAX-USDC"))

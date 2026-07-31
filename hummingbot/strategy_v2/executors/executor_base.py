@@ -27,6 +27,25 @@ from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 from hummingbot.strategy_v2.runnable_base import RunnableBase
 
 
+def sanitize_non_finite_decimals(value):
+    """
+    Recursively replace non-finite Decimals (NaN / Infinity) with Decimal("0").
+
+    ``custom_info`` dicts can carry a non-finite Decimal (e.g. an unfilled price),
+    which used to crash executor persistence via pydantic v1's ``decimal_encoder``
+    and, after the v2 migration, still serializes to the string ``"NaN"`` in the DB.
+    Applying the same coercion already used for the typed ``ExecutorInfo`` fields
+    keeps ``custom_info`` consistent and safe to serialize. See issue #7330.
+    """
+    if isinstance(value, Decimal):
+        return value if value.is_finite() else Decimal("0")
+    if isinstance(value, dict):
+        return {k: sanitize_non_finite_decimals(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(sanitize_non_finite_decimals(v) for v in value)
+    return value
+
+
 class ExecutorBase(RunnableBase):
     """
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
@@ -131,7 +150,7 @@ class ExecutorBase(RunnableBase):
             filled_amount_quote=_safe_decimal(self.filled_amount_quote),
             is_active=self.is_active,
             is_trading=self.is_trading,
-            custom_info=self.get_custom_info(),
+            custom_info=sanitize_non_finite_decimals(self.get_custom_info()),
             controller_id=self.config.controller_id,
         )
         return ei
