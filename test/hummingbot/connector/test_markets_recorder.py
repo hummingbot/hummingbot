@@ -85,12 +85,13 @@ class MarketsRecorderTests(IsolatedAsyncioWrapperTestCase):
         )
 
         self.tracking_states = dict()
+        self._exchange_order_ids = dict()
 
     def add_trade_fills_from_market_recorder(self, current_trade_fills):
         pass
 
     def add_exchange_order_ids_from_market_recorder(self, current_exchange_order_ids):
-        pass
+        self._exchange_order_ids.update(current_exchange_order_ids)
 
     def test_properties(self):
         recorder = MarketsRecorder(
