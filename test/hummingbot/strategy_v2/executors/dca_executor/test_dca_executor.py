@@ -48,6 +48,33 @@ class TestDCAExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.set_loggers(loggers=[executor.logger()])
         return executor
 
+    def test_dca_executor_rejects_empty_levels(self):
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[],
+                                   prices=[])
+
+        with self.assertRaisesRegex(ValueError, "at least one order level"):
+            self.get_dca_executor_from_config(config)
+
+    def test_dca_executor_rejects_zero_amount_quote(self):
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal("0")],
+                                   prices=[Decimal("100")])
+
+        with self.assertRaisesRegex(ValueError, "amounts_quote values must be greater than zero"):
+            self.get_dca_executor_from_config(config)
+
+    def test_dca_executor_rejects_zero_price(self):
+        config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
+                                   trading_pair="ETH-USDT",
+                                   amounts_quote=[Decimal("10")],
+                                   prices=[Decimal("0")])
+
+        with self.assertRaisesRegex(ValueError, "price values must be greater than zero"):
+            self.get_dca_executor_from_config(config)
+
     @patch.object(DCAExecutor, "get_price", MagicMock(return_value=Decimal("120")))
     async def test_control_task_open_orders(self):
         config = DCAExecutorConfig(id="test", timestamp=123, side=TradeType.BUY, connector_name="binance",
