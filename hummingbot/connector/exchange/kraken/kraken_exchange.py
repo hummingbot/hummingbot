@@ -490,7 +490,10 @@ class KrakenExchange(ExchangePyBase):
             fill_base_amount=Decimal(order_fill["vol"]),
             fill_quote_amount=Decimal(order_fill["vol"]) * Decimal(order_fill["price"]),
             fill_price=Decimal(order_fill["price"]),
-            fill_timestamp=order_fill["time"],
+            # Kraken returns the fill time as a numeric string in some payloads
+            # (e.g. ownTrades) and a float in others; coerce so that
+            # InFlightOrder.last_update_timestamp keeps its declared float type.
+            fill_timestamp=float(order_fill["time"]),
         )
         return trade_update
 
