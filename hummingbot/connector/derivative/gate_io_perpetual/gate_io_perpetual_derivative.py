@@ -727,36 +727,19 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.remove_position(pos_key)
 
-    async def _get_position_mode(self) -> Optional[PositionMode]:
-        if self._position_mode is None:
-            response = await self._api_get(
-                path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                is_auth_required=True,
-                limit_id=CONSTANTS.POSITION_INFORMATION_URL
-            )
-            self._position_mode = PositionMode.ONEWAY if response[0]["mode"] == 'single' else PositionMode.HEDGE
+    async def _fetch_account_position_mode(self) -> Optional[PositionMode]:
+        response = await self._api_get(
+            path_url=CONSTANTS.POSITION_INFORMATION_URL,
+            is_auth_required=True,
+            limit_id=CONSTANTS.POSITION_INFORMATION_URL
+        )
+        self._position_mode = PositionMode.ONEWAY if response[0]["mode"] == 'single' else PositionMode.HEDGE
         return self._position_mode
 
-    async def _execute_set_position_mode_for_pairs(
-            # To-do: ensure there's no active order or contract before changing position mode
-            self, mode: PositionMode, trading_pairs: List[str]
-    ) -> Tuple[bool, List[str], str]:
-        successful_pairs = []
-        success = True
-        msg = ""
-
-        for trading_pair in trading_pairs:
-            initial_mode = await self._get_position_mode()
-            if mode != initial_mode:
-                success, msg = await self._trading_pair_position_mode_set(mode, trading_pair)
-                self._position_mode = mode
-            if success:
-                successful_pairs.append(trading_pair)
-            else:
-                self.logger().network(f"Error switching {trading_pair} mode to {mode}: {msg}")
-                break
-
-        return success, successful_pairs, msg
+    async def _get_position_mode(self) -> Optional[PositionMode]:
+        if self._position_mode is None:
+            await self._fetch_account_position_mode()
+        return self._position_mode
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         msg = ""

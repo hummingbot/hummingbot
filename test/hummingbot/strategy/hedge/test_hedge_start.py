@@ -17,7 +17,7 @@ class HedgeStartTest(unittest.TestCase):
         self.markets = {
             "binance": ExchangeBase(client_config_map=self.client_config_map),
             "kucoin": ExchangeBase(client_config_map=self.client_config_map),
-            "ascend_ex": ExchangeBase(client_config_map=self.client_config_map)
+            "gate_io": ExchangeBase(client_config_map=self.client_config_map)
         }
         self.notifications = []
         self.log_errors = []
@@ -39,7 +39,7 @@ class HedgeStartTest(unittest.TestCase):
                 offsets=[Decimal("0.02")],
             ),
             connector_1=MarketConfigMap(
-                connector="ascend_ex",
+                connector="gate_io",
                 markets=["ETH-USDT", "BTC-USDT"],
                 offsets=[Decimal("0.03")],
             ),

@@ -58,9 +58,8 @@ Gateway Commands:
   gateway list                                              - List available connectors
   gateway lp <connector> <action>                           - Manage liquidity positions
   gateway ping [chain]                                      - Test node and chain/network status
-  gateway pool <connector> <pair>                           - View pool information
-  gateway pool <connector> <pair> update                    - Add/update pool information (interactive)
-  gateway pool <connector> <pair> update <address>          - Add/update pool information (direct)
+  gateway pool <symbol_or_address>                          - View pool information
+  gateway pool <symbol_or_address> update                   - Save pool from GeckoTerminal
   gateway swap <connector> [pair] [side] [amount]           - Swap tokens
   gateway token <symbol_or_address>                         - View token information
   gateway token <symbol> update                             - Update token information
@@ -117,10 +116,10 @@ Use 'gateway <command> --help' for more information about a command.""")
         GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
 
     @ensure_gateway_online
-    def gateway_pool(self, connector: Optional[str], trading_pair: Optional[str], action: Optional[str], args: List[str] = None):
+    def gateway_pool(self, symbol_or_address: Optional[str], action: Optional[str]):
         # Delegate to GatewayPoolCommand
         from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
-        GatewayPoolCommand.gateway_pool(self, connector, trading_pair, action, args)
+        GatewayPoolCommand.gateway_pool(self, symbol_or_address, action)
 
     @ensure_gateway_online
     def gateway_list(self):

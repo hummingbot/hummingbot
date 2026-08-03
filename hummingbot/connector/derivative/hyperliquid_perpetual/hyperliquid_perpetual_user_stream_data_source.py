@@ -41,6 +41,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         self._last_listen_key_ping_ts = None
         self._trading_pairs: List[str] = trading_pairs
+        self._ping_task: Optional[asyncio.Task] = None
 
         self.token = None
 
@@ -61,8 +62,12 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         ws: WSAssistant = await self._get_ws_assistant()
         url = f"{web_utils.wss_url(self._domain)}"
-        await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
-        safe_ensure_future(self._ping_thread(ws))
+        await ws.connect(
+            ws_url=url,
+            ping_timeout=self.HEARTBEAT_TIME_INTERVAL,
+            message_timeout=CONSTANTS.WS_MESSAGE_TIMEOUT,
+        )
+        self._ping_task = safe_ensure_future(self._ping_thread(ws))
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
@@ -102,6 +107,18 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception:
             self.logger().exception("Unexpected error occurred subscribing to user streams...")
             raise
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        # Cancel the keepalive ping task tied to this connection so it does not outlive the websocket and
+        # leak across reconnections.
+        if self._ping_task is not None:
+            self._ping_task.cancel()
+            try:
+                await self._ping_task
+            except asyncio.CancelledError:
+                pass
+            self._ping_task = None
+        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:

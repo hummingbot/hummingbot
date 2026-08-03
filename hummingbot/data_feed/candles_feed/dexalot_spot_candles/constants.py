@@ -20,6 +20,13 @@ INTERVALS = bidict({
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
+# Shared IP-weighted pool of the dexalot connector (dexalot_constants.IP_REQUEST_WEIGHT).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+IP_REQUEST_WEIGHT = "IP_REQUEST_WEIGHT"
+
 RATE_LIMITS = [
-    RateLimit(CANDLES_ENDPOINT, limit=20000, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20000, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+    RateLimit(IP_REQUEST_WEIGHT, limit=200, time_interval=60),
+    RateLimit(CANDLES_ENDPOINT, limit=20000, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)]),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20000, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 1)])]

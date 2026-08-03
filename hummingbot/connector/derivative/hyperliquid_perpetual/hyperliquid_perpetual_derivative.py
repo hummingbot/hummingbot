@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import time
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
 from bidict import bidict
@@ -69,6 +69,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
+        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
+        self._builder_fee_tenths_bps: int = 0
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -133,6 +136,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"type": CONSTANTS.META_INFO})
 
+    async def start_network(self):
+        await super().start_network()
+        if self._trading_required:
+            await self._initialize_builder_fee()
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector
@@ -179,10 +187,29 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
-        Applies trading rule to quantize order price.
+        Align price to Hyperliquid's limitPx rules: at most 5 significant figures
+        and at most ``MAX_DECIMALS - szDecimals`` decimal places.
+
+        Rounding to 6 decimals satisfies neither on its own. ARB-USD carries
+        szDecimals=1, so it accepts 5 decimals, but a market order priced at
+        BestBid * 1.05 quantizes to 0.094605 and the exchange rejects it with
+        "Order has invalid price." Rounding to min_price_increment fixes that:
+        the increment is derived from the markPx decimals, which for perpetuals
+        is never finer than szDecimals allows.
         """
-        d_price = Decimal(round(float(f"{price:.5g}"), 6))
-        return d_price
+        # HL allows at most 5 significant figures on limitPx
+        price = Decimal(str(float(f"{price:.5g}")))
+        trading_rule = self._trading_rules.get(trading_pair)
+        if trading_rule is not None and trading_rule.min_price_increment:
+            tick = trading_rule.min_price_increment
+            quantized = (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
+            # Multiplying back by the tick inflates the scale (10000 -> 10000.0000).
+            # Strip the padding, without letting normalize() pick exponent form (1E+4).
+            quantized = quantized.normalize()
+            if quantized.as_tuple().exponent > 0:
+                quantized = quantized.quantize(Decimal("1"))
+            return quantized
+        return price
 
     @staticmethod
     def _is_all_perp_metas_response(exchange_info_dex: Any) -> bool:
@@ -619,6 +646,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "cloid": order_id,
             }
         }
+        # Builder code (HGP-87): part of the signed action dict.
+        builder_field = self._build_builder_field()
+        if builder_field is not None:
+            api_params["builder"] = builder_field
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
@@ -632,6 +663,51 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
+
+    # === Builder code support (HGP-87) ===
+
+    @property
+    def _is_testnet(self) -> bool:
+        return self._domain == CONSTANTS.TESTNET_DOMAIN
+
+    def _should_inject_builder(self) -> bool:
+        """Builder attribution applies only on mainnet, non-vault orders — the venue rejects the
+        builder field on vault and testnet orders."""
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return False
+        if self._use_vault or self._is_testnet:
+            return False
+        return True
+
+    def _build_builder_field(self) -> Optional[Dict[str, Any]]:
+        """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
+        is lowercased (the venue rejects mixed-case)."""
+        if not self._should_inject_builder():
+            return None
+        return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
+
+    async def _initialize_builder_fee(self) -> None:
+        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
+        fails)."""
+        if not self._should_inject_builder():
+            return
+        try:
+            approved_max_tenths_bps = int(await self._api_post(
+                path_url=CONSTANTS.EXCHANGE_INFO_URL,
+                data={
+                    "type": CONSTANTS.MAX_BUILDER_FEE_TYPE,
+                    "user": self.hyperliquid_perpetual_address,
+                    "builder": self._builder_address,
+                },
+            ))
+        except Exception:
+            self.logger().exception(
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
+            )
+            self._builder_fee_tenths_bps = 0
+            return
+        self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -1156,6 +1232,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Process all positions
         processed_coins = set()  # Track processed coins to avoid duplicates
+        seen_keys = set()
         for position in all_positions:
             position = position.get("position")
             ex_trading_pair = position.get("coin")
@@ -1177,6 +1254,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             amount = Decimal(position.get("szi", 0))
             leverage = Decimal(position.get("leverage").get("value"))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            seen_keys.add(pos_key)
             if amount != 0:
                 _position = Position(
                     trading_pair=hb_trading_pair,
@@ -1189,9 +1267,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_position(pos_key, _position)
             else:
                 self._perpetual_trading.remove_position(pos_key)
-        if not all_positions:
-            keys = list(self._perpetual_trading.account_positions.keys())
-            for key in keys:
+
+        # Remove any cached position that the exchange no longer reports.
+        # Hyperliquid omits closed positions from assetPositions entirely, so the old
+        # "only clean up when list is empty" guard left stale entries in the cache forever.
+        for key in list(self._perpetual_trading.account_positions.keys()):
+            if key not in seen_keys:
                 self._perpetual_trading.remove_position(key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:

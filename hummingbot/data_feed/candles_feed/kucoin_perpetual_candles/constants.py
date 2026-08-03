@@ -44,6 +44,9 @@ GRANULARITIES = bidict({
     "1d": 10080,
 })
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
+# The kucoin_perpetual connector throttles per-endpoint (no global weight pool), so this feed cannot
+# coordinate a shared budget with it even when they share a throttler. REQUEST_WEIGHT is a
+# candle-local pool that keeps the standalone cap self-consistent.
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 MAX_REQUEST = 2000
 TIME_INTERVAL = 30

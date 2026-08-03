@@ -305,6 +305,7 @@ class StrategyV2Base(StrategyPyBase):
                 for con in [c for c in self.connectors.values() if not c.ready]:
                     self.logger().warning(f"{con.name} is not ready. Please wait...")
                 return
+            self.executor_orchestrator.initialize_initial_positions()
         else:
             self.on_tick()
 
@@ -333,6 +334,22 @@ class StrategyV2Base(StrategyPyBase):
 
         if self.listen_to_executor_actions_task:
             self.listen_to_executor_actions_task.cancel()
+
+        # Executors may still need to place position-closing orders during shutdown.
+        # A clock/strategy teardown racing with this coroutine can remove StrategyBase's
+        # market whitelist first, so restore only missing registrations before asking
+        # executors to close. ``add_markets`` also restores the strategy event listeners
+        # required to track those final orders.
+        active_markets = set(self.active_markets)
+        missing_markets = [
+            connector for connector in self.connectors.values()
+            if connector not in active_markets
+        ]
+        if missing_markets:
+            self.logger().warning(
+                "Restoring market registrations required to close active executors during shutdown.")
+            self.add_markets(missing_markets)
+
         await self.executor_orchestrator.stop(self.max_executors_close_attempts)
         self.market_data_provider.stop()
         self.executor_orchestrator.store_all_executors()
