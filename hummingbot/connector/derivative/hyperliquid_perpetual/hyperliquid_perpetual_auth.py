@@ -163,6 +163,11 @@ class HyperliquidPerpetualAuth(AuthBase):
             "orders": [order_spec_to_order_wire(order)],
             "grouping": grouping,
         }
+        # The builder field is part of the signed payload. It must be added to the action dict
+        # before signing - appending it after signing would invalidate the EIP-712 signature.
+        builder = params.get("builder")
+        if builder is not None:
+            order_action["builder"] = builder
         signature = self.sign_l1_action(
             self.wallet,
             order_action,

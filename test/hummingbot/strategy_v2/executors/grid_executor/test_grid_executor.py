@@ -125,6 +125,61 @@ class TestGridExecutorBugFixes(IsolatedAsyncioWrapperTestCase, LoggerMixinForTes
         self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
         self.assertEqual(executor.status, RunnableStatus.SHUTTING_DOWN)
 
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    @patch.object(GridExecutor, "get_trading_rules")
+    def test_force_stop_mid_drain_holds_filled_levels(self, trading_rules_mock):
+        """A forced stop while the shutdown drain is still running keeps the hold.
+
+        control_shutdown_process only moves fills into _held_position_orders after
+        open and close liquidity have drained; the shutdown-deadline fallback must
+        collect the same fills synchronously instead of losing them.
+        """
+        trading_rules = TradingRule(trading_pair="ETH-USDT", min_order_size=Decimal("0.001"),
+                                    min_base_amount_increment=Decimal("0.001"),
+                                    min_price_increment=Decimal("0.01"), min_notional_size=Decimal("10"))
+        trading_rules_mock.return_value = trading_rules
+        from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
+        from hummingbot.strategy_v2.executors.position_executor.data_types import TripleBarrierConfig
+        config = GridExecutorConfig(
+            id="test", timestamp=1234567890, trading_pair="ETH-USDT",
+            connector_name="binance", side=TradeType.BUY,
+            start_price=Decimal("90"), end_price=Decimal("110"),
+            limit_price=Decimal("90"),
+            total_amount_quote=Decimal("100"),
+            min_order_amount_quote=Decimal("10"),
+            min_spread_between_orders=Decimal("0.01"),
+            keep_position=True,
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.02"),
+                stop_loss=Decimal("0.05"),
+                take_profit_order_type=OrderType.LIMIT,
+                stop_loss_order_type=OrderType.MARKET,
+            ),
+        )
+        executor = GridExecutor(self.strategy, config)
+        executor.early_stop(keep_position=True)  # POSITION_HOLD chosen, drain in progress
+
+        filled_open = MagicMock()
+        filled_open.order.to_json.return_value = {"client_order_id": "open-1", "trade_type": "BUY"}
+        level_open_filled = MagicMock()
+        level_open_filled.active_open_order = filled_open
+        pending_close = MagicMock()
+        pending_close.order.to_json.return_value = {"client_order_id": "close-1", "trade_type": "SELL"}
+        level_close_placed = MagicMock()
+        level_close_placed.active_close_order = pending_close
+        executor.levels_by_state = {
+            GridLevelStates.OPEN_ORDER_PLACED: [],
+            GridLevelStates.OPEN_ORDER_FILLED: [level_open_filled],
+            GridLevelStates.CLOSE_ORDER_PLACED: [level_close_placed],
+        }
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(CloseType.POSITION_HOLD, executor.close_type)
+        self.assertEqual(RunnableStatus.TERMINATED, executor.status)
+        held_ids = {order["client_order_id"] for order in executor._held_position_orders}
+        self.assertEqual({"open-1", "close-1"}, held_ids)
+
 
 class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self) -> None:

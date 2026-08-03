@@ -34,7 +34,9 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 # - Standard request: 1 credit
 # - Heavy GET requests: 3-12 credits
 # Documentation: https://docs.pacifica.fi/api-documentation/api/rate-limits
-PACIFICA_CANDLES_LIMIT_ID = "PACIFICA_CANDLES_LIMIT"
+# Shared request pool of the pacifica_perpetual connector (pacifica_perpetual_constants.PACIFICA_LIMIT_ID).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+PACIFICA_CANDLES_LIMIT_ID = "PACIFICA_LIMIT"
 HEAVY_GET_REQUEST_COST = 12  # Conservative estimate for heavy GET (max for unidentified IP)
 
 RATE_LIMITS = [

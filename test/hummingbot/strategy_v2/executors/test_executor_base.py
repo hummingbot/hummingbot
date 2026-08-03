@@ -218,3 +218,34 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.component.evaluate_max_retries()
         self.assertEqual(self.component.close_type, CloseType.FAILED)
         self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
+
+    def test_force_stop_with_position_hold_uses_accumulated_orders(self):
+        """The default collector hands over whatever a normal shutdown already accumulated."""
+        self.set_loggers(loggers=[self.component.logger()])
+        held = [{"client_order_id": "OID-HELD"}]
+        self.component._held_position_orders = list(held)
+
+        self.component.force_stop_with_position_hold()
+
+        self.assertEqual(self.component.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
+        self.assertEqual(self.component._held_position_orders, held)
+
+    def test_force_stop_with_position_hold_without_exposure_fails_visibly(self):
+        """Nothing executed means nothing to hold — the abnormal end must stay visible."""
+        self.set_loggers(loggers=[self.component.logger()])
+        self.component.force_stop_with_position_hold()
+
+        self.assertEqual(self.component.close_type, CloseType.FAILED)
+        self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
+
+    def test_force_stop_with_position_hold_survives_cancel_failure(self):
+        """Exposure must still be persisted when order cancellation is already unavailable."""
+        self.set_loggers(loggers=[self.component.logger()])
+        self.component._held_position_orders = [{"client_order_id": "OID-HELD"}]
+        with patch.object(self.component, "_cancel_outstanding_orders", side_effect=RuntimeError("strategy stopped")):
+            self.component.force_stop_with_position_hold()
+
+        self.assertEqual(self.component.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
+        self.assertTrue(self.is_partially_logged("ERROR", "Failed to cancel outstanding orders during forced stop."))

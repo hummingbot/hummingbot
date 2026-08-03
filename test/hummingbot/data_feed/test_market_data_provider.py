@@ -795,3 +795,47 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
             # Verify cache update was called with limited size
             append_calls = mock_feed._candles.append.call_count
             self.assertLessEqual(append_calls, 80)
+
+    def test_get_shared_connector_returns_existing_trading_connector(self):
+        # A connector already present in self.connectors is returned for reuse (symbol map / data).
+        connector = MagicMock()
+        self.provider.connectors = {"binance": connector}
+        self.assertIs(self.provider._get_shared_connector("binance"), connector)
+
+    def test_get_shared_connector_none_when_no_connector(self):
+        # No trading connector and nothing materialised -> None, so the feed keeps standalone behaviour.
+        self.assertEqual(len(self.provider._non_trading_connectors), 0)
+        self.assertIsNone(self.provider._get_shared_connector("mexc_perpetual"))
+        self.assertIsNone(self.provider._get_shared_connector("binance"))
+
+    def test_get_shared_connector_does_not_materialize_non_trading_connector(self):
+        # _non_trading_connectors is a LazyDict: only membership (`in`) is checked, so asking for the
+        # connector of an exchange we don't trade must NOT force-create one.
+        self.provider.connectors = {}
+        self.assertIsNone(self.provider._get_shared_connector("binance"))
+        self.assertNotIn("binance", self.provider._non_trading_connectors)
+        self.assertEqual(len(self.provider._non_trading_connectors), 0)
+
+    def test_get_candles_feed_passes_connector(self):
+        # get_candles_feed wires the existing connector into the factory so the feed shares its
+        # throttler and reuses its symbol map and cached exchange-data.
+        connector = MagicMock()
+        self.provider.connectors = {"binance": connector}
+        with patch(
+            "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle"
+        ) as mock_get_candle:
+            mock_get_candle.return_value = MagicMock()
+            config = CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
+            self.provider.get_candles_feed(config)
+            mock_get_candle.assert_called_once_with(config, connector=connector)
+
+    def test_get_candles_feed_no_connector_passes_none(self):
+        # No connector present -> connector is None (standalone behaviour).
+        self.provider.connectors = {}
+        with patch(
+            "hummingbot.data_feed.candles_feed.candles_factory.CandlesFactory.get_candle"
+        ) as mock_get_candle:
+            mock_get_candle.return_value = MagicMock()
+            config = CandlesConfig(connector="binance", trading_pair="BTC-USDT", interval="1m", max_records=100)
+            self.provider.get_candles_feed(config)
+            mock_get_candle.assert_called_once_with(config, connector=None)
