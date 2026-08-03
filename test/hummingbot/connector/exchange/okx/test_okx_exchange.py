@@ -603,16 +603,31 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
-        raise NotImplementedError
+        error_code = CONSTANTS.RET_CODE_ORDER_DOES_NOT_EXIST
+        response = {
+            "code": error_code,
+            "msg": "Order does not exist",
+            "data": []
+        }
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH, domain=self.domain)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_order_not_found_error_order_status_response(
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        # Implement the expected not found response when enabling
-        # test_lost_order_removed_if_not_found_during_order_status_update
-        raise NotImplementedError
+        error_code = CONSTANTS.RET_CODE_ORDER_DOES_NOT_EXIST
+        response = {
+            "code": error_code,
+            "msg": "Order does not exist",
+            "data": []
+        }
+        url = web_utils.public_rest_url(path_url=CONSTANTS.OKX_ORDER_DETAILS_PATH, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
+
 
     def configure_completely_filled_order_status_response(
             self,
