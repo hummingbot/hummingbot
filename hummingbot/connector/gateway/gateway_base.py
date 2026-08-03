@@ -141,6 +141,43 @@ class GatewayBase(ConnectorBase):
         self._allowances = {}
         self._swap_provider: Optional[str] = None  # e.g., "jupiter/router" - fetched from network config
 
+    def _ensure_registered_in_connector_settings(self) -> None:
+        """Register this Gateway connector in AllConnectorSettings if it isn't already.
+
+        Gateway network connectors (e.g. 'solana-mainnet-beta') are created on demand and
+        are not discovered by the settings filesystem scan. The Gateway status monitor
+        registers them too, but only in the standalone client (TradingCore) and only once
+        Gateway is online — in Hummingbot API it never runs. Registering makes the connector
+        first-class, so code that looks it up (e.g. build_trade_fee's fee-schema lookup)
+        doesn't raise on it.
+
+        Called from start_network() — i.e. only after Gateway has confirmed the connector's
+        chain/network — so an invalid/typo'd connector name fails to start and never pollutes
+        AllConnectorSettings.
+
+        This does NOT enable balance pre-validation for the executor: Gateway swaps have no
+        order book, so the BudgetChecker still can't price them (see
+        OrderExecutor.validate_sufficient_balance, which skips the BudgetChecker for Gateway).
+        """
+        # Imported lazily to avoid a circular import at module load time.
+        from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType
+        all_settings = AllConnectorSettings.get_connector_settings()
+        if self._connector_name in all_settings:
+            return
+        all_settings[self._connector_name] = ConnectorSetting(
+            name=self._connector_name,
+            type=ConnectorType.GATEWAY_DEX,
+            example_pair="",
+            centralised=False,
+            use_ethereum_wallet=False,  # Gateway handles the wallet internally
+            trade_fee_schema=self.trade_fee_schema(),  # zero schema; real fees arrive via events
+            config_keys=None,
+            is_sub_domain=False,
+            parent_name=None,
+            domain_parameter=None,
+            use_eth_gas_lookup=False,
+        )
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -297,6 +334,12 @@ class GatewayBase(ConnectorBase):
             if not self._network:
                 self._network = network
 
+        # Chain/network are now confirmed (either Gateway resolved them above or the caller
+        # provided them), so it's safe to make this connector first-class in the settings
+        # registry. Doing it here — not in __init__ — keeps invalid names, which fail the
+        # resolution above, out of AllConnectorSettings.
+        self._ensure_registered_in_connector_settings()
+
         # Get default wallet if not provided
         if not self._wallet_address:
             wallet_address, error = await self._get_gateway_instance().get_default_wallet(
@@ -385,7 +428,13 @@ class GatewayBase(ConnectorBase):
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         base, quote = trading_pair.split("-")
-        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
+        # Memecoins are traded by mint address (symbols collide), so they aren't in
+        # the symbol-keyed token dict. Fall back to the SPL/pump.fun norm of 6
+        # decimals rather than KeyError-crashing the order.
+        default_quantum = Decimal("1e-6")
+        base_quantum = self._amount_quantum_dict.get(base, default_quantum)
+        quote_quantum = self._amount_quantum_dict.get(quote, default_quantum)
+        return max(base_quantum, quote_quantum)
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """
