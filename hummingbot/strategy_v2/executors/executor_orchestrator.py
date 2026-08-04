@@ -580,6 +580,14 @@ class ExecutorOrchestrator:
         if not executor:
             self.logger().error(f"Executor ID {executor_id} not found for controller {controller_id}.")
             return
+        if executor.is_closed or executor.status == RunnableStatus.SHUTTING_DOWN:
+            # Same guard as stop(): a SHUTTING_DOWN executor already chose its close_type,
+            # and a terminated one may have torn down internal state (e.g. GridExecutor
+            # clears levels_by_state before stopping), so re-entering early_stop can
+            # crash or overwrite the close_type.
+            self.logger().warning(
+                f"Executor ID {executor_id} is already {executor.status.name}; ignoring stop action.")
+            return
         executor.early_stop(action.keep_position)
 
     def _update_positions_from_done_executors(self):
