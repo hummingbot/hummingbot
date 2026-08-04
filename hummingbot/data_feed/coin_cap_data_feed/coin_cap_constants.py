@@ -4,6 +4,8 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 
 UNIVERSAL_QUOTE_TOKEN = "USD"  # coincap only works with USD
 
+# DEPRECATED: the CoinCap v2 REST host below no longer resolves (the service was replaced by a
+# keyed v3 API on a different host), so requests against it fail with a DNS resolution error.
 BASE_REST_URL = "https://api.coincap.io/v2"
 BASE_WS_URL = "wss://ws.coincap.io/prices?assets="
 
