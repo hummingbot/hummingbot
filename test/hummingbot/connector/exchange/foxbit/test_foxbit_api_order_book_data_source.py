@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import re
+import tempfile
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -406,6 +408,33 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(194, msg.trade_id)
 
+    async def test_parse_trade_message_does_not_execute_python_code(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            marker = os.path.join(temp_dir, "marker")
+            raw_message = {
+                'm': 3,
+                'i': 10,
+                'n': 'TradeDataUpdateEvent',
+                'o': f'[[194,1,"0.1","8432.0",787704,792085,1661952966311,0,0,__import__("pathlib").Path({marker!r}).touch(),0]]'
+            }
+
+            msg_queue: asyncio.Queue = asyncio.Queue()
+
+            with self.assertRaises(json.JSONDecodeError):
+                await self.data_source._parse_trade_message(raw_message, msg_queue)
+
+            self.assertFalse(os.path.exists(marker))
+            self.assertTrue(msg_queue.empty())
+
+    async def test_parse_trade_message_ignores_messages_from_other_channels(self):
+        raw_message = dict(self._trade_update_event(), n='SubscribeLevel1')
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_trade_message(raw_message, msg_queue)
+
+        self.assertTrue(msg_queue.empty())
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
@@ -472,8 +501,35 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        expected_id = eval(diff_event["o"])[0][0]
+        expected_id = json.loads(diff_event["o"])[0][0]
         self.assertEqual(expected_id, msg.update_id)
+
+    async def test_parse_order_book_diff_message_does_not_execute_python_code(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            marker = os.path.join(temp_dir, "marker")
+            raw_message = {
+                'm': 3,
+                'i': 8,
+                'n': 'Level2UpdateEvent',
+                'o': f'[[187,__import__("pathlib").Path({marker!r}).touch(),1661952966257,1,8432,0,8432,1,7.6,1]]'
+            }
+
+            msg_queue: asyncio.Queue = asyncio.Queue()
+
+            with self.assertRaises(json.JSONDecodeError):
+                await self.data_source._parse_order_book_diff_message(raw_message, msg_queue)
+
+            self.assertFalse(os.path.exists(marker))
+            self.assertTrue(msg_queue.empty())
+
+    async def test_parse_order_book_diff_message_ignores_messages_from_other_channels(self):
+        raw_message = dict(self._order_diff_event(), n='SubscribeLevel1')
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(raw_message, msg_queue)
+
+        self.assertTrue(msg_queue.empty())
 
     # Dynamic subscription tests
     async def test_subscribe_to_trading_pair_successful(self):
