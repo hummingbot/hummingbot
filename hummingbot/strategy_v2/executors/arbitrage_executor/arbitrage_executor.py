@@ -11,6 +11,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.validation import are_tokens_interchangeable
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
 
@@ -26,35 +27,14 @@ class ArbitrageExecutor(ExecutorBase):
 
     @staticmethod
     def _are_tokens_interchangeable(first_token: str, second_token: str):
-        interchangeable_tokens = [
-            {"WETH", "ETH"},
-            {"WBTC", "BTC"},
-            {"WBNB", "BNB"},
-            {"WPOL", "POL"},
-            {"WAVAX", "AVAX"},
-            {"WONE", "ONE"},
-            {"USDC", "USDC.E"},
-            {"WBTC", "BTC"},
-            {"USOL", "SOL"},
-            {"UETH", "ETH"},
-            {"UBTC", "BTC"}
-        ]
-        same_token_condition = first_token == second_token
-        tokens_interchangeable_condition = any(({first_token, second_token} <= interchangeable_pair
-                                                for interchangeable_pair
-                                                in interchangeable_tokens))
-        # for now, we will consider all the stablecoins interchangeable
-        stable_coins_condition = "USD" in first_token and "USD" in second_token
-        return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
+        return are_tokens_interchangeable(first_token, second_token)
 
     def __init__(self,
                  strategy: StrategyV2Base,
                  config: ArbitrageExecutorConfig,
                  update_interval: float = 1.0,
                  max_retries: int = 3):
-        if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
-                                       pair2=config.selling_market.trading_pair):
-            raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
+        # The markets being interchangeable is validated by ArbitrageExecutorConfig.
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval, max_retries=max_retries)
