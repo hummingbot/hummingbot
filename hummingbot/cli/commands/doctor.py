@@ -46,6 +46,19 @@ def _install_row() -> dict:
     return _row("install", "ok", f"{install}, hummingbot {version}, python {platform.python_version()}")
 
 
+def _prefix_row() -> dict:
+    import hummingbot
+    prefix = Path(hummingbot.prefix_path())
+    default = prefix == hummingbot.root_path()
+    label = "install root" if default else f"instance prefix {prefix}"
+    if not prefix.exists():
+        return _row("prefix", "fail",
+                    f"{label} does not exist — create it or fix HBOT_PREFIX/--prefix")
+    if not os.access(prefix, os.W_OK):
+        return _row("prefix", "fail", f"{label} is not writable")
+    return _row("prefix", "ok", label)
+
+
 def _extensions_row() -> dict:
     try:
         import hummingbot.core.clock  # noqa: F401  (a compiled Cython module)
@@ -147,7 +160,7 @@ def _loaded_row() -> dict:
 
 
 CHECKS: List[Callable[[], dict]] = [
-    _install_row, _extensions_row, _keystore_row, _clock_row,
+    _install_row, _prefix_row, _extensions_row, _keystore_row, _clock_row,
     _disk_row, _bot_row, _loaded_row,
 ]
 

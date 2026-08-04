@@ -13,6 +13,7 @@ def get_trades(db_path: str,
                *,
                config_file_path: Optional[str] = None,
                days: Optional[float] = None,
+               since_ms: Optional[int] = None,
                limit: Optional[int] = None) -> List[TradeFill]:
     """Return TradeFill rows (ascending by timestamp), detached from the session."""
     get_declarative_base()  # register every model so the TradeFill -> Order mapper resolves
@@ -27,6 +28,10 @@ def get_trades(db_path: str,
         if days:
             start_ms = int((time.time() - days * 86400) * 1e3)
             query = query.filter(TradeFill.timestamp >= start_ms)
+        if since_ms is not None:
+            # Inclusive: a poller resuming from its last-seen timestamp re-reads
+            # that boundary row; dedup on exchange_trade_id makes overlap safe.
+            query = query.filter(TradeFill.timestamp >= since_ms)
         query = query.order_by(TradeFill.timestamp.desc())
         if limit:
             query = query.limit(limit)

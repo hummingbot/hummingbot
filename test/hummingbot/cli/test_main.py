@@ -38,7 +38,7 @@ class MainAppTest(unittest.TestCase):
             self.assertEqual(_version(), "unknown")
 
     def test_root_callback_without_version_is_a_no_op(self):
-        self.assertIsNone(main_mod._root(version=None))
+        self.assertIsNone(main_mod._root(version=None, prefix=None))
 
     def test_main_entrypoint_invokes_the_app(self):
         with patch.object(main_mod, "app") as mock_app:

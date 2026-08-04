@@ -262,7 +262,7 @@ class MainTest(unittest.TestCase):
              "--auto-set-permissions", "501:20"],
             env={"HBOT_PASSWORD": "s3cret", "CONFIG_PASSWORD": "legacy"})
         self.assertEqual(code, 0)
-        run_engine.assert_called_once_with("mybot", "c.yml", "v2.yml", "s3cret", "501:20")
+        run_engine.assert_called_once_with("mybot", "c.yml", "v2.yml", "s3cret", "501:20", None)
         self.assertNotIn("HBOT_PASSWORD", env_after)
         self.assertNotIn("CONFIG_PASSWORD", env_after)
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Un
 
 from pydantic import SecretStr
 
-from hummingbot import get_strategy_list, root_path
+from hummingbot import get_strategy_list, prefix_path, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
@@ -27,9 +27,16 @@ rate_oracle_pairs: List[str] = []
 KEYFILE_PREFIX = "key_file_"
 KEYFILE_POSTFIX = ".yml"
 ENCYPTED_CONF_POSTFIX = ".json"
-DEFAULT_LOG_FILE_PATH = root_path() / "logs"
+# Instance state (conf/, logs/) follows the prefix (HBOT_PREFIX / --prefix):
+# one install can host several instances — e.g. a live bot and a paper-smoke
+# prefix. Code and templates stay root_path()-relative: they belong to the
+# install, not the instance. prefix_path() defaults to the install root, so
+# a bare checkout behaves exactly as before.
+from pathlib import Path as _Path  # noqa: E402
+
+DEFAULT_LOG_FILE_PATH = _Path(prefix_path()) / "logs"
 TEMPLATE_PATH = root_path() / "hummingbot" / "templates"
-CONF_DIR_PATH = root_path() / "conf"
+CONF_DIR_PATH = _Path(prefix_path()) / "conf"
 CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
 TRADE_FEES_CONFIG_PATH = CONF_DIR_PATH / "conf_fee_overrides.yml"
 STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"

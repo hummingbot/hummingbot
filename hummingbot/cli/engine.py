@@ -20,11 +20,19 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from hummingbot.cli import bot
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import load_client_config_map_from_file
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.runner import (
+# HBOT_PREFIX (4a): the engine must resolve instance state under its prefix
+# BEFORE the config imports below snapshot conf/ and logs/ paths.
+_env_prefix = os.environ.get("HBOT_PREFIX")
+if _env_prefix:
+    import hummingbot
+
+    hummingbot.set_prefix_path(os.path.realpath(_env_prefix))
+
+from hummingbot.cli import bot  # noqa: E402
+from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger  # noqa: E402
+from hummingbot.client.config.config_helpers import load_client_config_map_from_file  # noqa: E402
+from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: E402
+from hummingbot.client.runner import (  # noqa: E402
     autofix_permissions,
     bootstrap_application,
     load_and_start_strategy,
@@ -112,8 +120,16 @@ async def run_engine(name: str,
                      config_file_name: Optional[str],
                      v2_conf: Optional[str],
                      password: str,
-                     auto_set_permissions: Optional[str]) -> int:
+                     auto_set_permissions: Optional[str],
+                     credentials: Optional[Dict[str, Dict[str, Optional[str]]]] = None) -> int:
     client_config_map = load_client_config_map_from_file()
+
+    if credentials:
+        # Ephemeral spawn-time credentials (HBOT_CREDENTIALS): served from
+        # memory at Security.api_keys() with strict precedence over any
+        # on-disk keystore. Nothing is written to conf/.
+        from hummingbot.client.config.security import Security
+        Security.inject_credentials(credentials)
 
     if auto_set_permissions is not None:
         autofix_permissions(auto_set_permissions)
@@ -166,11 +182,31 @@ def main() -> None:
         sys.stderr.write("HBOT_PASSWORD is not set; the engine cannot unlock the keystore.\n")
         sys.exit(4)
 
+    # Ephemeral credentials ride the same pattern: read once, scrubbed
+    # immediately, held only in this variable until Security takes them.
+    raw_credentials = os.environ.get("HBOT_CREDENTIALS")
+    os.environ.pop("HBOT_CREDENTIALS", None)
+    credentials: Optional[Dict[str, Dict[str, Optional[str]]]] = None
+    if raw_credentials:
+        import json
+        try:
+            credentials = json.loads(raw_credentials)
+        except json.JSONDecodeError as e:
+            sys.stderr.write(f"HBOT_CREDENTIALS is not valid JSON: {e}\n")
+            sys.exit(4)
+        if not isinstance(credentials, dict) or not all(
+            isinstance(v, dict) for v in credentials.values()
+        ):
+            sys.stderr.write(
+                "HBOT_CREDENTIALS must be a JSON object of per-connector field maps\n")
+            sys.exit(4)
+
     try:
         ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(ev_loop)
         rc = ev_loop.run_until_complete(
-            run_engine(args.name, args.config, args.script_config, password, args.auto_set_permissions))
+            run_engine(args.name, args.config, args.script_config, password,
+                       args.auto_set_permissions, credentials))
     except Exception:
         logging.getLogger().error("Engine crashed.", exc_info=True)
         rc = 1

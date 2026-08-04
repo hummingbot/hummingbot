@@ -9,7 +9,7 @@ from typing import Optional
 
 import typer
 
-from hummingbot import prefix_path
+from hummingbot import root_path
 from hummingbot.cli import bot
 from hummingbot.cli.output import ExitCode, emit, fail, json_option, render_kv
 from hummingbot.cli.password import login
@@ -48,6 +48,9 @@ def start(
     v2: bool = typer.Option(False, "--v2-script", help="Force V2 script type (only needed if the name collides across types)."),
     controller: bool = typer.Option(
         False, "--controller", help="Force controller type (only needed if the name collides across types)."),
+    paper: bool = typer.Option(
+        False, "--paper", help="Run against paper-trade connectors (zero capital, no credentials). "
+                               "Exit 4 if the config's connector has no paper support."),
     replace: bool = typer.Option(
         False, "--replace", help="If a bot is already running, stop it first, then start this one."),
     foreground: bool = typer.Option(
@@ -65,15 +68,58 @@ def start(
     holding the file; a --v1-strategy/--v2-script/--controller flag is only needed when a legacy name
     exists under more than one type. By default the bot runs detached (the command returns); pass
     --foreground to run it in the foreground, e.g. as a Docker container's main process."""
-    record = launch(file=file, v1=v1, v2=v2, controller=controller, replace=replace,
-                    foreground=foreground, password_stdin=password_stdin,
+    record = launch(file=file, v1=v1, v2=v2, controller=controller, paper=paper,
+                    replace=replace, foreground=foreground, password_stdin=password_stdin,
                     auto_set_permissions=auto_set_permissions, timeout=timeout)
     emit(record, render_kv(record, title="start"), as_json)
 
 
+def _paperize(file: str, stype: str) -> str:
+    """Derive a paper-trade twin of a config: same fields, connector mapped
+    through the existing ``<name>_paper_trade`` machinery (4c). Returns the
+    derived file name. Exit 4 when the connector has no paper support —
+    paper trading emulates a SPOT order book, so derivative connectors (and
+    configs without a recognizable connector field) can't run zero-capital."""
+    from hummingbot.cli.strategy_configs import config_path, read_yaml
+    from hummingbot.client.config.config_helpers import load_client_config_map_from_file, save_to_yml
+    from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
+
+    path = config_path(stype, file)
+    data = read_yaml(path)
+    connector_key = next((k for k in ("connector_name", "exchange", "connector") if data.get(k)), None)
+    if connector_key is None:
+        fail(f"{file} has no recognizable connector field — cannot map it to a paper-trade "
+             f"connector", ExitCode.CONFIG_ERROR)
+    base = str(data[connector_key]).removesuffix("_paper_trade")
+    setting = AllConnectorSettings.get_connector_settings().get(base)
+    if setting is None:
+        fail(f"unknown connector {base!r} — no paper-trade support", ExitCode.CONFIG_ERROR)
+    if setting.type in (ConnectorType.Derivative, ConnectorType.CLOB_PERP, ConnectorType.GATEWAY_DEX):
+        fail(f"connector {base} is {setting.type.name} — paper trading emulates a spot "
+             f"order book and cannot model it", ExitCode.CONFIG_ERROR)
+
+    # Paper connectors resolve only for exchanges listed in the client config's
+    # paper_trade_exchanges — make the mapping self-serve instead of a manual step.
+    cm = load_client_config_map_from_file()
+    exchanges = cm.paper_trade.paper_trade_exchanges
+    if base not in exchanges:
+        exchanges.append(base)
+        save_to_yml(CLIENT_CONFIG_PATH, cm)
+
+    data[connector_key] = f"{base}_paper_trade"
+    derived = f"paper_{file}"
+    derived_path = config_path(stype, derived)
+    import yaml as _yaml
+
+    derived_path.parent.mkdir(parents=True, exist_ok=True)
+    derived_path.write_text(_yaml.safe_dump(data, default_flow_style=False, sort_keys=False))
+    return derived
+
+
 def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controller: bool = False,
-           replace: bool = False, foreground: bool = False, password_stdin: bool = False,
-           auto_set_permissions: Optional[str] = None, timeout: float = 120.0) -> dict:
+           paper: bool = False, replace: bool = False, foreground: bool = False,
+           password_stdin: bool = False, auto_set_permissions: Optional[str] = None,
+           timeout: float = 120.0) -> dict:
     """The core of ``hbot start`` — resolve, spawn, wait for readiness; returns the start record.
 
     Shared with ``hbot deploy`` (which bundles config creation + launch into one call).
@@ -106,6 +152,9 @@ def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controlle
     except ValueError as e:
         fail(str(e), ExitCode.CONFIG_ERROR)
 
+    if paper:
+        file = _paperize(file, stype)
+
     # Record what we're running as the loaded config, so `hbot config` keeps showing it after `stop`
     # (the interactive client keeps a strategy loaded across a stop; import/start both load it).
     bot.write_loaded(file, stype)
@@ -136,8 +185,22 @@ def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controlle
     name = Path(v2_conf or config_file_name).stem
 
     # Resolve and validate the password up front so failures are immediate (not buried in the
-    # detached log). The password is passed to the child via env, never on argv.
-    _, password = login(password_stdin=password_stdin)
+    # detached log). The password is passed to the child via env, never on argv. A --paper run
+    # against a fresh (empty) keystore needs no credentials at all: the engine still wants a
+    # keystore password, so a throwaway creates the empty keystore — nothing lives in it.
+    if paper and not os.environ.get("HBOT_PASSWORD") and not os.environ.get("CONFIG_PASSWORD"):
+        from hummingbot.cli.password import unlock_keystore
+        from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+        from hummingbot.client.config.security import Security
+        password = "paper-trade"  # well-known: a paper keystore holds no secrets
+        if Security.new_password_required():
+            unlock_keystore(password)  # creates the (empty) keystore for the engine
+        elif not Security.login(ETHKeyFileSecretManger(password)):
+            # A real keystore lives here — paper still runs, but unlocking it
+            # needs the real password (the engine insists on one).
+            _, password = login(password_stdin=password_stdin)
+    else:
+        _, password = login(password_stdin=password_stdin)
 
     bot.bot_dir().mkdir(parents=True, exist_ok=True)
     bot.write_meta({
@@ -166,7 +229,10 @@ def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controlle
         # stdout/stderr stay attached to the terminal/container (visible via `docker logs`).
         bot.write_pid(os.getpid())
         bot.update_meta(pid=os.getpid())
-        os.chdir(prefix_path())
+        # cwd is the INSTALL root, not the prefix: scripts/ and controllers/
+        # are code and resolve relative to it; instance state (conf/, data/,
+        # logs/) reaches the prefix through absolute prefix-aware paths.
+        os.chdir(root_path())
         os.execve(sys.executable, cmd, env)  # never returns
 
     return _spawn_detached(cmd, env, name, timeout)
@@ -177,7 +243,7 @@ def _spawn_detached(cmd: list, env: dict, name: str, timeout: float) -> dict:
     recent log if it exits during startup / times out."""
     log_handle = open(bot.log_file(), "wb")  # fresh per run (startup/uncaught only)
     proc = subprocess.Popen(
-        cmd, cwd=prefix_path(), stdin=subprocess.DEVNULL,
+        cmd, cwd=root_path(), stdin=subprocess.DEVNULL,
         stdout=log_handle, stderr=log_handle, start_new_session=True, env=env)
     log_handle.close()  # the child holds its own dup'd fd
     bot.write_pid(proc.pid)

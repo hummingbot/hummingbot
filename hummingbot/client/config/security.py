@@ -25,6 +25,12 @@ class Security:
     __instance = None
     secrets_manager: Optional[BaseSecretsManager] = None
     _secure_configs = {}
+    # Ephemeral per-connector credentials injected at engine spawn
+    # (HBOT_CREDENTIALS): held only in memory, never written to conf/. A
+    # connector present here is served EXCLUSIVELY from this map — strict
+    # precedence over the on-disk keystore, never merged — so a stale
+    # rotated key on disk is unreachable.
+    _injected_credentials: Dict[str, Dict[str, Optional[str]]] = {}
     _decryption_done = asyncio.Event()
 
     _logger: Optional[HummingbotLogger] = None
@@ -106,7 +112,19 @@ class Security:
         await cls._decryption_done.wait()
 
     @classmethod
+    def inject_credentials(cls, credentials: Dict[str, Dict[str, Optional[str]]]) -> None:
+        """Install spawn-time in-memory credentials (the HBOT_CREDENTIALS
+        contract): ``{connector_name: {field: value}}``. Connectors listed
+        here read keys ONLY from this map — see :meth:`api_keys`."""
+        cls._injected_credentials = {
+            name: dict(fields) for name, fields in (credentials or {}).items()
+        }
+
+    @classmethod
     def api_keys(cls, connector_name: str) -> Dict[str, Optional[str]]:
+        injected = cls._injected_credentials.get(connector_name)
+        if injected is not None:
+            return dict(injected)  # strict precedence — never merged with disk
         connector_config = cls.decrypted_value(connector_name)
         keys = (
             api_keys_from_connector_config_map(connector_config)

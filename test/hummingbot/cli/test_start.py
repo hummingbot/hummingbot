@@ -183,7 +183,7 @@ class LaunchTest(unittest.TestCase):
         with patch.object(sc, "resolve_config_type", return_value="v1-strategy"), \
                 patch.object(bot, "write_pid") as write_pid, \
                 patch.object(bot, "update_meta") as update_meta, \
-                patch("hummingbot.cli.commands.start.prefix_path", return_value=str(self.tmp)), \
+                patch("hummingbot.cli.commands.start.root_path", return_value=str(self.tmp)), \
                 patch("hummingbot.cli.commands.start.os", fake_os):
             start_mod.launch(file="conf_v1.yml", foreground=True)
         write_pid.assert_called_once_with(4321)
@@ -204,7 +204,7 @@ class SpawnDetachedTest(unittest.TestCase):
         self.write_pid = self.stack.enter_context(patch.object(bot, "write_pid"))
         self.update_meta = self.stack.enter_context(patch.object(bot, "update_meta"))
         self.clear_pid = self.stack.enter_context(patch.object(bot, "clear_pid"))
-        self.stack.enter_context(patch("hummingbot.cli.commands.start.prefix_path", return_value=str(self.tmp)))
+        self.stack.enter_context(patch("hummingbot.cli.commands.start.root_path", return_value=str(self.tmp)))
         self.fake_subprocess = MagicMock()
         self.proc = MagicMock(pid=4242)
         self.fake_subprocess.Popen.return_value = self.proc
@@ -261,7 +261,7 @@ class StartCommandTest(unittest.TestCase):
         buf = io.StringIO()
         with patch("hummingbot.cli.commands.start.launch", return_value=dict(self.RECORD)) as launch, \
                 redirect_stdout(buf):
-            start_mod.start(file="conf_pmm.yml", v1=False, v2=True, controller=False, replace=True,
+            start_mod.start(file="conf_pmm.yml", v1=False, v2=True, controller=False, paper=False, replace=True,
                             foreground=False, password_stdin=False, auto_set_permissions=None,
                             timeout=9.0, as_json=as_json)
         return launch, buf.getvalue()
@@ -270,8 +270,8 @@ class StartCommandTest(unittest.TestCase):
         launch, out = self._run(as_json=True)
         self.assertEqual(json.loads(out), self.RECORD)
         launch.assert_called_once_with(file="conf_pmm.yml", v1=False, v2=True, controller=False,
-                                       replace=True, foreground=False, password_stdin=False,
-                                       auto_set_permissions=None, timeout=9.0)
+                                       paper=False, replace=True, foreground=False,
+                                       password_stdin=False, auto_set_permissions=None, timeout=9.0)
 
     def test_default_output_is_markdown_kv(self):
         _launch, out = self._run(as_json=False)
