@@ -232,11 +232,9 @@ class XEMMExecutor(ExecutorBase):
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-            self.maker_order = None
         elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
-            self.maker_order = None
 
     async def update_current_trade_profitability(self):
         trade_profitability = Decimal("0")
@@ -269,6 +267,14 @@ class XEMMExecutor(ExecutorBase):
         elif self.taker_order and event.order_id == self.taker_order.order_id:
             self.logger().info(f"Taker order {event.order_id} created.")
             self.taker_order.order = self.get_in_flight_order(self.taker_connector, event.order_id)
+
+    def process_order_canceled_event(self,
+                                     event_tag: int,
+                                     market: ConnectorBase,
+                                     event: OrderCancelledEvent):
+        if self.maker_order and event.order_id == self.maker_order.order_id:
+            self.logger().info(f"Maker order {event.order_id} cancelled successfully.")
+            self.maker_order = None
 
     def process_order_completed_event(self,
                                       event_tag: int,
