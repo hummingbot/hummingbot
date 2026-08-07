@@ -2129,6 +2129,9 @@ class HyperliquidKeyAuthorityTests(TestCase):
         connector._api_post = AsyncMock(return_value=[{"address": self.other_agent}])
         with self.assertRaises(ValueError) as ctx:
             self.async_run_with_timeout(connector._verify_key_authority())
+        # The failure happens during API-wallet setup, so the message must speak of the
+        # API wallet (not a bare "agent wallet") and point at the approved-wallet list.
+        self.assertIn("api wallet", str(ctx.exception).lower())
         self.assertIn("approved", str(ctx.exception).lower())
 
     def test_vault_mode_skips_check(self):

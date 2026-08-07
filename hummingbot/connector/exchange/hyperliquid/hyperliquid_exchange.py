@@ -784,9 +784,11 @@ class HyperliquidExchange(ExchangePyBase):
             return
         if not HyperliquidAuth.is_key_authorized(derived, account, agents):
             raise ValueError(
-                f"Hyperliquid private key is neither the owner key of {account} nor one of its approved "
-                f"API/agent wallets (derived agent address {to_checksum_address(derived)} is not approved). "
-                "Approve this agent wallet at https://app.hyperliquid.xyz/API, or supply the owner's key."
+                f"The supplied private key is not a valid API wallet key for account {account}: "
+                f"its address {to_checksum_address(derived)} is not in the account's approved API (agent) "
+                "wallet list and is not the account owner. Approve this API wallet at "
+                "https://app.hyperliquid.xyz/API, verify you supplied the correct API wallet key, "
+                "or use the account owner's key with the arb_wallet connection mode."
             )
         self._key_authority_verified = True
 
