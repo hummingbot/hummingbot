@@ -143,3 +143,8 @@ class ConnectCommand:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:
                 Security.update_secure_config(original_config)
+            else:
+                # Validation failed on a fresh connect: remove the config that was persisted above,
+                # otherwise the client would report the connector's keys as added even though they
+                # never validated.
+                Security.remove_secure_config(connector_name)

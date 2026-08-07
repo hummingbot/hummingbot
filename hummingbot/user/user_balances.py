@@ -71,7 +71,15 @@ class UserBalances:
         self._markets.pop(exchange, None)
         is_gateway_market = self.is_gateway_market(exchange)
         if not is_gateway_market:
-            market = UserBalances.connect_market(exchange, client_config_map, **api_details)
+            try:
+                market = UserBalances.connect_market(exchange, client_config_map, **api_details)
+            except Exception as e:
+                # Connector construction can fail credential validation (e.g. Hyperliquid rejects a
+                # private key that does not derive to the supplied wallet address). Surface it as a
+                # normal connection error message instead of an unhandled exception that leaves the
+                # client prompt unusable.
+                logging.getLogger().debug(f"Failed to create connector for {exchange}", exc_info=True)
+                return str(e)
             if not market:
                 return "API keys have not been added."
             err_msg = await UserBalances._update_balances(market)
