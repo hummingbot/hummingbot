@@ -143,6 +143,9 @@ class XrplExchange(ExchangePyBase):
         self._order_status_locks: Dict[str, asyncio.Lock] = {}
         self._order_status_lock_manager_lock = asyncio.Lock()
 
+        # The ledger version the currently-held balances describe — see _update_balances.
+        self._balances_ledger_index: Optional[int] = None
+
         # Worker pools (lazy initialization after start_network)
         self._tx_pool: Optional[XRPLTransactionWorkerPool] = None
         self._query_pool: Optional[XRPLQueryWorkerPool] = None
@@ -1516,8 +1519,9 @@ class XrplExchange(ExchangePyBase):
                         if len(currency) > 3:
                             try:
                                 currency = hex_to_str(currency).strip("\x00").upper()
-                            except UnicodeDecodeError:
-                                # Do nothing since this is a non-hex string
+                            except ValueError:
+                                # Keep the raw code. ValueError, not just UnicodeDecodeError:
+                                # bytes.fromhex raises the plain kind on a non-hex character.
                                 pass
 
                         self.logger().debug(
@@ -2499,25 +2503,119 @@ class XrplExchange(ExchangePyBase):
 
         return locked_amount
 
-    async def _update_balances(self):
-        account_address = self._xrpl_auth.get_account()
+    async def _account_snapshot(self, account_address: str, ledger_index="validated"):
+        """The three account queries, all pinned to ONE ledger version.
 
-        # Run all three queries in parallel for faster balance updates
-        # These queries are independent and can be executed concurrently
-        account_info, objects, account_lines = await asyncio.gather(
+        They are independent requests, so they run in parallel — but independence is exactly the
+        problem when the results are combined into a single portfolio number. XRPL closes a ledger
+        roughly every four seconds, and three requests issued together can land on either side of
+        a close — more easily here than elsewhere, because this connector spreads them across a
+        pool of nodes that are not all at the same validation height. Two of the three then
+        describe the account one ledger apart, and the difference lands in the portfolio as a
+        gain or loss that never happened.
+        """
+        return await asyncio.gather(
             self._query_xrpl(
-                AccountInfo(account=account_address, ledger_index="validated"),
+                AccountInfo(account=account_address, ledger_index=ledger_index),
                 priority=RequestPriority.LOW,
             ),
             self._query_xrpl(
-                AccountObjects(account=account_address),
+                AccountObjects(account=account_address, ledger_index=ledger_index),
                 priority=RequestPriority.LOW,
             ),
             self._query_xrpl(
-                AccountLines(account=account_address),
+                AccountLines(account=account_address, ledger_index=ledger_index),
                 priority=RequestPriority.LOW,
             ),
         )
+
+    @staticmethod
+    def _snapshot_ledger_indexes(responses) -> List[int]:
+        """The ledger version each response actually answered from. Asking is not assuming."""
+        out = []
+        for r in responses:
+            if r is None:
+                continue
+            idx = r.result.get("ledger_index")
+            if idx is not None:
+                try:
+                    out.append(int(idx))
+                except (TypeError, ValueError):
+                    pass
+        return out
+
+    @staticmethod
+    def _snapshot_is_complete(responses) -> bool:
+        """Does this snapshot actually carry an account, its objects and its trust lines?
+
+        Not-None is not the same as usable: a node that cannot serve the requested ledger answers
+        with an error RESPONSE, not with None, so a None-check waves it through — and the balance
+        built from it is zero. A zero balance and a failed read must not look alike, because the
+        strategies reading these balances cannot tell them apart.
+        """
+        if not responses or len(responses) != 3 or any(r is None for r in responses):
+            return False
+        account_info, objects, account_lines = responses
+        try:
+            if not account_info.result.get("account_data", {}).get("Balance"):
+                return False
+            if objects.result.get("account_objects") is None:
+                return False
+            if account_lines.result.get("lines") is None:
+                return False
+        except AttributeError:
+            return False
+        return True
+
+    async def _update_balances(self):
+        account_address = self._xrpl_auth.get_account()
+
+        # ONE MOMENT, NOT THREE. XRPL settles atomically, so no real trade can move one currency
+        # without moving another — a snapshot in which they change independently is two ledgers
+        # read as one. Asking all three queries for "validated" narrows the window but cannot
+        # close it: a validation can land between the requests. So do not assume — ask which
+        # version each one answered from, and if they disagree, re-read at an explicit integer,
+        # which every node must answer identically or refuse. The re-read pins the NEWEST ledger
+        # seen: behind one load-balancer hostname sit many backends, and pinning to the oldest
+        # would follow the laggard rather than the chain.
+        responses = await self._account_snapshot(account_address, "validated")
+        seen = self._snapshot_ledger_indexes(responses)
+        if len(set(seen)) > 1:
+            pinned = max(seen)
+            retry = await self._account_snapshot(account_address, pinned)
+            if self._snapshot_is_complete(retry):
+                responses = retry
+                self.logger().debug(
+                    f"Balance snapshot spanned ledgers {sorted(set(seen))}; re-read pinned to {pinned}")
+            else:
+                # Keep the skewed read rather than none at all, but say so: a silent skew is the
+                # thing this whole branch exists to stop.
+                self.logger().warning(
+                    f"Balance snapshot spanned ledgers {sorted(set(seen))} and the pinned re-read "
+                    f"at {pinned} came back incomplete; using the skewed snapshot for this tick")
+        if not self._snapshot_is_complete(responses):
+            self.logger().warning(
+                "Incomplete account snapshot; keeping the balances already held "
+                "rather than writing zeros")
+            return
+        account_info, objects, account_lines = responses
+
+        # A SNAPSHOT THAT GOES BACKWARDS IS NOT WRITTEN AT ALL. Pinning stops this method from
+        # choosing a laggard, but it cannot stop a whole tick from landing on one: the balancer
+        # decides which backend answers. Balances only move forward in time, so a read from a
+        # much older ledger than the one already held carries no information — it can only undo
+        # a correct value. The tolerance absorbs ordinary skew; beyond it, skip the tick and let
+        # the next one land on a healthy backend.
+        seen_now = self._snapshot_ledger_indexes(responses)
+        idx_now = max(seen_now) if seen_now else None
+        have = self._balances_ledger_index
+        if idx_now is not None and have is not None and idx_now < have - CONSTANTS.SNAPSHOT_MAX_LAG_LEDGERS:
+            self.logger().warning(
+                f"Skipping balance snapshot from ledger {idx_now}; already hold {have} "
+                f"({have - idx_now} ledgers behind, tolerance {CONSTANTS.SNAPSHOT_MAX_LAG_LEDGERS})")
+            return
+        if idx_now is not None:
+            self._balances_ledger_index = max(idx_now, have or 0)
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
 
@@ -2547,8 +2645,12 @@ class XrplExchange(ExchangePyBase):
                 if len(currency) > 3:
                     try:
                         currency = hex_to_str(currency)
-                    except UnicodeDecodeError:
-                        # Do nothing since this is a non-hex string
+                    except ValueError:
+                        # Keep the raw code. ValueError, not just UnicodeDecodeError: bytes.fromhex
+                        # raises the plain kind on a non-hex character, and that one used to escape
+                        # and abort the whole balance update. One odd trustline would then freeze
+                        # every balance — silently, because the last good numbers stay in place and
+                        # look no different from fresh ones.
                         pass
 
                 token = currency.strip("\x00").upper()
