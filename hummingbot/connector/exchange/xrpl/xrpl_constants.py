@@ -151,6 +151,12 @@ WEBSOCKET_CONNECTION_TIMEOUT = 30  # Connection timeout (seconds)
 # =============================================================================
 CONNECTION_POOL_HEALTH_CHECK_INTERVAL = 30.0  # Seconds between health checks
 CONNECTION_POOL_MAX_AGE = 300.0  # Max connection age before refresh (seconds)
+# A balance snapshot may answer from a slightly older ledger than the one already held (the pool
+# spreads requests across nodes at differing validation heights). Within this tolerance the skew
+# is ordinary; a snapshot further behind than this is a laggard backend and is skipped, because
+# balances only move forward in time — an old read can only undo a correct value. ~4s per ledger,
+# so 20 is roughly a minute and a half.
+SNAPSHOT_MAX_LAG_LEDGERS = 20
 CONNECTION_POOL_TIMEOUT = 30.0  # Connection timeout (seconds)
 CONNECTION_MAX_CONSECUTIVE_ERRORS = 3  # Errors before marking unhealthy
 PROACTIVE_PING_INTERVAL = 20.0  # Seconds between proactive pings
