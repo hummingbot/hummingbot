@@ -1,4 +1,3 @@
-import fnmatch
 import os
 import subprocess
 import sys
@@ -24,15 +23,7 @@ class BuildExt(build_ext):
 def main():
     cpu_count = os.cpu_count() or 8
     version = "20260729"
-    all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
-    excluded_paths = [
-        "hummingbot.connector.gateway.clob_spot.data_sources.injective",
-        "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
-    ]
-    packages = [
-        pkg for pkg in all_packages
-        if not any(fnmatch.fnmatch(pkg, pattern) for pattern in excluded_paths)
-    ]
+    packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     package_data = {
         "hummingbot": [
             "core/cpp/*",
@@ -47,36 +38,27 @@ def main():
         "aioprocessing>=2.0.1",
         "aioresponses>=0.7.4",
         "aiounittest>=1.4.2",
-        "aptos-sdk>=0.8.0",
         "async-timeout>=4.0.2,<5",
         "base58>=2.1.1",
         "bidict>=0.22.1",
-        "bip-utils",
         "Brotli>=1.2.0",
         "cachetools>=5.3.1",
         "cryptography>=41.0.2",
-        "decibel-python-sdk==0.2.1",
         "eth-account>=0.13.0",
-        "injective-py>=1.13",
-        "msgpack-python",
         "numba>=0.61.2",
         "numpy>=2.2.6",
         "objgraph",
         "pandas>=2.3.2",
         "pandas-ta>=0.4.71b",
         "prompt_toolkit>=3.0.39",
-        "protobuf>=4.23.3",
         "psutil>=5.9.5",
         "pydantic>=2",
         "pyjwt>=2.3.0",
         "pyperclip>=1.8.2",
         "requests>=2.31.0",
         "ruamel.yaml>=0.2.5",
-        "safe-pysha3",
-        "scalecodec",
         "scipy>=1.11.1",
         "six>=1.16.0",
-        "solders>=0.19.0",
         "sqlalchemy>=1.4.49",
         "tabulate==0.9.0",
         "TA-Lib>=0.6.4",
@@ -84,10 +66,7 @@ def main():
         "typer>=0.9.0",
         "ujson>=5.7.0",
         "urllib3>=1.26.15,<2.0",
-        "web3",
-        "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
-        "lighter-sdk==1.0.8"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---

@@ -8,7 +8,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class FormatStatusExampleConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
-    exchanges: list = Field(default=["binance_paper_trade", "kucoin_paper_trade", "gate_io_paper_trade"])
+    exchanges: list = Field(default=["binance_paper_trade", "binance_paper_trade", "binance_paper_trade"])
     trading_pairs: list = Field(default=["ETH-USDT", "BTC-USDT", "POL-USDT", "AVAX-USDT", "WLD-USDT", "DOGE-USDT", "SHIB-USDT", "XRP-USDT", "SOL-USDT"])
 
     def update_markets(self, markets: MarketDict) -> MarketDict:

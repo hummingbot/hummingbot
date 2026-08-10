@@ -27,10 +27,6 @@ class ConnectCommand:
 
     async def connect_exchange(self,  # type: HummingbotApplication
                                connector_name):
-        # instruct users to use gateway connect if connector is a gateway connector
-        if AllConnectorSettings.get_connector_settings()[connector_name].uses_gateway_generic_connector():
-            self.notify("This is a gateway connector. Use `gateway connect` command instead.")
-            return
 
         self.app.clear_input()
         self.placeholder_mode = True
@@ -90,11 +86,7 @@ class ConnectCommand:
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = "No"
-            api_keys = (
-                Security.api_keys(option).values()
-                if not UserBalances.instance().is_gateway_market(option)
-                else {}
-            )
+            api_keys = Security.api_keys(option).values()
             if len(api_keys) > 0:
                 keys_added = "Yes"
                 err_msg = err_msgs.get(option)

@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestingDataProvider(MarketDataProvider):
-    CONNECTOR_TYPES = [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP, ConnectorType.Exchange,
-                       ConnectorType.Derivative]
+    CONNECTOR_TYPES = [ConnectorType.Exchange, ConnectorType.Derivative]
     # hyperliquid / hyperliquid_perpetual re-enabled for backtesting: their public
     # `info` endpoints (meta, candleSnapshot) need no credentials, so
     # `_update_trading_rules` and the candle feed both work without a connector config.

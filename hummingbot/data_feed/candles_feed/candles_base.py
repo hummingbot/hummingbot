@@ -89,7 +89,7 @@ class CandlesBase(NetworkBase):
         definitions are preserved while the candle endpoints are registered (without this, candle
         requests would not be throttled at all on the shared throttler).
 
-        Degrades gracefully: if the connector exposes no throttler (e.g. a Gateway connector), the
+        Degrades gracefully: if the connector exposes no throttler, the
         feed keeps its own; symbol/exchange-data reuse falls back to the standalone path
         (``get_exchange_trading_pair`` + the feed's own ``_initialize_exchange_data`` fetch). Wired
         post-construction by ``CandlesFactory.get_candle`` / ``MarketDataProvider`` when the same

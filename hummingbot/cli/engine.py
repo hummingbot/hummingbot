@@ -28,7 +28,6 @@ from hummingbot.client.runner import (
     autofix_permissions,
     bootstrap_application,
     load_and_start_strategy,
-    wait_for_gateway_ready,
 )
 
 BALANCE_TIMEOUT = 10.0
@@ -133,8 +132,6 @@ async def run_engine(name: str,
     if not started:
         logging.getLogger().error("Failed to load strategy. Exiting.")
         return 1
-
-    await wait_for_gateway_ready(hb)
 
     # Record the sqlite DB path so `hbot trades/history` can find it deterministically.
     db_path = hb.trading_core.trade_fill_db.db_path if hb.trading_core.trade_fill_db is not None else None

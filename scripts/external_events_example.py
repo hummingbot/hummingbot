@@ -11,7 +11,7 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class ExternalEventsExampleConfig(StrategyV2ConfigBase):
     script_file_name: str = os.path.basename(__file__)
-    exchange: str = Field(default="kucoin_paper_trade")
+    exchange: str = Field(default="binance_paper_trade")
     trading_pair: str = Field(default="BTC-USDT")
 
     def update_markets(self, markets: MarketDict) -> MarketDict:

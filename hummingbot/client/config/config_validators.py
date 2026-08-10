@@ -31,12 +31,11 @@ def validate_derivative(value: str) -> Optional[str]:
 
 def validate_connector(value: str) -> Optional[str]:
     """
-    Restrict valid connectors to ALL spot connectors, including paper trade and Gateway
+    Restrict valid connectors to ALL spot connectors, including paper trade
     """
-    from hummingbot.client.settings import GATEWAY_DEXS, AllConnectorSettings
+    from hummingbot.client.settings import AllConnectorSettings
     valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
     valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
-    valid_connectors.update(GATEWAY_DEXS)
 
     if value not in valid_connectors:
         all_options = sorted(valid_connectors)

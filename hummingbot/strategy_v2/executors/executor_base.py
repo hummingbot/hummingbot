@@ -1,9 +1,7 @@
 import asyncio
 from decimal import Decimal
-from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, Union
 
-from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
@@ -152,13 +150,6 @@ class ExecutorBase(RunnableBase):
         :return: True if the connector is a perpetual connector, False otherwise.
         """
         return "perpetual" in connector_name.lower()
-
-    @staticmethod
-    @lru_cache(maxsize=10)
-    def is_amm_connector(exchange: str) -> bool:
-        return exchange in sorted(
-            AllConnectorSettings.get_gateway_amm_connector_names()
-        )
 
     def start(self):
         """

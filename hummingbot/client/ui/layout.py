@@ -206,24 +206,6 @@ def get_strategy_file():
     return [(style, f"Strategy File: {hb.strategy_file_name}")]
 
 
-def get_gateway_status():
-    from hummingbot.client.hummingbot_application import HummingbotApplication
-    hb = HummingbotApplication.main_application()
-    gateway_status = hb.trading_core.gateway_monitor.gateway_status.name
-    style = "class:log_field"
-
-    # Check if SSL is enabled
-    use_ssl = getattr(hb.client_config_map.gateway, "gateway_use_ssl", False)
-    lock_icon = "🔒 " if use_ssl else ""
-
-    # Add visual indicator based on status
-    if gateway_status == "ONLINE":
-        status_display = f"🟢 {gateway_status}"
-    else:
-        status_display = f"🔴 {gateway_status}"
-
-    return [(style, f"{lock_icon}Gateway: {status_display}")]
-
 
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
@@ -241,12 +223,10 @@ def generate_layout(input_field: TextArea,
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
-    components["item_top_gateway"] = Window(FormattedTextControl(get_gateway_status), style="class:header")
     components["item_top_toggle"] = right_pane_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
                                      components["item_top_active"],
                                      components["item_top_file"],
-                                     components["item_top_gateway"],
                                      components["item_top_toggle"]], height=1)
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,

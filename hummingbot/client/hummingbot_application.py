@@ -12,10 +12,8 @@ from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     get_strategy_config_map,
     load_client_config_map_from_file,
-    load_ssl_config_map_from_file,
     save_to_yml,
 )
-from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH
 from hummingbot.client.tab import __all__ as tab_classes
@@ -61,9 +59,6 @@ class HummingbotApplication(*commands):
             client_config_map or load_client_config_map_from_file()
         )
         self.headless_mode = headless_mode
-        self.ssl_config_map: SSLConfigMap = (  # type-hint enables IDE auto-complete
-            load_ssl_config_map_from_file()
-        )
         self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         # Initialize core trading functionality
         self.trading_core = TradingCore(self.client_config_map)
@@ -111,10 +106,6 @@ class HummingbotApplication(*commands):
     @property
     def fetch_pairs_from_all_exchanges(self) -> bool:
         return self.client_config_map.fetch_pairs_from_all_exchanges
-
-    @property
-    def gateway_config_keys(self) -> List[str]:
-        return self.trading_core.gateway_monitor.gateway_config_keys
 
     @property
     def strategy_file_name(self) -> str:

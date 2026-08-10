@@ -24,14 +24,12 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
-from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.settings import (
     CLIENT_CONFIG_PATH,
     CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     CONNECTORS_CONF_DIR_PATH,
-    GATEWAY_SSL_CONF_FILE,
     STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -657,20 +655,6 @@ def load_client_config_map_from_file() -> ClientConfigAdapter:
     return config_map
 
 
-def load_ssl_config_map_from_file() -> ClientConfigAdapter:
-    yml_path = GATEWAY_SSL_CONF_FILE
-    if yml_path.exists():
-        config_data = read_yml_file(yml_path)
-    else:
-        config_data = {}
-    ssl_config = SSLConfigMap(**config_data)
-    config_map = ClientConfigAdapter(ssl_config)
-
-    if yml_path.exists():
-        save_to_yml(yml_path, config_map)
-
-    return config_map
-
 
 def get_connector_hb_config(connector_name: str) -> BaseClientModel:
     hb_config = AllConnectorSettings.get_connector_config_keys(connector_name)
@@ -800,7 +784,7 @@ def save_system_configs_to_yml():
 
 async def refresh_trade_fees_config(client_config_map: ClientConfigAdapter):
     """
-    Refresh the trade fees config, after new connectors have been added (e.g. gateway connectors).
+    Refresh the trade fees config, after new connectors have been added.
     """
     init_fee_overrides_config()
     save_to_yml(CLIENT_CONFIG_PATH, client_config_map)

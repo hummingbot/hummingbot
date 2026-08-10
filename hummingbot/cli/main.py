@@ -55,7 +55,7 @@ def _root(
         raise typer.Exit()
 
 
-# v1 surface — a faithful subset of the interactive client's commands (minus gateway), plus one
+# v1 surface — a faithful subset of the interactive client's commands, plus one
 # composite: `deploy` (= create/import + start in one call, the primitive agents reach for). Order
 # here is irrelevant; --help lists them alphabetically (SortedCommandsGroup).
 app.command("connect")(connect_cmd.connect)

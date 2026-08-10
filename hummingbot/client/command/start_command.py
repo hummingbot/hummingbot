@@ -1,11 +1,10 @@
 import asyncio
 import platform
 import threading
-from typing import TYPE_CHECKING, Callable, Optional, Set
+from typing import TYPE_CHECKING, Callable, Optional
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
-from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -14,10 +13,9 @@ from hummingbot.exceptions import OracleRateUnavailable
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-GATEWAY_READY_TIMEOUT = 300  # seconds
 
 
-class StartCommand(GatewayChainApiManager):
+class StartCommand:
     _in_start_check: bool = False
 
     async def _run_clock(self):
@@ -32,20 +30,6 @@ class StartCommand(GatewayChainApiManager):
                 await asyncio.sleep(0.5)
             else:
                 return func(*args, **kwargs)
-
-    async def _strategy_uses_gateway_connector(self,  # type: HummingbotApplication
-                                               required_exchanges: Set[str]) -> bool:
-        """Check if any required exchange is a gateway connector."""
-        # Ensure gateway connectors are registered before checking
-        # This handles the case where gateway is online but monitor loop hasn't run yet
-        await self.trading_core.gateway_monitor.ensure_gateway_connectors_registered()
-
-        for connector_name in required_exchanges:
-            conn_setting = settings.AllConnectorSettings.get_connector_settings().get(connector_name)
-            if conn_setting is not None and conn_setting.uses_gateway_generic_connector():
-                return True
-
-        return False
 
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
@@ -75,19 +59,6 @@ class StartCommand(GatewayChainApiManager):
                 self.notify("The strategy failed to start.")
                 self._in_start_check = False
                 return
-
-        if self.strategy_file_name and self.trading_core.strategy_name and is_quickstart:
-            if await self._strategy_uses_gateway_connector(settings.required_exchanges):
-                try:
-                    await asyncio.wait_for(self.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
-                except asyncio.TimeoutError:
-                    self.notify(
-                        f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-                        f"Unable to start strategy {self.trading_core.strategy_name}. ")
-                    self._in_start_check = False
-                    self.trading_core.strategy_name = None
-                    self.strategy_file_name = None
-                    raise
 
         if v2_conf:
             config_data = self._peek_config(v2_conf)

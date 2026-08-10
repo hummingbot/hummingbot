@@ -9,18 +9,15 @@ that depends on the client — never the other way around.
 Keep this module free of host concerns (no typer, no argparse, no prompt-toolkit) — it only knows how
 to build the application and load/start a strategy.
 """
-import asyncio
 import grp
 import logging
 import os
 import pwd
 import subprocess
-from pathlib import Path
 from typing import Optional
 
 import yaml
 
-from hummingbot.client.command.start_command import GATEWAY_READY_TIMEOUT
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     all_configs_complete,
@@ -39,33 +36,15 @@ def autofix_permissions(user_group_spec: str) -> None:
     os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
     project_home: str = os.path.realpath(os.path.join(__file__, "../../../"))
 
-    gateway_path: str = Path.home().joinpath(".hummingbot-gateway").as_posix()
     subprocess.run(
         f"cd '{project_home}' && "
-        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
+        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/",
         capture_output=True,
         shell=True
     )
     os.setgid(gid)
     os.setuid(uid)
 
-
-async def wait_for_gateway_ready(hb: HummingbotApplication) -> None:
-    """Block until any Gateway-backed connector is ready, else raise on timeout."""
-    exchange_settings = [
-        AllConnectorSettings.get_connector_settings().get(e, None)
-        for e in hb.trading_core.connector_manager.connectors.keys()
-    ]
-    uses_gateway = any([s.uses_gateway_generic_connector() for s in exchange_settings])
-    if not uses_gateway:
-        return
-    try:
-        await asyncio.wait_for(hb.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
-    except asyncio.TimeoutError:
-        logging.getLogger().error(
-            "TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly. "
-            f"Unable to start strategy {hb.trading_core.strategy_name}. ")
-        raise
 
 
 async def load_and_start_strategy(hb: HummingbotApplication,

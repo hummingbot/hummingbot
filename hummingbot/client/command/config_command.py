@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from prompt_toolkit.utils import is_windows
 
-from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     missing_required_configs_legacy,
@@ -23,7 +22,6 @@ from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.utils import map_df_to_str
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.model.inventory_cost import InventoryCost
-from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
 from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
 from hummingbot.user.user_balances import UserBalances
 
@@ -65,10 +63,6 @@ client_configs_to_display = ["autofill_import",
                              "instance_id",
                              "send_error_logs",
                              "ethereum_chain_name",
-                             "gateway",
-                             "gateway_api_host",
-                             "gateway_api_port",
-                             "gateway_use_ssl",
                              "rate_oracle_source",
                              "extra_tokens",
                              "fetch_pairs_from_all_exchanges",
@@ -316,10 +310,7 @@ class ConfigCommand:
         self.app.app.style = load_style(self.client_config_map)
         for config in missings:
             self.notify(f"{config.key}: {str(config.value)}")
-        if (
-                isinstance(self.trading_core.strategy, PureMarketMakingStrategy) or
-                isinstance(self.trading_core.strategy, PerpetualMarketMakingStrategy)
-        ):
+        if isinstance(self.trading_core.strategy, PureMarketMakingStrategy):
             updated = ConfigCommand.update_running_mm(self.trading_core.strategy, key, config_var.value)
             if updated:
                 self.notify(f"\nThe current {self.trading_core.strategy_name} strategy has been updated "
@@ -348,10 +339,7 @@ class ConfigCommand:
             exchange = config_map.exchange
             market = config_map.market
             base, quote = split_hb_trading_pair(market)
-            if UserBalances.instance().is_gateway_market(exchange):
-                balances = await GatewayCommand.balance(self, exchange, config_map, base, quote)
-            else:
-                balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -388,10 +376,7 @@ class ConfigCommand:
             exchange = config_map['exchange'].value
             market = config_map["market"].value
             base, quote = market.split("-")
-            if UserBalances.instance().is_gateway_market(exchange):
-                balances = await GatewayCommand.balance(self, exchange, config_map, base, quote)
-            else:
-                balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
+            balances = await UserBalances.instance().balances(exchange, config_map, base, quote)
             if balances is None:
                 return
             base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
@@ -444,8 +429,6 @@ class ConfigCommand:
 
             if exchange.endswith("paper_trade"):
                 balances = self.client_config_map.paper_trade.paper_trade_account_balance
-            elif UserBalances.instance().is_gateway_market(exchange):
-                balances = await GatewayCommand.balance(self, exchange, config_map, base_asset, quote_asset)
             else:
                 balances = await UserBalances.instance().balances(
                     exchange, base_asset, quote_asset

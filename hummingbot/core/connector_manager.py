@@ -82,7 +82,7 @@ class ConnectorManager:
             else:
                 # Create live connector
                 keys = api_keys or Security.api_keys(connector_name)
-                if not keys and not conn_setting.uses_gateway_generic_connector():
+                if not keys:
                     raise ValueError(f"API keys required for live trading connector '{connector_name}'. "
                                      f"Either provide API keys or use a paper trade connector.")
 
@@ -92,7 +92,6 @@ class ConnectorManager:
                     api_keys=keys,
                     balance_asset_limit=self.client_config_map.hb_config.balance_asset_limit,
                     rate_limits_share_pct=self.client_config_map.hb_config.rate_limits_share_pct,
-                    gateway_config=self.client_config_map.hb_config.gateway,
                 )
 
                 connector_class = get_connector_class(connector_name)
@@ -155,10 +154,6 @@ class ConnectorManager:
         self.create_connector(connector_name, all_pairs)
 
         return True
-
-    @staticmethod
-    def is_gateway_market(connector_name: str) -> bool:
-        return connector_name in AllConnectorSettings.get_gateway_amm_connector_names()
 
     def get_connector(self, connector_name: str) -> Optional[ExchangeBase]:
         """Get a connector by name."""

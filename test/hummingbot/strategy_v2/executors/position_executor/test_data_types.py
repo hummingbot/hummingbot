@@ -68,4 +68,3 @@ class TestPositionExecutorDataTypes(TestCase):
 
     def test_is_amm(self):
         connector_pair = ConnectorPair(connector_name="binance", trading_pair="ETH-USDT")
-        self.assertFalse(connector_pair.is_amm_connector())

@@ -27,21 +27,18 @@ def _exchange_assets(connector: str, total: Dict[str, Decimal], available: Dict[
                      prices: Dict[str, Decimal], quote_token: str) -> Tuple[List[dict], Decimal, Decimal]:
     """Build per-asset rows (with global-token value + allocated %) for one connector.
 
-    Mirrors ``HummingbotApplication.exchange_balances_extra_df``: CEX hides zero balances, gateway
-    connectors show them; values come from the pre-fetched rate-oracle prices via ``find_rate``.
+    Mirrors ``HummingbotApplication.exchange_balances_extra_df``: zero balances are hidden; values
+    come from the pre-fetched rate-oracle prices via ``find_rate``.
     """
-    from hummingbot.client.settings import AllConnectorSettings
     from hummingbot.connector.utils import combine_to_hb_trading_pair
     from hummingbot.core.rate_oracle.utils import find_rate
-    conn = AllConnectorSettings.get_connector_settings().get(connector)
-    is_gateway = bool(conn and conn.uses_gateway_generic_connector())
     assets: List[dict] = []
     allocated_total = Decimal("0")
     usd_total = Decimal("0")
     for token, bal in total.items():
         bal = Decimal(str(bal))
         avai = Decimal(str(available.get(token.upper(), 0) or 0))
-        if bal == Decimal(0) and not is_gateway:
+        if bal == Decimal(0):
             continue
         allocated = "0%" if bal == Decimal(0) else f"{(bal - avai) / bal:.0%}"
         rate = find_rate(prices, combine_to_hb_trading_pair(base=token, quote=quote_token))

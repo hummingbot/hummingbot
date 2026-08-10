@@ -37,8 +37,6 @@ class ExitCommand:
         if self.trading_core._is_running:
             await self.trading_core.stop_clock()
 
-        if self.trading_core.gateway_monitor is not None:
-            self.trading_core.gateway_monitor.stop_monitor()
 
         self.notify("Winding down notifiers...")
         for notifier in self.trading_core.notifiers:

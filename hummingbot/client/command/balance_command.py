@@ -115,24 +115,15 @@ class BalanceCommand:
                                          exchange: str,
                                          ex_balances: Dict[str, Decimal],
                                          ex_avai_balances: Dict[str, Decimal]):
-        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
         global_token_symbol = self.client_config_map.global_token.global_token_symbol
         total_col_name = f"Total ({global_token_symbol})"
         allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
-            # show zero balances if it is a gateway connector (the user manually
-            # chose to show those values with 'gateway connector-tokens')
-            if conn_setting.uses_gateway_generic_connector():
-                if bal == Decimal(0):
-                    allocated = "0%"
-                else:
-                    allocated = f"{(bal - avai) / bal:.0%}"
-            else:
-                # the exchange is CEX. Only show balance if non-zero.
-                if bal == Decimal(0):
-                    continue
+            # the exchange is CEX. Only show balance if non-zero.
+            if bal == Decimal(0):
+                continue
                 allocated = f"{(bal - avai) / bal:.0%}"
 
             rate = await RateOracle.get_instance().get_rate(base_token=token)
