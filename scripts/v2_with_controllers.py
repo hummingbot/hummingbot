@@ -2,12 +2,12 @@ import os
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.event.events import MarketOrderFailureEvent
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
-from hummingbot.strategy_v2.models.base import RunnableStatus
-from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
+from kairos.client.kairos_application import KairosApplication
+from kairos.connector.connector_base import ConnectorBase
+from kairos.core.event.events import MarketOrderFailureEvent
+from kairos.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from kairos.strategy_v2.models.base import RunnableStatus
+from kairos.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
 
 
 class V2WithControllersConfig(StrategyV2ConfigBase):
@@ -83,7 +83,7 @@ class V2WithControllers(StrategyV2Base):
                 self.drawdown_exited_controllers.extend(list(self.controllers.keys()))
                 self.logger().info("Global drawdown reached. Stopping the strategy.")
                 self._is_stop_triggered = True
-                HummingbotApplication.main_application().stop()
+                KairosApplication.main_application().stop()
 
     def get_controller_report(self, controller_id: str) -> dict:
         """
@@ -123,7 +123,7 @@ class V2WithControllers(StrategyV2Base):
         )
         if not active_executors:
             self.logger().info("All executors have finalized their execution. Stopping the strategy.")
-            HummingbotApplication.main_application().stop()
+            KairosApplication.main_application().stop()
         else:
             non_trading_executors = self.filter_executors(
                 executors=active_executors,

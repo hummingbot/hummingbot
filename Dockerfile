@@ -16,7 +16,7 @@ RUN conda env create -f /tmp/environment.yml && \
 
 # Copy remaining files
 COPY bin/ bin/
-COPY hummingbot/ hummingbot/
+COPY kairos/ kairos/
 COPY scripts/ scripts/
 COPY controllers/ controllers/
 COPY scripts/ scripts-copy/
@@ -65,7 +65,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create mount points
-RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/conf/controllers /home/hummingbot/conf/scripts /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts /home/hummingbot/controllers
+RUN mkdir -p /home/kairos/conf /home/kairos/conf/connectors /home/kairos/conf/strategies /home/kairos/conf/controllers /home/kairos/conf/scripts /home/kairos/logs /home/kairos/data /home/kairos/certs /home/kairos/scripts /home/kairos/controllers
 
 WORKDIR /home/hummingbot
 
@@ -77,12 +77,12 @@ COPY --from=builder /home/ /home/
 # + console scripts without `conda activate`, and expose the `hbot` CLI there (mirrors make install).
 # This lets the image run as a single-bot container: `docker run … hbot start <config>`,
 # `docker exec … hbot status`.
-ENV PATH=/opt/conda/envs/hummingbot/bin:$PATH
-RUN ln -sf /home/hummingbot/bin/hbot /opt/conda/envs/hummingbot/bin/hbot
+ENV PATH=/opt/conda/envs/kairos/bin:$PATH
+RUN ln -sf /home/kairos/bin/hbot /opt/conda/envs/kairos/bin/hbot
 
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
 
 # Set the default command to run when starting the container
 
-CMD conda activate hummingbot && ./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
+CMD conda activate hummingbot && ./bin/kairos_quickstart.py 2>> ./logs/errors.log

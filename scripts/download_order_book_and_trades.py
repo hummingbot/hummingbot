@@ -5,12 +5,12 @@ from typing import Dict
 
 from pydantic import Field
 
-from hummingbot import data_path
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import MarketDict
-from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from kairos import data_path
+from kairos.connector.connector_base import ConnectorBase
+from kairos.core.data_type.common import MarketDict
+from kairos.core.event.event_forwarder import SourceInfoEventForwarder
+from kairos.core.event.events import OrderBookEvent, OrderBookTradeEvent
+from kairos.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
 class DownloadTradesAndOrderBookSnapshotsConfig(StrategyV2ConfigBase):

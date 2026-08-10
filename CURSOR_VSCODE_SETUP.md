@@ -31,15 +31,15 @@ CONDA_ENV=hummingbot
         // "-v",  // optional: verbose output
 
         // From MakeFile (currently broken tests - KEEP UPDATED)
-        "--ignore=test/hummingbot/connector/derivative/dydx_v4_perpetual/",
-        "--ignore=test/hummingbot/connector/derivative/injective_v2_perpetual/",
-        "--ignore=test/hummingbot/connector/exchange/injective_v2/",
-        "--ignore=test/hummingbot/remote_iface/",
+        "--ignore=test/kairos/connector/derivative/dydx_v4_perpetual/",
+        "--ignore=test/kairos/connector/derivative/injective_v2_perpetual/",
+        "--ignore=test/kairos/connector/exchange/injective_v2/",
+        "--ignore=test/kairos/remote_iface/",
         "--ignore=test/connector/utilities/oms_connector/",
-        "--ignore=test/hummingbot/strategy/amm_arb/",
+        "--ignore=test/kairos/strategy/amm_arb/",
 
         // Skip prompt tests that modify conf_client.yml
-        "--ignore=test/hummingbot/client/command/test_create_command.py",
+        "--ignore=test/kairos/client/command/test_create_command.py",
     ],
     "python.envFile": "${workspaceFolder}/.env",
     "python.terminal.activateEnvironment": true,
@@ -57,7 +57,7 @@ CONDA_ENV=hummingbot
             "name": "Python: Hummingbot",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceRoot}/bin/hummingbot.py",
+            "program": "${workspaceRoot}/bin/kairos.py",
             "console": "integratedTerminal"
         }
     ]
@@ -81,8 +81,8 @@ CONDA_ENV=hummingbot
     * Open your terminal.
     * Run the following commands to create a symbolic link to work around a known Conda environment detection issue:
         ```bash
-        mkdir -p ~/anaconda3/envs/hummingbot/envs
-        ln -s ~/anaconda3/envs/hummingbot/ ~/anaconda3/envs/hummingbot/envs/hummingbot
+        mkdir -p ~/anaconda3/envs/kairos/envs
+        ln -s ~/anaconda3/envs/kairos/ ~/anaconda3/envs/kairos/envs/hummingbot
         ```
         **Note:** Adjust `~/anaconda3/envs/hummingbot` to the actual path of your `hummingbot` Conda environment if it's located elsewhere.
 

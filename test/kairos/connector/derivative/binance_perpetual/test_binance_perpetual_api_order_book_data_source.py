@@ -1,0 +1,694 @@
+import asyncio
+import json
+import re
+from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from typing import Any, Dict, List
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from aioresponses.core import aioresponses
+from bidict import bidict
+
+import kairos.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
+from kairos.client.config.client_config_map import ClientConfigMap
+from kairos.client.config.config_helpers import ClientConfigAdapter
+from kairos.connector.derivative.binance_perpetual import binance_perpetual_web_utils as web_utils
+from kairos.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
+    BinancePerpetualAPIOrderBookDataSource,
+)
+from kairos.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from kairos.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from kairos.connector.time_synchronizer import TimeSynchronizer
+from kairos.core.data_type.funding_info import FundingInfo
+from kairos.core.data_type.order_book import OrderBook
+from kairos.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+
+
+class BinancePerpetualAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
+    # logging.Level required to receive logs from the data source logger
+    level = 0
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
+        cls.domain = "binance_perpetual_testnet"
+
+    async def asyncSetUp(self) -> None:
+        self.log_records = []
+        self.listening_task = None
+        self.async_tasks: List[asyncio.Task] = []
+
+        self.time_synchronizer = TimeSynchronizer()
+        self.time_synchronizer.add_time_offset_ms_sample(0)
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = BinancePerpetualDerivative(
+            client_config_map,
+            binance_perpetual_api_key="",
+            binance_perpetual_api_secret="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+            domain=self.domain,
+        )
+        self.data_source = BinancePerpetualAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
+            domain=self.domain,
+        )
+
+        self.data_source.logger().setLevel(1)
+        self.data_source.logger().addHandler(self)
+
+        self.mocking_assistant = NetworkMockingAssistant(self.local_event_loop)
+        self.resume_test_event = asyncio.Event()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            self.domain: bidict({self.ex_trading_pair: self.trading_pair})
+        }
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+
+    def tearDown(self) -> None:
+        self.listening_task and self.listening_task.cancel()
+        for task in self.async_tasks:
+            task.cancel()
+        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        super().tearDown()
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def resume_test_callback(self, *_, **__):
+        self.resume_test_event.set()
+        return None
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+
+    def _raise_exception(self, exception_class):
+        raise exception_class
+
+    def _raise_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
+
+    def _orderbook_update_event(self):
+        resp = {
+            "stream": f"{self.ex_trading_pair.lower()}@depth",
+            "data": {
+                "e": "depthUpdate",
+                "E": 1631591424198,
+                "T": 1631591424189,
+                "s": self.ex_trading_pair,
+                "U": 752409354963,
+                "u": 752409360466,
+                "pu": 752409354901,
+                "b": [
+                    ["43614.31", "0.000"],
+                ],
+                "a": [
+                    ["45277.14", "0.257"],
+                ],
+            },
+        }
+        return resp
+
+    def _orderbook_trade_event(self):
+        resp = {
+            "stream": f"{self.ex_trading_pair.lower()}@aggTrade",
+            "data": {
+                "e": "aggTrade",
+                "E": 1631594403486,
+                "a": 817295132,
+                "s": self.ex_trading_pair,
+                "p": "45266.16",
+                "q": "2.206",
+                "f": 1437689393,
+                "l": 1437689407,
+                "T": 1631594403330,
+                "m": False,
+            },
+        }
+        return resp
+
+    def _funding_info_event(self):
+        resp = {
+            "stream": f"{self.ex_trading_pair.lower()}@markPrice",
+            "data": {
+                "e": "markPriceUpdate",
+                "E": 1641288864000,
+                "s": self.ex_trading_pair,
+                "p": "46353.99600757",
+                "P": "46507.47845460",
+                "i": "46358.63622407",
+                "r": "0.00010000",
+                "T": 1641312000000,
+            },
+        }
+        return resp
+
+    @aioresponses()
+    async def test_get_snapshot_exception_raised(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, status=400, body=json.dumps(["ERROR"]))
+
+        with self.assertRaises(IOError) as context:
+            await self.data_source._order_book_snapshot(trading_pair=self.trading_pair)
+
+        self.assertIn("HTTP status is 400. Error: [\"ERROR\"]",
+                      str(context.exception))
+
+    @aioresponses()
+    async def test_get_snapshot_successful(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "lastUpdateId": 1027024,
+            "E": 1589436922972,
+            "T": 1589436922959,
+            "bids": [["10", "1"]],
+            "asks": [["11", "1"]],
+        }
+        mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
+
+        result: Dict[str, Any] = await self.data_source._request_order_book_snapshot(trading_pair=self.trading_pair)
+        self.assertEqual(mock_response, result)
+
+    @aioresponses()
+    async def test_get_new_order_book(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "lastUpdateId": 1027024,
+            "E": 1589436922972,
+            "T": 1589436922959,
+            "bids": [["10", "1"]],
+            "asks": [["11", "1"]],
+        }
+        mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
+        result = await self.data_source.get_new_order_book(trading_pair=self.trading_pair)
+        self.assertIsInstance(result, OrderBook)
+        self.assertEqual(1027024, result.snapshot_uid)
+
+    @aioresponses()
+    async def test_get_funding_info_from_exchange_successful(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "symbol": self.ex_trading_pair,
+            "markPrice": "46382.32704603",
+            "indexPrice": "46385.80064948",
+            "estimatedSettlePrice": "46510.13598963",
+            "lastFundingRate": "0.00010000",
+            "interestRate": "0.00010000",
+            "nextFundingTime": 1641312000000,
+            "time": 1641288825000,
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        result = await self.data_source.get_funding_info(self.trading_pair)
+
+        self.assertIsInstance(result, FundingInfo)
+        self.assertEqual(result.trading_pair, self.trading_pair)
+        self.assertEqual(result.index_price, Decimal(mock_response["indexPrice"]))
+        self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
+        self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
+        self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
+
+    @aioresponses()
+    async def test_get_funding_info(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "symbol": self.ex_trading_pair,
+            "markPrice": "46382.32704603",
+            "indexPrice": "46385.80064948",
+            "estimatedSettlePrice": "46510.13598963",
+            "lastFundingRate": "0.00010000",
+            "interestRate": "0.00010000",
+            "nextFundingTime": 1641312000000,
+            "time": 1641288825000,
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        result = await self.data_source.get_funding_info(trading_pair=self.trading_pair)
+
+        self.assertIsInstance(result, FundingInfo)
+        self.assertEqual(result.trading_pair, self.trading_pair)
+        self.assertEqual(result.index_price, Decimal(mock_response["indexPrice"]))
+        self.assertEqual(result.mark_price, Decimal(mock_response["markPrice"]))
+        self.assertEqual(result.next_funding_utc_timestamp, int(mock_response["nextFundingTime"] * 1e-3))
+        self.assertEqual(result.rate, Decimal(mock_response["lastFundingRate"]))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("kairos.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    async def test_listen_for_subscriptions_cancelled_when_connecting(self, _, mock_ws):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        mock_ws.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_subscriptions()
+        self.assertEqual(msg_queue.qsize(), 0)
+
+    @patch("kairos.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+        sleep_mock.side_effect = asyncio.CancelledError
+        mock_ws.side_effect = Exception("TEST ERROR.")
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_subscriptions()
+
+        self.assertTrue(
+            self._is_logged("ERROR",
+                            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
+        )
+
+    async def test_subscribe_public_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source._subscribe_public_channels(mock_ws)
+
+    async def test_subscribe_public_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            await self.data_source._subscribe_public_channels(mock_ws)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book streams...")
+        )
+
+    async def test_subscribe_market_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source._subscribe_market_channels(mock_ws)
+
+    async def test_subscribe_market_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            await self.data_source._subscribe_market_channels(mock_ws)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to market streams...")
+        )
+
+    async def test_channel_originating_message_returns_correct(self):
+        event_type = self._orderbook_update_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._diff_messages_queue_key, event_message)
+
+        event_type = self._funding_info_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._funding_info_messages_queue_key, event_message)
+
+        event_type = self._orderbook_trade_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_successful(self, mock_ws):
+        msg_queue_diffs: asyncio.Queue = asyncio.Queue()
+        msg_queue_trades: asyncio.Queue = asyncio.Queue()
+        msg_queue_funding: asyncio.Queue = asyncio.Queue()
+
+        # Both public and market WS connections use the same mock
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.close.return_value = None
+
+        # Feed messages through the mocked websocket (both connections share same mock)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps(self._orderbook_update_event())
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps(self._orderbook_trade_event())
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps(self._funding_info_event())
+        )
+
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task_diffs = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue_diffs)
+        )
+        self.listening_task_trades = self.local_event_loop.create_task(
+            self.data_source.listen_for_trades(self.local_event_loop, msg_queue_trades)
+        )
+        self.listening_task_funding_info = self.local_event_loop.create_task(
+            self.data_source.listen_for_funding_info(msg_queue_funding))
+
+        result: OrderBookMessage = await msg_queue_diffs.get()
+        self.assertIsInstance(result, OrderBookMessage)
+        self.assertEqual(OrderBookMessageType.DIFF, result.type)
+        self.assertTrue(result.has_update_id)
+        self.assertEqual(result.update_id, 752409360466)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(1, len(result.content["bids"]))
+        self.assertEqual(1, len(result.content["asks"]))
+
+        result: OrderBookMessage = await msg_queue_trades.get()
+        self.assertIsInstance(result, OrderBookMessage)
+        self.assertEqual(OrderBookMessageType.TRADE, result.type)
+        self.assertTrue(result.has_trade_id)
+        self.assertEqual(result.trade_id, 817295132)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+    async def test_parse_order_book_diff_message_includes_first_update_id(self):
+        diff_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(
+            raw_message=self._orderbook_update_event(), message_queue=diff_queue)
+
+        result: OrderBookMessage = diff_queue.get_nowait()
+        self.assertEqual(OrderBookMessageType.DIFF, result.type)
+        self.assertEqual(752409360466, result.update_id)
+        self.assertEqual(752409354963, result.first_update_id)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        # The last applied `u` is tracked to validate the next diff's `pu`.
+        self.assertEqual(752409360466, self.data_source._last_update_id[self.trading_pair])
+
+    async def test_parse_order_book_diff_message_sequence_gap_forces_resync(self):
+        diff_queue: asyncio.Queue = asyncio.Queue()
+
+        # First diff establishes the sequence (the `pu` chain is not validated on the first event).
+        await self.data_source._parse_order_book_diff_message(
+            raw_message=self._orderbook_update_event(), message_queue=diff_queue)
+        self.assertEqual(1, diff_queue.qsize())
+        last_u = self.data_source._last_update_id[self.trading_pair]
+
+        # Second diff whose `pu` does not chain to the previous `u` -> sequence gap.
+        gapped = self._orderbook_update_event()
+        gapped["data"]["U"] = last_u + 100
+        gapped["data"]["u"] = last_u + 200
+        gapped["data"]["pu"] = last_u + 50
+
+        await self.data_source._parse_order_book_diff_message(raw_message=gapped, message_queue=diff_queue)
+
+        # The gapped diff is not forwarded to the diff stream.
+        self.assertEqual(1, diff_queue.qsize())
+        # A resync request for the pair is queued on the snapshot channel.
+        snapshot_requests = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        self.assertEqual(1, snapshot_requests.qsize())
+        self.assertEqual(self.trading_pair, snapshot_requests.get_nowait())
+        # The stale tracking is cleared so the post-snapshot diff is not falsely flagged.
+        self.assertNotIn(self.trading_pair, self.data_source._last_update_id)
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                f"Order book diff sequence gap for {self.trading_pair} "
+                f"(expected pu={last_u}, got pu={last_u + 50}). Forcing a snapshot resync.",
+            )
+        )
+
+    @aioresponses()
+    async def test_listen_for_order_book_snapshots_serves_on_demand_resync_request(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_response = {
+            "lastUpdateId": 1027024,
+            "E": 1589436922972,
+            "T": 1589436922959,
+            "bids": [["10", "1"]],
+            "asks": [["11", "1"]],
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response), repeat=True)
+
+        # Queue an on-demand resync request (as the diff parser does on a gap) before starting the loop.
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key].put_nowait(self.trading_pair)
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
+
+        # First snapshot comes from the initial hourly reset, the second from the on-demand resync request.
+        hourly_reset = await msg_queue.get()
+        on_demand = await msg_queue.get()
+
+        for snapshot in (hourly_reset, on_demand):
+            self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot.type)
+            self.assertEqual(self.trading_pair, snapshot.content["trading_pair"])
+            self.assertEqual(1027024, snapshot.update_id)
+
+    @aioresponses()
+    async def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+
+        self.assertEqual(0, msg_queue.qsize())
+
+    @aioresponses()
+    async def test_listen_for_order_book_snapshots_logs_exception_error_with_response(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "m": 1,
+            "i": 2,
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response), callback=self.resume_test_callback)
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
+
+        await self.resume_test_event.wait()
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...")
+        )
+
+    @aioresponses()
+    async def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "lastUpdateId": 1027024,
+            "E": 1589436922972,
+            "T": 1589436922959,
+            "bids": [["10", "1"]],
+            "asks": [["11", "1"]],
+        }
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
+        )
+
+        result = await msg_queue.get()
+
+        self.assertIsInstance(result, OrderBookMessage)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
+        self.assertTrue(result.has_update_id)
+        self.assertEqual(result.update_id, 1027024)
+        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+
+    async def test_listen_for_funding_info_cancelled_error_raised(self):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_funding_info(mock_queue)
+
+    # Dynamic subscription tests for subscribe_to_trading_pair and unsubscribe_from_trading_pair
+
+    async def test_subscribe_to_trading_pair_successful(self):
+        """Test successful subscription to a new trading pair."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        # Set up the symbol map for the new pair
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        # Create mock WebSocket assistants for both public and market connections
+        mock_ws = AsyncMock()
+        mock_market_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = mock_market_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        # 1 send to public WS (@depth)
+        self.assertEqual(1, mock_ws.send.call_count)
+        # 2 sends to market WS (@aggTrade, @markPrice)
+        self.assertEqual(2, mock_market_ws.send.call_count)
+
+        # Verify pair was added to trading pairs
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"Subscribed to {new_pair} order book, trade and funding info channels")
+        )
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self):
+        """Test subscription fails when WebSocket is not connected."""
+        new_pair = "ETH-USDT"
+
+        # Ensure ws_assistant is None
+        self.data_source._ws_assistant = None
+        self.data_source._market_ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
+        )
+
+    async def test_subscribe_to_trading_pair_market_ws_not_connected(self):
+        """Test subscription fails when market WebSocket is not connected."""
+        new_pair = "ETH-USDT"
+
+        self.data_source._ws_assistant = AsyncMock()
+        self.data_source._market_ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot subscribe to {new_pair}: WebSocket not connected")
+        )
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly raised during subscription."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = AsyncMock()
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(new_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self):
+        """Test that exceptions during subscription are logged and return False."""
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.ex_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = AsyncMock()
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error subscribing to {new_pair}")
+        )
+
+    async def test_unsubscribe_from_trading_pair_successful(self):
+        """Test successful unsubscription from a trading pair."""
+        # The trading pair is already added in setup
+        self.assertIn(self.trading_pair, self.data_source._trading_pairs)
+
+        mock_ws = AsyncMock()
+        mock_market_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = mock_market_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        # 1 unsubscribe to public WS (@depth)
+        self.assertEqual(1, mock_ws.send.call_count)
+        # 1 unsubscribe to market WS (@aggTrade + @markPrice in one message)
+        self.assertEqual(1, mock_market_ws.send.call_count)
+
+        # Verify pair was removed from trading pairs
+        self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
+
+        self.assertTrue(
+            self._is_logged("INFO", f"Unsubscribed from {self.trading_pair} order book, trade and funding info channels")
+        )
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self):
+        """Test unsubscription fails when WebSocket is not connected."""
+        self.data_source._ws_assistant = None
+        self.data_source._market_ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket not connected")
+        )
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self):
+        """Test that CancelledError is properly raised during unsubscription."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = AsyncMock()
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self):
+        """Test that exceptions during unsubscription are logged and return False."""
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+        self.data_source._market_ws_assistant = AsyncMock()
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}")
+        )
+
+    async def test_connected_websocket_assistant_uses_public_endpoint(self):
+        """Test that the public WS connects to the /public endpoint."""
+        expected_url = web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self.domain)
+        self.assertIn("public/stream", expected_url)
+
+    async def test_connected_market_websocket_assistant_uses_market_endpoint(self):
+        """Test that the market WS connects to the /market endpoint."""
+        expected_url = web_utils.wss_url(CONSTANTS.MARKET_WS_ENDPOINT, self.domain)
+        self.assertIn("market", expected_url)
+
+    async def test_market_ws_assistant_initialized_to_none(self):
+        """Test that the market WS assistant is initialized to None."""
+        self.assertIsNone(self.data_source._market_ws_assistant)

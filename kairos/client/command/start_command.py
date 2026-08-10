@@ -1,0 +1,160 @@
+import asyncio
+import platform
+import threading
+from typing import TYPE_CHECKING, Callable, Optional
+
+import kairos.client.settings as settings
+from kairos import init_logging
+from kairos.client.config.config_validators import validate_bool
+from kairos.client.config.config_var import ConfigVar
+from kairos.core.utils.async_utils import safe_ensure_future
+from kairos.exceptions import OracleRateUnavailable
+
+if TYPE_CHECKING:
+    from kairos.client.kairos_application import KairosApplication  # noqa: F401
+
+
+
+class StartCommand:
+    _in_start_check: bool = False
+
+    async def _run_clock(self):
+        with self.trading_core.clock as clock:
+            await clock.run()
+
+    async def wait_till_ready(self,  # type: KairosApplication
+                              func: Callable, *args, **kwargs):
+        while True:
+            all_ready = all([market.ready for market in self.trading_core.markets.values()])
+            if not all_ready:
+                await asyncio.sleep(0.5)
+            else:
+                return func(*args, **kwargs)
+
+    def start(self,  # type: KairosApplication
+              log_level: Optional[str] = None,
+              v2_conf: Optional[str] = None,
+              is_quickstart: Optional[bool] = False):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.start, log_level, v2_conf)
+            return
+        safe_ensure_future(self.start_check(log_level, v2_conf, is_quickstart), loop=self.ev_loop)
+
+    async def start_check(self,  # type: KairosApplication
+                          log_level: Optional[str] = None,
+                          v2_conf: Optional[str] = None,
+                          is_quickstart: Optional[bool] = False):
+
+        if self._in_start_check or (
+                self.trading_core.strategy_task is not None and not self.trading_core.strategy_task.done()):
+            self.notify('The bot is already running - please run "stop" first')
+            return
+
+        self._in_start_check = True
+
+        if settings.required_rate_oracle:
+            # If the strategy to run requires using the rate oracle to find FX rates, validate there is a rate for
+            # each configured token pair
+            if not (await self.confirm_oracle_conversion_rate()):
+                self.notify("The strategy failed to start.")
+                self._in_start_check = False
+                return
+
+        if v2_conf:
+            config_data = self._peek_config(v2_conf)
+            script_file = config_data.get("script_file_name", "")
+            if not script_file:
+                self.notify("Config file is missing 'script_file_name' field. Start aborted.")
+                self._in_start_check = False
+                return
+            file_name = script_file.replace(".py", "")
+            self.trading_core.strategy_name = file_name
+            self.strategy_file_name = v2_conf
+        elif not await self.status_check_all(notify_success=False):
+            self.notify("Status checks failed. Start aborted.")
+            self._in_start_check = False
+            return
+        init_logging("hummingbot_logs.yml",
+                     self.client_config_map,
+                     override_log_level=log_level.upper() if log_level else None,
+                     strategy_file_path=self.strategy_file_name)
+
+        # If macOS, disable App Nap.
+        if platform.system() == "Darwin":
+            import appnope
+            appnope.nope()
+
+        self._initialize_notifiers()
+
+        # Delegate strategy initialization to trading_core
+        try:
+            strategy_config = None
+            if self.trading_core.is_v2_strategy(self.trading_core.strategy_name):
+                # Config is always required for V2 strategies
+                strategy_config = self.strategy_file_name
+
+            success = await self.trading_core.start_strategy(
+                self.trading_core.strategy_name,
+                strategy_config,
+                self.strategy_file_name
+            )
+            if not success:
+                self._in_start_check = False
+                self.trading_core.strategy_name = None
+                self.strategy_file_name = None
+                self.notify("Invalid strategy. Start aborted.")
+                return
+        except Exception as e:
+            self._in_start_check = False
+            self.trading_core.strategy_name = None
+            self.strategy_file_name = None
+            self.notify(f"Invalid strategy. Start aborted {e}.")
+            raise
+
+        if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
+            self.notify("\nPaper Trading Active: All orders are simulated and no real orders are placed.")
+
+        self.notify(f"\nStatus check complete. Strategy '{self.trading_core.strategy_name}' started successfully.")
+        self._in_start_check = False
+
+        # Patch MQTT loggers if MQTT is available
+        if self._mqtt:
+            self._mqtt.patch_loggers()
+            self._mqtt.start_market_events_fw()
+
+    def _peek_config(self, conf_name: str) -> dict:
+        """Read minimal fields from a config file without full loading."""
+        import yaml
+
+        from kairos.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH
+
+        conf_path = SCRIPT_STRATEGY_CONF_DIR_PATH / conf_name
+        with open(conf_path) as f:
+            return yaml.safe_load(f) or {}
+
+    async def confirm_oracle_conversion_rate(self,  # type: KairosApplication
+                                             ) -> bool:
+        try:
+            result = False
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            for pair in settings.rate_oracle_pairs:
+                msg = await self.oracle_rate_msg(pair)
+                self.notify("\nRate Oracle:\n" + msg)
+            config = ConfigVar(key="confirm_oracle_use",
+                               type_str="bool",
+                               prompt="Please confirm to proceed if the above oracle source and rates are correct for "
+                                      "this strategy (Yes/No)  >>> ",
+                               required_if=lambda: True,
+                               validator=lambda v: validate_bool(v))
+            await self.prompt_a_config_legacy(config)
+            if config.value:
+                result = True
+        except OracleRateUnavailable:
+            self.notify("Oracle rate is not available.")
+        finally:
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+        return result

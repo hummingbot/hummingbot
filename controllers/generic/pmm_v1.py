@@ -15,13 +15,13 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from pydantic import Field, field_validator
 
-from hummingbot.core.data_type.common import MarketDict, PriceType, TradeType
-from hummingbot.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.strategy_v2.executors.data_types import ConnectorPair
-from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
-from hummingbot.strategy_v2.models.base import RunnableStatus
-from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
-from hummingbot.strategy_v2.models.executors import CloseType
+from kairos.core.data_type.common import MarketDict, PriceType, TradeType
+from kairos.strategy_v2.controllers.controller_base import ControllerBase, ControllerConfigBase
+from kairos.strategy_v2.executors.data_types import ConnectorPair
+from kairos.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
+from kairos.strategy_v2.models.base import RunnableStatus
+from kairos.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
+from kairos.strategy_v2.models.executors import CloseType
 
 
 class PMMV1Config(ControllerConfigBase):

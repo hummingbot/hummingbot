@@ -4,13 +4,13 @@ from typing import List, Optional
 import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 
-from hummingbot.core.data_type.common import TradeType
-from hummingbot.strategy_v2.controllers.market_making_controller_base import (
+from kairos.core.data_type.common import TradeType
+from kairos.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
-from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
+from kairos.strategy_v2.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
+from kairos.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class DManMakerV2Config(MarketMakingControllerConfigBase):

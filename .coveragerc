@@ -1,37 +1,36 @@
 [run]
-source_pkgs = hummingbot
+source_pkgs = kairos
 omit =
-        hummingbot/core/gateway/*
-        hummingbot/core/management/*
-        hummingbot/client/config/config_helpers.py
-        hummingbot/client/config/conf_migration.py
-        hummingbot/client/config/security.py
-        hummingbot/client/hummingbot_application.py
-        hummingbot/client/command/*
-        hummingbot/client/settings.py
-        hummingbot/client/ui/completer.py
-        hummingbot/client/ui/layout.py
-        hummingbot/client/tab/*
-        hummingbot/client/ui/parser.py
-        hummingbot/connector/derivative/position.py
-        hummingbot/connector/derivative/dydx_v4_perpetual/*
-        hummingbot/connector/derivative/dydx_v4_perpetual/data_sources/*
-        hummingbot/connector/exchange/injective_v2/account_delegation_script.py
-        hummingbot/connector/exchange/mexc/protobuf/*
-        hummingbot/connector/exchange/paper_trade*
-        hummingbot/connector/gateway/**
-        hummingbot/connector/test_support/*
-        hummingbot/core/utils/gateway_config_utils.py
-        hummingbot/core/utils/kill_switch.py
-        hummingbot/core/utils/wallet_setup.py
-        hummingbot/connector/mock*
-        hummingbot/strategy/*/start.py
-        hummingbot/strategy/dev*
-        hummingbot/user/user_balances.py
-        hummingbot/connector/exchange/cube/cube_ws_protobufs/*
-        hummingbot/connector/exchange/ndax/*
-        hummingbot/strategy/amm_arb/*
-        hummingbot/strategy_v2/backtesting/*
+        kairos/core/management/*
+        kairos/client/config/config_helpers.py
+        kairos/client/config/conf_migration.py
+        kairos/client/config/security.py
+        kairos/client/kairos_application.py
+        kairos/client/command/*
+        kairos/client/settings.py
+        kairos/client/ui/completer.py
+        kairos/client/ui/layout.py
+        kairos/client/tab/*
+        kairos/client/ui/parser.py
+        kairos/connector/derivative/position.py
+        kairos/connector/derivative/dydx_v4_perpetual/*
+        kairos/connector/derivative/dydx_v4_perpetual/data_sources/*
+        kairos/connector/exchange/injective_v2/account_delegation_script.py
+        kairos/connector/exchange/mexc/protobuf/*
+        kairos/connector/exchange/paper_trade*
+        kairos/connector/gateway/**
+        kairos/connector/test_support/*
+        kairos/core/utils/gateway_config_utils.py
+        kairos/core/utils/kill_switch.py
+        kairos/core/utils/wallet_setup.py
+        kairos/connector/mock*
+        kairos/strategy/*/start.py
+        kairos/strategy/dev*
+        kairos/user/user_balances.py
+        kairos/connector/exchange/cube/cube_ws_protobufs/*
+        kairos/connector/exchange/ndax/*
+        kairos/strategy/amm_arb/*
+        kairos/strategy_v2/backtesting/*
 dynamic_context = test_function
 branch = true
 

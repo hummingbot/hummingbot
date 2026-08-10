@@ -2,8 +2,8 @@ import argparse
 
 import path_util  # noqa: F401
 
-from hummingbot.client.config.conf_migration import migrate_configs
-from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
+from kairos.client.config.conf_migration import migrate_configs
+from kairos.client.config.config_crypt import ETHKeyFileSecretManger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Migrate the HummingBot confs")

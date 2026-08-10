@@ -36,7 +36,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: hummingbot/hummingbot:development
+          tags: kairos/hummingbot:development
 
       - name: Build and push Latest Image
         if: github.base_ref == 'master'
@@ -46,7 +46,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: hummingbot/hummingbot:latest
+          tags: kairos/hummingbot:latest
 
   build_release:
     if: github.event_name == 'release'
@@ -77,4 +77,4 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: hummingbot/hummingbot:${{ steps.get_tag.outputs.VERSION }}
+          tags: kairos/hummingbot:${{ steps.get_tag.outputs.VERSION }}

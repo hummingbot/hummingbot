@@ -5,12 +5,12 @@ import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.strategy_v2.controllers.market_making_controller_base import (
+from kairos.data_feed.candles_feed.data_types import CandlesConfig
+from kairos.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from kairos.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 
 
 class PMMDynamicControllerConfig(MarketMakingControllerConfigBase):

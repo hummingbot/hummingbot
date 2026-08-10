@@ -1,0 +1,344 @@
+import importlib
+from decimal import Decimal
+from enum import Enum
+from os import DirEntry, scandir
+from os.path import exists, join
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Union, cast
+
+from pydantic import SecretStr
+
+from kairos import get_strategy_list, root_path
+from kairos.core.data_type.trade_fee import TradeFeeSchema
+
+if TYPE_CHECKING:
+    from kairos.client.config.config_data_types import BaseConnectorConfigMap
+    from kairos.connector.connector_base import ConnectorBase
+
+
+# Global variables
+required_exchanges: Set[str] = set()
+requried_connector_trading_pairs: Dict[str, List[str]] = {}
+# Set these two variables if a strategy uses oracle for rate conversion
+required_rate_oracle: bool = False
+rate_oracle_pairs: List[str] = []
+
+# Global static values
+KEYFILE_PREFIX = "key_file_"
+KEYFILE_POSTFIX = ".yml"
+ENCYPTED_CONF_POSTFIX = ".json"
+DEFAULT_LOG_FILE_PATH = root_path() / "logs"
+TEMPLATE_PATH = root_path() / "kairos" / "templates"
+CONF_DIR_PATH = root_path() / "conf"
+CLIENT_CONFIG_PATH = CONF_DIR_PATH / "conf_client.yml"
+TRADE_FEES_CONFIG_PATH = CONF_DIR_PATH / "conf_fee_overrides.yml"
+STRATEGIES_CONF_DIR_PATH = CONF_DIR_PATH / "strategies"
+CONNECTORS_CONF_DIR_PATH = CONF_DIR_PATH / "connectors"
+SCRIPT_STRATEGY_CONF_DIR_PATH = CONF_DIR_PATH / "scripts"
+CONTROLLERS_CONF_DIR_PATH = CONF_DIR_PATH / "controllers"
+CONF_PREFIX = "conf_"
+CONF_POSTFIX = "_strategy"
+SCRIPT_STRATEGIES_MODULE = "scripts"
+SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
+CONTROLLERS_MODULE = "controllers"
+CONTROLLERS_PATH = root_path() / CONTROLLERS_MODULE
+CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES = ["test_support", "utilities"]
+
+
+class ConnectorType(Enum):
+    """
+    The types of exchanges that hummingbot client can communicate with.
+    """
+
+    Connector = "connector"
+    Exchange = "exchange"
+    Derivative = "derivative"
+
+
+class ConnectorSetting(NamedTuple):
+    name: str
+    type: ConnectorType
+    example_pair: str
+    centralised: bool
+    use_ethereum_wallet: bool
+    trade_fee_schema: TradeFeeSchema
+    config_keys: Optional["BaseConnectorConfigMap"]
+    is_sub_domain: bool
+    parent_name: Optional[str]
+    domain_parameter: Optional[str]
+    use_eth_gas_lookup: bool
+    """
+    This class has metadata data about Exchange connections. The name of the connection and the file path location of
+    the connector file.
+    """
+
+    def connector_connected(self) -> str:
+        from kairos.client.config.security import Security
+        return True if Security.connector_config_file_exists(self.name) else False
+
+    def module_name(self) -> str:
+        # returns connector module name, e.g. binance_exchange
+        return f"{self.base_name()}_{self._get_module_package()}"
+
+    def module_path(self) -> str:
+        # return connector full path name, e.g. kairos.connector.exchange.binance.binance_exchange
+        return f"kairos.connector.{self._get_module_package()}.{self.base_name()}.{self.module_name()}"
+
+    def class_name(self) -> str:
+        # return connector class name, e.g. BinanceExchange
+        return "".join([o.capitalize() for o in self.module_name().split("_")])
+
+    def conn_init_parameters(
+        self,
+        trading_pairs: Optional[List[str]] = None,
+        trading_required: bool = False,
+        api_keys: Optional[Dict[str, Any]] = None,
+        balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
+        rate_limits_share_pct: Decimal = Decimal("100"),
+    ) -> Dict[str, Any]:
+        trading_pairs = trading_pairs or []
+        api_keys = api_keys or {}
+        if not self.is_sub_domain:
+            params = api_keys
+        else:
+            params: Dict[str, Any] = {k.replace(self.name, self.parent_name): v for k, v in api_keys.items()}
+            params["domain"] = self.domain_parameter
+            params["rate_limits_share_pct"] = rate_limits_share_pct
+
+        params["trading_pairs"] = trading_pairs
+        params["trading_required"] = trading_required
+        params["balance_asset_limit"] = balance_asset_limit
+        if (self.config_keys is not None
+                and type(self.config_keys) is not dict
+                and "receive_connector_configuration" in self.config_keys.__class__.model_fields
+                and self.config_keys.receive_connector_configuration):
+            params["connector_configuration"] = self.config_keys
+
+        return params
+
+    def add_domain_parameter(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.is_sub_domain:
+            return params
+        else:
+            params["domain"] = self.domain_parameter
+            return params
+
+    def base_name(self) -> str:
+        if self.is_sub_domain:
+            return self.parent_name
+        else:
+            return self.name
+
+    def non_trading_connector_instance_with_default_configuration(
+            self,
+            trading_pairs: Optional[List[str]] = None) -> 'ConnectorBase':
+        from kairos.client.config.config_helpers import ClientConfigAdapter
+
+        trading_pairs = trading_pairs or []
+        connector_class = getattr(importlib.import_module(self.module_path()), self.class_name())
+        kwargs = {}
+        if isinstance(self.config_keys, Dict):
+            kwargs = {key: (config.value or "") for key, config in self.config_keys.items()}  # legacy
+        elif self.config_keys is not None:
+            kwargs = {
+                traverse_item.attr: traverse_item.value.get_secret_value()
+                if isinstance(traverse_item.value, SecretStr)
+                else traverse_item.value or ""
+                for traverse_item
+                in ClientConfigAdapter(self.config_keys).traverse()
+                if traverse_item.attr != "connector"
+            }
+        kwargs = self.conn_init_parameters(
+            trading_pairs=trading_pairs,
+            trading_required=False,
+            api_keys=kwargs,
+            rate_limits_share_pct=Decimal("100"),
+            balance_asset_limit={},
+        )
+        kwargs = self.add_domain_parameter(kwargs)
+        connector = connector_class(**kwargs)
+
+        return connector
+
+    def _get_module_package(self) -> str:
+        return self.type.name.lower()
+
+
+class AllConnectorSettings:
+    paper_trade_connectors_names: List[str] = []
+    all_connector_settings: Dict[str, ConnectorSetting] = {}
+
+    @classmethod
+    def create_connector_settings(cls):
+        """
+        Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
+        """
+        cls.all_connector_settings = {}  # reset
+        connector_exceptions = ["mock_paper_exchange", "mock_pure_python_paper_exchange", "paper_trade"]
+
+        type_dirs: List[DirEntry] = [
+            cast(DirEntry, f) for f in scandir(f"{root_path() / 'kairos' / 'connector'}")
+            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
+        ]
+        for type_dir in type_dirs:
+            connector_dirs: List[DirEntry] = [
+                cast(DirEntry, f) for f in scandir(type_dir.path)
+                if f.is_dir() and exists(join(f.path, "__init__.py"))
+            ]
+            for connector_dir in connector_dirs:
+                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
+                    continue
+                if connector_dir.name in cls.all_connector_settings:
+                    raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
+                try:
+                    util_module_path: str = f"kairos.connector.{type_dir.name}." \
+                                            f"{connector_dir.name}.{connector_dir.name}_utils"
+                    util_module = importlib.import_module(util_module_path)
+                except ModuleNotFoundError:
+                    continue
+                trade_fee_settings: List[float] = getattr(util_module, "DEFAULT_FEES", None)
+                trade_fee_schema: TradeFeeSchema = cls._validate_trade_fee_schema(
+                    connector_dir.name, trade_fee_settings
+                )
+                cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
+                    name=connector_dir.name,
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
+                    trade_fee_schema=trade_fee_schema,
+                    config_keys=getattr(util_module, "KEYS", None),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False),
+                )
+                # Adds other domains of connector
+                other_domains = getattr(util_module, "OTHER_DOMAINS", [])
+                for domain in other_domains:
+                    trade_fee_settings = getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain]
+                    trade_fee_schema = cls._validate_trade_fee_schema(domain, trade_fee_settings)
+                    parent = cls.all_connector_settings[connector_dir.name]
+                    cls.all_connector_settings[domain] = ConnectorSetting(
+                        name=domain,
+                        type=parent.type,
+                        centralised=parent.centralised,
+                        example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
+                        use_ethereum_wallet=parent.use_ethereum_wallet,
+                        trade_fee_schema=trade_fee_schema,
+                        config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
+                        is_sub_domain=True,
+                        parent_name=parent.name,
+                        domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
+                        use_eth_gas_lookup=parent.use_eth_gas_lookup,
+                    )
+
+        return cls.all_connector_settings
+
+    @classmethod
+    def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):
+        cls.paper_trade_connectors_names = paper_trade_exchanges
+        for e in paper_trade_exchanges:
+            base_connector_settings: Optional[ConnectorSetting] = cls.all_connector_settings.get(e, None)
+            if base_connector_settings:
+                paper_trade_settings = ConnectorSetting(
+                    name=f"{e}_paper_trade",
+                    type=base_connector_settings.type,
+                    centralised=base_connector_settings.centralised,
+                    example_pair=base_connector_settings.example_pair,
+                    use_ethereum_wallet=base_connector_settings.use_ethereum_wallet,
+                    trade_fee_schema=base_connector_settings.trade_fee_schema,
+                    config_keys=base_connector_settings.config_keys,
+                    is_sub_domain=False,
+                    parent_name=base_connector_settings.name,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=base_connector_settings.use_eth_gas_lookup,
+                )
+                cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
+
+    @classmethod
+    def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
+        if len(cls.all_connector_settings) == 0:
+            cls.all_connector_settings = cls.create_connector_settings()
+        return cls.all_connector_settings
+
+    @classmethod
+    def get_connector_config_keys(cls, connector: str) -> Optional["BaseConnectorConfigMap"]:
+        return cls.get_connector_settings()[connector].config_keys
+
+    @classmethod
+    def reset_connector_config_keys(cls, connector: str):
+        current_settings = cls.get_connector_settings()[connector]
+        current_keys = current_settings.config_keys
+        new_keys = (
+            current_keys if current_keys is None else current_keys.__class__.model_construct()
+        )
+        cls.update_connector_config_keys(new_keys)
+
+    @classmethod
+    def update_connector_config_keys(cls, new_config_keys: "BaseConnectorConfigMap"):
+        current_settings = cls.get_connector_settings()[new_config_keys.connector]
+        new_keys_settings_dict = current_settings._asdict()
+        new_keys_settings_dict.update({"config_keys": new_config_keys})
+        cls.get_connector_settings()[new_config_keys.connector] = ConnectorSetting(
+            **new_keys_settings_dict
+        )
+
+    @classmethod
+    def get_exchange_names(cls) -> Set[str]:
+        return {
+            cs.name for cs in cls.get_connector_settings().values()
+            if cs.type is ConnectorType.Exchange
+        }.union(set(cls.paper_trade_connectors_names))
+
+    @classmethod
+    def get_derivative_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+
+    @classmethod
+    def get_other_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Connector}
+
+    @classmethod
+    def get_eth_wallet_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
+
+    @classmethod
+    def get_example_pairs(cls) -> Dict[str, str]:
+        return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
+
+    @classmethod
+    def get_example_assets(cls) -> Dict[str, str]:
+        return {name: cs.example_pair.split("-")[0] for name, cs in cls.get_connector_settings().items()}
+
+    @staticmethod
+    def _validate_trade_fee_schema(
+        exchange_name: str, trade_fee_schema: Optional[Union[TradeFeeSchema, List[float]]]
+    ) -> TradeFeeSchema:
+        if not isinstance(trade_fee_schema, TradeFeeSchema):
+            # backward compatibility
+            maker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[0])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
+            taker_percent_fee_decimal = (
+                Decimal(str(trade_fee_schema[1])) / Decimal("100") if trade_fee_schema is not None else Decimal("0")
+            )
+            trade_fee_schema = TradeFeeSchema(
+                maker_percent_fee_decimal=maker_percent_fee_decimal,
+                taker_percent_fee_decimal=taker_percent_fee_decimal,
+            )
+        return trade_fee_schema
+
+
+def connectable_exchange_names() -> Set[str]:
+    """Exchanges a user can store API keys for: CEX/native connectors (not Ethereum-wallet), minus
+    probit_kr. Shared by the interactive `connect` command and the `hbot connect` CLI so the
+    connectable set can't drift between the two."""
+    return {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
+            if not cs.use_ethereum_wallet and cs.name != "probit_kr"}
+
+
+MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
+MAXIMUM_LOG_PANE_LINE_COUNT = 1000
+MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
+
+STRATEGIES: List[str] = get_strategy_list()

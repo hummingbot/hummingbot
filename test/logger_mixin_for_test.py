@@ -6,7 +6,7 @@ from typing import Callable, List, Protocol
 
 from async_timeout import timeout
 
-from hummingbot.logger import HummingbotLogger
+from kairos.logger import KairosLogger
 
 
 class LogLevel:
@@ -70,16 +70,16 @@ class LoggerMixinForTest(LoggerMixinProtocol):
             log_level = logging.getLevelName(log_level)
         return log_level
 
-    def set_loggers(self, loggers: List[HummingbotLogger] | HummingbotLogger):
+    def set_loggers(self, loggers: List[KairosLogger] | KairosLogger):
         """
         Set up the test logger mixin by adding the test logger to the provided loggers list.
-        :params List[HummingbotLogger] | HummingbotLogger loggers: The loggers to add to the LoggerMixinForTest.
+        :params List[KairosLogger] | KairosLogger loggers: The loggers to add to the LoggerMixinForTest.
         """
         # __init__() may not be called if the class is used as a mixin
         if not hasattr(self, "log_records"):
             self._initialize()
 
-        if isinstance(loggers, HummingbotLogger):
+        if isinstance(loggers, KairosLogger):
             loggers = [loggers]
 
         for logger in loggers:

@@ -7,8 +7,8 @@ if "hummingbot-dist" in __file__:
     sys.path.append(sys.path.pop(0))
     sys.path.insert(0, os.getcwd())
 
-    import hummingbot
-    hummingbot.set_prefix_path(os.getcwd())
+    import kairos
+    kairos.set_prefix_path(os.getcwd())
 else:
     # Dev environment.
     import sys

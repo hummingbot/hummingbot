@@ -51,7 +51,7 @@ jobs:
           CACHE_NUMBER: 0
         with:
           path: README.md # placeholder file
-          key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
+          key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('kairos/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
       # Check for setup/environment.yml changes
       - name: Cache conda dependencies

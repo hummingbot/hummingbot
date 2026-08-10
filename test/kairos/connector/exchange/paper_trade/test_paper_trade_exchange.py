@@ -1,0 +1,26 @@
+from unittest import TestCase
+
+from kairos.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+from kairos.connector.exchange.paper_trade import create_paper_trade_market, get_order_book_tracker
+from kairos.core.data_type.order_book_tracker import OrderBookTracker
+
+
+class PaperTradeExchangeTests(TestCase):
+
+    def test_get_order_book_tracker_for_connector_using_generic_tracker(self):
+        tracker = get_order_book_tracker(connector_name="binance", trading_pairs=["COINALPHA-HBOT"])
+        self.assertEqual(OrderBookTracker, type(tracker))
+
+        tracker = get_order_book_tracker(connector_name="binance", trading_pairs=["COINALPHA-HBOT"])
+        self.assertEqual(OrderBookTracker, type(tracker))
+
+    def test_create_paper_trade_market_for_connector_using_generic_tracker(self):
+        paper_exchange = create_paper_trade_market(
+            exchange_name="binance",
+            trading_pairs=["COINALPHA-HBOT"])
+        self.assertEqual(BinanceAPIOrderBookDataSource, type(paper_exchange.order_book_tracker.data_source))
+
+        paper_exchange = create_paper_trade_market(
+            exchange_name="binance",
+            trading_pairs=["COINALPHA-HBOT"])
+        self.assertEqual(BinanceAPIOrderBookDataSource, type(paper_exchange.order_book_tracker.data_source))

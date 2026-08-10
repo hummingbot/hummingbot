@@ -23,9 +23,9 @@ class BuildExt(build_ext):
 def main():
     cpu_count = os.cpu_count() or 8
     version = "20260729"
-    packages = find_packages(include=["hummingbot", "hummingbot.*"], )
+    packages = find_packages(include=["kairos", "kairos.*"], )
     package_data = {
-        "hummingbot": [
+        "kairos": [
             "core/cpp/*",
             "VERSION",
             "templates/*TEMPLATE.yml"
@@ -96,7 +96,7 @@ def main():
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count
 
-    cython_sources = ["hummingbot/**/*.pyx"]
+    cython_sources = ["kairos/**/*.pyx"]
 
     compiler_directives = {
         "annotation_typing": False,
@@ -112,7 +112,7 @@ def main():
         package_data[""] = [
             "*.pxd", "*.pyx", "*.h"
         ]
-        package_data["hummingbot"].append("core/cpp/*.cpp")
+        package_data["kairos"].append("core/cpp/*.cpp")
 
     if len(sys.argv) > 1 and sys.argv[1] == "build_ext" and is_posix:
         sys.argv.append(f"--parallel={cpu_count}")
@@ -130,7 +130,7 @@ def main():
 
     # --- 4. Pass the modified extensions to setup ---
     setup(
-        name="hummingbot",
+        name="kairos",
         version=version,
         description="Hummingbot",
         url="https://github.com/hummingbot/hummingbot",
@@ -146,7 +146,7 @@ def main():
             np.get_include()
         ],
         scripts=[
-            "bin/hummingbot_quickstart.py"
+            "bin/kairos_quickstart.py"
         ],
         cmdclass={"build_ext": BuildExt},
     )

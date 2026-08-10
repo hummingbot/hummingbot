@@ -31,13 +31,13 @@ __pycache__
 # Cython objects
 /**/*.so
 /**/*.pyd
-/hummingbot/**/*.c
-/hummingbot/**/*.cpp
-!/hummingbot/core/cpp/*.cpp
-/hummingbot/wallet/*.c
-/hummingbot/wallet/*.cpp
-/hummingbot/wallet/ethereum/*.c
-/hummingbot/wallet/ethereum/*.cpp
+/kairos/**/*.c
+/kairos/**/*.cpp
+!/kairos/core/cpp/*.cpp
+/kairos/wallet/*.c
+/kairos/wallet/*.cpp
+/kairos/wallet/ethereum/*.c
+/kairos/wallet/ethereum/*.cpp
 /test/**/*.cpp
 /build
 

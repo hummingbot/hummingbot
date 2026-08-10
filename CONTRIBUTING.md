@@ -2,7 +2,7 @@
 
 ## General Workflow
 
-1. Fork the `hummingbot/hummingbot` repository.
+1. Fork the `kairos/hummingbot` repository.
 2. Create a new branch from the `development` branch in your fork.
 3. Commit your changes to your branch.
 4. Once you've completed your fix, feature, connector, or documentation:

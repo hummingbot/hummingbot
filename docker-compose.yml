@@ -1,21 +1,21 @@
 services:
   hummingbot:
     container_name: hummingbot
-    image: hummingbot/hummingbot:latest
+    image: kairos/hummingbot:latest
     # build: # Uncomment this build section and comment image to build Hummingbot locally
     #   context: .
     #   dockerfile: Dockerfile
     volumes:
-      - ./conf:/home/hummingbot/conf
-      - ./conf/connectors:/home/hummingbot/conf/connectors
-      - ./conf/strategies:/home/hummingbot/conf/strategies
-      - ./conf/controllers:/home/hummingbot/conf/controllers
-      - ./conf/scripts:/home/hummingbot/conf/scripts
-      - ./logs:/home/hummingbot/logs
-      - ./data:/home/hummingbot/data
-      - ./certs:/home/hummingbot/certs
-      - ./scripts:/home/hummingbot/scripts
-      - ./controllers:/home/hummingbot/controllers
+      - ./conf:/home/kairos/conf
+      - ./conf/connectors:/home/kairos/conf/connectors
+      - ./conf/strategies:/home/kairos/conf/strategies
+      - ./conf/controllers:/home/kairos/conf/controllers
+      - ./conf/scripts:/home/kairos/conf/scripts
+      - ./logs:/home/kairos/logs
+      - ./data:/home/kairos/data
+      - ./certs:/home/kairos/certs
+      - ./scripts:/home/kairos/scripts
+      - ./controllers:/home/kairos/controllers
     logging:
       driver: "json-file"
       options:
@@ -41,7 +41,7 @@ services:
    profiles: ["gateway"]
    restart: always
    container_name: gateway
-   image: hummingbot/gateway:latest
+   image: kairos/gateway:latest
    ports:
      - "15888:15888"
    volumes:

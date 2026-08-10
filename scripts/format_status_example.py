@@ -2,8 +2,8 @@ import os
 
 from pydantic import Field
 
-from hummingbot.core.data_type.common import MarketDict
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from kairos.core.data_type.common import MarketDict
+from kairos.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
 class FormatStatusExampleConfig(StrategyV2ConfigBase):

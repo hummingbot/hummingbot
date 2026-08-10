@@ -10,11 +10,11 @@ endif
 test:
 	coverage run -m pytest \
  	--ignore="test/mock" \
- 	--ignore="test/hummingbot/connector/exchange/ndax/" \
- 	--ignore="test/hummingbot/connector/derivative/dydx_v4_perpetual/" \
+ 	--ignore="test/kairos/connector/exchange/ndax/" \
+ 	--ignore="test/kairos/connector/derivative/dydx_v4_perpetual/" \
  	--ignore="test/connector/utilities/oms_connector/" \
- 	--ignore="test/hummingbot/strategy/amm_arb/" \
- 	--ignore="test/hummingbot/strategy/cross_exchange_market_making/" \
+ 	--ignore="test/kairos/strategy/amm_arb/" \
+ 	--ignore="test/kairos/strategy/cross_exchange_market_making/" \
 
 run_coverage: test
 	coverage report
@@ -29,7 +29,7 @@ development-diff-cover:
 	diff-cover --compare-branch=origin/development coverage.xml
 
 build:
-	git clean -xdf && make clean && docker build -t hummingbot/hummingbot${TAG} -f Dockerfile .
+	git clean -xdf && make clean && docker build -t kairos/hummingbot${TAG} -f Dockerfile .
 
 
 uninstall:
@@ -81,7 +81,7 @@ link-cli:
 	echo "Now 'hbot <command>' dispatches to your source env or the docker container."
 
 run:
-	conda run -n hummingbot --no-capture-output ./bin/hummingbot_quickstart.py $(ARGS)
+	conda run -n hummingbot --no-capture-output ./bin/kairos_quickstart.py $(ARGS)
 
 setup:
 	@read -r -p "Include Gateway? [y/N] " ans; \

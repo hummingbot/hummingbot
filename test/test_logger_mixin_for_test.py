@@ -3,7 +3,7 @@ import unittest
 from logging import Logger, LogRecord
 from test.logger_mixin_for_test import LoggerMixinForTest, LogLevel
 
-from hummingbot.logger import HummingbotLogger
+from kairos.logger import KairosLogger
 
 
 class TestTestLoggerMixin(unittest.TestCase):
@@ -51,7 +51,7 @@ class TestTestLoggerMixin(unittest.TestCase):
         self.assertFalse(self.logger.is_partially_logged(LogLevel.INFO, "other"))
 
     def test_set_loggers_single_logger(self):
-        logger = HummingbotLogger("TestLogger")
+        logger = KairosLogger("TestLogger")
         logger.level = LogLevel.INFO
         self.assertNotEqual(1, logger.level)
         self.assertEqual(0, len(logger.handlers))
@@ -64,7 +64,7 @@ class TestTestLoggerMixin(unittest.TestCase):
     def test_set_loggers_multiple_logger(self):
         loggers = []
         for i in range(5):
-            logger = HummingbotLogger(f"TestLogger{i}")
+            logger = KairosLogger(f"TestLogger{i}")
             logger.level = LogLevel.INFO
             loggers.append(logger)
             self.assertNotEqual(1, logger.level)
@@ -89,7 +89,7 @@ class TestTestLoggerMixin(unittest.TestCase):
         self.assertEqual(self.logger, logger.handlers[0])
 
     def test_set_loggers_some_none(self):
-        loggers = [HummingbotLogger("Test"), None]
+        loggers = [KairosLogger("Test"), None]
         self.logger.set_loggers(loggers)
 
     def test_wait_for_logged(self):

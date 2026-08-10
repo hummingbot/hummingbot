@@ -5,10 +5,10 @@ import pandas as pd
 import pandas_ta as ta  # noqa: F401
 from pydantic import Field, field_validator
 
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import MarketDict
-from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from kairos.connector.connector_base import ConnectorBase
+from kairos.core.data_type.common import MarketDict
+from kairos.data_feed.candles_feed.data_types import CandlesConfig
+from kairos.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
 class CandlesExampleConfig(StrategyV2ConfigBase):

@@ -6,12 +6,12 @@ from typing import Dict, List
 
 from pydantic import Field
 
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.data_type.common import MarketDict
-from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import OrderFilledEvent, OrderType, TradeType
-from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
+from kairos.connector.connector_base import ConnectorBase
+from kairos.connector.utils import split_hb_trading_pair
+from kairos.core.data_type.common import MarketDict
+from kairos.core.data_type.order_candidate import OrderCandidate
+from kairos.core.event.events import OrderFilledEvent, OrderType, TradeType
+from kairos.strategy.strategy_v2_base import StrategyV2Base, StrategyV2ConfigBase
 
 
 class VWAPConfig(StrategyV2ConfigBase):

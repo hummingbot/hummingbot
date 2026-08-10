@@ -3,19 +3,19 @@ from typing import TYPE_CHECKING, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 if TYPE_CHECKING:
-    from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
+    from kairos.client.ui.kairos_cli import KairosCLI
 
 
 class CLIMockingAssistant:
-    def __init__(self, app: "HummingbotCLI"):
+    def __init__(self, app: "KairosCLI"):
         self._app = app
         self._prompt_patch = patch(
-            "hummingbot.client.ui.hummingbot_cli.HummingbotCLI.prompt"
+            "kairos.client.ui.kairos_cli.KairosCLI.prompt"
         )
         self._prompt_mock: Optional[AsyncMock] = None
         self._prompt_replies = asyncio.Queue()
         self._log_patch = patch(
-            "hummingbot.client.ui.hummingbot_cli.HummingbotCLI.log"
+            "kairos.client.ui.kairos_cli.KairosCLI.log"
         )
         self._log_mock: Optional[MagicMock] = None
         self._log_calls = []

@@ -10,7 +10,7 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Query, Session, sessionmaker
 
-from hummingbot.model.transaction_base import TransactionBase
+from kairos.model.transaction_base import TransactionBase
 
 Base = declarative_base()
 

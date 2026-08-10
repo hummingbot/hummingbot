@@ -52,6 +52,6 @@ body:
    id: attachment
    attributes:
      label: Attach required files
-     description: Please attach your config file and log file located on the "../hummingbot/logs/" folder. It would be difficult for us to help you without those!
+     description: Please attach your config file and log file located on the "../kairos/logs/" folder. It would be difficult for us to help you without those!
    validations:
      required: false

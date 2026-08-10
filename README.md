@@ -18,7 +18,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Reported Volumes](https://reporting.hummingbot.org/): Reported trading volumes across all Hummingbot instances
-* [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
+* [Newsletter](https://kairos.substack.com): Get our newsletter whenever we ship a new release
 
 ## Getting Started
 
@@ -31,7 +31,7 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 The recommended way to run the Hummingbot client directly is the **`hbot` command-line interface**, installed from
 source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
 and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
-stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
+stable exit codes. See the **[hbot CLI guide](kairos/cli/README.md)** for the full reference.
 
 Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
@@ -71,7 +71,7 @@ hbot create pmm_mister --name conf_my_bot.yml \
 hbot start conf_my_bot.yml                             # run it (one bot per install)
 ```
 
-Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
+Full command reference and ontology: **[hbot CLI guide](kairos/cli/README.md)**.
 
 ### Docker
 
@@ -91,7 +91,7 @@ hbot --help           # same commands as the source install above
 above is identical whether you installed from source or Docker. (Or skip it and use
 `docker exec -it hummingbot hbot <command>`.) To dedicate the container to `hbot` instead of the
 interactive client, uncomment `command: tail -f /dev/null` in `docker-compose.yml` before
-`make deploy` — see [Running in Docker](hummingbot/cli/README.md#running-in-docker).
+`make deploy` — see [Running in Docker](kairos/cli/README.md#running-in-docker).
 
 ### Interactive Client (TUI)
 
@@ -111,8 +111,8 @@ Hummingbot offers several frameworks for building and running algorithmic tradin
 
 * **[Scripts](./scripts)**: Single-file Python strategies — the easiest way to build and customize your own bot. Example: [`simple_pmm.py`](./scripts/simple_pmm.py), a basic market making script.
 * **[Controllers](./controllers)**: Reusable V2 strategies whose configs can be backtested, deployed, and tuned live while running. Example: [`pmm_mister.py`](./controllers/generic/pmm_mister.py), a full-featured market making controller.
-* **[Executors](./hummingbot/strategy_v2/executors)**: Self-contained building blocks that manage order lifecycles for common patterns — position, DCA, grid, arbitrage, XEMM, TWAP, and LP. Example: [`position_executor`](./hummingbot/strategy_v2/executors/position_executor), which manages a directional position with triple-barrier risk controls.
-* **[V1 Strategies](./hummingbot/strategy)**: Classic legacy strategies such as Pure Market Making, Avellaneda Market Making, and Cross-Exchange Market Making. Example: [`cross_exchange_market_making`](./hummingbot/strategy/cross_exchange_market_making), which market makes on one exchange and hedges fills on another.
+* **[Executors](./kairos/strategy_v2/executors)**: Self-contained building blocks that manage order lifecycles for common patterns — position, DCA, grid, arbitrage, XEMM, TWAP, and LP. Example: [`position_executor`](./kairos/strategy_v2/executors/position_executor), which manages a directional position with triple-barrier risk controls.
+* **[V1 Strategies](./kairos/strategy)**: Classic legacy strategies such as Pure Market Making, Avellaneda Market Making, and Cross-Exchange Market Making. Example: [`cross_exchange_market_making`](./kairos/strategy/cross_exchange_market_making), which market makes on one exchange and hedges fills on another.
 
 ## Exchange Connectors
 

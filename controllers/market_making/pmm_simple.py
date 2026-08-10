@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from hummingbot.strategy_v2.controllers.market_making_controller_base import (
+from kairos.strategy_v2.controllers.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
+from kairos.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig
 
 
 class PMMSimpleConfig(MarketMakingControllerConfigBase):
