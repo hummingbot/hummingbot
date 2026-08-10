@@ -1,2 +1,0 @@
-cdef class placeholder():
-    pass

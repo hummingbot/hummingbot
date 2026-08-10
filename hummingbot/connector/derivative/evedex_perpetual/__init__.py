@@ -1,1 +1,0 @@
-"""Evedex Perpetual connector module."""
