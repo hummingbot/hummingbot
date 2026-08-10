@@ -132,10 +132,8 @@ def main():
     setup(
         name="kairos",
         version=version,
-        description="Hummingbot",
-        url="https://github.com/hummingbot/hummingbot",
-        author="Hummingbot Foundation",
-        author_email="dev@hummingbot.org",
+        description="Kairos-2 - Binance market making client",
+        url="https://github.com/Acaua-Rangel/Kairos-2",
         license="Apache 2.0",
         python_requires=">=3.10.12",
         packages=packages,

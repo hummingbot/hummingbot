@@ -47,8 +47,8 @@ class KairosLogger(PythonLogger):
         self.log(INFO, msg)
         if not KairosLogger.is_testing_mode():
             from kairos.client.kairos_application import KairosApplication
-            hummingbot_app: KairosApplication = KairosApplication.main_application()
-            hummingbot_app.notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
+            kairos_app: KairosApplication = KairosApplication.main_application()
+            kairos_app.notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         if app_warning_msg is not None and not KairosLogger.is_testing_mode():
@@ -65,8 +65,8 @@ class KairosLogger(PythonLogger):
                 app_warning_msg
             )
             self.warning(app_warning.warning_msg)
-            hummingbot_app: KairosApplication = KairosApplication.main_application()
-            hummingbot_app.add_application_warning(app_warning)
+            kairos_app: KairosApplication = KairosApplication.main_application()
+            kairos_app.add_application_warning(app_warning)
 
     #  --- Copied from logging module ---
     def findCaller(self, stack_info=False, stacklevel=1):

@@ -179,7 +179,7 @@ class CoinGeckoRateSource(RateSourceBase):
         :return: A dictionary of trading pairs and prices
         """
         results = {}
-        # TODO: Should we force hummingbot to be included?
+        # TODO: Should we force Kairos-2 to be included?
         # self._extra_token_ids.append("kairos") - This fails the tests, not sure why
         if self._extra_token_ids:
             resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_token_id)(vs_currency=vs_currency,

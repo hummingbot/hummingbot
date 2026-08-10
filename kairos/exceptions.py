@@ -1,34 +1,34 @@
 """
-Exceptions used in the Hummingbot codebase.
+Exceptions used in the Kairos-2 codebase.
 """
 
 
-class HummingbotBaseException(Exception):
+class KairosBaseException(Exception):
     """
-    Most errors raised in Hummingbot should inherit this class so we can
+    Most errors raised in Kairos-2 should inherit this class so we can
     differentiate them from errors that come from dependencies.
     """
 
 
-class ArgumentParserError(HummingbotBaseException):
+class ArgumentParserError(KairosBaseException):
     """
-    Unable to parse a command (like start, stop, etc) from the hummingbot client
+    Unable to parse a command (like start, stop, etc) from the Kairos-2 client
     """
 
 
-class OracleRateUnavailable(HummingbotBaseException):
+class OracleRateUnavailable(KairosBaseException):
     """
     Asset value from third party is unavailable
     """
 
 
-class InvalidScriptModule(HummingbotBaseException):
+class InvalidScriptModule(KairosBaseException):
     """
     The file does not contain a ScriptBase subclass
     """
 
 
-class InvalidController(HummingbotBaseException):
+class InvalidController(KairosBaseException):
     """
     The file does not contain a ControllerBase subclass
     """

@@ -2,10 +2,10 @@
 
 from sqlalchemy import JSON, BigInteger, Column, Index, Integer, Text
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class MarketState(HummingbotBase):
+class MarketState(KairosBase):
     __tablename__ = "MarketState"
     __table_args = (Index("ms_config_market_index",
                           "config_file_path", "market", unique=True),)

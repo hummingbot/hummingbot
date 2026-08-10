@@ -17,7 +17,7 @@ if [ "${CONDA_EXE}_" == "_" ]; then
 fi
 
 # Normalize CONDA_EXE to the base install's conda. If an env that ships its own
-# conda (e.g. the hummingbot env) is active, CONDA_EXE points at .../envs/<name>/bin/conda,
+# conda (e.g. the kairos-2 env) is active, CONDA_EXE points at .../envs/<name>/bin/conda,
 # and running "env create" from there nests the new env under .../envs/<name>/envs/.
 # Strip any /envs/<name> segment back to the base prefix so we always use base conda.
 case "${CONDA_EXE}" in
@@ -54,19 +54,19 @@ if [ "$USE_DYDX" = true ]; then
 fi
 
 # Capture the env list first to avoid SIGPIPE (BrokenPipeError) when grep -q
-# exits early, and anchor the match so "hummingbot-site" et al. don't match.
+# exits early, and anchor the match so "kairos-2-site" et al. don't match.
 ENV_LIST=$(${CONDA_EXE} env list)
-if echo "$ENV_LIST" | egrep -qe "^hummingbot[[:space:]]"; then
+if echo "$ENV_LIST" | egrep -qe "^kairos-2[[:space:]]"; then
     ${CONDA_EXE} env update -f $ENV_FILE
 else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
 
-source "${CONDA_BIN}/activate" hummingbot
+source "${CONDA_BIN}/activate" kairos-2
 
 # Additional dependencies for Mac OS
 if [ "$(uname)" == "Darwin" ]; then
-    conda install -n hummingbot -y appnope
+    conda install -n kairos-2 -y appnope
 fi
 
 # Add the project directory to module search paths.

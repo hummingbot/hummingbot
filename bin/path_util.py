@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-if "hummingbot-dist" in __file__:
+if "kairos-dist" in __file__:
     # Dist environment.
     import os
     import sys

@@ -46,7 +46,7 @@ CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES = ["test_support", "utilities"]
 
 class ConnectorType(Enum):
     """
-    The types of exchanges that hummingbot client can communicate with.
+    The types of exchanges that Kairos-2 client can communicate with.
     """
 
     Connector = "connector"

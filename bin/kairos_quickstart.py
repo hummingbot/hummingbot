@@ -21,7 +21,7 @@ from kairos.client.runner import (
 )
 from kairos.client.ui import login_prompt
 from kairos.client.ui.style import load_style
-from kairos.core.event.events import HummingbotUIEvent
+from kairos.core.event.events import KairosUIEvent
 from kairos.core.management.console import start_management_console
 from kairos.core.utils.async_utils import safe_gather
 
@@ -56,7 +56,7 @@ class CmdlineParser(argparse.ArgumentParser):
 
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
-    """Start Hummingbot using unified KairosApplication in either UI or headless mode."""
+    """Start Kairos-2 using unified KairosApplication in either UI or headless mode."""
     client_config_map = load_client_config_map_from_file()
 
     if args.auto_set_permissions is not None:
@@ -92,7 +92,7 @@ async def run_application(hb: KairosApplication, args: argparse.Namespace, clien
     if args.headless:
         # Re-initialize logging with proper strategy file name for headless mode
         log_file_name = hb.strategy_file_name.split(".")[0] if hb.strategy_file_name else "kairos"
-        init_logging("hummingbot_logs.yml", hb.client_config_map,
+        init_logging("kairos_logs.yml", hb.client_config_map,
                      override_log_level=hb.client_config_map.log_level,
                      strategy_file_path=log_file_name)
         await hb.run()
@@ -104,7 +104,7 @@ async def run_application(hb: KairosApplication, args: argparse.Namespace, clien
             script_config=getattr(hb, 'script_config', None),
             is_quickstart=True
         )
-        hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
+        hb.app.add_listener(KairosUIEvent.Start, start_listener)
 
         tasks: List[Coroutine] = [hb.run()]
         if client_config_map.debug_console:

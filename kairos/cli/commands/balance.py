@@ -2,7 +2,7 @@
 
 Typically run right after `hbot connect <connector>` to confirm the keys work and see funds.
 Decrypts the stored keys with the keystore password, queries each connector (network), and reports
-balances per connector with their global-token (USD) value, mirroring Hummingbot's ``balance`` command.
+balances per connector with their global-token (USD) value, mirroring Kairos-2's ``balance`` command.
 Read-only — it never places orders.
 """
 import asyncio

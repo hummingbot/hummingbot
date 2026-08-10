@@ -3,7 +3,7 @@ import unittest
 from kairos.client.kairos_application import KairosApplication
 
 
-class HummingbotApplicationTest(unittest.TestCase):
+class KairosApplicationTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.app = KairosApplication()

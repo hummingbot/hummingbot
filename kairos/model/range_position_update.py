@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 from sqlalchemy import JSON, BigInteger, Column, Float, Index, Integer, Text
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class RangePositionUpdate(HummingbotBase):
+class RangePositionUpdate(KairosBase):
     """
     Table schema used when an event to update LP position(Add/Remove/Collect) is triggered.
     Stores all data needed for P&L tracking.

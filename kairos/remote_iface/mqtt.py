@@ -175,7 +175,7 @@ class MQTTCommands:
                 )
                 response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Hummingbot start command timed out after {timeout} seconds'
+            response.msg = f'Kairos-2 start command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
@@ -198,7 +198,7 @@ class MQTTCommands:
                 )
                 response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Hummingbot start command timed out after {timeout} seconds'
+            response.msg = f'Kairos-2 start command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
@@ -272,7 +272,7 @@ class MQTTCommands:
             )
             response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Hummingbot import command timed out after {timeout} seconds'
+            response.msg = f'Kairos-2 import command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
@@ -299,7 +299,7 @@ class MQTTCommands:
                 )
                 response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Hummingbot status command timed out after {timeout} seconds'
+            response.msg = f'Kairos-2 status command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR

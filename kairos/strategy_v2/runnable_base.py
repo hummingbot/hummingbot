@@ -9,7 +9,7 @@ from kairos.strategy_v2.models.base import RunnableStatus
 
 class RunnableBase(ABC):
     """
-    Base class for smart components in the Hummingbot application.
+    Base class for smart components in the Kairos-2 application.
     This class provides a basic structure for components that need to perform tasks at regular intervals.
     """
     _logger = None

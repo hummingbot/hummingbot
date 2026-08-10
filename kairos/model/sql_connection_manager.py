@@ -60,7 +60,7 @@ class SQLConnectionManager(TransactionBase):
         if db_name is not None:
             return join(data_path(), f"{db_name}.sqlite")
         else:
-            return join(data_path(), "hummingbot_trades.sqlite")
+            return join(data_path(), "kairos_trades.sqlite")
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",

@@ -98,7 +98,7 @@ def chdir_to_data_directory():
     import os
 
     import appdirs
-    app_data_dir: str = appdirs.user_data_dir("Hummingbot", "hummingbot.io")
+    app_data_dir: str = appdirs.user_data_dir("Kairos-2", "hummingbot.io")
     os.makedirs(os.path.join(app_data_dir, "logs"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "conf"), 0o711, exist_ok=True)
     os.makedirs(os.path.join(app_data_dir, "pmm_scripts"), 0o711, exist_ok=True)
@@ -108,7 +108,7 @@ def chdir_to_data_directory():
     set_prefix_path(app_data_dir)
 
 
-def get_logging_conf(conf_filename: str = 'hummingbot_logs.yml'):
+def get_logging_conf(conf_filename: str = 'kairos_logs.yml'):
     import io
     from os.path import join
     from typing import Dict

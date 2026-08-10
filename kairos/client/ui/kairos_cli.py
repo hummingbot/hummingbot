@@ -31,7 +31,7 @@ from kairos.client.ui.layout import (
 )
 from kairos.client.ui.stdout_redirection import patch_stdout
 from kairos.client.ui.style import load_style
-from kairos.core.event.events import HummingbotUIEvent
+from kairos.core.event.events import KairosUIEvent
 from kairos.core.pubsub import PubSub
 from kairos.core.utils.async_utils import safe_ensure_future
 
@@ -102,9 +102,9 @@ class KairosCLI(PubSub):
         self._stdout_redirect_context.enter_context(patch_stdout(log_field=self.log_field))
 
         log_level = self.client_config_map.log_level
-        init_logging("hummingbot_logs.yml", self.client_config_map, override_log_level=log_level)
+        init_logging("kairos_logs.yml", self.client_config_map, override_log_level=log_level)
 
-        self.trigger_event(HummingbotUIEvent.Start, self)
+        self.trigger_event(KairosUIEvent.Start, self)
 
     async def run(self):
         self.app = Application(

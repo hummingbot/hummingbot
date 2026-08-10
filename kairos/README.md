@@ -1,10 +1,10 @@
-# Hummingbot Source Code
+# Kairos-2 Source Code
 
-This folder contains the main source code for Hummingbot.
+This folder contains the main source code for Kairos-2.
 
 ## Project Breakdown
 ```
-hummingbot
+Kairos-2
 │
 ├── client					# CLI related files
 │

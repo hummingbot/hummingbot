@@ -57,7 +57,7 @@ async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> 
     except asyncio.CancelledError:
         raise
     except Exception:
-        logger().error("Unexpected error while requesting data from Hummingbot API.", exc_info=True)
+        logger().error("Unexpected error while requesting data from Kairos-2 API.", exc_info=True)
     return results
 
 
@@ -68,7 +68,7 @@ async def get_market_snapshots(market_id: int):
         resp_json = await resp.json()
 
     if not resp_json or "status" not in resp_json or resp_json.get("status") == "error":
-        logger().warning("Could not get market snapshots from Hummingbot API"
+        logger().warning("Could not get market snapshots from Kairos-2 API"
                          f" (returned response '{resp_json}').")
         return None
     return resp_json
@@ -95,7 +95,7 @@ async def get_active_campaigns(exchange: str, trading_pairs: List[str] = []) -> 
         resp_json = await resp.json()
 
     if not resp_json or "status" not in resp_json or resp_json.get("status") == "error":
-        logger().warning("Could not get active campaigns from Hummingbot API"
+        logger().warning("Could not get active campaigns from Kairos-2 API"
                          f" (returned response '{resp_json}').")
     else:
         for campaign_retval in resp_json["campaigns"]:
@@ -123,7 +123,7 @@ async def get_active_markets(campaigns: Dict[int, CampaignSummary]) -> Dict[int,
         resp_json = await resp.json()
 
     if not resp_json or "status" not in resp_json or resp_json.get("status") == "error":
-        logger().warning("Could not get active markets from Hummingbot API"
+        logger().warning("Could not get active markets from Kairos-2 API"
                          f" (returned response '{resp_json}').")
     else:
         for markets_retval in resp_json["markets"]:

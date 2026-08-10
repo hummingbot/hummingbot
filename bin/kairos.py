@@ -21,16 +21,16 @@ from kairos.client.settings import AllConnectorSettings
 from kairos.client.ui import login_prompt
 from kairos.client.ui.style import load_style
 from kairos.core.event.event_listener import EventListener
-from kairos.core.event.events import HummingbotUIEvent
+from kairos.core.event.events import KairosUIEvent
 from kairos.core.utils import detect_available_port
 from kairos.core.utils.async_utils import safe_gather
 
 
 class UIStartListener(EventListener):
-    def __init__(self, hummingbot_app: KairosApplication, is_script: Optional[bool] = False,
+    def __init__(self, kairos_app: KairosApplication, is_script: Optional[bool] = False,
                  script_config: Optional[dict] = None, is_quickstart: Optional[bool] = False):
         super().__init__()
-        self._hb_ref: ReferenceType = ref(hummingbot_app)
+        self._hb_ref: ReferenceType = ref(kairos_app)
         self._is_script = is_script
         self._is_quickstart = is_quickstart
         self._script_config = script_config
@@ -39,11 +39,11 @@ class UIStartListener(EventListener):
         asyncio.create_task(self.ui_start_handler())
 
     @property
-    def hummingbot_app(self) -> KairosApplication:
+    def kairos_app(self) -> KairosApplication:
         return self._hb_ref()
 
     async def ui_start_handler(self):
-        hb: KairosApplication = self.hummingbot_app
+        hb: KairosApplication = self.kairos_app
         if hb.strategy_name is not None:
             if not self._is_script:
                 write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
@@ -56,7 +56,7 @@ async def main_async(client_config_map: ClientConfigAdapter):
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
 
-    init_logging("hummingbot_logs.yml", client_config_map)
+    init_logging("kairos_logs.yml", client_config_map)
 
     AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
@@ -65,7 +65,7 @@ async def main_async(client_config_map: ClientConfigAdapter):
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
     start_listener: UIStartListener = UIStartListener(hb)
-    hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
+    hb.app.add_listener(KairosUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
     if client_config_map.debug_console:

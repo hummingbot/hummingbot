@@ -202,7 +202,7 @@ class ConfigRunTest(unittest.TestCase):
         self.assertNotIn("applies", out)  # not running -> no applies note
 
     def test_set_trading_pair_normalizes_to_uppercase(self):
-        # Pairs are uppercase throughout Hummingbot and matched case-sensitively at runtime;
+        # Pairs are uppercase throughout Kairos-2 and matched case-sensitively at runtime;
         # a lowercase pair must be normalized on write, not stored as typed.
         path = self._strategy("trading_pair: BTC-USDT\n")
         out = self._run("trading_pair", "eth-usdt")

@@ -201,7 +201,7 @@ def _coerce(existing: Any, value: str) -> Any:
 
 
 def _normalize_pairs(key: str, value: Any) -> Any:
-    """Trading pairs are uppercase throughout Hummingbot (BTC-USDT) and runtime lookups match them
+    """Trading pairs are uppercase throughout Kairos-2 (BTC-USDT) and runtime lookups match them
     case-sensitively — a lowercase pair writes fine but never matches a live market. Uppercase
     pair-holding fields at write time. `market`/`markets` are the v1 names for trading pairs; only
     the exact keys match because prefixed ``*_market`` names hold exchange names (e.g. maker_market).
@@ -494,7 +494,7 @@ def controller_loader_name(controller_filename: str) -> str:
     """Loader-config filename for a controller — also the DB/log name once running.
 
     A controller can't run standalone, so we run it through a generated v2 'loader' script config; that
-    config's name is what Hummingbot uses for the trades DB and structured log. Hummingbot derives the
+    config's name is what Kairos-2 uses for the trades DB and structured log. Kairos-2 derives the
     DB name via ``name.split('.')[0]`` (it means to strip the extension but truncates at the FIRST dot),
     so a dotted controller name like ``conf_generic.lp_jit.hype_usdc`` would collide on ``conf_generic``.
     We flatten dots to underscores so the loader (and thus DB/log) is named after the whole controller.

@@ -2,13 +2,13 @@ from decimal import Decimal
 
 from sqlalchemy import JSON, BigInteger, Boolean, Column, Float, Index, Integer, Text
 
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 from kairos.strategy_v2.models.base import RunnableStatus
 from kairos.strategy_v2.models.executors import CloseType
 from kairos.strategy_v2.models.executors_info import ExecutorInfo
 
 
-class Executors(HummingbotBase):
+class Executors(KairosBase):
     __tablename__ = "Executors"
     __table_args__ = (
         Index("ex_type", "type"),

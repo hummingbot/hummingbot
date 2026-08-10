@@ -14,7 +14,7 @@ from kairos.core.api_throttler.async_throttler import AsyncRequestContext, Async
 from kairos.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, TaskLog
 from kairos.logger.struct_logger import METRICS_LOG_LEVEL
 
-TEST_PATH_URL = "/hummingbot"
+TEST_PATH_URL = "/Kairos-2"
 TEST_POOL_ID = "TEST"
 TEST_WEIGHTED_POOL_ID = "TEST_WEIGHTED"
 TEST_WEIGHTED_TASK_1_ID = "/weighted_task_1"

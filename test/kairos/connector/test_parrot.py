@@ -136,7 +136,7 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual({1: self.expected_campaign_no_markets}, campaigns)
         self.assertTrue(self._is_logged("WARNING",
-                                        "Could not get active markets from Hummingbot API"
+                                        "Could not get active markets from Kairos-2 API"
                                         " (returned response '')."))
 
     @aioresponses()
@@ -148,7 +148,7 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual({1: self.expected_campaign_no_markets}, campaigns)
         self.assertTrue(self._is_logged("WARNING",
-                                        "Could not get active markets from Hummingbot API"
+                                        "Could not get active markets from Kairos-2 API"
                                         f" (returned response '{self.get_fail}')."))
 
     @aioresponses()
@@ -162,7 +162,7 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual({1: self.expected_campaign_no_markets}, campaigns)
         self.assertFalse(self._is_logged("WARNING",
-                                         "Could not get active markets from Hummingbot API"
+                                         "Could not get active markets from Kairos-2 API"
                                          f" (returned response '{self.get_fail}')."))
 
     @aioresponses()
@@ -274,7 +274,7 @@ class ParrotConnectorUnitTest(TestCase):
                     summary = self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
         # No snapshot, just dict re-arrangement
         self.assertEqual({}, summary)
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error while requesting data from Hummingbot API."))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error while requesting data from Kairos-2 API."))
 
     @aioresponses()
     def test_get_campaign_summary_exception(self, mocked_http):
@@ -288,14 +288,14 @@ class ParrotConnectorUnitTest(TestCase):
                     mocked_ss.return_value = self.expected_campaign_32_markets
                     self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
                     self.assertTrue(
-                        self._is_logged("ERROR", "Unexpected error while requesting data from Hummingbot API."))
+                        self._is_logged("ERROR", "Unexpected error while requesting data from Kairos-2 API."))
 
                 with self.assertRaises(CancelledError):
                     mocked_ac.return_value = self.expected_campaign_32_markets
                     mocked_ss.side_effect = asyncio.CancelledError
                     self.ev_loop.run_until_complete(parrot.get_campaign_summary("binance", ["ALGO-USDT"]))
                     self.assertTrue(
-                        self._is_logged("ERROR", "Unexpected error while requesting data from Hummingbot API."))
+                        self._is_logged("ERROR", "Unexpected error while requesting data from Kairos-2 API."))
 
     @aioresponses()
     def test_retrieve_active_campaigns_error_is_logged(self, mock_api):
@@ -310,7 +310,7 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual(0, len(campaigns))
         self.assertTrue(self._is_logged("WARNING",
-                                        "Could not get active campaigns from Hummingbot API"
+                                        "Could not get active campaigns from Kairos-2 API"
                                         f" (returned response '{resp}')."))
 
     @aioresponses()
@@ -419,7 +419,7 @@ class ParrotConnectorUnitTest(TestCase):
 
         self.assertEqual(0, len(campaigns))
         self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error while requesting data from Hummingbot API."))
+                                        "Unexpected error while requesting data from Kairos-2 API."))
 
     def test_are_same_entity(self):
         self.assertTrue(parrot.are_same_entity("ascend_ex", "ascendex"))

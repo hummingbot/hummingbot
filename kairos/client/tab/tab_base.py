@@ -45,7 +45,7 @@ class TabBase(metaclass=ABCMeta):
         """
         Displays message on the tab
         :param output_field: The output pane for the tab messages
-        :param app: The current running Hummingbot application including strategy, connectors and all
+        :param app: The current running Kairos-2 application including strategy, connectors and all
         other application properties
         :param **kargs: All the command arguments defined in get_command_arguments method will be supplied here
         """

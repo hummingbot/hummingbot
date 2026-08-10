@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Unified host launcher for the `hbot` CLI: makes `hbot <command>` work the same whether Hummingbot
-# was installed from source (a `hummingbot` conda env) or via Docker (a `hummingbot` container). It
+# Unified host launcher for the `hbot` CLI: makes `hbot <command>` work the same whether Kairos-2
+# was installed from source (a `kairos-2` conda env) or via Docker (a `kairos-2` container). It
 # just dispatches to the real CLI that lives inside the env/container — see bin/hbot.
 #
 # Install it as the host `hbot` with `make link-cli` (symlinks this onto your PATH).
 #
 set -euo pipefail
 
-container="${HBOT_CONTAINER:-hummingbot}"
+container="${HBOT_CONTAINER:-kairos-2}"
 
 # HBOT_PREFER=docker skips the conda-env branch, for machines that have BOTH installs and want
 # `hbot` to drive the container (e.g. testing the Docker/MCP setup next to a source checkout).
@@ -29,7 +29,7 @@ if [ -z "$prefer" ] && command -v docker >/dev/null 2>&1 \
     fi
 fi
 
-# 1) Source install: a `hummingbot` conda env that has the CLI. Exec the env's python DIRECTLY rather
+# 1) Source install: a `kairos-2` conda env that has the CLI. Exec the env's python DIRECTLY rather
 #    than via `conda run`, which prints a noisy "ERROR conda.cli.main_run:execute(148): ... failed"
 #    line on EVERY non-zero exit — including the CLI's normal ones (exit 2 for "no command, here's
 #    help"; exit 4 for "need password") — making a healthy CLI look broken. We resolve the env prefix
@@ -37,16 +37,16 @@ fi
 #    the CLI's real exit code passes straight through. Run the INSTALLED package (via conda develop) —
 #    not the name `hbot` (would re-resolve to this wrapper and recurse).
 if [ "$prefer" != "docker" ] && command -v conda >/dev/null 2>&1; then
-    prefix="$(conda env list | awk '$1=="hummingbot"{print $NF}')"
+    prefix="$(conda env list | awk '$1=="kairos-2"{print $NF}')"
     if [ -n "$prefix" ] && [ -x "$prefix/bin/python" ]; then
         export CONDA_PREFIX="$prefix"
         export PATH="$prefix/bin:$PATH"
         exec "$prefix/bin/python" \
-            -c "import sys; sys.argv[0]='hbot'; from hummingbot.cli.main import main; sys.exit(main())" "$@"
+            -c "import sys; sys.argv[0]='hbot'; from kairos-2.cli.main import main; sys.exit(main())" "$@"
     fi
 fi
 
-# 2) Docker install: a running `hummingbot` container. `-i` forwards stdin (e.g. --password-stdin);
+# 2) Docker install: a running `kairos-2` container. `-i` forwards stdin (e.g. --password-stdin);
 #    add a TTY only when this shell has one, so piping still works. The keystore password env vars
 #    must be forwarded explicitly — `docker exec` runs with the CONTAINER's env, so a password set
 #    on the host (or in an MCP server's env) would otherwise silently never reach the CLI. Bare
@@ -62,7 +62,7 @@ if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -
     exec docker exec -i ${env_args[@]+"${env_args[@]}"} "$container" hbot "$@"
 fi
 
-echo "hbot: no Hummingbot install found." >&2
-echo "  source: make install && conda activate hummingbot" >&2
+echo "hbot: no Kairos-2 install found." >&2
+echo "  source: make install && conda activate kairos-2" >&2
 echo "  docker: make deploy   (starts the '$container' container)" >&2
 exit 1

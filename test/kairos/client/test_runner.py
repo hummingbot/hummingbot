@@ -30,7 +30,7 @@ class AutofixPermissionsTest(unittest.TestCase):
             pwd_mock.getpwnam.return_value.pw_uid = 1234
             grp_mock.getgrnam.return_value.gr_gid = 5678
             pwd_mock.getpwuid.return_value.pw_dir = "/home/hbot"
-            os_mock.path.realpath.return_value = "/opt/hummingbot"
+            os_mock.path.realpath.return_value = "/opt/Kairos-2"
             runner.autofix_permissions(spec)
         return pwd_mock, grp_mock, subprocess_mock, os_mock
 
@@ -234,7 +234,7 @@ class BootstrapApplicationTest(unittest.IsolatedAsyncioTestCase):
                 config_map, MagicMock(), strategy_file_name="mybot", override_log_level="DEBUG")
         self.assertIs(app, main_app.return_value)
         init_logging.assert_called_once_with(
-            "hummingbot_logs.yml", config_map, override_log_level="DEBUG", strategy_file_path="mybot")
+            "kairos_logs.yml", config_map, override_log_level="DEBUG", strategy_file_path="mybot")
         create_yml.assert_awaited_once()
         read_configs.assert_awaited_once()
         silence.assert_not_called()

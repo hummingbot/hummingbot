@@ -2,7 +2,7 @@
 
 ## General Workflow
 
-1. Fork the `kairos/hummingbot` repository.
+1. Fork the `kairos-2` repository.
 2. Create a new branch from the `development` branch in your fork.
 3. Commit your changes to your branch.
 4. Once you've completed your fix, feature, connector, or documentation:
@@ -14,7 +14,7 @@
 
 5. Your code changes will be reviewed and tested by the Foundation QA team.
 6. Address any changes requested by your reviewer, fix issues raised, and push your fixes as a single new commit.
-7. Once the pull request has been reviewed and accepted, it will be merged by a member of the Hummingbot Foundation team.
+7. Once the pull request has been reviewed and accepted, it will be merged by a member of the Kairos-2 team.
 
 **Note:** Tests are crucial. If your pull request contains new, testable behavior, please submit tests. Refer to the 'Unit Test Coverage' section for more information.
 
@@ -30,10 +30,10 @@ If you're using VS Code or Cursor IDE, please refer to our [VS Code/Cursor Setup
 
 ### 1. Fork the Repository
 
-Use GitHub's interface to fork the repo, add the Hummingbot repo as an upstream remote, and fetch upstream data:
+Use GitHub's interface to fork the repo, add the Kairos-2 repo as an upstream remote, and fetch upstream data:
 
 ```bash
-git remote add upstream https://github.com/hummingbot/hummingbot.git
+git remote add upstream https://github.com/kairos-2.git
 git fetch upstream
 ```
 

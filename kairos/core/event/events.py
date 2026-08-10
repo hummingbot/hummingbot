@@ -49,7 +49,7 @@ class TokenApprovalEvent(Enum):
     ApprovalCancelled = 1103
 
 
-class HummingbotUIEvent(Enum):
+class KairosUIEvent(Enum):
     Start = 1
 
 

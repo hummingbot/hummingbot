@@ -2,10 +2,10 @@
 
 from sqlalchemy import Column, Text
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class Metadata(HummingbotBase):
+class Metadata(KairosBase):
     __tablename__ = "Metadata"
 
     key = Column(Text, primary_key=True, nullable=False)

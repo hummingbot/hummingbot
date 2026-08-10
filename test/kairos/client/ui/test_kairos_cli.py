@@ -11,10 +11,10 @@ from kairos.client.tab.data_types import CommandTab
 from kairos.client.ui.custom_widgets import CustomTextArea
 from kairos.client.ui.kairos_cli import KairosCLI
 from kairos.core.event.event_listener import EventListener
-from kairos.core.event.events import HummingbotUIEvent
+from kairos.core.event.events import KairosUIEvent
 
 
-class HummingbotCLITest(unittest.TestCase):
+class KairosCLITest(unittest.TestCase):
     command_name = "command_1"
 
     @classmethod
@@ -130,7 +130,7 @@ class HummingbotCLITest(unittest.TestCase):
                 self.mock()
 
         handler: UIStartHandler = UIStartHandler()
-        self.app.add_listener(HummingbotUIEvent.Start, handler)
+        self.app.add_listener(KairosUIEvent.Start, handler)
         self.app.did_start_ui()
 
         mock_init_logging.assert_called()

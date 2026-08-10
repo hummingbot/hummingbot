@@ -31,8 +31,8 @@ jobs:
         run: |
           echo "is_set=true" >> $GITHUB_OUTPUT
 
-  build_hummingbot:
-    name: Hummingbot build + stable tests
+  build_kairos:
+    name: Kairos-2 build + stable tests
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
     runs-on: ubuntu-latest
@@ -66,8 +66,8 @@ jobs:
             /usr/share/miniconda/envs
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment.yml') }}
 
-      # Install environment and Hummingbot
-      - name: Install environment and Hummingbot
+      # Install environment and Kairos-2
+      - name: Install environment and Kairos-2
         uses: ./.github/actions/install_env_and_hb
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
@@ -79,7 +79,7 @@ jobs:
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          conda activate Kairos-2
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             pre-commit run --files $(git diff --name-only origin/${{ github.base_ref }})
           else
@@ -91,7 +91,7 @@ jobs:
         shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          conda activate Kairos-2
           make test
 
       - name: Check and report global coverage
@@ -99,7 +99,7 @@ jobs:
         shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          conda activate Kairos-2
           make report_coverage
 
       - name: Validate coverage for the changes
@@ -107,7 +107,7 @@ jobs:
         shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          conda activate Kairos-2
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml

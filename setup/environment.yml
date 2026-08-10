@@ -1,4 +1,4 @@
-name: hummingbot
+name: kairos-2
 channels:
   - conda-forge
   - defaults

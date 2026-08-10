@@ -4,11 +4,11 @@ import numpy
 from sqlalchemy import BigInteger, Column, Index, Integer, Text
 from sqlalchemy.orm import relationship
 
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 from kairos.model.decimal_type_decorator import SqliteDecimal
 
 
-class Order(HummingbotBase):
+class Order(KairosBase):
     __tablename__ = "Order"
     __table_args__ = (Index("o_config_timestamp_index",
                             "config_file_path", "creation_timestamp"),

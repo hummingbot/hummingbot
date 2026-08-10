@@ -1,5 +1,5 @@
 """
-ConfigVar is variable that is configured by the user via the hummingbot client that controls the trading behavior
+ConfigVar is variable that is configured by the user via the Kairos-2 client that controls the trading behavior
 of the bot. The client provides a screen prompt to the user, then the user provides input. This input is validated
 by ConfigVar.
 """

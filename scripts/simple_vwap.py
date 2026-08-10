@@ -169,7 +169,7 @@ class VWAPExample(StrategyV2Base):
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
-         Listens to fill order event to log it and notify the Hummingbot application.
+         Listens to fill order event to log it and notify the Kairos-2 application.
          """
         if event.trading_pair == self.vwap["trading_pair"] and event.trade_type == self.vwap["trade_type"]:
             self.vwap["volume_remaining"] -= event.amount

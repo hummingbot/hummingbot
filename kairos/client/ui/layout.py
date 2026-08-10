@@ -54,19 +54,17 @@ HEADER = """
                                             , */
 
 
-██   ██ ██    ██ ███    ███ ███    ███ ██ ███    ██  ██████  ██████   ██████  ████████
-██   ██ ██    ██ ████  ████ ████  ████ ██ ████   ██ ██       ██   ██ ██    ██    ██
-███████ ██    ██ ██ ████ ██ ██ ████ ██ ██ ██ ██  ██ ██   ███ ██████  ██    ██    ██
-██   ██ ██    ██ ██  ██  ██ ██  ██  ██ ██ ██  ██ ██ ██    ██ ██   ██ ██    ██    ██
-██   ██  ██████  ██      ██ ██      ██ ██ ██   ████  ██████  ██████   ██████     ██
+██   ██  █████  ██ ██████   ██████  ███████        ██████
+██  ██  ██   ██ ██ ██   ██ ██    ██ ██                  ██
+█████   ███████ ██ ██████  ██    ██ ███████ ██████  █████
+██  ██  ██   ██ ██ ██   ██ ██    ██      ██        ██
+██   ██ ██   ██ ██ ██   ██  ██████  ███████        ███████
 
 ======================================================================================
-Hummingbot is an open source software client that helps you build and run
-market making, arbitrage, and other high-frequency trading bots.
+Kairos-2 is a market making trading client for Binance, forked from Kairos-2.
 
-- Official repo: https://github.com/hummingbot/hummingbot
-- Join the community: https://discord.gg/hummingbot
-- Learn market making: https://hummingbot.org/botcamp
+- Repo: https://github.com/Acaua-Rangel/Kairos-2
+- Upstream project: https://github.com/hummingbot/hummingbot
 
 Useful Commands:
 - connect     List available exchanges and add API keys to them

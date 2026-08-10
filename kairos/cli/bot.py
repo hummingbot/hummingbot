@@ -1,4 +1,4 @@
-"""Single-bot state — one bot per install (Hummingbot runs one bot at a time).
+"""Single-bot state — one bot per install (Kairos-2 runs one bot at a time).
 
 There is no instance registry: an install runs at most one ``hbot`` bot. Its runtime state lives in::
 
@@ -8,9 +8,9 @@ There is no instance registry: an install runs at most one ``hbot`` bot. Its run
         status.json   # latest on-demand snapshot written by the engine (SIGUSR1)
         bot.log       # child stdout/stderr (pre-logging + uncaught only; the structured log is primary)
 
-The trades sqlite DB and the structured log are Hummingbot's own (``data/<name>.sqlite``,
+The trades sqlite DB and the structured log are Kairos-2's own (``data/<name>.sqlite``,
 ``logs/logs_<name>.log``); we record their location in meta.json so readers don't re-derive it. For
-multiple bots, use multiple installs/containers — the same way Hummingbot itself scales.
+multiple bots, use multiple installs/containers — the same way Kairos-2 itself scales.
 """
 import json
 import os
@@ -43,7 +43,7 @@ def log_file() -> Path:
 
 
 def structured_log_file() -> Path:
-    """Hummingbot's structured log for this bot (init_logging strategy_file_path == meta['name'])."""
+    """Kairos-2's structured log for this bot (init_logging strategy_file_path == meta['name'])."""
     name = (read_meta() or {}).get("name") or "kairos"
     return Path(prefix_path()) / "logs" / f"logs_{name}.log"
 
@@ -72,7 +72,7 @@ def pid_alive(pid: int) -> bool:
 
 
 def is_engine_pid(pid: int) -> bool:
-    """True if ``pid`` is alive AND is a hummingbot engine process.
+    """True if ``pid`` is alive AND is a Kairos-2 engine process.
 
     After an abrupt stop (kill -9, container restart) bot.pid goes stale, and in a restarted
     container's fresh PID namespace the recorded pid is easily reused by an unrelated process. A

@@ -58,7 +58,7 @@ def get_new_client_order_id(
 
     :param is_buy: True if the order is a buy order, False otherwise
     :param trading_pair: the trading pair the order will be operating with
-    :param hbot_order_id_prefix: The hummingbot-specific identifier for the given exchange
+    :param hbot_order_id_prefix: The Kairos-2-specific identifier for the given exchange
     :param max_id_len: The maximum length of the ID string.
     :return: an identifier for the new order to be used in the client
     """

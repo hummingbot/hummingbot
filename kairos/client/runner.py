@@ -1,4 +1,4 @@
-"""Shared, headless-safe helpers for bootstrapping and launching a Hummingbot strategy.
+"""Shared, headless-safe helpers for bootstrapping and launching a Kairos-2 strategy.
 
 These bootstrap the one real engine — ``KairosApplication`` + ``TradingCore`` — and are used by
 every host that stands it up: the interactive ``bin/kairos.py`` / ``bin/kairos_quickstart.py``
@@ -149,7 +149,7 @@ async def bootstrap_application(
         return None
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
-    init_logging("hummingbot_logs.yml", client_config_map,
+    init_logging("kairos_logs.yml", client_config_map,
                  override_log_level=override_log_level, strategy_file_path=strategy_file_name)
     if silence_console:
         silence_console_handlers()

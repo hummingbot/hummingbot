@@ -1,7 +1,7 @@
 """
 kairos.client.config.config_var defines ConfigVar. One of its parameters is a validator, a function that takes a
 string and determines whether it is valid input. This file contains many validator functions that are used by various
-hummingbot ConfigVars.
+Kairos-2 ConfigVars.
 """
 
 import re

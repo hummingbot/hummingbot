@@ -36,11 +36,11 @@ done
 
 # Check if bin/kairos_quickstart.py exists
 if [[ ! -f bin/kairos_quickstart.py ]]; then
-    echo "Error: bin/kairos_quickstart.py command not found. Make sure you are in the Hummingbot root directory"
+    echo "Error: bin/kairos_quickstart.py command not found. Make sure you are in the Kairos-2 root directory"
     exit 1
 fi
 
-# Check if the hummingbot conda environment is activated
+# Check if the kairos-2 conda environment is activated
 if [[ $CONDA_DEFAULT_ENV != "kairos" ]]; then
     echo "Error: 'kairos' conda environment is not activated. Please activate it and try again."
     exit 1

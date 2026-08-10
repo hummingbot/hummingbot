@@ -57,7 +57,7 @@ class ExecutorFilter:
 
 class ControllerConfigBase(BaseClientModel):
     """
-    This class represents the base configuration for a controller in the Hummingbot trading bot.
+    This class represents the base configuration for a controller in the Kairos-2 trading bot.
     It inherits from the Pydantic BaseModel and includes several fields that are used to configure a controller.
 
     Attributes:

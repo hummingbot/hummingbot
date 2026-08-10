@@ -47,7 +47,7 @@ portfolio_value.csv
 /notebooks
 /data
 debug.log
-/installation/docker-commands/hummingbot_files
+/installation/docker-commands/kairos_files
 
 # Distribution files
 /build

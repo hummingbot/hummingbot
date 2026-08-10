@@ -6,10 +6,10 @@ import pandas as pd
 from sqlalchemy import BigInteger, Column, Float, Index, Text
 from sqlalchemy.orm import Session
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class FundingPayment(HummingbotBase):
+class FundingPayment(KairosBase):
     __tablename__ = "FundingPayment"
     __table_args__ = (Index("fp_config_timestamp_index",
                             "config_file_path", "timestamp"),

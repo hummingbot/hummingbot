@@ -202,7 +202,7 @@ class LiquidationsBase(NetworkBase):
 
     async def _fetch_and_map_trading_pairs(self):
         """
-        Used to fetch the trading pairs from the exchange and create the bidict mapping for hummingbot which is
+        Used to fetch the trading pairs from the exchange and create the bidict mapping for Kairos-2 which is
         later used in _process_websocket_messages to be able to give the right reverse mapping from the exchange native
         pair (e.g. "BTC-USDT" is "BTCUSDT" on binance)
         """

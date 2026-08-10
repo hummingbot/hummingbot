@@ -15,8 +15,8 @@ if [ "${CONDA_EXE}_" == "_" ]; then
     exit 1
 fi
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
-    ${CONDA_EXE} env remove -n hummingbot
+if ${CONDA_EXE} env list | egrep -qe "^kairos-2"; then
+    ${CONDA_EXE} env remove -n kairos-2
 else
     echo "Environment already removed."
 fi

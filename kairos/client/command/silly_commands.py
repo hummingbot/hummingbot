@@ -15,7 +15,7 @@ class SillyCommands:
                  raw_command: str) -> bool:
         command = raw_command.split(" ")[0]
         if command == "kairos":
-            safe_ensure_future(self.silly_hummingbot())
+            safe_ensure_future(self.silly_kairos())
             return True
         elif command == "roger":
             safe_ensure_future(self.silly_roger())
@@ -41,7 +41,7 @@ class SillyCommands:
         self.app.hide_input = True
         await self.text_n_wait("Hi there,", 1)
         await self.text_n_wait("This is Jack.", 1)
-        await self.text_n_wait("I am the lead developer of Hummingbot.", 1.5)
+        await self.text_n_wait("I am the lead developer of Kairos-2.", 1.5)
         await self.text_n_wait("If you are reading this.", 1.5)
         await self.text_n_wait("I'm probably dea...", 1.5)
         for _ in range(3):
@@ -58,7 +58,7 @@ class SillyCommands:
         self.placeholder_mode = False
         self.app.hide_input = False
 
-    async def silly_hummingbot(self,  # type: KairosApplication
+    async def silly_kairos(self,  # type: KairosApplication
                                ):
         self.placeholder_mode = True
         self.app.hide_input = True

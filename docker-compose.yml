@@ -1,8 +1,8 @@
 services:
-  hummingbot:
-    container_name: hummingbot
-    image: kairos/hummingbot:latest
-    # build: # Uncomment this build section and comment image to build Hummingbot locally
+  kairos-2:
+    container_name: kairos-2
+    image: kairos-2:latest
+    # build: # Uncomment this build section and comment image to build Kairos-2 locally
     #   context: .
     #   dockerfile: Dockerfile
     volumes:
@@ -28,9 +28,9 @@ services:
     # started with `docker exec … hbot start`: it reparents to PID 1 when the exec returns, and without
     # an init it lingers as a zombie that makes `hbot stop` wait its full timeout. Harmless otherwise.
     init: true
-    # By default the container runs the interactive Hummingbot client — `docker attach hummingbot`.
+    # By default the container runs the interactive Kairos-2 client — `docker attach kairos-2`.
     # To drive the container with `hbot` commands instead (`make link-cli`, then `hbot <command>`, or
-    # `docker exec -it hummingbot hbot <command>`), run it as an idle "hbot host" — uncomment:
+    # `docker exec -it kairos-2 hbot <command>`), run it as an idle "hbot host" — uncomment:
     #   command: tail -f /dev/null
     # Or make one dedicated bot the container's main process:
     #   command: hbot start <config> --foreground

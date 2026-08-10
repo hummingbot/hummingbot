@@ -11,7 +11,7 @@ from kairos.cli.strategy_configs import controller_loader_name
 
 class ControllerLoaderNameTest(unittest.TestCase):
     def test_flattens_dots_to_avoid_db_truncation(self):
-        # Hummingbot derives the DB name via name.split('.')[0]; a dotted controller name would
+        # Kairos-2 derives the DB name via name.split('.')[0]; a dotted controller name would
         # collide on the first segment. The loader name must flatten dots.
         self.assertEqual(controller_loader_name("conf_generic.lp_jit.hype_usdc.yml"),
                          "conf_generic_lp_jit_hype_usdc.yml")
@@ -59,7 +59,7 @@ class BotPathsTest(unittest.TestCase):
                 patch.object(bot, "bot_dir", return_value=Path(d) / "bot"), \
                 patch.object(bot, "prefix_path", return_value=d):
             # no meta -> default name
-            self.assertEqual(bot.structured_log_file(), Path(d) / "logs" / "logs_hummingbot.log")
+            self.assertEqual(bot.structured_log_file(), Path(d) / "logs" / "logs_kairos.log")
             bot.write_meta({"name": "mybot"})
             self.assertEqual(bot.structured_log_file(), Path(d) / "logs" / "logs_mybot.log")
 

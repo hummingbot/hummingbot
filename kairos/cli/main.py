@@ -1,9 +1,9 @@
-"""``hbot`` CLI entrypoint — run, control, and monitor Hummingbot bots.
+"""``hbot`` CLI entrypoint — run, control, and monitor Kairos-2 bots.
 
 Designed to be driven non-interactively by agentic harnesses: every command emits compact Markdown
 and returns a stable exit code (see ``kairos.cli.output.ExitCode``); the run/observe commands
 (deploy/start/stop/status/logs/config/balance) also take ``--json`` for machine-readable output.
-One bot per install (like Hummingbot itself); for multiple bots, use multiple installs/containers.
+One bot per install (like Kairos-2 itself); for multiple bots, use multiple installs/containers.
 """
 from pathlib import Path
 from typing import Optional
@@ -32,7 +32,7 @@ app = typer.Typer(
     cls=SortedCommandsGroup,
     no_args_is_help=True,
     add_completion=False,
-    help="Run, control, and monitor a Hummingbot bot (one bot per install).",
+    help="Run, control, and monitor a Kairos-2 bot (one bot per install).",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
@@ -48,7 +48,7 @@ def _version() -> str:
 @app.callback(invoke_without_command=True)
 def _root(
     version: Optional[bool] = typer.Option(
-        None, "--version", help="Show the hbot/Hummingbot version and exit.", is_eager=True),
+        None, "--version", help="Show the hbot/Kairos-2 version and exit.", is_eager=True),
 ) -> None:
     if version:
         typer.echo(f"hbot {_version()}")

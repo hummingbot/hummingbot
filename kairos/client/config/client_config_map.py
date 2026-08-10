@@ -475,7 +475,7 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
         default="",
         description="API key to use to request information from CoinGecko (if empty public API will be used)",
         json_schema_extra={
-            "prompt": lambda cm: "CoinGecko API key (optional, leave empty to use public API) NOTE: will be stored in plain text due to a bug in the way hummingbot loads the config file",
+            "prompt": lambda cm: "CoinGecko API key (optional, leave empty to use public API) NOTE: will be stored in plain text due to a bug in the way Kairos-2 loads the config file",
             "prompt_on_new": True,
             "is_connect_key": True,
         },
@@ -607,7 +607,7 @@ RATE_SOURCE_MODES = {
 class ClientConfigMap(BaseClientModel):
     instance_id: str = Field(
         default=generate_client_id(),
-        json_schema_extra={"prompt": lambda cm: "Enter a unique identifier for this instance of Hummingbot"},
+        json_schema_extra={"prompt": lambda cm: "Enter a unique identifier for this instance of Kairos-2"},
     )
     fetch_pairs_from_all_exchanges: bool = Field(
         default=False,
@@ -624,7 +624,7 @@ class ClientConfigMap(BaseClientModel):
     )
     log_file_path: Path = Field(
         default=DEFAULT_LOG_FILE_PATH,
-        json_schema_extra={"prompt": lambda cm: "Where would you like to save your logs? (default 'logs/hummingbot_logs.log')"},
+        json_schema_extra={"prompt": lambda cm: "Where would you like to save your logs? (default 'logs/kairos_logs.log')"},
     )
     kill_switch_mode: Union[tuple(KILL_SWITCH_MODES.values())] = Field(
         default=KillSwitchDisabledMode(),
@@ -644,7 +644,7 @@ class ClientConfigMap(BaseClientModel):
     send_error_logs: bool = Field(
         default=True,
         description="Error log sharing",
-        json_schema_extra={"prompt": lambda cm: "Would you like to send error logs to hummingbot? (True/False)"},
+        json_schema_extra={"prompt": lambda cm: "Would you like to send error logs to Kairos-2? (True/False)"},
     )
     db_mode: Union[tuple(DB_MODES.values())] = Field(
         default=DBSqliteMode(),

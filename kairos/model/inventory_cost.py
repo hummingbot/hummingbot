@@ -4,10 +4,10 @@ from typing import Optional
 from sqlalchemy import Column, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Session
 
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 
 
-class InventoryCost(HummingbotBase):
+class InventoryCost(KairosBase):
     __tablename__ = "InventoryCost"
     __table_args__ = (
         UniqueConstraint("base_asset", "quote_asset"),

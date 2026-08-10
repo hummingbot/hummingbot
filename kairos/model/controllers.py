@@ -1,9 +1,9 @@
 from sqlalchemy import JSON, Column, Float, Index, Integer, Text
 
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 
 
-class Controllers(HummingbotBase):
+class Controllers(KairosBase):
     __tablename__ = "Controllers"
     __table_args__ = (
         Index("c_type", "type"),

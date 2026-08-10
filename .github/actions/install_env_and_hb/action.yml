@@ -1,5 +1,5 @@
-name: "Install environment and Hummingbot"
-description: "Installs conda environment, all libraries and compiles Hummingbot"
+name: "Install environment and Kairos-2"
+description: "Installs conda environment, all libraries and compiles Kairos-2"
 inputs:
    program-cache-hit:
      required: true
@@ -23,15 +23,15 @@ runs:
       run: |
         conda install -c conda-forge pre_commit
 
-    # Install hummingbot env if environment.yml has changed
-    - name: Install Hummingbot
+    # Install Kairos-2 env if environment.yml has changed
+    - name: Install Kairos-2
       if: ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash -l {0}
       run: |
         ./install
 
     # Compile and run tests if code has changed
-    - name: Compile Hummingbot
+    - name: Compile Kairos-2
       shell: bash
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       env:
@@ -39,6 +39,6 @@ runs:
       run: |
         source $CONDA/etc/profile.d/conda.sh
         conda info --envs
-        conda activate hummingbot
+        conda activate Kairos-2
         conda env export
         ./compile

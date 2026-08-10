@@ -1,6 +1,6 @@
 """``hbot connect`` — list connectors and securely store encrypted API keys.
 
-Like Hummingbot's ``connect``: each connector declares its own key fields (api key, secret, etc.).
+Like Kairos-2's ``connect``: each connector declares its own key fields (api key, secret, etc.).
 Secrets are NEVER taken as flags. Supply them either interactively (hidden prompts) or, for
 automation, as a JSON object on stdin (``--keys-stdin``). Keys are encrypted with the keystore
 password via ``Security.update_secure_config`` and written to ``conf/connectors/<connector>.yml``.
@@ -48,7 +48,7 @@ def _list_all() -> None:
 
 
 def _show_connections(ccm, password_stdin: bool) -> None:
-    """Hummingbot-style ``connect`` table: tests the keys you've added and reports Keys Confirmed."""
+    """Kairos-2-style ``connect`` table: tests the keys you've added and reports Keys Confirmed."""
     from kairos.client.config.config_crypt import ETHKeyFileSecretManger
     from kairos.client.config.security import Security
     from kairos.user.user_balances import UserBalances

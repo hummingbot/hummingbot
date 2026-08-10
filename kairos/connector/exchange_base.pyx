@@ -80,7 +80,7 @@ cdef class ExchangeBase(ConnectorBase):
         """
         List of all trading pairs supported by the connector
 
-        :return: List of trading pair symbols in the Hummingbot format
+        :return: List of trading pair symbols in the Kairos-2 format
         """
         mapping = await self.trading_pair_symbol_map()
         return list(mapping.values())

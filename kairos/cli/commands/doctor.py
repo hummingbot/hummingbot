@@ -43,7 +43,7 @@ def _install_row() -> dict:
     except OSError:
         pass
     import platform
-    return _row("install", "ok", f"{install}, hummingbot {version}, python {platform.python_version()}")
+    return _row("install", "ok", f"{install}, Kairos-2 {version}, python {platform.python_version()}")
 
 
 def _extensions_row() -> dict:

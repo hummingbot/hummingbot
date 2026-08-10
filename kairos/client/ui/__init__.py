@@ -55,7 +55,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
                     store_password_verification(secrets_manager)
     else:
         password = input_dialog(
-            title="Welcome back to Hummingbot",
+            title="Welcome back to Kairos-2",
             text="Enter your password:",
             password=True,
             style=style).run()
@@ -93,7 +93,7 @@ def migrate_configs_prompt(secrets_manager_cls: Type[BaseSecretsManager], style:
 
             CONFIGS MIGRATION:
 
-            We have recently refactored the way hummingbot handles configurations.
+            We have recently refactored the way Kairos-2 handles configurations.
             To migrate your legacy configuration files to the new format,
             please enter your password on the following screen.
 
@@ -133,7 +133,7 @@ def migrate_non_secure_only_prompt(style: Style):
 
                 CONFIGS MIGRATION:
 
-                We have recently refactored the way hummingbot handles configurations.
+                We have recently refactored the way Kairos-2 handles configurations.
                 We will now attempt to migrate any legacy config files to the new format.
 
                     """,
@@ -173,20 +173,19 @@ def _migration_errors_dialog(errors, style: Style):
 
 def show_welcome(style: Style):
     message_dialog(
-        title='Welcome to Hummingbot',
+        title='Welcome to Kairos-2',
         text="""
 
-    ██╗  ██╗██╗   ██╗███╗   ███╗███╗   ███╗██╗███╗   ██╗ ██████╗ ██████╗  ██████╗ ████████╗
-    ██║  ██║██║   ██║████╗ ████║████╗ ████║██║████╗  ██║██╔════╝ ██╔══██╗██╔═══██╗╚══██╔══╝
-    ███████║██║   ██║██╔████╔██║██╔████╔██║██║██╔██╗ ██║██║  ███╗██████╔╝██║   ██║   ██║
-    ██╔══██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║██╔══██╗██║   ██║   ██║
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝██████╔╝╚██████╔╝   ██║
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═════╝  ╚═════╝    ╚═╝
+    ██   ██  █████  ██ ██████   ██████  ███████        ██████
+    ██  ██  ██   ██ ██ ██   ██ ██    ██ ██                  ██
+    █████   ███████ ██ ██████  ██    ██ ███████ ██████  █████
+    ██  ██  ██   ██ ██ ██   ██ ██    ██      ██        ██
+    ██   ██ ██   ██ ██ ██   ██  ██████  ███████        ███████
 
     =======================================================================================
 
     Version: {version}
-    Codebase: https://github.com/hummingbot/hummingbot
+    Codebase: https://github.com/Acaua-Rangel/Kairos-2
 
 
         """.format(version=version),
@@ -196,15 +195,15 @@ def show_welcome(style: Style):
         text="""
 
 
-    PLEASE READ THIS CAREFULLY BEFORE USING HUMMINGBOT:
+    PLEASE READ THIS CAREFULLY BEFORE USING KAIROS-2:
 
-    Hummingbot is a free and open source software client that helps you build algorithmic
+    Kairos-2 is a free and open source software client that helps you build algorithmic
     crypto trading strategies.
 
     Algorithmic crypto trading is a risky activity. You will be building a "bot" that
     automatically places orders and trades based on parameters that you set. Please take
     the time to understand how each strategy works before you risk real capital with it.
-    You are solely responsible for the trades that you perform using Hummingbot.
+    You are solely responsible for the trades that you perform using Kairos-2.
 
         """,
         style=style).run()
@@ -215,7 +214,7 @@ def show_welcome(style: Style):
 
     SET A SECURE PASSWORD:
 
-    To use Hummingbot, you will need to give it access to your crypto assets by entering
+    To use Kairos-2, you will need to give it access to your crypto assets by entering
     your exchange API keys and/or wallet private keys. These keys are not shared with
     anyone, including us.
 

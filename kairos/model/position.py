@@ -1,10 +1,10 @@
 from sqlalchemy import BigInteger, Column, Index, Text
 
-from . import HummingbotBase
+from . import KairosBase
 from .decimal_type_decorator import SqliteDecimal
 
 
-class Position(HummingbotBase):
+class Position(KairosBase):
     """
     Database model for storing positions held by executors.
     """

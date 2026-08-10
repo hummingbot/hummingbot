@@ -131,7 +131,7 @@ def launch(*, file: Optional[str], v1: bool = False, v2: bool = False, controlle
             fail(f"invalid controller config: {e}", ExitCode.CONFIG_ERROR)
         v2_conf = wrap_controller_as_v2(file)
 
-    # The bot's name == the strategy file Hummingbot runs (the loader for controllers); this is what
+    # The bot's name == the strategy file Kairos-2 runs (the loader for controllers); this is what
     # names the structured log and the trades DB, so logs/trades/history line up.
     name = Path(v2_conf or config_file_name).stem
 

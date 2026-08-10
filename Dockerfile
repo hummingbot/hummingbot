@@ -6,7 +6,7 @@ RUN apt-get update && \
     apt-get install -y sudo libusb-1.0 gcc g++ python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/hummingbot
+WORKDIR /home/kairos
 
 # Create conda environment
 COPY setup/environment.yml /tmp/environment.yml
@@ -24,9 +24,9 @@ COPY setup.py .
 COPY LICENSE .
 COPY README.md .
 
-# activate hummingbot env when entering the CT
+# activate kairos-2 env when entering the CT
 SHELL [ "/bin/bash", "-lc" ]
-RUN echo "conda activate hummingbot" >> ~/.bashrc
+RUN echo "conda activate kairos-2" >> ~/.bashrc
 
 COPY setup/pip_packages.txt /tmp/pip_packages.txt
 RUN python3 -m pip install --no-deps -r /tmp/pip_packages.txt && \
@@ -67,13 +67,13 @@ RUN apt-get update && \
 # Create mount points
 RUN mkdir -p /home/kairos/conf /home/kairos/conf/connectors /home/kairos/conf/strategies /home/kairos/conf/controllers /home/kairos/conf/scripts /home/kairos/logs /home/kairos/data /home/kairos/certs /home/kairos/scripts /home/kairos/controllers
 
-WORKDIR /home/hummingbot
+WORKDIR /home/kairos
 
 # Copy all build artifacts from builder image
 COPY --from=builder /opt/conda/ /opt/conda/
 COPY --from=builder /home/ /home/
 
-# Put the hummingbot env on PATH so non-login shells (e.g. `docker exec … hbot`) find the env's python
+# Put the kairos-2 env on PATH so non-login shells (e.g. `docker exec … hbot`) find the env's python
 # + console scripts without `conda activate`, and expose the `hbot` CLI there (mirrors make install).
 # This lets the image run as a single-bot container: `docker run … hbot start <config>`,
 # `docker exec … hbot status`.
@@ -85,4 +85,4 @@ SHELL [ "/bin/bash", "-lc" ]
 
 # Set the default command to run when starting the container
 
-CMD conda activate hummingbot && ./bin/kairos_quickstart.py 2>> ./logs/errors.log
+CMD conda activate kairos-2 && ./bin/kairos_quickstart.py 2>> ./logs/errors.log

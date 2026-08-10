@@ -834,7 +834,7 @@ def write_config_to_yml(
 
 async def create_yml_files_legacy():
     """
-    Copy `hummingbot_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
+    Copy `kairos_logs.yml` and `conf_global.yml` templates to the `conf` directory on start up
     """
     for fname in listdir(TEMPLATE_PATH):
         if "_TEMPLATE" in fname and CONF_POSTFIX not in fname:
@@ -845,7 +845,7 @@ async def create_yml_files_legacy():
                 shutil.copy(template_path, conf_path)
 
             # Only overwrite log config. Updating `conf_global.yml` is handled by `read_configs_from_yml`
-            if conf_path.endswith("hummingbot_logs.yml"):
+            if conf_path.endswith("kairos_logs.yml"):
                 with open(template_path, "r", encoding="utf-8") as template_fd:
                     template_data = yaml_parser.load(template_fd)
                     template_version = template_data.get("template_version", 0)

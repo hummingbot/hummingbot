@@ -2,11 +2,11 @@ import inspect
 
 from sqlalchemy import JSON, Column, Index, Text
 
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 from kairos.model.decimal_type_decorator import SqliteDecimal
 
 
-class MarketData(HummingbotBase):
+class MarketData(KairosBase):
     __tablename__ = "MarketData"
     __table_args__ = (
         Index("timestamp", "exchange", "trading_pair"),

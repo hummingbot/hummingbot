@@ -212,7 +212,7 @@ class KairosApplication(*commands):
     async def run_headless(self):
         """Run in headless mode - just keep alive for MQTT/strategy execution."""
         try:
-            self.logger().info("Starting Hummingbot in headless mode...")
+            self.logger().info("Starting Kairos-2 in headless mode...")
 
             # Validate MQTT is enabled for headless mode
             if not self.client_config_map.mqtt_bridge.mqtt_autostart:

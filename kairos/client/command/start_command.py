@@ -74,7 +74,7 @@ class StartCommand:
             self.notify("Status checks failed. Start aborted.")
             self._in_start_check = False
             return
-        init_logging("hummingbot_logs.yml",
+        init_logging("kairos_logs.yml",
                      self.client_config_map,
                      override_log_level=log_level.upper() if log_level else None,
                      strategy_file_path=self.strategy_file_name)

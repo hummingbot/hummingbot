@@ -1,6 +1,6 @@
-# `hbot` — Hummingbot command-line interface
+# `hbot` — Kairos-2 command-line interface
 
-`hbot` runs, controls, and monitors **one Hummingbot bot per install**. It is fully
+`hbot` runs, controls, and monitors **one Kairos-2 bot per install**. It is fully
 non-interactive and scriptable: every command emits compact **Markdown** (tables for lists,
 key-value for records — readable by humans and agents alike) and returns a **stable exit code**;
 the run/observe commands also take **`--json`** for machine-readable output. No MQTT broker, no
@@ -50,7 +50,7 @@ loader — just `start` the controller config.
 
 ## Command ontology
 
-The v1 surface mirrors the interactive Hummingbot client's commands (minus the `gateway` suite). Flat
+The v1 surface mirrors the interactive Kairos-2 client's commands. Flat
 — no sub-commands — and every menu is alphabetical.
 
 ```
@@ -91,7 +91,7 @@ can't replace its own image. It refuses while a bot is running and refuses to gu
 diverged branch.
 
 See [Roadmap](#roadmap) for commands intentionally left out of v1 (`ticker`, `rate`, `positions`,
-`rules`, `book`, `connectors`, `trades`, config `clone`/`list`/`show`, `gateway`).
+`rules`, `book`, `connectors`, `trades`, config `clone`/`list`/`show`).
 
 ---
 
@@ -99,13 +99,13 @@ See [Roadmap](#roadmap) for commands intentionally left out of v1 (`ticker`, `ra
 
 ```bash
 # 1. connect a connector (keys are encrypted with your keystore password)
-hbot connect hyperliquid_perpetual --fields          # what keys does it need?
-hbot connect hyperliquid_perpetual                   # add the keys
+hbot connect binance_perpetual --fields          # what keys does it need?
+hbot connect binance_perpetual                   # add the keys
 hbot balance                                          # confirm funds
 
 # 2. create a strategy config (agents: fill required fields in one shot)
 hbot create pmm_simple --name conf_eth.yml \
-     --set connector_name=hyperliquid_perpetual --set trading_pair=ETH-USD
+     --set connector_name=binance_perpetual --set trading_pair=ETH-USDT
 #   ...or scaffold it and fill fields afterwards:
 hbot create pmm_simple --name conf_eth.yml --with-defaults   # defaults + blanks, and loads it
 hbot config                                                  # review global + this strategy's fields
@@ -146,7 +146,7 @@ hbot deploy conf_eth.yml
 hbot deploy conf_eth.yml --set total_amount_quote=500
 
 # strategy/controller/script name → create a ready-to-run config → running bot
-hbot deploy pmm_simple --set connector_name=hyperliquid_perpetual --set trading_pair=ETH-USD
+hbot deploy pmm_simple --set connector_name=binance_perpetual --set trading_pair=ETH-USDT
 ```
 
 The target is resolved config-file-first (config names are unique across types); anything else must
@@ -173,7 +173,7 @@ be a creatable strategy name, with every required field supplied via `--set` / `
 
 ## Roadmap
 
-v1 is a **faithful subset of the interactive Hummingbot client's commands** — the goal is to give
+v1 is a **faithful subset of the interactive Kairos-2 client's commands** — the goal is to give
 existing source/Docker users the commands they already know, non-interactively. Some commands the
 previous CLI shipped are intentionally deferred so v1 stays close to the client's surface. They'll
 return in later versions:
@@ -189,7 +189,6 @@ return in later versions:
 | `book <connector> <pair>` | order-book depth | the exchange's public API |
 | `connectors` | list available connectors | `connect` with no argument lists connections |
 | `trades [name]` | recorded fills table | `history` for PnL/fees/volume |
-| `gateway …` | Gateway (DEX/AMM) helpers | out of scope for the CLI |
 
 Removing these is not a capability loss in the engine — only in the CLI surface — and each is tracked
 to come back once the core client parity is solid.
@@ -249,13 +248,13 @@ interactive client's first launch. Every later command must use that same passwo
 > only when you're building or modifying the code.
 
 `hbot` works the same in Docker as from source — same commands, same flow. By default `make deploy`
-brings up the `hummingbot` container running the classic **interactive client** (`docker attach
-hummingbot` to use it). To dedicate the container to `hbot` instead, opt in to the **idle "hbot
+brings up the `Kairos-2` container running the classic **interactive client** (`docker attach
+Kairos-2` to use it). To dedicate the container to `hbot` instead, opt in to the **idle "hbot
 host"** mode — the container just stays up and every `hbot` command execs into it — by uncommenting
 one line in `docker-compose.yml`:
 
 ```bash
-# docker-compose.yml, under the hummingbot service, uncomment:
+# docker-compose.yml, under the Kairos-2 service, uncomment:
 #   command: tail -f /dev/null
 
 make deploy        # start the container (an idle hbot host)
@@ -268,12 +267,12 @@ hbot status ; hbot logs -f ; hbot stop
 ```
 
 The wrapper (`bin/hbot-host`) auto-detects where to run: standing inside a compose project whose
-`hummingbot` container is running → `docker exec` into it (the `conf`/`data`/`logs` dirs there are
+`Kairos-2` container is running → `docker exec` into it (the `conf`/`data`/`logs` dirs there are
 bind mounts owned by the container's user, so the host CLI couldn't write them anyway); else a
-`hummingbot` conda env → run there; else a running `hummingbot` container → `docker exec` into it.
+`Kairos-2` conda env → run there; else a running `Kairos-2` container → `docker exec` into it.
 So one `hbot <command>` works regardless of how you installed, and `HBOT_PREFER=docker` forces the
 container on machines that have both. (Without the wrapper,
-`docker exec -it hummingbot hbot <command>` does the same thing.)
+`docker exec -it Kairos-2 hbot <command>` does the same thing.)
 
 > The idle-host container must run a real init (the compose file sets `init: true`) so the bot
 > process — which reparents to PID 1 after the `docker exec` that started it returns — gets **reaped**
@@ -289,7 +288,7 @@ gracefully (cancelling orders):
 ```yaml
 services:
   bot:
-    image: kairos/hummingbot
+    image: kairos/Kairos-2
     environment: [HBOT_PASSWORD]
     volumes:
       - ./conf:/home/kairos/conf
@@ -321,7 +320,7 @@ loaded config in `data/bot/loaded.json`. Because the DB and log are named by the
 stopped bot's logs/history stay viewable **by name** indefinitely.
 
 Stale state never masquerades as live: the snapshot (markets/orders/balances) is only rendered
-while the bot is running, a recorded pid is only trusted if it is actually a hummingbot engine
+while the bot is running, a recorded pid is only trusted if it is actually a Kairos-2 engine
 process (an abruptly killed bot — `kill -9`, container restart — can leave `bot.pid` pointing at a
 dead or reused pid), and a config imported after the last run supersedes the stopped bot's record
 in `status` (shown as `imported, not started`, with the previous run as `last_run`).

@@ -4,10 +4,10 @@ from typing import Any, Dict
 from sqlalchemy import BigInteger, Column, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import relationship
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class OrderStatus(HummingbotBase):
+class OrderStatus(KairosBase):
     __tablename__ = "OrderStatus"
     __table_args__ = (Index("os_order_id_timestamp_index",
                             "order_id", "timestamp"),

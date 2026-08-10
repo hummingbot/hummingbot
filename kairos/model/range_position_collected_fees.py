@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 from sqlalchemy import Column, Float, Index, Integer, Text
 
-from . import HummingbotBase
+from . import KairosBase
 
 
-class RangePositionCollectedFees(HummingbotBase):
+class RangePositionCollectedFees(KairosBase):
     """
     Table schema used when LP feesmare claimed.
     """

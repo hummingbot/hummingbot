@@ -7,11 +7,11 @@ from sqlalchemy import JSON, BigInteger, Column, ForeignKey, Index, Integer, Tex
 from sqlalchemy.orm import Session, relationship
 
 from kairos.core.event.events import PositionAction
-from kairos.model import HummingbotBase
+from kairos.model import KairosBase
 from kairos.model.decimal_type_decorator import SqliteDecimal
 
 
-class TradeFill(HummingbotBase):
+class TradeFill(KairosBase):
     __tablename__ = "TradeFill"
     __table_args__ = (Index("tf_config_timestamp_index",
                             "config_file_path", "timestamp"),

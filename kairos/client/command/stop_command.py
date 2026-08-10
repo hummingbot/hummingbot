@@ -64,4 +64,4 @@ class StopCommand:
         self.trading_core._config_source = None
         self.trading_core._config_data = None
 
-        self.notify("Hummingbot stopped.")
+        self.notify("Kairos-2 stopped.")

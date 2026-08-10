@@ -70,7 +70,7 @@ class LimitOrderUnitTest(unittest.TestCase):
         #   HBOT_1  buy    1.0 33.33%     1.5      n/a  n/a
         #  ...1442  buy    1.0 33.33%     1.0 00:01:40  n/a
         # we can't compare the text output directly as for some weird reason the test file passes when run individually
-        # but will fail under coverage run -m nose test.hummingbot
+        # but will fail under coverage run -m nose test.Kairos-2
         # self.assertEqual(expect_txt, df.to_string(index=False, max_colwidth=50))
         self.assertEqual("HBOT_2", df["Order ID"][0])
         self.assertEqual("sell", df["Type"][0])

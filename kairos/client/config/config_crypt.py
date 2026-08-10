@@ -20,7 +20,7 @@ from pydantic import SecretStr
 
 from kairos.client.settings import CONF_DIR_PATH
 
-PASSWORD_VERIFICATION_WORD = "HummingBot"
+PASSWORD_VERIFICATION_WORD = "Kairos-2"
 PASSWORD_VERIFICATION_PATH = CONF_DIR_PATH / ".password_verification"
 
 

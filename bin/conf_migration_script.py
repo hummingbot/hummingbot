@@ -6,7 +6,7 @@ from kairos.client.config.conf_migration import migrate_configs
 from kairos.client.config.config_crypt import ETHKeyFileSecretManger
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Migrate the HummingBot confs")
+    parser = argparse.ArgumentParser(description="Migrate the Kairos-2 confs")
     parser.add_argument("password", type=str, help="Required to migrate all encrypted configs.")
     args = parser.parse_args()
     secrets_manager_ = ETHKeyFileSecretManger(args.password)
