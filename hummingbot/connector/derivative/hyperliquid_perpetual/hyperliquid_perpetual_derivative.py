@@ -69,9 +69,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
-        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        # Builder code (HGP-87). Fee starts at 0 and is resolved once per session
+        # (_ensure_builder_fee_resolved), at start_network or on the first order.
         self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
+        self._builder_fee_resolved: bool = False
+        self._builder_fee_lock: asyncio.Lock = asyncio.Lock()
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -139,7 +142,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         if self._trading_required:
-            await self._initialize_builder_fee()
+            await self._ensure_builder_fee_resolved()
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -646,7 +649,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "cloid": order_id,
             }
         }
-        # Builder code (HGP-87): part of the signed action dict.
+        # Builder code (HGP-87): part of the signed action dict. Resolve the fee here too —
+        # embedders like hummingbot-api start connector tasks without calling start_network().
+        await self._ensure_builder_fee_resolved()
         builder_field = self._build_builder_field()
         if builder_field is not None:
             api_params["builder"] = builder_field
@@ -686,8 +691,20 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
+    async def _ensure_builder_fee_resolved(self) -> None:
+        """Resolve the builder fee exactly once per session, whichever path gets there first:
+        start_network on normal client startup, or the first _place_order for embedders that
+        start connector tasks without calling start_network."""
+        if self._builder_fee_resolved:
+            return
+        async with self._builder_fee_lock:
+            if self._builder_fee_resolved:
+                return
+            await self._initialize_builder_fee()
+            self._builder_fee_resolved = True
+
     async def _initialize_builder_fee(self) -> None:
-        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
+        """Resolve the per-order builder fee as min(on-chain approved, hardcoded fee):
         the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
         fails)."""
         if not self._should_inject_builder():
