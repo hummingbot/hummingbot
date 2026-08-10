@@ -193,8 +193,21 @@ class ArbitrageExecutor(ExecutorBase):
                 self.logger().warning(
                     f"Arbitrage timed out after {elapsed:.1f}s "
                     f"(limit: {self.config.max_exec_duration}s)")
+                self._cancel_outstanding_orders()
                 self.close_type = CloseType.TIME_LIMIT
                 self.stop()
+
+    def _cancel_outstanding_orders(self):
+        if self.buy_order.order and self.buy_order.order.is_open:
+            self._strategy.cancel(
+                connector_name=self.buying_market.connector_name,
+                trading_pair=self.buying_market.trading_pair,
+                order_id=self.buy_order.order_id)
+        if self.sell_order.order and self.sell_order.order.is_open:
+            self._strategy.cancel(
+                connector_name=self.selling_market.connector_name,
+                trading_pair=self.selling_market.trading_pair,
+                order_id=self.sell_order.order_id)
 
     async def execute_arbitrage(self):
         self._status = RunnableStatus.SHUTTING_DOWN
