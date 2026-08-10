@@ -1206,13 +1206,16 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             lower_price=Decimal("95"),
             upper_price=Decimal("105"),
             base_amount=Decimal("0"),
-            quote_amount=Decimal("0"),
+            quote_amount=Decimal("100"),
             side=TradeType.BUY,
         )
         executor = self.get_executor(config)
         executor._current_price = Decimal("100")
         executor.lp_position_state.base_amount = Decimal("1.0")
         executor.lp_position_state.quote_amount = Decimal("100.0")
+        # The config guarantees a funded side, so the amounts are zeroed after construction
+        # to reach the guard that protects the division by the initial value.
+        executor.config.quote_amount = Decimal("0")
 
         # Initial value is 0, should return 0 to avoid division by zero
         self.assertEqual(executor.get_net_pnl_pct(), Decimal("0"))
