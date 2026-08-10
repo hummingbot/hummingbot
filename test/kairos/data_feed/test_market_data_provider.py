@@ -214,30 +214,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         mock_task.cancel.assert_called_once()
         self.assertIsNone(self.provider._rates_update_task)
 
-    def test_remove_rate_sources_gateway(self):
-        # Test removing Gateway connector rate sources (new format)
-        connector_pair = ConnectorPair(connector_name="uniswap/amm", trading_pair="BTC-USDT")
-        # Gateway connectors are stored by their connector name directly
-        self.provider._rates_required.add_or_update("uniswap/amm", connector_pair)
-        mock_task = MagicMock()
-        self.provider._rates_update_task = mock_task
 
-        self.provider.remove_rate_sources([connector_pair])
-        self.assertEqual(len(self.provider._rates_required), 0)
-        mock_task.cancel.assert_called_once()
-        self.assertIsNone(self.provider._rates_update_task)
-
-    def test_remove_rate_sources_gateway_old_format(self):
-        # Test removing Gateway connector rate sources (old format)
-        connector_pair = ConnectorPair(connector_name="gateway_ethereum-mainnet", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("gateway_ethereum-mainnet", connector_pair)
-        mock_task = MagicMock()
-        self.provider._rates_update_task = mock_task
-
-        self.provider.remove_rate_sources([connector_pair])
-        self.assertEqual(len(self.provider._rates_required), 0)
-        mock_task.cancel.assert_called_once()
-        self.assertIsNone(self.provider._rates_update_task)
 
     def test_remove_rate_sources_no_task_cancellation(self):
         # Test that task is not cancelled when rates are still required
@@ -258,64 +235,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         await self.provider.update_rates_task()
         self.assertIsNone(self.provider._rates_update_task)
 
-    @patch('kairos.core.rate_oracle.rate_oracle.RateOracle.get_instance')
-    @patch('kairos.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_network_format(self, mock_gateway_client, mock_rate_oracle):
-        # Test gateway connector with network format (e.g., "solana-mainnet-beta")
-        # Gateway connectors are detected by having a swap provider configured
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_default_swap_provider.return_value = "jupiter/router"
-        mock_gateway_instance.get_price.return_value = {"price": "50000"}
 
-        mock_oracle_instance = MagicMock()
-        mock_rate_oracle.return_value = mock_oracle_instance
-
-        connector_pair = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair)
-
-        # Mock asyncio.sleep to cancel immediately after first iteration
-        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.provider.update_rates_task()
-
-        # Verify swap provider was checked
-        mock_gateway_instance.get_default_swap_provider.assert_called_with("solana-mainnet-beta")
-        # Verify price was fetched with network
-        mock_gateway_instance.get_price.assert_called()
-        call_kwargs = mock_gateway_instance.get_price.call_args[1]
-        self.assertEqual(call_kwargs['network'], 'solana-mainnet-beta')
-        # Verify price was set
-        mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
-
-    @patch('kairos.core.rate_oracle.rate_oracle.RateOracle.get_instance')
-    @patch('kairos.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_ethereum(self, mock_gateway_client, mock_rate_oracle):
-        # Test gateway connector on ethereum network
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_default_swap_provider.return_value = "uniswap/router"
-        mock_gateway_instance.get_price.return_value = {"price": "50000"}
-
-        mock_oracle_instance = MagicMock()
-        mock_rate_oracle.return_value = mock_oracle_instance
-
-        connector_pair = ConnectorPair(connector_name="ethereum-mainnet", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("ethereum-mainnet", connector_pair)
-
-        # Mock asyncio.sleep to cancel immediately after first iteration
-        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.provider.update_rates_task()
-
-        # Verify swap provider was checked
-        mock_gateway_instance.get_default_swap_provider.assert_called_with("ethereum-mainnet")
-        # Verify price was fetched with network
-        mock_gateway_instance.get_price.assert_called()
-        call_kwargs = mock_gateway_instance.get_price.call_args[1]
-        self.assertEqual(call_kwargs['network'], 'ethereum-mainnet')
-        # Verify price was set
-        mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
     @patch('kairos.core.rate_oracle.rate_oracle.RateOracle.get_instance')
     async def test_update_rates_task_regular_connector(self, mock_rate_oracle):
@@ -336,40 +256,7 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
 
         mock_oracle_instance.set_price.assert_called_with("BTC-USDT", Decimal("50000"))
 
-    @patch('kairos.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_gateway_error(self, mock_gateway_client):
-        # Test gateway connector with error handling
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_default_swap_provider.return_value = "jupiter/router"
-        mock_gateway_instance.get_price.side_effect = Exception("Gateway error")
 
-        connector_pair = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair)
-
-        with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.provider.update_rates_task()
-
-        # Should have attempted to fetch price despite error
-        mock_gateway_instance.get_price.assert_called()
-
-    @patch('kairos.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_no_swap_provider(self, mock_gateway_client):
-        # Test that connector without swap provider is treated as non-gateway
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-        mock_gateway_instance.get_default_swap_provider.return_value = None
-
-        connector_pair = ConnectorPair(connector_name="unknown-network", trading_pair="BTC-USDT")
-        self.provider._rates_required.add_or_update("unknown-network", connector_pair)
-
-        with patch('asyncio.sleep', side_effect=[None, asyncio.CancelledError()]):
-            with self.assertRaises(asyncio.CancelledError):
-                await self.provider.update_rates_task()
-
-        # Should not attempt to fetch price if no swap provider configured
-        mock_gateway_instance.get_price.assert_not_called()
 
     async def test_update_rates_task_cancellation(self):
         # Test that task handles cancellation properly and cleans up
@@ -384,51 +271,6 @@ class TestMarketDataProvider(IsolatedAsyncioWrapperTestCase):
         # Verify cleanup happened
         self.assertIsNone(self.provider._rates_update_task)
 
-    @patch('kairos.core.rate_oracle.rate_oracle.RateOracle.get_instance')
-    @patch('kairos.core.gateway.gateway_http_client.GatewayHttpClient.get_instance')
-    async def test_update_rates_task_parallel_gateway_calls(self, mock_gateway_client, mock_rate_oracle):
-        # Test that all gateway price calls are gathered in parallel
-        mock_gateway_instance = AsyncMock()
-        mock_gateway_client.return_value = mock_gateway_instance
-
-        # Both networks have swap providers configured
-        mock_gateway_instance.get_default_swap_provider.side_effect = [
-            "uniswap/router",
-            "jupiter/router",
-        ]
-        mock_gateway_instance.get_price.return_value = {"price": "50000"}
-
-        mock_oracle_instance = MagicMock()
-        mock_rate_oracle.return_value = mock_oracle_instance
-
-        # Add multiple gateway connector pairs (using network format)
-        connector_pair1 = ConnectorPair(connector_name="ethereum-mainnet", trading_pair="BTC-USDT")
-        connector_pair2 = ConnectorPair(connector_name="solana-mainnet-beta", trading_pair="SOL-USDC")
-        self.provider._rates_required.add_or_update("ethereum-mainnet", connector_pair1)
-        self.provider._rates_required.add_or_update("solana-mainnet-beta", connector_pair2)
-
-        # Mock asyncio.gather to verify parallel execution
-        original_gather = asyncio.gather
-        gather_call_count = 0
-
-        async def mock_gather(*tasks, **kwargs):
-            nonlocal gather_call_count
-            gather_call_count += 1
-            # Verify we're gathering multiple tasks at once
-            if gather_call_count == 1:
-                # First gather should have 2 tasks (both gateway price calls)
-                self.assertEqual(len(tasks), 2)
-            return await original_gather(*tasks, **kwargs)
-
-        with patch('asyncio.gather', side_effect=mock_gather):
-            with patch('asyncio.sleep', side_effect=asyncio.CancelledError()):
-                with self.assertRaises(asyncio.CancelledError):
-                    await self.provider.update_rates_task()
-
-        # Verify both prices were fetched in parallel
-        self.assertEqual(mock_gateway_instance.get_price.call_count, 2)
-        # Verify both prices were set
-        self.assertEqual(mock_oracle_instance.set_price.call_count, 2)
 
     def test_get_candles_feed_existing_feed_stop(self):
         # Test that existing feed is stopped when creating new one with higher max_records

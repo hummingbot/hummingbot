@@ -71,9 +71,6 @@ class TestTradingPairFetcher(unittest.TestCase):
         def add_domain_parameter(*_, **__) -> Dict[str, Any]:
             return {}
 
-        def uses_gateway_generic_connector(self) -> bool:
-            return False
-
         def non_trading_connector_instance_with_default_configuration(self, trading_pairs = None):
             return self._connector
 

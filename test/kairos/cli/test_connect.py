@@ -46,11 +46,9 @@ class _RejectingCfg:
 
 
 class ConnectFieldsTest(unittest.TestCase):
-    def test_connectable_exchanges_includes_cex_excludes_gateway(self):
+    def test_connectable_exchanges_includes_cex(self):
         exchanges = _connectable_exchanges()
         self.assertIn("binance", exchanges)
-        # gateway/ethereum-wallet connectors are excluded
-        self.assertTrue(all("uniswap" not in e for e in exchanges))
 
     def test_binance_connect_key_fields(self):
         cfg = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys("binance"))

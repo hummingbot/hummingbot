@@ -45,8 +45,7 @@ class MockScriptStrategy(StrategyV2Base):
 
 
 class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
-    @patch("kairos.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
-    def setUp(self, _):
+    def setUp(self):
         """Set up test fixtures"""
         super().setUp()
 

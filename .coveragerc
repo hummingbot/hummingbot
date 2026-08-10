@@ -18,9 +18,7 @@ omit =
         kairos/connector/exchange/injective_v2/account_delegation_script.py
         kairos/connector/exchange/mexc/protobuf/*
         kairos/connector/exchange/paper_trade*
-        kairos/connector/gateway/**
         kairos/connector/test_support/*
-        kairos/core/utils/gateway_config_utils.py
         kairos/core/utils/kill_switch.py
         kairos/core/utils/wallet_setup.py
         kairos/connector/mock*

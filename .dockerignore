@@ -8,6 +8,5 @@
 /conf_backup
 /conf/strategies/*.yml
 /conf/*.yml
-/conf/gateway_connections.json
 /conf/.password_verification
 /conf/connectors/*.yml

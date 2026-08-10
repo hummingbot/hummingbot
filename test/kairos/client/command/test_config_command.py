@@ -15,9 +15,8 @@ from kairos.client.kairos_application import KairosApplication
 
 class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("kairos.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("kairos.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("kairos.client.kairos_application.KairosApplication.mqtt_start")
-    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+    async def asyncSetUp(self, mock_mqtt_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
         self.app = KairosApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
@@ -71,11 +70,7 @@ class ConfigCommandTest(IsolatedAsyncioWrapperTestCase):
                            "    | ∟ mqtt_external_events            | True                 |\n"
                            "    | ∟ mqtt_autostart                  | False                |\n"
                            "    | send_error_logs                   | True                 |\n"
-                           "    | gateway                           |                      |\n"
-                           "    | ∟ gateway_api_host                | localhost            |\n"
-                           "    | ∟ gateway_api_port                | 15888                |\n"
-                           "    | ∟ gateway_use_ssl                 | False                |\n"
-                           "    | rate_oracle_source                | gate_io              |\n"
+                           "    | rate_oracle_source                | binance              |\n"
                            "    | global_token                      |                      |\n"
                            "    | ∟ global_token_name               | USDT                 |\n"
                            "    | ∟ global_token_symbol             | $                    |\n"

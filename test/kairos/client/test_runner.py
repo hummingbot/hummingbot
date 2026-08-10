@@ -55,34 +55,6 @@ class AutofixPermissionsTest(unittest.TestCase):
         os_mock.setuid.assert_called_once_with(1234)
 
 
-class WaitForGatewayReadyTest(unittest.IsolatedAsyncioTestCase):
-    def _make_hb(self, uses_gateway):
-        hb = MagicMock()
-        hb.trading_core.connector_manager.connectors = {"conn": object()}
-        hb.trading_core.gateway_monitor.ready_event.wait = AsyncMock()
-        setting = MagicMock()
-        setting.uses_gateway_generic_connector.return_value = uses_gateway
-        return hb, {"conn": setting}
-
-    async def test_no_gateway_connectors_returns_immediately(self):
-        hb, settings = self._make_hb(uses_gateway=False)
-        with patch.object(runner.AllConnectorSettings, "get_connector_settings", return_value=settings):
-            await runner.wait_for_gateway_ready(hb)
-        hb.trading_core.gateway_monitor.ready_event.wait.assert_not_awaited()
-
-    async def test_waits_for_gateway_ready_event(self):
-        hb, settings = self._make_hb(uses_gateway=True)
-        with patch.object(runner.AllConnectorSettings, "get_connector_settings", return_value=settings):
-            await runner.wait_for_gateway_ready(hb)
-        hb.trading_core.gateway_monitor.ready_event.wait.assert_awaited_once()
-
-    async def test_timeout_is_logged_and_reraised(self):
-        hb, settings = self._make_hb(uses_gateway=True)
-        hb.trading_core.gateway_monitor.ready_event.wait = AsyncMock(side_effect=asyncio.TimeoutError)
-        with patch.object(runner.AllConnectorSettings, "get_connector_settings", return_value=settings):
-            with self.assertRaises(asyncio.TimeoutError):
-                await runner.wait_for_gateway_ready(hb)
-
 
 class LoadAndStartStrategyV2Test(unittest.IsolatedAsyncioTestCase):
     def setUp(self):

@@ -7,7 +7,6 @@ from kairos.strategy_v2.executors.data_types import ConnectorPair
 from kairos.strategy_v2.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from kairos.strategy_v2.models.executors import CloseType, TrackedOrder
 
-
 class TestPositionExecutorDataTypes(TestCase):
 
     def test_position_executor_close_types_enum(self):
@@ -66,5 +65,3 @@ class TestPositionExecutorDataTypes(TestCase):
         self.assertEqual(triple_barrier_new.take_profit_order_type, OrderType.MARKET)
         self.assertEqual(triple_barrier_new.stop_loss_order_type, OrderType.MARKET)
 
-    def test_is_amm(self):
-        connector_pair = ConnectorPair(connector_name="binance", trading_pair="ETH-USDT")

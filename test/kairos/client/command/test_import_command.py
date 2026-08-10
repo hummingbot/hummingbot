@@ -21,9 +21,8 @@ from kairos.client.kairos_application import KairosApplication
 
 class ImportCommandTest(IsolatedAsyncioWrapperTestCase):
     @patch("kairos.core.utils.trading_pair_fetcher.TradingPairFetcher")
-    @patch("kairos.core.gateway.gateway_http_client.GatewayHttpClient.start_monitor")
     @patch("kairos.client.kairos_application.KairosApplication.mqtt_start")
-    async def asyncSetUp(self, mock_mqtt_start, mock_gateway_start, mock_trading_pair_fetcher):
+    async def asyncSetUp(self, mock_mqtt_start, mock_trading_pair_fetcher):
         await read_system_configs_from_yml()
         self.client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.app = KairosApplication(client_config_map=self.client_config_map)

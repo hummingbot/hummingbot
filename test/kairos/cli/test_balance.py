@@ -67,7 +67,6 @@ class BalanceCommandTest(unittest.TestCase):
         patch("kairos.cli.commands.balance.login", return_value=(self.ccm, "pw")).start()
 
         self.conn = Mock()
-        self.conn.uses_gateway_generic_connector.return_value = False
         acs = patch("kairos.client.settings.AllConnectorSettings").start()
         acs.get_connector_settings.return_value = {"binance_perpetual": self.conn}
 
@@ -120,7 +119,7 @@ class BalanceCommandTest(unittest.TestCase):
         self.assertIn("## binance_perpetual", out)
         self.assertIn("USDT", out)
         self.assertIn("XXX", out)                    # priceless asset still listed (value 0)
-        self.assertNotIn("ZED", out)                 # zero balance hidden on a non-gateway connector
+        self.assertNotIn("ZED", out)                 # zero balance is hidden
         self.assertIn("allocated:", out)
         self.assertIn("positions:", out)
         self.assertIn("ETH-USDT", out)               # the open perp position
@@ -167,12 +166,6 @@ class BalanceCommandTest(unittest.TestCase):
         self.ub.all_balances_all_exchanges = AsyncMock(side_effect=asyncio.TimeoutError)
         self.assertEqual(self._fail(), int(ExitCode.TIMEOUT))
 
-    def test_gateway_connector_shows_zero_balances(self):
-        self.conn.uses_gateway_generic_connector.return_value = True
-        self.ub._markets = {}                                  # also covers the no-market branch
-        out = self._run()
-        self.assertIn("ZED", out)
-        self.assertNotIn("positions:", out)
 
     def test_json_without_positions_omits_position_fields(self):
         self.ub._markets = {}

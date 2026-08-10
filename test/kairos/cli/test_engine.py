@@ -176,7 +176,6 @@ class RunEngineTest(unittest.IsolatedAsyncioTestCase):
             patch.object(engine, "autofix_permissions"),
             patch.object(engine, "bootstrap_application", new=AsyncMock(return_value=hb)),
             patch.object(engine, "load_and_start_strategy", new=AsyncMock(return_value=started)),
-            patch.object(engine, "wait_for_gateway_ready", new=AsyncMock()),
             patch.object(engine, "_serve", new=AsyncMock()),
             patch.object(bot, "update_meta"),
         )
@@ -184,7 +183,7 @@ class RunEngineTest(unittest.IsolatedAsyncioTestCase):
     async def test_bad_password_returns_4(self):
         patches = self._patches(hb=None)
         with patches[0], patches[1], patches[2] as autofix, patches[3], patches[4] as load_start, \
-                patches[5], patches[6], patches[7]:
+                patches[5], patches[6]:
             rc = await engine.run_engine("mybot", None, None, "pw", None)
         self.assertEqual(rc, 4)
         autofix.assert_not_called()
@@ -194,10 +193,9 @@ class RunEngineTest(unittest.IsolatedAsyncioTestCase):
         hb = _make_hb()
         patches = self._patches(hb, started=False)
         with patches[0], patches[1], patches[2], patches[3], patches[4], \
-                patches[5] as gateway, patches[6], patches[7]:
+                patches[5], patches[6]:
             rc = await engine.run_engine("mybot", "conf.yml", None, "pw", None)
         self.assertEqual(rc, 1)
-        gateway.assert_not_awaited()
 
     async def test_happy_path_records_meta_and_serves(self):
         hb = _make_hb()
@@ -206,12 +204,11 @@ class RunEngineTest(unittest.IsolatedAsyncioTestCase):
         hb.trading_core.strategy_name = "pmm"
         patches = self._patches(hb)
         with patches[0], patches[1], patches[2] as autofix, patches[3], patches[4] as load_start, \
-                patches[5] as gateway, patches[6] as serve, patches[7] as update_meta:
+                patches[5] as serve, patches[6] as update_meta:
             rc = await engine.run_engine("mybot", None, "conf_v2.yml", "pw", "501:20")
         self.assertEqual(rc, 0)
         autofix.assert_called_once_with("501:20")
         load_start.assert_awaited_once_with(hb, config_file_name=None, v2_conf="conf_v2.yml", headless=True)
-        gateway.assert_awaited_once_with(hb)
         update_meta.assert_called_once_with(
             db_path="/data/mybot.sqlite", config_file_path="conf_v2.yml", strategy_name="pmm")
         serve.assert_awaited_once_with(hb, "mybot")
@@ -221,13 +218,13 @@ class RunEngineTest(unittest.IsolatedAsyncioTestCase):
         hb.trading_core.trade_fill_db = None
         hb.trading_core._strategy_file_name = None
         hb.strategy_file_name = "conf_v1"
-        hb.trading_core.strategy_name = "xemm"
+        hb.trading_core.strategy_name = "pmm_simple"
         patches = self._patches(hb)
         with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], \
-                patches[6], patches[7] as update_meta:
+                patches[6] as update_meta:
             rc = await engine.run_engine("mybot", "conf_v1.yml", None, "pw", None)
         self.assertEqual(rc, 0)
-        update_meta.assert_called_once_with(db_path=None, config_file_path="conf_v1", strategy_name="xemm")
+        update_meta.assert_called_once_with(db_path=None, config_file_path="conf_v1", strategy_name="pmm_simple")
 
 
 class MainTest(unittest.TestCase):

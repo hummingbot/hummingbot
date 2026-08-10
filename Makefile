@@ -84,18 +84,11 @@ run:
 	conda run -n kairos-2 --no-capture-output ./bin/kairos_quickstart.py $(ARGS)
 
 setup:
-	@read -r -p "Include Gateway? [y/N] " ans; \
-	if [ "$$ans" = "y" ] || [ "$$ans" = "Y" ]; then \
-		echo "COMPOSE_PROFILES=gateway" > .compose.env; \
-		echo "Gateway will be included."; \
-	else \
-		echo "COMPOSE_PROFILES=" > .compose.env; \
-		echo "Gateway will NOT be included."; \
-	fi
+	@echo "COMPOSE_PROFILES=" > .compose.env
 
 deploy:
 	@if [ -f ./.compose.env ]; then set -a; . ./.compose.env; set +a; fi; \
 	docker compose up -d
 
 down:
-	docker compose --profile gateway down
+	docker compose down

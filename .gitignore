@@ -72,8 +72,6 @@ debug.log
 /certs
 *.pem
 
-# Gateway runtime files (conf, certs, logs, wallet keys — secrets)
-/gateway-files/
 
 # Coverage
 .coverage

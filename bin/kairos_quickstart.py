@@ -17,14 +17,12 @@ from kairos.client.runner import (
     autofix_permissions,
     bootstrap_application,
     load_and_start_strategy,
-    wait_for_gateway_ready,
 )
 from kairos.client.ui import login_prompt
 from kairos.client.ui.style import load_style
 from kairos.core.event.events import KairosUIEvent
 from kairos.core.management.console import start_management_console
 from kairos.core.utils.async_utils import safe_gather
-
 
 class CmdlineParser(argparse.ArgumentParser):
     def __init__(self):
@@ -54,7 +52,6 @@ class CmdlineParser(argparse.ArgumentParser):
                           default=None,
                           help="Run in headless mode without CLI interface.")
 
-
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     """Start Kairos-2 using unified KairosApplication in either UI or headless mode."""
     client_config_map = load_client_config_map_from_file()
@@ -81,11 +78,8 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
             logging.getLogger().error("Failed to load strategy. Exiting.")
             raise SystemExit(1)
 
-    await wait_for_gateway_ready(hb)
-
     # Run the application
     await run_application(hb, args, client_config_map)
-
 
 async def run_application(hb: KairosApplication, args: argparse.Namespace, client_config_map):
     """Run the application in headless or UI mode."""
@@ -112,7 +106,6 @@ async def run_application(hb: KairosApplication, args: argparse.Namespace, clien
             tasks.append(start_management_console(locals(), host="localhost", port=management_port))
 
         await safe_gather(*tasks)
-
 
 def main():
     args = CmdlineParser().parse_args()
@@ -149,7 +142,6 @@ def main():
         asyncio.set_event_loop(ev_loop)
 
     ev_loop.run_until_complete(quick_start(args, secrets_manager))
-
 
 if __name__ == "__main__":
     main()

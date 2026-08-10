@@ -44,7 +44,6 @@ class ConfigValidatorsTests(unittest.TestCase):
         self.assertIsNone(config_validators.validate_connector(connector))
 
     def test_validate_connector_connector_does_not_exist(self):
-        from kairos.client.settings import GATEWAY_DEXS
         non_existant_connector = "TEST_NON_EXISTANT_CONNECTOR"
 
         validation_error = config_validators.validate_connector(non_existant_connector)
@@ -52,7 +51,6 @@ class ConfigValidatorsTests(unittest.TestCase):
         # The validator returns a sorted list of all valid connectors
         valid_connectors = set(AllConnectorSettings.get_connector_settings().keys())
         valid_connectors.update(AllConnectorSettings.paper_trade_connectors_names)
-        valid_connectors.update(GATEWAY_DEXS)
         all_options = sorted(valid_connectors)
 
         self.assertEqual(validation_error, f"Invalid connector, please choose value from {all_options}")

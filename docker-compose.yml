@@ -13,7 +13,6 @@ services:
       - ./conf/scripts:/home/kairos/conf/scripts
       - ./logs:/home/kairos/logs
       - ./data:/home/kairos/data
-      - ./certs:/home/kairos/certs
       - ./scripts:/home/kairos/scripts
       - ./controllers:/home/kairos/controllers
     logging:
@@ -36,18 +35,3 @@ services:
     #   command: hbot start <config> --foreground
   #  environment:
   #    - HBOT_PASSWORD=admin
-
-  gateway:
-   profiles: ["gateway"]
-   restart: always
-   container_name: gateway
-   image: kairos/gateway:latest
-   ports:
-     - "15888:15888"
-   volumes:
-     - "./gateway-files/conf:/home/gateway/conf"
-     - "./gateway-files/logs:/home/gateway/logs"
-     - "./certs:/home/gateway/certs"
-   environment:
-     - GATEWAY_PASSPHRASE=admin
-     - DEV=true

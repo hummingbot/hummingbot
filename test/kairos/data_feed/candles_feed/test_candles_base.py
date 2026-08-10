@@ -106,7 +106,7 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         self.assertIs(self.data_feed._api_factory._throttler, shared_throttler)
 
     def test_attach_connector_without_throttler_keeps_own(self):
-        # A connector with no throttler (e.g. Gateway): the feed keeps its own request factory.
+        # A connector with no throttler: the feed keeps its own request factory.
         own_factory = self.data_feed._api_factory
         connector = MagicMock(throttler=None)
         self.data_feed.attach_connector(connector)

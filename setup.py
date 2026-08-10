@@ -130,7 +130,7 @@ def main():
 
     # --- 4. Pass the modified extensions to setup ---
     setup(
-        name="kairos",
+        name="kairos-2",
         version=version,
         description="Kairos-2 - Binance market making client",
         url="https://github.com/Acaua-Rangel/Kairos-2",
