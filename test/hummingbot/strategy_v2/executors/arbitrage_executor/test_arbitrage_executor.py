@@ -104,6 +104,59 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await self.executor.control_task()
         self.assertEqual(self.executor.close_type, CloseType.COMPLETED)
         self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+        self.strategy.cancel.assert_not_called()
+
+    async def test_control_task_within_execution_duration_keeps_running(self):
+        self.executor._status = RunnableStatus.SHUTTING_DOWN
+        self.executor._cumulative_failures = 0
+        self.arbitrage_config.max_exec_duration = 120
+        self.strategy.current_timestamp = 100.0
+        self.executor._exec_start_timestamp = 50.0
+        self.executor._buy_order = Mock(spec=TrackedOrder)
+        self.executor._sell_order = Mock(spec=TrackedOrder)
+        self.executor._buy_order.order.is_filled = False
+        self.executor._sell_order.order.is_filled = False
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, RunnableStatus.SHUTTING_DOWN)
+        self.assertIsNone(self.executor.close_type)
+        self.strategy.cancel.assert_not_called()
+
+    async def test_control_task_time_limit_cancels_outstanding_orders(self):
+        self.executor._status = RunnableStatus.SHUTTING_DOWN
+        self.executor._cumulative_failures = 0
+        self.arbitrage_config.max_exec_duration = 120
+        self.strategy.current_timestamp = 1000.0
+        self.executor._exec_start_timestamp = 500.0
+        self.executor._buy_order = Mock(spec=TrackedOrder)
+        self.executor._sell_order = Mock(spec=TrackedOrder)
+        self.executor._buy_order.order.is_filled = False
+        self.executor._sell_order.order.is_filled = False
+        self.executor._buy_order.order.is_open = True
+        self.executor._sell_order.order.is_open = True
+        await self.executor.control_task()
+        self.assertEqual(self.executor.close_type, CloseType.TIME_LIMIT)
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+        self.assertEqual(self.strategy.cancel.call_count, 2)
+
+    async def test_control_task_time_limit_cancels_only_open_order(self):
+        self.executor._status = RunnableStatus.SHUTTING_DOWN
+        self.executor._cumulative_failures = 0
+        self.arbitrage_config.max_exec_duration = 120
+        self.strategy.current_timestamp = 1000.0
+        self.executor._exec_start_timestamp = 500.0
+        self.executor._buy_order = Mock(spec=TrackedOrder)
+        self.executor._sell_order = Mock(spec=TrackedOrder)
+        self.executor._buy_order.order.is_filled = True
+        self.executor._sell_order.order.is_filled = False
+        self.executor._buy_order.order.is_open = False
+        self.executor._sell_order.order.is_open = True
+        await self.executor.control_task()
+        self.assertEqual(self.executor.close_type, CloseType.TIME_LIMIT)
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+        self.strategy.cancel.assert_called_once_with(
+            connector_name=self.executor.selling_market.connector_name,
+            trading_pair=self.executor.selling_market.trading_pair,
+            order_id=self.executor.sell_order.order_id)
 
     def test_to_format_status(self):
         self.executor._status = RunnableStatus.RUNNING
