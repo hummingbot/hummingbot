@@ -1967,6 +1967,56 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertTrue(self.is_logged("INFO", expected_log))
 
+    @aioresponses()
+    async def test_execute_cancel_when_action_is_rejected_by_the_venue(self, mock_api):
+        """When the action is rejected before reaching the order book the response is a plain
+        string, not a dict: {"status": "err", "response": "<message>"}."""
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+
+        order = self.exchange.in_flight_orders["OID4"]
+
+        url = web_utils.public_rest_url(CONSTANTS.CANCEL_ORDER_URL)
+        mock_api.post(
+            url,
+            body=json.dumps({"status": "err", "response": "Invalid nonce"})
+        )
+
+        result = await self.exchange._execute_cancel(order.trading_pair, order.client_order_id)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            any("Invalid nonce" in record.getMessage() and record.levelname == "WARNING"
+                for record in self.log_records)
+        )
+        # A venue-level rejection is not an "order not found": the order must stay tracked.
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+
+    def test_process_cancel_result_unknown_order(self):
+        cancel_result = {
+            "status": "ok",
+            "response": {"type": "cancel", "data": {"statuses": [
+                {"error": "Order was never placed, already canceled, or filled."}
+            ]}},
+        }
+
+        with self.assertRaises(IOError) as exception_context:
+            self.exchange._process_cancel_result("OID1", cancel_result)
+
+        self.assertTrue(
+            self.exchange._is_order_not_found_during_cancelation_error(exception_context.exception)
+        )
+
 
 class HyperliquidBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid spot connector."""
