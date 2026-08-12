@@ -95,9 +95,26 @@ USEREVENT_ENDPOINT_NAME = "user"
 ORDER_STATE = {
     "open": OrderState.OPEN,
     "resting": OrderState.OPEN,
+    # A triggered order remains tracked until its activated child fills, rests, or is canceled.
+    "triggered": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "canceled": OrderState.CANCELED,
     "rejected": OrderState.FAILED,
+    "marginCanceled": OrderState.CANCELED,
+    "vaultWithdrawalCanceled": OrderState.CANCELED,
+    "openInterestCapCanceled": OrderState.CANCELED,
+    "scheduledCancel": OrderState.CANCELED,
+    "tickRejected": OrderState.FAILED,
+    "iocCancelRejected": OrderState.FAILED,
+    "badTriggerPxRejected": OrderState.FAILED,
+    "marketOrderNoLiquidityRejected": OrderState.FAILED,
+    "positionIncreaseAtOpenInterestCapRejected": OrderState.FAILED,
+    "positionFlipAtOpenInterestCapRejected": OrderState.FAILED,
+    "tooAggressiveAtOpenInterestCapRejected": OrderState.FAILED,
+    "openInterestIncreaseRejected": OrderState.FAILED,
+    "insufficientSpotBalanceRejected": OrderState.FAILED,
+    "oracleRejected": OrderState.FAILED,
+    "perpMaxPositionRejected": OrderState.FAILED,
     "badAloPxRejected": OrderState.FAILED,
     "minTradeNtlRejected": OrderState.FAILED,
     "reduceOnlyCanceled": OrderState.CANCELED,
@@ -114,6 +131,11 @@ HEARTBEAT_TIME_INTERVAL = 30.0
 # frame) and forcing a keepalive ping / reconnection. Set above HEARTBEAT_TIME_INTERVAL so the periodic ping
 # (and its pong) keeps a healthy connection from timing out.
 WS_MESSAGE_TIMEOUT = 60.0
+
+# A placement request can reach Hyperliquid even when its response is lost. Keep the order pending while the
+# exchange propagates the cloid, and require repeated authoritative misses before treating it as rejected.
+TRIGGER_ORDER_RECONCILIATION_GRACE_SECONDS = 30.0
+TRIGGER_ORDER_RECONCILIATION_MIN_UNKNOWN_OID_RESPONSES = 3
 
 MAX_REQUEST = 1_200
 ALL_ENDPOINTS_LIMIT = "All"

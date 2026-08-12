@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import re
 import time
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
@@ -26,7 +27,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -71,6 +72,13 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
+        self._pending_trigger_client_order_ids: set[str] = set()
+        self._native_trigger_client_order_ids: set[str] = set()
+        self._trigger_orders_requiring_reconciliation: set[str] = set()
+        self._trigger_reconciliation_started_at: Dict[str, float] = {}
+        self._trigger_reconciliation_unknown_oid_counts: Dict[str, int] = {}
+        # Trigger activation can produce a child oid while the client continues to own one cloid.
+        self._trigger_child_order_ids: Dict[str, str] = {}
         # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
         self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
@@ -519,12 +527,25 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         coin = symbol
 
+        trigger_child_order_ids = self._trigger_child_order_ids_for_client_order_id(order_id)
+        if not trigger_child_order_ids and order_id in self._trigger_orders_requiring_reconciliation:
+            reconciliation_update = await self._request_order_status(tracked_order)
+            await self._order_tracker.process_order_update(reconciliation_update)
+            if reconciliation_update.new_state in {
+                    OrderState.CANCELED, OrderState.FAILED, OrderState.FILLED}:
+                return True
+            trigger_child_order_ids = self._trigger_child_order_ids_for_client_order_id(order_id)
+        if trigger_child_order_ids:
+            cancel_specs = [
+                {"asset": self.coin_to_asset[coin], "oid": int(child_order_id)}
+                for child_order_id in trigger_child_order_ids
+            ]
+            cancels = cancel_specs[0] if len(cancel_specs) == 1 else cancel_specs
+        else:
+            cancels = {"asset": self.coin_to_asset[coin], "cloid": order_id}
         api_params = {
             "type": "cancel",
-            "cancels": {
-                "asset": self.coin_to_asset[coin],
-                "cloid": order_id
-            },
+            "cancels": cancels,
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
@@ -555,16 +576,34 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             raise IOError(f"Error cancelling order {order_id}: {response}")
 
         statuses = response.get("data", {}).get("statuses") or []
-        status = statuses[0] if statuses else None
-        if isinstance(status, dict) and "error" in status:
+        errors = [status["error"] for status in statuses if isinstance(status, dict) and "error" in status]
+        if errors:
             self.logger().debug(f"Hyperliquid Perpetuals did not cancel order {order_id}. "
                                 f"Raw response: {cancel_result}")
-            raise IOError(f"Error cancelling order {order_id}: {status['error']}")
-        if status != "success":
+            raise IOError(f"Error cancelling order {order_id}: {errors[0]}")
+        successful = bool(statuses) and all(
+            status == "success" or (isinstance(status, dict) and status.get("success") is True)
+            for status in statuses
+        )
+        if not successful:
             self.logger().warning(f"Unexpected cancelation status for order {order_id}. "
                                   f"Raw response: {cancel_result}")
-            return False
-        return True
+        return successful
+
+    async def _execute_order_cancel(self, order: InFlightOrder) -> Optional[str]:
+        if order.client_order_id not in self._trigger_reconciliation_started_at:
+            return await super()._execute_order_cancel(order)
+        try:
+            cancelled = await self._execute_order_cancel_and_process_update(order=order)
+            return order.client_order_id if cancelled else None
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            self.logger().warning(
+                f"Could not cancel uncertain trigger order {order.client_order_id}: {exception}. "
+                "The order remains pending and will continue reconciliation by cloid."
+            )
+            return None
 
     # === Orders placing ===
 
@@ -643,6 +682,390 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             price=price,
             **kwargs))
         return hex_order_id
+
+    def place_trigger_order(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            side: TradeType,
+            trigger_price: Decimal,
+            trigger_kind: Literal["tp", "sl"],
+            is_market: bool,
+            limit_price: Optional[Decimal] = None,
+            client_order_id: Optional[str] = None,
+    ) -> str:
+        """Submit a fixed-size, reduce-only Hyperliquid trigger order through the standard tracker lifecycle."""
+        if trigger_kind not in {"tp", "sl"}:
+            raise ValueError("trigger_kind must be either 'tp' or 'sl'.")
+        if side not in {TradeType.BUY, TradeType.SELL}:
+            raise ValueError("side must be TradeType.BUY or TradeType.SELL.")
+        if is_market and limit_price is not None:
+            raise ValueError("limit_price must be omitted for market trigger orders.")
+        if client_order_id is not None:
+            self._validate_trigger_client_order_id(client_order_id)
+            client_order_id = client_order_id.lower()
+
+        order_id = client_order_id or self._new_hyperliquid_client_order_id(
+            trading_pair=trading_pair, side=side)
+        self._pending_trigger_client_order_ids.add(order_id)
+        self._native_trigger_client_order_ids.add(order_id)
+        self._start_tracking_trigger_order_intent(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            side=side,
+            price=trigger_price if limit_price is None else limit_price,
+            is_market=is_market,
+        )
+        safe_ensure_future(self._create_trigger_order(
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            side=side,
+            trigger_price=trigger_price,
+            trigger_kind=trigger_kind,
+            is_market=is_market,
+            limit_price=limit_price,
+        ))
+        return order_id
+
+    def _validate_trigger_client_order_id(self, client_order_id: str):
+        if not isinstance(client_order_id, str) or re.fullmatch(r"0x[0-9a-fA-F]{32}", client_order_id) is None:
+            raise ValueError("client_order_id must be a 128-bit hexadecimal string prefixed with 0x.")
+        normalized_client_order_id = client_order_id.lower()
+        tracked_client_order_ids = {
+            tracked_client_order_id.lower()
+            for tracked_client_order_id in self._order_tracker.all_fillable_orders
+        }
+        if (normalized_client_order_id in self._pending_trigger_client_order_ids
+                or normalized_client_order_id in tracked_client_order_ids):
+            raise ValueError(f"client_order_id {client_order_id} has already been used.")
+
+    def _new_hyperliquid_client_order_id(self, trading_pair: str, side: TradeType) -> str:
+        order_id = get_new_client_order_id(
+            is_buy=side == TradeType.BUY,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        return f"0x{hashlib.md5(order_id.encode('utf-8')).hexdigest()}"
+
+    def _start_tracking_trigger_order_intent(
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            side: TradeType,
+            price: Decimal,
+            is_market: bool,
+    ):
+        self.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=trading_pair,
+            trade_type=side,
+            price=price,
+            amount=amount,
+            order_type=OrderType.MARKET if is_market else OrderType.LIMIT,
+            position_action=PositionAction.CLOSE,
+        )
+
+    def _apply_trigger_order_quantization(self, order_id: str, amount: Decimal, price: Decimal):
+        tracked_order = self._order_tracker.active_orders.get(order_id)
+        if tracked_order is not None:
+            tracked_order.amount = amount
+            tracked_order.price = price
+
+    def _mark_trigger_order_for_reconciliation(self, order_id: str, reason: str):
+        reconciliation_started_at = self.current_timestamp
+        if reconciliation_started_at != reconciliation_started_at:  # NaN before the first clock tick
+            reconciliation_started_at = time.time()
+        self._native_trigger_client_order_ids.add(order_id)
+        self._trigger_orders_requiring_reconciliation.add(order_id)
+        self._trigger_reconciliation_started_at.setdefault(order_id, reconciliation_started_at)
+        self._trigger_reconciliation_unknown_oid_counts.setdefault(order_id, 0)
+        self.logger().warning(
+            f"Trigger order {order_id} has an uncertain submission result ({reason}); "
+            "it will remain tracked and be reconciled by cloid."
+        )
+
+    def _clear_trigger_submission_reconciliation(self, order_id: str):
+        self._trigger_orders_requiring_reconciliation.discard(order_id)
+        self._trigger_reconciliation_started_at.pop(order_id, None)
+        self._trigger_reconciliation_unknown_oid_counts.pop(order_id, None)
+
+    def _reset_trigger_unknown_oid_confirmations(self, order_id: str):
+        if order_id in self._trigger_reconciliation_started_at:
+            self._trigger_reconciliation_unknown_oid_counts[order_id] = 0
+
+    def place_position_protection_orders(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            close_side: TradeType,
+            take_profit_price: Decimal,
+            stop_loss_price: Decimal,
+            take_profit_is_market: bool = False,
+            stop_loss_is_market: bool = True,
+    ) -> Tuple[str, str]:
+        """Submit fixed-size TP and SL trigger orders in one Hyperliquid request."""
+        if close_side not in {TradeType.BUY, TradeType.SELL}:
+            raise ValueError("close_side must be TradeType.BUY or TradeType.SELL.")
+        take_profit_id = self._new_hyperliquid_client_order_id(trading_pair, close_side)
+        stop_loss_id = self._new_hyperliquid_client_order_id(trading_pair, close_side)
+        while stop_loss_id == take_profit_id:
+            stop_loss_id = self._new_hyperliquid_client_order_id(trading_pair, close_side)
+        self._native_trigger_client_order_ids.update((take_profit_id, stop_loss_id))
+        self._start_tracking_trigger_order_intent(
+            take_profit_id, trading_pair, amount, close_side, take_profit_price, take_profit_is_market)
+        self._start_tracking_trigger_order_intent(
+            stop_loss_id, trading_pair, amount, close_side, stop_loss_price, stop_loss_is_market)
+        safe_ensure_future(self._create_position_protection_orders(
+            trading_pair=trading_pair,
+            amount=amount,
+            close_side=close_side,
+            take_profit_price=take_profit_price,
+            stop_loss_price=stop_loss_price,
+            take_profit_is_market=take_profit_is_market,
+            stop_loss_is_market=stop_loss_is_market,
+            take_profit_id=take_profit_id,
+            stop_loss_id=stop_loss_id,
+        ))
+        return take_profit_id, stop_loss_id
+
+    async def _create_position_protection_orders(
+            self,
+            trading_pair: str,
+            amount: Decimal,
+            close_side: TradeType,
+            take_profit_price: Decimal,
+            stop_loss_price: Decimal,
+            take_profit_is_market: bool,
+            stop_loss_is_market: bool,
+            take_profit_id: str,
+            stop_loss_id: str,
+    ):
+        try:
+            quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+            quantized_take_profit = self.quantize_order_price(trading_pair, take_profit_price)
+            quantized_stop_loss = self.quantize_order_price(trading_pair, stop_loss_price)
+            take_profit_limit = self._trigger_limit_price(
+                trading_pair, quantized_take_profit, close_side, take_profit_is_market)
+            stop_loss_limit = self._trigger_limit_price(
+                trading_pair, quantized_stop_loss, close_side, stop_loss_is_market)
+            legs = [
+                (take_profit_id, "tp", quantized_take_profit, take_profit_limit, take_profit_is_market),
+                (stop_loss_id, "sl", quantized_stop_loss, stop_loss_limit, stop_loss_is_market),
+            ]
+            for order_id, _, _, quantized_limit_price, _ in legs:
+                self._apply_trigger_order_quantization(order_id, quantized_amount, quantized_limit_price)
+
+            trading_rule = self._trading_rules[trading_pair]
+            validation_error = None
+            if quantized_amount < trading_rule.min_order_size:
+                validation_error = ValueError(
+                    f"Order amount {amount} is lower than minimum order size {trading_rule.min_order_size}.")
+            elif any(trigger_price <= Decimal("0") or limit_price <= Decimal("0")
+                     for _, _, trigger_price, limit_price, _ in legs):
+                validation_error = ValueError("Trigger and limit prices must be greater than zero.")
+            elif any(quantized_amount * limit_price < trading_rule.min_notional_size
+                     for _, _, _, limit_price, _ in legs):
+                validation_error = ValueError("Protection order notional is lower than the minimum notional size.")
+            if validation_error is not None:
+                for order_id in (take_profit_id, stop_loss_id):
+                    self._update_order_after_failure(order_id, trading_pair, validation_error)
+                return
+
+            coin = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            order_specs = [{
+                "asset": self.coin_to_asset[coin],
+                "isBuy": close_side == TradeType.BUY,
+                "limitPx": float(limit_price),
+                "sz": float(quantized_amount),
+                "reduceOnly": True,
+                "orderType": {"trigger": {
+                    "triggerPx": float(trigger_price),
+                    "tpsl": trigger_kind,
+                    "isMarket": is_market,
+                }},
+                "cloid": order_id,
+            } for order_id, trigger_kind, trigger_price, limit_price, is_market in legs]
+            # positionTpsl groups these as position-level TP/SL semantics; statuses remain authoritative per order.
+            api_params = {"type": "order", "grouping": "positionTpsl", "orders": order_specs}
+            builder_field = self._build_builder_field()
+            if builder_field is not None:
+                api_params["builder"] = builder_field
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            for order_id in (take_profit_id, stop_loss_id):
+                self._update_order_after_failure(order_id, trading_pair, exception)
+            return
+        try:
+            result = await self._api_post(
+                path_url=CONSTANTS.CREATE_ORDER_URL, data=api_params, is_auth_required=True)
+        except asyncio.CancelledError:
+            for order_id in (take_profit_id, stop_loss_id):
+                self._mark_trigger_order_for_reconciliation(order_id, "placement task was canceled")
+            raise
+        except Exception as exception:
+            for order_id in (take_profit_id, stop_loss_id):
+                self._mark_trigger_order_for_reconciliation(order_id, exception.__class__.__name__)
+            return
+        if not isinstance(result, dict):
+            for order_id in (take_profit_id, stop_loss_id):
+                self._mark_trigger_order_for_reconciliation(order_id, "malformed placement response")
+            return
+        if result.get("status") == "err":
+            exception = IOError(f"Error submitting position protection orders: {result.get('response')}")
+            for order_id in (take_profit_id, stop_loss_id):
+                self._clear_trigger_submission_reconciliation(order_id)
+                self._update_order_after_failure(order_id, trading_pair, exception=exception)
+            return
+
+        response = result.get("response")
+        response_data = response.get("data") if isinstance(response, dict) else None
+        statuses = response_data.get("statuses") if isinstance(response_data, dict) else None
+        order_ids = (take_profit_id, stop_loss_id)
+        if not isinstance(statuses, list):
+            for order_id in order_ids:
+                self._mark_trigger_order_for_reconciliation(order_id, "malformed statuses field")
+            return
+        if len(statuses) > len(order_ids):
+            for order_id in order_ids:
+                self._mark_trigger_order_for_reconciliation(order_id, "oversized placement status list")
+            return
+        for index, order_id in enumerate(order_ids):
+            if index >= len(statuses):
+                self._mark_trigger_order_for_reconciliation(order_id, "placement response omitted its status")
+            else:
+                await self._process_trigger_order_status(order_id, trading_pair, statuses[index])
+        if len(statuses) != len(order_ids):
+            self.logger().warning(
+                f"Expected {len(order_ids)} protection statuses but received {len(statuses)}.")
+
+    def _trigger_limit_price(
+            self, trading_pair: str, trigger_price: Decimal, side: TradeType, is_market: bool) -> Decimal:
+        if not is_market:
+            return self.quantize_order_price(trading_pair, trigger_price)
+        slippage = Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE))
+        multiplier = Decimal("1") + slippage if side == TradeType.BUY else Decimal("1") - slippage
+        return self.quantize_order_price(trading_pair, trigger_price * multiplier)
+
+    async def _create_trigger_order(
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            side: TradeType,
+            trigger_price: Decimal,
+            trigger_kind: Literal["tp", "sl"],
+            is_market: bool,
+            limit_price: Optional[Decimal],
+    ):
+        try:
+            quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+            quantized_trigger_price = self.quantize_order_price(trading_pair, trigger_price)
+            if limit_price is None:
+                quantized_limit_price = self._trigger_limit_price(
+                    trading_pair, quantized_trigger_price, side, is_market)
+            else:
+                quantized_limit_price = self.quantize_order_price(trading_pair, limit_price)
+            self._apply_trigger_order_quantization(order_id, quantized_amount, quantized_limit_price)
+
+            trading_rule = self._trading_rules[trading_pair]
+            if quantized_amount < trading_rule.min_order_size:
+                raise ValueError(
+                    f"Order amount {amount} is lower than minimum order size {trading_rule.min_order_size}.")
+            if quantized_trigger_price <= Decimal("0") or quantized_limit_price <= Decimal("0"):
+                raise ValueError("Trigger and limit prices must be greater than zero.")
+            if quantized_amount * quantized_limit_price < trading_rule.min_notional_size:
+                raise ValueError("Trigger order notional is lower than the minimum notional size.")
+
+            coin = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            order_spec = {
+                "asset": self.coin_to_asset[coin],
+                "isBuy": side == TradeType.BUY,
+                "limitPx": float(quantized_limit_price),
+                "sz": float(quantized_amount),
+                "reduceOnly": True,
+                "orderType": {"trigger": {
+                    "triggerPx": float(quantized_trigger_price),
+                    "tpsl": trigger_kind,
+                    "isMarket": is_market,
+                }},
+                "cloid": order_id,
+            }
+            api_params = {"type": "order", "grouping": "na", "orders": order_spec}
+            builder_field = self._build_builder_field()
+            if builder_field is not None:
+                api_params["builder"] = builder_field
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            self._update_order_after_failure(order_id, trading_pair, exception)
+            return
+        finally:
+            self._pending_trigger_client_order_ids.discard(order_id)
+        try:
+            result = await self._api_post(
+                path_url=CONSTANTS.CREATE_ORDER_URL, data=api_params, is_auth_required=True)
+        except asyncio.CancelledError:
+            self._mark_trigger_order_for_reconciliation(order_id, "placement task was canceled")
+            raise
+        except Exception as exception:
+            self._mark_trigger_order_for_reconciliation(order_id, exception.__class__.__name__)
+            return
+        if not isinstance(result, dict):
+            self._mark_trigger_order_for_reconciliation(order_id, "malformed placement response")
+            return
+        if result.get("status") == "err":
+            self._clear_trigger_submission_reconciliation(order_id)
+            self._update_order_after_failure(
+                order_id, trading_pair, IOError(f"Error submitting trigger order: {result.get('response')}"))
+            return
+        response = result.get("response")
+        response_data = response.get("data") if isinstance(response, dict) else None
+        statuses = response_data.get("statuses") if isinstance(response_data, dict) else None
+        if not isinstance(statuses, list):
+            self._mark_trigger_order_for_reconciliation(order_id, "malformed statuses field")
+            return
+        if len(statuses) != 1:
+            self._mark_trigger_order_for_reconciliation(order_id, "unexpected placement status count")
+            return
+        await self._process_trigger_order_status(order_id, trading_pair, statuses[0])
+
+    async def _process_trigger_order_status(self, order_id: str, trading_pair: str, status: Dict[str, Any]):
+        if not isinstance(status, dict):
+            self._mark_trigger_order_for_reconciliation(order_id, "malformed placement status")
+            return
+        if "error" in status:
+            self._clear_trigger_submission_reconciliation(order_id)
+            self._update_order_after_failure(order_id, trading_pair, IOError(status["error"]))
+            return
+        status_data = status.get("resting") or status.get("filled")
+        if not isinstance(status_data, dict) or status_data.get("oid") is None:
+            self._mark_trigger_order_for_reconciliation(order_id, "unknown placement status")
+            return
+        tracked_order = self._order_tracker.active_orders.get(order_id)
+        if tracked_order is not None:
+            tracked_order.update_exchange_order_id(str(status_data["oid"]))
+        self._clear_trigger_submission_reconciliation(order_id)
+        open_update = OrderUpdate(
+            client_order_id=order_id,
+            exchange_order_id=str(status_data["oid"]),
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self._order_tracker.process_order_update(open_update)
+        if "filled" in status:
+            # Placement responses do not include a reliable trade id or fees. Pull authoritative fills before the
+            # terminal update so the standard tracker can emit a complete fill/completion sequence without duplicates.
+            await self._update_trade_history()
+            tracked_order = self._order_tracker.all_fillable_orders.get(order_id)
+            if tracked_order is not None and tracked_order.executed_amount_base >= abs(tracked_order.amount):
+                self._order_tracker.process_order_update(open_update._replace(new_state=OrderState.FILLED))
 
     async def _place_order(
             self,
@@ -741,7 +1164,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
+        self._prune_trigger_tracking()
         all_fillable_orders = self._order_tracker.all_fillable_orders_by_exchange_order_id
+        for child_order_id, client_order_id in self._trigger_child_order_ids.items():
+            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+            if tracked_order is not None:
+                all_fillable_orders[child_order_id] = tracked_order
         all_fills_response = []
         if len(orders) > 0:
             try:
@@ -763,37 +1191,29 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
         exchange_order_id = str(order_fill.get("oid"))
+        trigger_client_order_id = self._trigger_child_order_ids.get(exchange_order_id)
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
-            fee_asset = fillable_order.quote_asset
-
-            position_action = PositionAction.OPEN if order_fill["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
-            fee = TradeFeeBase.new_perpetual_fee(
-                fee_schema=self.trade_fee_schema(),
-                position_action=position_action,
-                percent_token=fee_asset,
-                flat_fees=[TokenAmount(amount=Decimal(order_fill["fee"]), token=fee_asset)]
+            self._process_trade_fill(
+                trade=order_fill,
+                tracked_order=fillable_order,
+                trigger_client_order_id=trigger_client_order_id,
             )
-
-            trade_update = TradeUpdate(
-                trade_id=str(order_fill["tid"]),
-                client_order_id=fillable_order.client_order_id,
-                exchange_order_id=str(order_fill["oid"]),
-                trading_pair=fillable_order.trading_pair,
-                fee=fee,
-                fill_base_amount=Decimal(order_fill["sz"]),
-                fill_quote_amount=Decimal(order_fill["px"]) * Decimal(order_fill["sz"]),
-                fill_price=Decimal(order_fill["px"]),
-                fill_timestamp=order_fill["time"] * 1e-3,
-            )
-
-            self._order_tracker.process_trade_update(trade_update)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # Use _update_trade_history instead
         pass
 
     async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
+        if isinstance(error, asyncio.CancelledError):
+            raise error
+        if order.client_order_id in self._trigger_reconciliation_started_at:
+            self._reset_trigger_unknown_oid_confirmations(order.client_order_id)
+            self.logger().warning(
+                f"Could not reconcile uncertain trigger order {order.client_order_id}: {error}. "
+                "The order remains pending and will be queried again."
+            )
+            return
         try:
             raise error
         except (asyncio.TimeoutError, KeyError):
@@ -814,31 +1234,157 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         client_order_id = tracked_order.client_order_id
-        try:
-            if tracked_order.exchange_order_id:
-                exchange_order_id = tracked_order.exchange_order_id
-            else:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
-        except asyncio.TimeoutError:
+        trigger_child_order_ids = self._trigger_child_order_ids_for_client_order_id(client_order_id)
+        submission_is_uncertain = client_order_id in self._trigger_reconciliation_started_at
+        if trigger_child_order_ids:
+            exchange_order_id = trigger_child_order_ids[0]
+        elif submission_is_uncertain:
             exchange_order_id = None
-        order_update = await self._api_post(
-            path_url=CONSTANTS.ORDER_URL,
-            data={
-                "type": CONSTANTS.ORDER_STATUS_TYPE,
-                "user": self.hyperliquid_perpetual_address,
-                "oid": int(exchange_order_id) if exchange_order_id else client_order_id
-            })
-        current_state = order_update["order"]["status"]
+        else:
+            try:
+                if tracked_order.exchange_order_id:
+                    exchange_order_id = tracked_order.exchange_order_id
+                else:
+                    exchange_order_id = await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                exchange_order_id = None
+        try:
+            order_update = await self._api_post(
+                path_url=CONSTANTS.ORDER_URL,
+                data={
+                    "type": CONSTANTS.ORDER_STATUS_TYPE,
+                    "user": self.hyperliquid_perpetual_address,
+                    "oid": int(exchange_order_id) if exchange_order_id else client_order_id
+                })
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if submission_is_uncertain:
+                self._reset_trigger_unknown_oid_confirmations(client_order_id)
+            raise
+        if not isinstance(order_update, dict):
+            if submission_is_uncertain:
+                self._reset_trigger_unknown_oid_confirmations(client_order_id)
+            raise IOError(f"Malformed order status response: {order_update}")
+        if order_update.get("status") == "unknownOid" and submission_is_uncertain:
+            return self._process_uncertain_trigger_unknown_oid(tracked_order)
+        order_container = order_update.get("order")
+        if not isinstance(order_container, dict):
+            if submission_is_uncertain:
+                self._reset_trigger_unknown_oid_confirmations(client_order_id)
+            raise IOError(f"Unexpected order status response: {order_update}")
+        current_state = order_container.get("status")
+        exchange_order = order_container.get("order")
+        exchange_order_id = exchange_order.get("oid") if isinstance(exchange_order, dict) else None
+        exchange_order_timestamp = exchange_order.get("timestamp") if isinstance(exchange_order, dict) else None
+        exchange_order_id_is_valid = (
+            isinstance(exchange_order_id, int)
+            and not isinstance(exchange_order_id, bool)
+            and exchange_order_id > 0
+        ) or (
+            isinstance(exchange_order_id, str)
+            and exchange_order_id.isdigit()
+            and int(exchange_order_id) > 0
+        )
+        exchange_order_timestamp_is_valid = (
+            isinstance(exchange_order_timestamp, (int, float))
+            and not isinstance(exchange_order_timestamp, bool)
+            and exchange_order_timestamp > 0
+        )
+        required_order_fields_present = (
+            isinstance(exchange_order, dict)
+            and exchange_order_id_is_valid
+            and exchange_order_timestamp_is_valid
+        )
+        if current_state not in CONSTANTS.ORDER_STATE or not required_order_fields_present:
+            if submission_is_uncertain:
+                self._reset_trigger_unknown_oid_confirmations(client_order_id)
+            raise IOError(f"Malformed order status response: {order_update}")
+        if tracked_order.exchange_order_id is None:
+            tracked_order.update_exchange_order_id(str(exchange_order["oid"]))
+        self._clear_trigger_submission_reconciliation(client_order_id)
+        if current_state == "triggered":
+            self._associate_trigger_child_orders(tracked_order, exchange_order)
+        new_state = CONSTANTS.ORDER_STATE[current_state]
+        if (new_state == OrderState.FILLED
+                and client_order_id in self._native_trigger_client_order_ids
+                and tracked_order.executed_amount_base < abs(tracked_order.amount)):
+            await self._update_trade_history()
+            if tracked_order.executed_amount_base < abs(tracked_order.amount):
+                new_state = OrderState.OPEN
         _exchange_order_id = str(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else str(
-            order_update["order"]["order"]["oid"])
+            exchange_order["oid"])
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
+            update_timestamp=exchange_order["timestamp"] * 1e-3,
+            new_state=new_state,
+            client_order_id=exchange_order.get("cloid") or client_order_id,
             exchange_order_id=_exchange_order_id,
         )
         return _order_update
+
+    def _process_uncertain_trigger_unknown_oid(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        client_order_id = tracked_order.client_order_id
+        unknown_oid_count = self._trigger_reconciliation_unknown_oid_counts.get(client_order_id, 0) + 1
+        self._trigger_reconciliation_unknown_oid_counts[client_order_id] = unknown_oid_count
+        reconciliation_started_at = self._trigger_reconciliation_started_at[client_order_id]
+        grace_period_elapsed = (
+            self.current_timestamp - reconciliation_started_at
+            >= CONSTANTS.TRIGGER_ORDER_RECONCILIATION_GRACE_SECONDS
+        )
+        enough_confirmations = (
+            unknown_oid_count >= CONSTANTS.TRIGGER_ORDER_RECONCILIATION_MIN_UNKNOWN_OID_RESPONSES
+        )
+        new_state = tracked_order.current_state
+        if grace_period_elapsed and enough_confirmations:
+            new_state = OrderState.FAILED
+            self.logger().error(
+                f"Uncertain trigger order {client_order_id} was not found after "
+                f"{unknown_oid_count} successful queries and the reconciliation grace period."
+            )
+        return OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=new_state,
+            client_order_id=client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+        )
+
+    def _associate_trigger_child_orders(self, tracked_order: InFlightOrder, exchange_order: Dict[str, Any]):
+        """Associate activated child oids with the original cloid without replacing its cancel identity."""
+        self._native_trigger_client_order_ids.add(tracked_order.client_order_id)
+        self._clear_trigger_submission_reconciliation(tracked_order.client_order_id)
+        for child in exchange_order.get("children", []):
+            child_order = child.get("order", child) if isinstance(child, dict) else {}
+            child_order_id = child_order.get("oid")
+            if child_order_id is not None:
+                self._trigger_child_order_ids[str(child_order_id)] = tracked_order.client_order_id
+
+    def _clear_trigger_child_orders(self, client_order_id: str):
+        for order_id in self._trigger_child_order_ids_for_client_order_id(client_order_id):
+            del self._trigger_child_order_ids[order_id]
+        self._native_trigger_client_order_ids.discard(client_order_id)
+        self._clear_trigger_submission_reconciliation(client_order_id)
+
+    def _prune_trigger_tracking(self):
+        fillable_client_order_ids = set(self._order_tracker.all_fillable_orders)
+        updatable_client_order_ids = set(self._order_tracker.all_updatable_orders)
+        retained_client_order_ids = fillable_client_order_ids | self._pending_trigger_client_order_ids
+        self._native_trigger_client_order_ids.intersection_update(retained_client_order_ids)
+        self._trigger_orders_requiring_reconciliation.intersection_update(updatable_client_order_ids)
+        for client_order_id in list(self._trigger_reconciliation_started_at):
+            if client_order_id not in updatable_client_order_ids:
+                self._trigger_reconciliation_started_at.pop(client_order_id, None)
+                self._trigger_reconciliation_unknown_oid_counts.pop(client_order_id, None)
+        for child_order_id, client_order_id in list(self._trigger_child_order_ids.items()):
+            if client_order_id not in fillable_client_order_ids:
+                del self._trigger_child_order_ids[child_order_id]
+
+    def _trigger_child_order_ids_for_client_order_id(self, client_order_id: str) -> List[str]:
+        return [
+            order_id for order_id, associated_client_order_id in self._trigger_child_order_ids.items()
+            if associated_client_order_id == client_order_id
+        ]
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -897,7 +1443,13 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         Example Trade:
         """
         exchange_order_id = str(trade.get("oid", ""))
+        trigger_client_order_id = self._trigger_child_order_ids.get(exchange_order_id)
         tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+
+        if tracked_order is None:
+            client_order_id = trigger_client_order_id or client_order_id
+            if client_order_id is not None:
+                tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
         if tracked_order is None:
             all_orders = self._order_tracker.all_fillable_orders
@@ -908,6 +1460,19 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
                 return
             tracked_order = _cli_tracked_orders[0]
+
+        self._process_trade_fill(
+            trade=trade,
+            tracked_order=tracked_order,
+            trigger_client_order_id=trigger_client_order_id,
+        )
+
+    def _process_trade_fill(
+            self,
+            trade: Dict[str, Any],
+            tracked_order: InFlightOrder,
+            trigger_client_order_id: Optional[str],
+    ):
         trading_pair_base_coin = tracked_order.base_asset
         base = trade["coin"]
         if base.upper() == trading_pair_base_coin:
@@ -931,6 +1496,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 fee=fee,
             )
             self._order_tracker.process_trade_update(trade_update)
+            if (trigger_client_order_id is not None
+                    and tracked_order.executed_amount_base >= abs(tracked_order.amount)):
+                self._order_tracker.process_order_update(OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=trade["time"] * 1e-3,
+                    new_state=OrderState.FILLED,
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=str(trade["oid"]),
+                ))
+                self._clear_trigger_child_orders(tracked_order.client_order_id)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -940,21 +1515,74 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         Example Order:
         """
-        client_order_id = str(order_msg["order"].get("cloid", ""))
+        exchange_order_id = str(order_msg["order"]["oid"])
+        cloid = order_msg["order"].get("cloid")
+        client_order_id = str(cloid) if cloid else self._trigger_child_order_ids.get(exchange_order_id, "")
+        is_trigger_child = cloid is None and client_order_id != ""
         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
             return
         current_state = order_msg["status"]
-        tracked_order.update_exchange_order_id(str(order_msg["order"]["oid"]))
+        if cloid is not None or tracked_order.exchange_order_id is None:
+            tracked_order.update_exchange_order_id(exchange_order_id)
+        if cloid is not None:
+            self._clear_trigger_submission_reconciliation(client_order_id)
+        if current_state == "triggered":
+            self._associate_trigger_child_orders(tracked_order, order_msg["order"])
+        new_state = CONSTANTS.ORDER_STATE[current_state]
+        if is_trigger_child and new_state == OrderState.FILLED:
+            new_state = OrderState.OPEN
         order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_msg["statusTimestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_msg["order"]["cloid"],
-            exchange_order_id=str(order_msg["order"]["oid"]),
+            new_state=new_state,
+            client_order_id=client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
         )
         self._order_tracker.process_order_update(order_update=order_update)
+        if not is_trigger_child and new_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}:
+            self._clear_trigger_child_orders(client_order_id)
+
+    @property
+    def tracking_states(self) -> Dict[str, Any]:
+        states = super().tracking_states
+        for client_order_id, state in states.items():
+            if client_order_id in self._native_trigger_client_order_ids:
+                state["hyperliquid_order_type"] = "trigger"
+                state["hyperliquid_trigger_child_order_ids"] = (
+                    self._trigger_child_order_ids_for_client_order_id(client_order_id)
+                )
+            if client_order_id in self._trigger_reconciliation_started_at:
+                state["hyperliquid_submission_state"] = "uncertain"
+                state["hyperliquid_reconciliation_started_at"] = (
+                    self._trigger_reconciliation_started_at[client_order_id]
+                )
+                state["hyperliquid_reconciliation_unknown_oid_count"] = (
+                    self._trigger_reconciliation_unknown_oid_counts.get(client_order_id, 0)
+                )
+        return states
+
+    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+        super().restore_tracking_states(saved_states)
+        for client_order_id, state in saved_states.items():
+            if state.get("hyperliquid_order_type") == "trigger":
+                self._native_trigger_client_order_ids.add(client_order_id)
+                child_order_ids = state.get("hyperliquid_trigger_child_order_ids", [])
+                for child_order_id in child_order_ids:
+                    self._trigger_child_order_ids[str(child_order_id)] = client_order_id
+                if state.get("hyperliquid_submission_state") == "uncertain":
+                    self._trigger_orders_requiring_reconciliation.add(client_order_id)
+                    self._trigger_reconciliation_started_at[client_order_id] = float(
+                        state.get("hyperliquid_reconciliation_started_at", self.current_timestamp)
+                    )
+                    self._trigger_reconciliation_unknown_oid_counts[client_order_id] = int(
+                        state.get("hyperliquid_reconciliation_unknown_oid_count", 0)
+                    )
+                elif not child_order_ids:
+                    # A restored trigger may have activated while Hummingbot was offline. Reconcile once before canceling
+                    # so any child oid can be used, but this is not an uncertain placement result.
+                    self._trigger_orders_requiring_reconciliation.add(client_order_id)
 
     async def _format_trading_rules(self, exchange_info_dict: List) -> List[TradingRule]:
         """

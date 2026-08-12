@@ -68,6 +68,93 @@ class HyperliquidPerpetualAuthTests(TestCase):
         self.assertEqual(None, params.get("vaultAddress"))
         self.assertEqual("order", params.get("action")["type"])
 
+    def test_sign_order_params_preserves_single_order_action(self):
+        order = {
+            "asset": 4, "isBuy": True, "limitPx": 1201, "sz": 0.01, "reduceOnly": False,
+            "orderType": {"limit": {"tif": "Gtc"}}, "cloid": "0x000000000000000000000000000ee056",
+        }
+        with patch.object(self.auth, "sign_l1_action", return_value={"signature": "test"}):
+            payload = self.auth._sign_order_params(
+                {"orders": order, "grouping": "na"}, "https://test.url/exchange", 123)
+
+        self.assertEqual(payload["action"], {
+            "type": "order",
+            "orders": [{
+                "a": 4, "b": True, "p": "1201", "s": "0.01", "r": False,
+                "t": {"limit": {"tif": "Gtc"}}, "c": "0x000000000000000000000000000ee056",
+            }],
+            "grouping": "na",
+        })
+
+    def test_sign_order_params_signs_order_list_with_grouping_and_builder(self):
+        orders = [
+            {
+                "asset": 4, "isBuy": False, "limitPx": 1100, "sz": 0.01, "reduceOnly": True,
+                "orderType": {"trigger": {"triggerPx": 1100, "tpsl": "tp", "isMarket": True}},
+                "cloid": "0x00000000000000000000000000000001",
+            },
+            {
+                "asset": 4, "isBuy": False, "limitPx": 900, "sz": 0.01, "reduceOnly": True,
+                "orderType": {"trigger": {"triggerPx": 900, "tpsl": "sl", "isMarket": True}},
+                "cloid": "0x00000000000000000000000000000002",
+            },
+        ]
+        builder = {"b": "0x0000000000000000000000000000000000000001", "f": 1}
+        with patch.object(self.auth, "sign_l1_action", return_value={"signature": "test"}):
+            payload = self.auth._sign_order_params(
+                {"orders": orders, "grouping": "positionTpsl", "builder": builder},
+                "https://test.url/exchange", 123)
+
+        action = payload["action"]
+        self.assertEqual("positionTpsl", action["grouping"])
+        self.assertEqual(builder, action["builder"])
+        self.assertEqual(2, len(action["orders"]))
+        self.assertEqual("tp", action["orders"][0]["t"]["trigger"]["tpsl"])
+        self.assertEqual("sl", action["orders"][1]["t"]["trigger"]["tpsl"])
+        self.assertEqual(
+            ["isMarket", "triggerPx", "tpsl"],
+            list(action["orders"][0]["t"]["trigger"]),
+            "Trigger wire field order is part of Hyperliquid's msgpack signature hash.",
+        )
+
+    def test_trigger_order_signing_preserves_vault_and_testnet_rules(self):
+        order = {
+            "asset": 4, "isBuy": False, "limitPx": 900, "sz": 0.01, "reduceOnly": True,
+            "orderType": {"trigger": {"triggerPx": 950, "tpsl": "sl", "isMarket": True}},
+            "cloid": "0x00000000000000000000000000000001",
+        }
+        vault_auth = HyperliquidPerpetualAuth(
+            api_address="0x0000000000000000000000000000000000000001",
+            api_secret=self.api_secret,
+            use_vault=True,
+        )
+        with patch.object(vault_auth, "sign_l1_action", return_value={"signature": "test"}) as sign_mock:
+            vault_payload = vault_auth._sign_order_params(
+                {"orders": order, "grouping": "na"}, "https://api.hyperliquid.xyz/exchange", 123)
+
+        self.assertEqual(vault_auth._vault_address, vault_payload["vaultAddress"])
+        self.assertTrue(sign_mock.call_args.args[-1])
+        self.assertEqual("sl", vault_payload["action"]["orders"][0]["t"]["trigger"]["tpsl"])
+
+        with patch.object(self.auth, "sign_l1_action", return_value={"signature": "test"}) as sign_mock:
+            testnet_payload = self.auth._sign_order_params(
+                {"orders": order, "grouping": "na"},
+                "https://api.hyperliquid-testnet.xyz/exchange", 123)
+
+        self.assertIsNone(testnet_payload["vaultAddress"])
+        self.assertFalse(sign_mock.call_args.args[-1])
+        self.assertNotIn("builder", testnet_payload["action"])
+
+    def test_sign_cancel_params_uses_oid_action_for_activated_trigger_child(self):
+        with patch.object(self.auth, "sign_l1_action", return_value={"signature": "test"}):
+            payload = self.auth._sign_cancel_params(
+                {"cancels": {"asset": 4, "oid": 202}}, "https://test.url/exchange", 123)
+
+        self.assertEqual({
+            "type": "cancel",
+            "cancels": [{"a": 4, "o": 202}],
+        }, payload["action"])
+
 
 class HyperliquidPerpetualAuthValidationTests(TestCase):
     """Construction-time validation of api_address and api_secret (issue #7866)."""

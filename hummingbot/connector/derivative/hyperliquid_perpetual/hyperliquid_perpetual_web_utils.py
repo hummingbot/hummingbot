@@ -155,9 +155,9 @@ def order_type_to_wire(order_type):
     elif "trigger" in order_type:
         return {
             "trigger": {
+                "isMarket": order_type["trigger"]["isMarket"],
                 "triggerPx": float_to_wire(order_type["trigger"]["triggerPx"]),
                 "tpsl": order_type["trigger"]["tpsl"],
-                "isMarket": order_type["trigger"]["isMarket"],
             }
         }
     raise ValueError("Invalid order type", order_type)

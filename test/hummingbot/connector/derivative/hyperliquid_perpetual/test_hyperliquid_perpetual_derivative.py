@@ -6,7 +6,7 @@ from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 from aioresponses import aioresponses
@@ -22,7 +22,12 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
+from hummingbot.core.data_type.in_flight_order import (
+    InFlightOrder,
+    OrderState,
+    OrderUpdate,
+    PerpetualDerivativeInFlightOrder,
+)
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -2061,6 +2066,1236 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(self.trading_pair, create_event.trading_pair)
         self.assertEqual(OrderType.MARKET, create_event.type)
         self.assertEqual(order_id, create_event.order_id)
+
+    def test_place_sell_stop_market_trigger_tracks_reduce_only_order_with_downward_slippage(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"type": "order", "data": {"statuses": [
+                {"resting": {"oid": self.expected_exchange_order_id}},
+            ]}},
+        })
+
+        order_id = self.exchange.place_trigger_order(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            side=TradeType.SELL,
+            trigger_price=Decimal("100"),
+            trigger_kind="sl",
+            is_market=True,
+        )
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        request = self.exchange._api_post.await_args.kwargs["data"]
+        order_spec = request["orders"]
+        self.assertEqual("na", request["grouping"])
+        self.assertEqual(order_id, order_spec["cloid"])
+        self.assertFalse(order_spec["isBuy"])
+        self.assertTrue(order_spec["reduceOnly"])
+        self.assertEqual(95.0, order_spec["limitPx"])
+        self.assertEqual({
+            "trigger": {"triggerPx": 100.0, "tpsl": "sl", "isMarket": True},
+        }, order_spec["orderType"])
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(PositionAction.CLOSE, tracked_order.position)
+        self.assertEqual(OrderState.OPEN, tracked_order.current_state)
+
+    def test_place_buy_stop_market_trigger_uses_upward_slippage(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": [
+                {"resting": {"oid": self.expected_exchange_order_id}},
+            ]}},
+        })
+
+        self.exchange.place_trigger_order(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            side=TradeType.BUY,
+            trigger_price=Decimal("100"),
+            trigger_kind="sl",
+            is_market=True,
+        )
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        order_spec = self.exchange._api_post.await_args.kwargs["data"]["orders"]
+        self.assertTrue(order_spec["isBuy"])
+        self.assertEqual(105.0, order_spec["limitPx"])
+
+    def test_place_position_protection_orders_tracks_each_successful_leg(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._order_tracker.TRADE_FILLS_WAIT_TIMEOUT = 0
+        builder = {"b": "0x0000000000000000000000000000000000000001", "f": 10}
+        self.exchange._build_builder_field = MagicMock(return_value=builder)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [
+                    {"resting": {"oid": 101}},
+                    {"filled": {"oid": 102, "totalSz": "1", "avgPx": "90"}},
+                ]}},
+            },
+            [{
+                "oid": 102,
+                "coin": self.base_asset,
+                "dir": "Close Long",
+                "fee": "0.01",
+                "tid": 303,
+                "time": 1640780000002,
+                "px": "90",
+                "sz": "1",
+            }, {
+                "oid": 102,
+                "coin": self.base_asset,
+                "dir": "Close Long",
+                "fee": "0.01",
+                "tid": 303,
+                "time": 1640780000002,
+                "px": "90",
+                "sz": "1",
+            }],
+        ])
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            close_side=TradeType.SELL,
+            take_profit_price=Decimal("110"),
+            stop_loss_price=Decimal("90"),
+        )
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        request = self.exchange._api_post.await_args_list[0].kwargs["data"]
+        self.assertEqual("positionTpsl", request["grouping"])
+        self.assertEqual(builder, request["builder"])
+        self.assertEqual(2, len(request["orders"]))
+        self.assertNotEqual(take_profit_id, stop_loss_id)
+        self.assertEqual([take_profit_id, stop_loss_id], [order["cloid"] for order in request["orders"]])
+        self.assertTrue(all(order["reduceOnly"] for order in request["orders"]))
+        self.assertEqual({
+            "triggerPx": 110.0, "tpsl": "tp", "isMarket": False,
+        }, request["orders"][0]["orderType"]["trigger"])
+        self.assertEqual(110.0, request["orders"][0]["limitPx"])
+        self.assertEqual({
+            "triggerPx": 90.0, "tpsl": "sl", "isMarket": True,
+        }, request["orders"][1]["orderType"]["trigger"])
+        self.assertEqual(85.5, request["orders"][1]["limitPx"])
+        self.assertEqual(OrderState.OPEN, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.FILLED, self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertEqual(Decimal("1"),
+                         self.exchange._order_tracker.all_orders[stop_loss_id].executed_amount_base)
+        self.assertEqual(1, len(self.exchange._order_tracker.all_orders[stop_loss_id].order_fills))
+
+    def test_placement_filled_without_authoritative_fill_keeps_trigger_open(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [
+                    {"filled": {"oid": 102, "totalSz": "1", "avgPx": "90"}},
+                ]}},
+            },
+            [],
+        ])
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("90"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.assertEqual(OrderState.OPEN, tracked_order.current_state)
+        self.assertEqual(Decimal("0"), tracked_order.executed_amount_base)
+        self.assertEqual(0, len(self.sell_order_completed_logger.event_log))
+
+    def test_open_trigger_order_can_be_cancelled_by_client_order_id(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [
+                    {"resting": {"oid": self.expected_exchange_order_id}},
+                ]}},
+            },
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [{"success": True}]}},
+            },
+        ])
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("90"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.exchange.cancel(self.trading_pair, order_id)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        placement_asset = self.exchange._api_post.await_args_list[0].kwargs["data"]["orders"]["asset"]
+        cancel_request = self.exchange._api_post.await_args_list[1].kwargs["data"]
+        self.assertEqual({
+            "type": "cancel",
+            "cancels": {"asset": placement_asset, "cloid": order_id},
+        }, cancel_request)
+        tracked_order = self.exchange._order_tracker.all_orders[order_id]
+        self.assertEqual(OrderState.CANCELED, tracked_order.current_state)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+
+    def test_triggered_status_keeps_order_open_and_associates_child_fill(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "order",
+            "order": {
+                "order": {
+                    "oid": 101,
+                    "cloid": order_id,
+                    "timestamp": 1640780000000,
+                    "children": [{"oid": 202}],
+                },
+                "status": "triggered",
+                "statusTimestamp": 1640780000001,
+            },
+        })
+
+        order_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.exchange._order_tracker.process_order_update(order_update)
+        self.async_run_with_timeout(self.exchange._process_trade_message({
+            "oid": 202,
+            "coin": self.base_asset,
+            "dir": "Close Long",
+            "fee": "0.01",
+            "tid": 303,
+            "time": 1640780000002,
+            "px": "90",
+            "sz": "0.4",
+        }))
+
+        self.assertEqual(OrderState.OPEN, tracked_order.current_state)
+        self.assertEqual(Decimal("0.4"), tracked_order.executed_amount_base)
+
+    def test_triggered_child_fill_is_recovered_by_rest_trade_polling(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "order",
+            "order": {
+                "order": {
+                    "oid": 101,
+                    "cloid": order_id,
+                    "timestamp": 1640780000000,
+                    "children": [{"oid": 202}],
+                },
+                "status": "triggered",
+                "statusTimestamp": 1640780000001,
+            },
+        })
+
+        order_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.exchange._order_tracker.process_order_update(order_update)
+        self.exchange._api_post = AsyncMock(return_value=[{
+            "oid": 202,
+            "coin": self.base_asset,
+            "dir": "Close Long",
+            "fee": "0.01",
+            "tid": 303,
+            "time": 1640780000002,
+            "px": "90",
+            "sz": "1",
+        }])
+
+        self.async_run_with_timeout(self.exchange._update_trade_history())
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(Decimal("1"), tracked_order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, self.exchange._order_tracker.all_orders[order_id].current_state)
+
+    def test_triggered_child_terminal_state_is_polled_by_child_oid(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        serialized_order = PerpetualDerivativeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            leverage=2,
+            position=PositionAction.CLOSE,
+            creation_timestamp=1640780000,
+        ).to_json()
+        self.exchange.restore_tracking_states({order_id: serialized_order})
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "order",
+                "order": {
+                    "order": {
+                        "oid": 101,
+                        "cloid": order_id,
+                        "timestamp": 1640780000000,
+                        "children": [{"oid": 202}],
+                    },
+                    "status": "triggered",
+                    "statusTimestamp": 1640780000001,
+                },
+            },
+            {
+                "status": "order",
+                "order": {
+                    "order": {
+                        "oid": 202,
+                        "cloid": None,
+                        "timestamp": 1640780000002,
+                        "children": [],
+                    },
+                    "status": "canceled",
+                    "statusTimestamp": 1640780000003,
+                },
+            },
+        ])
+
+        triggered_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.exchange._order_tracker.process_order_update(triggered_update)
+        child_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.exchange._order_tracker.process_order_update(child_update)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        second_request = self.exchange._api_post.await_args_list[1].kwargs["data"]
+        self.assertEqual(202, second_request["oid"])
+        self.assertEqual(OrderState.CANCELED, self.exchange._order_tracker.all_orders[order_id].current_state)
+        self.assertEqual(order_id, self.exchange._trigger_child_order_ids["202"])
+
+    def test_activated_trigger_completes_from_full_child_fill(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        self.exchange._process_order_message({
+            "order": {"oid": 101, "cloid": order_id, "children": [{"oid": 202}]},
+            "status": "triggered",
+            "statusTimestamp": 1640780000001,
+        })
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.async_run_with_timeout(self.exchange._process_trade_message({
+            "oid": 202,
+            "coin": self.base_asset,
+            "dir": "Close Long",
+            "fee": "0.01",
+            "tid": 303,
+            "time": 1640780000002,
+            "px": "90",
+            "sz": "1",
+        }))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.FILLED, self.exchange._order_tracker.all_orders[order_id].current_state)
+
+    def test_restored_trigger_order_cancels_activated_child_by_oid(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        serialized_order = PerpetualDerivativeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            leverage=2,
+            position=PositionAction.CLOSE,
+            creation_timestamp=1640780000,
+        ).to_json()
+        self.exchange.restore_tracking_states({order_id: serialized_order})
+        restored_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "order",
+                "order": {
+                    "order": {
+                        "oid": 101,
+                        "cloid": order_id,
+                        "timestamp": 1640780000000,
+                        "children": [{"oid": 202}],
+                    },
+                    "status": "triggered",
+                    "statusTimestamp": 1640780000001,
+                },
+            },
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [{"success": True}]}},
+            },
+        ])
+
+        order_update = self.async_run_with_timeout(self.exchange._request_order_status(restored_order))
+        self.exchange._order_tracker.process_order_update(order_update)
+        self.exchange.cancel(self.trading_pair, order_id)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        cancel_request = self.exchange._api_post.await_args_list[1].kwargs["data"]
+        self.assertEqual({"asset": self.exchange.coin_to_asset[self.base_asset], "oid": 202},
+                         cancel_request["cancels"])
+        self.assertEqual(OrderState.CANCELED, self.exchange._order_tracker.all_orders[order_id].current_state)
+
+    def test_restored_trigger_order_resolves_activated_child_when_cancelled_before_polling(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        serialized_order = PerpetualDerivativeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            leverage=2,
+            position=PositionAction.CLOSE,
+            creation_timestamp=1640780000,
+        ).to_json()
+        serialized_order["hyperliquid_order_type"] = "trigger"
+        self.exchange.restore_tracking_states({order_id: serialized_order})
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {
+                "status": "order",
+                "order": {
+                    "order": {
+                        "oid": 101,
+                        "cloid": order_id,
+                        "timestamp": 1640780000000,
+                        "children": [{"oid": 202}],
+                    },
+                    "status": "triggered",
+                    "statusTimestamp": 1640780000001,
+                },
+            },
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [{"success": True}]}},
+            },
+        ])
+
+        self.exchange.cancel(self.trading_pair, order_id)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        status_request = self.exchange._api_post.await_args_list[0].kwargs["data"]
+        cancel_request = self.exchange._api_post.await_args_list[1].kwargs["data"]
+        self.assertEqual(101, status_request["oid"])
+        self.assertEqual({"asset": self.exchange.coin_to_asset[self.base_asset], "oid": 202},
+                         cancel_request["cancels"])
+
+    def test_tracking_states_persists_trigger_lifecycle_metadata(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        self.exchange._native_trigger_client_order_ids.add(order_id)
+        self.exchange._trigger_child_order_ids["202"] = order_id
+        self.exchange._trigger_orders_requiring_reconciliation.add(order_id)
+        self.exchange._trigger_reconciliation_started_at[order_id] = 1640780000
+        self.exchange._trigger_reconciliation_unknown_oid_counts[order_id] = 2
+
+        serialized_order = self.exchange.tracking_states[order_id]
+
+        self.assertEqual("trigger", serialized_order["hyperliquid_order_type"])
+        self.assertEqual(["202"], serialized_order["hyperliquid_trigger_child_order_ids"])
+        self.assertEqual("uncertain", serialized_order["hyperliquid_submission_state"])
+        self.assertEqual(1640780000, serialized_order["hyperliquid_reconciliation_started_at"])
+        self.assertEqual(2, serialized_order["hyperliquid_reconciliation_unknown_oid_count"])
+
+    def test_restore_tracking_states_restores_reconciliation_metadata(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        serialized_order = PerpetualDerivativeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            leverage=2,
+            position=PositionAction.CLOSE,
+            creation_timestamp=1640780000,
+        ).to_json()
+        serialized_order.update({
+            "hyperliquid_order_type": "trigger",
+            "hyperliquid_submission_state": "uncertain",
+            "hyperliquid_reconciliation_started_at": 1640780001,
+            "hyperliquid_reconciliation_unknown_oid_count": 2,
+        })
+
+        self.exchange.restore_tracking_states({order_id: serialized_order})
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.assertIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+        self.assertEqual(1640780001, self.exchange._trigger_reconciliation_started_at[order_id])
+        self.assertEqual(2, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+
+    def test_triggered_user_stream_status_keeps_order_open(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+
+        self.exchange._process_order_message({
+            "order": {"oid": 101, "cloid": order_id, "children": [{"oid": 202}]},
+            "status": "triggered",
+            "statusTimestamp": 1640780000001,
+        })
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.OPEN, self.exchange.in_flight_orders[order_id].current_state)
+        self.assertEqual(order_id, self.exchange._trigger_child_order_ids["202"])
+
+        self.exchange._process_order_message({
+            "order": {"oid": 202, "cloid": None},
+            "status": "canceled",
+            "statusTimestamp": 1640780000002,
+        })
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        tracked_order = self.exchange._order_tracker.all_orders[order_id]
+        self.assertEqual(OrderState.CANCELED, tracked_order.current_state)
+        self.assertEqual("101", tracked_order.exchange_order_id)
+
+    def test_triggered_child_fill_status_waits_for_trade_before_completing_parent(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+
+        self.exchange._process_order_message({
+            "order": {"oid": 101, "cloid": order_id, "children": [{"oid": 202}]},
+            "status": "triggered",
+            "statusTimestamp": 1640780000001,
+        })
+        self.exchange._process_order_message({
+            "order": {"oid": 202, "cloid": None},
+            "status": "filled",
+            "statusTimestamp": 1640780000002,
+        })
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.OPEN, tracked_order.current_state)
+        self.assertEqual(order_id, self.exchange._trigger_child_order_ids["202"])
+
+        self.async_run_with_timeout(self.exchange._process_trade_message({
+            "oid": 202,
+            "coin": self.base_asset,
+            "dir": "Close Long",
+            "fee": "0.01",
+            "tid": 303,
+            "time": 1640780000003,
+            "px": "90",
+            "sz": "1",
+        }))
+
+        self.assertEqual(Decimal("1"), tracked_order.executed_amount_base)
+        self.assertEqual(OrderState.FILLED, tracked_order.current_state)
+        self.assertNotIn("202", self.exchange._trigger_child_order_ids)
+
+    def test_triggered_child_cancel_status_retains_mapping_for_late_partial_fill(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._process_order_message({
+            "order": {"oid": 101, "cloid": order_id, "children": [{"oid": 202}]},
+            "status": "triggered",
+            "statusTimestamp": 1640780000001,
+        })
+        self.exchange._process_order_message({
+            "order": {"oid": 202, "cloid": None},
+            "status": "canceled",
+            "statusTimestamp": 1640780000002,
+        })
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.CANCELED, tracked_order.current_state)
+        self.assertEqual(order_id, self.exchange._trigger_child_order_ids["202"])
+
+        self.async_run_with_timeout(self.exchange._process_trade_message({
+            "oid": 202,
+            "coin": self.base_asset,
+            "dir": "Close Long",
+            "fee": "0.01",
+            "tid": 303,
+            "time": 1640780000003,
+            "px": "90",
+            "sz": "0.4",
+        }))
+
+        self.assertEqual(Decimal("0.4"), tracked_order.executed_amount_base)
+
+    def test_trigger_rejection_user_stream_statuses_fail_the_order(self):
+        for index, status in enumerate(("badTriggerPxRejected", "marketOrderNoLiquidityRejected")):
+            with self.subTest(status=status):
+                order_id = f"0x{index + 1:032x}"
+                self.exchange.start_tracking_order(
+                    order_id=order_id,
+                    exchange_order_id=str(101 + index),
+                    trading_pair=self.trading_pair,
+                    trade_type=TradeType.SELL,
+                    price=Decimal("85.5"),
+                    amount=Decimal("1"),
+                    order_type=OrderType.MARKET,
+                    position_action=PositionAction.CLOSE,
+                )
+
+                self.exchange._process_order_message({
+                    "order": {"oid": 101 + index, "cloid": order_id},
+                    "status": status,
+                    "statusTimestamp": 1640780000001,
+                })
+                self.async_run_with_timeout(asyncio.sleep(0.01))
+
+                self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[order_id].current_state)
+
+    def test_place_position_protection_orders_preserves_successful_leg_when_sibling_fails(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": [
+                {"resting": {"oid": 101}},
+                {"error": "invalid trigger"},
+            ]}},
+        })
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            close_side=TradeType.BUY,
+            take_profit_price=Decimal("90"),
+            stop_loss_price=Decimal("110"),
+        )
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.OPEN, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertIn(take_profit_id, self.exchange.in_flight_orders)
+        self.assertNotIn(stop_loss_id, self.exchange.in_flight_orders)
+
+    def test_trigger_order_supports_tp_market_and_sl_limit_wire_shapes(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 101}}]}}},
+            {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 102}}]}}},
+        ])
+
+        self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), "tp", True)
+        self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.BUY, Decimal("90"), "sl", False,
+            limit_price=Decimal("91"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        tp_spec = self.exchange._api_post.await_args_list[0].kwargs["data"]["orders"]
+        sl_spec = self.exchange._api_post.await_args_list[1].kwargs["data"]["orders"]
+        self.assertEqual(
+            {"triggerPx": 110.0, "tpsl": "tp", "isMarket": True},
+            tp_spec["orderType"]["trigger"])
+        self.assertEqual(104.5, tp_spec["limitPx"])
+        self.assertEqual(
+            {"triggerPx": 90.0, "tpsl": "sl", "isMarket": False},
+            sl_spec["orderType"]["trigger"])
+        self.assertEqual(91.0, sl_spec["limitPx"])
+
+    def test_position_protection_batch_error_fails_both_tracked_legs(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={"status": "err", "response": "rejected"})
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+
+    def test_position_protection_local_preparation_error_fails_already_tracked_legs(self):
+        self.exchange.quantize_order_amount = MagicMock(side_effect=KeyError(self.trading_pair))
+        self.exchange._api_post = AsyncMock()
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+
+        self.assertIn(take_profit_id, self.exchange.in_flight_orders)
+        self.assertIn(stop_loss_id, self.exchange.in_flight_orders)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.exchange._api_post.assert_not_awaited()
+
+    def test_position_protection_missing_status_reconciles_only_unknown_order(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 101}}]}},
+        })
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.OPEN, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertNotIn(take_profit_id, self.exchange._trigger_orders_requiring_reconciliation)
+        self.assertIn(stop_loss_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_position_protection_malformed_status_reconciles_only_unknown_order(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": [
+                {"resting": {"oid": 101}},
+                None,
+            ]}},
+        })
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.OPEN, self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertNotIn(take_profit_id, self.exchange._trigger_orders_requiring_reconciliation)
+        self.assertIn(stop_loss_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_position_protection_malformed_statuses_container_reconciles_both_orders(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": None}},
+        })
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertEqual(
+            {take_profit_id, stop_loss_id},
+            self.exchange._trigger_orders_requiring_reconciliation,
+        )
+
+    def test_position_protection_oversized_statuses_reconcile_both_orders(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": [
+                {"resting": {"oid": 101}},
+                {"resting": {"oid": 102}},
+                {"resting": {"oid": 103}},
+            ]}},
+        })
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        for order_id in (take_profit_id, stop_loss_id):
+            tracked_order = self.exchange._order_tracker.all_orders[order_id]
+            self.assertEqual(OrderState.PENDING_CREATE, tracked_order.current_state)
+            self.assertIsNone(tracked_order.exchange_order_id)
+            self.assertIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_trigger_order_malformed_statuses_container_enters_reconciliation(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": None}},
+        })
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("90"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.PENDING_CREATE, self.exchange._order_tracker.all_orders[order_id].current_state)
+        self.assertIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_position_protection_transport_error_enters_reconciliation_without_failure(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        take_profit_id, stop_loss_id = self.exchange.place_position_protection_orders(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("110"), Decimal("90"))
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[take_profit_id].current_state)
+        self.assertEqual(OrderState.PENDING_CREATE,
+                         self.exchange._order_tracker.all_orders[stop_loss_id].current_state)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+        self.assertEqual(
+            {take_profit_id, stop_loss_id},
+            self.exchange._trigger_orders_requiring_reconciliation,
+        )
+
+    def test_trigger_order_transport_error_enters_reconciliation_without_failure(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(side_effect=ConnectionError("response lost"))
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("90"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.PENDING_CREATE, self.exchange.in_flight_orders[order_id].current_state)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+        self.assertIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_uncertain_trigger_order_is_reconciled_by_cloid(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "missing placement status")
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "order",
+            "order": {
+                "order": {
+                    "oid": 101,
+                    "cloid": order_id,
+                    "timestamp": 1640780000000,
+                    "children": [],
+                },
+                "status": "open",
+                "statusTimestamp": 1640780000001,
+            },
+        })
+
+        order_update = self.async_run_with_timeout(
+            self.exchange._request_order_status(self.exchange.in_flight_orders[order_id]))
+        self.exchange._order_tracker.process_order_update(order_update)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(order_id, self.exchange._api_post.await_args.kwargs["data"]["oid"])
+        self.assertEqual("101", self.exchange.in_flight_orders[order_id].exchange_order_id)
+        self.assertEqual(OrderState.OPEN, self.exchange.in_flight_orders[order_id].current_state)
+        self.assertNotIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_uncertain_trigger_order_fails_only_after_grace_period_and_three_unknown_oid_responses(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "placement timeout")
+        self.exchange._api_post = AsyncMock(return_value={"status": "unknownOid"})
+
+        first_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.assertEqual(OrderState.PENDING_CREATE, first_update.new_state)
+
+        self.exchange._set_current_timestamp(
+            1640780000 + CONSTANTS.TRIGGER_ORDER_RECONCILIATION_GRACE_SECONDS)
+        second_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.assertEqual(OrderState.PENDING_CREATE, second_update.new_state)
+        third_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+
+        self.assertEqual(OrderState.FAILED, third_update.new_state)
+        self.exchange._order_tracker.process_order_update(third_update)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.exchange._prune_trigger_tracking()
+        self.assertNotIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+
+    def test_reconciliation_query_error_does_not_increment_unknown_oid_count(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "placement timeout")
+
+        self.async_run_with_timeout(
+            self.exchange._handle_update_error_for_active_order(tracked_order, asyncio.TimeoutError()))
+
+        self.assertEqual(0, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+        self.assertNotIn(order_id, self.exchange._order_tracker._order_not_found_records)
+
+    def test_reconciliation_query_errors_reset_consecutive_unknown_oid_count(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "placement timeout")
+        self.exchange._set_current_timestamp(
+            1640780000 + CONSTANTS.TRIGGER_ORDER_RECONCILIATION_GRACE_SECONDS)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"status": "unknownOid"},
+            asyncio.TimeoutError(),
+            {"status": "unknownOid"},
+            IOError("rate limited"),
+            {"status": "unknownOid"},
+            {"status": "unknownOid"},
+            {"status": "unknownOid"},
+        ])
+
+        first_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.assertEqual(OrderState.PENDING_CREATE, first_update.new_state)
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.async_run_with_timeout(
+            self.exchange._handle_update_error_for_active_order(tracked_order, asyncio.TimeoutError()))
+        self.assertEqual(0, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+
+        second_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.assertEqual(OrderState.PENDING_CREATE, second_update.new_state)
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+        self.async_run_with_timeout(
+            self.exchange._handle_update_error_for_active_order(tracked_order, IOError("rate limited")))
+        self.assertEqual(0, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+
+        self.assertEqual(
+            OrderState.PENDING_CREATE,
+            self.async_run_with_timeout(self.exchange._request_order_status(tracked_order)).new_state,
+        )
+        self.assertEqual(
+            OrderState.PENDING_CREATE,
+            self.async_run_with_timeout(self.exchange._request_order_status(tracked_order)).new_state,
+        )
+        self.assertEqual(
+            OrderState.FAILED,
+            self.async_run_with_timeout(self.exchange._request_order_status(tracked_order)).new_state,
+        )
+
+    def test_public_cancel_not_found_keeps_uncertain_trigger_in_reconciliation(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "placement timeout")
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"status": "unknownOid"},
+            {
+                "status": "ok",
+                "response": {"data": {"statuses": [{"error": CONSTANTS.UNKNOWN_ORDER_MESSAGE}]}},
+            },
+        ] * (self.exchange._order_tracker.lost_order_count_limit + 1))
+
+        for _ in range(self.exchange._order_tracker.lost_order_count_limit + 1):
+            self.async_run_with_timeout(self.exchange._execute_order_cancel(tracked_order))
+
+        self.assertEqual(OrderState.PENDING_CREATE, tracked_order.current_state)
+        self.assertIn(order_id, self.exchange._trigger_orders_requiring_reconciliation)
+        self.assertEqual(
+            self.exchange._order_tracker.lost_order_count_limit + 1,
+            self.exchange._trigger_reconciliation_unknown_oid_counts[order_id],
+        )
+        self.assertNotIn(order_id, self.exchange._order_tracker._order_not_found_records)
+
+    def test_public_cancel_malformed_status_resets_consecutive_unknown_oid_count(self):
+        self._simulate_trading_rules_initialized()
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        tracked_order = self.exchange.in_flight_orders[order_id]
+        self.exchange._mark_trigger_order_for_reconciliation(order_id, "placement timeout")
+        self.exchange._set_current_timestamp(
+            1640780000 + CONSTANTS.TRIGGER_ORDER_RECONCILIATION_GRACE_SECONDS)
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"status": "unknownOid"},
+            {"status": "unknownOid"},
+            {"status": "order", "order": {
+                "status": "open",
+                "order": {"oid": "", "timestamp": 1640780000000},
+            }},
+            {"status": "unknownOid"},
+        ])
+
+        for _ in range(2):
+            order_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+            self.assertEqual(OrderState.PENDING_CREATE, order_update.new_state)
+
+        self.assertIsNone(self.async_run_with_timeout(self.exchange._execute_order_cancel(tracked_order)))
+        self.assertEqual(0, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+        final_update = self.async_run_with_timeout(self.exchange._request_order_status(tracked_order))
+
+        self.assertEqual(OrderState.PENDING_CREATE, final_update.new_state)
+        self.assertEqual(1, self.exchange._trigger_reconciliation_unknown_oid_counts[order_id])
+
+    def test_restored_uncertain_trigger_reconciles_without_resubmitting(self):
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        serialized_order = PerpetualDerivativeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("85.5"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            leverage=2,
+            position=PositionAction.CLOSE,
+            creation_timestamp=1640780000,
+        ).to_json()
+        serialized_order.update({
+            "hyperliquid_order_type": "trigger",
+            "hyperliquid_submission_state": "uncertain",
+            "hyperliquid_reconciliation_started_at": 1640780001,
+            "hyperliquid_reconciliation_unknown_oid_count": 1,
+        })
+        self.exchange.restore_tracking_states({order_id: serialized_order})
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "order",
+            "order": {
+                "order": {
+                    "oid": 101,
+                    "cloid": order_id,
+                    "timestamp": 1640780000000,
+                    "children": [],
+                },
+                "status": "canceled",
+                "statusTimestamp": 1640780000001,
+            },
+        })
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        request = self.exchange._api_post.await_args.kwargs["data"]
+        self.assertEqual(CONSTANTS.ORDER_STATUS_TYPE, request["type"])
+        self.assertEqual(order_id, request["oid"])
+        self.assertEqual(OrderState.CANCELED, self.exchange._order_tracker.all_orders[order_id].current_state)
+
+    def test_trigger_order_rejects_invalid_kind_and_side(self):
+        with self.assertRaisesRegex(ValueError, "trigger_kind"):
+            self.exchange.place_trigger_order(
+                self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "invalid", True)
+        with self.assertRaisesRegex(ValueError, "side"):
+            self.exchange.place_trigger_order(
+                self.trading_pair, Decimal("1"), "SELL", Decimal("100"), "sl", True)
+        with self.assertRaisesRegex(ValueError, "close_side"):
+            self.exchange.place_position_protection_orders(
+                self.trading_pair, Decimal("1"), "SELL", Decimal("110"), Decimal("90"))
+
+    def test_market_trigger_order_rejects_explicit_limit_price(self):
+        with self.assertRaisesRegex(ValueError, "limit_price must be omitted for market trigger orders"):
+            self.exchange.place_trigger_order(
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                side=TradeType.SELL,
+                trigger_price=Decimal("100"),
+                trigger_kind="sl",
+                is_market=True,
+                limit_price=Decimal("99"),
+            )
+
+    def test_trigger_order_rejects_invalid_or_duplicate_custom_client_order_id(self):
+        invalid_order_id = "not-a-128-bit-cloid"
+        with self.assertRaisesRegex(ValueError, "128-bit hexadecimal"):
+            self.exchange.place_trigger_order(
+                self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "sl", True,
+                client_order_id=invalid_order_id)
+
+        order_id = "0x1234567890abcdef1234567890abcdef"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("95"),
+            amount=Decimal("1"),
+            order_type=OrderType.MARKET,
+            position_action=PositionAction.CLOSE,
+        )
+        with self.assertRaisesRegex(ValueError, "already been used"):
+            self.exchange.place_trigger_order(
+                self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "sl", True,
+                client_order_id=order_id)
+
+    def test_trigger_order_reserves_custom_client_order_id_before_async_tracking_starts(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock(return_value={
+            "status": "ok",
+            "response": {"data": {"statuses": [{"resting": {"oid": 101}}]}},
+        })
+        order_id = "0xabcdefabcdefabcdefabcdefabcdefab"
+
+        returned_order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "sl", True,
+            client_order_id=order_id.upper().replace("0X", "0x"))
+
+        self.assertEqual(order_id, returned_order_id)
+        with self.assertRaisesRegex(ValueError, "already been used"):
+            self.exchange.place_trigger_order(
+                self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "sl", True,
+                client_order_id=order_id)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.assertEqual(1, self.exchange._api_post.await_count)
+
+    def test_zero_amount_trigger_order_uses_standard_failure_flow(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock()
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("0"), TradeType.SELL, Decimal("100"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[order_id].current_state)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.exchange._api_post.assert_not_awaited()
+
+    def test_trigger_order_local_preparation_error_fails_an_already_tracked_order(self):
+        self.exchange.quantize_order_amount = MagicMock(side_effect=KeyError(self.trading_pair))
+        self.exchange._api_post = AsyncMock()
+
+        order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("100"), "sl", True)
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.assertEqual(OrderState.FAILED, self.exchange._order_tracker.all_orders[order_id].current_state)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.exchange._api_post.assert_not_awaited()
+
+    def test_invalid_trigger_price_and_notional_use_standard_failure_flow(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange._api_post = AsyncMock()
+
+        zero_price_order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("1"), TradeType.SELL, Decimal("0"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.assertEqual(
+            OrderState.FAILED,
+            self.exchange._order_tracker.all_orders[zero_price_order_id].current_state)
+
+        self.exchange._trading_rules[self.trading_pair].min_notional_size = Decimal("10")
+        small_notional_order_id = self.exchange.place_trigger_order(
+            self.trading_pair, Decimal("0.01"), TradeType.SELL, Decimal("100"), "sl", True)
+        self.async_run_with_timeout(asyncio.sleep(0.01))
+        self.assertEqual(
+            OrderState.FAILED,
+            self.exchange._order_tracker.all_orders[small_notional_order_id].current_state)
+        self.exchange._api_post.assert_not_awaited()
 
     @aioresponses()
     def test_create_limit_maker_order(self, mock_api):
