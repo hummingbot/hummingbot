@@ -111,6 +111,11 @@ class HyperliquidPerpetualAuthTests(TestCase):
         self.assertEqual(2, len(action["orders"]))
         self.assertEqual("tp", action["orders"][0]["t"]["trigger"]["tpsl"])
         self.assertEqual("sl", action["orders"][1]["t"]["trigger"]["tpsl"])
+        self.assertEqual(
+            ["isMarket", "triggerPx", "tpsl"],
+            list(action["orders"][0]["t"]["trigger"]),
+            "Trigger wire field order is part of Hyperliquid's msgpack signature hash.",
+        )
 
     def test_trigger_order_signing_preserves_vault_and_testnet_rules(self):
         order = {
