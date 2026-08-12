@@ -201,10 +201,23 @@ class HyperliquidPerpetualAuth(AuthBase):
         return payload
 
     def _sign_cancel_params(self, params, base_url, timestamp):
-        order_action = {
-            "type": "cancelByCloid",
-            "cancels": [params["cancels"]],
-        }
+        cancels = params["cancels"]
+        cancel_specs = cancels if isinstance(cancels, list) else [cancels]
+        if all("oid" in cancel_spec for cancel_spec in cancel_specs):
+            order_action = {
+                "type": "cancel",
+                "cancels": [
+                    {"a": cancel_spec["asset"], "o": cancel_spec["oid"]}
+                    for cancel_spec in cancel_specs
+                ],
+            }
+        elif all("cloid" in cancel_spec for cancel_spec in cancel_specs):
+            order_action = {
+                "type": "cancelByCloid",
+                "cancels": cancel_specs,
+            }
+        else:
+            raise ValueError("Cancel requests must use either oid or cloid consistently.")
         signature = self.sign_l1_action(
             self.wallet,
             order_action,
@@ -221,11 +234,12 @@ class HyperliquidPerpetualAuth(AuthBase):
         }
 
     def _sign_order_params(self, params, base_url, timestamp):
-        order = params["orders"]
+        orders = params["orders"]
+        order_specs = orders if isinstance(orders, list) else [orders]
         grouping = params["grouping"]
         order_action = {
             "type": "order",
-            "orders": [order_spec_to_order_wire(order)],
+            "orders": [order_spec_to_order_wire(order) for order in order_specs],
             "grouping": grouping,
         }
         # The builder field is part of the signed payload. It must be added to the action dict
