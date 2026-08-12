@@ -3,7 +3,9 @@ import hashlib
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Set, Tuple
 
+import eth_account
 from bidict import bidict
+from eth_utils import to_checksum_address
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.hyperliquid import (
@@ -70,6 +72,7 @@ class HyperliquidExchange(ExchangePyBase):
         # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
         self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
+        self._key_authority_verified: bool = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -79,11 +82,12 @@ class HyperliquidExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> Optional[HyperliquidAuth]:
-        if self._trading_required:
+        if self._trading_required or self.hyperliquid_secret_key:
             return HyperliquidAuth(
                 self.hyperliquid_address,
                 self.hyperliquid_secret_key,
-                self._use_vault
+                self._use_vault,
+                self._connection_mode,
             )
         return None
 
@@ -761,10 +765,65 @@ class HyperliquidExchange(ExchangePyBase):
                 tradable_assets.add(quote.upper())
         return tradable_assets
 
+    async def _verify_key_authority(self):
+        """Surface a wrong-but-well-formed private key at connect time (#7866). Runs once.
+
+        The exchange cannot catch this itself: its balance query is an unauthenticated ``/info`` request
+        keyed by address, so it succeeds for any address. So we check explicitly whether the key may trade
+        for the account:
+          - arb_wallet: the key derives to the account address (offline, no network call).
+          - api_wallet: the key's address is an APPROVED AGENT of the account (one ``extraAgents`` lookup).
+        Vault mode is skipped here (the vault's agent set is out of scope for this check) and validated at
+        first authenticated request, as documented. Network/response errors do not block connect -- a truly
+        wrong key still fails at the first signed request; this only makes the common case explicit.
+        """
+        if self._key_authority_verified or not self.hyperliquid_secret_key or self._use_vault:
+            self._key_authority_verified = True
+            return
+        try:
+            derived = eth_account.Account.from_key(self.hyperliquid_secret_key).address
+        except Exception as exc:
+            raise ValueError(f"Invalid Hyperliquid private key format: {exc}") from exc
+        account = self.hyperliquid_address
+        # owner key (arb_wallet): authorised offline, no network call
+        if HyperliquidAuth.is_key_authorized(derived, account, []):
+            self._key_authority_verified = True
+            return
+        # otherwise the key must be an approved agent of the account
+        try:
+            agents = await self._api_post(
+                path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                data={"type": CONSTANTS.EXTRA_AGENTS_TYPE, "user": account},
+            )
+        except Exception:
+            self.logger().warning(
+                "Could not verify Hyperliquid API/agent wallet authorization at connect "
+                "(extraAgents query failed); a wrong agent key will surface at the first signed request.",
+                exc_info=True,
+            )
+            return
+        if not isinstance(agents, list):
+            self.logger().warning(
+                "Could not verify Hyperliquid API/agent wallet authorization at connect "
+                "(unexpected extraAgents response); a wrong agent key will surface at the first signed request."
+            )
+            return
+        if not HyperliquidAuth.is_key_authorized(derived, account, agents):
+            raise ValueError(
+                f"The supplied private key is not a valid API wallet key for account {account}: "
+                f"its address {to_checksum_address(derived)} is not in the account's approved API (agent) "
+                "wallet list and is not the account owner. Approve this API wallet at "
+                "https://app.hyperliquid.xyz/API, verify you supplied the correct API wallet key, "
+                "or use the account owner's key with the arb_wallet connection mode."
+            )
+        self._key_authority_verified = True
+
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
         """
+        await self._verify_key_authority()
+
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
