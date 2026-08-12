@@ -527,14 +527,40 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             data=api_params,
             is_auth_required=True)
 
-        if cancel_result.get("status") == "err" or "error" in cancel_result["response"]["data"]["statuses"][0]:
-            self.logger().debug(f"The order {order_id} does not exist on Hyperliquid Perpetuals. "
-                                f"No cancelation needed.")
-            await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
-        if "success" in cancel_result["response"]["data"]["statuses"][0]:
-            return True
-        return False
+        return self._process_cancel_result(order_id, cancel_result)
+
+    def _process_cancel_result(self, order_id: str, cancel_result: Dict[str, Any]) -> bool:
+        """
+        Interprets the ``/exchange`` cancel response.
+
+        Two different shapes come back from Hyperliquid:
+        - the action was accepted: ``{"status": "ok", "response": {"data": {"statuses": [...]}}}``,
+          where each status is either the string ``"success"`` or ``{"error": "<message>"}``;
+        - the action was rejected before reaching the order book (bad nonce, rate limit, unknown
+          wallet, ...): ``{"status": "err", "response": "<message>"}``, where the response is a
+          plain string.
+
+        The rejected shape must not be indexed as a dict. Errors are raised as ``IOError`` so the
+        base class classifies them via ``_is_order_not_found_during_cancelation_error``, instead of
+        this method assuming every failure means the order is gone.
+        """
+        response = cancel_result.get("response")
+        if cancel_result.get("status") == "err" or not isinstance(response, dict):
+            self.logger().warning(f"Hyperliquid Perpetuals rejected the cancelation of order {order_id}. "
+                                  f"Raw response: {cancel_result}")
+            raise IOError(f"Error cancelling order {order_id}: {response}")
+
+        statuses = response.get("data", {}).get("statuses") or []
+        status = statuses[0] if statuses else None
+        if isinstance(status, dict) and "error" in status:
+            self.logger().debug(f"Hyperliquid Perpetuals did not cancel order {order_id}. "
+                                f"Raw response: {cancel_result}")
+            raise IOError(f"Error cancelling order {order_id}: {status['error']}")
+        if status != "success":
+            self.logger().warning(f"Unexpected cancelation status for order {order_id}. "
+                                  f"Raw response: {cancel_result}")
+            return False
+        return True
 
     # === Orders placing ===
 

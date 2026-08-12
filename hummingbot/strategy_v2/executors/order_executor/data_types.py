@@ -2,11 +2,17 @@ from decimal import Decimal
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, field_validator
-from pydantic_core.core_schema import ValidationInfo
+from pydantic import BaseModel, model_validator
 
 from hummingbot.core.data_type.common import PositionAction, TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.validation import (
+    require_at_least,
+    require_directional_side,
+    require_non_empty,
+    require_positive,
+    require_trading_pair,
+)
 
 
 class ExecutionStrategy(Enum):
@@ -19,6 +25,12 @@ class ExecutionStrategy(Enum):
 class LimitChaserConfig(BaseModel):
     distance: Decimal
     refresh_threshold: Decimal
+
+    @model_validator(mode="after")
+    def validate_chaser(self):
+        require_positive("chaser_config.distance", self.distance)
+        require_positive("chaser_config.refresh_threshold", self.refresh_threshold)
+        return self
 
 
 class OrderExecutorConfig(ExecutorConfigBase):
@@ -34,13 +46,18 @@ class OrderExecutorConfig(ExecutorConfigBase):
     leverage: int = 1
     level_id: Optional[str] = None
 
-    @field_validator("execution_strategy", mode="before")
-    @classmethod
-    def validate_execution_strategy(cls, value, validation_info: ValidationInfo):
-        if value in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
-            if validation_info.data.get('price') is None:
-                raise ValueError("Price is required for LIMIT and LIMIT_MAKER execution strategies")
-        elif value == ExecutionStrategy.LIMIT_CHASER:
-            if validation_info.data.get('chaser_config') is None:
-                raise ValueError("Chaser config is required for LIMIT_CHASER execution strategy")
-        return value
+    @model_validator(mode="after")
+    def validate_order(self):
+        require_non_empty("connector_name", self.connector_name)
+        require_trading_pair("trading_pair", self.trading_pair)
+        require_directional_side(self.side)
+        require_positive("amount", self.amount)
+        require_positive("price", self.price)
+        require_at_least("leverage", self.leverage, 1)
+        if self.execution_strategy in [ExecutionStrategy.LIMIT, ExecutionStrategy.LIMIT_MAKER]:
+            if self.price is None:
+                raise ValueError("price is required for LIMIT and LIMIT_MAKER execution strategies")
+        elif self.execution_strategy == ExecutionStrategy.LIMIT_CHASER:
+            if self.chaser_config is None:
+                raise ValueError("chaser_config is required for LIMIT_CHASER execution strategy")
+        return self

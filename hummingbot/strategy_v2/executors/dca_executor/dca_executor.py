@@ -32,10 +32,7 @@ class DCAExecutor(ExecutorBase):
 
     def __init__(self, strategy: StrategyV2Base, config: DCAExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 15):
-        # validate amounts and prices
-        if len(config.amounts_quote) != len(config.prices):
-            raise ValueError("Amounts and prices lists must have the same length")
-
+        # Amounts, prices and barriers are validated by DCAExecutorConfig on construction.
         # Initialize super class
         super().__init__(strategy=strategy, connectors=[config.connector_name], config=config,
                          update_interval=update_interval, max_retries=max_retries)
