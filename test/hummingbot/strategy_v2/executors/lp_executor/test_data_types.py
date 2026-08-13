@@ -44,6 +44,7 @@ class TestLPExecutorConfig(TestCase):
             pool_address="pool123",
             lower_price=Decimal("100"),
             upper_price=Decimal("110"),
+            quote_amount=Decimal("100"),
             side=TradeType.RANGE,
         )
         self.assertEqual(config.type, "lp_executor")
@@ -54,7 +55,7 @@ class TestLPExecutorConfig(TestCase):
         self.assertEqual(config.lower_price, Decimal("100"))
         self.assertEqual(config.upper_price, Decimal("110"))
         self.assertEqual(config.base_amount, Decimal("0"))
-        self.assertEqual(config.quote_amount, Decimal("0"))
+        self.assertEqual(config.quote_amount, Decimal("100"))
         self.assertEqual(config.side, TradeType.RANGE)
         self.assertIsNone(config.upper_limit_price)
         self.assertIsNone(config.lower_limit_price)
@@ -106,6 +107,7 @@ class TestLPExecutorConfig(TestCase):
                 pool_address="pool",
                 lower_price=Decimal("100"),
                 upper_price=Decimal("110"),
+                quote_amount=Decimal("100"),
                 side=side_int,
             )
             self.assertEqual(config.side, side_enum)

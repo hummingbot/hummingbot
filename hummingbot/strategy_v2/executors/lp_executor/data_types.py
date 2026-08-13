@@ -2,10 +2,18 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.validation import (
+    require_lower_than,
+    require_non_empty,
+    require_non_negative,
+    require_not_above,
+    require_positive,
+    require_trading_pair,
+)
 from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
@@ -94,6 +102,27 @@ class LPExecutorConfig(ExecutorConfigBase):
     keep_position: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_validator(mode="after")
+    def validate_lp_position(self):
+        require_non_empty("connector_name", self.connector_name)
+        require_non_empty("lp_provider", self.lp_provider)
+        require_non_empty("pool_address", self.pool_address)
+        require_trading_pair("trading_pair", self.trading_pair)
+        require_positive("lower_price", self.lower_price)
+        require_lower_than("lower_price", self.lower_price, "upper_price", self.upper_price)
+        # The limit prices close the position once the price leaves the range, so a limit inside
+        # the range would close the position while it is still earning fees.
+        require_positive("upper_limit_price", self.upper_limit_price)
+        require_positive("lower_limit_price", self.lower_limit_price)
+        require_not_above("upper_price", self.upper_price, "upper_limit_price", self.upper_limit_price)
+        require_not_above("lower_limit_price", self.lower_limit_price, "lower_price", self.lower_price)
+        require_non_negative("base_amount", self.base_amount)
+        require_non_negative("quote_amount", self.quote_amount)
+        if self.base_amount == 0 and self.quote_amount == 0:
+            raise ValueError("base_amount and quote_amount cannot both be 0: "
+                             "at least one side of the position has to be funded")
+        return self
 
 
 class LPExecutorState(BaseModel):
