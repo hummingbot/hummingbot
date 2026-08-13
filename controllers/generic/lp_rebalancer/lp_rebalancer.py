@@ -185,6 +185,9 @@ class LPRebalancer(ControllerBase):
 
         # Track the executor we created
         self._current_executor_id: Optional[str] = None
+        # Set when a FAILED LP executor still reports a live on-chain position; the
+        # controller halts new position creation until it is recovered manually
+        self._orphaned_position_address: Optional[str] = None
 
         # Track amounts from last closed position (for autoswap sizing)
         self._last_closed_base_amount: Optional[Decimal] = None
@@ -417,6 +420,16 @@ class LPRebalancer(ControllerBase):
 
         actions = []
 
+        # An orphaned on-chain position (FAILED close) must be recovered before any new
+        # position is opened - creating a fresh executor here would stack live exposure
+        # on top of the stranded one.
+        if self._orphaned_position_address:
+            self.logger().debug(
+                f"Halted: position {self._orphaned_position_address} from a FAILED executor is "
+                "still open on-chain and requires manual recovery"
+            )
+            return actions
+
         # Handle order executor tracking and completion (for autoswap)
         if self._pending_swap_side is not None:
             if not self._swap_executor_id:
@@ -510,10 +523,15 @@ class LPRebalancer(ControllerBase):
             # Previous executor terminated - capture final amounts and update position_hold
             terminated_executor = self.get_tracked_executor()
             if terminated_executor:
-                # Skip position_hold update if executor failed (no tokens were actually deposited/returned)
-                if terminated_executor.close_type == CloseType.FAILED:
+                # Skip position_hold update if the executor failed (nothing deposited or
+                # returned) or ended as an involuntary hold (close exhausted): in the
+                # latter case base/quote amounts are pool balances of a still-open
+                # position, and booking them as returned tokens would corrupt the hold.
+                if (terminated_executor.close_type == CloseType.FAILED
+                        or terminated_executor.custom_info.get("hold_reason")):
                     self.logger().warning(
-                        f"Executor {terminated_executor.id} FAILED - skipping position_hold update"
+                        f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
+                        "without returning tokens - skipping position_hold update"
                     )
                 else:
                     self._last_closed_base_amount = Decimal(str(terminated_executor.custom_info.get("base_amount", 0)))
@@ -540,16 +558,32 @@ class LPRebalancer(ControllerBase):
                         f"Position hold total: base={self._position_hold_base}, quote={self._position_hold_quote}"
                     )
 
-            # Check if executor FAILED - retry with same side from executor's config
+            # Check if the executor went terminal abnormally - FAILED (nothing on-chain)
+            # or an involuntary POSITION_HOLD (close retries exhausted, hold_reason set)
             executor_failed = terminated_executor and terminated_executor.close_type == CloseType.FAILED
+            involuntary_hold = bool(terminated_executor and terminated_executor.custom_info.get("hold_reason"))
             failed_executor_side = None
-            if executor_failed:
+            if executor_failed or involuntary_hold:
                 failed_executor_side = terminated_executor.custom_info.get("side")
+                # A terminal executor that still reports a position address went down on
+                # the CLOSE side: its deposit is still on-chain (involuntary hold, or a
+                # legacy FAILED-with-position from a force-stop). Re-opening would stack
+                # a second position on top of the stranded one.
+                orphaned_position = terminated_executor.custom_info.get("position_address")
+                if orphaned_position:
+                    self._orphaned_position_address = orphaned_position
+                    self._current_executor_id = None
+                    self.logger().error(
+                        f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
+                        f"with position {orphaned_position} still open on-chain. Halting new "
+                        "position creation until the position is closed or recovered manually."
+                    )
+                    return actions
 
             # Capture closed position bounds for side determination (only for successful closes)
             closed_lower_price = None
             closed_upper_price = None
-            if terminated_executor and not executor_failed:
+            if terminated_executor and not executor_failed and not involuntary_hold:
                 closed_lower_price = Decimal(str(terminated_executor.custom_info.get("lower_price", 0)))
                 closed_upper_price = Decimal(str(terminated_executor.custom_info.get("upper_price", 0)))
 

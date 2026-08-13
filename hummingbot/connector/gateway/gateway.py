@@ -1061,10 +1061,17 @@ class Gateway(GatewayBase):
             )
 
         try:
+            # Close-position is idempotent on-chain (success consumes the position
+            # account) and Gateway rebuilds the transaction from fresh state on every
+            # request, so stale-state errors (stale withdrawal minimums surface as
+            # SLIPPAGE_EXCEEDED, stale simulations as SIMULATION_FAILED, a landed-but-
+            # failed tx as TX_NOT_CONFIRMED) are safe to retry here — unlike
+            # swaps/opens, where a re-submit can double-spend.
             transaction_result = await self._execute_with_retry(
                 operation=execute_close_position,
                 operation_name=f"CLMM close position {position_address}",
                 max_retries=max_retries,
+                retryable_error_codes={"SLIPPAGE_EXCEEDED", "SIMULATION_FAILED", "TX_NOT_CONFIRMED"},
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -1192,7 +1199,34 @@ class Gateway(GatewayBase):
         trading_type: str = "clmm",
         position_address: Optional[str] = None
     ) -> Union[AMMPositionInfo, CLMMPositionInfo, None]:
-        """Retrieves position information for a given liquidity position."""
+        """Cached position info for display/analytics consumers.
+
+        WARNING: the TTL cache stores None ("position gone") like any other value,
+        so a single 404 is served for up to 5s of subsequent calls. Anything that
+        makes an existence DECISION from this signal (close pre-flight, external-
+        close detection) must use get_position_info_fresh instead — otherwise one
+        read can masquerade as several independent confirmations.
+        """
+        return await self.get_position_info_fresh(
+            trading_pair=trading_pair,
+            dex_name=dex_name,
+            trading_type=trading_type,
+            position_address=position_address,
+        )
+
+    async def get_position_info_fresh(
+        self,
+        trading_pair: str,
+        dex_name: str,
+        trading_type: str = "clmm",
+        position_address: Optional[str] = None
+    ) -> Union[AMMPositionInfo, CLMMPositionInfo, None]:
+        """Uncached position info read.
+
+        Contract: returns None only when Gateway definitively reports the position
+        does not exist on-chain; transient errors (RPC/network/5xx, unrelated 404s
+        like a missing route or wallet) raise instead of being swallowed into None.
+        """
         try:
             tokens = trading_pair.split("-")
             if len(tokens) != 2:
@@ -1228,12 +1262,25 @@ class Gateway(GatewayBase):
             raise
         except Exception as e:
             addr_info = f"position {position_address}" if position_address else trading_pair
+            error_msg = str(e).lower()
+            # None means "the position definitively does not exist on-chain". Match only
+            # position-specific Gateway messages: the HTTP client stamps "(Not Found)" on
+            # EVERY 404 (missing route after a redeploy, missing wallet file, ...), so a
+            # bare "not found" check would report a live position as gone. Transient
+            # errors must NOT be swallowed into None: callers such as
+            # LPExecutor._close_position interpret None as "already closed", and a
+            # swallowed transient error would silently abandon a live position.
+            if "position not found" in error_msg or "position closed" in error_msg or "position does not exist" in error_msg:
+                self.logger().info(
+                    f"Position info for {addr_info} on {dex_name}/{trading_type}: position does not exist ({e})"
+                )
+                return None
             self.logger().network(
                 f"Error fetching position info for {addr_info} on {dex_name}/{trading_type}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            return None
+            raise
 
     async def get_user_positions(
         self,

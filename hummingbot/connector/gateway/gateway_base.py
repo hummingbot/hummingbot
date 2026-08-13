@@ -676,6 +676,8 @@ class GatewayBase(ConnectorBase):
         operation: Callable[[], T],
         operation_name: str,
         max_retries: int = 10,
+        retryable_error_codes: Optional[Set[str]] = None,
+        retry_delay: float = 1.0,
     ) -> T:
         """
         Execute a gateway operation with retry logic for timeout errors.
@@ -683,12 +685,20 @@ class GatewayBase(ConnectorBase):
         Retries on:
         - TRANSACTION_TIMEOUT errors (exception from Gateway)
         - Pending/unconfirmed transactions (status != 1 in response)
+        - Any additional error codes in `retryable_error_codes`
 
-        Does NOT retry on: SIMULATION_FAILED, INSUFFICIENT_BALANCE, etc.
+        Does NOT retry on: SIMULATION_FAILED, INSUFFICIENT_BALANCE, etc., unless the
+        caller opts in via `retryable_error_codes`. Gateway rebuilds every transaction
+        from fresh on-chain state on each request, so operations that are idempotent
+        on-chain (e.g. close-position, where success consumes the position account) can
+        safely retry stale-state errors like SLIPPAGE_EXCEEDED.
 
         :param operation: Async callable that performs the gateway operation
         :param operation_name: Description for logging (e.g., "execute swap")
         :param max_retries: Maximum number of retry attempts for timeout errors
+        :param retryable_error_codes: Extra Gateway error codes to retry beyond
+            TRANSACTION_TIMEOUT (only for operations that are safe to re-submit)
+        :param retry_delay: Seconds to sleep between retry attempts
         :return: Result from the operation
         :raises: Original exception if non-retryable or max retries exceeded
         """
@@ -708,11 +718,14 @@ class GatewayBase(ConnectorBase):
                         # Transaction confirmed - success
                         return result
                     elif status == -1:
-                        # Transaction not confirmed (failed on-chain) - don't retry
+                        # Transaction landed but failed on-chain. Typed so callers can
+                        # opt in to retrying it (safe for idempotent ops like close,
+                        # where a re-POST rebuilds from fresh state); not retried by
+                        # default since re-submitting e.g. a swap can double-spend.
                         self.logger().error(
                             f"{operation_name} FAILED: Transaction {signature} not confirmed on-chain."
                         )
-                        raise Exception(f"Transaction {signature} not confirmed on-chain")
+                        raise Exception(f"Transaction {signature} not confirmed on-chain [code: TX_NOT_CONFIRMED]")
                     elif status == 0:
                         # Transaction pending - retry (may still confirm)
                         current_retries += 1
@@ -727,6 +740,7 @@ class GatewayBase(ConnectorBase):
                             f"{operation_name} transaction pending (retry {current_retries}/{max_retries}). "
                             f"Signature: {signature}. Retrying..."
                         )
+                        await asyncio.sleep(retry_delay)
                         continue  # Retry
                     else:
                         # Unknown status, return as-is
@@ -738,7 +752,7 @@ class GatewayBase(ConnectorBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                action = self._classify_error(e, operation_name, current_retries, max_retries)
+                action = self._classify_error(e, operation_name, current_retries, max_retries, retryable_error_codes)
 
                 if action == RetryAction.FAIL_IMMEDIATE:
                     raise
@@ -747,9 +761,9 @@ class GatewayBase(ConnectorBase):
                 elif action == RetryAction.RETRY:
                     current_retries += 1
                     self.logger().warning(
-                        f"{operation_name} timeout (retry {current_retries}/{max_retries}). "
-                        "Chain may be congested. Retrying..."
+                        f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. Retrying..."
                     )
+                    await asyncio.sleep(retry_delay)
                     # Continue to next iteration
 
     def _classify_error(
@@ -758,6 +772,7 @@ class GatewayBase(ConnectorBase):
         operation_name: str,
         current_retries: int,
         max_retries: int,
+        retryable_error_codes: Optional[Set[str]] = None,
     ) -> RetryAction:
         """
         Classify an error and determine the appropriate retry action.
@@ -766,13 +781,18 @@ class GatewayBase(ConnectorBase):
         :param operation_name: Description of the operation for logging
         :param current_retries: Current retry count
         :param max_retries: Maximum retries allowed
+        :param retryable_error_codes: Extra error codes the caller opted in to retry
         :return: RetryAction indicating what to do
         """
         error_str = str(error)
         error_code = extract_error_code(error_str)
 
+        # Caller opted in to retry this code (e.g. SLIPPAGE_EXCEEDED on close-position,
+        # where every retry re-POSTs and Gateway rebuilds from fresh on-chain state)
+        is_opted_in = error_code is not None and retryable_error_codes is not None and error_code in retryable_error_codes
+
         # Check for non-retryable errors
-        if error_code and error_code in NON_RETRYABLE_ERROR_CODES:
+        if error_code and error_code in NON_RETRYABLE_ERROR_CODES and not is_opted_in:
             self.logger().error(
                 f"{operation_name} FAILED: {error}. "
                 f"Error code {error_code} is not retryable."
@@ -782,7 +802,7 @@ class GatewayBase(ConnectorBase):
         # Check for timeout (retryable)
         is_timeout = error_code == RETRYABLE_ERROR_CODE or "TRANSACTION_TIMEOUT" in error_str
 
-        if not is_timeout:
+        if not (is_timeout or is_opted_in):
             # No error code and not a timeout - fail immediately
             self.logger().error(
                 f"{operation_name} FAILED: {error}. Error is not retryable."

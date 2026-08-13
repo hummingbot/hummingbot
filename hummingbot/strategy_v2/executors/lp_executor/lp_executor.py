@@ -65,6 +65,23 @@ class LPExecutor(ExecutorBase):
         self._held_position_orders: List[Dict] = []
         # Swap tracking for close-out flow
         self._swap_not_found_count: int = 0
+        # Consecutive definitive "position does not exist" reads while monitoring;
+        # guards against a single lagging RPC node being read as an external close.
+        # Uses get_position_info_fresh so each miss is an independent Gateway read
+        # (the cached get_position_info would serve one 404 for several ticks).
+        self._position_not_found_count: int = 0
+        # External-close detection is only trusted once the position has been
+        # observed on-chain at least once; before that, a not-found streak is far
+        # more likely RPC lag on a just-created position than a real close.
+        self._position_seen_onchain: bool = False
+        # Backoff between close attempts (set by _handle_close_failure) so a burst
+        # of instant transport failures (e.g. a Gateway restart) cannot burn the
+        # whole retry budget in seconds
+        self._close_backoff_until: float = 0.0
+        # Why a POSITION_HOLD terminal was involuntary (e.g. "close_retries_exhausted");
+        # None for voluntary holds (keep_position=True stops). Consumers use this,
+        # not close_type, to distinguish stranded exposure from a requested hold.
+        self._hold_reason: Optional[str] = None
         # Parse lp_provider into dex_name and trading_type for gateway calls
         self.lp_dex_name, self.lp_trading_type = parse_provider(
             config.lp_provider, default_trading_type="clmm"
@@ -218,7 +235,9 @@ class LPExecutor(ExecutorBase):
             return
 
         try:
-            position_info = await connector.get_position_info(
+            # Fresh (uncached) read: this method makes existence decisions, and the
+            # cached variant would serve a single 404 for several consecutive ticks
+            position_info = await connector.get_position_info_fresh(
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
@@ -226,6 +245,8 @@ class LPExecutor(ExecutorBase):
             )
 
             if position_info:
+                self._position_not_found_count = 0
+                self._position_seen_onchain = True
                 # Update amounts and fees from live position data
                 self.lp_position_state.base_amount = Decimal(str(position_info.base_token_amount))
                 self.lp_position_state.quote_amount = Decimal(str(position_info.quote_token_amount))
@@ -237,7 +258,26 @@ class LPExecutor(ExecutorBase):
                 # Update current price from position_info (avoids separate pool_info call)
                 self._current_price = Decimal(str(position_info.price))
             else:
-                self.logger().warning(f"get_position_info returned None for {self.lp_position_state.position_address}")
+                # None from the connector is a definitive Gateway 404 (transient errors
+                # raise and are handled below). Two gates before acting on it: the
+                # position must have been observed on-chain at least once (a miss on a
+                # just-created position is RPC lag, not a close), and the miss must
+                # repeat across independent reads.
+                self._position_not_found_count += 1
+                if self._position_seen_onchain and self._position_not_found_count >= 3:
+                    self.logger().info(
+                        f"Position {self.lp_position_state.position_address} no longer exists on-chain "
+                        "(closed externally or by a prior attempt) - marking complete"
+                    )
+                    self._emit_already_closed_event()
+                    self.lp_position_state.state = LPExecutorStates.COMPLETE
+                    self.lp_position_state.active_close_order = None
+                else:
+                    self.logger().warning(
+                        f"Position {self.lp_position_state.position_address} not found "
+                        f"({self._position_not_found_count} consecutive reads, "
+                        f"seen_onchain={self._position_seen_onchain})"
+                    )
         except Exception as e:
             # Gateway returns HttpError with message patterns:
             # - "Position closed: {addr}" (404) - position was closed on-chain
@@ -252,7 +292,9 @@ class LPExecutor(ExecutorBase):
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 self.lp_position_state.active_close_order = None
                 return
-            elif "not found" in error_msg:
+            elif "position not found" in error_msg:
+                # Position-specific 404 only: a bare "not found" also matches the HTTP
+                # client's "(Not Found)" suffix on unrelated 404s (missing route/wallet)
                 self.logger().error(
                     f"Position {self.lp_position_state.position_address} not found - "
                     "position may never have been created. Check position tracking."
@@ -330,13 +372,25 @@ class LPExecutor(ExecutorBase):
             if order_id in connector._lp_orders_metadata:
                 del connector._lp_orders_metadata[order_id]
 
-            # Fetch full position info from chain to get actual amounts and bounds
-            position_info = await connector.get_position_info(
-                trading_pair=self.config.trading_pair,
-                dex_name=self.lp_dex_name,
-                trading_type=self.lp_trading_type,
-                position_address=position_address
-            )
+            # Fetch full position info from chain to get actual amounts and bounds.
+            # This enriches bookkeeping only - the position is already open, so a
+            # transient fetch error must not fail the create (which would route to
+            # CLOSING); fall back to config values instead.
+            try:
+                # Fresh read: caching a lagging 404 here would poison the next ticks'
+                # existence checks with "position gone" for a position that is live
+                position_info = await connector.get_position_info_fresh(
+                    trading_pair=self.config.trading_pair,
+                    dex_name=self.lp_dex_name,
+                    trading_type=self.lp_trading_type,
+                    position_address=position_address
+                )
+            except Exception as info_error:
+                self.logger().warning(f"Position info fetch after create failed: {info_error}")
+                position_info = None
+
+            if position_info:
+                self._position_seen_onchain = True
 
             if position_info:
                 self.lp_position_state.base_amount = Decimal(str(position_info.base_token_amount))
@@ -451,9 +505,16 @@ class LPExecutor(ExecutorBase):
             self._handle_close_failure(ValueError(f"Connector {self.config.connector_name} not found"))
             return
 
-        # Verify position still exists before trying to close (handles timeout-but-succeeded case)
+        # Respect the backoff set by a failed attempt: without it, a burst of instant
+        # transport failures (e.g. Gateway restarting) would burn the whole retry
+        # budget in as many seconds as there are retries.
+        if self._strategy.current_timestamp < self._close_backoff_until:
+            return
+
+        # Verify position still exists before trying to close (handles timeout-but-succeeded
+        # case). Fresh read: this decision must not come from a cached 404.
         try:
-            position_info = await connector.get_position_info(
+            position_info = await connector.get_position_info_fresh(
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
@@ -466,6 +527,7 @@ class LPExecutor(ExecutorBase):
                 self._emit_already_closed_event()
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
+            self._position_seen_onchain = True
         except Exception as e:
             # Gateway returns HttpError with message patterns (see _update_position_info)
             error_msg = str(e).lower()
@@ -476,7 +538,7 @@ class LPExecutor(ExecutorBase):
                 self._emit_already_closed_event()
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
-            elif "not found" in error_msg:
+            elif "position not found" in error_msg:
                 self.logger().error(
                     f"Position {self.lp_position_state.position_address} not found - "
                     "marking complete to avoid retry loop"
@@ -491,13 +553,16 @@ class LPExecutor(ExecutorBase):
         self.lp_position_state.active_close_order = TrackedOrder(order_id=order_id)
 
         try:
-            # Directly await the async operation - connector handles retry for timeouts
+            # Directly await the async operation. The executor owns the retry POLICY
+            # (bounded re-entries with fresh pre-flight reconciliation), so the
+            # connector's inner budget is kept small — a large inner budget would
+            # multiply with the executor's into O(n^2) submissions per close.
             signature = await connector._clmm_close_position(
                 trade_type=TradeType.RANGE,
                 order_id=order_id,
                 trading_pair=self.config.trading_pair,
                 position_address=self.lp_position_state.position_address,
-                max_retries=self._max_retries,
+                max_retries=min(3, self._max_retries),
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
             )
@@ -593,13 +658,92 @@ class LPExecutor(ExecutorBase):
     def _handle_close_failure(self, error: Exception):
         """Handle position close failure.
 
-        Retry logic is handled by the connector. This method handles
-        final failures after connector exhausted retries.
+        The connector retries transport and stale-state errors within a single
+        attempt; this handles an attempt that failed after those retries. The
+        position is still open on-chain, so going terminal here would strand it
+        (see gateway#678). Count the attempt, arm the backoff, and stay in
+        CLOSING — control_task re-enters _close_position on the next tick, and
+        each re-entry re-POSTs to Gateway, which rebuilds the transaction from
+        fresh on-chain state (the pre-flight reconciles a close that already
+        landed). Termination on exhaustion is decided by evaluate_max_retries,
+        the family hook the base control_loop calls right after this
+        control_task returns.
         """
-        # Connector exhausted retries or non-retryable error - transition to FAILED
-        self.logger().error(f"Position close failed: {error}")
+        self._current_retries += 1
         self.lp_position_state.active_close_order = None
-        self.lp_position_state.state = LPExecutorStates.FAILED
+
+        if self._current_retries > self._max_retries:
+            # evaluate_max_retries terminates after this control_task returns.
+            self.logger().warning(f"Position close attempt failed: {error}. Retry budget exhausted.")
+            return
+
+        # Exponential backoff (capped at 30s) so instant failures — e.g. connection
+        # errors while Gateway restarts — spread the retry budget over minutes
+        # instead of burning it in seconds
+        backoff = min(30.0, 2.0 ** self._current_retries)
+        self._close_backoff_until = self._strategy.current_timestamp + backoff
+        self.logger().warning(
+            f"Position close attempt failed ({self._current_retries}/{self._max_retries} retries used): "
+            f"{error}. Rebuilding with fresh state in {backoff:.0f}s."
+        )
+        # State stays CLOSING - control_task re-enters _close_position after backoff.
+
+    def evaluate_max_retries(self):
+        """Terminate when the close-retry budget is exhausted.
+
+        Base-class semantics (``> max_retries``, i.e. ``max_retries + 1`` total
+        attempts — the family convention) decide *when*; this override decides
+        *how*. A position still on-chain is residual exposure, and the family
+        contract (see ``force_stop_with_position_hold``) ends residual exposure
+        as POSITION_HOLD, reserving FAILED for executors with nothing left
+        behind. PositionHold cannot book a live LP position as spot amounts, so
+        the hold carries a zero-amount marker order with the position's identity
+        instead — visible and durable in the hold store on both the bot and the
+        hummingbot-api topology, with accounting untouched.
+        """
+        if self._current_retries <= self._max_retries:
+            return
+        self._max_retries_reached = True
+        position_address = self.lp_position_state.position_address
+        if position_address:
+            self._hold_reason = "close_retries_exhausted"
+            self._record_unclosed_position_marker()
+            self.close_type = CloseType.POSITION_HOLD
+            self.logger().error(
+                f"Position close failed after {self._current_retries} attempts: position "
+                f"{position_address} ({self.config.trading_pair}) is still open on-chain. "
+                "Terminating as an involuntary POSITION_HOLD (hold_reason=close_retries_exhausted) - "
+                "close it via the gateway and resolve the orphan record."
+            )
+        else:
+            self.close_type = CloseType.FAILED
+            self.logger().error(
+                f"Retry budget exhausted after {self._current_retries} attempts with no position "
+                "on-chain - terminating as FAILED."
+            )
+        self.stop()
+
+    def _record_unclosed_position_marker(self):
+        """Append a zero-amount marker order carrying the unclosed position's identity.
+
+        A live on-chain position cannot be booked as spot amounts — the tokens
+        are in the pool, not the wallet — but an empty held_position_orders would
+        make the POSITION_HOLD invisible to the hold store. Zero amounts keep
+        accounting untouched (PositionHold._process_order skips them) while the
+        marker carries the address every recovery path needs.
+        """
+        self._held_position_orders.append({
+            "client_order_id": f"{self.config.id}-unclosed-lp",
+            "trading_pair": self.config.trading_pair,
+            "trade_type": "BUY",  # dummy; zero amounts never reach accounting
+            "price": float(self._current_price) if self._current_price else 0.0,
+            "executed_amount_base": 0.0,
+            "executed_amount_quote": 0.0,
+            "cumulative_fee_paid_quote": getattr(self, '_add_tx_fee_quote', 0.0),
+            "lp_source": True,
+            "lp_unclosed_position": True,
+            "position_address": self.lp_position_state.position_address,
+        })
 
     async def _execute_closeout_swap(self):
         """
@@ -1106,6 +1250,11 @@ class LPExecutor(ExecutorBase):
             "filled_amount_base": float(self.lp_position_state.base_amount),
             "filled_amount_quote": float(self.lp_position_state.quote_amount),
             "held_position_orders": self._held_position_orders,
+            # Retry observability (consistent with order executor)
+            "current_retries": self._current_retries,
+            "max_retries": self._max_retries,
+            "max_retries_reached": self._max_retries_reached,
+            "hold_reason": self._hold_reason,
         }
 
     # Required abstract methods from ExecutorBase

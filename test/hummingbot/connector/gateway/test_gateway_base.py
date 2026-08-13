@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from typing import List
 
-from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.connector.gateway.gateway_base import GatewayBase, RetryAction
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -392,6 +392,47 @@ class GatewayBaseConnectorSettingsRegistrationTest(unittest.TestCase):
             "test_connector", False, "SOL", "USDC", OrderType.MARKET, TradeType.SELL, Decimal("1"), Decimal("1"),
         )
         self.assertEqual(Decimal("0"), fee.percent)
+
+
+class GatewayBaseRetryClassificationTest(unittest.TestCase):
+    """Tests for _classify_error operation-aware retry opt-in (retryable_error_codes)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+
+    def test_slippage_is_fail_immediate_by_default(self):
+        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
+
+    def test_opted_in_code_is_retryable(self):
+        # Close-position opts in to SLIPPAGE_EXCEEDED: each retry re-POSTs and Gateway
+        # rebuilds from fresh on-chain state, and a landed close cannot double-spend.
+        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
+        action = self.connector._classify_error(
+            error, "close position", 0, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
+        )
+        self.assertEqual(RetryAction.RETRY, action)
+
+    def test_opted_in_code_stops_after_max_retries(self):
+        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
+        action = self.connector._classify_error(
+            error, "close position", 10, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
+        )
+        self.assertEqual(RetryAction.STOP, action)
+
+    def test_timeout_remains_retryable_without_opt_in(self):
+        error = Exception("Gateway error: pending [code: TRANSACTION_TIMEOUT]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.RETRY, action)
+
+    def test_unknown_error_is_fail_immediate_even_with_opt_in(self):
+        error = Exception("connection reset by peer")
+        action = self.connector._classify_error(
+            error, "close position", 0, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
+        )
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
 
 if __name__ == "__main__":
