@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from decimal import Decimal
 from typing import List
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.gateway.gateway_base import GatewayBase, RetryAction
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -433,6 +434,86 @@ class GatewayBaseRetryClassificationTest(unittest.TestCase):
             error, "close position", 0, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
         )
         self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
+
+
+class GatewayBaseNotFoundPollingTest(unittest.TestCase):
+    """The status poller must not wait forever on a transaction the chain does not know.
+
+    Gateway reports txStatus NOT_FOUND (-2) for a signature the cluster has never
+    seen. Right after submission that is transient, but once the order is older than
+    TX_NOT_FOUND_DEADLINE the transaction can no longer land (Solana blockhash
+    expiry), so each further miss must feed the tracker's lost-order machinery
+    instead of polling as pending forever.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+        self.start_timestamp = 1640000000.0
+        self.connector._set_current_timestamp(self.start_timestamp)
+        self.order_id = "test-not-found-order"
+        self.tx_hash = "5" * 88
+        self.connector.start_tracking_order(
+            order_id=self.order_id,
+            exchange_order_id=self.tx_hash,
+            trading_pair="SOL-USDC",
+            trade_type=TradeType.BUY,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+        )
+
+    def async_run_with_timeout(self, coroutine, timeout: float = 1):
+        return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _poll_with_status(self, tx_status: int):
+        gateway_mock = MagicMock()
+        gateway_mock.get_transaction_status = AsyncMock(return_value={
+            "signature": self.tx_hash,
+            "txStatus": tx_status,
+            "fee": 0,
+        })
+        order = self.connector._order_tracker.fetch_tracked_order(self.order_id)
+        with patch.object(MockGatewayConnector, "_get_gateway_instance", return_value=gateway_mock):
+            self.async_run_with_timeout(self.connector.update_order_status([order]))
+
+    def test_not_found_before_deadline_is_ignored(self):
+        self.connector._set_current_timestamp(self.start_timestamp + 10.0)
+        self._poll_with_status(-2)
+        self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_not_found_after_deadline_counts_toward_lost_order_limit(self):
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        )
+        self._poll_with_status(-2)
+        self.assertEqual(1, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_not_found_past_limit_marks_order_lost(self):
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        )
+        for _ in range(self.connector._order_tracker.lost_order_count_limit + 1):
+            self._poll_with_status(-2)
+        self.assertNotIn(self.order_id, self.connector._order_tracker.active_orders)
+        self.assertIn(self.order_id, self.connector._order_tracker.lost_orders)
+
+    def test_pending_after_deadline_keeps_waiting(self):
+        # PENDING means the chain has seen the transaction - it can still confirm,
+        # so age alone must not fail it.
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1000.0
+        )
+        self._poll_with_status(0)
+        self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
 
 
 if __name__ == "__main__":

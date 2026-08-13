@@ -68,6 +68,10 @@ class GatewayBase(ConnectorBase):
 
     POLL_INTERVAL = 1.0
     BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
+    # How long an order's transaction may poll as NOT_FOUND before the misses count
+    # toward the tracker's lost-order limit. Must exceed Solana's blockhash validity
+    # window (~90s): within it, not-found can still mean "in flight".
+    TX_NOT_FOUND_DEADLINE = 120.0
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
@@ -942,6 +946,19 @@ class GatewayBase(ConnectorBase):
             # Check if transaction is still pending
             elif tx_status == TransactionStatus.PENDING.value:
                 pass
+
+            # Transaction unknown to the chain. Transient right after submission
+            # (propagation lag), but terminal once old enough that the transaction
+            # can no longer land — without this, a dropped transaction polls as
+            # pending forever and the order never resolves.
+            elif tx_status == TransactionStatus.NOT_FOUND.value:
+                if self.current_timestamp - tracked_order.creation_timestamp > self.TX_NOT_FOUND_DEADLINE:
+                    self.logger().warning(
+                        f"Transaction {tracked_order.exchange_order_id} for order "
+                        f"{tracked_order.client_order_id} still not found on-chain more than "
+                        f"{self.TX_NOT_FOUND_DEADLINE:.0f}s after order creation; counting toward lost-order limit."
+                    )
+                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
             # Transaction failed
             elif tx_status == TransactionStatus.FAILED.value:
