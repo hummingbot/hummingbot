@@ -172,15 +172,13 @@ class LPExecutor(ExecutorBase):
                 await self._create_position()
 
             case LPExecutorStates.OPENING:
-                # Position creation in progress - connector handles retry
-                # If we're still in OPENING state, the previous attempt failed
-                # and we should retry (connector will handle max retries)
+                # Position creation in progress (connector retries timeouts;
+                # any other open failure is terminal — see _handle_create_failure)
                 await self._create_position()
 
             case LPExecutorStates.CLOSING:
-                # Position close in progress - connector handles retry
-                # If we're still in CLOSING state, the previous attempt failed
-                # and we should retry (connector will handle max retries)
+                # This re-entry IS the close retry loop: _handle_close_failure counts
+                # the failed attempt and backs off, evaluate_max_retries terminates
                 await self._close_position()
 
             case LPExecutorStates.SWAPPING:
@@ -553,20 +551,20 @@ class LPExecutor(ExecutorBase):
         self.lp_position_state.active_close_order = TrackedOrder(order_id=order_id)
 
         try:
-            # Directly await the async operation. The executor owns the retry POLICY
-            # (bounded re-entries with fresh pre-flight reconciliation), so the
-            # connector's inner budget is kept small — a large inner budget would
-            # multiply with the executor's into O(n^2) submissions per close.
+            # One gateway request per attempt (max_retries=0): this CLOSING loop is the
+            # only owner of close retries. Each re-entry rebuilds from fresh on-chain
+            # state, and the pre-flight above reconciles an attempt that landed after a
+            # timeout — a connector-level retry would re-submit without that check.
             signature = await connector._clmm_close_position(
                 trade_type=TradeType.RANGE,
                 order_id=order_id,
                 trading_pair=self.config.trading_pair,
                 position_address=self.lp_position_state.position_address,
-                max_retries=min(3, self._max_retries),
+                max_retries=0,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
             )
-            # Note: If operation fails after all retries, connector re-raises the exception
+            # Note: on failure the connector re-raises and _handle_close_failure counts it
             # so it will be caught by the except block below
 
             self.logger().info(f"Position close confirmed, signature={signature}")

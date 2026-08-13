@@ -1061,17 +1061,14 @@ class Gateway(GatewayBase):
             )
 
         try:
-            # Close-position is idempotent on-chain (success consumes the position
-            # account) and Gateway rebuilds the transaction from fresh state on every
-            # request, so stale-state errors (stale withdrawal minimums surface as
-            # SLIPPAGE_EXCEEDED, stale simulations as SIMULATION_FAILED, a landed-but-
-            # failed tx as TX_NOT_CONFIRMED) are safe to retry here — unlike
-            # swaps/opens, where a re-submit can double-spend.
+            # Close retry policy lives in the LP executor's CLOSING loop, which passes
+            # max_retries=0 for a single attempt per re-entry and reconciles a
+            # landed-but-unconfirmed attempt against fresh position state before
+            # re-submitting — a blind retry here cannot do that check.
             transaction_result = await self._execute_with_retry(
                 operation=execute_close_position,
                 operation_name=f"CLMM close position {position_address}",
                 max_retries=max_retries,
-                retryable_error_codes={"SLIPPAGE_EXCEEDED", "SIMULATION_FAILED", "TX_NOT_CONFIRMED"},
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":

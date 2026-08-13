@@ -396,43 +396,42 @@ class GatewayBaseConnectorSettingsRegistrationTest(unittest.TestCase):
 
 
 class GatewayBaseRetryClassificationTest(unittest.TestCase):
-    """Tests for _classify_error operation-aware retry opt-in (retryable_error_codes)."""
+    """The connector retries transport timeouts only; operation errors propagate.
+
+    What a failure means for an operation is the caller's decision — the LP
+    executor's CLOSING loop owns close retries (and passes max_retries=0 for a
+    single connector attempt per re-entry), so the classifier must never retry
+    slippage/simulation-class errors itself.
+    """
 
     def setUp(self) -> None:
         super().setUp()
         self.connector = MockGatewayConnector()
 
-    def test_slippage_is_fail_immediate_by_default(self):
+    def test_slippage_is_fail_immediate(self):
         error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
-        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        action = self.connector._classify_error(error, "close position", 0, 10)
         self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
-    def test_opted_in_code_is_retryable(self):
-        # Close-position opts in to SLIPPAGE_EXCEEDED: each retry re-POSTs and Gateway
-        # rebuilds from fresh on-chain state, and a landed close cannot double-spend.
-        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
-        action = self.connector._classify_error(
-            error, "close position", 0, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
-        )
-        self.assertEqual(RetryAction.RETRY, action)
+    def test_tx_not_confirmed_is_fail_immediate(self):
+        error = Exception("Transaction sig not confirmed on-chain [code: TX_NOT_CONFIRMED]")
+        action = self.connector._classify_error(error, "close position", 0, 10)
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
-    def test_opted_in_code_stops_after_max_retries(self):
-        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
-        action = self.connector._classify_error(
-            error, "close position", 10, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
-        )
-        self.assertEqual(RetryAction.STOP, action)
-
-    def test_timeout_remains_retryable_without_opt_in(self):
+    def test_timeout_is_retryable(self):
         error = Exception("Gateway error: pending [code: TRANSACTION_TIMEOUT]")
         action = self.connector._classify_error(error, "execute swap", 0, 10)
         self.assertEqual(RetryAction.RETRY, action)
 
-    def test_unknown_error_is_fail_immediate_even_with_opt_in(self):
+    def test_timeout_stops_at_zero_budget(self):
+        # max_retries=0 (the close path) means one attempt: even a timeout stops.
+        error = Exception("Gateway error: pending [code: TRANSACTION_TIMEOUT]")
+        action = self.connector._classify_error(error, "close position", 0, 0)
+        self.assertEqual(RetryAction.STOP, action)
+
+    def test_unknown_error_is_fail_immediate(self):
         error = Exception("connection reset by peer")
-        action = self.connector._classify_error(
-            error, "close position", 0, 10, retryable_error_codes={"SLIPPAGE_EXCEEDED"}
-        )
+        action = self.connector._classify_error(error, "close position", 0, 10)
         self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
 
