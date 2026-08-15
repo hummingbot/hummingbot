@@ -553,7 +553,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                 "ctx": {
                     "oraclePx": "36717.0",
                     "markPx": "36733.0",
-                    "openInterest": "0.00001793",  # This is used as the rate
+                    "openInterest": "34.37756",
                     "funding": "0.00001793"
                 }
             }
