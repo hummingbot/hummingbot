@@ -210,6 +210,29 @@ class TestExecutorBase(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             await self.component.control_loop()
             self.assertGreaterEqual(call_count, 2)
 
+    async def test_control_loop_closes_executor_when_on_start_raises(self):
+        """A failure in on_start must terminate the executor, not strand it.
+
+        on_start runs before the loop's own try/except, so an exception there used to
+        escape control_loop entirely: the executor was never terminated and kept
+        reporting RUNNING with no close_type while nothing ticked it again.
+        """
+        self.component._strategy.current_timestamp = 1234567890
+        failing_start = AsyncMock(side_effect=RuntimeError("cannot price this market"))
+        with patch.object(self.component, "control_task", new_callable=AsyncMock) as mock_task, \
+             patch.object(self.component, "validate_sufficient_balance", failing_start), \
+             patch.object(self.component, "on_stop") as mock_on_stop:
+            self.component.update_interval = 0.01
+            self.component.terminated.clear()
+            await self.component.control_loop()
+
+        self.assertEqual(self.component.close_type, CloseType.FAILED)
+        self.assertEqual(self.component.status, RunnableStatus.TERMINATED)
+        self.assertTrue(self.component.terminated.is_set())
+        # The loop body must never run once startup failed.
+        mock_task.assert_not_called()
+        mock_on_stop.assert_called_once()
+
     async def test_evaluate_max_retries_sets_failed_close_type(self):
         """Test that evaluate_max_retries sets CloseType.FAILED when retries exceeded."""
         self.component._current_retries = 11
