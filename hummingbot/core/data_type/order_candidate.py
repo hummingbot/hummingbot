@@ -190,7 +190,11 @@ class OrderCandidate:
             token, amount = self.percent_fee_collateral
             if token == self.order_collateral.token:
                 amount += self.order_collateral.amount
-            if available_balances[token] < amount:
+            # A candidate priced from a venue with no order book carries a NaN price,
+            # which propagates into this amount. `Decimal < NaN` raises InvalidOperation
+            # rather than returning False, so the comparison is guarded the same way
+            # _adjust_for_order_collateral guards its own.
+            if not amount.is_nan() and available_balances[token] < amount:
                 scaler = available_balances[token] / amount
                 self._scale_order(scaler)
 
