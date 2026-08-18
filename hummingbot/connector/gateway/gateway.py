@@ -29,7 +29,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 
 class TokenInfo(BaseModel):
@@ -133,11 +133,41 @@ class Gateway(GatewayBase):
         # Fall back to NaN if no cached price
         return Decimal("nan")
 
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        """
+        Return a dictionary with the trading pair as key and its current price as value,
+        for each trading pair passed as parameter.
+
+        ExchangeBase supplies this fan-out for order-book connectors, but Gateway
+        extends ConnectorBase directly and so never inherited it. That left
+        _get_last_traded_price below with no caller at all, and every consumer of the
+        plural form raising AttributeError instead of returning prices.
+
+        A pair that cannot be priced is omitted rather than reported as zero, so a
+        caller can tell "no price available" from "the price is 0".
+
+        :param trading_pairs: list of trading pairs to get the prices for
+        :returns: Dictionary of associations between token pair and its latest price
+        """
+        results = await safe_gather(
+            *[self._get_last_traded_price(trading_pair=trading_pair) for trading_pair in trading_pairs],
+            return_exceptions=True,
+        )
+        prices: Dict[str, float] = {}
+        for trading_pair, price in zip(trading_pairs, results):
+            if isinstance(price, Exception):
+                self.logger().warning(f"Failed to get last traded price for {trading_pair}: {price}")
+                continue
+            if price and price > 0:
+                prices[trading_pair] = price
+        return prices
+
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         """
         Gets the last traded price for a trading pair.
 
-        Uses RateOracle for cached prices (set by MarketDataProvider).
+        Prefers the RateOracle cache (set by MarketDataProvider) and falls back to a
+        Gateway quote.
 
         :param trading_pair: The market trading pair
         :returns: The last traded price or 0 if not available
@@ -149,6 +179,18 @@ class Gateway(GatewayBase):
                 return float(price)
         except Exception:
             pass
+        # The oracle only holds pairs MarketDataProvider was asked to track, so a pair
+        # priced on demand -- a pool just opened in a dashboard, a memecoin addressed by
+        # mint -- finds nothing cached and used to fall straight through to 0. Quote it
+        # instead: Gateway prices anything the configured swap provider can route.
+        try:
+            quoted = await self.get_quote_price(trading_pair, is_buy=True, amount=Decimal("1"))
+            if quoted and quoted > 0:
+                return float(quoted)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().debug(f"Could not quote a fallback price for {trading_pair}.", exc_info=True)
         return 0.0
 
     @staticmethod
