@@ -531,6 +531,23 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor._current_retries, 1)
         self.assertFalse(executor._max_retries_reached)
 
+    def test_handle_close_failure_rate_limited_does_not_spend_a_retry(self):
+        """An upstream 429 is not a failed close: nothing was broadcast. Counting
+        it would let a minutes-long throttle window exhaust the whole budget and
+        terminate as POSITION_HOLD, stranding a position a delay would have
+        closed. Back off without spending a retry."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.active_close_order = MagicMock()
+
+        executor._handle_close_failure(
+            Exception("Gateway error: throttled [code: RATE_LIMITED]")
+        )
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor._current_retries, 0)
+        self.assertGreater(executor._close_backoff_until, self.strategy.current_timestamp)
+
     def test_evaluate_max_retries_noop_within_budget(self):
         """Family semantics (>): at retries == max the executor still runs; only
         the (max+1)th failure crosses the threshold"""
@@ -1117,19 +1134,50 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await executor._close_position()
         # Should log error and return
 
-    async def test_close_position_already_closed_none(self):
-        """Test _close_position handles already-closed position (None response)"""
+    async def test_close_position_none_read_requires_confirmation(self):
+        """A single fresh None read must NOT complete the close.
+
+        One lagging RPC read answering 404 for a live position would otherwise
+        book the pool balances as returned, complete a POSITION_HOLD close with
+        hold_reason=None, and hide the stranded position from the orphan gate.
+        The pre-flight holds Nones to the same gate as _update_position_info:
+        seen on-chain at least once, then >= 3 consecutive misses.
+        """
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(return_value=None)
         connector._trigger_remove_liquidity_event = MagicMock()
 
+        # Two misses: still CLOSING, no close attempted, no event emitted.
         await executor._close_position()
+        await executor._close_position()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        connector._trigger_remove_liquidity_event.assert_not_called()
 
+        # Third consecutive miss confirms: complete as already-closed.
+        await executor._close_position()
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
         connector._trigger_remove_liquidity_event.assert_called_once()
+
+    async def test_close_position_none_read_never_seen_onchain_does_not_complete(self):
+        """Misses on a position never observed on-chain are RPC lag, not a close."""
+        executor = self.get_executor()
+        executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor._position_seen_onchain = False
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
+        connector._trigger_remove_liquidity_event = MagicMock()
+
+        for _ in range(4):
+            await executor._close_position()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        connector._trigger_remove_liquidity_event.assert_not_called()
 
     async def test_close_position_already_closed_exception(self):
         """Test _close_position handles position closed exception"""
@@ -1144,17 +1192,22 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
-    async def test_close_position_not_found_exception(self):
-        """Test _close_position handles position not found exception"""
+    async def test_close_position_not_found_exception_requires_confirmation(self):
+        """The 404-message form of a miss is held to the same gate as a None read."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position not found: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
 
         await executor._close_position()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
 
+        await executor._close_position()
+        await executor._close_position()
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_close_position_other_exception_proceeds(self):

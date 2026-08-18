@@ -492,6 +492,28 @@ class LPExecutor(ExecutorBase):
         self.logger().error(f"Position creation failed: {error}")
         self.lp_position_state.state = LPExecutorStates.FAILED
 
+    def _confirm_position_missing(self, source: str) -> bool:
+        """One more not-found sighting; True once it is CONFIRMED missing.
+
+        The confirmation contract (shared with _update_position_info, whose
+        counter this reuses): the position must have been observed on-chain at
+        least once, and the miss must repeat across >= 3 independent fresh
+        reads. Anything less is RPC lag, not a close.
+        """
+        self._position_not_found_count += 1
+        if self._position_seen_onchain and self._position_not_found_count >= 3:
+            self.logger().info(
+                f"Position {self.lp_position_state.position_address} confirmed missing on-chain "
+                f"({source}; {self._position_not_found_count} consecutive reads) - marking complete"
+            )
+            return True
+        self.logger().warning(
+            f"Position {self.lp_position_state.position_address} not found ({source}; "
+            f"{self._position_not_found_count} consecutive reads, "
+            f"seen_onchain={self._position_seen_onchain}) - not confirming yet, skipping this close attempt"
+        )
+        return False
+
     async def _close_position(self):
         """
         Close position by directly awaiting the gateway operation.
@@ -519,17 +541,24 @@ class LPExecutor(ExecutorBase):
                 position_address=self.lp_position_state.position_address
             )
             if position_info is None:
-                self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping close"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
+                # Same two gates as _update_position_info: one lagging RPC read
+                # answering 404 for a live position must not book the pool
+                # balances as returned and complete a POSITION_HOLD close — that
+                # both corrupts inventory accounting and hides the stranded
+                # position from the orphan gate. Skip this attempt (no retry
+                # burned) and let the next tick's read confirm or refute.
+                if self._confirm_position_missing("close pre-flight read"):
+                    self._emit_already_closed_event()
+                    self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
+            self._position_not_found_count = 0
             self._position_seen_onchain = True
         except Exception as e:
             # Gateway returns HttpError with message patterns (see _update_position_info)
             error_msg = str(e).lower()
             if "position closed" in error_msg:
+                # Definitive: Gateway found the position account in closed state,
+                # not a bare 404 — safe to complete on one read.
                 self.logger().info(
                     f"Position {self.lp_position_state.position_address} already closed - skipping"
                 )
@@ -537,12 +566,12 @@ class LPExecutor(ExecutorBase):
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
             elif "position not found" in error_msg:
-                self.logger().error(
-                    f"Position {self.lp_position_state.position_address} not found - "
-                    "marking complete to avoid retry loop"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
+                # The error-message form of the same 404 signal as the None read
+                # above: hold it to the same confirmation gate rather than
+                # completing on a single sighting.
+                if self._confirm_position_missing("close pre-flight 404"):
+                    self._emit_already_closed_event()
+                    self.lp_position_state.state = LPExecutorStates.COMPLETE
                 return
             # Other errors - proceed with close attempt
 
@@ -667,8 +696,26 @@ class LPExecutor(ExecutorBase):
         the family hook the base control_loop calls right after this
         control_task returns.
         """
-        self._current_retries += 1
+        from hummingbot.connector.gateway.gateway_base import RATE_LIMITED_ERROR_CODE, extract_error_code
+
         self.lp_position_state.active_close_order = None
+
+        # An upstream throttle (Gateway's typed 429) is not a failed close — nothing
+        # was broadcast and nothing about the position changed. Counting it would
+        # let a minutes-long throttle window exhaust the whole budget and terminate
+        # as POSITION_HOLD, stranding a position a delay would have closed. Back
+        # off without spending a retry; a persistent 429 keeps the executor
+        # visibly RUNNING/CLOSING rather than silently orphaning the position.
+        if extract_error_code(str(error)) == RATE_LIMITED_ERROR_CODE:
+            self._close_backoff_until = self._strategy.current_timestamp + 30.0
+            self.logger().warning(
+                f"Position close throttled upstream (429): {error}. "
+                f"Waiting 30s without spending a close retry "
+                f"({self._current_retries}/{self._max_retries} used)."
+            )
+            return
+
+        self._current_retries += 1
 
         if self._current_retries > self._max_retries:
             # evaluate_max_retries terminates after this control_task returns.

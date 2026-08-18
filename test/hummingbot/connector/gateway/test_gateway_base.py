@@ -434,6 +434,14 @@ class GatewayBaseRetryClassificationTest(unittest.TestCase):
         action = self.connector._classify_error(error, "close position", 0, 10)
         self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
+    def test_rate_limited_is_retryable(self):
+        # Gateway declares RATE_LIMITED (HTTP 429) "retryable after a delay";
+        # failing immediately converts a transient upstream throttle into an
+        # operation failure.
+        error = Exception("Gateway error: throttled [code: RATE_LIMITED]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.RETRY, action)
+
 
 class GatewayBaseNotFoundPollingTest(unittest.TestCase):
     """The status poller must not wait forever on a transaction the chain does not know.
@@ -513,6 +521,58 @@ class GatewayBaseNotFoundPollingTest(unittest.TestCase):
         self._poll_with_status(0)
         self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
         self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_pending_sighting_resets_a_not_found_streak(self):
+        # A PENDING sighting proves the signature reached the chain; an earlier
+        # miss was propagation lag and must not compound with a later one.
+        past_deadline = self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        self.connector._set_current_timestamp(past_deadline)
+        self._poll_with_status(-2)
+        self.assertEqual(1, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self._poll_with_status(0)
+        self._poll_with_status(-2)
+        self.assertEqual(1, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_deadline_is_anchored_to_the_last_submission(self):
+        # _execute_with_retry can spend minutes before the submission that
+        # produced the polled signature. The fresh signature's propagation lag
+        # must not inherit a deadline burned by earlier attempts, or a landing
+        # transaction is marked lost and the operation re-submitted - both fill.
+        # Mirror the real flow: tracking starts without a tx hash; the
+        # submission-result OrderUpdate supplies it later.
+        late_submission = self.start_timestamp + 200.0
+        self.order_id = "late-submission-order"
+        self.tx_hash = "6" * 88
+        self.connector.start_tracking_order(
+            order_id=self.order_id,
+            exchange_order_id=None,
+            trading_pair="SOL-USDC",
+            trade_type=TradeType.BUY,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+        )
+        order = self.connector._order_tracker.fetch_tracked_order(self.order_id)
+        self.async_run_with_timeout(self.connector._order_tracker._process_order_update(OrderUpdate(
+            client_order_id=self.order_id,
+            exchange_order_id=self.tx_hash,
+            trading_pair="SOL-USDC",
+            update_timestamp=late_submission,
+            new_state=OrderState.OPEN,
+        )))
+        self.assertEqual(late_submission, order.last_update_timestamp)
+
+        # Well past the creation-anchored deadline, but within it from submission.
+        self.connector._set_current_timestamp(late_submission + 10.0)
+        self._poll_with_status(-2)
+        self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
+
+        # Past the deadline from the submission too: now it counts.
+        self.connector._set_current_timestamp(
+            late_submission + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        )
+        self._poll_with_status(-2)
+        self.assertEqual(1, self.connector._order_tracker._order_not_found_records[self.order_id])
 
 
 if __name__ == "__main__":

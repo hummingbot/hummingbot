@@ -51,6 +51,13 @@ NON_RETRYABLE_ERROR_CODES = {
 # The only retryable error code
 RETRYABLE_ERROR_CODE = "TRANSACTION_TIMEOUT"
 
+# Retryable after a delay: Gateway's typed HTTP 429 — an upstream API throttled
+# the request. Nothing was broadcast, so retrying is safe; failing immediately
+# is the one wrong answer (it converts a transient throttle into an operation
+# failure, and in the LP CLOSING loop burns a bounded close retry per 429).
+RATE_LIMITED_ERROR_CODE = "RATE_LIMITED"
+RATE_LIMITED_RETRY_DELAY = 5.0
+
 
 def extract_error_code(error_str: str) -> Optional[str]:
     """Extract Gateway error code from error string.
@@ -759,10 +766,18 @@ class GatewayBase(ConnectorBase):
                     raise
                 elif action == RetryAction.RETRY:
                     current_retries += 1
-                    self.logger().warning(
-                        f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. Retrying..."
+                    # A throttle window outlives the standard delay — hammering it
+                    # at retry_delay just extends the 429s.
+                    delay = (
+                        max(retry_delay, RATE_LIMITED_RETRY_DELAY)
+                        if extract_error_code(str(e)) == RATE_LIMITED_ERROR_CODE
+                        else retry_delay
                     )
-                    await asyncio.sleep(retry_delay)
+                    self.logger().warning(
+                        f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. "
+                        f"Retrying in {delay:.0f}s..."
+                    )
+                    await asyncio.sleep(delay)
                     # Continue to next iteration
 
     def _classify_error(
@@ -792,8 +807,13 @@ class GatewayBase(ConnectorBase):
             )
             return RetryAction.FAIL_IMMEDIATE
 
-        # Check for timeout (retryable)
-        is_timeout = error_code == RETRYABLE_ERROR_CODE or "TRANSACTION_TIMEOUT" in error_str
+        # Check for retryable codes: timeouts, and 429s from an upstream throttle
+        # (gateway declares RATE_LIMITED "retryable after a delay" — the delay is
+        # applied by the retry loop, which sleeps longer for it).
+        is_timeout = (
+            error_code in (RETRYABLE_ERROR_CODE, RATE_LIMITED_ERROR_CODE)
+            or "TRANSACTION_TIMEOUT" in error_str
+        )
 
         if not is_timeout:
             # No error code and not a timeout - fail immediately
@@ -934,18 +954,33 @@ class GatewayBase(ConnectorBase):
 
             # Check if transaction is still pending
             elif tx_status == TransactionStatus.PENDING.value:
-                pass
+                # A PENDING sighting proves the signature is known to the chain, so
+                # any earlier NOT_FOUND streak was propagation lag — reset it. A tx
+                # that later goes missing again must re-earn the misses from zero,
+                # or lag + a stale streak compound into a false lost-order.
+                self._order_tracker._order_not_found_records.pop(tracked_order.client_order_id, None)
 
             # Transaction unknown to the chain. Transient right after submission
             # (propagation lag), but terminal once old enough that the transaction
             # can no longer land — without this, a dropped transaction polls as
             # pending forever and the order never resolves.
             elif tx_status == TransactionStatus.NOT_FOUND.value:
-                if self.current_timestamp - tracked_order.creation_timestamp > self.TX_NOT_FOUND_DEADLINE:
+                # Anchor the deadline to the LAST submission, not order creation:
+                # _execute_with_retry can spend minutes before the submission that
+                # produced the currently-polled signature, and that signature's
+                # normal propagation lag must not inherit a deadline already burned
+                # by earlier attempts. last_update_timestamp is stamped by the
+                # tx-hash OrderUpdate at submission (creation_timestamp is the
+                # fallback for orders that never got one).
+                submitted_at = max(
+                    tracked_order.creation_timestamp,
+                    tracked_order.last_update_timestamp or 0,
+                )
+                if self.current_timestamp - submitted_at > self.TX_NOT_FOUND_DEADLINE:
                     self.logger().warning(
                         f"Transaction {tracked_order.exchange_order_id} for order "
                         f"{tracked_order.client_order_id} still not found on-chain more than "
-                        f"{self.TX_NOT_FOUND_DEADLINE:.0f}s after order creation; counting toward lost-order limit."
+                        f"{self.TX_NOT_FOUND_DEADLINE:.0f}s after submission; counting toward lost-order limit."
                     )
                     await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
