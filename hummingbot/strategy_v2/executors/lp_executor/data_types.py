@@ -157,6 +157,14 @@ class LPExecutorState(BaseModel):
     open_tx_hash: Optional[str] = None  # Transaction hash for ADD
     close_tx_hash: Optional[str] = None  # Transaction hash for REMOVE
 
+    # A transaction whose confirmation had to be reconciled by polling its signature comes
+    # back without Gateway's response `data`, so the figures only that block carries are
+    # unavailable. These flags mark the resulting hole in the accounting: position address
+    # and deposited amounts / rent on the open, collected fees, removed amounts and rent
+    # refund on the close.
+    open_data_unavailable: bool = False
+    close_data_unavailable: bool = False
+
     # Order tracking
     active_open_order: Optional[TrackedOrder] = None
     active_close_order: Optional[TrackedOrder] = None

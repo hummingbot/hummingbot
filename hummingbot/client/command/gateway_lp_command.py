@@ -594,6 +594,7 @@ class GatewayLPCommand:
                     # For CLMM, use quote_position
                     quote_result = await self._get_gateway_instance().clmm_quote_position(
                         network=network,
+                        chain=chain,
                         pool_address=pool_info.address,
                         lower_price=lower_price,
                         upper_price=upper_price,
@@ -630,6 +631,7 @@ class GatewayLPCommand:
                     # Get quote for AMM
                     quote_result = await self._get_gateway_instance().amm_quote_liquidity(
                         network=network,
+                        chain=chain,
                         pool_address=pool_info.address,
                         base_token_amount=base_amount,
                         quote_token_amount=quote_amount,
@@ -1009,8 +1011,22 @@ class GatewayLPCommand:
                     # 20. Execute transaction
                     self.notify(f"\n{'Closing position' if close_position else 'Removing liquidity'}...")
 
-                    # Get position address
-                    position_address = getattr(selected_position, 'address', None) or getattr(selected_position, 'pool_address', None)
+                    # Get position address. CLMM positions are addressed directly. AMM
+                    # positions are addressed by pool, except on AMMs whose LP is
+                    # non-fungible (Meteora DAMM v2), which expose per-position entries and
+                    # require one of those addresses. The pool address is NOT a substitute:
+                    # Gateway rejects it as an unknown position.
+                    position_address = getattr(selected_position, 'address', None)
+                    if position_address is None:
+                        position_details = getattr(selected_position, 'positions', None) or []
+                        if len(position_details) == 1:
+                            position_address = position_details[0].position_address
+                        elif len(position_details) > 1:
+                            self.notify(
+                                f"This wallet holds {len(position_details)} separate positions in this "
+                                "pool; removing from a specific one is not supported from this command."
+                            )
+                            return
 
                     # The remove_liquidity method now handles the routing correctly:
                     # - For CLMM: uses clmm_close_position if 100%, clmm_remove_liquidity otherwise
@@ -1278,6 +1294,7 @@ class GatewayLPCommand:
                         # Call gateway to collect fees
                         result = await self._get_gateway_instance().clmm_collect_fees(
                             network=network,
+                            chain=chain,
                             wallet_address=wallet_address,
                             position_address=selected_position.address,
                             dex=dex_name,

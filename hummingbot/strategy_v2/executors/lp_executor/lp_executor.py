@@ -373,6 +373,22 @@ class LPExecutor(ExecutorBase):
             metadata = connector._lp_orders_metadata.get(order_id, {})
             position_address = metadata.get("position_address", "")
 
+            if not position_address and metadata.get("data_unavailable"):
+                # The open transaction CONFIRMED on-chain, but its confirmation was
+                # reconciled by polling the signature, and Gateway fills the response
+                # `data` (which carries positionAddress) only on the original confirmed
+                # reply. The position is LIVE — recover its address from chain state
+                # instead of reporting a creation failure and walking away from real funds.
+                self.lp_position_state.open_data_unavailable = True
+                position_address = await self._recover_position_address(connector)
+                if not position_address:
+                    self._handle_create_failure(ValueError(
+                        f"Open transaction {signature} CONFIRMED on-chain but its position address "
+                        f"could not be recovered from pool {self.config.pool_address}. A position is "
+                        "likely LIVE and unmanaged - reconcile this wallet by hand."
+                    ))
+                    return
+
             if not position_address:
                 self.logger().error(f"No position_address in metadata: {metadata}")
                 self._handle_create_failure(ValueError("Position creation failed - no position address in response"))
@@ -495,6 +511,64 @@ class LPExecutor(ExecutorBase):
         except Exception as e:
             self._handle_create_failure(e)
 
+    async def _recover_position_address(self, connector) -> str:
+        """
+        Identify the position an open created, when Gateway's response data was unavailable.
+
+        Reads the wallet's live positions in the configured pool. A single position in the
+        pool is unambiguous; with several, the configured bounds pick one out (the chain
+        snaps bounds to ticks/bins, so match within a small relative tolerance). Adopting
+        the wrong position would later close someone else's, so anything ambiguous returns
+        "" and the caller escalates for manual reconciliation rather than guessing.
+        """
+        try:
+            positions = await connector.get_user_positions(
+                dex_name=self.lp_dex_name,
+                trading_type=self.lp_trading_type,
+                pool_address=self.config.pool_address,
+            )
+        except Exception as e:
+            self.logger().error(f"Could not list positions to recover the opened position address: {e}")
+            return ""
+
+        if len(positions) == 1:
+            recovered = positions[0].address
+            self.logger().warning(
+                f"Recovered position address {recovered} from chain state after the open's "
+                "response data was unavailable."
+            )
+            return recovered
+
+        matches = [
+            p for p in positions
+            if self._bounds_match(Decimal(str(p.lower_price)), Decimal(str(p.upper_price)))
+        ]
+        if len(matches) == 1:
+            recovered = matches[0].address
+            self.logger().warning(
+                f"Recovered position address {recovered} by matching the configured bounds "
+                f"among {len(positions)} positions in pool {self.config.pool_address}."
+            )
+            return recovered
+
+        self.logger().error(
+            f"Cannot identify the opened position in pool {self.config.pool_address}: "
+            f"{len(positions)} positions owned, {len(matches)} match the configured bounds "
+            f"[{self.config.lower_price} - {self.config.upper_price}]."
+        )
+        return ""
+
+    def _bounds_match(self, lower_price: Decimal, upper_price: Decimal) -> bool:
+        """Whether on-chain bounds are the configured ones, within tick/bin snapping."""
+        tolerance = Decimal("0.01")  # 1% - wider than any connector's tick/bin spacing
+        for actual, configured in ((lower_price, self.config.lower_price),
+                                   (upper_price, self.config.upper_price)):
+            if configured <= 0:
+                return False
+            if abs(actual - configured) / configured > tolerance:
+                return False
+        return True
+
     def _handle_create_failure(self, error: Exception):
         """Handle position creation failure.
 
@@ -607,11 +681,24 @@ class LPExecutor(ExecutorBase):
 
             # Success - extract close data from connector's metadata
             metadata = connector._lp_orders_metadata.get(order_id, {})
-            self.lp_position_state.position_rent_refunded = metadata.get("position_rent_refunded", Decimal("0"))
-            self.lp_position_state.base_amount = metadata.get("base_amount", Decimal("0"))
-            self.lp_position_state.quote_amount = metadata.get("quote_amount", Decimal("0"))
-            self.lp_position_state.base_fee = metadata.get("base_fee", Decimal("0"))
-            self.lp_position_state.quote_fee = metadata.get("quote_fee", Decimal("0"))
+            if metadata.get("data_unavailable"):
+                # The close CONFIRMED on-chain but its response data is unrecoverable, so
+                # there are no collected-fee / removed-amount / rent-refund figures to
+                # book. Keep the last values read from chain while the position was open
+                # rather than overwriting them with zeros, and say plainly that this
+                # executor's close accounting is incomplete.
+                self.lp_position_state.close_data_unavailable = True
+                self.logger().error(
+                    f"Close transaction {signature} confirmed but Gateway returned no close data: "
+                    "collected fees, removed amounts and the rent refund are UNKNOWN for this "
+                    "close. Reported amounts are the last on-chain reading and PnL is incomplete."
+                )
+            else:
+                self.lp_position_state.position_rent_refunded = metadata.get("position_rent_refunded", Decimal("0"))
+                self.lp_position_state.base_amount = metadata.get("base_amount", Decimal("0"))
+                self.lp_position_state.quote_amount = metadata.get("quote_amount", Decimal("0"))
+                self.lp_position_state.base_fee = metadata.get("base_fee", Decimal("0"))
+                self.lp_position_state.quote_fee = metadata.get("quote_fee", Decimal("0"))
             # Add close tx_fee to cumulative total (open tx_fee + close tx_fee)
             close_tx_fee = metadata.get("tx_fee", Decimal("0"))
             self.lp_position_state.tx_fee += close_tx_fee
@@ -1354,6 +1441,10 @@ class LPExecutor(ExecutorBase):
             "max_retries": self._max_retries,
             "max_retries_reached": self._max_retries_reached,
             "hold_reason": self._hold_reason,
+            # A transaction reconciled from its signature comes back without Gateway's
+            # response data, so some figures above were never available for this position.
+            "open_data_unavailable": self.lp_position_state.open_data_unavailable,
+            "close_data_unavailable": self.lp_position_state.close_data_unavailable,
         }
 
     # Required abstract methods from ExecutorBase

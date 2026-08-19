@@ -950,7 +950,22 @@ class GatewayHttpClient:
 
     # ============================================
     # AMM and CLMM Methods
+    #
+    # These all target Gateway's UNIFIED /trading/{clmm,amm}/* routes, which key the
+    # request by a "connector" name plus the full "chain-network" identifier instead of
+    # encoding the connector in the path. The legacy per-connector
+    # /connectors/{dex}/{type}/* routes each declare their own request schema, and those
+    # schemas disagree: raydium/uniswap/pancakeswap/pancakeswap-sol make the CLMM
+    # add-liquidity amounts REQUIRED (so a single-sided add 400s), and Meteora's AMM
+    # remove-liquidity requires a positionAddress the legacy caller never sent. The
+    # unified routes have one schema per verb, so there is a single payload to get right.
     # ============================================
+
+    def _lp_route(self, trading_type: str, verb: str) -> str:
+        """Path of a unified /trading LP route, e.g. ("clmm", "open") -> "trading/clmm/open"."""
+        if trading_type not in ("clmm", "amm"):
+            raise ValueError(f"Trading type '{trading_type}' has no unified /trading LP route")
+        return f"trading/{trading_type}/{verb}"
 
     async def pool_info(
         self,
@@ -958,6 +973,7 @@ class GatewayHttpClient:
         pool_address: str,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -968,17 +984,18 @@ class GatewayHttpClient:
             pool_address: Pool contract address
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type (e.g., "clmm", "amm"). Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         query_params = {
-            "network": network,
-            "poolAddress": pool_address
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
+            "poolAddress": pool_address,
         }
-        path = f"connectors/{dex}/{trading_type}/pool-info"
 
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "pool-info"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -987,32 +1004,34 @@ class GatewayHttpClient:
         self,
         network: str,
         position_address: str,
-        wallet_address: str,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
         Gets information about a concentrated liquidity position.
 
+        A CLMM position address identifies the position (and its owner) on its own, so
+        the unified route takes no wallet address.
+
         Args:
             network: Network name (e.g., "mainnet-beta")
             position_address: Position address
-            wallet_address: Wallet address
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type (e.g., "clmm"). Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         query_params = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "positionAddress": position_address,
-            "walletAddress": wallet_address,
         }
-        path = f"connectors/{dex}/{trading_type}/position-info"
 
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "position-info"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1024,6 +1043,7 @@ class GatewayHttpClient:
         pool_address: str,
         dex: str,
         trading_type: str = "amm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1035,18 +1055,19 @@ class GatewayHttpClient:
             pool_address: Pool address
             dex: DEX protocol name (e.g., "raydium")
             trading_type: Trading type. Defaults to "amm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         query_params = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
+            "poolAddress": pool_address,
             "walletAddress": wallet_address,
-            "poolAddress": pool_address
         }
-        path = f"connectors/{dex}/{trading_type}/position-info"
 
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "position-info"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1064,6 +1085,7 @@ class GatewayHttpClient:
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
         extra_params: Optional[Dict[str, Any]] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1081,15 +1103,19 @@ class GatewayHttpClient:
             quote_token_amount: Amount of quote token to deposit
             slippage_pct: Maximum slippage percentage
             extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
         }
+        # Both amounts are optional on the unified route (it enforces at least one), so a
+        # single-sided open is expressed by omitting the other side.
         if base_token_amount is not None:
             request_payload["baseTokenAmount"] = base_token_amount
         if quote_token_amount is not None:
@@ -1101,11 +1127,9 @@ class GatewayHttpClient:
         if extra_params:
             request_payload.update(extra_params)
 
-        path = f"connectors/{dex}/{trading_type}/open-position"
-
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "open"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1117,6 +1141,7 @@ class GatewayHttpClient:
         position_address: str,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1128,18 +1153,19 @@ class GatewayHttpClient:
             position_address: Position address to close
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type. Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
-        path = f"connectors/{dex}/{trading_type}/close-position"
 
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "close"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1155,6 +1181,7 @@ class GatewayHttpClient:
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
         extra_params: Optional[Dict[str, Any]] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1170,13 +1197,19 @@ class GatewayHttpClient:
             quote_token_amount: Amount of quote token to add
             slippage_pct: Maximum slippage percentage
             extra_params: Optional connector-specific parameters (e.g., {"strategyType": 0} for Meteora)
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
+        # Both amounts are optional on the unified route (it enforces at least one), so a
+        # single-sided add is expressed by omitting the other side. The legacy
+        # per-connector routes made them REQUIRED on raydium/uniswap/pancakeswap(-sol),
+        # where the same omission produced a 400.
         if base_token_amount is not None:
             request_payload["baseTokenAmount"] = base_token_amount
         if quote_token_amount is not None:
@@ -1188,11 +1221,9 @@ class GatewayHttpClient:
         if extra_params:
             request_payload.update(extra_params)
 
-        path = f"connectors/{dex}/{trading_type}/add-liquidity"
-
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "add"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1205,6 +1236,7 @@ class GatewayHttpClient:
         percentage: float,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1217,19 +1249,20 @@ class GatewayHttpClient:
             percentage: Percentage of liquidity to remove (0-100)
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type. Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "positionAddress": position_address,
             "percentageToRemove": percentage,
         }
-        path = f"connectors/{dex}/{trading_type}/remove-liquidity"
 
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "remove"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1241,6 +1274,7 @@ class GatewayHttpClient:
         position_address: str,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1252,18 +1286,19 @@ class GatewayHttpClient:
             position_address: Position address
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type. Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "positionAddress": position_address,
         }
-        path = f"connectors/{dex}/{trading_type}/collect-fees"
 
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "collect-fees"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1274,6 +1309,7 @@ class GatewayHttpClient:
         wallet_address: str,
         dex: str,
         trading_type: str = "clmm",
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1284,19 +1320,20 @@ class GatewayHttpClient:
             wallet_address: Wallet address
             dex: DEX protocol name (e.g., "orca", "meteora", "raydium")
             trading_type: Trading type. Defaults to "clmm".
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
 
         Note: Filtering by pool_address must be done client-side.
         """
         query_params = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
         }
-        path = f"connectors/{dex}/{trading_type}/positions-owned"
 
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "positions-owned"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1310,6 +1347,7 @@ class GatewayHttpClient:
         dex: str,
         trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1323,10 +1361,12 @@ class GatewayHttpClient:
             dex: DEX protocol name (e.g., "raydium")
             trading_type: Trading type. Defaults to "amm".
             slippage_pct: Maximum slippage percentage
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         query_params = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "poolAddress": pool_address,
             "baseTokenAmount": base_token_amount,
             "quoteTokenAmount": quote_token_amount,
@@ -1334,11 +1374,9 @@ class GatewayHttpClient:
         if slippage_pct is not None:
             query_params["slippagePct"] = slippage_pct
 
-        path = f"connectors/{dex}/{trading_type}/quote-liquidity"
-
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "quote-liquidity"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1354,6 +1392,7 @@ class GatewayHttpClient:
         base_token_amount: Optional[float] = None,
         quote_token_amount: Optional[float] = None,
         slippage_pct: Optional[float] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1369,10 +1408,12 @@ class GatewayHttpClient:
             base_token_amount: Amount of base token
             quote_token_amount: Amount of quote token
             slippage_pct: Maximum slippage percentage
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         query_params = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "poolAddress": pool_address,
             "lowerPrice": lower_price,
             "upperPrice": upper_price,
@@ -1384,11 +1425,9 @@ class GatewayHttpClient:
         if slippage_pct is not None:
             query_params["slippagePct"] = slippage_pct
 
-        path = f"connectors/{dex}/{trading_type}/quote-position"
-
         return await self.api_request(
             "get",
-            path,
+            self._lp_route(trading_type, "quote-position"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1403,6 +1442,8 @@ class GatewayHttpClient:
         dex: str,
         trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
+        position_address: Optional[str] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1417,23 +1458,28 @@ class GatewayHttpClient:
             dex: DEX protocol name (e.g., "raydium")
             trading_type: Trading type. Defaults to "amm".
             slippage_pct: Maximum slippage percentage
+            position_address: Existing position (NFT) to add to on AMMs whose LP is
+                non-fungible (Meteora DAMM v2). Omit to open a new position; ignored by
+                fungible-LP AMMs.
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "poolAddress": pool_address,
             "baseTokenAmount": base_token_amount,
             "quoteTokenAmount": quote_token_amount,
         }
+        if position_address is not None:
+            request_payload["positionAddress"] = position_address
         if slippage_pct is not None:
             request_payload["slippagePct"] = slippage_pct
 
-        path = f"connectors/{dex}/{trading_type}/add-liquidity"
-
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "add-liquidity"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1446,6 +1492,8 @@ class GatewayHttpClient:
         percentage: float,
         dex: str,
         trading_type: str = "amm",
+        position_address: Optional[str] = None,
+        chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
@@ -1458,19 +1506,25 @@ class GatewayHttpClient:
             percentage: Percentage of liquidity to remove (0-100)
             dex: DEX protocol name (e.g., "raydium")
             trading_type: Trading type. Defaults to "amm".
+            position_address: The specific position (NFT) to remove from. REQUIRED by
+                Meteora DAMM v2, whose positions are non-fungible and where a wallet may
+                hold several per pool; ignored by fungible-LP AMMs.
+            chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
         request_payload = {
-            "network": network,
+            "connector": dex,
+            "chainNetwork": self._to_chain_network(network, chain),
             "walletAddress": wallet_address,
             "poolAddress": pool_address,
             "percentageToRemove": percentage,
         }
-        path = f"connectors/{dex}/{trading_type}/remove-liquidity"
+        if position_address is not None:
+            request_payload["positionAddress"] = position_address
 
         return await self.api_request(
             "post",
-            path,
+            self._lp_route(trading_type, "remove-liquidity"),
             request_payload,
             fail_silently=fail_silently,
         )

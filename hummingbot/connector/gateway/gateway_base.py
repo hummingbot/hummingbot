@@ -56,6 +56,21 @@ NON_RETRYABLE_ERROR_CODES = {
 # in flight, so a plain delayed retry is safe.
 RETRYABLE_ERROR_CODES = {"TRANSACTION_TIMEOUT", "RATE_LIMITED"}
 
+# Marker stamped on a transaction response whose CONFIRMED status was established by
+# polling the signature rather than by the route's own reply.
+#
+# Gateway populates a route's `data` block ONLY on the CONFIRMED reply. A PENDING reply
+# ({signature, status: 0}) carries no `data`, and neither does a TRANSACTION_TIMEOUT
+# exception. The only thing available afterwards is /chains/{chain}/poll, whose
+# PollResponse returns raw chain `txData` (a Solana getTransaction dump: slot, meta,
+# logs) — there is no mapping from that back to a route's `data` shape (positionAddress,
+# baseTokenAmountRemoved, positionRentRefunded, ...). So the reconciled response omits
+# `data` entirely and says so with this flag, rather than returning a `data`-shaped block
+# of zeros: every caller reads those keys with `.get(key, 0)` and would otherwise book a
+# real fee/amount as 0, or read an empty positionAddress for a position that is live
+# on-chain. Callers MUST branch on this flag instead of trusting `data`.
+TX_DATA_UNAVAILABLE = "txDataUnavailable"
+
 # Gateway's timeout message embeds the broadcast signature:
 # "Transaction <sig> was not confirmed before its blockhash expired..." /
 # "Transaction <sig> pending after N retries" — capture it for reconciliation.
@@ -763,9 +778,11 @@ class GatewayBase(ConnectorBase):
                             )
                         outcome = await self._await_signature_terminal(signature, operation_name)
                         if outcome == "CONFIRMED":
-                            # Landed. Confirmed-only response data (e.g. amounts) is not
-                            # available on this path; callers already guard that shape.
-                            return {**result, "status": 1}
+                            # Landed, but the route's `data` block is gone for good: the
+                            # PENDING reply never carried one and poll only returns raw
+                            # chain txData. Flag the gap (see TX_DATA_UNAVAILABLE) so
+                            # callers fail loudly instead of booking zeros.
+                            return self._confirmed_without_data(result, signature)
                         # DROPPED: the tx can no longer land, so one fresh submission
                         # is safe — it counts against the retry budget.
                         current_retries += 1
@@ -814,7 +831,7 @@ class GatewayBase(ConnectorBase):
                                 f"{operation_name}: transaction {timeout_signature} confirmed after "
                                 "timeout; not re-submitting."
                             )
-                            return {"signature": timeout_signature, "status": 1}
+                            return self._confirmed_without_data({}, timeout_signature)
                         self.logger().warning(
                             f"{operation_name}: transaction {timeout_signature} dropped (never landed); "
                             f"re-submitting (retry {current_retries}/{max_retries})."
@@ -825,6 +842,24 @@ class GatewayBase(ConnectorBase):
                         )
                     await asyncio.sleep(retry_delay)
                     # Continue to next iteration
+
+    def _confirmed_without_data(self, result: Dict[str, Any], signature: str) -> Dict[str, Any]:
+        """
+        Build the CONFIRMED response for a transaction reconciled by polling its signature.
+
+        The route's `data` block cannot be recovered on this path (see TX_DATA_UNAVAILABLE),
+        so it is dropped rather than faked, and the response is flagged so callers can tell
+        "confirmed, data unavailable" apart from "confirmed, data says zero".
+        """
+        reconciled = {k: v for k, v in result.items() if k != "data"}
+        reconciled["signature"] = signature
+        reconciled["status"] = 1
+        reconciled[TX_DATA_UNAVAILABLE] = True
+        self.logger().warning(
+            f"Transaction {signature} confirmed by signature reconciliation; Gateway's response "
+            "data (amounts, fees, position address) is not recoverable for this transaction."
+        )
+        return reconciled
 
     @staticmethod
     def _extract_timeout_signature(error_str: str) -> Optional[str]:

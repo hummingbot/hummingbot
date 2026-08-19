@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.gateway.gateway_base import GatewayBase, RetryAction
+from hummingbot.connector.gateway.gateway_base import TX_DATA_UNAVAILABLE, GatewayBase, RetryAction
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -517,6 +517,40 @@ class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
         error = Exception("Gateway error: too many requests [code: RATE_LIMITED]")
         action = self.connector._classify_error(error, "execute swap", 0, 10)
         self.assertEqual(RetryAction.RETRY, action)
+
+    def test_pending_reconciled_to_confirmed_flags_missing_data(self):
+        # The PENDING reply carries no `data` and poll only returns raw chain txData, so
+        # the reconciled response must SAY the data is missing instead of passing for a
+        # normal confirmation whose amounts merely happen to be absent — callers read
+        # those keys with .get(key, 0) and would book real fees/amounts as zero.
+        self._patch_poll([1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "close position", max_retries=10))
+        self.assertEqual(1, result["status"])
+        self.assertTrue(result[TX_DATA_UNAVAILABLE])
+        self.assertNotIn("data", result)
+
+    def test_timeout_reconciled_to_confirmed_flags_missing_data(self):
+        self._patch_poll([1])
+
+        async def operation():
+            self.submissions += 1
+            raise Exception(
+                "Transaction timeout-sig was not confirmed before its blockhash expired. "
+                "It most likely did not land [code: TRANSACTION_TIMEOUT]")
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "close position", max_retries=10, retry_delay=0.0))
+        self.assertTrue(result[TX_DATA_UNAVAILABLE])
+        self.assertNotIn("data", result)
+
+    def test_directly_confirmed_response_keeps_its_data_and_is_not_flagged(self):
+        async def operation():
+            return {"signature": "sig-direct", "status": 1, "data": {"positionAddress": "pos-1"}}
+
+        result = asyncio.run(self.connector._execute_with_retry(operation, "open position"))
+        self.assertNotIn(TX_DATA_UNAVAILABLE, result)
+        self.assertEqual("pos-1", result["data"]["positionAddress"])
 
 
 class GatewayBaseNotFoundPollingTest(unittest.TestCase):

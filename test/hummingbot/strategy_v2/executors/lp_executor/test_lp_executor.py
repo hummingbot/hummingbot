@@ -1032,6 +1032,104 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertIsNone(executor.lp_position_state.position_address)
 
+    async def test_create_position_confirmed_without_data_recovers_the_live_position(self):
+        """A confirmed-after-pending open has NO response data, so no position address.
+
+        The position is live on-chain: the executor must recover its address from chain
+        state, not report a creation failure and abandon it."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+
+        live_position = MagicMock()
+        live_position.address = "pos-recovered"
+        live_position.lower_price = 95.0
+        live_position.upper_price = 105.0
+        connector.get_user_positions = AsyncMock(return_value=[live_position])
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 100.0
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
+        connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
+
+        await executor._create_position()
+
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.position_address, "pos-recovered")
+        self.assertEqual(executor.lp_position_state.open_tx_hash, "sig-reconciled")
+        self.assertTrue(executor.lp_position_state.open_data_unavailable)
+
+    async def test_create_position_confirmed_without_data_picks_the_position_by_bounds(self):
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+
+        other = MagicMock(address="pos-other", lower_price=50.0, upper_price=60.0)
+        mine = MagicMock(address="pos-mine", lower_price=95.1, upper_price=104.9)
+        connector.get_user_positions = AsyncMock(return_value=[other, mine])
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
+        connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
+
+        await executor._create_position()
+
+        self.assertEqual(executor.lp_position_state.position_address, "pos-mine")
+
+    async def test_create_position_confirmed_without_data_escalates_when_ambiguous(self):
+        """Adopting the wrong position would later close someone else's, so an
+        unidentifiable position escalates instead of guessing."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+        connector.get_user_positions = AsyncMock(return_value=[
+            MagicMock(address="pos-a", lower_price=95.0, upper_price=105.0),
+            MagicMock(address="pos-b", lower_price=95.0, upper_price=105.0),
+        ])
+
+        await executor._create_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertIsNone(executor.lp_position_state.position_address)
+
+    async def test_close_position_confirmed_without_data_does_not_book_zero_fees(self):
+        """A close whose response data is unavailable must not overwrite the last
+        on-chain readings with zeros."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("150")
+        executor.lp_position_state.base_fee = Decimal("0.02")
+        executor.lp_position_state.quote_fee = Decimal("2.0")
+        executor.close_type = CloseType.POSITION_HOLD
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=MagicMock())
+        connector._clmm_close_position = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+        connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event())
+
+        await executor._close_position()
+
+        self.assertTrue(executor.lp_position_state.close_data_unavailable)
+        self.assertEqual(executor.lp_position_state.base_fee, Decimal("0.02"))
+        self.assertEqual(executor.lp_position_state.quote_fee, Decimal("2.0"))
+        self.assertEqual(executor.lp_position_state.base_amount, Decimal("1.5"))
+
     async def test_create_position_exception(self):
         """Test _create_position handles exception (connector handles retry internally)"""
         executor = self.get_executor()
