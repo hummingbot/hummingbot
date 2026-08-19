@@ -1428,7 +1428,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "get",
-            self._lp_route(trading_type, "quote-position"),
+            self._lp_route(trading_type, "quote-liquidity"),
             params=query_params,
             fail_silently=fail_silently,
         )
@@ -1480,7 +1480,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "post",
-            self._lp_route(trading_type, "add-liquidity"),
+            self._lp_route(trading_type, "add"),
             request_payload,
             fail_silently=fail_silently,
         )
@@ -1525,7 +1525,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "post",
-            self._lp_route(trading_type, "remove-liquidity"),
+            self._lp_route(trading_type, "remove"),
             request_payload,
             fail_silently=fail_silently,
         )

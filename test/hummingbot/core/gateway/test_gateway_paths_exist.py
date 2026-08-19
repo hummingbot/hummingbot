@@ -29,20 +29,48 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 SPEC_PATH = Path(os.environ.get("GATEWAY_OPENAPI", _REPO_ROOT / "gateway-openapi.json"))
 CLIENT_PATH = _REPO_ROOT / "hummingbot" / "core" / "gateway" / "gateway_http_client.py"
 
-# Paths passed to api_request(). Both plain and f-strings: the trading routes
-# interpolate the type, and the LP verbs go through _lp_route.
+# Paths passed to api_request() as a literal, plain or f-string.
 _API_REQUEST = re.compile(r'api_request\(\s*\n?\s*"[a-z]+"\s*,\s*\n?\s*f?"([^"]+)"', re.MULTILINE)
+
+# The LP routes never appear as a literal: they are assembled by _lp_route(trading_type,
+# verb) and handed to api_request as a variable, so _API_REQUEST cannot see them. Reading
+# the verbs separately is what makes this check cover them — while it did not, three of
+# them sat on Gateway's pre-rename names (quote-position, add-liquidity, remove-liquidity)
+# and this file reported everything fine.
+#
+# Each verb is paired with its own method's `trading_type` default rather than tried
+# against both types, because the LP surfaces are not symmetric: collect-fees is CLMM
+# only, and pairing every verb with every type invents routes nobody calls.
+_LP_METHOD = re.compile(r"\s*async def (\w+)\(")
+_LP_TRADING_TYPE = re.compile(r'\s*trading_type: str = "(\w+)"')
+_LP_ROUTE = re.compile(r'_lp_route\([a-z_]+,\s*"([a-z-]+)"\)')
 
 # Interpolated segments stand for a runtime choice; expand each to the values it can
 # take so the check stays exact instead of pattern-matching.
 _SEGMENT_VALUES = {
     "{trading_type}": ["router", "clmm", "amm"],
-    "{verb}": [
-        "open", "close", "add", "remove", "collect-fees",
-        "create-pool", "position-info", "positions-owned", "quote-liquidity",
-        "pool-info", "fetch-pools",
-    ],
 }
+
+
+def _lp_routes(source: str) -> set:
+    """LP paths assembled by _lp_route, each resolved with its method's default type."""
+    routes, trading_type = set(), None
+    for line in source.splitlines():
+        if _LP_METHOD.match(line):
+            trading_type = None
+        default = _LP_TRADING_TYPE.match(line)
+        if default:
+            trading_type = default.group(1)
+        verb = _LP_ROUTE.search(line)
+        if verb:
+            assert trading_type, (
+                f"_lp_route(..., {verb.group(1)!r}) sits in a method with no "
+                "`trading_type: str = ...` default, so this check cannot tell which "
+                "surface it targets. Give the parameter a default, or check it by hand."
+            )
+            routes.add(f"trading/{trading_type}/{verb.group(1)}")
+    return routes
+
 
 # Real Gateway routes that carry no TypeBox schema, so @fastify/swagger omits them from
 # the spec. Listed explicitly with where they live, so the exemption is reviewable and a
@@ -75,7 +103,8 @@ class GatewayPathsExistTest(unittest.TestCase):
             "CI; restore it with `cp ../gateway/openapi.json gateway-openapi.json`."
         )
         cls.spec_shapes = {_shape(p) for p in json.loads(SPEC_PATH.read_text()).get("paths", {})}
-        cls.called = set(_API_REQUEST.findall(CLIENT_PATH.read_text()))
+        source = CLIENT_PATH.read_text()
+        cls.called = set(_API_REQUEST.findall(source)) | _lp_routes(source)
 
     def test_spec_actually_loaded(self):
         """Guard the guard: an empty spec would pass the real check vacuously."""
