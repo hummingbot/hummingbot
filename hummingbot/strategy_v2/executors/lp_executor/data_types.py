@@ -12,6 +12,7 @@ from hummingbot.strategy_v2.executors.validation import (
     require_non_negative,
     require_not_above,
     require_positive,
+    require_provider,
     require_trading_pair,
 )
 from hummingbot.strategy_v2.models.executors import TrackedOrder
@@ -106,7 +107,11 @@ class LPExecutorConfig(ExecutorConfigBase):
     @model_validator(mode="after")
     def validate_lp_position(self):
         require_non_empty("connector_name", self.connector_name)
-        require_non_empty("lp_provider", self.lp_provider)
+        # Both providers have to carry their trading type: Gateway rejects a bare name
+        # with a 400, and for swap_provider that used to surface only on the close-out
+        # swap, i.e. while the position's funds are exposed.
+        require_provider("lp_provider", self.lp_provider)
+        require_provider("swap_provider", self.swap_provider, required=False)
         require_non_empty("pool_address", self.pool_address)
         require_trading_pair("trading_pair", self.trading_pair)
         require_positive("lower_price", self.lower_price)

@@ -89,9 +89,7 @@ class LPExecutor(ExecutorBase):
         # Close-out swap attempts (each failure re-places with a fresh quote)
         self._swap_failure_count: int = 0
         # Parse lp_provider into dex_name and trading_type for gateway calls
-        self.lp_dex_name, self.lp_trading_type = parse_provider(
-            config.lp_provider, default_trading_type="clmm"
-        )
+        self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider)
 
     def _validate_and_normalize_connector(self, connector_name: str) -> Optional[str]:
         """
@@ -146,6 +144,16 @@ class LPExecutor(ExecutorBase):
         gateway = GatewayHttpClient.get_instance()
         default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
         if default_provider:
+            # The network default comes straight from Gateway's config, which is not
+            # covered by LPExecutorConfig's validator — reject an untyped one here
+            # instead of letting it become a 400 mid close-out swap.
+            if "/" not in default_provider:
+                self.logger().error(
+                    f"Network default swap provider '{default_provider}' for "
+                    f"{self.config.connector_name} is not in 'name/type' form "
+                    "(e.g. 'jupiter/router'). Fix swapProvider in the Gateway network config."
+                )
+                return False
             self.config = self.config.model_copy(update={'swap_provider': default_provider})
             self.logger().info(f"Using network default swap provider: {default_provider}")
             return True

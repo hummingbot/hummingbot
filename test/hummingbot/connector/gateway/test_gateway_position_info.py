@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock
 
 from hummingbot.connector.gateway.gateway import Gateway
+from hummingbot.core.gateway.gateway_error import GatewayError
 
 
 def _fake_connector(position_info_side_effect=None):
@@ -55,6 +56,36 @@ class GatewayPositionInfoContractTest(unittest.IsolatedAsyncioTestCase):
     async def test_missing_wallet_404_raises(self):
         fake = _fake_connector(ValueError("Gateway error: Wallet not found: test_wallet (Not Found)"))
         with self.assertRaises(ValueError):
+            await Gateway.get_position_info_fresh(
+                fake, trading_pair="SOL-USDC", dex_name="orca", trading_type="clmm", position_address="pos123"
+            )
+
+    async def test_position_specific_gateway_error_404_returns_none(self):
+        # With a structured error the status is checked, not just the prose
+        fake = _fake_connector(
+            GatewayError("Position not found or closed: pos123", status=404, http_error="Not Found")
+        )
+        result = await Gateway.get_position_info_fresh(
+            fake, trading_pair="SOL-USDC", dex_name="orca", trading_type="clmm", position_address="pos123"
+        )
+        self.assertIsNone(result)
+
+    async def test_position_wording_on_non_404_raises(self):
+        # An RPC blow-up whose prose happens to say "position not found" is NOT proof the
+        # position is gone — only Gateway's 404 is
+        fake = _fake_connector(
+            GatewayError("Failed to load position: position not found in account data", status=500)
+        )
+        with self.assertRaises(GatewayError):
+            await Gateway.get_position_info_fresh(
+                fake, trading_pair="SOL-USDC", dex_name="orca", trading_type="clmm", position_address="pos123"
+            )
+
+    async def test_unrelated_gateway_error_404_raises(self):
+        fake = _fake_connector(
+            GatewayError("Wallet not found: test_wallet", status=404, http_error="Not Found")
+        )
+        with self.assertRaises(GatewayError):
             await Gateway.get_position_info_fresh(
                 fake, trading_pair="SOL-USDC", dex_name="orca", trading_type="clmm", position_address="pos123"
             )

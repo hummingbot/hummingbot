@@ -20,6 +20,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, T
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent, MarketTransactionFailureEvent
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -61,12 +62,17 @@ RETRYABLE_ERROR_CODES = {"TRANSACTION_TIMEOUT", "RATE_LIMITED"}
 _TIMEOUT_SIGNATURE_PATTERN = re.compile(r"Transaction (\S+) (?:was not confirmed|pending)")
 
 
-def extract_error_code(error_str: str) -> Optional[str]:
-    """Extract Gateway error code from error string.
+def extract_error_code(error: Exception) -> Optional[str]:
+    """Resolve the Gateway error code for an exception.
 
-    Gateway formats errors as: "Gateway error: ... [code: ERROR_CODE]"
+    A GatewayError carries the code Gateway returned as a real attribute. Everything
+    else — including the connector's own synthesized transaction errors below, which
+    embed "[code: TX_NOT_CONFIRMED]" and friends in their message — only has the code
+    in its prose, so fall back to matching it out of the string.
     """
-    match = re.search(r'\[code:\s*(\w+)\]', error_str)
+    if isinstance(error, GatewayError):
+        return error.code
+    match = re.search(r'\[code:\s*(\w+)\]', str(error))
     return match.group(1) if match else None
 
 
@@ -891,7 +897,7 @@ class GatewayBase(ConnectorBase):
         :return: RetryAction indicating what to do
         """
         error_str = str(error)
-        error_code = extract_error_code(error_str)
+        error_code = extract_error_code(error)
 
         # Check for non-retryable errors
         if error_code and error_code in NON_RETRYABLE_ERROR_CODES:

@@ -23,6 +23,7 @@ from hummingbot.client.settings import (
 )
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import TradeType
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 from hummingbot.logger import HummingbotLogger
@@ -328,6 +329,7 @@ class GatewayHttpClient:
         except Exception as e:
             self.logger().error(f"Error ensuring gateway connectors are registered: {e}", exc_info=True)
 
+    @staticmethod
     def is_timeout_error(e) -> bool:
         """
         It is hard to consistently return a timeout error from gateway
@@ -390,14 +392,13 @@ class GatewayHttpClient:
             if response.status != 200 and not fail_silently:
                 if "message" in parsed_response:
                     # Gateway HttpError format: message (detailed), code (optional), error (generic HTTP name), name
-                    error_msg = parsed_response.get('message')
-                    error_code = parsed_response.get('code', '')
-                    error_name = parsed_response.get('error', '')
-                    error_type = parsed_response.get('name', '')
-                    code_suffix = f" [code: {error_code}]" if error_code else ""
-                    type_prefix = f"{error_type}: " if error_type else ""
-                    name_suffix = f" ({error_name})" if error_name else ""
-                    raise ValueError(f"Gateway error: {type_prefix}{error_msg}{name_suffix}{code_suffix}")
+                    raise GatewayError(
+                        parsed_response.get('message'),
+                        status=response.status,
+                        code=parsed_response.get('code') or None,
+                        error_type=parsed_response.get('name') or None,
+                        http_error=parsed_response.get('error') or None,
+                    )
                 else:
                     raise ValueError(f"Error on {method.upper()} {url}: {parsed_response}")
 

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.connector.gateway.gateway_base import GatewayBase, extract_error_code
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import LPType, OrderType, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
@@ -27,6 +27,7 @@ from hummingbot.core.event.events import (
     RangePositionLiquidityRemovedEvent,
     RangePositionUpdateFailureEvent,
 )
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -194,24 +195,32 @@ class Gateway(GatewayBase):
         return 0.0
 
     @staticmethod
-    def _parse_dex_name(dex_name: str, default_trading_type: str = "router") -> tuple:
+    def _parse_dex_name(dex_name: str) -> tuple:
         """
         Parse dex_name into (dex, trading_type) tuple.
 
+        The trading type is never defaulted: Gateway rejects a guessed one with a 400,
+        and guessing "router" for e.g. "meteora" only surfaced at execution time — on
+        the LP executor's close-out swap, with funds already exposed.
+
         Args:
-            dex_name: DEX identifier, can be:
-                - "jupiter" -> ("jupiter", default_trading_type)
+            dex_name: DEX identifier in "name/type" form
                 - "jupiter/router" -> ("jupiter", "router")
                 - "orca/clmm" -> ("orca", "clmm")
-            default_trading_type: Default trading type if not specified
 
         Returns:
             Tuple of (dex, trading_type)
+
+        Raises:
+            ValueError: if dex_name does not carry a trading type
         """
-        if "/" in dex_name:
-            parts = dex_name.split("/", 1)
-            return parts[0], parts[1]
-        return dex_name, default_trading_type
+        if "/" not in dex_name:
+            raise ValueError(
+                f"Invalid swap provider '{dex_name}' - expected 'name/type' "
+                "(e.g. 'jupiter/router', 'meteora/clmm')"
+            )
+        parts = dex_name.split("/", 1)
+        return parts[0], parts[1]
 
     # ==================== SWAP OPERATIONS ====================
 
@@ -575,8 +584,9 @@ class Gateway(GatewayBase):
         """Override to trigger RangePositionUpdateFailureEvent for LP operations."""
         super()._handle_operation_failure(order_id, trading_pair, operation_name, error)
 
-        error_str = str(error)
-        is_timeout_error = self.TRANSACTION_TIMEOUT_CODE in error_str
+        # Read the code off the exception when Gateway gave us one, instead of
+        # looking for it in the rendered message.
+        is_timeout_error = extract_error_code(error) == self.TRANSACTION_TIMEOUT_CODE
 
         if is_timeout_error and order_id in self._lp_orders_metadata:
             metadata = self._lp_orders_metadata[order_id]
@@ -595,7 +605,7 @@ class Gateway(GatewayBase):
             )
             del self._lp_orders_metadata[order_id]
         elif order_id in self._lp_orders_metadata:
-            self.logger().warning(f"Non-retryable error for {order_id}: {error_str[:100]}")
+            self.logger().warning(f"Non-retryable error for {order_id}: {str(error)[:100]}")
             del self._lp_orders_metadata[order_id]
 
     def _trigger_add_liquidity_event(
@@ -1313,7 +1323,16 @@ class Gateway(GatewayBase):
             # errors must NOT be swallowed into None: callers such as
             # LPExecutor._close_position interpret None as "already closed", and a
             # swallowed transient error would silently abandon a live position.
-            if "position not found" in error_msg or "position closed" in error_msg or "position does not exist" in error_msg:
+            # A GatewayError also carries the HTTP status: require the 404 a missing
+            # position returns, so a 500 whose prose happens to name the position (or a
+            # transport error carrying no status at all) still raises.
+            status = e.status if isinstance(e, GatewayError) else None
+            is_position_gone = (
+                "position not found" in error_msg
+                or "position closed" in error_msg
+                or "position does not exist" in error_msg
+            )
+            if is_position_gone and status in (None, 404):
                 self.logger().info(
                     f"Position info for {addr_info} on {dex_name}/{trading_type}: position does not exist ({e})"
                 )

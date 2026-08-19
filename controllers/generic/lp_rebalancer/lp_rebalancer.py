@@ -174,9 +174,7 @@ class LPRebalancer(ControllerBase):
         self.config: LPRebalancerConfig = config
 
         # Parse lp_provider into dex_name and trading_type for gateway calls
-        self.lp_dex_name, self.lp_trading_type = parse_provider(
-            config.lp_provider, default_trading_type="clmm"
-        )
+        self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider)
 
         # Parse token symbols from trading pair
         parts = config.trading_pair.split("-")

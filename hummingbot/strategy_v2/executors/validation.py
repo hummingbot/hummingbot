@@ -100,6 +100,27 @@ def require_trading_pair(field: str, trading_pair: Optional[str]) -> None:
         raise ValueError(f"{field} ({trading_pair}) must follow the BASE-QUOTE format")
 
 
+def require_provider(field: str, provider: Optional[str], required: bool = True) -> None:
+    """
+    Validate that a Gateway provider follows the ``name/type`` format.
+
+    Gateway keys its unified routes by ``connector/type`` (e.g. ``jupiter/router``,
+    ``meteora/clmm``) and answers a bare name with a 400. Guessing the type instead
+    only moved the failure to execution time — for a close-out swap, that is with
+    funds already exposed — so the config has to carry it.
+
+    ``None`` is skipped when ``required`` is False (an optional provider that falls
+    back to the network default).
+    """
+    if provider is None and not required:
+        return
+    require_non_empty(field, provider)
+    name, _, trading_type = provider.partition("/")
+    if not name.strip() or not trading_type.strip():
+        raise ValueError(
+            f"{field} ({provider}) must follow the name/type format, e.g. jupiter/router or meteora/clmm")
+
+
 def require_stop_price(side: TradeType, field: str, value: Optional[Decimal],
                        boundaries: Sequence[NamedValue]) -> None:
     """

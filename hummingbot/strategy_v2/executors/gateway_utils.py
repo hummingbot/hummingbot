@@ -22,36 +22,39 @@ from hummingbot.client.settings import GATEWAY_DEXS
 logger = logging.getLogger(__name__)
 
 
-def parse_provider(provider: str, default_trading_type: str = "router") -> Tuple[str, str]:
+def parse_provider(provider: str) -> Tuple[str, str]:
     """
     Parse provider string into (dex_name, trading_type) tuple.
 
     Provider strings are used by executors in format "dex/trading_type".
     Gateway HTTP client requires separate dex_name and trading_type parameters.
 
+    The trading type is never defaulted: Gateway rejects a guessed one with a 400,
+    so an untyped provider must fail here rather than mid-operation.
+
     Args:
-        provider: Provider string in format "dex/type" or just "dex"
-            Examples: "jupiter/router", "meteora/clmm", "orca"
-        default_trading_type: Default type if not specified in provider
-            Use "router" for swap operations, "clmm" for LP operations
+        provider: Provider string in format "dex/type"
+            Examples: "jupiter/router", "meteora/clmm"
 
     Returns:
         Tuple of (dex_name, trading_type)
+
+    Raises:
+        ValueError: if provider does not carry a trading type
 
     Examples:
         >>> parse_provider("jupiter/router")
         ("jupiter", "router")
         >>> parse_provider("meteora/clmm")
         ("meteora", "clmm")
-        >>> parse_provider("orca")
-        ("orca", "router")
-        >>> parse_provider("orca", default_trading_type="clmm")
-        ("orca", "clmm")
     """
-    if "/" in provider:
-        parts = provider.split("/", 1)
-        return parts[0], parts[1]
-    return provider, default_trading_type
+    if "/" not in provider:
+        raise ValueError(
+            f"Invalid provider '{provider}' - expected 'name/type' "
+            "(e.g. 'jupiter/router', 'meteora/clmm')"
+        )
+    parts = provider.split("/", 1)
+    return parts[0], parts[1]
 
 
 def validate_network_connector(

@@ -153,11 +153,9 @@ class GatewaySwapCommand:
                 await swap_connector.stop_network()
                 return
 
-            # Parse swap provider into dex_name and trading_type
-            if "/" in swap_provider:
-                dex_name, trading_type = swap_provider.split("/", 1)
-            else:
-                dex_name, trading_type = swap_provider, "router"
+            # Parse swap provider into dex_name and trading_type. A provider without a
+            # trading type raises: Gateway answers a guessed one with a 400.
+            dex_name, trading_type = Gateway._parse_dex_name(swap_provider)
             self.notify(f"Using swap provider: {dex_name}/{trading_type}")
 
             self.notify(f"\nFetching swap quote for {trading_pair} on {connector}...")
@@ -175,26 +173,22 @@ class GatewaySwapCommand:
                 amount=amount_decimal,
                 side=trade_side,
                 slippage_pct=None,  # Use default slippage from connector config
-                pool_address=None   # Let gateway find the best pool
             )
 
-            if "error" in quote_resp:
-                self.notify(f"\nError getting quote: {quote_resp['error']}")
-                await swap_connector.stop_network()
-                return
-
-            # Store quote ID for logging only
-            quote_id = quote_resp.get('quoteId')
-            if quote_id:
-                self.logger().info(f"Swap quote ID: {quote_id}")
-
-            # Extract relevant details from quote response
+            # Fields below are exactly ChainQuoteSwapResponseSchema (gateway
+            # src/schemas/chain-schema.ts). Fastify serializes strictly to that schema,
+            # so anything outside it (quoteId, warnings, feeInfo, fee/feeAsset) is
+            # stripped by Gateway and would always read as absent here.
             token_in = quote_resp.get('tokenIn')
             token_out = quote_resp.get('tokenOut')
             amount_in = quote_resp.get('amountIn')
             amount_out = quote_resp.get('amountOut')
             min_amount_out = quote_resp.get('minAmountOut')
             max_amount_in = quote_resp.get('maxAmountIn')
+            price_impact_pct = quote_resp.get('priceImpactPct')
+            slippage_pct = quote_resp.get('slippagePct')
+            pool_address = quote_resp.get('poolAddress')
+            route_path = quote_resp.get('routePath')
 
             # Display transaction details
             self.notify("\n=== Swap Transaction ===")
@@ -211,22 +205,17 @@ class GatewaySwapCommand:
             if max_amount_in:
                 self.notify(f"Maximum Amount In: {max_amount_in}")
 
-            # Display warnings and fee information
-            warnings = quote_resp.get("warnings", [])
-
-            # Extract and display fee info
-            fee_info = quote_resp.get('feeInfo', {})
-            if not fee_info:
-                # Try to construct basic fee info from response
-                fee_info = {
-                    "transactionFee": quote_resp.get('fee', 'N/A'),
-                    "transactionFeeSymbol": quote_resp.get('feeAsset', chain.upper())
-                }
-
-            GatewayCommandUtils.display_transaction_fee_details(app=self, fee_info=fee_info)
-
-            # Display any warnings
-            GatewayCommandUtils.display_warnings(self, warnings)
+            # Route/execution details. The unified quote route carries no fee estimate
+            # and no warnings, so there is nothing honest to show for them here - the
+            # network fee is reported by the execute response instead.
+            if price_impact_pct is not None:
+                self.notify(f"Price Impact: {price_impact_pct}%")
+            if slippage_pct is not None:
+                self.notify(f"Slippage Tolerance: {slippage_pct}%")
+            if pool_address:
+                self.notify(f"Pool: {pool_address}")
+            if route_path:
+                self.notify(f"Route: {route_path}")
 
             # Ask if user wants to execute the swap
             await GatewayCommandUtils.enter_interactive_mode(self)
@@ -241,32 +230,23 @@ class GatewaySwapCommand:
 
                 self.notify("\nExecuting swap...")
 
-                # Use price from quote for better tracking
-                price_value = quote_resp.get('price', '0')
-                # Handle both string and numeric price values
-                try:
-                    price = Decimal(str(price_value))
-                except (ValueError, TypeError):
-                    self.notify("\nError: Invalid price received from gateway. Cannot execute swap.")
+                # Use price from quote for better tracking. price is required by
+                # ChainQuoteSwapResponseSchema, so a missing one means the response is
+                # not a quote - do not silently trade at 0.
+                if quote_resp.get('price') is None:
+                    self.notify("\nError: Gateway quote carried no price. Cannot execute swap.")
                     await swap_connector.stop_network()
                     return
+                price = Decimal(str(quote_resp['price']))
 
-                # Store quote data in kwargs for the swap handler
-                # Note: dex_name not needed since connector already has swap_provider
-                swap_kwargs = {
-                    "quote_id": quote_id,
-                    "quote_response": quote_resp,
-                    "pool_address": quote_resp.get("poolAddress"),
-                }
-
-                # Use connector's buy/sell methods which create inflight orders
+                # No quote kwargs: the unified route caches no quote (there is no
+                # quoteId), so the connector re-quotes and executes in one call.
                 if side == "BUY":
                     order_id = swap_connector.buy(
                         trading_pair=trading_pair,
                         amount=amount_decimal,
                         price=price,
                         order_type=OrderType.MARKET,
-                        **swap_kwargs
                     )
                 else:
                     order_id = swap_connector.sell(
@@ -274,7 +254,6 @@ class GatewaySwapCommand:
                         amount=amount_decimal,
                         price=price,
                         order_type=OrderType.MARKET,
-                        **swap_kwargs
                     )
 
                 self.notify(f"Order created: {order_id}")
