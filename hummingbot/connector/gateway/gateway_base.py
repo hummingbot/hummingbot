@@ -1247,7 +1247,10 @@ class GatewayBase(ConnectorBase):
                 trade_type=TradeType.BUY,  # Use BUY as a placeholder for approval
                 price=s_decimal_0,
                 amount=amount or s_decimal_0,
-                gas_price=Decimal(str(approve_result.get("gasPrice", 0))),
+                # No gas_price: Gateway's approve response is {signature, status, data},
+                # and data carries a total `fee`, never a per-unit gasPrice. Reading one
+                # produced Decimal(0) on every approval — the same value the parameter
+                # already defaults to, but dressed up as something Gateway had reported.
                 is_approval=True
             )
 

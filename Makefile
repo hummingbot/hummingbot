@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down link-cli
+.PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down link-cli gateway-models
 
 DYDX ?= 0
 ENV_FILE := setup/environment.yml
@@ -27,6 +27,30 @@ report_coverage:
 development-diff-cover:
 	coverage xml
 	diff-cover --compare-branch=origin/development coverage.xml
+
+# Header stamped onto the generated models. `#` starts a comment in a Makefile, so it
+# has to reach the recipe through a variable.
+HASH := \#
+define GATEWAY_MODELS_HEADER
+$(HASH) Generated from gateway-openapi.json by 'make gateway-models'. Do not edit.
+$(HASH) flake8: noqa: E501
+endef
+export GATEWAY_MODELS_HEADER
+
+# Regenerate hummingbot/core/gateway/gateway_models.py from the vendored Gateway spec.
+# Adopting a Gateway change is two steps — refresh the spec, then rerun this:
+#   cd ../gateway && pnpm generate:openapi && cp openapi.json ../hummingbot/gateway-openapi.json
+#   make gateway-models
+# The target Python is setup.py's python_requires floor, not the interpreter you happen
+# to be on: 3.12 would emit StrEnum, which 3.10 does not have.
+# test_gateway_models_match_spec.py fails if the committed models drift from the spec.
+gateway-models:
+	python -m datamodel_code_generator \
+		--input gateway-openapi.json --input-file-type openapi --openapi-scopes schemas \
+		--output hummingbot/core/gateway/gateway_models.py --output-model-type pydantic_v2.BaseModel \
+		--snake-case-field --target-python-version 3.10 --disable-timestamp \
+		--formatters black --formatters isort \
+		--custom-file-header "$$GATEWAY_MODELS_HEADER"
 
 build:
 	git clean -xdf && make clean && docker build -t hummingbot/hummingbot${TAG} -f Dockerfile .

@@ -1,9 +1,11 @@
-"""Every Gateway field name GatewayHttpClient uses must exist in Gateway's OpenAPI spec.
+"""Every Gateway field name this package uses must exist in Gateway's OpenAPI spec.
 
-test_gateway_paths_exist pins the routes; this pins what travels over them. The client
-hand-writes camelCase keys into query strings and JSON bodies, and reads them back out
-of responses with ``.get()`` — so a field renamed in Gateway does not raise here. It
-reads ``None``, and a strategy acts on a price or balance change of zero.
+test_gateway_paths_exist pins the routes; this pins what travels over them. These
+modules hand-write camelCase keys into query strings and JSON bodies, and read them back
+out of responses with ``.get()`` — so a field renamed in Gateway does not raise here. It
+reads ``None``, and a strategy acts on a price or balance change of zero. That is not
+hypothetical: ``gateway_base.approve_token`` read ``gasPrice`` from a response whose
+schema is ``{signature, status, data}``, recording a gas price of 0 on every approval.
 
 The spec is the same vendored copy the path check uses; refresh it the same way:
 
@@ -21,7 +23,14 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 SPEC_PATH = Path(os.environ.get("GATEWAY_OPENAPI", _REPO_ROOT / "gateway-openapi.json"))
-CLIENT_PATH = _REPO_ROOT / "hummingbot" / "core" / "gateway" / "gateway_http_client.py"
+
+# Every module that speaks Gateway's wire format: the client that builds the requests,
+# and the connector layer that reads the responses back apart.
+CLIENT_PATHS = [
+    _REPO_ROOT / "hummingbot" / "core" / "gateway" / "gateway_http_client.py",
+    _REPO_ROOT / "hummingbot" / "connector" / "gateway" / "gateway.py",
+    _REPO_ROOT / "hummingbot" / "connector" / "gateway" / "gateway_base.py",
+]
 
 # camelCase string literals, single- or double-quoted.
 _CAMEL_CASE = re.compile(r'["\']([a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*)["\']')
@@ -30,6 +39,12 @@ _CAMEL_CASE = re.compile(r'["\']([a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*)["\']')
 # config as-is, so these arrive as namespaced names ("solana.defaultWallet") that no
 # route schema declares. Listed individually so a renamed wire field cannot hide here.
 CONFIG_TREE_KEYS = {"defaultNetwork", "defaultWallet", "nativeCurrencySymbol"}
+
+# camelCase strings that are this package's own values rather than Gateway field names.
+# The regex cannot tell a dict key from any other string literal, so they are named here.
+LOCAL_CONSTANTS = {
+    "txDataUnavailable",  # gateway_base.TX_DATA_UNAVAILABLE, a sentinel this side invents
+}
 
 
 def _spec_field_names(spec: dict) -> set:
@@ -69,7 +84,9 @@ class GatewayWireKeysExistTest(unittest.TestCase):
             "CI; restore it with `cp ../gateway/openapi.json gateway-openapi.json`."
         )
         cls.spec_names = _spec_field_names(json.loads(SPEC_PATH.read_text()))
-        cls.used = set(_CAMEL_CASE.findall(CLIENT_PATH.read_text()))
+        cls.used = {
+            path: set(_CAMEL_CASE.findall(path.read_text())) for path in CLIENT_PATHS
+        }
 
     def test_spec_actually_loaded(self):
         """Guard the guard: an empty spec would pass the real check vacuously."""
@@ -77,16 +94,22 @@ class GatewayWireKeysExistTest(unittest.TestCase):
 
     def test_client_keys_were_found(self):
         """Guard the guard: a regex matching nothing would also pass vacuously."""
-        self.assertGreater(len(self.used), 20, f"Only {len(self.used)} camelCase keys found in the client")
+        for path, keys in self.used.items():
+            self.assertGreater(len(keys), 3, f"Only {len(keys)} camelCase keys found in {path.name}")
 
     def test_every_wire_key_exists_in_the_spec(self):
-        unknown = sorted(self.used - self.spec_names - CONFIG_TREE_KEYS)
+        unknown = sorted(
+            f"{key}  ({path.name})"
+            for path, keys in self.used.items()
+            for key in keys - self.spec_names - CONFIG_TREE_KEYS - LOCAL_CONSTANTS
+        )
         self.assertFalse(
             unknown,
-            "GatewayHttpClient sends or reads keys Gateway's spec does not declare:\n  "
+            "This package sends or reads keys Gateway's spec does not declare:\n  "
             + "\n  ".join(unknown)
-            + f"\n\nSpec: {SPEC_PATH}. Either the client is stale and should follow the rename, "
-            "or the key addresses Gateway's config tree and belongs in CONFIG_TREE_KEYS.",
+            + f"\n\nSpec: {SPEC_PATH}. Either the caller is stale and should follow the rename, "
+            "or the string is not a Gateway field at all — see CONFIG_TREE_KEYS and "
+            "LOCAL_CONSTANTS.",
         )
 
 
