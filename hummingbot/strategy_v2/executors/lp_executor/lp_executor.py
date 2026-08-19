@@ -82,6 +82,12 @@ class LPExecutor(ExecutorBase):
         # None for voluntary holds (keep_position=True stops). Consumers use this,
         # not close_type, to distinguish stranded exposure from a requested hold.
         self._hold_reason: Optional[str] = None
+        # early_stop() arrived while the create was in flight: let the create
+        # resolve, then route straight to CLOSING (killing the state mid-await used
+        # to strand a landed position behind a FAILED terminal).
+        self._close_after_open: bool = False
+        # Close-out swap attempts (each failure re-places with a fresh quote)
+        self._swap_failure_count: int = 0
         # Parse lp_provider into dex_name and trading_type for gateway calls
         self.lp_dex_name, self.lp_trading_type = parse_provider(
             config.lp_provider, default_trading_type="clmm"
@@ -187,8 +193,11 @@ class LPExecutor(ExecutorBase):
                 await self._execute_closeout_swap()
 
             case LPExecutorStates.FAILED:
-                # Max retries reached - stop executor with failure
-                self.close_type = CloseType.FAILED
+                # Stop with failure — but never clobber a more specific close_type
+                # already assigned (e.g. EARLY_STOP set by early_stop() before the
+                # create failed).
+                if self.close_type is None:
+                    self.close_type = CloseType.FAILED
                 self.stop()
 
             case LPExecutorStates.IN_RANGE | LPExecutorStates.OUT_OF_RANGE:
@@ -267,9 +276,13 @@ class LPExecutor(ExecutorBase):
                         f"Position {self.lp_position_state.position_address} no longer exists on-chain "
                         "(closed externally or by a prior attempt) - marking complete"
                     )
-                    self._emit_already_closed_event()
-                    self.lp_position_state.state = LPExecutorStates.COMPLETE
-                    self.lp_position_state.active_close_order = None
+                    # An external close still needs a terminal type — and under
+                    # keep_position=False it still owes the close-out swap (the
+                    # withdrawn tokens landed in the wallet either way).
+                    if self.close_type is None:
+                        self.close_type = (CloseType.POSITION_HOLD if self.config.keep_position
+                                           else CloseType.EARLY_STOP)
+                    self._handle_position_gone()
                 else:
                     self.logger().warning(
                         f"Position {self.lp_position_state.position_address} not found "
@@ -458,6 +471,16 @@ class LPExecutor(ExecutorBase):
             # balance as a BUY.
             self._store_lp_event_from_add(event)
 
+            if self._close_after_open:
+                # early_stop() arrived while this create was in flight: the position
+                # is live and funded, so close it now (close_type was already set by
+                # early_stop from its keep_position argument).
+                self.logger().info(
+                    f"Create resolved after early_stop: closing {position_address} immediately."
+                )
+                self.lp_position_state.state = LPExecutorStates.CLOSING
+                return
+
             # Update state immediately (don't wait for next tick)
             self.lp_position_state.update_state(current_price, self._strategy.current_timestamp)
 
@@ -510,7 +533,10 @@ class LPExecutor(ExecutorBase):
             return
 
         # Verify position still exists before trying to close (handles timeout-but-succeeded
-        # case). Fresh read: this decision must not come from a cached 404.
+        # case). Fresh read; but ONE miss is never proof (a lagging RPC node's 404
+        # would otherwise declare a freshly funded position closed with a
+        # success-shaped event). Same 3-consecutive-miss gate as the monitoring
+        # path (retry-architecture §3.2).
         try:
             position_info = await connector.get_position_info_fresh(
                 trading_pair=self.config.trading_pair,
@@ -518,33 +544,35 @@ class LPExecutor(ExecutorBase):
                 trading_type=self.lp_trading_type,
                 position_address=self.lp_position_state.position_address
             )
-            if position_info is None:
-                self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping close"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
-                return
-            self._position_seen_onchain = True
         except Exception as e:
-            # Gateway returns HttpError with message patterns (see _update_position_info)
+            # Gateway returns HttpError with message patterns for a definitively
+            # missing position; treat those exactly like a None read (a miss).
             error_msg = str(e).lower()
-            if "position closed" in error_msg:
+            if "position closed" in error_msg or "position not found" in error_msg:
+                position_info = None
+            else:
+                # Transient error - proceed with the close attempt
+                position_info = False
+
+        if position_info is None:
+            self._position_not_found_count += 1
+            if self._position_not_found_count >= 3:
                 self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping"
+                    f"Position {self.lp_position_state.position_address} definitively absent "
+                    f"({self._position_not_found_count} consecutive misses) - already closed"
                 )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
+                self._handle_position_gone()
                 return
-            elif "position not found" in error_msg:
-                self.logger().error(
-                    f"Position {self.lp_position_state.position_address} not found - "
-                    "marking complete to avoid retry loop"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
-                return
-            # Other errors - proceed with close attempt
+            self.logger().warning(
+                f"Pre-flight miss {self._position_not_found_count}/3 for "
+                f"{self.lp_position_state.position_address}; not closing this tick"
+            )
+            # Don't submit a close against a position we cannot currently see —
+            # re-enter next tick; misses do not burn the close retry budget.
+            return
+        if position_info is not False:
+            self._position_not_found_count = 0
+            self._position_seen_onchain = True
 
         # Generate order_id for tracking
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
@@ -811,14 +839,15 @@ class LPExecutor(ExecutorBase):
         )
 
         try:
-            # Place swap order using connector's place_order with swap_provider
+            # Place swap order using connector's place_order with swap_provider.
+            # No slippage_pct: omitted, the connector-configured slippagePct applies
+            # (hardcoding 1.0 here used to override the operator's Gateway config).
             order_id = connector.place_order(
                 is_buy=is_buy,
                 trading_pair=self.config.trading_pair,
                 amount=amount,
                 price=Decimal("0"),  # Market order
                 dex_name=self.config.swap_provider,
-                slippage_pct=Decimal("1.0"),  # 1% slippage for close-out
                 max_retries=self._max_retries,
             )
             self.lp_position_state.active_swap_order = TrackedOrder(order_id=order_id)
@@ -829,11 +858,70 @@ class LPExecutor(ExecutorBase):
             self.logger().error(f"Failed to place close-out swap: {e}")
             self._handle_swap_failure(e)
 
+    def _handle_position_gone(self):
+        """The position is definitively absent on-chain: a prior close attempt
+        landed, or it was closed externally. Emit the synthetic close event and
+        route exactly like a successful close — EARLY_STOP (keep_position=False)
+        still owes the close-out swap, since the withdrawn tokens are in the
+        wallet either way. Going straight to COMPLETE here used to leave that
+        net base change unswapped and unrecorded.
+        """
+        self._emit_already_closed_event()
+        self.lp_position_state.active_close_order = None
+        self.lp_position_state.position_address = None
+
+        if self.close_type == CloseType.EARLY_STOP:
+            base_diff = self._calculate_net_base_difference()
+            if abs(base_diff) > Decimal("0.000001"):
+                self.logger().info(
+                    f"Close-out swap needed after already-closed reconcile: base_diff={base_diff:.6f}"
+                )
+                self.lp_position_state.state = LPExecutorStates.SWAPPING
+                return
+        self.lp_position_state.state = LPExecutorStates.COMPLETE
+
+    # Close-out swap attempts before the executor stops fighting the market and
+    # holds the withdrawn tokens instead (each attempt re-quotes at market).
+    MAX_CLOSEOUT_SWAP_ATTEMPTS = 3
+
     def _handle_swap_failure(self, error: Exception):
-        """Handle close-out swap failure - transition to FAILED state."""
-        self.logger().error(f"Close-out swap failed: {error}")
+        """Handle close-out swap failure.
+
+        Bounded retries with a fresh quote each attempt; on exhaustion the
+        executor terminates POSITION_HOLD carrying the withdrawn tokens. The old
+        first-failure jump to FAILED reported "no residual exposure" while the
+        REMOVE's proceeds sat in the wallet, unrecorded.
+        """
         self.lp_position_state.active_swap_order = None
-        self.lp_position_state.state = LPExecutorStates.FAILED
+        self._swap_failure_count += 1
+
+        if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
+            self.logger().error(
+                f"Close-out swap failed (attempt {self._swap_failure_count}/"
+                f"{self.MAX_CLOSEOUT_SWAP_ATTEMPTS}): {error}. Retrying with a fresh quote."
+            )
+            return  # stay in SWAPPING; next tick re-places at market
+
+        self.logger().error(
+            f"Close-out swap failed {self._swap_failure_count} times: {error}. "
+            "Holding the withdrawn tokens instead of reporting FAILED with hidden exposure."
+        )
+        self._hold_reason = "closeout_swap_failed"
+        self.close_type = CloseType.POSITION_HOLD
+        connector = self.connectors.get(self.config.connector_name)
+        current_price = self._current_price if self._current_price else Decimal("0")
+        if connector is not None:
+            order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
+            self._store_net_trade_from_withdrawal(
+                total_base_returned=self.lp_position_state.base_amount + self.lp_position_state.base_fee,
+                total_quote_returned=self.lp_position_state.quote_amount + self.lp_position_state.quote_fee,
+                mid_price=current_price,
+                remove_tx_fee_quote=0.0,
+                order_id=order_id,
+                exchange_order_id="closeout-swap-failed",
+                trading_pair=self.config.trading_pair,
+            )
+        self.lp_position_state.state = LPExecutorStates.COMPLETE
 
     def _emit_already_closed_event(self):
         """
@@ -1077,10 +1165,15 @@ class LPExecutor(ExecutorBase):
         if self.lp_position_state.state in [LPExecutorStates.IN_RANGE, LPExecutorStates.OUT_OF_RANGE]:
             self.lp_position_state.state = LPExecutorStates.CLOSING
         elif self.lp_position_state.state == LPExecutorStates.OPENING:
-            # Position creation in progress - mark as failed to stop retries
-            # The executor will complete without creating a position
-            self.lp_position_state.state = LPExecutorStates.FAILED
-            self.close_type = CloseType.EARLY_STOP
+            # The create is in flight and its transaction may LAND — killing the
+            # state here used to strand a live, funded position behind a FAILED
+            # terminal ("nothing on-chain"). Let the create resolve; its success
+            # tail routes straight to CLOSING, and its failure path ends normally.
+            self._close_after_open = True
+            self.logger().info(
+                "early_stop during OPENING: waiting for the in-flight create to "
+                "resolve, then closing."
+            )
         elif self.lp_position_state.state == LPExecutorStates.NOT_ACTIVE:
             # No position was created, just complete
             self.lp_position_state.state = LPExecutorStates.COMPLETE

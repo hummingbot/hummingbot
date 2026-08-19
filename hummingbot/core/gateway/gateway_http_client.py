@@ -5,6 +5,7 @@ import ssl
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlencode
 
 import aiohttp
 from aiohttp import ContentTypeError
@@ -33,31 +34,6 @@ POLL_TIMEOUT = 1.0
 class GatewayStatus(Enum):
     ONLINE = 1
     OFFLINE = 2
-
-
-class GatewayError(Enum):
-    """
-    The gateway route error codes defined in /gateway/src/services/error-handler.ts
-    """
-
-    Network = 1001
-    RateLimit = 1002
-    OutOfGas = 1003
-    TransactionGasPriceTooLow = 1004
-    LoadWallet = 1005
-    TokenNotSupported = 1006
-    TradeFailed = 1007
-    SwapPriceExceedsLimitPrice = 1008
-    SwapPriceLowerThanLimitPrice = 1009
-    ServiceUnitialized = 1010
-    UnknownChainError = 1011
-    InvalidNonceError = 1012
-    PriceFailed = 1013
-    UnknownError = 1099
-    InsufficientBaseBalance = 1022
-    InsufficientQuoteBalance = 1023
-    SimulationError = 1024
-    SwapRouteFetchError = 1025
 
 
 class GatewayHttpClient:
@@ -352,53 +328,6 @@ class GatewayHttpClient:
         except Exception as e:
             self.logger().error(f"Error ensuring gateway connectors are registered: {e}", exc_info=True)
 
-    def log_error_codes(self, resp: Dict[str, Any]):
-        """
-        If the API returns an error code, interpret the code, log a useful
-        message to the user, then raise an exception.
-        """
-        error_code: Optional[int] = resp.get("errorCode") if isinstance(resp, dict) else None
-        if error_code is not None:
-            if error_code == GatewayError.Network.value:
-                self.logger().network("Gateway had a network error. Make sure it is still able to communicate with the node.")
-            elif error_code == GatewayError.RateLimit.value:
-                self.logger().network("Gateway was unable to communicate with the node because of rate limiting.")
-            elif error_code == GatewayError.OutOfGas.value:
-                self.logger().network("There was an out of gas error. Adjust the gas limit in the gateway config.")
-            elif error_code == GatewayError.TransactionGasPriceTooLow.value:
-                self.logger().network("The gas price provided by gateway was too low to create a blockchain operation. Consider increasing the gas price.")
-            elif error_code == GatewayError.LoadWallet.value:
-                self.logger().network("Gateway failed to load your wallet. Try running 'gateway connect' with the correct wallet settings.")
-            elif error_code == GatewayError.TokenNotSupported.value:
-                self.logger().network("Gateway tried to use an unsupported token.")
-            elif error_code == GatewayError.TradeFailed.value:
-                self.logger().network("The trade on gateway has failed.")
-            elif error_code == GatewayError.PriceFailed.value:
-                self.logger().network("The price query on gateway has failed.")
-            elif error_code == GatewayError.InvalidNonceError.value:
-                self.logger().network("The nonce was invalid.")
-            elif error_code == GatewayError.ServiceUnitialized.value:
-                self.logger().network("Some values was uninitialized. Please contact dev@hummingbot.io ")
-            elif error_code == GatewayError.SwapPriceExceedsLimitPrice.value:
-                self.logger().network("The swap price is greater than your limit buy price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
-            elif error_code == GatewayError.SwapPriceLowerThanLimitPrice.value:
-                self.logger().network("The swap price is lower than your limit sell price. The market may be too volatile or your slippage rate is too low. Try adjusting the strategy's allowed slippage rate.")
-            elif error_code == GatewayError.UnknownChainError.value:
-                self.logger().network("An unknown chain error has occurred on gateway. Make sure your gateway settings are correct.")
-            elif error_code == GatewayError.InsufficientBaseBalance.value:
-                self.logger().network("Insufficient base token balance needed to execute the trade.")
-            elif error_code == GatewayError.InsufficientQuoteBalance.value:
-                self.logger().network("Insufficient quote token balance needed to execute the trade.")
-            elif error_code == GatewayError.SimulationError.value:
-                self.logger().network("Transaction simulation failed.")
-            elif error_code == GatewayError.SwapRouteFetchError.value:
-                self.logger().network("Failed to fetch swap route.")
-            elif error_code == GatewayError.UnknownError.value:
-                self.logger().network("An unknown error has occurred on gateway. Please send your logs to operations@hummingbot.org.")
-            else:
-                self.logger().network("An unknown error has occurred on gateway. Please send your logs to operations@hummingbot.org.")
-
-    @staticmethod
     def is_timeout_error(e) -> bool:
         """
         It is hard to consistently return a timeout error from gateway
@@ -503,16 +432,30 @@ class GatewayHttpClient:
 
     async def get_gateway_status(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         """
-        Calls the status endpoint on Gateway to know basic info about connected networks.
+        Status for every chain/network Gateway knows, one poll per network.
+        (There is no all-chains status route; the old no-arg get_network_status call
+        built "chains/None/status" and could never succeed.)
         """
+        statuses: List[Dict[str, Any]] = []
         try:
-            return await self.get_network_status(fail_silently=fail_silently)
+            chains_resp = await self.get_chains(fail_silently=fail_silently)
+            for chain_info in (chains_resp or {}).get("chains", []):
+                chain = chain_info.get("chain")
+                for network in chain_info.get("networks", []):
+                    try:
+                        status = await self.get_network_status(
+                            chain=chain, network=network, fail_silently=fail_silently)
+                        if isinstance(status, dict):
+                            statuses.append(status)
+                    except Exception as e:
+                        self.logger().network(f"Error fetching status for {chain}/{network}: {e}")
         except Exception as e:
             self.logger().network(
                 "Error fetching gateway status info",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+        return statuses
 
     async def get_network_status(
         self,
@@ -520,9 +463,13 @@ class GatewayHttpClient:
         network: str = None,
         fail_silently: bool = False
     ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        req_data: Dict[str, str] = {}
-        req_data["network"] = network
-        return await self.api_request("get", f"chains/{chain}/status", req_data, fail_silently=fail_silently)
+        if not chain or not network:
+            raise ValueError(
+                "get_network_status requires both chain and network "
+                "(use get_gateway_status() for all networks)."
+            )
+        return await self.api_request(
+            "get", f"chains/{chain}/status", {"network": network}, fail_silently=fail_silently)
 
     async def update_config(self, namespace: str, path: str, value: Any) -> Dict[str, Any]:
         response = await self.api_request("post", "config/update", {
@@ -811,7 +758,6 @@ class GatewayHttpClient:
         dex: Optional[str] = None,
         trading_type: Optional[str] = None,
         slippage_pct: Optional[Decimal] = None,
-        pool_address: Optional[str] = None,
         chain: Optional[str] = None,
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
@@ -826,7 +772,6 @@ class GatewayHttpClient:
         :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
         :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
         :param slippage_pct: Optional slippage percentage
-        :param pool_address: Pool address for CLMM/AMM swaps
         :param chain: Chain name (e.g., "solana", "ethereum"); combined with a short network to form the "chain-network" the endpoint requires.
         :param fail_silently: Whether to fail silently on error
         :return: Quote response with price, amountIn, amountOut
@@ -854,8 +799,6 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = str(slippage_pct)
-        if trading_type in ("clmm", "amm") and pool_address is not None:
-            request_payload["poolAddress"] = pool_address
 
         return await self.api_request(
             "get",
@@ -874,7 +817,6 @@ class GatewayHttpClient:
         dex: Optional[str] = None,
         trading_type: Optional[str] = None,
         fail_silently: bool = False,
-        pool_address: Optional[str] = None,
         chain: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -888,7 +830,6 @@ class GatewayHttpClient:
         :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
         :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
         :param fail_silently: Whether to fail silently on error
-        :param pool_address: Pool address for CLMM/AMM swaps
         :param chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
         """
         try:
@@ -900,7 +841,6 @@ class GatewayHttpClient:
                 side=side,
                 dex=dex,
                 trading_type=trading_type,
-                pool_address=pool_address,
                 chain=chain,
             )
             return response
@@ -922,7 +862,6 @@ class GatewayHttpClient:
         dex: Optional[str] = None,
         trading_type: Optional[str] = None,
         slippage_pct: Optional[Decimal] = None,
-        pool_address: Optional[str] = None,
         wallet_address: Optional[str] = None,
         chain: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -937,7 +876,6 @@ class GatewayHttpClient:
         :param dex: DEX protocol name (e.g., "jupiter", "orca", "raydium"). If not provided, uses network's default swap provider.
         :param trading_type: Trading type (e.g., "router", "clmm", "amm"). If not provided, uses network's default swap provider.
         :param slippage_pct: Optional slippage percentage
-        :param pool_address: Pool address for CLMM/AMM swaps
         :param wallet_address: Wallet address to execute the swap
         :param chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
         """
@@ -962,8 +900,6 @@ class GatewayHttpClient:
         }
         if slippage_pct is not None:
             request_payload["slippagePct"] = float(slippage_pct)
-        if pool_address is not None:
-            request_payload["poolAddress"] = pool_address
         if wallet_address is not None:
             request_payload["walletAddress"] = wallet_address
         return await self.api_request(
@@ -1605,15 +1541,13 @@ class GatewayHttpClient:
         chain: str,
         network: str
     ) -> Dict[str, Any]:
-        """Remove a token from the gateway."""
-        return await self.api_request(
-            "delete",
-            f"tokens/{address}",
-            params={
-                "chain": chain,
-                "network": network
-            }
-        )
+        """Remove a token from the gateway.
+
+        Gateway declares chain/network as required QUERYSTRING for this DELETE;
+        api_request sends DELETE params as a JSON body, so they ride the URL here.
+        """
+        query = urlencode({"chain": chain, "network": network})
+        return await self.api_request("delete", f"tokens/{address}?{query}")
 
     # ============================================
     # Pool Methods
@@ -1696,12 +1630,10 @@ class GatewayHttpClient:
         :param pool_type: Pool type (amm or clmm)
         :return: Response with status
         """
-        params = {
-            "chain": chain,
-            "network": network,
-            "type": pool_type
-        }
-        return await self.api_request("delete", f"pools/{address}", params=params)
+        # Gateway's route declares chain/network as required QUERYSTRING (and no
+        # "type" at all); api_request sends DELETE params as a body, so ride the URL.
+        query = urlencode({"chain": chain, "network": network})
+        return await self.api_request("delete", f"pools/{address}?{query}")
 
     async def list_pools(
         self,

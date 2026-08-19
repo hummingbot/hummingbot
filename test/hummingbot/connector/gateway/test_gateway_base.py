@@ -435,6 +435,90 @@ class GatewayBaseRetryClassificationTest(unittest.TestCase):
         self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
 
 
+class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
+    """A broadcast-but-unconfirmed transaction must be POLLED to a terminal state,
+    never re-submitted while it can still land — re-invoking the operation posts a
+    brand-new transaction while every previous pending one remains landable."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+        self.connector._chain = "solana"
+        self.connector._network = "mainnet-beta"
+        self.connector.SIGNATURE_POLL_INTERVAL = 0.0
+        self.submissions = 0
+
+    def _patch_poll(self, results):
+        """Patch the gateway poll to return the given txStatus values in order."""
+        seq = iter(results)
+
+        async def fake_poll(chain, network, tx_hash, fail_silently=False):
+            return {"txStatus": next(seq)}
+
+        gateway = MagicMock()
+        gateway.get_transaction_status = fake_poll
+        self.connector._get_gateway_instance = MagicMock(return_value=gateway)
+
+    async def _pending_operation(self):
+        self.submissions += 1
+        return {"signature": f"sig-{self.submissions}", "status": 0}
+
+    def test_pending_polls_to_confirmed_without_resubmitting(self):
+        self._patch_poll([0, 1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "test swap", max_retries=10))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("sig-1", result["signature"])
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
+    def test_pending_dropped_resubmits_once(self):
+        # First submission's signature drops (3 consecutive NOT_FOUND); the second
+        # submission confirms inline.
+        self._patch_poll([-2, -2, -2])
+        original_op = self._pending_operation
+
+        async def operation():
+            if self.submissions == 0:
+                return await original_op()
+            self.submissions += 1
+            return {"signature": f"sig-{self.submissions}", "status": 1}
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual(2, self.submissions)
+
+    def test_pending_landed_but_failed_raises_typed(self):
+        self._patch_poll([-1])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10))
+        self.assertIn("TX_NOT_CONFIRMED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
+
+    def test_timeout_exception_reconciles_signature_before_resubmit(self):
+        # Gateway's 504 embeds the signature; if the tx then confirms, the client
+        # must NOT re-submit.
+        self._patch_poll([1])
+
+        async def operation():
+            self.submissions += 1
+            raise Exception(
+                "Transaction timeout-sig was not confirmed before its blockhash expired. "
+                "It most likely did not land [code: TRANSACTION_TIMEOUT]")
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("timeout-sig", result["signature"])
+        self.assertEqual(1, self.submissions)
+
+    def test_rate_limited_is_retryable(self):
+        error = Exception("Gateway error: too many requests [code: RATE_LIMITED]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.RETRY, action)
+
+
 class GatewayBaseNotFoundPollingTest(unittest.TestCase):
     """The status poller must not wait forever on a transaction the chain does not know.
 

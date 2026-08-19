@@ -48,8 +48,17 @@ NON_RETRYABLE_ERROR_CODES = {
     "NO_ROUTE_FOUND",         # No swap route available for this direction
 }
 
-# The only retryable error code
-RETRYABLE_ERROR_CODE = "TRANSACTION_TIMEOUT"
+# Retryable error codes. TRANSACTION_TIMEOUT means a tx WAS broadcast and its
+# confirmation window raced out — the signature must be polled to a terminal
+# state before any re-submission (re-posting while it can still land duplicates
+# the trade). RATE_LIMITED is a pre-broadcast RPC rejection — nothing is
+# in flight, so a plain delayed retry is safe.
+RETRYABLE_ERROR_CODES = {"TRANSACTION_TIMEOUT", "RATE_LIMITED"}
+
+# Gateway's timeout message embeds the broadcast signature:
+# "Transaction <sig> was not confirmed before its blockhash expired..." /
+# "Transaction <sig> pending after N retries" — capture it for reconciliation.
+_TIMEOUT_SIGNATURE_PATTERN = re.compile(r"Transaction (\S+) (?:was not confirmed|pending)")
 
 
 def extract_error_code(error_str: str) -> Optional[str]:
@@ -68,6 +77,13 @@ class GatewayBase(ConnectorBase):
 
     POLL_INTERVAL = 1.0
     BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
+    # Reconciliation polling for a broadcast-but-unconfirmed transaction: how often
+    # to poll the signature, how long before giving up (must cover Solana's ~90s
+    # blockhash validity window), and how many consecutive NOT_FOUND polls prove
+    # the transaction dropped (a single miss can be RPC lag).
+    SIGNATURE_POLL_INTERVAL = 2.0
+    SIGNATURE_POLL_TIMEOUT = 90.0
+    SIGNATURE_NOT_FOUND_STRIKES = 3
     # How long an order's transaction may poll as NOT_FOUND before the misses count
     # toward the tracker's lost-order limit. Must exceed Solana's blockhash validity
     # window (~90s): within it, not-found can still mean "in flight".
@@ -726,21 +742,42 @@ class GatewayBase(ConnectorBase):
                         )
                         raise Exception(f"Transaction {signature} not confirmed on-chain [code: TX_NOT_CONFIRMED]")
                     elif status == 0:
-                        # Transaction pending - retry (may still confirm)
+                        # Transaction broadcast but unconfirmed. NEVER re-submit while
+                        # it can still land — re-invoking the operation posts a brand-new
+                        # transaction while every previous pending one remains landable
+                        # (Gateway's own timeout says "verify the signature on-chain
+                        # before retrying"). Poll the signature to a terminal state.
+                        if not signature or signature == "unknown":
+                            # Nothing pollable and possibly something broadcast:
+                            # TX_UNRESOLVED classifies non-retryable, so the plain
+                            # retry path can never re-submit it.
+                            raise Exception(
+                                f"{operation_name} returned pending with no signature to reconcile "
+                                "[code: TX_UNRESOLVED]"
+                            )
+                        outcome = await self._await_signature_terminal(signature, operation_name)
+                        if outcome == "CONFIRMED":
+                            # Landed. Confirmed-only response data (e.g. amounts) is not
+                            # available on this path; callers already guard that shape.
+                            return {**result, "status": 1}
+                        # DROPPED: the tx can no longer land, so one fresh submission
+                        # is safe — it counts against the retry budget.
                         current_retries += 1
                         if current_retries >= max_retries:
                             self.logger().error(
-                                f"{operation_name} FAILED after {max_retries} retries. "
-                                f"Transaction {signature} still pending. Manual intervention required."
+                                f"{operation_name} FAILED: transaction dropped and retry budget "
+                                f"({max_retries}) exhausted."
                             )
-                            raise Exception(f"Transaction {signature} pending after {max_retries} retries [code: TRANSACTION_TIMEOUT]")
-
+                            raise Exception(
+                                f"Transaction {signature} dropped after {current_retries} submissions "
+                                "[code: TRANSACTION_TIMEOUT]"
+                            )
                         self.logger().warning(
-                            f"{operation_name} transaction pending (retry {current_retries}/{max_retries}). "
-                            f"Signature: {signature}. Retrying..."
+                            f"{operation_name}: transaction {signature} dropped (never landed); "
+                            f"re-submitting (attempt {current_retries + 1}/{max_retries + 1})."
                         )
                         await asyncio.sleep(retry_delay)
-                        continue  # Retry
+                        continue
                     else:
                         # Unknown status, return as-is
                         return result
@@ -759,11 +796,83 @@ class GatewayBase(ConnectorBase):
                     raise
                 elif action == RetryAction.RETRY:
                     current_retries += 1
-                    self.logger().warning(
-                        f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. Retrying..."
-                    )
+                    # A timeout error means a transaction WAS broadcast; its signature
+                    # (embedded in Gateway's message) must be reconciled before any
+                    # re-submission. RATE_LIMITED and signature-less timeouts broadcast
+                    # nothing, so a plain delayed retry is safe.
+                    timeout_signature = self._extract_timeout_signature(str(e))
+                    if timeout_signature:
+                        outcome = await self._await_signature_terminal(timeout_signature, operation_name)
+                        if outcome == "CONFIRMED":
+                            self.logger().warning(
+                                f"{operation_name}: transaction {timeout_signature} confirmed after "
+                                "timeout; not re-submitting."
+                            )
+                            return {"signature": timeout_signature, "status": 1}
+                        self.logger().warning(
+                            f"{operation_name}: transaction {timeout_signature} dropped (never landed); "
+                            f"re-submitting (retry {current_retries}/{max_retries})."
+                        )
+                    else:
+                        self.logger().warning(
+                            f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. Retrying..."
+                        )
                     await asyncio.sleep(retry_delay)
                     # Continue to next iteration
+
+    @staticmethod
+    def _extract_timeout_signature(error_str: str) -> Optional[str]:
+        """Signature embedded in a Gateway TRANSACTION_TIMEOUT message, if any."""
+        if "TRANSACTION_TIMEOUT" not in error_str:
+            return None
+        match = _TIMEOUT_SIGNATURE_PATTERN.search(error_str)
+        return match.group(1) if match else None
+
+    async def _await_signature_terminal(self, signature: str, operation_name: str) -> str:
+        """
+        Poll a broadcast-but-unconfirmed signature to a terminal state.
+
+        Returns "CONFIRMED" when the tx landed successfully, "DROPPED" when it can
+        no longer land (NOT_FOUND for SIGNATURE_NOT_FOUND_STRIKES consecutive polls).
+        Raises typed TX_NOT_CONFIRMED when it landed but failed on-chain, and typed
+        TRANSACTION_TIMEOUT when still unresolved at SIGNATURE_POLL_TIMEOUT — the
+        caller must NOT re-submit in that case (the tx may still land).
+        """
+        deadline = time.time() + self.SIGNATURE_POLL_TIMEOUT
+        not_found_streak = 0
+        while time.time() < deadline:
+            await asyncio.sleep(self.SIGNATURE_POLL_INTERVAL)
+            try:
+                poll = await self._get_gateway_instance().get_transaction_status(
+                    self._chain, self._network, signature, fail_silently=True
+                )
+            except Exception as poll_error:
+                self.logger().warning(
+                    f"{operation_name}: error polling {signature}: {poll_error}; retrying poll."
+                )
+                continue
+
+            tx_status = (poll or {}).get("txStatus")
+            if tx_status == 1:
+                return "CONFIRMED"
+            if tx_status == -1:
+                error_msg = (poll or {}).get("error") or "Transaction failed on-chain"
+                raise Exception(
+                    f"Transaction {signature} failed on-chain: {error_msg} [code: TX_NOT_CONFIRMED]"
+                )
+            if tx_status == -2:
+                not_found_streak += 1
+                if not_found_streak >= self.SIGNATURE_NOT_FOUND_STRIKES:
+                    return "DROPPED"
+            else:
+                not_found_streak = 0
+
+        # Deliberately NOT [code: TRANSACTION_TIMEOUT]: that code is retryable, and
+        # this exception must never re-enter the retry loop — the tx may still land.
+        raise Exception(
+            f"Transaction {signature} still unresolved after {self.SIGNATURE_POLL_TIMEOUT:.0f}s of "
+            "polling; NOT re-submitting (it may still land) [code: TX_UNRESOLVED]"
+        )
 
     def _classify_error(
         self,
@@ -792,8 +901,9 @@ class GatewayBase(ConnectorBase):
             )
             return RetryAction.FAIL_IMMEDIATE
 
-        # Check for timeout (retryable)
-        is_timeout = error_code == RETRYABLE_ERROR_CODE or "TRANSACTION_TIMEOUT" in error_str
+        # Check for retryable codes (timeout with signature reconciliation handled
+        # by the caller; rate limiting with a plain delayed retry)
+        is_timeout = error_code in RETRYABLE_ERROR_CODES or "TRANSACTION_TIMEOUT" in error_str
 
         if not is_timeout:
             # No error code and not a timeout - fail immediately

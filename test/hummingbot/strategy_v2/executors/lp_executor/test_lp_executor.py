@@ -1118,43 +1118,61 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should log error and return
 
     async def test_close_position_already_closed_none(self):
-        """Test _close_position handles already-closed position (None response)"""
+        """Pre-flight misses are gated: one miss never completes; a seen-on-chain
+        position completes after 3 consecutive fresh misses."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(return_value=None)
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
+        # First two misses: no close submitted, not complete
         await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        connector._clmm_close_position.assert_not_awaited()
 
+        # Third consecutive miss: definitively gone
+        await executor._close_position()
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
         connector._trigger_remove_liquidity_event.assert_called_once()
 
     async def test_close_position_already_closed_exception(self):
-        """Test _close_position handles position closed exception"""
+        """A 'position closed' exception counts as a miss and is gated identically."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position closed: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
-        await executor._close_position()
+        for _ in range(3):
+            await executor._close_position()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        connector._clmm_close_position.assert_not_awaited()
 
     async def test_close_position_not_found_exception(self):
-        """Test _close_position handles position not found exception"""
+        """'Position not found' exceptions count as misses under the same 3-miss gate."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position not found: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
+
+        for _ in range(2):
+            await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
         await executor._close_position()
-
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_close_position_other_exception_proceeds(self):
@@ -1677,23 +1695,30 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_execute_closeout_swap_no_connector(self):
-        """Test _execute_closeout_swap handles missing connector"""
+        """Swap failures are retried with a fresh quote; exhaustion terminates as a
+        POSITION_HOLD carrying the withdrawn tokens — never FAILED with hidden
+        exposure."""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.connectors = {}  # No connectors
 
-        await executor._execute_closeout_swap()
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS):
+            await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
 
     async def test_execute_closeout_swap_no_swap_provider(self):
-        """Test _execute_closeout_swap handles missing swap_provider"""
+        """Missing swap_provider exhausts the swap attempts into a POSITION_HOLD."""
         executor = self.get_executor()
         executor.config.swap_provider = None
 
-        await executor._execute_closeout_swap()
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS):
+            await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
 
     async def test_execute_closeout_swap_active_order_filled(self):
         """Test _execute_closeout_swap handles FILLED swap order"""
@@ -1723,6 +1748,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-123")
 
         mock_order = MagicMock(spec=InFlightOrder)
@@ -1734,7 +1760,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # One failure = one burned attempt; the executor stays in SWAPPING and
+        # re-places with a fresh quote on the next tick.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertIsNone(executor.lp_position_state.active_swap_order)
+        self.assertEqual(executor._swap_failure_count, 1)
 
     async def test_execute_closeout_swap_active_order_canceled(self):
         """Test _execute_closeout_swap handles CANCELED swap order"""
@@ -1743,6 +1773,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-123")
 
         mock_order = MagicMock(spec=InFlightOrder)
@@ -1754,7 +1785,9 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # Cancellation also burns one attempt and re-places next tick.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertEqual(executor._swap_failure_count, 1)
 
     async def test_execute_closeout_swap_active_order_not_found_multiple_times(self):
         """Test _execute_closeout_swap handles order not found after multiple checks"""
@@ -1855,6 +1888,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         """Test _execute_closeout_swap handles exception when placing swap"""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("1.5")
         executor.lp_position_state.base_fee = Decimal("0.01")
@@ -1863,8 +1897,14 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.place_order = MagicMock(side_effect=Exception("Swap failed"))
 
         await executor._execute_closeout_swap()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # Exhaustion converts to a POSITION_HOLD of the withdrawn tokens
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS - 1):
+            await executor._execute_closeout_swap()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
 
     def test_force_stop_mid_swap_holds_withdrawn_balance(self):
         """A forced stop mid-SWAPPING converts the withdrawn tokens into a position hold.
@@ -2043,13 +2083,16 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     # Tests for early_stop from OPENING state
 
     def test_early_stop_from_opening_state(self):
-        """Test early_stop from OPENING state goes to FAILED with EARLY_STOP"""
+        """early_stop during OPENING no longer kills the state mid-create: the
+        in-flight create is allowed to resolve (its tx may land), and the success
+        tail routes to CLOSING via _close_after_open."""
         executor = self.get_executor()
         executor.lp_position_state.state = LPExecutorStates.OPENING
 
-        executor.early_stop()
+        executor.early_stop(keep_position=False)
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.OPENING)
+        self.assertTrue(executor._close_after_open)
         self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
     # Tests for _calculate_net_base_difference
@@ -2299,8 +2342,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector = self.strategy.connectors["solana-mainnet-beta"]
         connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position closed: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
-        await executor._close_position()
+        # 3-consecutive-miss gate before the position counts as gone
+        for _ in range(3):
+            await executor._close_position()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
         orders = [o for o in executor._held_position_orders if o["executed_amount_base"]]

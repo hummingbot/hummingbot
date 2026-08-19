@@ -221,8 +221,7 @@ class Gateway(GatewayBase):
             trading_pair: str,
             is_buy: bool,
             amount: Decimal,
-            slippage_pct: Optional[Decimal] = None,
-            pool_address: Optional[str] = None
+            slippage_pct: Optional[Decimal] = None
     ) -> Optional[Decimal]:
         """
         Retrieves the volume weighted average price for a swap.
@@ -231,7 +230,6 @@ class Gateway(GatewayBase):
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
         :param slippage_pct: Maximum allowed slippage percentage
-        :param pool_address: Optional specific pool address
         :return: The quote price.
         """
         base, quote = trading_pair.split("-")
@@ -252,8 +250,7 @@ class Gateway(GatewayBase):
                 quote_asset=quote,
                 amount=amount,
                 side=side,
-                slippage_pct=slippage_pct,
-                pool_address=pool_address
+                slippage_pct=slippage_pct
             )
             price = resp.get("price", None)
             return Decimal(price) if price is not None else None
@@ -315,7 +312,7 @@ class Gateway(GatewayBase):
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
         :param price: The order price
-        :param kwargs: Additional parameters (dex, quote_id, pool_address, slippage_pct, max_retries)
+        :param kwargs: Additional parameters (dex_name, quote_id, slippage_pct, max_retries)
         """
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
@@ -336,40 +333,44 @@ class Gateway(GatewayBase):
 
         # Extract optional parameters
         quote_id = kwargs.get("quote_id")
-        pool_address = kwargs.get("pool_address")
         slippage_pct = kwargs.get("slippage_pct")
         max_retries = kwargs.get("max_retries", 10)
-
-        if not self._swap_provider:
-            raise ValueError(f"No swap provider configured for {self.network}.")
-
-        dex, trading_type = self._parse_dex_name(self._swap_provider)
-
-        async def execute_gateway_swap() -> Dict[str, Any]:
-            if quote_id:
-                return await self._get_gateway_instance().execute_quote(
-                    dex=dex,
-                    trading_type=trading_type,
-                    quote_id=quote_id,
-                    network=self.network,
-                    wallet_address=self.address
-                )
-            else:
-                return await self._get_gateway_instance().execute_swap(
-                    dex=dex,
-                    trading_type=trading_type,
-                    base_asset=base,
-                    quote_asset=quote,
-                    side=trade_type,
-                    amount=amount,
-                    network=self.network,
-                    chain=self.chain,
-                    wallet_address=self.address,
-                    pool_address=pool_address,
-                    slippage_pct=slippage_pct
-                )
+        # An explicit dex_name (e.g. the LP executor's configured swap_provider)
+        # overrides the network's default provider — it used to be silently ignored.
+        swap_provider = kwargs.get("dex_name") or self._swap_provider
 
         try:
+            # Inside the try: a missing provider must fail the ORDER (via
+            # _handle_operation_failure) — raising before this block left the order
+            # tracked-but-stuck in OPEN forever with no failure event.
+            if not swap_provider:
+                raise ValueError(f"No swap provider configured for {self.network}.")
+
+            dex, trading_type = self._parse_dex_name(swap_provider)
+
+            async def execute_gateway_swap() -> Dict[str, Any]:
+                if quote_id:
+                    return await self._get_gateway_instance().execute_quote(
+                        dex=dex,
+                        trading_type=trading_type,
+                        quote_id=quote_id,
+                        network=self.network,
+                        wallet_address=self.address
+                    )
+                else:
+                    return await self._get_gateway_instance().execute_swap(
+                        dex=dex,
+                        trading_type=trading_type,
+                        base_asset=base,
+                        quote_asset=quote,
+                        side=trade_type,
+                        amount=amount,
+                        network=self.network,
+                        chain=self.chain,
+                        wallet_address=self.address,
+                        slippage_pct=slippage_pct
+                    )
+
             order_result = await self._execute_with_retry(
                 operation=execute_gateway_swap,
                 operation_name=f"swap {trade_type.name} {amount} on {trading_pair}",
@@ -1116,12 +1117,12 @@ class Gateway(GatewayBase):
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 data = transaction_result.get("data", {})
+                # RemoveLiquidityResponse.data carries only fee + removed amounts.
+                # Fee-collected/rent keys exist only on the CLOSE response — reading
+                # them here always yielded 0 and masqueraded as "no fees collected".
                 self._lp_orders_metadata[order_id].update({
                     "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
                     "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
                     "tx_fee": Decimal(str(data.get("fee", 0))),
                 })
                 return transaction_hash
@@ -1173,12 +1174,12 @@ class Gateway(GatewayBase):
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 data = transaction_result.get("data", {})
+                # RemoveLiquidityResponse.data carries only fee + removed amounts.
+                # Fee-collected/rent keys exist only on the CLOSE response — reading
+                # them here always yielded 0 and masqueraded as "no fees collected".
                 self._lp_orders_metadata[order_id].update({
                     "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
                     "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
                     "tx_fee": Decimal(str(data.get("fee", 0))),
                 })
                 return transaction_hash

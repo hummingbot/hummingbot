@@ -52,6 +52,12 @@ class OrderExecutor(ExecutorBase):
         self._failed_orders: list[TrackedOrder] = []
         self._canceled_orders: list[TrackedOrder] = []
         self._partial_filled_orders: list[TrackedOrder] = []
+        self._shutdown_ticks: int = 0
+
+    # Shutdown ticks (5s apart) tolerated for an order stuck in a state that is
+    # neither open nor filled (e.g. the created event never arrived) before the
+    # executor force-stops with whatever exposure it knows about.
+    MAX_SHUTDOWN_TICKS = 12
 
     @property
     def current_market_price(self) -> Decimal:
@@ -131,6 +137,10 @@ class OrderExecutor(ExecutorBase):
         """
         if not self._order or not self._order.order or not self._order.order.is_open:
             return
+        if self._order.order.is_pending_cancel_confirmation:
+            # A renewal is already in flight: wait for the cancel to resolve
+            # (the replacement is placed by control_order once _order clears).
+            return
 
         current_price = self.current_market_price
         threshold = self.config.chaser_config.refresh_threshold
@@ -146,8 +156,17 @@ class OrderExecutor(ExecutorBase):
         """
         This method allows strategy to stop the executor early.
 
+        keep_position=False is NOT supported here: an order executor cannot unwind
+        fills (that is a position executor's job), so any filled quantity is always
+        terminated as a POSITION_HOLD rather than silently dropped from the store.
+
         :return: None
         """
+        if not keep_position:
+            self.logger().warning(
+                f"Executor {self.config.id}: keep_position=False is not supported by "
+                "OrderExecutor — filled quantity (if any) will be held, not unwound."
+            )
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def _cancel_outstanding_orders(self):
@@ -182,6 +201,20 @@ class OrderExecutor(ExecutorBase):
                 self._held_position_orders.append(self._order.order.to_json())
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
+            else:
+                # Neither open nor filled — usually the created event never arrived
+                # (e.g. a stuck placement). Bounded wait, then force-stop with the
+                # exposure we know about instead of looping in SHUTTING_DOWN forever.
+                self._shutdown_ticks += 1
+                if self._shutdown_ticks >= self.MAX_SHUTDOWN_TICKS:
+                    self.logger().error(
+                        f"Executor {self.config.id}: order {self._order.order_id} stuck in an "
+                        "indeterminate state at shutdown; force-stopping with known fills."
+                    )
+                    self._held_position_orders.extend(
+                        [order.order.to_json() for order in self._partial_filled_orders])
+                    self.close_type = CloseType.POSITION_HOLD if self._held_position_orders else CloseType.FAILED
+                    self.stop()
         else:
             if self._partial_filled_orders:
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
@@ -268,13 +301,17 @@ class OrderExecutor(ExecutorBase):
 
     def renew_order(self):
         """
-        Renew the order with a new price.
+        Renew the order: request cancellation of the current order and let
+        control_order place the replacement once the cancel RESOLVES (the canceled
+        event moves the order to the partial/canceled lists and clears self._order).
 
-        :param new_price: The new price for the order.
+        Placing the replacement immediately used to reassign self._order before the
+        cancel resolved: every subsequent event for the old id failed the identity
+        check, so fills-during-cancel vanished from executed_amount_base and the
+        replacement was sized without them — re-ordering quantity already bought.
         """
         self.cancel_order()
-        self.place_open_order()
-        self.logger().debug("Renewing order")
+        self.logger().debug("Renewing order: cancel requested; replacement placed once the cancel resolves")
 
     def cancel_order(self):
         """
@@ -316,7 +353,10 @@ class OrderExecutor(ExecutorBase):
         """
         self.update_tracked_order_with_order_id(event.order_id)
         if self._order and self._order.order_id == event.order_id:
+            # Hold the completed order AND every earlier partial fill from renewals —
+            # the position store must see the executor's full exposure.
             self._held_position_orders.append(self._order.order.to_json())
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
             self.close_type = CloseType.POSITION_HOLD
             self.stop()
 
@@ -336,10 +376,33 @@ class OrderExecutor(ExecutorBase):
         Process the order failed event.
         """
         if self._order and event.order_id == self._order.order_id:
-            self._failed_orders.append(self._order)
+            # An order that failed AFTER partially filling carries real exposure:
+            # keep those fills in the partial list so they count toward
+            # executed_amount_base (sizing) and the terminal hold.
+            if self._order.executed_amount_base > Decimal("0"):
+                self._partial_filled_orders.append(self._order)
+            else:
+                self._failed_orders.append(self._order)
             self._order = None
             self.logger().error(f"Order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
             self._current_retries += 1
+
+    def evaluate_max_retries(self):
+        """
+        Stop after the retry budget, but never discard real exposure: retry
+        exhaustion with partial fills terminates POSITION_HOLD carrying them —
+        the base FAILED-and-stop would report "nothing left behind" while filled
+        quantity sits in the account.
+        """
+        if self._current_retries > self._max_retries:
+            if self._order and self._order.is_filled:
+                self._held_position_orders.append(self._order.order.to_json())
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+            if self._held_position_orders:
+                self.close_type = CloseType.POSITION_HOLD
+            else:
+                self.close_type = CloseType.FAILED
+            self.stop()
 
     def get_custom_info(self) -> Dict:
         """
