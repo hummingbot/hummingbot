@@ -15,7 +15,2792 @@
         }
       }
     },
-    "schemas": {}
+    "schemas": {
+      "AmmPoolInfo": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "type": "string"
+          },
+          "feePct": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "baseTokenAddress",
+          "quoteTokenAddress",
+          "feePct",
+          "price",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AmmGetPoolInfoRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "poolAddress"
+        ]
+      },
+      "AmmAddLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AmmAddLiquidityResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AmmAddLiquidityResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AmmAddLiquidityResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position the liquidity went into. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "string"
+          },
+          "positionRent": {
+            "format": "decimal",
+            "description": "Native token locked as rent when this call opened the position. Absent when adding to a position that already existed, and on fungible-LP AMMs.",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "number"
+          },
+          "baseTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseTokenAmountAdded",
+          "quoteTokenAmountAdded"
+        ]
+      },
+      "AmmOpenPositionResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AmmOpenPositionResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AmmOpenPositionResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Address of the newly opened position. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.",
+            "type": "string"
+          },
+          "positionRent": {
+            "format": "decimal",
+            "description": "Native token locked as rent for the position account, refunded on close. 0 on fungible-LP AMMs, which lock no rent.",
+            "type": "number"
+          },
+          "baseTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "positionRent",
+          "baseTokenAmountAdded",
+          "quoteTokenAmountAdded"
+        ]
+      },
+      "AmmClosePositionResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AmmClosePositionResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AmmClosePositionResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "string"
+          },
+          "positionRentRefunded": {
+            "format": "decimal",
+            "description": "Native token rent returned when the position account closed. 0 on fungible-LP AMMs, which have no position account to close.",
+            "type": "number"
+          },
+          "baseTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "positionRentRefunded",
+          "baseTokenAmountRemoved",
+          "quoteTokenAmountRemoved"
+        ]
+      },
+      "QuoteLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "QuoteLiquidityResponse": {
+        "type": "object",
+        "properties": {
+          "poolAddress": {
+            "description": "Pool the quote was computed against",
+            "type": "string"
+          },
+          "baseLimited": {
+            "type": "boolean"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmountMax": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountMax": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseLimited",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "baseTokenAmountMax",
+          "quoteTokenAmountMax"
+        ]
+      },
+      "AmmRemoveLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "percentageToRemove": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "percentageToRemove"
+        ]
+      },
+      "AmmRemoveLiquidityResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AmmRemoveLiquidityResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AmmRemoveLiquidityResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "string"
+          },
+          "baseTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseTokenAmountRemoved",
+          "quoteTokenAmountRemoved"
+        ]
+      },
+      "CreatePoolRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Base token symbol or address (becomes the pool base)",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Quote token symbol or address (becomes the pool quote)",
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to seed the pool with",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to seed with. If provided, the base:quote ratio sets the initial price. If omitted (and no initialPrice), the price is fetched from the market.",
+            "type": "number"
+          },
+          "initialPrice": {
+            "format": "decimal",
+            "description": "Initial price as quote per base. Overrides quoteTokenAmount. If both are omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "quoteToken",
+          "baseTokenAmount"
+        ]
+      },
+      "CreatePoolResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Address of the newly created pool",
+            "type": "string"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Initial price the pool was seeded at (quote per base)",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CreatePoolResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status",
+          "poolAddress"
+        ]
+      },
+      "CreatePoolResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseTokenAmountAdded",
+          "quoteTokenAmountAdded"
+        ]
+      },
+      "PositionDetail": {
+        "type": "object",
+        "properties": {
+          "positionAddress": {
+            "description": "Address of the individual position (NFT position account)",
+            "type": "string"
+          },
+          "lpTokenAmount": {
+            "format": "decimal",
+            "description": "Liquidity held by this position (LP units)",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "positionAddress",
+          "lpTokenAmount",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AmmPositionInfo": {
+        "type": "object",
+        "properties": {
+          "poolAddress": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "type": "string"
+          },
+          "lpTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PositionDetail"
+            }
+          }
+        },
+        "required": [
+          "poolAddress",
+          "walletAddress",
+          "baseTokenAddress",
+          "quoteTokenAddress",
+          "lpTokenAmount",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "price"
+        ]
+      },
+      "AmmGetPositionInfoRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "poolAddress"
+        ]
+      },
+      "AmmQuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Token to determine swap direction",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair (optional - required if poolAddress not provided)",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "side": {
+            "description": "Trade direction",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "amount",
+          "side"
+        ]
+      },
+      "AmmQuoteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "poolAddress": {
+            "type": "string"
+          },
+          "tokenIn": {
+            "type": "string"
+          },
+          "tokenOut": {
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "minAmountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "maxAmountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "priceImpactPct": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "price",
+          "minAmountOut",
+          "maxAmountIn",
+          "priceImpactPct"
+        ]
+      },
+      "AmmExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "walletAddress": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
+            "type": "string"
+          },
+          "baseToken": {
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair (optional - required if poolAddress not provided)",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "side": {
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "amount",
+          "side"
+        ]
+      },
+      "AmmExecuteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AmmExecuteSwapResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AmmExecuteSwapResponseData": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "type": "string"
+          },
+          "tokenOut": {
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenBalanceChange": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenBalanceChange": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage actually applied to the swap",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "fee",
+          "baseTokenBalanceChange",
+          "quoteTokenBalanceChange"
+        ]
+      },
+      "EstimateGasRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          }
+        }
+      },
+      "EstimateGasResponse": {
+        "type": "object",
+        "properties": {
+          "feePerComputeUnit": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "denomination": {
+            "type": "string"
+          },
+          "computeUnits": {
+            "type": "number"
+          },
+          "feeAsset": {
+            "type": "string"
+          },
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "number"
+          },
+          "gasType": {
+            "type": "string"
+          },
+          "maxFeePerGas": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "maxPriorityFeePerGas": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "priorityFeeLevel": {
+            "type": "string"
+          },
+          "priorityFeePerCUEstimate": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feePerComputeUnit",
+          "denomination",
+          "computeUnits",
+          "feeAsset",
+          "fee",
+          "timestamp"
+        ]
+      },
+      "BalanceRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "tokens": {
+            "description": "a list of token symbols or addresses",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fetchAll": {
+            "description": "fetch all tokens in wallet, not just those in token list (default: false)",
+            "type": "boolean"
+          }
+        }
+      },
+      "BalanceResponse": {
+        "type": "object",
+        "properties": {
+          "balances": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "balances"
+        ]
+      },
+      "TokensRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "tokenSymbols": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "TokensResponse": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                },
+                "decimals": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "symbol",
+                "address",
+                "decimals",
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "tokens"
+        ]
+      },
+      "PollRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "signature": {
+            "description": "Transaction signature/hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signature"
+        ]
+      },
+      "PollResponse": {
+        "type": "object",
+        "properties": {
+          "currentBlock": {
+            "type": "number"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "txBlock": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "txStatus": {
+            "description": "Transaction status: 1 = confirmed, 0 = pending, -1 = failed, -2 = not found (unknown to the chain: never received or dropped; on Solana this is terminal once the transaction blockhash expires)",
+            "type": "number"
+          },
+          "fee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "description": "Error info if failed: \"TYPE (code): message\"",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "txData": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "currentBlock",
+          "signature",
+          "txBlock",
+          "txStatus",
+          "fee",
+          "error",
+          "txData"
+        ]
+      },
+      "StatusRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "properties": {
+          "chain": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "rpcUrl": {
+            "type": "string"
+          },
+          "rpcProvider": {
+            "type": "string"
+          },
+          "currentBlockNumber": {
+            "type": "number"
+          },
+          "nativeCurrency": {
+            "type": "string"
+          },
+          "swapProvider": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain",
+          "network",
+          "rpcUrl",
+          "rpcProvider",
+          "currentBlockNumber",
+          "nativeCurrency",
+          "swapProvider"
+        ]
+      },
+      "ChainQuoteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "description": "Address of the token being swapped from",
+            "type": "string"
+          },
+          "tokenOut": {
+            "description": "Address of the token being swapped to",
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "description": "Amount of tokenIn to be swapped",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "description": "Expected amount of tokenOut to receive",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Exchange rate between tokenIn and tokenOut",
+            "type": "number"
+          },
+          "priceImpactPct": {
+            "format": "decimal",
+            "description": "Estimated price impact percentage (0-100)",
+            "type": "number"
+          },
+          "minAmountOut": {
+            "format": "decimal",
+            "description": "Minimum amount of tokenOut that will be accepted",
+            "type": "number"
+          },
+          "maxAmountIn": {
+            "format": "decimal",
+            "description": "Maximum amount of tokenIn that will be spent",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool address for AMM/CLMM swaps",
+            "type": "string"
+          },
+          "routePath": {
+            "description": "Route path for router-based swaps",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "price",
+          "priceImpactPct",
+          "minAmountOut",
+          "maxAmountIn"
+        ]
+      },
+      "ChainExecuteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "description": "Transaction signature/hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ChainExecuteSwapResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "ChainExecuteSwapResponseData": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "description": "Address of the token swapped from",
+            "type": "string"
+          },
+          "tokenOut": {
+            "description": "Address of the token swapped to",
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "description": "Actual amount of tokenIn swapped",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "description": "Actual amount of tokenOut received",
+            "type": "number"
+          },
+          "fee": {
+            "format": "decimal",
+            "description": "Transaction fee paid",
+            "type": "number"
+          },
+          "baseTokenBalanceChange": {
+            "format": "decimal",
+            "description": "Change in base token balance (negative for decrease)",
+            "type": "number"
+          },
+          "quoteTokenBalanceChange": {
+            "format": "decimal",
+            "description": "Change in quote token balance (negative for decrease)",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage actually applied to the swap",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "fee",
+          "baseTokenBalanceChange",
+          "quoteTokenBalanceChange"
+        ]
+      },
+      "WrapRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "address": {
+            "description": "Wallet address holding the native token",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Amount of the native token to wrap, in whole units (not lamports/wei)",
+            "type": "string",
+            "example": "1.0"
+          }
+        },
+        "required": [
+          "address",
+          "amount"
+        ]
+      },
+      "UnwrapRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "address": {
+            "description": "Wallet address holding the wrapped token",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Amount of the wrapped token to unwrap, in whole units. Solana unwraps the full balance when omitted; EVM chains require it.",
+            "type": "string",
+            "example": "1.0"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "ChainWrapResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ChainWrapResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "ChainWrapResponseData": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "description": "EVM transaction nonce; absent on non-EVM chains",
+            "type": "number"
+          },
+          "fee": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "wrappedAddress": {
+            "type": "string"
+          },
+          "nativeToken": {
+            "type": "string"
+          },
+          "wrappedToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fee",
+          "amount",
+          "wrappedAddress",
+          "nativeToken",
+          "wrappedToken"
+        ]
+      },
+      "RouterQuoteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "description": "Address of the token being swapped from",
+            "type": "string"
+          },
+          "tokenOut": {
+            "description": "Address of the token being swapped to",
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "description": "Amount of tokenIn to be swapped",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "description": "Expected amount of tokenOut to receive",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Exchange rate between tokenIn and tokenOut",
+            "type": "number"
+          },
+          "priceImpactPct": {
+            "format": "decimal",
+            "description": "Estimated price impact percentage (0-100)",
+            "type": "number"
+          },
+          "minAmountOut": {
+            "format": "decimal",
+            "description": "Minimum amount of tokenOut that will be accepted",
+            "type": "number"
+          },
+          "maxAmountIn": {
+            "format": "decimal",
+            "description": "Maximum amount of tokenIn that will be spent",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool address for AMM/CLMM swaps",
+            "type": "string"
+          },
+          "routePath": {
+            "description": "Route path for router-based swaps",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage",
+            "type": "number"
+          },
+          "quoteId": {
+            "description": "Identifier to pass to /trading/router/execute-quote",
+            "type": "string"
+          },
+          "approximation": {
+            "description": "True when a BUY was approximated via a sell-leg ExactIn quote because the router has no ExactOut route; amountOut is an estimate rather than exact",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "price",
+          "priceImpactPct",
+          "minAmountOut",
+          "maxAmountIn",
+          "quoteId"
+        ]
+      },
+      "FetchPoolsRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "description": "Network to use",
+            "type": "string"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of pools to return",
+            "type": "number"
+          },
+          "query": {
+            "description": "Search query to match pools by name, tokens, or address",
+            "type": "string"
+          },
+          "sortBy": {
+            "description": "Sort by field (connector-specific)",
+            "type": "string"
+          }
+        }
+      },
+      "PoolListItem": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "description": "Pool address",
+            "type": "string"
+          },
+          "name": {
+            "description": "Pool name (e.g., SOL-USDC)",
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "description": "Base token address",
+            "type": "string"
+          },
+          "baseTokenSymbol": {
+            "description": "Base token symbol",
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "description": "Quote token address",
+            "type": "string"
+          },
+          "quoteTokenSymbol": {
+            "description": "Quote token symbol",
+            "type": "string"
+          },
+          "binStep": {
+            "description": "Bin step / tick spacing",
+            "type": "number"
+          },
+          "baseFee": {
+            "format": "decimal",
+            "description": "Base fee percentage",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Current price",
+            "type": "number"
+          },
+          "tvl": {
+            "format": "decimal",
+            "description": "Total value locked in USD",
+            "type": "number"
+          },
+          "apr": {
+            "format": "decimal",
+            "description": "Annual percentage rate",
+            "type": "number"
+          },
+          "apy": {
+            "format": "decimal",
+            "description": "Annual percentage yield",
+            "type": "number"
+          },
+          "volume24h": {
+            "format": "decimal",
+            "description": "24-hour trading volume",
+            "type": "number"
+          },
+          "fees24h": {
+            "format": "decimal",
+            "description": "24-hour fees collected",
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "name",
+          "baseTokenAddress",
+          "baseTokenSymbol",
+          "quoteTokenAddress",
+          "quoteTokenSymbol",
+          "binStep",
+          "baseFee",
+          "price",
+          "tvl"
+        ]
+      },
+      "FetchPoolsResponse": {
+        "type": "object",
+        "properties": {
+          "pools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PoolListItem"
+            }
+          },
+          "total": {
+            "description": "Total number of matching pools",
+            "type": "number"
+          },
+          "page": {
+            "description": "Current page number",
+            "type": "number"
+          },
+          "pageSize": {
+            "description": "Number of pools per page",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pools",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "GetPositionsOwnedRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "walletAddress"
+        ]
+      },
+      "BinLiquidity": {
+        "type": "object",
+        "properties": {
+          "binId": {
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "binId",
+          "price",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "PoolInfo": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "type": "string"
+          },
+          "binStep": {
+            "type": "number"
+          },
+          "feePct": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "activeBinId": {
+            "type": "number"
+          },
+          "bins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BinLiquidity"
+            }
+          }
+        },
+        "required": [
+          "address",
+          "baseTokenAddress",
+          "quoteTokenAddress",
+          "feePct",
+          "price",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "activeBinId"
+        ]
+      },
+      "MeteoraPoolInfo": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "type": "string"
+          },
+          "binStep": {
+            "type": "number"
+          },
+          "feePct": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "activeBinId": {
+            "type": "number"
+          },
+          "bins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BinLiquidity"
+            }
+          },
+          "dynamicFeePct": {
+            "type": "number"
+          },
+          "minBinId": {
+            "type": "number"
+          },
+          "maxBinId": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "baseTokenAddress",
+          "quoteTokenAddress",
+          "feePct",
+          "price",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "activeBinId",
+          "dynamicFeePct",
+          "minBinId",
+          "maxBinId"
+        ]
+      },
+      "GetPoolInfoRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "binCount": {
+            "description": "If > 0, include a `bins` array in the response (per-tickSpacing token amounts around the active tick, mirroring Meteora pool-info.bins[]). Default 0 = skip the bin fetch.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 401,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "poolAddress"
+        ]
+      },
+      "PositionInfo": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "baseTokenAddress": {
+            "type": "string"
+          },
+          "quoteTokenAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseFeeAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteFeeAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "lowerBinId": {
+            "type": "number"
+          },
+          "upperBinId": {
+            "type": "number"
+          },
+          "lowerPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "upperPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "address",
+          "poolAddress",
+          "baseTokenAddress",
+          "quoteTokenAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "baseFeeAmount",
+          "quoteFeeAmount",
+          "lowerBinId",
+          "upperBinId",
+          "lowerPrice",
+          "upperPrice",
+          "price"
+        ]
+      },
+      "GetPositionInfoRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionAddress"
+        ]
+      },
+      "OpenPositionRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "lowerPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "upperPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lowerPrice",
+          "upperPrice",
+          "poolAddress"
+        ]
+      },
+      "OpenPositionResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/OpenPositionResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "OpenPositionResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          },
+          "positionRent": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "positionAddress",
+          "positionRent",
+          "baseTokenAmountAdded",
+          "quoteTokenAmountAdded"
+        ]
+      },
+      "AddLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "positionAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AddLiquidityResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AddLiquidityResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "AddLiquidityResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "type": "string"
+          },
+          "baseTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountAdded": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseTokenAmountAdded",
+          "quoteTokenAmountAdded"
+        ]
+      },
+      "RemoveLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          },
+          "percentageToRemove": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "positionAddress",
+          "percentageToRemove"
+        ]
+      },
+      "RemoveLiquidityResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/RemoveLiquidityResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "RemoveLiquidityResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "type": "string"
+          },
+          "baseTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseTokenAmountRemoved",
+          "quoteTokenAmountRemoved"
+        ]
+      },
+      "CollectFeesRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionAddress"
+        ]
+      },
+      "CollectFeesResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CollectFeesResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "CollectFeesResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "type": "string"
+          },
+          "baseFeeAmountCollected": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteFeeAmountCollected": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "baseFeeAmountCollected",
+          "quoteFeeAmountCollected"
+        ]
+      },
+      "ClosePositionRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "positionAddress": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionAddress"
+        ]
+      },
+      "ClosePositionResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ClosePositionResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "ClosePositionResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Pool this operation acted on",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position this operation acted on",
+            "type": "string"
+          },
+          "positionRentRefunded": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountRemoved": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseFeeAmountCollected": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteFeeAmountCollected": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee",
+          "positionRentRefunded",
+          "baseTokenAmountRemoved",
+          "quoteTokenAmountRemoved",
+          "baseFeeAmountCollected",
+          "quoteFeeAmountCollected"
+        ]
+      },
+      "ClmmCreatePoolRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "walletAddress": {
+            "type": "string"
+          },
+          "baseToken": {
+            "type": "string"
+          },
+          "quoteToken": {
+            "type": "string"
+          },
+          "initialPrice": {
+            "format": "decimal",
+            "description": "Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
+            "type": "number"
+          },
+          "binStep": {
+            "x-connectors": [
+              "meteora",
+              "orca"
+            ],
+            "description": "Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.",
+            "type": "number"
+          },
+          "feeBps": {
+            "x-connectors": [
+              "meteora",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "description": "Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).",
+            "type": "number"
+          },
+          "ammConfigIndex": {
+            "x-connectors": [
+              "raydium",
+              "pancakeswap-sol"
+            ],
+            "description": "Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "quoteToken"
+        ]
+      },
+      "ClmmCreatePoolResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "poolAddress": {
+            "description": "Address of the newly created pool",
+            "type": "string"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Initial price the pool was initialized at (quote per base)",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ClmmCreatePoolResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status",
+          "poolAddress"
+        ]
+      },
+      "ClmmCreatePoolResponseData": {
+        "type": "object",
+        "properties": {
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fee"
+        ]
+      },
+      "QuotePositionRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "lowerPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "upperPrice": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "poolAddress": {
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lowerPrice",
+          "upperPrice",
+          "poolAddress"
+        ]
+      },
+      "QuotePositionResponse": {
+        "type": "object",
+        "properties": {
+          "poolAddress": {
+            "description": "Pool the quote was computed against",
+            "type": "string"
+          },
+          "baseLimited": {
+            "type": "boolean"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenAmountMax": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenAmountMax": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "liquidity": {}
+        },
+        "required": [
+          "baseLimited",
+          "baseTokenAmount",
+          "quoteTokenAmount",
+          "baseTokenAmountMax",
+          "quoteTokenAmountMax"
+        ]
+      },
+      "ClmmQuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Token to determine swap direction",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair (optional - required if poolAddress not provided)",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "side": {
+            "description": "Trade direction",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "amount",
+          "side"
+        ]
+      },
+      "ClmmQuoteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "poolAddress": {
+            "type": "string"
+          },
+          "tokenIn": {
+            "type": "string"
+          },
+          "tokenOut": {
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "minAmountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "maxAmountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "priceImpactPct": {
+            "format": "decimal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "poolAddress",
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "price",
+          "minAmountOut",
+          "maxAmountIn",
+          "priceImpactPct"
+        ]
+      },
+      "ClmmExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "walletAddress": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
+            "type": "string"
+          },
+          "baseToken": {
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair (optional - required if poolAddress not provided)",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "side": {
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "baseToken",
+          "amount",
+          "side"
+        ]
+      },
+      "ClmmExecuteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ClmmExecuteSwapResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "ClmmExecuteSwapResponseData": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "type": "string"
+          },
+          "tokenOut": {
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "fee": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "baseTokenBalanceChange": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "quoteTokenBalanceChange": {
+            "format": "decimal",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage actually applied to the swap",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "fee",
+          "baseTokenBalanceChange",
+          "quoteTokenBalanceChange"
+        ]
+      },
+      "QuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "description": "The blockchain network to use",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Token to determine swap direction",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "type": "number"
+          },
+          "side": {
+            "description": "Trade direction - BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage",
+            "type": "number"
+          },
+          "approximateIfNoExactOut": {
+            "description": "For BUY orders on routers without ExactOut support: approximate the required input via a sell-leg quote and return an ExactIn quote flagged as an approximation. If false, such BUY requests fail with a clear error.",
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "QuoteSwapResponse": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "description": "Unique identifier for this quote",
+            "type": "string"
+          },
+          "tokenIn": {
+            "description": "Address of the token being swapped from",
+            "type": "string"
+          },
+          "tokenOut": {
+            "description": "Address of the token being swapped to",
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "description": "Amount of tokenIn to be swapped",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "description": "Expected amount of tokenOut to receive",
+            "type": "number"
+          },
+          "price": {
+            "format": "decimal",
+            "description": "Exchange rate between tokenIn and tokenOut",
+            "type": "number"
+          },
+          "priceImpactPct": {
+            "format": "decimal",
+            "description": "Estimated price impact percentage (0-100)",
+            "type": "number"
+          },
+          "minAmountOut": {
+            "format": "decimal",
+            "description": "Minimum amount of tokenOut that will be accepted",
+            "type": "number"
+          },
+          "maxAmountIn": {
+            "format": "decimal",
+            "description": "Maximum amount of tokenIn that will be spent",
+            "type": "number"
+          },
+          "approximation": {
+            "description": "True when a BUY was approximated via a sell-leg ExactIn quote because the router does not support ExactOut; amountOut is an estimate rather than exact",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "quoteId",
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "price",
+          "priceImpactPct",
+          "minAmountOut",
+          "maxAmountIn"
+        ]
+      },
+      "ExecuteQuoteRequest": {
+        "type": "object",
+        "properties": {
+          "walletAddress": {
+            "description": "Wallet address that will execute the swap",
+            "type": "string"
+          },
+          "network": {
+            "description": "The blockchain network to use",
+            "type": "string"
+          },
+          "quoteId": {
+            "description": "ID of the quote to execute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quoteId"
+        ]
+      },
+      "ExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "walletAddress": {
+            "description": "Wallet address that will execute the swap",
+            "type": "string"
+          },
+          "network": {
+            "description": "The blockchain network to use",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Token to determine swap direction",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "The other token in the pair",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "type": "number"
+          },
+          "side": {
+            "description": "Trade direction - BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage",
+            "type": "number"
+          },
+          "approximateIfNoExactOut": {
+            "description": "For BUY orders on routers without ExactOut support: approximate the required input via a sell-leg quote and execute an ExactIn swap. If false, such BUY requests fail with a clear error.",
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "SwapExecuteResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "description": "Transaction signature/hash",
+            "type": "string"
+          },
+          "status": {
+            "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SwapExecuteResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "SwapExecuteResponseData": {
+        "type": "object",
+        "properties": {
+          "tokenIn": {
+            "description": "Address of the token swapped from",
+            "type": "string"
+          },
+          "tokenOut": {
+            "description": "Address of the token swapped to",
+            "type": "string"
+          },
+          "amountIn": {
+            "format": "decimal",
+            "description": "Actual amount of tokenIn swapped",
+            "type": "number"
+          },
+          "amountOut": {
+            "format": "decimal",
+            "description": "Actual amount of tokenOut received",
+            "type": "number"
+          },
+          "fee": {
+            "format": "decimal",
+            "description": "Transaction fee paid",
+            "type": "number"
+          },
+          "baseTokenBalanceChange": {
+            "format": "decimal",
+            "description": "Change in base token balance (negative for decrease)",
+            "type": "number"
+          },
+          "quoteTokenBalanceChange": {
+            "format": "decimal",
+            "description": "Change in quote token balance (negative for decrease)",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "description": "Slippage tolerance percentage actually applied to the swap",
+            "type": "number"
+          }
+        },
+        "required": [
+          "tokenIn",
+          "tokenOut",
+          "amountIn",
+          "amountOut",
+          "fee",
+          "baseTokenBalanceChange",
+          "quoteTokenBalanceChange"
+        ]
+      }
+    }
   },
   "paths": {
     "/config/": {
@@ -1420,6 +4205,7 @@
                       "type": "string"
                     },
                     "feePct": {
+                      "format": "decimal",
                       "type": "number"
                     },
                     "address": {
@@ -1545,6 +4331,7 @@
                       "type": "string"
                     },
                     "feePct": {
+                      "format": "decimal",
                       "type": "number"
                     },
                     "address": {
@@ -1743,6 +4530,7 @@
                         "type": "string"
                       },
                       "feePct": {
+                        "format": "decimal",
                         "type": "number"
                       },
                       "address": {
@@ -1909,6 +4697,7 @@
                         "type": "string"
                       },
                       "feePct": {
+                        "format": "decimal",
                         "type": "number"
                       },
                       "address": {
@@ -1994,6 +4783,7 @@
                     "example": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
                   },
                   "feePct": {
+                    "format": "decimal",
                     "description": "Pool fee percentage (optional - fetched from pool-info if not provided)",
                     "minimum": 0,
                     "maximum": 100,
@@ -2144,6 +4934,7 @@
                           "type": "string"
                         },
                         "feePct": {
+                          "format": "decimal",
                           "type": "number"
                         },
                         "address": {
@@ -2408,79 +5199,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tokenIn": {
-                      "description": "Address of the token being swapped from",
-                      "type": "string"
-                    },
-                    "tokenOut": {
-                      "description": "Address of the token being swapped to",
-                      "type": "string"
-                    },
-                    "amountIn": {
-                      "format": "decimal",
-                      "description": "Amount of tokenIn to be swapped",
-                      "type": "number"
-                    },
-                    "amountOut": {
-                      "format": "decimal",
-                      "description": "Expected amount of tokenOut to receive",
-                      "type": "number"
-                    },
-                    "price": {
-                      "format": "decimal",
-                      "description": "Exchange rate between tokenIn and tokenOut",
-                      "type": "number"
-                    },
-                    "priceImpactPct": {
-                      "format": "decimal",
-                      "description": "Estimated price impact percentage (0-100)",
-                      "type": "number"
-                    },
-                    "minAmountOut": {
-                      "format": "decimal",
-                      "description": "Minimum amount of tokenOut that will be accepted",
-                      "type": "number"
-                    },
-                    "maxAmountIn": {
-                      "format": "decimal",
-                      "description": "Maximum amount of tokenIn that will be spent",
-                      "type": "number"
-                    },
-                    "poolAddress": {
-                      "description": "Pool address for AMM/CLMM swaps",
-                      "type": "string"
-                    },
-                    "routePath": {
-                      "description": "Route path for router-based swaps",
-                      "type": "string"
-                    },
-                    "slippagePct": {
-                      "format": "decimal",
-                      "description": "Slippage tolerance percentage",
-                      "type": "number"
-                    },
-                    "quoteId": {
-                      "description": "Identifier to pass to /trading/router/execute-quote",
-                      "type": "string"
-                    },
-                    "approximation": {
-                      "description": "True when a BUY was approximated via a sell-leg ExactIn quote because the router has no ExactOut route; amountOut is an estimate rather than exact",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "tokenIn",
-                    "tokenOut",
-                    "amountIn",
-                    "amountOut",
-                    "price",
-                    "priceImpactPct",
-                    "minAmountOut",
-                    "maxAmountIn",
-                    "quoteId"
-                  ]
+                  "$ref": "#/components/schemas/RouterQuoteSwapResponse"
                 }
               }
             }
@@ -2547,77 +5266,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "description": "Transaction signature/hash",
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tokenIn": {
-                          "description": "Address of the token swapped from",
-                          "type": "string"
-                        },
-                        "tokenOut": {
-                          "description": "Address of the token swapped to",
-                          "type": "string"
-                        },
-                        "amountIn": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenIn swapped",
-                          "type": "number"
-                        },
-                        "amountOut": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenOut received",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "format": "decimal",
-                          "description": "Transaction fee paid",
-                          "type": "number"
-                        },
-                        "baseTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in base token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "quoteTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in quote token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "slippagePct": {
-                          "format": "decimal",
-                          "description": "Slippage tolerance percentage actually applied to the swap",
-                          "type": "number"
-                        },
-                        "poolAddress": {
-                          "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "tokenIn",
-                        "tokenOut",
-                        "amountIn",
-                        "amountOut",
-                        "fee",
-                        "baseTokenBalanceChange",
-                        "quoteTokenBalanceChange"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainExecuteSwapResponse"
                 }
               }
             }
@@ -2727,77 +5376,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "description": "Transaction signature/hash",
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tokenIn": {
-                          "description": "Address of the token swapped from",
-                          "type": "string"
-                        },
-                        "tokenOut": {
-                          "description": "Address of the token swapped to",
-                          "type": "string"
-                        },
-                        "amountIn": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenIn swapped",
-                          "type": "number"
-                        },
-                        "amountOut": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenOut received",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "format": "decimal",
-                          "description": "Transaction fee paid",
-                          "type": "number"
-                        },
-                        "baseTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in base token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "quoteTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in quote token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "slippagePct": {
-                          "format": "decimal",
-                          "description": "Slippage tolerance percentage actually applied to the swap",
-                          "type": "number"
-                        },
-                        "poolAddress": {
-                          "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "tokenIn",
-                        "tokenOut",
-                        "amountIn",
-                        "amountOut",
-                        "fee",
-                        "baseTokenBalanceChange",
-                        "quoteTokenBalanceChange"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainExecuteSwapResponse"
                 }
               }
             }
@@ -2871,73 +5450,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "baseTokenAddress": {
-                      "type": "string"
-                    },
-                    "quoteTokenAddress": {
-                      "type": "string"
-                    },
-                    "binStep": {
-                      "type": "number"
-                    },
-                    "feePct": {
-                      "type": "number"
-                    },
-                    "price": {
-                      "type": "number"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    },
-                    "activeBinId": {
-                      "type": "number"
-                    },
-                    "bins": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "binId": {
-                            "type": "number"
-                          },
-                          "price": {
-                            "type": "number"
-                          },
-                          "baseTokenAmount": {
-                            "type": "number"
-                          },
-                          "quoteTokenAmount": {
-                            "type": "number"
-                          }
-                        },
-                        "required": [
-                          "binId",
-                          "price",
-                          "baseTokenAmount",
-                          "quoteTokenAmount"
-                        ],
-                        "title": "BinLiquidity"
-                      }
-                    }
-                  },
-                  "required": [
-                    "address",
-                    "baseTokenAddress",
-                    "quoteTokenAddress",
-                    "feePct",
-                    "price",
-                    "baseTokenAmount",
-                    "quoteTokenAmount",
-                    "activeBinId"
-                  ]
+                  "$ref": "#/components/schemas/PoolInfo"
                 }
               }
             }
@@ -2999,63 +5512,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "poolAddress": {
-                      "type": "string"
-                    },
-                    "baseTokenAddress": {
-                      "type": "string"
-                    },
-                    "quoteTokenAddress": {
-                      "type": "string"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    },
-                    "baseFeeAmount": {
-                      "type": "number"
-                    },
-                    "quoteFeeAmount": {
-                      "type": "number"
-                    },
-                    "lowerBinId": {
-                      "type": "number"
-                    },
-                    "upperBinId": {
-                      "type": "number"
-                    },
-                    "lowerPrice": {
-                      "type": "number"
-                    },
-                    "upperPrice": {
-                      "type": "number"
-                    },
-                    "price": {
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "address",
-                    "poolAddress",
-                    "baseTokenAddress",
-                    "quoteTokenAddress",
-                    "baseTokenAmount",
-                    "quoteTokenAmount",
-                    "baseFeeAmount",
-                    "quoteFeeAmount",
-                    "lowerBinId",
-                    "upperBinId",
-                    "lowerPrice",
-                    "upperPrice",
-                    "price"
-                  ]
+                  "$ref": "#/components/schemas/PositionInfo"
                 }
               }
             }
@@ -3119,64 +5576,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "address": {
-                        "type": "string"
-                      },
-                      "poolAddress": {
-                        "type": "string"
-                      },
-                      "baseTokenAddress": {
-                        "type": "string"
-                      },
-                      "quoteTokenAddress": {
-                        "type": "string"
-                      },
-                      "baseTokenAmount": {
-                        "type": "number"
-                      },
-                      "quoteTokenAmount": {
-                        "type": "number"
-                      },
-                      "baseFeeAmount": {
-                        "type": "number"
-                      },
-                      "quoteFeeAmount": {
-                        "type": "number"
-                      },
-                      "lowerBinId": {
-                        "type": "number"
-                      },
-                      "upperBinId": {
-                        "type": "number"
-                      },
-                      "lowerPrice": {
-                        "type": "number"
-                      },
-                      "upperPrice": {
-                        "type": "number"
-                      },
-                      "price": {
-                        "type": "number"
-                      }
-                    },
-                    "required": [
-                      "address",
-                      "poolAddress",
-                      "baseTokenAddress",
-                      "quoteTokenAddress",
-                      "baseTokenAmount",
-                      "quoteTokenAmount",
-                      "baseFeeAmount",
-                      "quoteFeeAmount",
-                      "lowerBinId",
-                      "upperBinId",
-                      "lowerPrice",
-                      "upperPrice",
-                      "price"
-                    ],
-                    "title": "PositionInfo"
+                    "$ref": "#/components/schemas/PositionInfo"
                   }
                 }
               }
@@ -3296,32 +5696,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "baseLimited": {
-                      "type": "boolean"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    },
-                    "baseTokenAmountMax": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmountMax": {
-                      "type": "number"
-                    },
-                    "liquidity": {}
-                  },
-                  "required": [
-                    "baseLimited",
-                    "baseTokenAmount",
-                    "quoteTokenAmount",
-                    "baseTokenAmountMax",
-                    "quoteTokenAmountMax"
-                  ]
+                  "$ref": "#/components/schemas/QuotePositionResponse"
                 }
               }
             }
@@ -3468,111 +5843,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "pools": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "address": {
-                            "description": "Pool address",
-                            "type": "string"
-                          },
-                          "name": {
-                            "description": "Pool name (e.g., SOL-USDC)",
-                            "type": "string"
-                          },
-                          "baseTokenAddress": {
-                            "description": "Base token address",
-                            "type": "string"
-                          },
-                          "baseTokenSymbol": {
-                            "description": "Base token symbol",
-                            "type": "string"
-                          },
-                          "quoteTokenAddress": {
-                            "description": "Quote token address",
-                            "type": "string"
-                          },
-                          "quoteTokenSymbol": {
-                            "description": "Quote token symbol",
-                            "type": "string"
-                          },
-                          "binStep": {
-                            "description": "Bin step / tick spacing",
-                            "type": "number"
-                          },
-                          "baseFee": {
-                            "format": "decimal",
-                            "description": "Base fee percentage",
-                            "type": "number"
-                          },
-                          "price": {
-                            "format": "decimal",
-                            "description": "Current price",
-                            "type": "number"
-                          },
-                          "tvl": {
-                            "format": "decimal",
-                            "description": "Total value locked in USD",
-                            "type": "number"
-                          },
-                          "apr": {
-                            "format": "decimal",
-                            "description": "Annual percentage rate",
-                            "type": "number"
-                          },
-                          "apy": {
-                            "format": "decimal",
-                            "description": "Annual percentage yield",
-                            "type": "number"
-                          },
-                          "volume24h": {
-                            "format": "decimal",
-                            "description": "24-hour trading volume",
-                            "type": "number"
-                          },
-                          "fees24h": {
-                            "format": "decimal",
-                            "description": "24-hour fees collected",
-                            "type": "number"
-                          }
-                        },
-                        "required": [
-                          "address",
-                          "name",
-                          "baseTokenAddress",
-                          "baseTokenSymbol",
-                          "quoteTokenAddress",
-                          "quoteTokenSymbol",
-                          "binStep",
-                          "baseFee",
-                          "price",
-                          "tvl"
-                        ],
-                        "title": "PoolListItem"
-                      }
-                    },
-                    "total": {
-                      "description": "Total number of matching pools",
-                      "type": "number"
-                    },
-                    "page": {
-                      "description": "Current page number",
-                      "type": "number"
-                    },
-                    "pageSize": {
-                      "description": "Number of pools per page",
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "pools",
-                    "total",
-                    "page",
-                    "pageSize"
-                  ]
+                  "$ref": "#/components/schemas/FetchPoolsResponse"
                 }
               }
             }
@@ -3691,70 +5962,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tokenIn": {
-                      "description": "Address of the token being swapped from",
-                      "type": "string"
-                    },
-                    "tokenOut": {
-                      "description": "Address of the token being swapped to",
-                      "type": "string"
-                    },
-                    "amountIn": {
-                      "format": "decimal",
-                      "description": "Amount of tokenIn to be swapped",
-                      "type": "number"
-                    },
-                    "amountOut": {
-                      "format": "decimal",
-                      "description": "Expected amount of tokenOut to receive",
-                      "type": "number"
-                    },
-                    "price": {
-                      "format": "decimal",
-                      "description": "Exchange rate between tokenIn and tokenOut",
-                      "type": "number"
-                    },
-                    "priceImpactPct": {
-                      "format": "decimal",
-                      "description": "Estimated price impact percentage (0-100)",
-                      "type": "number"
-                    },
-                    "minAmountOut": {
-                      "format": "decimal",
-                      "description": "Minimum amount of tokenOut that will be accepted",
-                      "type": "number"
-                    },
-                    "maxAmountIn": {
-                      "format": "decimal",
-                      "description": "Maximum amount of tokenIn that will be spent",
-                      "type": "number"
-                    },
-                    "poolAddress": {
-                      "description": "Pool address for AMM/CLMM swaps",
-                      "type": "string"
-                    },
-                    "routePath": {
-                      "description": "Route path for router-based swaps",
-                      "type": "string"
-                    },
-                    "slippagePct": {
-                      "format": "decimal",
-                      "description": "Slippage tolerance percentage",
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "tokenIn",
-                    "tokenOut",
-                    "amountIn",
-                    "amountOut",
-                    "price",
-                    "priceImpactPct",
-                    "minAmountOut",
-                    "maxAmountIn"
-                  ]
+                  "$ref": "#/components/schemas/ChainQuoteSwapResponse"
                 }
               }
             }
@@ -3856,77 +6064,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "description": "Transaction signature/hash",
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tokenIn": {
-                          "description": "Address of the token swapped from",
-                          "type": "string"
-                        },
-                        "tokenOut": {
-                          "description": "Address of the token swapped to",
-                          "type": "string"
-                        },
-                        "amountIn": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenIn swapped",
-                          "type": "number"
-                        },
-                        "amountOut": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenOut received",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "format": "decimal",
-                          "description": "Transaction fee paid",
-                          "type": "number"
-                        },
-                        "baseTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in base token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "quoteTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in quote token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "slippagePct": {
-                          "format": "decimal",
-                          "description": "Slippage tolerance percentage actually applied to the swap",
-                          "type": "number"
-                        },
-                        "poolAddress": {
-                          "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "tokenIn",
-                        "tokenOut",
-                        "amountIn",
-                        "amountOut",
-                        "fee",
-                        "baseTokenBalanceChange",
-                        "quoteTokenBalanceChange"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainExecuteSwapResponse"
                 }
               }
             }
@@ -4036,47 +6174,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "positionAddress": {
-                          "type": "string"
-                        },
-                        "positionRent": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountAdded": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountAdded": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "positionAddress",
-                        "positionRent",
-                        "baseTokenAmountAdded",
-                        "quoteTokenAmountAdded"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/OpenPositionResponse"
                 }
               }
             }
@@ -4172,39 +6270,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountAdded": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountAdded": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseTokenAmountAdded",
-                        "quoteTokenAmountAdded"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/AddLiquidityResponse"
                 }
               }
             }
@@ -4290,39 +6356,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountRemoved": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountRemoved": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseTokenAmountRemoved",
-                        "quoteTokenAmountRemoved"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/RemoveLiquidityResponse"
                 }
               }
             }
@@ -4390,39 +6424,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "baseFeeAmountCollected": {
-                          "type": "number"
-                        },
-                        "quoteFeeAmountCollected": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseFeeAmountCollected",
-                        "quoteFeeAmountCollected"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/CollectFeesResponse"
                 }
               }
             }
@@ -4490,51 +6492,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "positionRentRefunded": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountRemoved": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountRemoved": {
-                          "type": "number"
-                        },
-                        "baseFeeAmountCollected": {
-                          "type": "number"
-                        },
-                        "quoteFeeAmountCollected": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "positionRentRefunded",
-                        "baseTokenAmountRemoved",
-                        "quoteTokenAmountRemoved",
-                        "baseFeeAmountCollected",
-                        "quoteFeeAmountCollected"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ClosePositionResponse"
                 }
               }
             }
@@ -4634,41 +6592,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "poolAddress": {
-                      "description": "Address of the newly created pool",
-                      "type": "string"
-                    },
-                    "price": {
-                      "format": "decimal",
-                      "description": "Initial price the pool was initialized at (quote per base)",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status",
-                    "poolAddress"
-                  ]
+                  "$ref": "#/components/schemas/ClmmCreatePoolResponse"
                 }
               }
             }
@@ -4727,39 +6651,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "baseTokenAddress": {
-                      "type": "string"
-                    },
-                    "quoteTokenAddress": {
-                      "type": "string"
-                    },
-                    "feePct": {
-                      "type": "number"
-                    },
-                    "price": {
-                      "type": "number"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "address",
-                    "baseTokenAddress",
-                    "quoteTokenAddress",
-                    "feePct",
-                    "price",
-                    "baseTokenAmount",
-                    "quoteTokenAmount"
-                  ]
+                  "$ref": "#/components/schemas/AmmPoolInfo"
                 }
               }
             }
@@ -4828,73 +6720,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "poolAddress": {
-                      "type": "string"
-                    },
-                    "walletAddress": {
-                      "type": "string"
-                    },
-                    "baseTokenAddress": {
-                      "type": "string"
-                    },
-                    "quoteTokenAddress": {
-                      "type": "string"
-                    },
-                    "lpTokenAmount": {
-                      "type": "number"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    },
-                    "price": {
-                      "type": "number"
-                    },
-                    "positions": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "positionAddress": {
-                            "description": "Address of the individual position (NFT position account)",
-                            "type": "string"
-                          },
-                          "lpTokenAmount": {
-                            "format": "decimal",
-                            "description": "Liquidity held by this position (LP units)",
-                            "type": "number"
-                          },
-                          "baseTokenAmount": {
-                            "type": "number"
-                          },
-                          "quoteTokenAmount": {
-                            "type": "number"
-                          }
-                        },
-                        "required": [
-                          "positionAddress",
-                          "lpTokenAmount",
-                          "baseTokenAmount",
-                          "quoteTokenAmount"
-                        ],
-                        "title": "PositionDetail"
-                      }
-                    }
-                  },
-                  "required": [
-                    "poolAddress",
-                    "walletAddress",
-                    "baseTokenAddress",
-                    "quoteTokenAddress",
-                    "lpTokenAmount",
-                    "baseTokenAmount",
-                    "quoteTokenAmount",
-                    "price"
-                  ]
+                  "$ref": "#/components/schemas/AmmPositionInfo"
                 }
               }
             }
@@ -4956,72 +6782,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "poolAddress": {
-                        "type": "string"
-                      },
-                      "walletAddress": {
-                        "type": "string"
-                      },
-                      "baseTokenAddress": {
-                        "type": "string"
-                      },
-                      "quoteTokenAddress": {
-                        "type": "string"
-                      },
-                      "lpTokenAmount": {
-                        "type": "number"
-                      },
-                      "baseTokenAmount": {
-                        "type": "number"
-                      },
-                      "quoteTokenAmount": {
-                        "type": "number"
-                      },
-                      "price": {
-                        "type": "number"
-                      },
-                      "positions": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "positionAddress": {
-                              "description": "Address of the individual position (NFT position account)",
-                              "type": "string"
-                            },
-                            "lpTokenAmount": {
-                              "format": "decimal",
-                              "description": "Liquidity held by this position (LP units)",
-                              "type": "number"
-                            },
-                            "baseTokenAmount": {
-                              "type": "number"
-                            },
-                            "quoteTokenAmount": {
-                              "type": "number"
-                            }
-                          },
-                          "required": [
-                            "positionAddress",
-                            "lpTokenAmount",
-                            "baseTokenAmount",
-                            "quoteTokenAmount"
-                          ]
-                        }
-                      }
-                    },
-                    "required": [
-                      "poolAddress",
-                      "walletAddress",
-                      "baseTokenAddress",
-                      "quoteTokenAddress",
-                      "lpTokenAmount",
-                      "baseTokenAmount",
-                      "quoteTokenAmount",
-                      "price"
-                    ]
+                    "$ref": "#/components/schemas/AmmPositionInfo"
                   }
                 }
               }
@@ -5114,31 +6875,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "baseLimited": {
-                      "type": "boolean"
-                    },
-                    "baseTokenAmount": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmount": {
-                      "type": "number"
-                    },
-                    "baseTokenAmountMax": {
-                      "type": "number"
-                    },
-                    "quoteTokenAmountMax": {
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "baseLimited",
-                    "baseTokenAmount",
-                    "quoteTokenAmount",
-                    "baseTokenAmountMax",
-                    "quoteTokenAmountMax"
-                  ]
+                  "$ref": "#/components/schemas/QuoteLiquidityResponse"
                 }
               }
             }
@@ -5255,70 +6992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "tokenIn": {
-                      "description": "Address of the token being swapped from",
-                      "type": "string"
-                    },
-                    "tokenOut": {
-                      "description": "Address of the token being swapped to",
-                      "type": "string"
-                    },
-                    "amountIn": {
-                      "format": "decimal",
-                      "description": "Amount of tokenIn to be swapped",
-                      "type": "number"
-                    },
-                    "amountOut": {
-                      "format": "decimal",
-                      "description": "Expected amount of tokenOut to receive",
-                      "type": "number"
-                    },
-                    "price": {
-                      "format": "decimal",
-                      "description": "Exchange rate between tokenIn and tokenOut",
-                      "type": "number"
-                    },
-                    "priceImpactPct": {
-                      "format": "decimal",
-                      "description": "Estimated price impact percentage (0-100)",
-                      "type": "number"
-                    },
-                    "minAmountOut": {
-                      "format": "decimal",
-                      "description": "Minimum amount of tokenOut that will be accepted",
-                      "type": "number"
-                    },
-                    "maxAmountIn": {
-                      "format": "decimal",
-                      "description": "Maximum amount of tokenIn that will be spent",
-                      "type": "number"
-                    },
-                    "poolAddress": {
-                      "description": "Pool address for AMM/CLMM swaps",
-                      "type": "string"
-                    },
-                    "routePath": {
-                      "description": "Route path for router-based swaps",
-                      "type": "string"
-                    },
-                    "slippagePct": {
-                      "format": "decimal",
-                      "description": "Slippage tolerance percentage",
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "tokenIn",
-                    "tokenOut",
-                    "amountIn",
-                    "amountOut",
-                    "price",
-                    "priceImpactPct",
-                    "minAmountOut",
-                    "maxAmountIn"
-                  ]
+                  "$ref": "#/components/schemas/ChainQuoteSwapResponse"
                 }
               }
             }
@@ -5418,77 +7092,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "description": "Transaction signature/hash",
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tokenIn": {
-                          "description": "Address of the token swapped from",
-                          "type": "string"
-                        },
-                        "tokenOut": {
-                          "description": "Address of the token swapped to",
-                          "type": "string"
-                        },
-                        "amountIn": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenIn swapped",
-                          "type": "number"
-                        },
-                        "amountOut": {
-                          "format": "decimal",
-                          "description": "Actual amount of tokenOut received",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "format": "decimal",
-                          "description": "Transaction fee paid",
-                          "type": "number"
-                        },
-                        "baseTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in base token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "quoteTokenBalanceChange": {
-                          "format": "decimal",
-                          "description": "Change in quote token balance (negative for decrease)",
-                          "type": "number"
-                        },
-                        "slippagePct": {
-                          "format": "decimal",
-                          "description": "Slippage tolerance percentage actually applied to the swap",
-                          "type": "number"
-                        },
-                        "poolAddress": {
-                          "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "tokenIn",
-                        "tokenOut",
-                        "amountIn",
-                        "amountOut",
-                        "fee",
-                        "baseTokenBalanceChange",
-                        "quoteTokenBalanceChange"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainExecuteSwapResponse"
                 }
               }
             }
@@ -5573,52 +7177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "positionAddress": {
-                          "description": "Address of the newly opened position. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.",
-                          "type": "string"
-                        },
-                        "positionRent": {
-                          "format": "decimal",
-                          "description": "Native token locked as rent for the position account, refunded on close. 0 on fungible-LP AMMs, which lock no rent.",
-                          "type": "number"
-                        },
-                        "baseTokenAmountAdded": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "quoteTokenAmountAdded": {
-                          "format": "decimal",
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "positionRent",
-                        "baseTokenAmountAdded",
-                        "quoteTokenAmountAdded"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/AmmOpenPositionResponse"
                 }
               }
             }
@@ -5710,57 +7269,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "positionAddress": {
-                          "description": "Position the liquidity went into. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.",
-                          "x-connectors": [
-                            "meteora"
-                          ],
-                          "type": "string"
-                        },
-                        "positionRent": {
-                          "format": "decimal",
-                          "description": "Native token locked as rent when this call opened the position. Absent when adding to a position that already existed, and on fungible-LP AMMs.",
-                          "x-connectors": [
-                            "meteora"
-                          ],
-                          "type": "number"
-                        },
-                        "baseTokenAmountAdded": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "quoteTokenAmountAdded": {
-                          "format": "decimal",
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseTokenAmountAdded",
-                        "quoteTokenAmountAdded"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/AmmAddLiquidityResponse"
                 }
               }
             }
@@ -5850,39 +7359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountRemoved": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountRemoved": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseTokenAmountRemoved",
-                        "quoteTokenAmountRemoved"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/AmmRemoveLiquidityResponse"
                 }
               }
             }
@@ -5962,48 +7439,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "positionRentRefunded": {
-                          "format": "decimal",
-                          "description": "Native token rent returned when the position account closed. 0 on fungible-LP AMMs, which have no position account to close.",
-                          "type": "number"
-                        },
-                        "baseTokenAmountRemoved": {
-                          "format": "decimal",
-                          "type": "number"
-                        },
-                        "quoteTokenAmountRemoved": {
-                          "format": "decimal",
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "positionRentRefunded",
-                        "baseTokenAmountRemoved",
-                        "quoteTokenAmountRemoved"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/AmmClosePositionResponse"
                 }
               }
             }
@@ -6111,49 +7547,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "poolAddress": {
-                      "description": "Address of the newly created pool",
-                      "type": "string"
-                    },
-                    "price": {
-                      "format": "decimal",
-                      "description": "Initial price the pool was seeded at (quote per base)",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "fee": {
-                          "type": "number"
-                        },
-                        "baseTokenAmountAdded": {
-                          "type": "number"
-                        },
-                        "quoteTokenAmountAdded": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "baseTokenAmountAdded",
-                        "quoteTokenAmountAdded"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status",
-                    "poolAddress"
-                  ]
+                  "$ref": "#/components/schemas/CreatePoolResponse"
                 }
               }
             }
@@ -6191,39 +7585,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "chain": {
-                      "type": "string"
-                    },
-                    "network": {
-                      "type": "string"
-                    },
-                    "rpcUrl": {
-                      "type": "string"
-                    },
-                    "rpcProvider": {
-                      "type": "string"
-                    },
-                    "currentBlockNumber": {
-                      "type": "number"
-                    },
-                    "nativeCurrency": {
-                      "type": "string"
-                    },
-                    "swapProvider": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "chain",
-                    "network",
-                    "rpcUrl",
-                    "rpcProvider",
-                    "currentBlockNumber",
-                    "nativeCurrency",
-                    "swapProvider"
-                  ]
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -6261,50 +7623,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "feePerComputeUnit": {
-                      "type": "number"
-                    },
-                    "denomination": {
-                      "type": "string"
-                    },
-                    "computeUnits": {
-                      "type": "number"
-                    },
-                    "feeAsset": {
-                      "type": "string"
-                    },
-                    "fee": {
-                      "type": "number"
-                    },
-                    "timestamp": {
-                      "type": "number"
-                    },
-                    "gasType": {
-                      "type": "string"
-                    },
-                    "maxFeePerGas": {
-                      "type": "number"
-                    },
-                    "maxPriorityFeePerGas": {
-                      "type": "number"
-                    },
-                    "priorityFeeLevel": {
-                      "type": "string"
-                    },
-                    "priorityFeePerCUEstimate": {
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "feePerComputeUnit",
-                    "denomination",
-                    "computeUnits",
-                    "feeAsset",
-                    "fee",
-                    "timestamp"
-                  ]
+                  "$ref": "#/components/schemas/EstimateGasResponse"
                 }
               }
             }
@@ -6322,26 +7641,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "type": "string"
-                  },
-                  "address": {
-                    "type": "string"
-                  },
-                  "tokens": {
-                    "description": "a list of token symbols or addresses",
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "fetchAll": {
-                    "description": "fetch all tokens in wallet, not just those in token list (default: false)",
-                    "type": "boolean"
-                  }
-                }
+                "$ref": "#/components/schemas/BalanceRequest"
               }
             }
           }
@@ -6362,18 +7662,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "balances": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "number"
-                      }
-                    }
-                  },
-                  "required": [
-                    "balances"
-                  ]
+                  "$ref": "#/components/schemas/BalanceResponse"
                 }
               }
             }
@@ -6391,23 +7680,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "type": "string"
-                  },
-                  "signature": {
-                    "description": "Transaction signature/hash",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "signature"
-                ]
+                "$ref": "#/components/schemas/PollRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "parameters": [
           {
@@ -6425,70 +7701,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "currentBlock": {
-                      "type": "number"
-                    },
-                    "signature": {
-                      "type": "string"
-                    },
-                    "txBlock": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "txStatus": {
-                      "description": "Transaction status: 1 = confirmed, 0 = pending, -1 = failed, -2 = not found (unknown to the chain: never received or dropped; on Solana this is terminal once the transaction blockhash expires)",
-                      "type": "number"
-                    },
-                    "fee": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "error": {
-                      "anyOf": [
-                        {
-                          "description": "Error info if failed: \"TYPE (code): message\"",
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "txData": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {}
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "currentBlock",
-                    "signature",
-                    "txBlock",
-                    "txStatus",
-                    "fee",
-                    "error",
-                    "txData"
-                  ]
+                  "$ref": "#/components/schemas/PollResponse"
                 }
               }
             }
@@ -6506,29 +7719,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "type": "string"
-                  },
-                  "address": {
-                    "description": "Wallet address holding the native token",
-                    "type": "string"
-                  },
-                  "amount": {
-                    "description": "Amount of the native token to wrap, in whole units (not lamports/wei)",
-                    "type": "string",
-                    "example": "1.0"
-                  }
-                },
-                "required": [
-                  "address",
-                  "amount"
-                ]
+                "$ref": "#/components/schemas/WrapRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "parameters": [
           {
@@ -6546,51 +7740,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "nonce": {
-                          "description": "EVM transaction nonce; absent on non-EVM chains",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "type": "string"
-                        },
-                        "amount": {
-                          "type": "string"
-                        },
-                        "wrappedAddress": {
-                          "type": "string"
-                        },
-                        "nativeToken": {
-                          "type": "string"
-                        },
-                        "wrappedToken": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "amount",
-                        "wrappedAddress",
-                        "nativeToken",
-                        "wrappedToken"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainWrapResponse"
                 }
               }
             }
@@ -6608,28 +7758,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "type": "string"
-                  },
-                  "address": {
-                    "description": "Wallet address holding the wrapped token",
-                    "type": "string"
-                  },
-                  "amount": {
-                    "description": "Amount of the wrapped token to unwrap, in whole units. Solana unwraps the full balance when omitted; EVM chains require it.",
-                    "type": "string",
-                    "example": "1.0"
-                  }
-                },
-                "required": [
-                  "address"
-                ]
+                "$ref": "#/components/schemas/UnwrapRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "parameters": [
           {
@@ -6647,51 +7779,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "nonce": {
-                          "description": "EVM transaction nonce; absent on non-EVM chains",
-                          "type": "number"
-                        },
-                        "fee": {
-                          "type": "string"
-                        },
-                        "amount": {
-                          "type": "string"
-                        },
-                        "wrappedAddress": {
-                          "type": "string"
-                        },
-                        "nativeToken": {
-                          "type": "string"
-                        },
-                        "wrappedToken": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "fee",
-                        "amount",
-                        "wrappedAddress",
-                        "nativeToken",
-                        "wrappedToken"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ChainWrapResponse"
                 }
               }
             }
