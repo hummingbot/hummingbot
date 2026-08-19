@@ -761,7 +761,7 @@ class GatewayHttpClient:
         fail_silently: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get a swap quote from the specified DEX via Gateway's unified /trading/swap/quote endpoint.
+        Get a swap quote from the specified DEX via /trading/{router,clmm,amm}/quote-swap.
 
         :param network: Network name - accepts both full format (e.g., "solana-mainnet-beta") or short format (e.g., "mainnet-beta")
         :param base_asset: Base token symbol
@@ -785,12 +785,12 @@ class GatewayHttpClient:
                 raise ValueError(f"No swap provider configured for network {network}")
             dex, trading_type = self._parse_swap_provider(swap_provider)
 
-        # Gateway's unified swap endpoint keys the request by the full "chain-network"
-        # identifier and a "connector/type" swap provider, instead of encoding the
-        # provider in the path (the legacy /connectors/{dex}/{type}/quote-swap route).
+        # Gateway carries the trading type in the path — /trading/{router,clmm,amm} —
+        # and constrains each route's `connector` to a bare, enum'd name. The type
+        # selects the route; it no longer qualifies the connector.
         request_payload: Dict[str, Any] = {
             "chainNetwork": self._to_chain_network(network, chain),
-            "connector": f"{dex}/{trading_type}",
+            "connector": dex,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": str(amount),
@@ -801,7 +801,7 @@ class GatewayHttpClient:
 
         return await self.api_request(
             "get",
-            "trading/swap/quote",
+            f"trading/{trading_type}/quote-swap",
             request_payload,
             fail_silently=fail_silently
         )
@@ -865,7 +865,7 @@ class GatewayHttpClient:
         chain: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Execute a swap on the specified DEX via Gateway's unified /trading/swap/execute endpoint.
+        Execute a swap on the specified DEX via /trading/{router,clmm,amm}/execute-swap.
 
         :param network: Network name (e.g., "solana-mainnet-beta")
         :param base_asset: Base token symbol
@@ -888,10 +888,10 @@ class GatewayHttpClient:
                 raise ValueError(f"No swap provider configured for network {network}")
             dex, trading_type = self._parse_swap_provider(swap_provider)
 
-        # Unified /trading/swap/execute (see quote_swap for the keying rationale).
+        # /trading/{type}/execute-swap (see quote_swap for the keying rationale).
         request_payload: Dict[str, Any] = {
             "chainNetwork": self._to_chain_network(network, chain),
-            "connector": f"{dex}/{trading_type}",
+            "connector": dex,
             "baseToken": base_asset,
             "quoteToken": quote_asset,
             "amount": float(amount),
@@ -903,40 +903,41 @@ class GatewayHttpClient:
             request_payload["walletAddress"] = wallet_address
         return await self.api_request(
             "post",
-            "trading/swap/execute",
+            f"trading/{trading_type}/execute-swap",
             request_payload
         )
 
     async def execute_quote(
         self,
         dex: str,
-        trading_type: str,
+        network: str,
         quote_id: str,
-        network: Optional[str] = None,
-        wallet_address: Optional[str] = None,
+        wallet_address: str,
+        chain: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute a previously obtained quote by its ID.
 
-        :param dex: DEX protocol name (e.g., "jupiter", "orca")
-        :param trading_type: Trading type (e.g., "router", "clmm", "amm")
+        Router-only: quoting-then-executing by id is a router affordance, and Gateway
+        mounts execute-quote solely under /trading/router. The pool-scoped surfaces
+        quote and execute in one call instead, so there is no trading_type to pass.
+
+        :param dex: Router connector name (e.g., "jupiter", "0x")
+        :param network: Blockchain network, bare or chain-prefixed
         :param quote_id: ID of the quote to execute
-        :param network: Optional blockchain network to use
-        :param wallet_address: Optional wallet address that will execute the swap
+        :param wallet_address: Wallet address that will execute the swap
+        :param chain: Chain to combine with a bare network
         :return: Transaction details
         """
-        request_payload: Dict[str, Any] = {
-            "quoteId": quote_id,
-        }
-        if network is not None:
-            request_payload["network"] = network
-        if wallet_address is not None:
-            request_payload["walletAddress"] = wallet_address
-
         return await self.api_request(
             "post",
-            f"connectors/{dex}/{trading_type}/execute-quote",
-            request_payload
+            "trading/router/execute-quote",
+            {
+                "chainNetwork": self._to_chain_network(network, chain),
+                "connector": dex,
+                "walletAddress": wallet_address,
+                "quoteId": quote_id,
+            },
         )
 
     async def estimate_gas(

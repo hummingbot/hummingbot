@@ -380,10 +380,10 @@ class Gateway(GatewayBase):
                 if quote_id:
                     return await self._get_gateway_instance().execute_quote(
                         dex=dex,
-                        trading_type=trading_type,
-                        quote_id=quote_id,
                         network=self.network,
-                        wallet_address=self.address
+                        quote_id=quote_id,
+                        wallet_address=self.address,
+                        chain=self.chain,
                     )
                 else:
                     return await self._get_gateway_instance().execute_swap(
