@@ -388,8 +388,6 @@ class GatewayHttpClient:
 
             # Handle non-200 responses
             if response.status != 200 and not fail_silently:
-                self.log_error_codes(parsed_response)
-
                 if "message" in parsed_response:
                     # Gateway HttpError format: message (detailed), code (optional), error (generic HTTP name), name
                     error_msg = parsed_response.get('message')

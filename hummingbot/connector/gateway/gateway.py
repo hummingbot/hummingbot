@@ -1117,12 +1117,15 @@ class Gateway(GatewayBase):
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
                 data = transaction_result.get("data", {})
-                # RemoveLiquidityResponse.data carries only fee + removed amounts.
-                # Fee-collected/rent keys exist only on the CLOSE response — reading
-                # them here always yielded 0 and masqueraded as "no fees collected".
+                # ClosePositionResponse.data declares the collected-fee and rent keys
+                # (unlike RemoveLiquidityResponse) — the LP executor books them from
+                # this metadata, so dropping them would zero close-time fee/rent PnL.
                 self._lp_orders_metadata[order_id].update({
                     "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
                     "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
+                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
+                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
                     "tx_fee": Decimal(str(data.get("fee", 0))),
                 })
                 return transaction_hash
