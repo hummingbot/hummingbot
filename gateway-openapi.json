@@ -4558,40 +4558,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "ethereum": {
-                "value": "ethereum"
-              },
-              "solana": {
-                "value": "solana"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
+            "name": "chainNetwork",
             "required": true,
-            "description": "Blockchain network (e.g., ethereum, solana)"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "examples": {
-              "mainnet": {
-                "value": "mainnet"
-              },
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              },
-              "devnet": {
-                "value": "devnet"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": true,
-            "description": "Network name (e.g., mainnet, mainnet-beta)"
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
@@ -4614,17 +4603,13 @@
                     "token": {
                       "$ref": "#/components/schemas/Token"
                     },
-                    "chain": {
-                      "type": "string"
-                    },
-                    "network": {
+                    "chainNetwork": {
                       "type": "string"
                     }
                   },
                   "required": [
                     "token",
-                    "chain",
-                    "network"
+                    "chainNetwork"
                   ]
                 }
               }
@@ -4746,40 +4731,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "ethereum": {
-                "value": "ethereum"
-              },
-              "solana": {
-                "value": "solana"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
-            "required": false,
-            "description": "Blockchain network (e.g., ethereum, solana)"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "examples": {
-              "mainnet": {
-                "value": "mainnet"
-              },
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              },
-              "devnet": {
-                "value": "devnet"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": false,
-            "description": "Network name (e.g., mainnet, mainnet-beta)"
+            "name": "chainNetwork",
+            "required": true,
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
@@ -4855,23 +4829,33 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "chain": {
-                    "description": "Blockchain network (e.g., ethereum, solana)",
+                  "chainNetwork": {
+                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+                    "enum": [
+                      "ethereum-arbitrum",
+                      "ethereum-avalanche",
+                      "ethereum-base",
+                      "ethereum-bsc",
+                      "ethereum-celo",
+                      "ethereum-mainnet",
+                      "ethereum-optimism",
+                      "ethereum-polygon",
+                      "ethereum-robinhoodchain",
+                      "ethereum-robinhoodchain-testnet",
+                      "ethereum-sepolia",
+                      "ethereum-unichain",
+                      "solana-devnet",
+                      "solana-mainnet-beta"
+                    ],
                     "type": "string",
-                    "example": "ethereum"
-                  },
-                  "network": {
-                    "description": "Network name (e.g., mainnet, mainnet-beta)",
-                    "type": "string",
-                    "example": "mainnet"
+                    "example": "solana-mainnet-beta"
                   },
                   "token": {
                     "$ref": "#/components/schemas/Token"
                   }
                 },
                 "required": [
-                  "chain",
-                  "network",
+                  "chainNetwork",
                   "token"
                 ]
               }
@@ -5027,40 +5011,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "ethereum": {
-                "value": "ethereum"
-              },
-              "solana": {
-                "value": "solana"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
+            "name": "chainNetwork",
             "required": true,
-            "description": "Blockchain network (e.g., ethereum, solana)"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "examples": {
-              "mainnet": {
-                "value": "mainnet"
-              },
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              },
-              "devnet": {
-                "value": "devnet"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": true,
-            "description": "Network name (e.g., mainnet, mainnet-beta)"
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
@@ -5125,38 +5098,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "solana": {
-                "value": "solana"
-              },
-              "ethereum": {
-                "value": "ethereum"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
+            "name": "chainNetwork",
             "required": true,
-            "description": "Blockchain chain (solana, ethereum)"
-          },
-          {
-            "schema": {
-              "default": "mainnet-beta",
-              "type": "string"
-            },
-            "examples": {
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              },
-              "mainnet": {
-                "value": "mainnet"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": true,
-            "description": "Network name (mainnet, mainnet-beta, etc)"
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
@@ -5666,43 +5630,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "solana": {
-                "value": "solana"
-              },
-              "ethereum": {
-                "value": "ethereum"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
+            "name": "chainNetwork",
             "required": true,
-            "description": "Blockchain chain (solana, ethereum)"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "examples": {
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              },
-              "mainnet": {
-                "value": "mainnet"
-              },
-              "base": {
-                "value": "base"
-              },
-              "arbitrum": {
-                "value": "arbitrum"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": true,
-            "description": "Network name (mainnet-beta, mainnet, base, etc)"
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
@@ -5855,10 +5805,26 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "chain": {
-                    "description": "Blockchain chain (solana, ethereum)",
+                  "chainNetwork": {
+                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+                    "enum": [
+                      "ethereum-arbitrum",
+                      "ethereum-avalanche",
+                      "ethereum-base",
+                      "ethereum-bsc",
+                      "ethereum-celo",
+                      "ethereum-mainnet",
+                      "ethereum-optimism",
+                      "ethereum-polygon",
+                      "ethereum-robinhoodchain",
+                      "ethereum-robinhoodchain-testnet",
+                      "ethereum-sepolia",
+                      "ethereum-unichain",
+                      "solana-devnet",
+                      "solana-mainnet-beta"
+                    ],
                     "type": "string",
-                    "example": "solana"
+                    "example": "solana-mainnet-beta"
                   },
                   "connector": {
                     "description": "Connector (raydium, meteora, uniswap, orca)",
@@ -5873,12 +5839,6 @@
                     ],
                     "type": "string",
                     "example": "clmm"
-                  },
-                  "network": {
-                    "description": "Network name (mainnet, mainnet-beta, etc)",
-                    "default": "mainnet-beta",
-                    "type": "string",
-                    "example": "mainnet-beta"
                   },
                   "address": {
                     "description": "Pool contract address",
@@ -5914,10 +5874,9 @@
                   }
                 },
                 "required": [
-                  "chain",
+                  "chainNetwork",
                   "connector",
                   "type",
-                  "network",
                   "address",
                   "baseTokenAddress",
                   "quoteTokenAddress"
@@ -6129,37 +6088,29 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "type": "string"
             },
-            "examples": {
-              "solana": {
-                "value": "solana"
-              },
-              "ethereum": {
-                "value": "ethereum"
-              }
-            },
+            "example": "solana-mainnet-beta",
             "in": "query",
-            "name": "chain",
+            "name": "chainNetwork",
             "required": true,
-            "description": "Blockchain chain (solana, ethereum)"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "examples": {
-              "mainnet": {
-                "value": "mainnet"
-              },
-              "mainnet-beta": {
-                "value": "mainnet-beta"
-              }
-            },
-            "in": "query",
-            "name": "network",
-            "required": true,
-            "description": "Network name (mainnet, mainnet-beta, etc)"
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
           },
           {
             "schema": {
