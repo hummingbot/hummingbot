@@ -115,119 +115,6 @@
           "quoteTokenAmountAdded"
         ]
       },
-      "AmmOpenPositionResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "type": "string"
-          },
-          "status": {
-            "description": "TransactionStatus enum value",
-            "type": "number"
-          },
-          "data": {
-            "$ref": "#/components/schemas/AmmOpenPositionResponseData"
-          }
-        },
-        "required": [
-          "signature",
-          "status"
-        ]
-      },
-      "AmmOpenPositionResponseData": {
-        "type": "object",
-        "properties": {
-          "fee": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "poolAddress": {
-            "description": "Pool this operation acted on",
-            "type": "string"
-          },
-          "positionAddress": {
-            "description": "Address of the newly opened position. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.",
-            "type": "string"
-          },
-          "positionRent": {
-            "format": "decimal",
-            "description": "Native token locked as rent for the position account, refunded on close. 0 on fungible-LP AMMs, which lock no rent.",
-            "type": "number"
-          },
-          "baseTokenAmountAdded": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmountAdded": {
-            "format": "decimal",
-            "type": "number"
-          }
-        },
-        "required": [
-          "fee",
-          "positionRent",
-          "baseTokenAmountAdded",
-          "quoteTokenAmountAdded"
-        ]
-      },
-      "AmmClosePositionResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "type": "string"
-          },
-          "status": {
-            "description": "TransactionStatus enum value",
-            "type": "number"
-          },
-          "data": {
-            "$ref": "#/components/schemas/AmmClosePositionResponseData"
-          }
-        },
-        "required": [
-          "signature",
-          "status"
-        ]
-      },
-      "AmmClosePositionResponseData": {
-        "type": "object",
-        "properties": {
-          "fee": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "poolAddress": {
-            "description": "Pool this operation acted on",
-            "type": "string"
-          },
-          "positionAddress": {
-            "description": "Position this operation acted on",
-            "x-connectors": [
-              "meteora"
-            ],
-            "type": "string"
-          },
-          "positionRentRefunded": {
-            "format": "decimal",
-            "description": "Native token rent returned when the position account closed. 0 on fungible-LP AMMs, which have no position account to close.",
-            "type": "number"
-          },
-          "baseTokenAmountRemoved": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmountRemoved": {
-            "format": "decimal",
-            "type": "number"
-          }
-        },
-        "required": [
-          "fee",
-          "positionRentRefunded",
-          "baseTokenAmountRemoved",
-          "quoteTokenAmountRemoved"
-        ]
-      },
       "QuoteLiquidityResponse": {
         "type": "object",
         "properties": {
@@ -299,6 +186,14 @@
               "meteora"
             ],
             "type": "string"
+          },
+          "positionRentRefunded": {
+            "format": "decimal",
+            "description": "Native token rent returned when the position account closed. Present only on a 100% removal from an AMM whose positions are accounts.",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "number"
           },
           "baseTokenAmountRemoved": {
             "format": "decimal",
@@ -1690,6 +1585,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -1771,6 +1682,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -1836,6 +1763,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -1882,117 +1825,6 @@
           "percentageToRemove"
         ]
       },
-      "AmmOpenRequest": {
-        "type": "object",
-        "properties": {
-          "connector": {
-            "description": "AMM connector",
-            "enum": [
-              "meteora",
-              "raydium",
-              "uniswap",
-              "pancakeswap"
-            ],
-            "default": "meteora",
-            "type": "string",
-            "example": "meteora"
-          },
-          "chainNetwork": {
-            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-            "default": "solana-mainnet-beta",
-            "type": "string",
-            "example": "solana-mainnet-beta"
-          },
-          "walletAddress": {
-            "description": "Wallet that will own the position",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool to open the position in",
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "description": "Amount of base token to deposit",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "description": "Amount of quote token to deposit",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-            "type": "number",
-            "example": 1
-          }
-        },
-        "required": [
-          "connector",
-          "chainNetwork",
-          "walletAddress",
-          "poolAddress",
-          "baseTokenAmount",
-          "quoteTokenAmount"
-        ]
-      },
-      "AmmCloseRequest": {
-        "type": "object",
-        "properties": {
-          "connector": {
-            "description": "AMM connector",
-            "enum": [
-              "meteora",
-              "raydium",
-              "uniswap",
-              "pancakeswap"
-            ],
-            "default": "meteora",
-            "type": "string",
-            "example": "meteora"
-          },
-          "chainNetwork": {
-            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-            "default": "solana-mainnet-beta",
-            "type": "string",
-            "example": "solana-mainnet-beta"
-          },
-          "walletAddress": {
-            "description": "Wallet that owns the position",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool the position belongs to",
-            "type": "string"
-          },
-          "positionAddress": {
-            "description": "Position to close. Required on AMMs whose positions are discrete accounts (meteora DAMM v2), where a wallet may hold several per pool. Ignored by fungible-LP AMMs, which hold one LP balance per pool.",
-            "x-connectors": [
-              "meteora"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Maximum acceptable slippage on the withdrawn amounts.",
-            "type": "number",
-            "example": 1
-          }
-        },
-        "required": [
-          "connector",
-          "chainNetwork",
-          "walletAddress",
-          "poolAddress"
-        ]
-      },
       "AmmPoolInfoRequest": {
         "type": "object",
         "properties": {
@@ -2010,6 +1842,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2042,6 +1890,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2080,6 +1944,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2113,6 +1993,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2156,8 +2052,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2167,6 +2063,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2239,8 +2151,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2250,6 +2162,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2308,8 +2236,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2319,6 +2247,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2367,8 +2311,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2378,6 +2322,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2408,8 +2368,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2419,6 +2379,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2449,8 +2425,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2460,6 +2436,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2519,6 +2511,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2597,8 +2605,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2608,6 +2616,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2639,8 +2663,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2650,6 +2674,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2674,8 +2714,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2685,6 +2725,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2709,8 +2765,8 @@
             "enum": [
               "meteora",
               "raydium",
-              "pancakeswap-sol",
               "orca",
+              "pancakeswap-sol",
               "uniswap",
               "pancakeswap"
             ],
@@ -2720,6 +2776,22 @@
           },
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2775,6 +2847,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2815,6 +2903,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2898,6 +3002,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -2986,6 +3106,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -3053,6 +3189,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -3122,6 +3274,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -3195,6 +3363,22 @@
         "properties": {
           "chainNetwork": {
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "enum": [
+              "ethereum-arbitrum",
+              "ethereum-avalanche",
+              "ethereum-base",
+              "ethereum-bsc",
+              "ethereum-celo",
+              "ethereum-mainnet",
+              "ethereum-optimism",
+              "ethereum-polygon",
+              "ethereum-robinhoodchain",
+              "ethereum-robinhoodchain-testnet",
+              "ethereum-sepolia",
+              "ethereum-unichain",
+              "solana-devnet",
+              "solana-mainnet-beta"
+            ],
             "default": "solana-mainnet-beta",
             "type": "string",
             "example": "solana-mainnet-beta"
@@ -5497,6 +5681,22 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -5706,8 +5906,8 @@
               "enum": [
                 "meteora",
                 "raydium",
-                "pancakeswap-sol",
                 "orca",
+                "pancakeswap-sol",
                 "uniswap",
                 "pancakeswap"
               ],
@@ -5722,6 +5922,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -5780,8 +5996,8 @@
               "enum": [
                 "meteora",
                 "raydium",
-                "pancakeswap-sol",
                 "orca",
+                "pancakeswap-sol",
                 "uniswap",
                 "pancakeswap"
               ],
@@ -5796,6 +6012,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -5842,8 +6074,8 @@
               "enum": [
                 "meteora",
                 "raydium",
-                "pancakeswap-sol",
                 "orca",
+                "pancakeswap-sol",
                 "uniswap",
                 "pancakeswap"
               ],
@@ -5858,6 +6090,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -5907,8 +6155,8 @@
               "enum": [
                 "meteora",
                 "raydium",
-                "pancakeswap-sol",
                 "orca",
+                "pancakeswap-sol",
                 "uniswap",
                 "pancakeswap"
               ],
@@ -5923,6 +6171,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6023,6 +6287,22 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6170,6 +6450,22 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6509,6 +6805,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6568,6 +6880,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6637,6 +6965,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6700,6 +7044,22 @@
           },
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6775,6 +7135,22 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "ethereum-arbitrum",
+                "ethereum-avalanche",
+                "ethereum-base",
+                "ethereum-bsc",
+                "ethereum-celo",
+                "ethereum-mainnet",
+                "ethereum-optimism",
+                "ethereum-polygon",
+                "ethereum-robinhoodchain",
+                "ethereum-robinhoodchain-testnet",
+                "ethereum-sepolia",
+                "ethereum-unichain",
+                "solana-devnet",
+                "solana-mainnet-beta"
+              ],
               "default": "solana-mainnet-beta",
               "type": "string"
             },
@@ -6912,35 +7288,6 @@
         }
       }
     },
-    "/trading/amm/open": {
-      "post": {
-        "tags": [
-          "/trading/amm"
-        ],
-        "description": "Open a position with initial liquidity. On AMMs whose positions are discrete accounts (meteora DAMM v2) this mints the position and returns its address and rent; on fungible-LP AMMs (raydium, uniswap, pancakeswap) it performs the equivalent deposit and returns neither.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AmmOpenRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AmmOpenPositionResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/trading/amm/add": {
       "post": {
         "tags": [
@@ -6992,35 +7339,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AmmRemoveLiquidityResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/trading/amm/close": {
-      "post": {
-        "tags": [
-          "/trading/amm"
-        ],
-        "description": "Withdraw all of a position's liquidity. On AMMs whose positions are discrete accounts (meteora DAMM v2) this also closes the position account and refunds its rent; on fungible-LP AMMs (raydium, uniswap, pancakeswap) it withdraws the full LP balance and refunds no rent.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AmmCloseRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AmmClosePositionResponse"
                 }
               }
             }

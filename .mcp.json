@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "hagent": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "harness",
+        "python",
+        "-m",
+        "mcp_servers.hagent"
+      ],
+      "env": {}
+    }
+  }
+}

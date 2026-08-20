@@ -28,24 +28,6 @@ class AmmAddLiquidityResponseData(BaseModel):
     quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
 
 
-class AmmOpenPositionResponseData(BaseModel):
-    fee: Decimal
-    pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
-    position_address: str | None = Field(None, alias='positionAddress', description='Address of the newly opened position. Absent on fungible-LP AMMs, which hold liquidity as LP tokens rather than a position account.')
-    position_rent: Decimal = Field(..., alias='positionRent', description='Native token locked as rent for the position account, refunded on close. 0 on fungible-LP AMMs, which lock no rent.')
-    base_token_amount_added: Decimal = Field(..., alias='baseTokenAmountAdded')
-    quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
-
-
-class AmmClosePositionResponseData(BaseModel):
-    fee: Decimal
-    pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
-    position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
-    position_rent_refunded: Decimal = Field(..., alias='positionRentRefunded', description='Native token rent returned when the position account closed. 0 on fungible-LP AMMs, which have no position account to close.')
-    base_token_amount_removed: Decimal = Field(..., alias='baseTokenAmountRemoved')
-    quote_token_amount_removed: Decimal = Field(..., alias='quoteTokenAmountRemoved')
-
-
 class QuoteLiquidityResponse(BaseModel):
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool the quote was computed against')
     base_limited: bool = Field(..., alias='baseLimited')
@@ -59,6 +41,7 @@ class AmmRemoveLiquidityResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
+    position_rent_refunded: Decimal | None = Field(None, alias='positionRentRefunded', description='Native token rent returned when the position account closed. Present only on a 100% removal from an AMM whose positions are accounts.')
     base_token_amount_removed: Decimal = Field(..., alias='baseTokenAmountRemoved')
     quote_token_amount_removed: Decimal = Field(..., alias='quoteTokenAmountRemoved')
 
@@ -362,25 +345,6 @@ class AmmRemoveRequest(BaseModel):
     slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
 
 
-class AmmOpenRequest(BaseModel):
-    connector: str = Field(..., description='AMM connector', examples=['meteora'])
-    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
-    wallet_address: str = Field(..., alias='walletAddress', description='Wallet that will own the position')
-    pool_address: str = Field(..., alias='poolAddress', description='Pool to open the position in')
-    base_token_amount: Decimal = Field(..., alias='baseTokenAmount', description='Amount of base token to deposit')
-    quote_token_amount: Decimal = Field(..., alias='quoteTokenAmount', description='Amount of quote token to deposit')
-    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
-
-
-class AmmCloseRequest(BaseModel):
-    connector: str = Field(..., description='AMM connector', examples=['meteora'])
-    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
-    wallet_address: str = Field(..., alias='walletAddress', description='Wallet that owns the position')
-    pool_address: str = Field(..., alias='poolAddress', description='Pool the position belongs to')
-    position_address: str | None = Field(None, alias='positionAddress', description='Position to close. Required on AMMs whose positions are discrete accounts (meteora DAMM v2), where a wallet may hold several per pool. Ignored by fungible-LP AMMs, which hold one LP balance per pool.')
-    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description='Maximum acceptable slippage on the withdrawn amounts.', examples=[1])
-
-
 class AmmPoolInfoRequest(BaseModel):
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
@@ -626,18 +590,6 @@ class AmmAddLiquidityResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
     data: AmmAddLiquidityResponseData | None = None
-
-
-class AmmOpenPositionResponse(BaseModel):
-    signature: str
-    status: float = Field(..., description='TransactionStatus enum value')
-    data: AmmOpenPositionResponseData | None = None
-
-
-class AmmClosePositionResponse(BaseModel):
-    signature: str
-    status: float = Field(..., description='TransactionStatus enum value')
-    data: AmmClosePositionResponseData | None = None
 
 
 class AmmRemoveLiquidityResponse(BaseModel):
