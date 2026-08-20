@@ -115,7 +115,7 @@
           "quoteTokenAmountAdded"
         ]
       },
-      "QuoteLiquidityResponse": {
+      "AmmQuoteLiquidityResponse": {
         "type": "object",
         "properties": {
           "poolAddress": {
@@ -210,7 +210,7 @@
           "quoteTokenAmountRemoved"
         ]
       },
-      "CreatePoolResponse": {
+      "AmmCreatePoolResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -230,7 +230,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/CreatePoolResponseData"
+            "$ref": "#/components/schemas/AmmCreatePoolResponseData"
           }
         },
         "required": [
@@ -239,7 +239,7 @@
           "poolAddress"
         ]
       },
-      "CreatePoolResponseData": {
+      "AmmCreatePoolResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1053,7 +1053,7 @@
           "tvl"
         ]
       },
-      "FetchPoolsResponse": {
+      "ClmmFetchPoolsResponse": {
         "type": "object",
         "properties": {
           "pools": {
@@ -1108,7 +1108,7 @@
           "quoteTokenAmount"
         ]
       },
-      "PoolInfo": {
+      "ClmmPoolInfo": {
         "type": "object",
         "properties": {
           "address": {
@@ -1160,7 +1160,7 @@
           "activeBinId"
         ]
       },
-      "PositionInfo": {
+      "ClmmPositionInfo": {
         "type": "object",
         "properties": {
           "address": {
@@ -1226,7 +1226,7 @@
           "price"
         ]
       },
-      "OpenPositionResponse": {
+      "ClmmOpenPositionResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -1237,7 +1237,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/OpenPositionResponseData"
+            "$ref": "#/components/schemas/ClmmOpenPositionResponseData"
           }
         },
         "required": [
@@ -1245,7 +1245,7 @@
           "status"
         ]
       },
-      "OpenPositionResponseData": {
+      "ClmmOpenPositionResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1280,7 +1280,7 @@
           "quoteTokenAmountAdded"
         ]
       },
-      "AddLiquidityResponse": {
+      "ClmmAddLiquidityResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -1291,7 +1291,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/AddLiquidityResponseData"
+            "$ref": "#/components/schemas/ClmmAddLiquidityResponseData"
           }
         },
         "required": [
@@ -1299,7 +1299,7 @@
           "status"
         ]
       },
-      "AddLiquidityResponseData": {
+      "ClmmAddLiquidityResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1329,7 +1329,7 @@
           "quoteTokenAmountAdded"
         ]
       },
-      "RemoveLiquidityResponse": {
+      "ClmmRemoveLiquidityResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -1340,7 +1340,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/RemoveLiquidityResponseData"
+            "$ref": "#/components/schemas/ClmmRemoveLiquidityResponseData"
           }
         },
         "required": [
@@ -1348,7 +1348,7 @@
           "status"
         ]
       },
-      "RemoveLiquidityResponseData": {
+      "ClmmRemoveLiquidityResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1378,7 +1378,7 @@
           "quoteTokenAmountRemoved"
         ]
       },
-      "CollectFeesResponse": {
+      "ClmmCollectFeesResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -1389,7 +1389,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/CollectFeesResponseData"
+            "$ref": "#/components/schemas/ClmmCollectFeesResponseData"
           }
         },
         "required": [
@@ -1397,7 +1397,7 @@
           "status"
         ]
       },
-      "CollectFeesResponseData": {
+      "ClmmCollectFeesResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1427,7 +1427,7 @@
           "quoteFeeAmountCollected"
         ]
       },
-      "ClosePositionResponse": {
+      "ClmmClosePositionResponse": {
         "type": "object",
         "properties": {
           "signature": {
@@ -1438,7 +1438,7 @@
             "type": "number"
           },
           "data": {
-            "$ref": "#/components/schemas/ClosePositionResponseData"
+            "$ref": "#/components/schemas/ClmmClosePositionResponseData"
           }
         },
         "required": [
@@ -1446,7 +1446,7 @@
           "status"
         ]
       },
-      "ClosePositionResponseData": {
+      "ClmmClosePositionResponseData": {
         "type": "object",
         "properties": {
           "fee": {
@@ -1532,7 +1532,7 @@
           "fee"
         ]
       },
-      "QuotePositionResponse": {
+      "ClmmQuoteLiquidityResponse": {
         "type": "object",
         "properties": {
           "poolAddress": {
@@ -1607,7 +1607,7 @@
           },
           "walletAddress": {
             "description": "Wallet address (pool creator + payer)",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "baseToken": {
@@ -1704,7 +1704,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "poolAddress": {
@@ -1785,7 +1785,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "poolAddress": {
@@ -1916,7 +1916,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           }
         },
@@ -1966,7 +1966,7 @@
           },
           "walletAddress": {
             "description": "Wallet address to list positions for",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           }
         },
@@ -2085,7 +2085,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "lowerPrice": {
@@ -2184,7 +2184,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "positionAddress": {
@@ -2269,7 +2269,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "positionAddress": {
@@ -2344,7 +2344,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "positionAddress": {
@@ -2401,7 +2401,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "positionAddress": {
@@ -2458,7 +2458,7 @@
           },
           "walletAddress": {
             "description": "Wallet address (pool creator + payer)",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "baseToken": {
@@ -2747,7 +2747,7 @@
           },
           "walletAddress": {
             "description": "Wallet address",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           }
         },
@@ -2884,7 +2884,7 @@
           },
           "walletAddress": {
             "description": "Wallet address that will execute the quote",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "quoteId": {
@@ -2940,7 +2940,7 @@
           },
           "walletAddress": {
             "description": "Wallet address that will execute the swap",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "baseToken": {
@@ -3308,7 +3308,7 @@
           },
           "walletAddress": {
             "description": "Wallet address that will execute the swap",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "baseToken": {
@@ -3399,7 +3399,7 @@
           },
           "walletAddress": {
             "description": "Wallet address that will execute the swap",
-            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "default": "<solana-wallet-address>",
             "type": "string"
           },
           "baseToken": {
@@ -3473,7 +3473,7 @@
           },
           "address": {
             "description": "Ethereum wallet address",
-            "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
+            "default": "<ethereum-wallet-address>",
             "type": "string"
           },
           "spender": {
@@ -3496,6 +3496,24 @@
         "required": [
           "spender",
           "tokens"
+        ]
+      },
+      "AllowancesResponse": {
+        "type": "object",
+        "properties": {
+          "spender": {
+            "type": "string"
+          },
+          "approvals": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "spender",
+          "approvals"
         ]
       },
       "ApproveRequest": {
@@ -3522,7 +3540,7 @@
           },
           "address": {
             "description": "Ethereum wallet address",
-            "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
+            "default": "<ethereum-wallet-address>",
             "type": "string"
           },
           "spender": {
@@ -3544,6 +3562,52 @@
         "required": [
           "spender",
           "token"
+        ]
+      },
+      "ApproveResponse": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          },
+          "status": {
+            "description": "TransactionStatus enum value",
+            "type": "number"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ApproveResponseData"
+          }
+        },
+        "required": [
+          "signature",
+          "status"
+        ]
+      },
+      "ApproveResponseData": {
+        "type": "object",
+        "properties": {
+          "tokenAddress": {
+            "type": "string"
+          },
+          "spender": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "number"
+          },
+          "fee": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tokenAddress",
+          "spender",
+          "amount",
+          "nonce",
+          "fee"
         ]
       },
       "RemoveWalletRequest": {
@@ -3633,12 +3697,52 @@
           "address",
           "decimals"
         ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "description": "HTTP status code",
+            "type": "integer",
+            "example": 400
+          },
+          "error": {
+            "description": "HTTP status name",
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "description": "What went wrong, in terms of the request that caused it",
+            "type": "string",
+            "example": "Connector 'meteora' runs on solana, not ethereum"
+          },
+          "code": {
+            "description": "Machine-readable cause, present when Gateway can name one. This is what a caller branches on: TRANSACTION_TIMEOUT and RATE_LIMITED are retryable, the rest are not.",
+            "enum": [
+              "TRANSACTION_TIMEOUT",
+              "SIMULATION_FAILED",
+              "TRANSACTION_FAILED",
+              "INSUFFICIENT_BALANCE",
+              "INVALID_PARAMS",
+              "SLIPPAGE_EXCEEDED",
+              "NO_ROUTE_FOUND",
+              "RATE_LIMITED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message"
+        ]
       }
     }
   },
   "paths": {
     "/config/": {
       "get": {
+        "operationId": "getConfig",
         "tags": [
           "/config"
         ],
@@ -3679,12 +3783,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/config/update": {
       "post": {
+        "operationId": "updateConfig",
         "tags": [
           "/config"
         ],
@@ -3794,12 +3919,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/config/chains": {
       "get": {
+        "operationId": "listChains",
         "tags": [
           "/config"
         ],
@@ -3840,12 +3986,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/config/connectors": {
       "get": {
+        "operationId": "listConnectors",
         "tags": [
           "/config"
         ],
@@ -3897,12 +4064,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/config/namespaces": {
       "get": {
+        "operationId": "listNamespaces",
         "tags": [
           "/config"
         ],
@@ -3928,12 +4116,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/wallet/": {
       "get": {
+        "operationId": "listWallets",
         "tags": [
           "/wallet"
         ],
@@ -3989,12 +4198,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/wallet/add": {
       "post": {
+        "operationId": "addWallet",
         "tags": [
           "/wallet"
         ],
@@ -4058,12 +4288,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/wallet/add-hardware": {
       "post": {
+        "operationId": "addHardwareWallet",
         "tags": [
           "/wallet"
         ],
@@ -4111,12 +4362,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/wallet/remove": {
       "delete": {
+        "operationId": "removeWallet",
         "tags": [
           "/wallet"
         ],
@@ -4149,12 +4421,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/wallet/setDefault": {
       "post": {
+        "operationId": "setDefaultWallet",
         "tags": [
           "/wallet"
         ],
@@ -4231,12 +4524,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens/{symbolOrAddress}": {
       "get": {
+        "operationId": "getToken",
         "tags": [
           "/tokens"
         ],
@@ -4315,12 +4629,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens/find/{address}": {
       "get": {
+        "operationId": "findToken",
         "tags": [
           "/tokens"
         ],
@@ -4377,12 +4712,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens/": {
       "get": {
+        "operationId": "listTokens",
         "tags": [
           "/tokens"
         ],
@@ -4464,10 +4820,31 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
+        "operationId": "addToken",
         "tags": [
           "/tokens"
         ],
@@ -4521,12 +4898,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens/save/{address}": {
       "post": {
+        "operationId": "saveToken",
         "tags": [
           "/tokens"
         ],
@@ -4595,12 +4993,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/tokens/{address}": {
       "delete": {
+        "operationId": "removeToken",
         "tags": [
           "/tokens"
         ],
@@ -4672,12 +5091,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/pools/{tradingPair}": {
       "get": {
+        "operationId": "getPool",
         "tags": [
           "/pools"
         ],
@@ -4840,17 +5280,22 @@
               }
             }
           },
-          "404": {
+          "400": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4860,6 +5305,7 @@
     },
     "/pools/find/{address}": {
       "get": {
+        "operationId": "findPool",
         "tags": [
           "/pools"
         ],
@@ -4965,12 +5411,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/pools/find": {
       "get": {
+        "operationId": "findPools",
         "tags": [
           "/pools"
         ],
@@ -5165,12 +5632,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/pools/": {
       "get": {
+        "operationId": "listPools",
         "tags": [
           "/pools"
         ],
@@ -5332,10 +5820,31 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
       "post": {
+        "operationId": "addPool",
         "tags": [
           "/pools"
         ],
@@ -5442,12 +5951,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5457,6 +5971,7 @@
     },
     "/pools/save/{address}": {
       "post": {
+        "operationId": "savePool",
         "tags": [
           "/pools"
         ],
@@ -5580,12 +6095,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/pools/{address}": {
       "delete": {
+        "operationId": "removePool",
         "tags": [
           "/pools"
         ],
@@ -5654,17 +6190,22 @@
               }
             }
           },
-          "404": {
+          "400": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5674,6 +6215,7 @@
     },
     "/trading/router/quote-swap": {
       "get": {
+        "operationId": "quoteRouterSwap",
         "tags": [
           "/trading/router"
         ],
@@ -5832,12 +6374,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/router/execute-quote": {
       "post": {
+        "operationId": "executeRouterQuote",
         "tags": [
           "/trading/router"
         ],
@@ -5861,12 +6424,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/router/execute-swap": {
       "post": {
+        "operationId": "executeRouterSwap",
         "tags": [
           "/trading/router"
         ],
@@ -5890,12 +6474,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/clmm/pool-info": {
       "get": {
+        "operationId": "getClmmPoolInfo",
         "tags": [
           "/trading/clmm"
         ],
@@ -5976,7 +6581,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PoolInfo"
+                  "$ref": "#/components/schemas/ClmmPoolInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5986,6 +6611,7 @@
     },
     "/trading/clmm/position-info": {
       "get": {
+        "operationId": "getClmmPositionInfo",
         "tags": [
           "/trading/clmm"
         ],
@@ -6054,7 +6680,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PositionInfo"
+                  "$ref": "#/components/schemas/ClmmPositionInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6064,6 +6710,7 @@
     },
     "/trading/clmm/positions-owned": {
       "get": {
+        "operationId": "listClmmPositions",
         "tags": [
           "/trading/clmm"
         ],
@@ -6117,7 +6764,7 @@
           },
           {
             "schema": {
-              "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+              "default": "<solana-wallet-address>",
               "type": "string"
             },
             "in": "query",
@@ -6134,8 +6781,28 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PositionInfo"
+                    "$ref": "#/components/schemas/ClmmPositionInfo"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6145,6 +6812,7 @@
     },
     "/trading/clmm/quote-liquidity": {
       "get": {
+        "operationId": "quoteClmmLiquidity",
         "tags": [
           "/trading/clmm"
         ],
@@ -6270,7 +6938,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QuotePositionResponse"
+                  "$ref": "#/components/schemas/ClmmQuoteLiquidityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6280,6 +6968,7 @@
     },
     "/trading/clmm/fetch-pools": {
       "get": {
+        "operationId": "fetchClmmPools",
         "tags": [
           "/trading/clmm"
         ],
@@ -6433,7 +7122,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FetchPoolsResponse"
+                  "$ref": "#/components/schemas/ClmmFetchPoolsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6443,6 +7152,7 @@
     },
     "/trading/clmm/quote-swap": {
       "get": {
+        "operationId": "quoteClmmSwap",
         "tags": [
           "/trading/clmm"
         ],
@@ -6572,12 +7282,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/clmm/execute-swap": {
       "post": {
+        "operationId": "executeClmmSwap",
         "tags": [
           "/trading/clmm"
         ],
@@ -6601,12 +7332,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/clmm/open": {
       "post": {
+        "operationId": "openClmmPosition",
         "tags": [
           "/trading/clmm"
         ],
@@ -6626,7 +7378,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenPositionResponse"
+                  "$ref": "#/components/schemas/ClmmOpenPositionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6636,6 +7408,7 @@
     },
     "/trading/clmm/add": {
       "post": {
+        "operationId": "addClmmLiquidity",
         "tags": [
           "/trading/clmm"
         ],
@@ -6655,7 +7428,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AddLiquidityResponse"
+                  "$ref": "#/components/schemas/ClmmAddLiquidityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6665,6 +7458,7 @@
     },
     "/trading/clmm/remove": {
       "post": {
+        "operationId": "removeClmmLiquidity",
         "tags": [
           "/trading/clmm"
         ],
@@ -6684,7 +7478,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RemoveLiquidityResponse"
+                  "$ref": "#/components/schemas/ClmmRemoveLiquidityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6694,6 +7508,7 @@
     },
     "/trading/clmm/collect-fees": {
       "post": {
+        "operationId": "collectClmmFees",
         "tags": [
           "/trading/clmm"
         ],
@@ -6713,7 +7528,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CollectFeesResponse"
+                  "$ref": "#/components/schemas/ClmmCollectFeesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6723,6 +7558,7 @@
     },
     "/trading/clmm/close": {
       "post": {
+        "operationId": "closeClmmPosition",
         "tags": [
           "/trading/clmm"
         ],
@@ -6742,7 +7578,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ClosePositionResponse"
+                  "$ref": "#/components/schemas/ClmmClosePositionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6752,6 +7608,7 @@
     },
     "/trading/clmm/create-pool": {
       "post": {
+        "operationId": "createClmmPool",
         "tags": [
           "/trading/clmm"
         ],
@@ -6775,12 +7632,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/pool-info": {
       "get": {
+        "operationId": "getAmmPoolInfo",
         "tags": [
           "/trading/amm"
         ],
@@ -6850,12 +7728,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/position-info": {
       "get": {
+        "operationId": "getAmmPositionInfo",
         "tags": [
           "/trading/amm"
         ],
@@ -6916,7 +7815,7 @@
           },
           {
             "schema": {
-              "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+              "default": "<solana-wallet-address>",
               "type": "string"
             },
             "in": "query",
@@ -6935,12 +7834,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/positions-owned": {
       "get": {
+        "operationId": "listAmmPositions",
         "tags": [
           "/trading/amm"
         ],
@@ -6992,7 +7912,7 @@
           },
           {
             "schema": {
-              "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+              "default": "<solana-wallet-address>",
               "type": "string"
             },
             "in": "query",
@@ -7014,12 +7934,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/quote-liquidity": {
       "get": {
+        "operationId": "quoteAmmLiquidity",
         "tags": [
           "/trading/amm"
         ],
@@ -7118,7 +8059,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QuoteLiquidityResponse"
+                  "$ref": "#/components/schemas/AmmQuoteLiquidityResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7128,6 +8089,7 @@
     },
     "/trading/amm/quote-swap": {
       "get": {
+        "operationId": "quoteAmmSwap",
         "tags": [
           "/trading/amm"
         ],
@@ -7255,12 +8217,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/execute-swap": {
       "post": {
+        "operationId": "executeAmmSwap",
         "tags": [
           "/trading/amm"
         ],
@@ -7284,12 +8267,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/add": {
       "post": {
+        "operationId": "addAmmLiquidity",
         "tags": [
           "/trading/amm"
         ],
@@ -7313,12 +8317,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/remove": {
       "post": {
+        "operationId": "removeAmmLiquidity",
         "tags": [
           "/trading/amm"
         ],
@@ -7342,12 +8367,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/trading/amm/create-pool": {
       "post": {
+        "operationId": "createAmmPool",
         "tags": [
           "/trading/amm"
         ],
@@ -7367,7 +8413,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatePoolResponse"
+                  "$ref": "#/components/schemas/AmmCreatePoolResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7377,6 +8443,7 @@
     },
     "/chains/{chain}/status": {
       "get": {
+        "operationId": "getChainStatus",
         "tags": [
           "/chains"
         ],
@@ -7433,12 +8500,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/{chain}/estimate-gas": {
       "get": {
+        "operationId": "estimateGas",
         "tags": [
           "/chains"
         ],
@@ -7495,12 +8583,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/{chain}/balances": {
       "post": {
+        "operationId": "getBalances",
         "tags": [
           "/chains"
         ],
@@ -7540,12 +8649,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/{chain}/poll": {
       "post": {
+        "operationId": "pollTransaction",
         "tags": [
           "/chains"
         ],
@@ -7585,12 +8715,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/{chain}/wrap": {
       "post": {
+        "operationId": "wrapNativeToken",
         "tags": [
           "/chains"
         ],
@@ -7630,12 +8781,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/{chain}/unwrap": {
       "post": {
+        "operationId": "unwrapNativeToken",
         "tags": [
           "/chains"
         ],
@@ -7675,14 +8847,35 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/chains/ethereum/allowances": {
       "post": {
+        "operationId": "getAllowances",
         "tags": [
-          "/chain/ethereum"
+          "/chains"
         ],
         "description": "Get token allowances",
         "requestBody": {
@@ -7700,22 +8893,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "spender": {
-                      "type": "string"
-                    },
-                    "approvals": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "required": [
-                    "spender",
-                    "approvals"
-                  ]
+                  "$ref": "#/components/schemas/AllowancesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7725,8 +8923,9 @@
     },
     "/chains/ethereum/approve": {
       "post": {
+        "operationId": "approveToken",
         "tags": [
-          "/chain/ethereum"
+          "/chains"
         ],
         "description": "Approve token spending",
         "requestBody": {
@@ -7744,47 +8943,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "signature": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "description": "TransactionStatus enum value",
-                      "type": "number"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tokenAddress": {
-                          "type": "string"
-                        },
-                        "spender": {
-                          "type": "string"
-                        },
-                        "amount": {
-                          "type": "string"
-                        },
-                        "nonce": {
-                          "type": "number"
-                        },
-                        "fee": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "tokenAddress",
-                        "spender",
-                        "amount",
-                        "nonce",
-                        "fee"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "signature",
-                    "status"
-                  ]
+                  "$ref": "#/components/schemas/ApproveResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7795,7 +8974,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:15889"
+      "url": "http://localhost:15888"
     }
   ],
   "tags": [

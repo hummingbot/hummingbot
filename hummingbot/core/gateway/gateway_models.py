@@ -28,7 +28,7 @@ class AmmAddLiquidityResponseData(BaseModel):
     quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
 
 
-class QuoteLiquidityResponse(BaseModel):
+class AmmQuoteLiquidityResponse(BaseModel):
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool the quote was computed against')
     base_limited: bool = Field(..., alias='baseLimited')
     base_token_amount: Decimal = Field(..., alias='baseTokenAmount')
@@ -46,7 +46,7 @@ class AmmRemoveLiquidityResponseData(BaseModel):
     quote_token_amount_removed: Decimal = Field(..., alias='quoteTokenAmountRemoved')
 
 
-class CreatePoolResponseData(BaseModel):
+class AmmCreatePoolResponseData(BaseModel):
     fee: Decimal
     base_token_amount_added: Decimal = Field(..., alias='baseTokenAmountAdded')
     quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
@@ -209,7 +209,7 @@ class PoolListItem(BaseModel):
     fees24h: Decimal | None = Field(None, description='24-hour fees collected')
 
 
-class FetchPoolsResponse(BaseModel):
+class ClmmFetchPoolsResponse(BaseModel):
     pools: list[PoolListItem]
     total: float = Field(..., description='Total number of matching pools')
     page: float = Field(..., description='Current page number')
@@ -223,7 +223,7 @@ class BinLiquidity(BaseModel):
     quote_token_amount: Decimal = Field(..., alias='quoteTokenAmount')
 
 
-class PoolInfo(BaseModel):
+class ClmmPoolInfo(BaseModel):
     address: str
     base_token_address: str = Field(..., alias='baseTokenAddress')
     quote_token_address: str = Field(..., alias='quoteTokenAddress')
@@ -236,7 +236,7 @@ class PoolInfo(BaseModel):
     bins: list[BinLiquidity] | None = None
 
 
-class PositionInfo(BaseModel):
+class ClmmPositionInfo(BaseModel):
     address: str
     pool_address: str = Field(..., alias='poolAddress')
     base_token_address: str = Field(..., alias='baseTokenAddress')
@@ -252,7 +252,7 @@ class PositionInfo(BaseModel):
     price: Decimal
 
 
-class OpenPositionResponseData(BaseModel):
+class ClmmOpenPositionResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str = Field(..., alias='positionAddress')
@@ -261,7 +261,7 @@ class OpenPositionResponseData(BaseModel):
     quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
 
 
-class AddLiquidityResponseData(BaseModel):
+class ClmmAddLiquidityResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
@@ -269,7 +269,7 @@ class AddLiquidityResponseData(BaseModel):
     quote_token_amount_added: Decimal = Field(..., alias='quoteTokenAmountAdded')
 
 
-class RemoveLiquidityResponseData(BaseModel):
+class ClmmRemoveLiquidityResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
@@ -277,7 +277,7 @@ class RemoveLiquidityResponseData(BaseModel):
     quote_token_amount_removed: Decimal = Field(..., alias='quoteTokenAmountRemoved')
 
 
-class CollectFeesResponseData(BaseModel):
+class ClmmCollectFeesResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
@@ -285,7 +285,7 @@ class CollectFeesResponseData(BaseModel):
     quote_fee_amount_collected: Decimal = Field(..., alias='quoteFeeAmountCollected')
 
 
-class ClosePositionResponseData(BaseModel):
+class ClmmClosePositionResponseData(BaseModel):
     fee: Decimal
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool this operation acted on')
     position_address: str | None = Field(None, alias='positionAddress', description='Position this operation acted on')
@@ -300,7 +300,7 @@ class ClmmCreatePoolResponseData(BaseModel):
     fee: Decimal
 
 
-class QuotePositionResponse(BaseModel):
+class ClmmQuoteLiquidityResponse(BaseModel):
     pool_address: str | None = Field(None, alias='poolAddress', description='Pool the quote was computed against')
     base_limited: bool = Field(..., alias='baseLimited')
     base_token_amount: Decimal = Field(..., alias='baseTokenAmount')
@@ -554,17 +554,30 @@ class ClmmExecuteSwapRequest(BaseModel):
 
 class AllowancesRequest(BaseModel):
     network: str | None = Field('mainnet', description='The Ethereum network to use')
-    address: str | None = Field('0xDA50C69342216b538Daf06FfECDa7363E0B96684', description='Ethereum wallet address')
+    address: str | None = Field('<ethereum-wallet-address>', description='Ethereum wallet address')
     spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) or contract address', examples=['uniswap/router'])
     tokens: list[str] = Field(..., description='Array of token symbols or addresses', examples=[['USDC', 'WETH']])
 
 
+class AllowancesResponse(BaseModel):
+    spender: str
+    approvals: dict[str, str]
+
+
 class ApproveRequest(BaseModel):
     network: str | None = Field('mainnet', description='The Ethereum network to use')
-    address: str | None = Field('0xDA50C69342216b538Daf06FfECDa7363E0B96684', description='Ethereum wallet address')
+    address: str | None = Field('<ethereum-wallet-address>', description='Ethereum wallet address')
     spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) contract address', examples=['uniswap/router'])
     token: str = Field(..., description='Token symbol or address', examples=['USDC'])
     amount: str | None = Field('', description='The amount to approve. If not provided, defaults to maximum amount (unlimited approval).')
+
+
+class ApproveResponseData(BaseModel):
+    token_address: str = Field(..., alias='tokenAddress')
+    spender: str
+    amount: str
+    nonce: float
+    fee: str
 
 
 class RemoveWalletRequest(BaseModel):
@@ -586,6 +599,13 @@ class Token(BaseModel):
     decimals: confloat(ge=0.0, le=255.0) = Field(..., description='The number of decimals the token uses', examples=[6])
 
 
+class ErrorResponse(BaseModel):
+    status_code: int = Field(..., alias='statusCode', description='HTTP status code', examples=[400])
+    error: str = Field(..., description='HTTP status name', examples=['Bad Request'])
+    message: str = Field(..., description='What went wrong, in terms of the request that caused it', examples=["Connector 'meteora' runs on solana, not ethereum"])
+    code: str | None = Field(None, description='Machine-readable cause, present when Gateway can name one. This is what a caller branches on: TRANSACTION_TIMEOUT and RATE_LIMITED are retryable, the rest are not.')
+
+
 class AmmAddLiquidityResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
@@ -598,12 +618,12 @@ class AmmRemoveLiquidityResponse(BaseModel):
     data: AmmRemoveLiquidityResponseData | None = None
 
 
-class CreatePoolResponse(BaseModel):
+class AmmCreatePoolResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
     pool_address: str = Field(..., alias='poolAddress', description='Address of the newly created pool')
     price: Decimal | None = Field(None, description='Initial price the pool was seeded at (quote per base)')
-    data: CreatePoolResponseData | None = None
+    data: AmmCreatePoolResponseData | None = None
 
 
 class ChainExecuteSwapResponse(BaseModel):
@@ -618,34 +638,34 @@ class ChainWrapResponse(BaseModel):
     data: ChainWrapResponseData | None = None
 
 
-class OpenPositionResponse(BaseModel):
+class ClmmOpenPositionResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
-    data: OpenPositionResponseData | None = None
+    data: ClmmOpenPositionResponseData | None = None
 
 
-class AddLiquidityResponse(BaseModel):
+class ClmmAddLiquidityResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
-    data: AddLiquidityResponseData | None = None
+    data: ClmmAddLiquidityResponseData | None = None
 
 
-class RemoveLiquidityResponse(BaseModel):
+class ClmmRemoveLiquidityResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
-    data: RemoveLiquidityResponseData | None = None
+    data: ClmmRemoveLiquidityResponseData | None = None
 
 
-class CollectFeesResponse(BaseModel):
+class ClmmCollectFeesResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
-    data: CollectFeesResponseData | None = None
+    data: ClmmCollectFeesResponseData | None = None
 
 
-class ClosePositionResponse(BaseModel):
+class ClmmClosePositionResponse(BaseModel):
     signature: str
     status: float = Field(..., description='TransactionStatus enum value')
-    data: ClosePositionResponseData | None = None
+    data: ClmmClosePositionResponseData | None = None
 
 
 class ClmmCreatePoolResponse(BaseModel):
@@ -654,3 +674,9 @@ class ClmmCreatePoolResponse(BaseModel):
     pool_address: str = Field(..., alias='poolAddress', description='Address of the newly created pool')
     price: Decimal | None = Field(None, description='Initial price the pool was initialized at (quote per base)')
     data: ClmmCreatePoolResponseData | None = None
+
+
+class ApproveResponse(BaseModel):
+    signature: str
+    status: float = Field(..., description='TransactionStatus enum value')
+    data: ApproveResponseData | None = None
