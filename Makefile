@@ -43,12 +43,21 @@ export GATEWAY_MODELS_HEADER
 #   make gateway-models
 # The target Python is setup.py's python_requires floor, not the interpreter you happen
 # to be on: 3.12 would emit StrEnum, which 3.10 does not have.
+#
+# --ignore-enum-constraints keeps `connector` and `network` as plain strings. Gateway
+# constrains them by enum so its docs can offer dropdowns, but generating those as Python
+# enums would bake a connector and network roster into this client: a venue Gateway added
+# after the last spec refresh would be rejected here before the request left the process.
+# It also removes the only classes the generator had to number (Connector9, Connector15,
+# ...), which were renamed by any unrelated route insertion.
+#
 # test_gateway_models_match_spec.py fails if the committed models drift from the spec.
 gateway-models:
 	python -m datamodel_code_generator \
 		--input gateway-openapi.json --input-file-type openapi --openapi-scopes schemas \
 		--output hummingbot/core/gateway/gateway_models.py --output-model-type pydantic_v2.BaseModel \
 		--snake-case-field --target-python-version 3.10 --disable-timestamp \
+		--ignore-enum-constraints \
 		--formatters black --formatters isort \
 		--custom-file-header "$$GATEWAY_MODELS_HEADER"
 

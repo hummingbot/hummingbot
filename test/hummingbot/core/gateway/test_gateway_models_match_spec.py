@@ -82,6 +82,9 @@ class GatewayModelsMatchSpecTest(unittest.TestCase):
                 # the tests: targeting 3.12 emits StrEnum, which 3.10 does not have.
                 "--target-python-version", "3.10",
                 "--disable-timestamp",
+                # Keeps `connector`/`network` as plain strings rather than baking
+                # Gateway's current roster into this client. See the Makefile.
+                "--ignore-enum-constraints",
                 "--formatters", "black",
                 "--formatters", "isort",
                 "--custom-file-header", "\n".join(GENERATED_PATH.read_text().splitlines()[:2]),

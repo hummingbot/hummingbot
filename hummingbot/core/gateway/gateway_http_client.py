@@ -24,12 +24,79 @@ from hummingbot.client.settings import (
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway.gateway_error import GatewayError
+from hummingbot.core.gateway.gateway_models import (
+    AmmAddRequest,
+    AmmExecuteSwapRequest,
+    AmmPoolInfoRequest,
+    AmmPositionInfoRequest,
+    AmmQuoteLiquidityRequest,
+    AmmQuoteSwapRequest,
+    AmmRemoveRequest,
+    ClmmAddRequest,
+    ClmmCloseRequest,
+    ClmmCollectFeesRequest,
+    ClmmExecuteSwapRequest,
+    ClmmOpenRequest,
+    ClmmPoolInfoRequest,
+    ClmmPositionInfoRequest,
+    ClmmPositionsOwnedRequest,
+    ClmmQuoteLiquidityRequest,
+    ClmmQuoteSwapRequest,
+    ClmmRemoveRequest,
+    RouterExecuteQuoteRequest,
+    RouterExecuteSwapRequest,
+    RouterQuoteSwapRequest,
+)
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_namespace_keys
 from hummingbot.logger import HummingbotLogger
 
 POLL_INTERVAL = 2.0
 POLL_TIMEOUT = 1.0
+
+# The request model for each unified /trading route, keyed by the trading type the caller
+# picks at runtime. The three surfaces do not take the same fields — only the router
+# accepts approximateIfNoExactOut, only the pool-scoped ones accept poolAddress — so each
+# has its own model rather than one shape covering all three.
+_QUOTE_SWAP_REQUESTS = {
+    "router": RouterQuoteSwapRequest,
+    "clmm": ClmmQuoteSwapRequest,
+    "amm": AmmQuoteSwapRequest,
+}
+_EXECUTE_SWAP_REQUESTS = {
+    "router": RouterExecuteSwapRequest,
+    "clmm": ClmmExecuteSwapRequest,
+    "amm": AmmExecuteSwapRequest,
+}
+_POOL_INFO_REQUESTS = {"clmm": ClmmPoolInfoRequest, "amm": AmmPoolInfoRequest}
+
+
+def _query(request: Any) -> Dict[str, str]:
+    """A request model as query parameters.
+
+    Everything is stringified because aiohttp rejects a non-string query value, and
+    Gateway coerces the strings back per its schema. Fields left as None are dropped:
+    Gateway applies its own default for an absent parameter, which is not the same as
+    being told the value is null.
+    """
+    return {
+        key: ("true" if value is True else "false" if value is False else str(value))
+        for key, value in request.model_dump(by_alias=True, exclude_none=True).items()
+    }
+
+
+def _body(request: Any) -> Dict[str, Any]:
+    """A request model as a JSON body.
+
+    Dumped in python mode and widened here rather than with ``mode="json"``, which
+    renders Decimal as a string. Gateway declares these fields as `type: number` — its
+    `decimal` format tells a client to *hold* the value as a decimal, not to send it as
+    text — so a string would arrive as the wrong JSON type.
+    """
+    return {
+        key: (float(value) if isinstance(value, Decimal) else value)
+        for key, value in request.model_dump(by_alias=True, exclude_none=True).items()
+    }
 
 
 class GatewayStatus(Enum):
@@ -788,21 +855,26 @@ class GatewayHttpClient:
         # Gateway carries the trading type in the path — /trading/{router,clmm,amm} —
         # and constrains each route's `connector` to a bare, enum'd name. The type
         # selects the route; it no longer qualifies the connector.
-        request_payload: Dict[str, Any] = {
-            "chainNetwork": self._to_chain_network(network, chain),
-            "connector": dex,
-            "baseToken": base_asset,
-            "quoteToken": quote_asset,
-            "amount": str(amount),
-            "side": side.name,
-        }
-        if slippage_pct is not None:
-            request_payload["slippagePct"] = str(slippage_pct)
+        request_model = _QUOTE_SWAP_REQUESTS.get(trading_type)
+        if request_model is None:
+            raise ValueError(
+                f"Unknown trading type '{trading_type}' — expected one of "
+                f"{', '.join(_QUOTE_SWAP_REQUESTS)}"
+            )
+        request = request_model(
+            chainNetwork=self._to_chain_network(network, chain),
+            connector=dex,
+            baseToken=base_asset,
+            quoteToken=quote_asset,
+            amount=amount,
+            side=side.name,
+            slippagePct=slippage_pct,
+        )
 
         return await self.api_request(
             "get",
             f"trading/{trading_type}/quote-swap",
-            request_payload,
+            _query(request),
             fail_silently=fail_silently
         )
 
@@ -889,22 +961,26 @@ class GatewayHttpClient:
             dex, trading_type = self._parse_swap_provider(swap_provider)
 
         # /trading/{type}/execute-swap (see quote_swap for the keying rationale).
-        request_payload: Dict[str, Any] = {
-            "chainNetwork": self._to_chain_network(network, chain),
-            "connector": dex,
-            "baseToken": base_asset,
-            "quoteToken": quote_asset,
-            "amount": float(amount),
-            "side": side.name,
-        }
-        if slippage_pct is not None:
-            request_payload["slippagePct"] = float(slippage_pct)
-        if wallet_address is not None:
-            request_payload["walletAddress"] = wallet_address
+        request_model = _EXECUTE_SWAP_REQUESTS.get(trading_type)
+        if request_model is None:
+            raise ValueError(
+                f"Unknown trading type '{trading_type}' — expected one of "
+                f"{', '.join(_EXECUTE_SWAP_REQUESTS)}"
+            )
+        request = request_model(
+            chainNetwork=self._to_chain_network(network, chain),
+            connector=dex,
+            baseToken=base_asset,
+            quoteToken=quote_asset,
+            amount=amount,
+            side=side.name,
+            slippagePct=slippage_pct,
+            walletAddress=wallet_address,
+        )
         return await self.api_request(
             "post",
             f"trading/{trading_type}/execute-swap",
-            request_payload
+            _body(request)
         )
 
     async def execute_quote(
@@ -932,12 +1008,14 @@ class GatewayHttpClient:
         return await self.api_request(
             "post",
             "trading/router/execute-quote",
-            {
-                "chainNetwork": self._to_chain_network(network, chain),
-                "connector": dex,
-                "walletAddress": wallet_address,
-                "quoteId": quote_id,
-            },
+            _body(
+                RouterExecuteQuoteRequest(
+                    chainNetwork=self._to_chain_network(network, chain),
+                    connector=dex,
+                    walletAddress=wallet_address,
+                    quoteId=quote_id,
+                )
+            ),
         )
 
     async def estimate_gas(
@@ -988,11 +1066,16 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "poolAddress": pool_address,
-        }
+        request_model = _POOL_INFO_REQUESTS.get(trading_type)
+        if request_model is None:
+            raise ValueError(f"Trading type '{trading_type}' has no unified pool-info route")
+        query_params = _query(
+            request_model(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                poolAddress=pool_address,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1024,11 +1107,13 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "positionAddress": position_address,
-        }
+        query_params = _query(
+            ClmmPositionInfoRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                positionAddress=position_address,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1059,12 +1144,14 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "poolAddress": pool_address,
-            "walletAddress": wallet_address,
-        }
+        query_params = _query(
+            AmmPositionInfoRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                poolAddress=pool_address,
+                walletAddress=wallet_address,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1107,24 +1194,26 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "poolAddress": pool_address,
-            "lowerPrice": lower_price,
-            "upperPrice": upper_price,
-        }
         # Both amounts are optional on the unified route (it enforces at least one), so a
-        # single-sided open is expressed by omitting the other side.
-        if base_token_amount is not None:
-            request_payload["baseTokenAmount"] = base_token_amount
-        if quote_token_amount is not None:
-            request_payload["quoteTokenAmount"] = quote_token_amount
-        if slippage_pct is not None:
-            request_payload["slippagePct"] = slippage_pct
+        # single-sided open is expressed by omitting the other side — which _body does by
+        # dropping whatever is None.
+        request_payload = _body(
+            ClmmOpenRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                poolAddress=pool_address,
+                lowerPrice=lower_price,
+                upperPrice=upper_price,
+                baseTokenAmount=base_token_amount,
+                quoteTokenAmount=quote_token_amount,
+                slippagePct=slippage_pct,
+            )
+        )
 
-        # Add connector-specific parameters
+        # Connector-specific parameters, merged after the model rather than through it:
+        # they are named by the connector, not by the route, so the schema does not
+        # describe them and validating against it would reject them.
         if extra_params:
             request_payload.update(extra_params)
 
@@ -1157,12 +1246,14 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "positionAddress": position_address,
-        }
+        request_payload = _body(
+            ClmmCloseRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                positionAddress=position_address,
+            )
+        )
 
         return await self.api_request(
             "post",
@@ -1201,24 +1292,23 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "positionAddress": position_address,
-        }
         # Both amounts are optional on the unified route (it enforces at least one), so a
         # single-sided add is expressed by omitting the other side. The legacy
         # per-connector routes made them REQUIRED on raydium/uniswap/pancakeswap(-sol),
         # where the same omission produced a 400.
-        if base_token_amount is not None:
-            request_payload["baseTokenAmount"] = base_token_amount
-        if quote_token_amount is not None:
-            request_payload["quoteTokenAmount"] = quote_token_amount
-        if slippage_pct is not None:
-            request_payload["slippagePct"] = slippage_pct
+        request_payload = _body(
+            ClmmAddRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                positionAddress=position_address,
+                baseTokenAmount=base_token_amount,
+                quoteTokenAmount=quote_token_amount,
+                slippagePct=slippage_pct,
+            )
+        )
 
-        # Add connector-specific parameters
+        # Connector-specific parameters, merged after the model — see clmm_open_position.
         if extra_params:
             request_payload.update(extra_params)
 
@@ -1253,13 +1343,15 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "positionAddress": position_address,
-            "percentageToRemove": percentage,
-        }
+        request_payload = _body(
+            ClmmRemoveRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                positionAddress=position_address,
+                percentageToRemove=percentage,
+            )
+        )
 
         return await self.api_request(
             "post",
@@ -1290,12 +1382,14 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "positionAddress": position_address,
-        }
+        request_payload = _body(
+            ClmmCollectFeesRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                positionAddress=position_address,
+            )
+        )
 
         return await self.api_request(
             "post",
@@ -1326,11 +1420,13 @@ class GatewayHttpClient:
 
         Note: Filtering by pool_address must be done client-side.
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-        }
+        query_params = _query(
+            ClmmPositionsOwnedRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1365,15 +1461,16 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "poolAddress": pool_address,
-            "baseTokenAmount": base_token_amount,
-            "quoteTokenAmount": quote_token_amount,
-        }
-        if slippage_pct is not None:
-            query_params["slippagePct"] = slippage_pct
+        query_params = _query(
+            AmmQuoteLiquidityRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                poolAddress=pool_address,
+                baseTokenAmount=base_token_amount,
+                quoteTokenAmount=quote_token_amount,
+                slippagePct=slippage_pct,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1412,19 +1509,18 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        query_params = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "poolAddress": pool_address,
-            "lowerPrice": lower_price,
-            "upperPrice": upper_price,
-        }
-        if base_token_amount is not None:
-            query_params["baseTokenAmount"] = base_token_amount
-        if quote_token_amount is not None:
-            query_params["quoteTokenAmount"] = quote_token_amount
-        if slippage_pct is not None:
-            query_params["slippagePct"] = slippage_pct
+        query_params = _query(
+            ClmmQuoteLiquidityRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                poolAddress=pool_address,
+                lowerPrice=lower_price,
+                upperPrice=upper_price,
+                baseTokenAmount=base_token_amount,
+                quoteTokenAmount=quote_token_amount,
+                slippagePct=slippage_pct,
+            )
+        )
 
         return await self.api_request(
             "get",
@@ -1465,18 +1561,18 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "poolAddress": pool_address,
-            "baseTokenAmount": base_token_amount,
-            "quoteTokenAmount": quote_token_amount,
-        }
-        if position_address is not None:
-            request_payload["positionAddress"] = position_address
-        if slippage_pct is not None:
-            request_payload["slippagePct"] = slippage_pct
+        request_payload = _body(
+            AmmAddRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                poolAddress=pool_address,
+                baseTokenAmount=base_token_amount,
+                quoteTokenAmount=quote_token_amount,
+                positionAddress=position_address,
+                slippagePct=slippage_pct,
+            )
+        )
 
         return await self.api_request(
             "post",
@@ -1513,15 +1609,16 @@ class GatewayHttpClient:
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
         """
-        request_payload = {
-            "connector": dex,
-            "chainNetwork": self._to_chain_network(network, chain),
-            "walletAddress": wallet_address,
-            "poolAddress": pool_address,
-            "percentageToRemove": percentage,
-        }
-        if position_address is not None:
-            request_payload["positionAddress"] = position_address
+        request_payload = _body(
+            AmmRemoveRequest(
+                connector=dex,
+                chainNetwork=self._to_chain_network(network, chain),
+                walletAddress=wallet_address,
+                poolAddress=pool_address,
+                percentageToRemove=percentage,
+                positionAddress=position_address,
+            )
+        )
 
         return await self.api_request(
             "post",

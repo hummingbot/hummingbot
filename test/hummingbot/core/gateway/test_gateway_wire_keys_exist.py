@@ -14,6 +14,12 @@ The spec is the same vendored copy the path check uses; refresh it the same way:
 
 A failure means either the client is stale and should follow the rename, or the key
 addresses Gateway's config tree rather than an HTTP field — see CONFIG_TREE_KEYS.
+
+The /trading methods no longer spell their keys as literals — they build the request from
+the models generated off the spec, so the names are kwargs. Pydantic catches a misspelled
+*required* field, since the real one then goes missing, but silently drops a misspelled
+optional one. The last check below covers that case by reading the kwargs out of the
+source and holding them against the model each call names.
 """
 import json
 import os
@@ -110,6 +116,51 @@ class GatewayWireKeysExistTest(unittest.TestCase):
             + f"\n\nSpec: {SPEC_PATH}. Either the caller is stale and should follow the rename, "
             "or the string is not a Gateway field at all — see CONFIG_TREE_KEYS and "
             "LOCAL_CONSTANTS.",
+        )
+
+
+class GatewayModelKwargsExistTest(unittest.TestCase):
+    """Every kwarg passed to a generated request model must be one of its fields.
+
+    Pydantic ignores an unknown keyword. On a required field that still fails loudly —
+    the real one is missing — but `slippagePc=1` for `slippagePct` would be dropped in
+    silence, and the request would go out without the slippage the caller asked for.
+    """
+
+    # `ModelNameRequest(\n    key=..., ...)` — the shape every converted call site uses.
+    CONSTRUCTOR = re.compile(r"\b([A-Z][A-Za-z0-9]*Request)\(\s*\n((?:\s+\w+=.*\n)+)")
+    KWARG = re.compile(r"^\s+(\w+)=", re.M)
+
+    @classmethod
+    def setUpClass(cls):
+        from hummingbot.core.gateway import gateway_models
+
+        cls.models = gateway_models
+        source = (_REPO_ROOT / "hummingbot" / "core" / "gateway" / "gateway_http_client.py").read_text()
+        cls.calls = [
+            (match.group(1), cls.KWARG.findall(match.group(2)))
+            for match in cls.CONSTRUCTOR.finditer(source)
+        ]
+
+    def test_the_call_sites_were_found(self):
+        """Guard the guard: a regex matching nothing would pass the real check vacuously."""
+        self.assertGreater(len(self.calls), 10, f"Only {len(self.calls)} model constructions found")
+
+    def test_every_kwarg_is_a_field_of_the_model_it_names(self):
+        unknown = []
+        for model_name, kwargs in self.calls:
+            model = getattr(self.models, model_name, None)
+            self.assertIsNotNone(model, f"{model_name} is not a generated model")
+            fields = {(f.alias or n) for n, f in model.model_fields.items()}
+            fields |= set(model.model_fields)
+            unknown += [f"{model_name}.{k}" for k in kwargs if k not in fields]
+
+        self.assertFalse(
+            unknown,
+            "GatewayHttpClient passes keywords no generated model declares:\n  "
+            + "\n  ".join(sorted(unknown))
+            + "\n\nPydantic drops an unknown keyword, so an optional one goes missing in "
+            "silence. Follow the rename, or correct the spelling.",
         )
 
 

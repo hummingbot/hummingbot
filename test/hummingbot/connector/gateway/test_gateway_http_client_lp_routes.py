@@ -2,6 +2,7 @@ import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, patch
 
+from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
@@ -247,6 +248,93 @@ class GatewayHttpClientLPRouteTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual("trading/amm/quote-liquidity", path)
         self.assertEqual("POOL", payload["poolAddress"])
         self.assertNotIn("network", payload)
+
+
+class GatewayRequestSerializationTest(IsolatedAsyncioWrapperTestCase):
+    """The wire types the request models are serialized to.
+
+    The methods above build their payloads from the models generated off Gateway's
+    OpenAPI spec, so the field *names* are checked against the spec by construction.
+    What is not checked by construction is how the values are rendered, and the models
+    hold amounts as Decimal — a type neither json.dumps nor a query string accepts as
+    it stands. These pin the two conversions:
+
+    - a JSON body carries numbers as numbers. `model_dump(mode="json")` would render
+      Decimal as a string, and Gateway declares these fields `type: number`.
+    - a query string carries everything as text, which is what a URL can hold.
+
+    Both drop fields left as None rather than sending null, because Gateway applies its
+    own default for an absent parameter.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = GatewayHttpClient.get_instance()
+
+    def _capture(self):
+        return patch.object(self.client, "api_request", new=AsyncMock(return_value={"signature": "sig"}))
+
+    def _sent(self, mock_req):
+        args = mock_req.call_args.args
+        return args[2] if len(args) > 2 else mock_req.call_args.kwargs["params"]
+
+    async def test_a_body_carries_amounts_as_json_numbers(self):
+        with self._capture() as mock_req:
+            await self.client.amm_add_liquidity(
+                network="mainnet-beta", chain="solana", wallet_address="WALLET",
+                pool_address="POOL", base_token_amount=0.1, quote_token_amount=2.0,
+                dex="meteora", slippage_pct=1.0,
+            )
+        payload = self._sent(mock_req)
+        for key in ("baseTokenAmount", "quoteTokenAmount", "slippagePct"):
+            # assertEqual would not catch this: Decimal("0.1") == 0.1 is True, and a
+            # Decimal reaches aiohttp as an unserializable object rather than a number.
+            self.assertIsInstance(payload[key], float, f"{key} must be a JSON number")
+        self.assertEqual(0.1, payload["baseTokenAmount"], "float -> Decimal -> float must round-trip")
+
+    async def test_a_query_carries_everything_as_text(self):
+        with self._capture() as mock_req:
+            await self.client.clmm_quote_position(
+                network="mainnet-beta", chain="solana", pool_address="POOL",
+                lower_price=1.5, upper_price=2.5, dex="meteora", base_token_amount=0.1,
+            )
+        params = self._sent(mock_req)
+        self.assertTrue(all(isinstance(v, str) for v in params.values()), params)
+        self.assertEqual("0.1", params["baseTokenAmount"])
+        self.assertEqual("1.5", params["lowerPrice"])
+
+    async def test_omitted_optionals_are_absent_rather_than_null(self):
+        with self._capture() as mock_req:
+            await self.client.clmm_open_position(
+                network="mainnet-beta", chain="solana", wallet_address="WALLET",
+                pool_address="POOL", lower_price=1.0, upper_price=2.0, dex="meteora",
+                base_token_amount=1.5,
+            )
+        payload = self._sent(mock_req)
+        self.assertNotIn("quoteTokenAmount", payload)
+        self.assertNotIn("slippagePct", payload)
+        self.assertNotIn(None, payload.values())
+
+    async def test_connector_specific_params_survive_the_model(self):
+        # strategyType is named by the connector, not by the route, so it is merged after
+        # the model rather than validated against it.
+        with self._capture() as mock_req:
+            await self.client.clmm_open_position(
+                network="mainnet-beta", chain="solana", wallet_address="WALLET",
+                pool_address="POOL", lower_price=1.0, upper_price=2.0, dex="meteora",
+                base_token_amount=1.5, extra_params={"strategyType": 0},
+            )
+        self.assertEqual(0, self._sent(mock_req)["strategyType"])
+
+    async def test_an_unknown_trading_type_is_rejected_before_the_request(self):
+        """A wrong type used to reach Gateway as a 404; the model map names the options."""
+        with self.assertRaises(ValueError) as ctx:
+            await self.client.quote_swap(
+                network="mainnet-beta", chain="solana", base_asset="SOL",
+                quote_asset="USDC", amount=1, side=TradeType.SELL,
+                dex="meteora", trading_type="nonsense",
+            )
+        self.assertIn("nonsense", str(ctx.exception))
 
 
 if __name__ == "__main__":
