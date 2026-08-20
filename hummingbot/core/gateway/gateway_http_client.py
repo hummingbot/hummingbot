@@ -1658,8 +1658,16 @@ class GatewayHttpClient:
         network: str,
         search: Optional[str] = None
     ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
-        """Get available tokens for a specific chain and network."""
-        params = {"chain": chain, "network": network}
+        """Get available tokens for a specific chain and network.
+
+        Gateway addresses these routes with one `chainNetwork` rather than a chain and a
+        network. This whole family was missed when /trading migrated, and because
+        GatewayBase calls it on the startup path — load_token_data fills the amount
+        quantums, so a connector cannot even size an order without it — the failure
+        presented as "every Gateway executor is broken" rather than as a token listing
+        that 400s.
+        """
+        params = {"chainNetwork": self._to_chain_network(network, chain)}
         if search:
             params["search"] = search
 
@@ -1678,7 +1686,7 @@ class GatewayHttpClient:
         fail_silently: bool = False
     ) -> Dict[str, Any]:
         """Get details for a specific token by symbol or address."""
-        params = {"chain": chain, "network": network}
+        params = {"chainNetwork": self._to_chain_network(network, chain)}
         try:
             response = await self.api_request(
                 "get",
@@ -1701,8 +1709,7 @@ class GatewayHttpClient:
             "post",
             "tokens",
             params={
-                "chain": chain,
-                "network": network,
+                "chainNetwork": self._to_chain_network(network, chain),
                 "token": token_data
             }
         )
@@ -1715,10 +1722,10 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         """Remove a token from the gateway.
 
-        Gateway declares chain/network as required QUERYSTRING for this DELETE;
-        api_request sends DELETE params as a JSON body, so they ride the URL here.
+        Gateway declares chainNetwork as a required QUERYSTRING for this DELETE;
+        api_request sends DELETE params as a JSON body, so it rides the URL here.
         """
-        query = urlencode({"chain": chain, "network": network})
+        query = urlencode({"chainNetwork": self._to_chain_network(network, chain)})
         return await self.api_request("delete", f"tokens/{address}?{query}")
 
     # ============================================
@@ -1744,8 +1751,7 @@ class GatewayHttpClient:
         :return: Pool information including address
         """
         params = {
-            "chain": chain,
-            "network": network,
+            "chainNetwork": self._to_chain_network(network, chain),
             "type": trading_type
         }
         if connector:
@@ -1779,9 +1785,8 @@ class GatewayHttpClient:
         :return: Response with status
         """
         params = {
-            "chain": chain,
+            "chainNetwork": self._to_chain_network(network, chain),
             "connector": connector,
-            "network": network,
             **pool_data
         }
         return await self.api_request("post", "pools", params=params)
@@ -1802,9 +1807,9 @@ class GatewayHttpClient:
         :param pool_type: Pool type (amm or clmm)
         :return: Response with status
         """
-        # Gateway's route declares chain/network as required QUERYSTRING (and no
+        # Gateway's route declares chainNetwork as a required QUERYSTRING (and no
         # "type" at all); api_request sends DELETE params as a body, so ride the URL.
-        query = urlencode({"chain": chain, "network": network})
+        query = urlencode({"chainNetwork": self._to_chain_network(network, chain)})
         return await self.api_request("delete", f"pools/{address}?{query}")
 
     async def list_pools(
@@ -1828,8 +1833,7 @@ class GatewayHttpClient:
         :return: List of pools
         """
         params = {
-            "chain": chain,
-            "network": network
+            "chainNetwork": self._to_chain_network(network, chain)
         }
         if search:
             params["search"] = search
