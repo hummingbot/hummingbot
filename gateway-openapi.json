@@ -2290,7 +2290,7 @@
             "format": "decimal",
             "minimum": 0,
             "maximum": 100,
-            "description": "Maximum acceptable slippage percentage. Only applies to the Orca connector; defaults to Orca's configured slippagePct.",
+            "description": "Maximum acceptable slippage percentage. Honored by orca, uniswap and pancakeswap; the other connectors remove at their configured slippagePct. Defaults to the connector's configured slippagePct.",
             "type": "number",
             "example": 1
           }

@@ -403,7 +403,7 @@ class ClmmRemoveRequest(BaseModel):
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
     position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
     percentage_to_remove: condecimal(ge=Decimal('0'), le=Decimal('100')) = Field(..., alias='percentageToRemove', description='Percentage of liquidity to remove', examples=[100])
-    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Only applies to the Orca connector; defaults to Orca's configured slippagePct.", examples=[1])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Honored by orca, uniswap and pancakeswap; the other connectors remove at their configured slippagePct. Defaults to the connector's configured slippagePct.", examples=[1])
 
 
 class ClmmCollectFeesRequest(BaseModel):
