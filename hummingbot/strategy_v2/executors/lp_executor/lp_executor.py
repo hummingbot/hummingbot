@@ -12,7 +12,12 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-from hummingbot.strategy_v2.executors.gateway_utils import parse_provider, validate_and_normalize_connector
+from hummingbot.strategy_v2.executors.gateway_utils import (
+    is_slippage_failure,
+    next_slippage_pct,
+    parse_provider,
+    validate_and_normalize_connector,
+)
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorState, LPExecutorStates
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
@@ -60,6 +65,12 @@ class LPExecutor(ExecutorBase):
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
         self._max_retries_reached = False  # True when max retries reached, requires intervention
+        # The tolerance the next Gateway request will carry. Starts at the configured
+        # value and widens only on a failure Gateway attributed to slippage, never past
+        # max_slippage_pct. Reset at each phase boundary: an open and the close that
+        # follows it are separated by the position's whole lifetime, so a close should
+        # start tight again rather than inherit however wide the open had to go.
+        self._slippage_pct: Decimal = config.slippage_pct
         self._last_attempted_signature: Optional[str] = None  # Track for retry logging
         # Position tracking - store LP position for position aggregation when keep_position=True
         self._held_position_orders: List[Dict] = []
@@ -359,6 +370,7 @@ class LPExecutor(ExecutorBase):
                 quote_token_amount=float(self.config.quote_amount),
                 pool_address=self.config.pool_address,
                 extra_params=self.config.extra_params,
+                slippage_pct=float(self._slippage_pct),
                 max_retries=self._max_retries,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
@@ -402,6 +414,8 @@ class LPExecutor(ExecutorBase):
 
             # Position is created - clear open order
             self.lp_position_state.active_open_order = None
+            # The open is done; the close is a separate phase and starts tight again.
+            self._reset_slippage()
 
             # Clean up connector metadata
             if order_id in connector._lp_orders_metadata:
@@ -569,6 +583,48 @@ class LPExecutor(ExecutorBase):
                 return False
         return True
 
+    def _widen_slippage(self, error: Exception) -> bool:
+        """Widen the tolerance for the next attempt, if this failure was slippage.
+
+        Returns True when the next attempt will carry a wider tolerance than this one
+        did, which is the only case where retrying is doing something different.
+
+        Only a slippage failure widens. A wrong tick, an insufficient balance or a
+        transport error says nothing about the tolerance, and loosening one that was
+        never too tight spends the operator's money to fix the wrong problem.
+        """
+        if not is_slippage_failure(error):
+            return False
+
+        widened = next_slippage_pct(
+            self._slippage_pct, self.config.slippage_multiplier, self.config.max_slippage_pct
+        )
+        if widened is None:
+            self.logger().warning(
+                f"Slippage failure at {self._slippage_pct}%, which is max_slippage_pct "
+                f"({self.config.max_slippage_pct}%). Not widening further: the market has moved "
+                "past what this executor was configured to accept."
+            )
+            return False
+
+        self.logger().info(
+            f"Slippage failure at {self._slippage_pct}%; retrying at {widened}% "
+            f"(x{self.config.slippage_multiplier}, ceiling {self.config.max_slippage_pct}%)."
+        )
+        self._slippage_pct = widened
+        return True
+
+    def _reset_slippage(self):
+        """Start the next phase at the configured tolerance.
+
+        An open and the close that follows it are separated by the position's whole
+        lifetime. Carrying a widened tolerance across that boundary would silently
+        accept 5% on an exit because an entry once needed it.
+        """
+        if self._slippage_pct != self.config.slippage_pct:
+            self.logger().info(f"Resetting slippage to {self.config.slippage_pct}% for the next phase.")
+        self._slippage_pct = self.config.slippage_pct
+
     def _handle_create_failure(self, error: Exception):
         """Handle position creation failure.
 
@@ -583,6 +639,21 @@ class LPExecutor(ExecutorBase):
         would deposit a second position on top of the first.
         """
         self.lp_position_state.active_open_order = None
+
+        # A slippage failure is the one open failure that can be retried safely. Gateway
+        # raises it either from the pre-flight simulation, where nothing was sent, or
+        # from a transaction that landed and reverted — and a reverted open deposits
+        # nothing. Both mean there is no position to deposit a second one on top of,
+        # which is the risk the terminal rule below exists to prevent. Counted against
+        # the retry budget so evaluate_max_retries still ends it.
+        if not self.lp_position_state.position_address and self._widen_slippage(error):
+            self._current_retries += 1
+            self.logger().warning(
+                f"Position creation failed on slippage ({self._current_retries}/{self._max_retries} "
+                f"retries used): {error}. Retrying at {self._slippage_pct}%."
+            )
+            self.lp_position_state.state = LPExecutorStates.OPENING
+            return
 
         if self.lp_position_state.position_address:
             self.logger().error(
@@ -673,6 +744,7 @@ class LPExecutor(ExecutorBase):
                 max_retries=0,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
+                slippage_pct=float(self._slippage_pct),
             )
             # Note: on failure the connector re-raises and _handle_close_failure counts it
             # so it will be caught by the except block below
@@ -766,6 +838,8 @@ class LPExecutor(ExecutorBase):
                         f"(received={self.lp_position_state.base_amount + self.lp_position_state.base_fee:.6f}, "
                         f"initial={self.lp_position_state.initial_base_amount:.6f})"
                     )
+                    # A third phase, and a third chance to start tight.
+                    self._reset_slippage()
                     self.lp_position_state.state = LPExecutorStates.SWAPPING
                 else:
                     self.logger().info("No close-out swap needed (base amounts match)")
@@ -792,6 +866,10 @@ class LPExecutor(ExecutorBase):
         """
         self._current_retries += 1
         self.lp_position_state.active_close_order = None
+        # Widen for the next attempt when the close failed on slippage. Unlike an open,
+        # an exit at the ceiling keeps retrying: the position is real and has to come
+        # out, and the alternative is stranding it.
+        self._widen_slippage(error)
 
         if self._current_retries > self._max_retries:
             # evaluate_max_retries terminates after this control_task returns.
@@ -934,15 +1012,17 @@ class LPExecutor(ExecutorBase):
         )
 
         try:
-            # Place swap order using connector's place_order with swap_provider.
-            # No slippage_pct: omitted, the connector-configured slippagePct applies
-            # (hardcoding 1.0 here used to override the operator's Gateway config).
+            # The executor's tolerance rather than the connector's configured one, so a
+            # close-out swap starts as tight as everything else this executor does and
+            # widens the same way. Hardcoding 1.0 here used to override the operator's
+            # Gateway config; omitting it entirely left this one leg unable to widen.
             order_id = connector.place_order(
                 is_buy=is_buy,
                 trading_pair=self.config.trading_pair,
                 amount=amount,
                 price=Decimal("0"),  # Market order
                 dex_name=self.config.swap_provider,
+                slippage_pct=float(self._slippage_pct),
                 max_retries=self._max_retries,
             )
             self.lp_position_state.active_swap_order = TrackedOrder(order_id=order_id)
@@ -989,6 +1069,11 @@ class LPExecutor(ExecutorBase):
         """
         self.lp_position_state.active_swap_order = None
         self._swap_failure_count += 1
+        # Widen for the next quote when the market moved further than the tolerance.
+        # The swap has its own small budget, so the ramp has to fit inside it — with the
+        # default multiplier of 5 it reaches the ceiling in three attempts, which is the
+        # budget exactly.
+        self._widen_slippage(error)
 
         if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
             self.logger().error(
@@ -1440,6 +1525,11 @@ class LPExecutor(ExecutorBase):
             "current_retries": self._current_retries,
             "max_retries": self._max_retries,
             "max_retries_reached": self._max_retries_reached,
+            # What the next Gateway request will ask for. Worth reporting because it
+            # changes under the executor's own control: a value above slippage_pct means
+            # attempts have already failed on slippage and this one is paying for it.
+            "slippage_pct": float(self._slippage_pct),
+            "max_slippage_pct": float(self.config.max_slippage_pct),
             "hold_reason": self._hold_reason,
             # A transaction reconciled from its signature comes back without Gateway's
             # response data, so some figures above were never available for this position.

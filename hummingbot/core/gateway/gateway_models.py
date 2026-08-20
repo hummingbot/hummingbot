@@ -418,6 +418,7 @@ class ClmmCloseRequest(BaseModel):
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
     position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage for the withdrawal. Enforced by orca, uniswap and pancakeswap; meteora, raydium and pancakeswap-sol close with no minimum-amount check at all, so it changes nothing there. Defaults to the connector's configured slippagePct.", examples=[1])
 
 
 class ClmmCreatePoolRequest(BaseModel):

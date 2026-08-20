@@ -92,6 +92,28 @@ class LPExecutorConfig(ExecutorConfigBase):
     upper_limit_price: Optional[Decimal] = None
     lower_limit_price: Optional[Decimal] = None
 
+    # Slippage, and how far the executor may widen it across retries.
+    #
+    # Before this existed there was no slippage setting at any executor level: the
+    # request omitted slippagePct entirely, so every attempt used the connector's
+    # configured value (1-2% depending on the venue) and every retry repeated the same
+    # request. A close that failed on slippage failed ten times identically, paying gas
+    # on any attempt that reached the chain.
+    #
+    # The ramp starts deliberately tight — 0.05% asks for near-spot execution — and
+    # widens by `slippage_multiplier` on each failure Gateway attributes to slippage,
+    # never past `max_slippage_pct`: 0.05, 0.25, 1.25, 5. A failure of any other kind
+    # does not widen it, or a wrong tick or an insufficient balance would loosen an
+    # order that was never too tight.
+    #
+    # It applies to entries as well as exits. An entry filled 5% worse than quoted is a
+    # worse trade than the strategy asked for, so the tight start matters there too;
+    # the difference is what happens at the ceiling, where an exit keeps trying (the
+    # position must come out) and an entry stops (nothing is stranded).
+    slippage_pct: Decimal = Decimal("0.05")
+    slippage_multiplier: Decimal = Decimal("5")
+    max_slippage_pct: Decimal = Decimal("5")
+
     # Connector-specific params
     extra_params: Optional[Dict] = None  # e.g., {"strategyType": 0} for Meteora
 
@@ -127,6 +149,13 @@ class LPExecutorConfig(ExecutorConfigBase):
         if self.base_amount == 0 and self.quote_amount == 0:
             raise ValueError("base_amount and quote_amount cannot both be 0: "
                              "at least one side of the position has to be funded")
+        require_positive("slippage_pct", self.slippage_pct)
+        require_positive("max_slippage_pct", self.max_slippage_pct)
+        require_not_above("slippage_pct", self.slippage_pct, "max_slippage_pct", self.max_slippage_pct)
+        # A multiplier of 1 or less never widens, which makes max_slippage_pct a promise
+        # the ramp cannot keep: the retries would all repeat the starting value.
+        if self.slippage_multiplier <= 1:
+            raise ValueError(f"slippage_multiplier must be greater than 1, got {self.slippage_multiplier}")
         return self
 
 

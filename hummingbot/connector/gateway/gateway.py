@@ -1130,6 +1130,7 @@ class Gateway(GatewayBase):
         max_retries: int = 10,
         dex_name: Optional[str] = None,
         trading_type: str = "clmm",
+        slippage_pct: Optional[float] = None,
     ):
         """Closes a concentrated liquidity position."""
         if not dex_name:
@@ -1153,6 +1154,8 @@ class Gateway(GatewayBase):
         _trading_type = trading_type
         _network = self.network
 
+        _slippage_pct = slippage_pct
+
         async def execute_close_position() -> Dict[str, Any]:
             return await self._get_gateway_instance().clmm_close_position(
                 network=_network,
@@ -1161,7 +1164,8 @@ class Gateway(GatewayBase):
                 position_address=position_address,
                 dex=_dex_name,
                 trading_type=_trading_type,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
+                slippage_pct=_slippage_pct,
             )
 
         try:

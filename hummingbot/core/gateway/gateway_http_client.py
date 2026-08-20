@@ -1249,6 +1249,7 @@ class GatewayHttpClient:
         trading_type: str = "clmm",
         chain: Optional[str] = None,
         fail_silently: bool = False,
+        slippage_pct: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Closes an existing concentrated liquidity position.
@@ -1261,6 +1262,9 @@ class GatewayHttpClient:
             trading_type: Trading type. Defaults to "clmm".
             chain: Chain name; combined with a short network to form the "chain-network" the endpoint requires.
             fail_silently: If True, suppress errors
+            slippage_pct: Maximum acceptable slippage for the withdrawal; None uses the
+                connector's configured slippagePct. Enforced by orca, uniswap and
+                pancakeswap — the other CLMM connectors close with no minimum-amount check.
         """
         request_payload = _body(
             ClmmCloseRequest(
@@ -1268,6 +1272,7 @@ class GatewayHttpClient:
                 chainNetwork=self._to_chain_network(network, chain),
                 walletAddress=wallet_address,
                 positionAddress=position_address,
+                slippagePct=slippage_pct,
             )
         )
 

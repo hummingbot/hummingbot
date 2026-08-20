@@ -15,6 +15,7 @@ Provider Format:
 - Use parse_provider() to convert between formats
 """
 import logging
+from decimal import Decimal
 from typing import Callable, List, Optional, Tuple
 
 from hummingbot.client.settings import GATEWAY_DEXS
@@ -217,3 +218,46 @@ def get_network_connectors() -> List[str]:
         List of network connector names (e.g., ["solana-mainnet-beta", "ethereum-mainnet"])
     """
     return [c for c in GATEWAY_DEXS if '-' in c and '/' not in c]
+
+
+# Gateway's machine-readable code for a slippage failure. It is raised from two places
+# that matter here: the pre-flight simulation, where nothing was sent and nothing was
+# paid, and a transaction that landed and reverted, which paid gas and changed nothing.
+# Both mean the operation definitively did not take effect, which is what makes retrying
+# an open safe — there is no half-executed deposit to land on top of.
+SLIPPAGE_ERROR_CODE = "SLIPPAGE_EXCEEDED"
+
+
+def is_slippage_failure(error: BaseException) -> bool:
+    """True when Gateway attributed this failure to slippage.
+
+    ``GatewayError.code`` is the authority. The string check behind it is for the layers
+    that re-raise a Gateway failure as a plain ``Exception`` — the connector's retry
+    wrapper does this for a landed-but-unconfirmed transaction — where the rendered
+    message still carries ``[code: SLIPPAGE_EXCEEDED]``. Matching the code and not the
+    prose is the point: the prose is written for humans and has changed before.
+    """
+    if getattr(error, "code", None) == SLIPPAGE_ERROR_CODE:
+        return True
+    return SLIPPAGE_ERROR_CODE in str(error)
+
+
+def next_slippage_pct(
+    current: Decimal,
+    multiplier: Decimal,
+    maximum: Decimal,
+) -> Optional[Decimal]:
+    """The next tolerance to try after a slippage failure, or None at the ceiling.
+
+    Multiplicative because impact and volatility are: a linear ramp from a tight start
+    wastes most of its attempts far below the value that would have worked. The default
+    0.05% with a multiplier of 5 reaches the 5% cap in three widenings — 0.05, 0.25,
+    1.25, 5 — which is inside a normal retry budget.
+
+    None means the ceiling has already been attempted. That is an answer: the market has
+    moved further than the operator said they would accept, and widening past it would
+    spend money they did not agree to spend.
+    """
+    if current >= maximum:
+        return None
+    return min(current * multiplier, maximum)
