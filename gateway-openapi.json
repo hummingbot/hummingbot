@@ -696,50 +696,6 @@
           "priceImpactPct"
         ]
       },
-      "AmmExecuteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "walletAddress": {
-            "type": "string"
-          },
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
-            "type": "string"
-          },
-          "baseToken": {
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair (optional - required if poolAddress not provided)",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "side": {
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "amount",
-          "side"
-        ]
-      },
       "AmmExecuteSwapResponse": {
         "type": "object",
         "properties": {
@@ -808,7 +764,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           }
         }
       },
@@ -867,7 +841,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           },
           "address": {
             "type": "string"
@@ -903,7 +895,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           },
           "tokenSymbols": {
             "anyOf": [
@@ -958,7 +968,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           },
           "signature": {
             "description": "Transaction signature/hash",
@@ -1039,7 +1067,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           }
         }
       },
@@ -1224,7 +1270,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           },
           "address": {
             "description": "Wallet address holding the native token",
@@ -1245,7 +1309,25 @@
         "type": "object",
         "properties": {
           "network": {
-            "type": "string"
+            "description": "Network to use. Defaults to the chain's configured default network.",
+            "enum": [
+              "devnet",
+              "mainnet-beta",
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string",
+            "example": "mainnet-beta"
           },
           "address": {
             "description": "Wallet address holding the wrapped token",
@@ -2176,57 +2258,6 @@
           "quoteFeeAmountCollected"
         ]
       },
-      "ClmmCreatePoolRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "baseToken": {
-            "type": "string"
-          },
-          "quoteToken": {
-            "type": "string"
-          },
-          "initialPrice": {
-            "format": "decimal",
-            "description": "Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
-            "type": "number"
-          },
-          "binStep": {
-            "x-connectors": [
-              "meteora",
-              "orca"
-            ],
-            "description": "Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.",
-            "type": "number"
-          },
-          "feeBps": {
-            "x-connectors": [
-              "meteora",
-              "uniswap",
-              "pancakeswap"
-            ],
-            "description": "Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).",
-            "type": "number"
-          },
-          "ammConfigIndex": {
-            "x-connectors": [
-              "raydium",
-              "pancakeswap-sol"
-            ],
-            "description": "Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.",
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "quoteToken"
-        ]
-      },
       "ClmmCreatePoolResponse": {
         "type": "object",
         "properties": {
@@ -2436,50 +2467,6 @@
           "minAmountOut",
           "maxAmountIn",
           "priceImpactPct"
-        ]
-      },
-      "ClmmExecuteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "walletAddress": {
-            "type": "string"
-          },
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
-            "type": "string"
-          },
-          "baseToken": {
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair (optional - required if poolAddress not provided)",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "side": {
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "amount",
-          "side"
         ]
       },
       "ClmmExecuteSwapResponse": {
@@ -2798,6 +2785,1110 @@
           "fee",
           "baseTokenBalanceChange",
           "quoteTokenBalanceChange"
+        ]
+      },
+      "AmmCreatePoolRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address (pool creator + payer)",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Base token symbol or address (becomes the pool base)",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Quote token symbol or address (becomes the pool quote)",
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to seed the pool with",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to seed with. If provided, the base:quote ratio sets the initial price. If omitted (and no initialPrice), the price is fetched from the market.",
+            "type": "number"
+          },
+          "initialPrice": {
+            "format": "decimal",
+            "description": "Initial price as quote per base. Overrides quoteTokenAmount. If both are omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
+            "type": "number"
+          },
+          "configAddress": {
+            "x-connectors": [
+              "meteora"
+            ],
+            "description": "Meteora DAMM v2 config account address (required for the meteora connector — configs are permissionless accounts with no index derivation, so the address must be explicit).",
+            "type": "string"
+          },
+          "ammConfigIndex": {
+            "x-connectors": [
+              "raydium"
+            ],
+            "description": "Raydium CPMM fee-config index (optional; defaults to the first available config).",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Uniswap/PancakeSwap seeding slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "baseToken",
+          "quoteToken",
+          "baseTokenAmount"
+        ]
+      },
+      "AmmAddRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to add",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to add",
+            "type": "number"
+          },
+          "positionAddress": {
+            "x-connectors": [
+              "meteora"
+            ],
+            "description": "meteora only (DAMM v2 positions are NFTs): add to this specific position. Omit to open a new position. Ignored by fungible-LP AMMs.",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "poolAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AmmRemoveRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string"
+          },
+          "positionAddress": {
+            "x-connectors": [
+              "meteora"
+            ],
+            "description": "Required for meteora (DAMM v2 positions are NFTs): the specific position to remove from. List positions with position-info or positions-owned. Ignored by fungible-LP AMMs.",
+            "type": "string"
+          },
+          "percentageToRemove": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percentage of liquidity to remove",
+            "default": 100,
+            "type": "number",
+            "example": 100
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "poolAddress",
+          "percentageToRemove"
+        ]
+      },
+      "AmmOpenRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet that will own the position",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool to open the position in",
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to deposit",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to deposit",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "poolAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
+        ]
+      },
+      "AmmCloseRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet that owns the position",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool the position belongs to",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position to close. Required on AMMs whose positions are discrete accounts (meteora DAMM v2), where a wallet may hold several per pool. Ignored by fungible-LP AMMs, which hold one LP balance per pool.",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage on the withdrawn amounts.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "poolAddress"
+        ]
+      },
+      "ClmmOpenRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "lowerPrice": {
+            "format": "decimal",
+            "description": "Lower price bound for the position",
+            "type": "number",
+            "example": 150
+          },
+          "upperPrice": {
+            "format": "decimal",
+            "description": "Upper price bound for the position",
+            "type": "number",
+            "example": 250
+          },
+          "poolAddress": {
+            "description": "Pool address",
+            "type": "string",
+            "example": "2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to deposit",
+            "type": "number",
+            "example": 0.01
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to deposit",
+            "type": "number",
+            "example": 2
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          },
+          "strategyType": {
+            "x-connectors": [
+              "meteora"
+            ],
+            "description": "Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.",
+            "type": "number",
+            "example": 0
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "lowerPrice",
+          "upperPrice",
+          "poolAddress"
+        ]
+      },
+      "ClmmAddRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position address",
+            "type": "string",
+            "example": "<sample-position-address>"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to deposit (omit for single-sided quote deposit)",
+            "type": "number",
+            "example": 0.01
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to deposit (omit for single-sided base deposit)",
+            "type": "number",
+            "example": 2
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          },
+          "strategyType": {
+            "x-connectors": [
+              "meteora"
+            ],
+            "description": "Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.",
+            "type": "number",
+            "example": 0
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "positionAddress"
+        ]
+      },
+      "ClmmRemoveRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position address",
+            "type": "string",
+            "example": "<sample-position-address>"
+          },
+          "percentageToRemove": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percentage of liquidity to remove",
+            "default": 100,
+            "type": "number",
+            "example": 100
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Only applies to the Orca connector; defaults to Orca's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "positionAddress",
+          "percentageToRemove"
+        ]
+      },
+      "ClmmCollectFeesRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position address",
+            "type": "string",
+            "example": "<sample-position-address>"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "positionAddress"
+        ]
+      },
+      "ClmmCloseRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "positionAddress": {
+            "description": "Position address",
+            "type": "string",
+            "example": "<sample-position-address>"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "positionAddress"
+        ]
+      },
+      "ClmmCreatePoolRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address (pool creator + payer)",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "baseToken": {
+            "type": "string"
+          },
+          "quoteToken": {
+            "type": "string"
+          },
+          "initialPrice": {
+            "format": "decimal",
+            "description": "Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
+            "type": "number"
+          },
+          "binStep": {
+            "x-connectors": [
+              "meteora",
+              "orca"
+            ],
+            "description": "Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.",
+            "type": "number"
+          },
+          "feeBps": {
+            "x-connectors": [
+              "meteora",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "description": "Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).",
+            "type": "number"
+          },
+          "ammConfigIndex": {
+            "x-connectors": [
+              "raydium",
+              "pancakeswap-sol"
+            ],
+            "description": "Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress",
+          "baseToken",
+          "quoteToken"
+        ]
+      },
+      "RouterExecuteQuoteRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "Router connector. Defaults to the network's swapProvider",
+            "enum": [
+              "jupiter",
+              "dflow",
+              "okx",
+              "titan",
+              "uniswap",
+              "pancakeswap",
+              "0x"
+            ],
+            "default": "jupiter",
+            "type": "string",
+            "example": "jupiter"
+          },
+          "walletAddress": {
+            "description": "Wallet address that will execute the quote",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "quoteId": {
+            "description": "ID of a quote returned by /trading/router/quote-swap",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "walletAddress",
+          "quoteId"
+        ]
+      },
+      "RouterExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "Router connector. Defaults to the network's swapProvider",
+            "enum": [
+              "jupiter",
+              "dflow",
+              "okx",
+              "titan",
+              "uniswap",
+              "pancakeswap",
+              "0x"
+            ],
+            "default": "jupiter",
+            "type": "string",
+            "example": "jupiter"
+          },
+          "walletAddress": {
+            "description": "Wallet address that will execute the swap",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 0.01,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          },
+          "approximateIfNoExactOut": {
+            "description": "For BUY orders when the router has no ExactOut route: approximate via a sell-leg ExactIn swap instead of failing.",
+            "default": true,
+            "x-connectors": [
+              "jupiter",
+              "dflow",
+              "okx",
+              "titan"
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "walletAddress",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "AmmExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "AMM connector to execute the swap against",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "walletAddress": {
+            "description": "Wallet address that will execute the swap",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 0.01,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "walletAddress",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "ClmmExecuteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "CLMM connector to execute the swap against",
+            "enum": [
+              "meteora",
+              "raydium",
+              "orca",
+              "pancakeswap-sol",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "walletAddress": {
+            "description": "Wallet address that will execute the swap",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 0.01,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "walletAddress",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "AllowancesRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "description": "The Ethereum network to use",
+            "default": "mainnet",
+            "enum": [
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string"
+          },
+          "address": {
+            "description": "Ethereum wallet address",
+            "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
+            "type": "string"
+          },
+          "spender": {
+            "description": "Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) or contract address",
+            "type": "string",
+            "example": "uniswap/router"
+          },
+          "tokens": {
+            "description": "Array of token symbols or addresses",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "USDC",
+              "WETH"
+            ]
+          }
+        },
+        "required": [
+          "spender",
+          "tokens"
+        ]
+      },
+      "ApproveRequest": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "description": "The Ethereum network to use",
+            "default": "mainnet",
+            "enum": [
+              "arbitrum",
+              "avalanche",
+              "base",
+              "bsc",
+              "celo",
+              "mainnet",
+              "optimism",
+              "polygon",
+              "robinhoodchain-testnet",
+              "robinhoodchain",
+              "sepolia",
+              "unichain"
+            ],
+            "type": "string"
+          },
+          "address": {
+            "description": "Ethereum wallet address",
+            "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
+            "type": "string"
+          },
+          "spender": {
+            "description": "Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) contract address",
+            "type": "string",
+            "example": "uniswap/router"
+          },
+          "token": {
+            "description": "Token symbol or address",
+            "type": "string",
+            "example": "USDC"
+          },
+          "amount": {
+            "description": "The amount to approve. If not provided, defaults to maximum amount (unlimited approval).",
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spender",
+          "token"
+        ]
+      },
+      "RemoveWalletRequest": {
+        "type": "object",
+        "properties": {
+          "chain": {
+            "description": "Blockchain to remove wallet from",
+            "enum": [
+              "ethereum",
+              "solana"
+            ],
+            "type": "string",
+            "example": "solana"
+          },
+          "address": {
+            "description": "Wallet address to remove",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain",
+          "address"
+        ]
+      },
+      "AddHardwareWalletRequest": {
+        "type": "object",
+        "properties": {
+          "chain": {
+            "description": "Blockchain for hardware wallet",
+            "enum": [
+              "ethereum",
+              "solana"
+            ],
+            "default": "solana",
+            "type": "string",
+            "example": "solana"
+          },
+          "address": {
+            "description": "Hardware wallet address to add (must exist on connected Ledger device)",
+            "type": "string"
+          },
+          "setDefault": {
+            "description": "Set this wallet as the default for the chain",
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chain",
+          "address"
         ]
       }
     }
@@ -3238,36 +4329,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chain": {
-                    "description": "Blockchain for hardware wallet",
-                    "enum": [
-                      "ethereum",
-                      "solana"
-                    ],
-                    "default": "solana",
-                    "type": "string",
-                    "example": "solana"
-                  },
-                  "address": {
-                    "description": "Hardware wallet address to add (must exist on connected Ledger device)",
-                    "type": "string"
-                  },
-                  "setDefault": {
-                    "description": "Set this wallet as the default for the chain",
-                    "default": false,
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "chain",
-                  "address"
-                ]
+                "$ref": "#/components/schemas/AddHardwareWalletRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -3317,30 +4382,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chain": {
-                    "description": "Blockchain to remove wallet from",
-                    "enum": [
-                      "ethereum",
-                      "solana"
-                    ],
-                    "type": "string",
-                    "example": "solana"
-                  },
-                  "address": {
-                    "description": "Wallet address to remove",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "chain",
-                  "address"
-                ]
+                "$ref": "#/components/schemas/RemoveWalletRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5217,48 +6262,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "connector": {
-                    "description": "Router connector. Defaults to the network's swapProvider",
-                    "enum": [
-                      "jupiter",
-                      "dflow",
-                      "okx",
-                      "titan",
-                      "uniswap",
-                      "pancakeswap",
-                      "0x"
-                    ],
-                    "default": "jupiter",
-                    "type": "string",
-                    "example": "jupiter"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address that will execute the quote",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "quoteId": {
-                    "description": "ID of a quote returned by /trading/router/quote-swap",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "chainNetwork",
-                  "walletAddress",
-                  "quoteId"
-                ]
+                "$ref": "#/components/schemas/RouterExecuteQuoteRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5284,91 +6291,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "connector": {
-                    "description": "Router connector. Defaults to the network's swapProvider",
-                    "enum": [
-                      "jupiter",
-                      "dflow",
-                      "okx",
-                      "titan",
-                      "uniswap",
-                      "pancakeswap",
-                      "0x"
-                    ],
-                    "default": "jupiter",
-                    "type": "string",
-                    "example": "jupiter"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address that will execute the swap",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "baseToken": {
-                    "description": "Symbol or address of the base token",
-                    "default": "SOL",
-                    "type": "string"
-                  },
-                  "quoteToken": {
-                    "description": "Symbol or address of the quote token",
-                    "default": "USDC",
-                    "type": "string"
-                  },
-                  "amount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to trade",
-                    "default": 0.01,
-                    "type": "number"
-                  },
-                  "side": {
-                    "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
-                    "enum": [
-                      "BUY",
-                      "SELL"
-                    ],
-                    "default": "SELL",
-                    "type": "string"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  },
-                  "approximateIfNoExactOut": {
-                    "description": "For BUY orders when the router has no ExactOut route: approximate via a sell-leg ExactIn swap instead of failing.",
-                    "default": true,
-                    "x-connectors": [
-                      "jupiter",
-                      "dflow",
-                      "okx",
-                      "titan"
-                    ],
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "chainNetwork",
-                  "walletAddress",
-                  "baseToken",
-                  "quoteToken",
-                  "amount",
-                  "side"
-                ]
+                "$ref": "#/components/schemas/RouterExecuteSwapRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5980,83 +6906,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "connector": {
-                    "description": "CLMM connector to execute the swap against",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "orca",
-                      "pancakeswap-sol",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address that will execute the swap",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "baseToken": {
-                    "description": "Symbol or address of the base token",
-                    "default": "SOL",
-                    "type": "string"
-                  },
-                  "quoteToken": {
-                    "description": "Symbol or address of the quote token",
-                    "default": "USDC",
-                    "type": "string"
-                  },
-                  "amount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to trade",
-                    "default": 0.01,
-                    "type": "number"
-                  },
-                  "side": {
-                    "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
-                    "enum": [
-                      "BUY",
-                      "SELL"
-                    ],
-                    "default": "SELL",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
-                    "type": "string"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "chainNetwork",
-                  "walletAddress",
-                  "baseToken",
-                  "quoteToken",
-                  "amount",
-                  "side"
-                ]
+                "$ref": "#/components/schemas/ClmmExecuteSwapRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6082,91 +6935,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "lowerPrice": {
-                    "format": "decimal",
-                    "description": "Lower price bound for the position",
-                    "type": "number",
-                    "example": 150
-                  },
-                  "upperPrice": {
-                    "format": "decimal",
-                    "description": "Upper price bound for the position",
-                    "type": "number",
-                    "example": 250
-                  },
-                  "poolAddress": {
-                    "description": "Pool address",
-                    "type": "string",
-                    "example": "2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3"
-                  },
-                  "baseTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to deposit",
-                    "type": "number",
-                    "example": 0.01
-                  },
-                  "quoteTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of quote token to deposit",
-                    "type": "number",
-                    "example": 2
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  },
-                  "strategyType": {
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "description": "Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.",
-                    "type": "number",
-                    "example": 0
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "lowerPrice",
-                  "upperPrice",
-                  "poolAddress"
-                ]
+                "$ref": "#/components/schemas/ClmmOpenRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6192,77 +6964,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "description": "Position address",
-                    "type": "string",
-                    "example": "<sample-position-address>"
-                  },
-                  "baseTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to deposit (omit for single-sided quote deposit)",
-                    "type": "number",
-                    "example": 0.01
-                  },
-                  "quoteTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of quote token to deposit (omit for single-sided base deposit)",
-                    "type": "number",
-                    "example": 2
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  },
-                  "strategyType": {
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "description": "Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.",
-                    "type": "number",
-                    "example": 0
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "positionAddress"
-                ]
+                "$ref": "#/components/schemas/ClmmAddRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6288,67 +6993,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "description": "Position address",
-                    "type": "string",
-                    "example": "<sample-position-address>"
-                  },
-                  "percentageToRemove": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Percentage of liquidity to remove",
-                    "default": 100,
-                    "type": "number",
-                    "example": 100
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Only applies to the Orca connector; defaults to Orca's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "positionAddress",
-                  "percentageToRemove"
-                ]
+                "$ref": "#/components/schemas/ClmmRemoveRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6374,49 +7022,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "description": "Position address",
-                    "type": "string",
-                    "example": "<sample-position-address>"
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "positionAddress"
-                ]
+                "$ref": "#/components/schemas/ClmmCollectFeesRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6442,49 +7051,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "description": "Position address",
-                    "type": "string",
-                    "example": "<sample-position-address>"
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "positionAddress"
-                ]
+                "$ref": "#/components/schemas/ClmmCloseRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -6510,81 +7080,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "CLMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "pancakeswap-sol",
-                      "orca",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address (pool creator + payer)",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "baseToken": {
-                    "type": "string"
-                  },
-                  "quoteToken": {
-                    "type": "string"
-                  },
-                  "initialPrice": {
-                    "format": "decimal",
-                    "description": "Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
-                    "type": "number"
-                  },
-                  "binStep": {
-                    "x-connectors": [
-                      "meteora",
-                      "orca"
-                    ],
-                    "description": "Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.",
-                    "type": "number"
-                  },
-                  "feeBps": {
-                    "x-connectors": [
-                      "meteora",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "description": "Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).",
-                    "type": "number"
-                  },
-                  "ammConfigIndex": {
-                    "x-connectors": [
-                      "raydium",
-                      "pancakeswap-sol"
-                    ],
-                    "description": "Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.",
-                    "type": "number"
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "baseToken",
-                  "quoteToken"
-                ]
+                "$ref": "#/components/schemas/ClmmCreatePoolRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7010,81 +7509,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "connector": {
-                    "description": "AMM connector to execute the swap against",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address that will execute the swap",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "baseToken": {
-                    "description": "Symbol or address of the base token",
-                    "default": "SOL",
-                    "type": "string"
-                  },
-                  "quoteToken": {
-                    "description": "Symbol or address of the quote token",
-                    "default": "USDC",
-                    "type": "string"
-                  },
-                  "amount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to trade",
-                    "default": 0.01,
-                    "type": "number"
-                  },
-                  "side": {
-                    "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
-                    "enum": [
-                      "BUY",
-                      "SELL"
-                    ],
-                    "default": "SELL",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
-                    "type": "string"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "chainNetwork",
-                  "walletAddress",
-                  "baseToken",
-                  "quoteToken",
-                  "amount",
-                  "side"
-                ]
+                "$ref": "#/components/schemas/AmmExecuteSwapRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7110,66 +7538,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "AMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet that will own the position",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool to open the position in",
-                    "type": "string"
-                  },
-                  "baseTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to deposit",
-                    "type": "number"
-                  },
-                  "quoteTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of quote token to deposit",
-                    "type": "number"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "poolAddress",
-                  "baseTokenAmount",
-                  "quoteTokenAmount"
-                ]
+                "$ref": "#/components/schemas/AmmOpenRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7195,73 +7567,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "AMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool contract address",
-                    "type": "string"
-                  },
-                  "baseTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to add",
-                    "type": "number"
-                  },
-                  "quoteTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of quote token to add",
-                    "type": "number"
-                  },
-                  "positionAddress": {
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "description": "meteora only (DAMM v2 positions are NFTs): add to this specific position. Omit to open a new position. Ignored by fungible-LP AMMs.",
-                    "type": "string"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "poolAddress",
-                  "baseTokenAmount",
-                  "quoteTokenAmount"
-                ]
+                "$ref": "#/components/schemas/AmmAddRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7287,71 +7596,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "AMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool contract address",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "description": "Required for meteora (DAMM v2 positions are NFTs): the specific position to remove from. List positions with position-info or positions-owned. Ignored by fungible-LP AMMs.",
-                    "type": "string"
-                  },
-                  "percentageToRemove": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Percentage of liquidity to remove",
-                    "default": 100,
-                    "type": "number",
-                    "example": 100
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "poolAddress",
-                  "percentageToRemove"
-                ]
+                "$ref": "#/components/schemas/AmmRemoveRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7377,61 +7625,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "AMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet that owns the position",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "poolAddress": {
-                    "description": "Pool the position belongs to",
-                    "type": "string"
-                  },
-                  "positionAddress": {
-                    "description": "Position to close. Required on AMMs whose positions are discrete accounts (meteora DAMM v2), where a wallet may hold several per pool. Ignored by fungible-LP AMMs, which hold one LP balance per pool.",
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "type": "string"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Maximum acceptable slippage on the withdrawn amounts.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "poolAddress"
-                ]
+                "$ref": "#/components/schemas/AmmCloseRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7457,89 +7654,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "connector": {
-                    "description": "AMM connector",
-                    "enum": [
-                      "meteora",
-                      "raydium",
-                      "uniswap",
-                      "pancakeswap"
-                    ],
-                    "default": "meteora",
-                    "type": "string",
-                    "example": "meteora"
-                  },
-                  "chainNetwork": {
-                    "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
-                    "default": "solana-mainnet-beta",
-                    "type": "string",
-                    "example": "solana-mainnet-beta"
-                  },
-                  "walletAddress": {
-                    "description": "Wallet address (pool creator + payer)",
-                    "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-                    "type": "string"
-                  },
-                  "baseToken": {
-                    "description": "Base token symbol or address (becomes the pool base)",
-                    "type": "string"
-                  },
-                  "quoteToken": {
-                    "description": "Quote token symbol or address (becomes the pool quote)",
-                    "type": "string"
-                  },
-                  "baseTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of base token to seed the pool with",
-                    "type": "number"
-                  },
-                  "quoteTokenAmount": {
-                    "format": "decimal",
-                    "description": "Amount of quote token to seed with. If provided, the base:quote ratio sets the initial price. If omitted (and no initialPrice), the price is fetched from the market.",
-                    "type": "number"
-                  },
-                  "initialPrice": {
-                    "format": "decimal",
-                    "description": "Initial price as quote per base. Overrides quoteTokenAmount. If both are omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
-                    "type": "number"
-                  },
-                  "configAddress": {
-                    "x-connectors": [
-                      "meteora"
-                    ],
-                    "description": "Meteora DAMM v2 config account address (required for the meteora connector — configs are permissionless accounts with no index derivation, so the address must be explicit).",
-                    "type": "string"
-                  },
-                  "ammConfigIndex": {
-                    "x-connectors": [
-                      "raydium"
-                    ],
-                    "description": "Raydium CPMM fee-config index (optional; defaults to the first available config).",
-                    "type": "number"
-                  },
-                  "slippagePct": {
-                    "format": "decimal",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Uniswap/PancakeSwap seeding slippage percentage. Defaults to the connector's configured slippagePct.",
-                    "type": "number",
-                    "example": 1
-                  }
-                },
-                "required": [
-                  "connector",
-                  "chainNetwork",
-                  "walletAddress",
-                  "baseToken",
-                  "quoteToken",
-                  "baseTokenAmount"
-                ]
+                "$ref": "#/components/schemas/AmmCreatePoolRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7564,19 +7682,43 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "devnet",
+                "mainnet-beta",
+                "arbitrum",
+                "avalanche",
+                "base",
+                "bsc",
+                "celo",
+                "mainnet",
+                "optimism",
+                "polygon",
+                "robinhoodchain-testnet",
+                "robinhoodchain",
+                "sepolia",
+                "unichain"
+              ],
               "type": "string"
             },
+            "example": "mainnet-beta",
             "in": "query",
             "name": "network",
-            "required": false
+            "required": false,
+            "description": "Network to use. Defaults to the chain's configured default network."
           },
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7602,19 +7744,43 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "devnet",
+                "mainnet-beta",
+                "arbitrum",
+                "avalanche",
+                "base",
+                "bsc",
+                "celo",
+                "mainnet",
+                "optimism",
+                "polygon",
+                "robinhoodchain-testnet",
+                "robinhoodchain",
+                "sepolia",
+                "unichain"
+              ],
               "type": "string"
             },
+            "example": "mainnet-beta",
             "in": "query",
             "name": "network",
-            "required": false
+            "required": false,
+            "description": "Network to use. Defaults to the chain's configured default network."
           },
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7649,11 +7815,17 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7688,11 +7860,17 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7727,11 +7905,17 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7766,11 +7950,17 @@
         "parameters": [
           {
             "schema": {
+              "enum": [
+                "solana",
+                "ethereum"
+              ],
+              "default": "solana",
               "type": "string"
             },
             "in": "path",
             "name": "chain",
-            "required": true
+            "required": true,
+            "description": "Chain to operate on"
           }
         ],
         "responses": {
@@ -7797,57 +7987,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "description": "The Ethereum network to use",
-                    "default": "mainnet",
-                    "enum": [
-                      "arbitrum",
-                      "avalanche",
-                      "base",
-                      "bsc",
-                      "celo",
-                      "mainnet",
-                      "optimism",
-                      "polygon",
-                      "robinhoodchain-testnet",
-                      "robinhoodchain",
-                      "sepolia",
-                      "unichain"
-                    ],
-                    "type": "string"
-                  },
-                  "address": {
-                    "description": "Ethereum wallet address",
-                    "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
-                    "type": "string"
-                  },
-                  "spender": {
-                    "description": "Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) or contract address",
-                    "type": "string",
-                    "example": "uniswap/router"
-                  },
-                  "tokens": {
-                    "description": "Array of token symbols or addresses",
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "example": [
-                      "USDC",
-                      "WETH"
-                    ]
-                  }
-                },
-                "required": [
-                  "spender",
-                  "tokens"
-                ]
+                "$ref": "#/components/schemas/AllowancesRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -7888,56 +8031,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "network": {
-                    "description": "The Ethereum network to use",
-                    "default": "mainnet",
-                    "enum": [
-                      "arbitrum",
-                      "avalanche",
-                      "base",
-                      "bsc",
-                      "celo",
-                      "mainnet",
-                      "optimism",
-                      "polygon",
-                      "robinhoodchain-testnet",
-                      "robinhoodchain",
-                      "sepolia",
-                      "unichain"
-                    ],
-                    "type": "string"
-                  },
-                  "address": {
-                    "description": "Ethereum wallet address",
-                    "default": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
-                    "type": "string"
-                  },
-                  "spender": {
-                    "description": "Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) contract address",
-                    "type": "string",
-                    "example": "uniswap/router"
-                  },
-                  "token": {
-                    "description": "Token symbol or address",
-                    "type": "string",
-                    "example": "USDC"
-                  },
-                  "amount": {
-                    "description": "The amount to approve. If not provided, defaults to maximum amount (unlimited approval).",
-                    "default": "",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "spender",
-                  "token"
-                ]
+                "$ref": "#/components/schemas/ApproveRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {

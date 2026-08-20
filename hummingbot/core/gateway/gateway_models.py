@@ -162,17 +162,6 @@ class AmmQuoteSwapResponse(BaseModel):
     price_impact_pct: Decimal = Field(..., alias='priceImpactPct')
 
 
-class AmmExecuteSwapRequest(BaseModel):
-    wallet_address: str | None = Field(None, alias='walletAddress')
-    network: str | None = None
-    pool_address: str | None = Field(None, alias='poolAddress', description='Pool address (optional - can be looked up from baseToken and quoteToken)')
-    base_token: str = Field(..., alias='baseToken')
-    quote_token: str | None = Field(None, alias='quoteToken', description='The other token in the pair (optional - required if poolAddress not provided)')
-    amount: Decimal
-    side: Side
-    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct')
-
-
 class AmmExecuteSwapResponseData(BaseModel):
     token_in: str = Field(..., alias='tokenIn')
     token_out: str = Field(..., alias='tokenOut')
@@ -184,8 +173,25 @@ class AmmExecuteSwapResponseData(BaseModel):
     slippage_pct: Decimal | None = Field(None, alias='slippagePct', description='Slippage tolerance percentage actually applied to the swap')
 
 
+class Network(Enum):
+    devnet = 'devnet'
+    mainnet_beta = 'mainnet-beta'
+    arbitrum = 'arbitrum'
+    avalanche = 'avalanche'
+    base = 'base'
+    bsc = 'bsc'
+    celo = 'celo'
+    mainnet = 'mainnet'
+    optimism = 'optimism'
+    polygon = 'polygon'
+    robinhoodchain_testnet = 'robinhoodchain-testnet'
+    robinhoodchain = 'robinhoodchain'
+    sepolia = 'sepolia'
+    unichain = 'unichain'
+
+
 class EstimateGasRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
 
 
 class EstimateGasResponse(BaseModel):
@@ -203,7 +209,7 @@ class EstimateGasResponse(BaseModel):
 
 
 class BalanceRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str | None = None
     tokens: list[str] | None = Field(None, description='a list of token symbols or addresses')
     fetch_all: bool | None = Field(None, alias='fetchAll', description='fetch all tokens in wallet, not just those in token list (default: false)')
@@ -214,7 +220,7 @@ class BalanceResponse(BaseModel):
 
 
 class TokensRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     token_symbols: str | list[str] | None = Field(None, alias='tokenSymbols')
 
 
@@ -230,7 +236,7 @@ class TokensResponse(BaseModel):
 
 
 class PollRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     signature: str = Field(..., description='Transaction signature/hash')
 
 
@@ -245,7 +251,7 @@ class PollResponse(BaseModel):
 
 
 class StatusRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
 
 
 class StatusResponse(BaseModel):
@@ -285,13 +291,13 @@ class ChainExecuteSwapResponseData(BaseModel):
 
 
 class WrapRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str = Field(..., description='Wallet address holding the native token')
     amount: str = Field(..., description='Amount of the native token to wrap, in whole units (not lamports/wei)', examples=['1.0'])
 
 
 class UnwrapRequest(BaseModel):
-    network: str | None = None
+    network: Network | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str = Field(..., description='Wallet address holding the wrapped token')
     amount: str | None = Field(None, description='Amount of the wrapped token to unwrap, in whole units. Solana unwraps the full balance when omitted; EVM chains require it.', examples=['1.0'])
 
@@ -504,17 +510,6 @@ class ClosePositionResponseData(BaseModel):
     quote_fee_amount_collected: Decimal = Field(..., alias='quoteFeeAmountCollected')
 
 
-class ClmmCreatePoolRequest(BaseModel):
-    network: str | None = None
-    wallet_address: str | None = Field(None, alias='walletAddress')
-    base_token: str = Field(..., alias='baseToken')
-    quote_token: str = Field(..., alias='quoteToken')
-    initial_price: Decimal | None = Field(None, alias='initialPrice', description='Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.')
-    bin_step: float | None = Field(None, alias='binStep', description='Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.')
-    fee_bps: float | None = Field(None, alias='feeBps', description='Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).')
-    amm_config_index: float | None = Field(None, alias='ammConfigIndex', description='Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.')
-
-
 class ClmmCreatePoolResponseData(BaseModel):
     fee: Decimal
 
@@ -560,17 +555,6 @@ class ClmmQuoteSwapResponse(BaseModel):
     min_amount_out: Decimal = Field(..., alias='minAmountOut')
     max_amount_in: Decimal = Field(..., alias='maxAmountIn')
     price_impact_pct: Decimal = Field(..., alias='priceImpactPct')
-
-
-class ClmmExecuteSwapRequest(BaseModel):
-    wallet_address: str | None = Field(None, alias='walletAddress')
-    network: str | None = None
-    pool_address: str | None = Field(None, alias='poolAddress', description='Pool address (optional - can be looked up from baseToken and quoteToken)')
-    base_token: str = Field(..., alias='baseToken')
-    quote_token: str | None = Field(None, alias='quoteToken', description='The other token in the pair (optional - required if poolAddress not provided)')
-    amount: Decimal
-    side: Side
-    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct')
 
 
 class ClmmExecuteSwapResponseData(BaseModel):
@@ -633,6 +617,250 @@ class SwapExecuteResponseData(BaseModel):
     base_token_balance_change: Decimal = Field(..., alias='baseTokenBalanceChange', description='Change in base token balance (negative for decrease)')
     quote_token_balance_change: Decimal = Field(..., alias='quoteTokenBalanceChange', description='Change in quote token balance (negative for decrease)')
     slippage_pct: Decimal | None = Field(None, alias='slippagePct', description='Slippage tolerance percentage actually applied to the swap')
+
+
+class Connector(Enum):
+    meteora = 'meteora'
+    raydium = 'raydium'
+    uniswap = 'uniswap'
+    pancakeswap = 'pancakeswap'
+
+
+class AmmCreatePoolRequest(BaseModel):
+    connector: Connector = Field(..., description='AMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address (pool creator + payer)')
+    base_token: str = Field(..., alias='baseToken', description='Base token symbol or address (becomes the pool base)')
+    quote_token: str = Field(..., alias='quoteToken', description='Quote token symbol or address (becomes the pool quote)')
+    base_token_amount: Decimal = Field(..., alias='baseTokenAmount', description='Amount of base token to seed the pool with')
+    quote_token_amount: Decimal | None = Field(None, alias='quoteTokenAmount', description='Amount of quote token to seed with. If provided, the base:quote ratio sets the initial price. If omitted (and no initialPrice), the price is fetched from the market.')
+    initial_price: Decimal | None = Field(None, alias='initialPrice', description='Initial price as quote per base. Overrides quoteTokenAmount. If both are omitted, the current market price is fetched from the unified swap router so the pool opens on-market.')
+    config_address: str | None = Field(None, alias='configAddress', description='Meteora DAMM v2 config account address (required for the meteora connector — configs are permissionless accounts with no index derivation, so the address must be explicit).')
+    amm_config_index: float | None = Field(None, alias='ammConfigIndex', description='Raydium CPMM fee-config index (optional; defaults to the first available config).')
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Uniswap/PancakeSwap seeding slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class AmmAddRequest(BaseModel):
+    connector: Connector = Field(..., description='AMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    pool_address: str = Field(..., alias='poolAddress', description='Pool contract address')
+    base_token_amount: Decimal = Field(..., alias='baseTokenAmount', description='Amount of base token to add')
+    quote_token_amount: Decimal = Field(..., alias='quoteTokenAmount', description='Amount of quote token to add')
+    position_address: str | None = Field(None, alias='positionAddress', description='meteora only (DAMM v2 positions are NFTs): add to this specific position. Omit to open a new position. Ignored by fungible-LP AMMs.')
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class AmmRemoveRequest(BaseModel):
+    connector: Connector = Field(..., description='AMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    pool_address: str = Field(..., alias='poolAddress', description='Pool contract address')
+    position_address: str | None = Field(None, alias='positionAddress', description='Required for meteora (DAMM v2 positions are NFTs): the specific position to remove from. List positions with position-info or positions-owned. Ignored by fungible-LP AMMs.')
+    percentage_to_remove: condecimal(ge=Decimal('0'), le=Decimal('100')) = Field(..., alias='percentageToRemove', description='Percentage of liquidity to remove', examples=[100])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class AmmOpenRequest(BaseModel):
+    connector: Connector = Field(..., description='AMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet that will own the position')
+    pool_address: str = Field(..., alias='poolAddress', description='Pool to open the position in')
+    base_token_amount: Decimal = Field(..., alias='baseTokenAmount', description='Amount of base token to deposit')
+    quote_token_amount: Decimal = Field(..., alias='quoteTokenAmount', description='Amount of quote token to deposit')
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class AmmCloseRequest(BaseModel):
+    connector: Connector = Field(..., description='AMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet that owns the position')
+    pool_address: str = Field(..., alias='poolAddress', description='Pool the position belongs to')
+    position_address: str | None = Field(None, alias='positionAddress', description='Position to close. Required on AMMs whose positions are discrete accounts (meteora DAMM v2), where a wallet may hold several per pool. Ignored by fungible-LP AMMs, which hold one LP balance per pool.')
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description='Maximum acceptable slippage on the withdrawn amounts.', examples=[1])
+
+
+class Connector5(Enum):
+    meteora = 'meteora'
+    raydium = 'raydium'
+    pancakeswap_sol = 'pancakeswap-sol'
+    orca = 'orca'
+    uniswap = 'uniswap'
+    pancakeswap = 'pancakeswap'
+
+
+class ClmmOpenRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    lower_price: Decimal = Field(..., alias='lowerPrice', description='Lower price bound for the position', examples=[150])
+    upper_price: Decimal = Field(..., alias='upperPrice', description='Upper price bound for the position', examples=[250])
+    pool_address: str = Field(..., alias='poolAddress', description='Pool address', examples=['2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3'])
+    base_token_amount: Decimal | None = Field(None, alias='baseTokenAmount', description='Amount of base token to deposit', examples=[0.01])
+    quote_token_amount: Decimal | None = Field(None, alias='quoteTokenAmount', description='Amount of quote token to deposit', examples=[2])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+    strategy_type: float | None = Field(None, alias='strategyType', description='Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.', examples=[0])
+
+
+class ClmmAddRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
+    base_token_amount: Decimal | None = Field(None, alias='baseTokenAmount', description='Amount of base token to deposit (omit for single-sided quote deposit)', examples=[0.01])
+    quote_token_amount: Decimal | None = Field(None, alias='quoteTokenAmount', description='Amount of quote token to deposit (omit for single-sided base deposit)', examples=[2])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+    strategy_type: float | None = Field(None, alias='strategyType', description='Strategy type for Meteora positions (0=Spot, 1=Curve). Only applies to Meteora connector.', examples=[0])
+
+
+class ClmmRemoveRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
+    percentage_to_remove: condecimal(ge=Decimal('0'), le=Decimal('100')) = Field(..., alias='percentageToRemove', description='Percentage of liquidity to remove', examples=[100])
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Only applies to the Orca connector; defaults to Orca's configured slippagePct.", examples=[1])
+
+
+class ClmmCollectFeesRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
+
+
+class ClmmCloseRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
+    position_address: str = Field(..., alias='positionAddress', description='Position address', examples=['<sample-position-address>'])
+
+
+class ClmmCreatePoolRequest(BaseModel):
+    connector: Connector5 = Field(..., description='CLMM connector', examples=['meteora'])
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address (pool creator + payer)')
+    base_token: str = Field(..., alias='baseToken')
+    quote_token: str = Field(..., alias='quoteToken')
+    initial_price: Decimal | None = Field(None, alias='initialPrice', description='Initial pool price as quote per base. If omitted, the current market price is fetched from the unified swap router so the pool opens on-market.')
+    bin_step: float | None = Field(None, alias='binStep', description='Bin/tick granularity: Meteora DLMM bin step (bps); Orca Whirlpool tick spacing.')
+    fee_bps: float | None = Field(None, alias='feeBps', description='Base fee in basis points: Meteora DLMM base fee; Uniswap/PancakeSwap V3 fee tier (1, 5, 30 or 100 bps; PancakeSwap also 25).')
+    amm_config_index: float | None = Field(None, alias='ammConfigIndex', description='Fee-config index for the Raydium CLMM family: Raydium API config list index; pancakeswap-sol amm_config PDA index. Default 0.')
+
+
+class Connector11(Enum):
+    jupiter = 'jupiter'
+    dflow = 'dflow'
+    okx = 'okx'
+    titan = 'titan'
+    uniswap = 'uniswap'
+    pancakeswap = 'pancakeswap'
+    field_0x = '0x'
+
+
+class RouterExecuteQuoteRequest(BaseModel):
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    connector: Connector11 | None = Field('jupiter', description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the quote')
+    quote_id: str = Field(..., alias='quoteId', description='ID of a quote returned by /trading/router/quote-swap')
+
+
+class RouterExecuteSwapRequest(BaseModel):
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    connector: Connector11 | None = Field('jupiter', description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the swap')
+    base_token: str = Field(..., alias='baseToken', description='Symbol or address of the base token')
+    quote_token: str = Field(..., alias='quoteToken', description='Symbol or address of the quote token')
+    amount: Decimal = Field(..., description='Amount of base token to trade')
+    side: Side = Field(..., description='BUY means buying base token with quote token, SELL means selling base token for quote token')
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+    approximate_if_no_exact_out: bool | None = Field(True, alias='approximateIfNoExactOut', description='For BUY orders when the router has no ExactOut route: approximate via a sell-leg ExactIn swap instead of failing.')
+
+
+class Connector13(Enum):
+    meteora = 'meteora'
+    raydium = 'raydium'
+    uniswap = 'uniswap'
+    pancakeswap = 'pancakeswap'
+
+
+class AmmExecuteSwapRequest(BaseModel):
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    connector: Connector13 | None = Field('meteora', description='AMM connector to execute the swap against', examples=['meteora'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the swap')
+    base_token: str = Field(..., alias='baseToken', description='Symbol or address of the base token')
+    quote_token: str = Field(..., alias='quoteToken', description='Symbol or address of the quote token')
+    amount: Decimal = Field(..., description='Amount of base token to trade')
+    side: Side = Field(..., description='BUY means buying base token with quote token, SELL means selling base token for quote token')
+    pool_address: str | None = Field(None, alias='poolAddress', description="Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.")
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class Connector14(Enum):
+    meteora = 'meteora'
+    raydium = 'raydium'
+    orca = 'orca'
+    pancakeswap_sol = 'pancakeswap-sol'
+    uniswap = 'uniswap'
+    pancakeswap = 'pancakeswap'
+
+
+class ClmmExecuteSwapRequest(BaseModel):
+    chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
+    connector: Connector14 | None = Field('meteora', description='CLMM connector to execute the swap against', examples=['meteora'])
+    wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the swap')
+    base_token: str = Field(..., alias='baseToken', description='Symbol or address of the base token')
+    quote_token: str = Field(..., alias='quoteToken', description='Symbol or address of the quote token')
+    amount: Decimal = Field(..., description='Amount of base token to trade')
+    side: Side = Field(..., description='BUY means buying base token with quote token, SELL means selling base token for quote token')
+    pool_address: str | None = Field(None, alias='poolAddress', description="Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.")
+    slippage_pct: condecimal(ge=Decimal('0'), le=Decimal('100')) | None = Field(None, alias='slippagePct', description="Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.", examples=[1])
+
+
+class Network7(Enum):
+    arbitrum = 'arbitrum'
+    avalanche = 'avalanche'
+    base = 'base'
+    bsc = 'bsc'
+    celo = 'celo'
+    mainnet = 'mainnet'
+    optimism = 'optimism'
+    polygon = 'polygon'
+    robinhoodchain_testnet = 'robinhoodchain-testnet'
+    robinhoodchain = 'robinhoodchain'
+    sepolia = 'sepolia'
+    unichain = 'unichain'
+
+
+class AllowancesRequest(BaseModel):
+    network: Network7 | None = Field('mainnet', description='The Ethereum network to use')
+    address: str | None = Field('0xDA50C69342216b538Daf06FfECDa7363E0B96684', description='Ethereum wallet address')
+    spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) or contract address', examples=['uniswap/router'])
+    tokens: list[str] = Field(..., description='Array of token symbols or addresses', examples=[['USDC', 'WETH']])
+
+
+class ApproveRequest(BaseModel):
+    network: Network7 | None = Field('mainnet', description='The Ethereum network to use')
+    address: str | None = Field('0xDA50C69342216b538Daf06FfECDa7363E0B96684', description='Ethereum wallet address')
+    spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) contract address', examples=['uniswap/router'])
+    token: str = Field(..., description='Token symbol or address', examples=['USDC'])
+    amount: str | None = Field('', description='The amount to approve. If not provided, defaults to maximum amount (unlimited approval).')
+
+
+class Chain(Enum):
+    ethereum = 'ethereum'
+    solana = 'solana'
+
+
+class RemoveWalletRequest(BaseModel):
+    chain: Chain = Field(..., description='Blockchain to remove wallet from', examples=['solana'])
+    address: str = Field(..., description='Wallet address to remove')
+
+
+class AddHardwareWalletRequest(BaseModel):
+    chain: Chain = Field(..., description='Blockchain for hardware wallet', examples=['solana'])
+    address: str = Field(..., description='Hardware wallet address to add (must exist on connected Ledger device)')
+    set_default: bool | None = Field(False, alias='setDefault', description='Set this wallet as the default for the chain')
 
 
 class AmmAddLiquidityResponse(BaseModel):
