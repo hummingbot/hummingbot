@@ -55,53 +55,6 @@
           "quoteTokenAmount"
         ]
       },
-      "AmmGetPoolInfoRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "poolAddress"
-        ]
-      },
-      "AmmAddLiquidityRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "poolAddress",
-          "baseTokenAmount",
-          "quoteTokenAmount"
-        ]
-      },
       "AmmAddLiquidityResponse": {
         "type": "object",
         "properties": {
@@ -275,36 +228,6 @@
           "quoteTokenAmountRemoved"
         ]
       },
-      "QuoteLiquidityRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "poolAddress",
-          "baseTokenAmount",
-          "quoteTokenAmount"
-        ]
-      },
       "QuoteLiquidityResponse": {
         "type": "object",
         "properties": {
@@ -338,30 +261,6 @@
           "quoteTokenAmount",
           "baseTokenAmountMax",
           "quoteTokenAmountMax"
-        ]
-      },
-      "AmmRemoveLiquidityRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "percentageToRemove": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "poolAddress",
-          "percentageToRemove"
         ]
       },
       "AmmRemoveLiquidityResponse": {
@@ -414,45 +313,6 @@
           "fee",
           "baseTokenAmountRemoved",
           "quoteTokenAmountRemoved"
-        ]
-      },
-      "CreatePoolRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "baseToken": {
-            "description": "Base token symbol or address (becomes the pool base)",
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "Quote token symbol or address (becomes the pool quote)",
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "description": "Amount of base token to seed the pool with",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "description": "Amount of quote token to seed with. If provided, the base:quote ratio sets the initial price. If omitted (and no initialPrice), the price is fetched from the market.",
-            "type": "number"
-          },
-          "initialPrice": {
-            "format": "decimal",
-            "description": "Initial price as quote per base. Overrides quoteTokenAmount. If both are omitted, the current market price is fetched from the unified swap router so the pool opens on-market.",
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "quoteToken",
-          "baseTokenAmount"
         ]
       },
       "CreatePoolResponse": {
@@ -581,183 +441,6 @@
           "baseTokenAmount",
           "quoteTokenAmount",
           "price"
-        ]
-      },
-      "AmmGetPositionInfoRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "poolAddress"
-        ]
-      },
-      "AmmQuoteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
-            "type": "string"
-          },
-          "baseToken": {
-            "description": "Token to determine swap direction",
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair (optional - required if poolAddress not provided)",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "side": {
-            "description": "Trade direction",
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "amount",
-          "side"
-        ]
-      },
-      "AmmQuoteSwapResponse": {
-        "type": "object",
-        "properties": {
-          "poolAddress": {
-            "type": "string"
-          },
-          "tokenIn": {
-            "type": "string"
-          },
-          "tokenOut": {
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "price": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "minAmountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "maxAmountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "priceImpactPct": {
-            "format": "decimal",
-            "type": "number"
-          }
-        },
-        "required": [
-          "poolAddress",
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "price",
-          "minAmountOut",
-          "maxAmountIn",
-          "priceImpactPct"
-        ]
-      },
-      "AmmExecuteSwapResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "type": "string"
-          },
-          "status": {
-            "description": "TransactionStatus enum value",
-            "type": "number"
-          },
-          "data": {
-            "$ref": "#/components/schemas/AmmExecuteSwapResponseData"
-          }
-        },
-        "required": [
-          "signature",
-          "status"
-        ]
-      },
-      "AmmExecuteSwapResponseData": {
-        "type": "object",
-        "properties": {
-          "tokenIn": {
-            "type": "string"
-          },
-          "tokenOut": {
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "fee": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "baseTokenBalanceChange": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenBalanceChange": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "description": "Slippage tolerance percentage actually applied to the swap",
-            "type": "number"
-          }
-        },
-        "required": [
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "fee",
-          "baseTokenBalanceChange",
-          "quoteTokenBalanceChange"
         ]
       },
       "EstimateGasRequest": {
@@ -889,79 +572,6 @@
         },
         "required": [
           "balances"
-        ]
-      },
-      "TokensRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "description": "Network to use. Defaults to the chain's configured default network.",
-            "enum": [
-              "devnet",
-              "mainnet-beta",
-              "arbitrum",
-              "avalanche",
-              "base",
-              "bsc",
-              "celo",
-              "mainnet",
-              "optimism",
-              "polygon",
-              "robinhoodchain-testnet",
-              "robinhoodchain",
-              "sepolia",
-              "unichain"
-            ],
-            "type": "string",
-            "example": "mainnet-beta"
-          },
-          "tokenSymbols": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            ]
-          }
-        }
-      },
-      "TokensResponse": {
-        "type": "object",
-        "properties": {
-          "tokens": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "symbol": {
-                  "type": "string"
-                },
-                "address": {
-                  "type": "string"
-                },
-                "decimals": {
-                  "type": "number"
-                },
-                "name": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "symbol",
-                "address",
-                "decimals",
-                "name"
-              ]
-            }
-          }
-        },
-        "required": [
-          "tokens"
         ]
       },
       "PollRequest": {
@@ -1468,30 +1078,6 @@
           "quoteId"
         ]
       },
-      "FetchPoolsRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "description": "Network to use",
-            "type": "string"
-          },
-          "limit": {
-            "minimum": 1,
-            "maximum": 100,
-            "default": 50,
-            "description": "Maximum number of pools to return",
-            "type": "number"
-          },
-          "query": {
-            "description": "Search query to match pools by name, tokens, or address",
-            "type": "string"
-          },
-          "sortBy": {
-            "description": "Sort by field (connector-specific)",
-            "type": "string"
-          }
-        }
-      },
       "PoolListItem": {
         "type": "object",
         "properties": {
@@ -1601,20 +1187,6 @@
           "pageSize"
         ]
       },
-      "GetPositionsOwnedRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "walletAddress"
-        ]
-      },
       "BinLiquidity": {
         "type": "object",
         "properties": {
@@ -1693,91 +1265,6 @@
           "activeBinId"
         ]
       },
-      "MeteoraPoolInfo": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string"
-          },
-          "baseTokenAddress": {
-            "type": "string"
-          },
-          "quoteTokenAddress": {
-            "type": "string"
-          },
-          "binStep": {
-            "type": "number"
-          },
-          "feePct": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "price": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "activeBinId": {
-            "type": "number"
-          },
-          "bins": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BinLiquidity"
-            }
-          },
-          "dynamicFeePct": {
-            "type": "number"
-          },
-          "minBinId": {
-            "type": "number"
-          },
-          "maxBinId": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "address",
-          "baseTokenAddress",
-          "quoteTokenAddress",
-          "feePct",
-          "price",
-          "baseTokenAmount",
-          "quoteTokenAmount",
-          "activeBinId",
-          "dynamicFeePct",
-          "minBinId",
-          "maxBinId"
-        ]
-      },
-      "GetPoolInfoRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "binCount": {
-            "description": "If > 0, include a `bins` array in the response (per-tickSpacing token amounts around the active tick, mirroring Meteora pool-info.bins[]). Default 0 = skip the bin fetch.",
-            "default": 0,
-            "minimum": 0,
-            "maximum": 401,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "poolAddress"
-        ]
-      },
       "PositionInfo": {
         "type": "object",
         "properties": {
@@ -1844,64 +1331,6 @@
           "price"
         ]
       },
-      "GetPositionInfoRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "positionAddress": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "positionAddress"
-        ]
-      },
-      "OpenPositionRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "lowerPrice": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "upperPrice": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "lowerPrice",
-          "upperPrice",
-          "poolAddress"
-        ]
-      },
       "OpenPositionResponse": {
         "type": "object",
         "properties": {
@@ -1956,39 +1385,6 @@
           "quoteTokenAmountAdded"
         ]
       },
-      "AddLiquidityRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "positionAddress": {
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "positionAddress",
-          "baseTokenAmount",
-          "quoteTokenAmount"
-        ]
-      },
       "AddLiquidityResponse": {
         "type": "object",
         "properties": {
@@ -2036,30 +1432,6 @@
           "fee",
           "baseTokenAmountAdded",
           "quoteTokenAmountAdded"
-        ]
-      },
-      "RemoveLiquidityRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "positionAddress": {
-            "type": "string"
-          },
-          "percentageToRemove": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "positionAddress",
-          "percentageToRemove"
         ]
       },
       "RemoveLiquidityResponse": {
@@ -2111,23 +1483,6 @@
           "quoteTokenAmountRemoved"
         ]
       },
-      "CollectFeesRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "positionAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "positionAddress"
-        ]
-      },
       "CollectFeesResponse": {
         "type": "object",
         "properties": {
@@ -2175,23 +1530,6 @@
           "fee",
           "baseFeeAmountCollected",
           "quoteFeeAmountCollected"
-        ]
-      },
-      "ClosePositionRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "walletAddress": {
-            "type": "string"
-          },
-          "positionAddress": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "positionAddress"
         ]
       },
       "ClosePositionResponse": {
@@ -2299,44 +1637,6 @@
           "fee"
         ]
       },
-      "QuotePositionRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "lowerPrice": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "upperPrice": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "poolAddress": {
-            "type": "string"
-          },
-          "baseTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenAmount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "lowerPrice",
-          "upperPrice",
-          "poolAddress"
-        ]
-      },
       "QuotePositionResponse": {
         "type": "object",
         "properties": {
@@ -2371,420 +1671,6 @@
           "quoteTokenAmount",
           "baseTokenAmountMax",
           "quoteTokenAmountMax"
-        ]
-      },
-      "ClmmQuoteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "type": "string"
-          },
-          "poolAddress": {
-            "description": "Pool address (optional - can be looked up from baseToken and quoteToken)",
-            "type": "string"
-          },
-          "baseToken": {
-            "description": "Token to determine swap direction",
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair (optional - required if poolAddress not provided)",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "side": {
-            "description": "Trade direction",
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "type": "number"
-          }
-        },
-        "required": [
-          "baseToken",
-          "amount",
-          "side"
-        ]
-      },
-      "ClmmQuoteSwapResponse": {
-        "type": "object",
-        "properties": {
-          "poolAddress": {
-            "type": "string"
-          },
-          "tokenIn": {
-            "type": "string"
-          },
-          "tokenOut": {
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "price": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "minAmountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "maxAmountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "priceImpactPct": {
-            "format": "decimal",
-            "type": "number"
-          }
-        },
-        "required": [
-          "poolAddress",
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "price",
-          "minAmountOut",
-          "maxAmountIn",
-          "priceImpactPct"
-        ]
-      },
-      "ClmmExecuteSwapResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "type": "string"
-          },
-          "status": {
-            "description": "TransactionStatus enum value",
-            "type": "number"
-          },
-          "data": {
-            "$ref": "#/components/schemas/ClmmExecuteSwapResponseData"
-          }
-        },
-        "required": [
-          "signature",
-          "status"
-        ]
-      },
-      "ClmmExecuteSwapResponseData": {
-        "type": "object",
-        "properties": {
-          "tokenIn": {
-            "type": "string"
-          },
-          "tokenOut": {
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "fee": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "baseTokenBalanceChange": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "quoteTokenBalanceChange": {
-            "format": "decimal",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "description": "Slippage tolerance percentage actually applied to the swap",
-            "type": "number"
-          }
-        },
-        "required": [
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "fee",
-          "baseTokenBalanceChange",
-          "quoteTokenBalanceChange"
-        ]
-      },
-      "QuoteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "network": {
-            "description": "The blockchain network to use",
-            "type": "string"
-          },
-          "baseToken": {
-            "description": "Token to determine swap direction",
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "description": "Amount of base token to trade",
-            "type": "number"
-          },
-          "side": {
-            "description": "Trade direction - BUY means buying base token with quote token, SELL means selling base token for quote token",
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Maximum acceptable slippage percentage",
-            "type": "number"
-          },
-          "approximateIfNoExactOut": {
-            "description": "For BUY orders on routers without ExactOut support: approximate the required input via a sell-leg quote and return an ExactIn quote flagged as an approximation. If false, such BUY requests fail with a clear error.",
-            "default": true,
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "baseToken",
-          "quoteToken",
-          "amount",
-          "side"
-        ]
-      },
-      "QuoteSwapResponse": {
-        "type": "object",
-        "properties": {
-          "quoteId": {
-            "description": "Unique identifier for this quote",
-            "type": "string"
-          },
-          "tokenIn": {
-            "description": "Address of the token being swapped from",
-            "type": "string"
-          },
-          "tokenOut": {
-            "description": "Address of the token being swapped to",
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "description": "Amount of tokenIn to be swapped",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "description": "Expected amount of tokenOut to receive",
-            "type": "number"
-          },
-          "price": {
-            "format": "decimal",
-            "description": "Exchange rate between tokenIn and tokenOut",
-            "type": "number"
-          },
-          "priceImpactPct": {
-            "format": "decimal",
-            "description": "Estimated price impact percentage (0-100)",
-            "type": "number"
-          },
-          "minAmountOut": {
-            "format": "decimal",
-            "description": "Minimum amount of tokenOut that will be accepted",
-            "type": "number"
-          },
-          "maxAmountIn": {
-            "format": "decimal",
-            "description": "Maximum amount of tokenIn that will be spent",
-            "type": "number"
-          },
-          "approximation": {
-            "description": "True when a BUY was approximated via a sell-leg ExactIn quote because the router does not support ExactOut; amountOut is an estimate rather than exact",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "quoteId",
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "price",
-          "priceImpactPct",
-          "minAmountOut",
-          "maxAmountIn"
-        ]
-      },
-      "ExecuteQuoteRequest": {
-        "type": "object",
-        "properties": {
-          "walletAddress": {
-            "description": "Wallet address that will execute the swap",
-            "type": "string"
-          },
-          "network": {
-            "description": "The blockchain network to use",
-            "type": "string"
-          },
-          "quoteId": {
-            "description": "ID of the quote to execute",
-            "type": "string"
-          }
-        },
-        "required": [
-          "quoteId"
-        ]
-      },
-      "ExecuteSwapRequest": {
-        "type": "object",
-        "properties": {
-          "walletAddress": {
-            "description": "Wallet address that will execute the swap",
-            "type": "string"
-          },
-          "network": {
-            "description": "The blockchain network to use",
-            "type": "string"
-          },
-          "baseToken": {
-            "description": "Token to determine swap direction",
-            "type": "string"
-          },
-          "quoteToken": {
-            "description": "The other token in the pair",
-            "type": "string"
-          },
-          "amount": {
-            "format": "decimal",
-            "description": "Amount of base token to trade",
-            "type": "number"
-          },
-          "side": {
-            "description": "Trade direction - BUY means buying base token with quote token, SELL means selling base token for quote token",
-            "enum": [
-              "BUY",
-              "SELL"
-            ],
-            "type": "string"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "minimum": 0,
-            "maximum": 100,
-            "description": "Maximum acceptable slippage percentage",
-            "type": "number"
-          },
-          "approximateIfNoExactOut": {
-            "description": "For BUY orders on routers without ExactOut support: approximate the required input via a sell-leg quote and execute an ExactIn swap. If false, such BUY requests fail with a clear error.",
-            "default": true,
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "baseToken",
-          "quoteToken",
-          "amount",
-          "side"
-        ]
-      },
-      "SwapExecuteResponse": {
-        "type": "object",
-        "properties": {
-          "signature": {
-            "description": "Transaction signature/hash",
-            "type": "string"
-          },
-          "status": {
-            "description": "Transaction status: 0 = PENDING, 1 = CONFIRMED, -1 = FAILED",
-            "type": "number"
-          },
-          "data": {
-            "$ref": "#/components/schemas/SwapExecuteResponseData"
-          }
-        },
-        "required": [
-          "signature",
-          "status"
-        ]
-      },
-      "SwapExecuteResponseData": {
-        "type": "object",
-        "properties": {
-          "tokenIn": {
-            "description": "Address of the token swapped from",
-            "type": "string"
-          },
-          "tokenOut": {
-            "description": "Address of the token swapped to",
-            "type": "string"
-          },
-          "amountIn": {
-            "format": "decimal",
-            "description": "Actual amount of tokenIn swapped",
-            "type": "number"
-          },
-          "amountOut": {
-            "format": "decimal",
-            "description": "Actual amount of tokenOut received",
-            "type": "number"
-          },
-          "fee": {
-            "format": "decimal",
-            "description": "Transaction fee paid",
-            "type": "number"
-          },
-          "baseTokenBalanceChange": {
-            "format": "decimal",
-            "description": "Change in base token balance (negative for decrease)",
-            "type": "number"
-          },
-          "quoteTokenBalanceChange": {
-            "format": "decimal",
-            "description": "Change in quote token balance (negative for decrease)",
-            "type": "number"
-          },
-          "slippagePct": {
-            "format": "decimal",
-            "description": "Slippage tolerance percentage actually applied to the swap",
-            "type": "number"
-          }
-        },
-        "required": [
-          "tokenIn",
-          "tokenOut",
-          "amountIn",
-          "amountOut",
-          "fee",
-          "baseTokenBalanceChange",
-          "quoteTokenBalanceChange"
         ]
       },
       "AmmCreatePoolRequest": {
@@ -3105,6 +1991,161 @@
           "chainNetwork",
           "walletAddress",
           "poolAddress"
+        ]
+      },
+      "AmmPoolInfoRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "poolAddress"
+        ]
+      },
+      "AmmPositionInfoRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "poolAddress",
+          "walletAddress"
+        ]
+      },
+      "AmmPositionsOwnedRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector (only non-fungible-LP AMMs supported: meteora)",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address to list positions for",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress"
+        ]
+      },
+      "AmmQuoteLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "AMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to deposit",
+            "type": "number"
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to deposit",
+            "type": "number"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "poolAddress",
+          "baseTokenAmount",
+          "quoteTokenAmount"
         ]
       },
       "ClmmOpenRequest": {
@@ -3473,6 +2514,262 @@
           "quoteToken"
         ]
       },
+      "ClmmFetchPoolsRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "CLMM connector whose pool-discovery API to query",
+            "enum": [
+              "meteora",
+              "orca"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "limit": {
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 50,
+            "description": "Maximum number of pools to return",
+            "type": "number"
+          },
+          "query": {
+            "description": "Search pools by name, token, or address",
+            "type": "string",
+            "example": "SOL"
+          },
+          "sortBy": {
+            "description": "Sort field. Meteora takes a \"field:direction\" pair; Orca takes the field alone with sortDirection.",
+            "type": "string",
+            "example": "tvl"
+          },
+          "page": {
+            "minimum": 0,
+            "description": "0-based page index. Only connectors whose API paginates honor this.",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "number"
+          },
+          "includeUnverified": {
+            "description": "Include unverified pools",
+            "x-connectors": [
+              "meteora"
+            ],
+            "type": "boolean"
+          },
+          "sortDirection": {
+            "description": "Sort direction",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "x-connectors": [
+              "orca"
+            ],
+            "type": "string"
+          },
+          "verifiedOnly": {
+            "description": "Return only verified pools",
+            "x-connectors": [
+              "orca"
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "connector"
+        ]
+      },
+      "ClmmPoolInfoRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string",
+            "example": "2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3"
+          },
+          "binCount": {
+            "description": "If > 0, include a `bins` array of per-tick liquidity around the active tick. Supported by every connector except Meteora, which always returns its bins and ignores this. Default 0 = skip the bin fetch.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 401,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "poolAddress"
+        ]
+      },
+      "ClmmPositionInfoRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "positionAddress": {
+            "description": "Position address or NFT token ID",
+            "type": "string",
+            "example": "<sample-position-address>"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "positionAddress"
+        ]
+      },
+      "ClmmPositionsOwnedRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "walletAddress": {
+            "description": "Wallet address",
+            "default": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "walletAddress"
+        ]
+      },
+      "ClmmQuoteLiquidityRequest": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "description": "CLMM connector",
+            "enum": [
+              "meteora",
+              "raydium",
+              "pancakeswap-sol",
+              "orca",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "lowerPrice": {
+            "format": "decimal",
+            "description": "Lower price bound for the position",
+            "type": "number",
+            "example": 150
+          },
+          "upperPrice": {
+            "format": "decimal",
+            "description": "Upper price bound for the position",
+            "type": "number",
+            "example": 250
+          },
+          "poolAddress": {
+            "description": "Pool contract address",
+            "type": "string",
+            "example": "2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3"
+          },
+          "baseTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of base token to deposit",
+            "type": "number",
+            "example": 0.01
+          },
+          "quoteTokenAmount": {
+            "format": "decimal",
+            "description": "Amount of quote token to deposit",
+            "type": "number",
+            "example": 2
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "connector",
+          "chainNetwork",
+          "lowerPrice",
+          "upperPrice",
+          "poolAddress"
+        ]
+      },
       "RouterExecuteQuoteRequest": {
         "type": "object",
         "properties": {
@@ -3590,6 +2887,230 @@
         "required": [
           "chainNetwork",
           "walletAddress",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "RouterQuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "Router connector. Defaults to the network's swapProvider",
+            "enum": [
+              "jupiter",
+              "dflow",
+              "okx",
+              "titan",
+              "uniswap",
+              "pancakeswap",
+              "0x"
+            ],
+            "default": "jupiter",
+            "type": "string",
+            "example": "jupiter"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 1,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          },
+          "walletAddress": {
+            "description": "Taker the quote is priced for. Required by routers that quote per-wallet or return wallet-specific calldata.",
+            "type": "string"
+          },
+          "approximateIfNoExactOut": {
+            "description": "For BUY orders when the router has no ExactOut route: approximate via a sell-leg ExactIn quote instead of failing.",
+            "default": true,
+            "x-connectors": [
+              "jupiter",
+              "dflow",
+              "okx",
+              "titan"
+            ],
+            "type": "boolean"
+          },
+          "indicativePrice": {
+            "description": "Return an indicative price instead of a firm, executable quote. An indicative quote cannot be executed with /trading/router/execute-quote.",
+            "x-connectors": [
+              "0x"
+            ],
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "AmmQuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "AMM connector to price the swap against",
+            "enum": [
+              "meteora",
+              "raydium",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 1,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "chainNetwork",
+          "baseToken",
+          "quoteToken",
+          "amount",
+          "side"
+        ]
+      },
+      "ClmmQuoteSwapRequest": {
+        "type": "object",
+        "properties": {
+          "chainNetwork": {
+            "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)",
+            "default": "solana-mainnet-beta",
+            "type": "string",
+            "example": "solana-mainnet-beta"
+          },
+          "connector": {
+            "description": "CLMM connector to price the swap against",
+            "enum": [
+              "meteora",
+              "raydium",
+              "orca",
+              "pancakeswap-sol",
+              "uniswap",
+              "pancakeswap"
+            ],
+            "default": "meteora",
+            "type": "string",
+            "example": "meteora"
+          },
+          "baseToken": {
+            "description": "Symbol or address of the base token",
+            "default": "SOL",
+            "type": "string"
+          },
+          "quoteToken": {
+            "description": "Symbol or address of the quote token",
+            "default": "USDC",
+            "type": "string"
+          },
+          "amount": {
+            "format": "decimal",
+            "description": "Amount of base token to trade",
+            "default": 1,
+            "type": "number"
+          },
+          "side": {
+            "description": "BUY means buying base token with quote token, SELL means selling base token for quote token",
+            "enum": [
+              "BUY",
+              "SELL"
+            ],
+            "default": "SELL",
+            "type": "string"
+          },
+          "poolAddress": {
+            "description": "Pool to trade against. Omit to resolve it from Gateway's configured pool list by token pair; pass an address to pin a pool that is not in that list.",
+            "type": "string"
+          },
+          "slippagePct": {
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Maximum acceptable slippage percentage. Defaults to the connector's configured slippagePct.",
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "chainNetwork",
           "baseToken",
           "quoteToken",
           "amount",
@@ -3889,6 +3410,44 @@
         "required": [
           "chain",
           "address"
+        ]
+      },
+      "Token": {
+        "type": "object",
+        "properties": {
+          "chainId": {
+            "description": "The chain ID",
+            "type": "number",
+            "example": 1
+          },
+          "name": {
+            "description": "The full name of the token",
+            "type": "string",
+            "example": "USD Coin"
+          },
+          "symbol": {
+            "description": "The token symbol",
+            "type": "string",
+            "example": "USDC"
+          },
+          "address": {
+            "description": "The token contract address",
+            "type": "string",
+            "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          },
+          "decimals": {
+            "description": "The number of decimals the token uses",
+            "minimum": 0,
+            "maximum": 255,
+            "type": "number",
+            "example": 6
+          }
+        },
+        "required": [
+          "name",
+          "symbol",
+          "address",
+          "decimals"
         ]
       }
     }
@@ -4555,42 +4114,7 @@
                   "type": "object",
                   "properties": {
                     "token": {
-                      "type": "object",
-                      "properties": {
-                        "chainId": {
-                          "description": "The chain ID",
-                          "type": "number",
-                          "example": 1
-                        },
-                        "name": {
-                          "description": "The full name of the token",
-                          "type": "string",
-                          "example": "USD Coin"
-                        },
-                        "symbol": {
-                          "description": "The token symbol",
-                          "type": "string",
-                          "example": "USDC"
-                        },
-                        "address": {
-                          "description": "The token contract address",
-                          "type": "string",
-                          "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-                        },
-                        "decimals": {
-                          "description": "The number of decimals the token uses",
-                          "minimum": 0,
-                          "maximum": 255,
-                          "type": "number",
-                          "example": 6
-                        }
-                      },
-                      "required": [
-                        "name",
-                        "symbol",
-                        "address",
-                        "decimals"
-                      ]
+                      "$ref": "#/components/schemas/Token"
                     },
                     "chain": {
                       "type": "string"
@@ -4665,42 +4189,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "chainId": {
-                      "description": "The chain ID",
-                      "type": "number",
-                      "example": 1
-                    },
-                    "name": {
-                      "description": "The full name of the token",
-                      "type": "string",
-                      "example": "USD Coin"
-                    },
-                    "symbol": {
-                      "description": "The token symbol",
-                      "type": "string",
-                      "example": "USDC"
-                    },
-                    "address": {
-                      "description": "The token contract address",
-                      "type": "string",
-                      "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-                    },
-                    "decimals": {
-                      "description": "The number of decimals the token uses",
-                      "minimum": 0,
-                      "maximum": 255,
-                      "type": "number",
-                      "example": 6
-                    }
-                  },
-                  "required": [
-                    "name",
-                    "symbol",
-                    "address",
-                    "decimals"
-                  ]
+                  "$ref": "#/components/schemas/Token"
                 }
               }
             }
@@ -4781,42 +4270,7 @@
                     "tokens": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "chainId": {
-                            "description": "The chain ID",
-                            "type": "number",
-                            "example": 1
-                          },
-                          "name": {
-                            "description": "The full name of the token",
-                            "type": "string",
-                            "example": "USD Coin"
-                          },
-                          "symbol": {
-                            "description": "The token symbol",
-                            "type": "string",
-                            "example": "USDC"
-                          },
-                          "address": {
-                            "description": "The token contract address",
-                            "type": "string",
-                            "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-                          },
-                          "decimals": {
-                            "description": "The number of decimals the token uses",
-                            "minimum": 0,
-                            "maximum": 255,
-                            "type": "number",
-                            "example": 6
-                          }
-                        },
-                        "required": [
-                          "name",
-                          "symbol",
-                          "address",
-                          "decimals"
-                        ]
+                        "$ref": "#/components/schemas/Token"
                       }
                     }
                   },
@@ -4851,42 +4305,7 @@
                     "example": "mainnet"
                   },
                   "token": {
-                    "type": "object",
-                    "properties": {
-                      "chainId": {
-                        "description": "The chain ID",
-                        "type": "number",
-                        "example": 1
-                      },
-                      "name": {
-                        "description": "The full name of the token",
-                        "type": "string",
-                        "example": "USD Coin"
-                      },
-                      "symbol": {
-                        "description": "The token symbol",
-                        "type": "string",
-                        "example": "USDC"
-                      },
-                      "address": {
-                        "description": "The token contract address",
-                        "type": "string",
-                        "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-                      },
-                      "decimals": {
-                        "description": "The number of decimals the token uses",
-                        "minimum": 0,
-                        "maximum": 255,
-                        "type": "number",
-                        "example": 6
-                      }
-                    },
-                    "required": [
-                      "name",
-                      "symbol",
-                      "address",
-                      "decimals"
-                    ]
+                    "$ref": "#/components/schemas/Token"
                   }
                 },
                 "required": [
@@ -4982,42 +4401,7 @@
                       "type": "string"
                     },
                     "token": {
-                      "type": "object",
-                      "properties": {
-                        "chainId": {
-                          "description": "The chain ID",
-                          "type": "number",
-                          "example": 1
-                        },
-                        "name": {
-                          "description": "The full name of the token",
-                          "type": "string",
-                          "example": "USD Coin"
-                        },
-                        "symbol": {
-                          "description": "The token symbol",
-                          "type": "string",
-                          "example": "USDC"
-                        },
-                        "address": {
-                          "description": "The token contract address",
-                          "type": "string",
-                          "example": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-                        },
-                        "decimals": {
-                          "description": "The number of decimals the token uses",
-                          "minimum": 0,
-                          "maximum": 255,
-                          "type": "number",
-                          "example": 6
-                        }
-                      },
-                      "required": [
-                        "name",
-                        "symbol",
-                        "address",
-                        "decimals"
-                      ]
+                      "$ref": "#/components/schemas/Token"
                     }
                   },
                   "required": [
