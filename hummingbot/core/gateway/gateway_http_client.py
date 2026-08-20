@@ -71,6 +71,22 @@ _EXECUTE_SWAP_REQUESTS = {
 _POOL_INFO_REQUESTS = {"clmm": ClmmPoolInfoRequest, "amm": AmmPoolInfoRequest}
 
 
+def _wire_str(value: Any) -> str:
+    """A query value as text, keeping whole numbers whole.
+
+    Gateway types every numeric field as `number`, so pydantic holds a page index or a
+    row limit as a float and ``str`` would render it "2.0" — which is not what a page
+    index looks like to the DEX listing APIs behind fetch-pools. Integral values are
+    emitted without the fractional part; the amounts are unaffected either way, since
+    Gateway coerces the string back per its schema.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float, Decimal)) and value == int(value):
+        return str(int(value))
+    return str(value)
+
+
 def _query(request: Any) -> Dict[str, str]:
     """A request model as query parameters.
 
@@ -80,7 +96,7 @@ def _query(request: Any) -> Dict[str, str]:
     being told the value is null.
     """
     return {
-        key: ("true" if value is True else "false" if value is False else str(value))
+        key: _wire_str(value)
         for key, value in request.model_dump(by_alias=True, exclude_none=True).items()
     }
 
