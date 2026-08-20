@@ -36,9 +36,9 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_key = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
-        cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        cls.sub_id = 45686  # noqa: mock
+        cls.wallet_address = "0x79d7511382b5dFd1185F6AF268923D3F9FC31B53"  # noqa: mock
+        cls.session_private_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+        cls.subacct_id = 45686  # noqa: mock
         cls.domain = "derive_testnet"  # noqa: mock
         cls.base_asset = "BTC"
         cls.quote_asset = "USDC"
@@ -498,10 +498,10 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def create_exchange_instance(self):
         exchange = DeriveExchange(
-            derive_api_secret=self.api_secret,  # noqa: mock
-            sub_id=self.sub_id,
+            session_private_key=self.session_private_key,  # noqa: mock
+            subacct_id=self.subacct_id,
             account_type=self.account_type,
-            derive_api_key=self.api_key,  # noqa: mock
+            derive_wallet_address=self.wallet_address,  # noqa: mock
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -528,7 +528,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["data"]
         data = json.loads(request_params)
-        self.assertEqual(self.sub_id, data["subaccount_id"])
+        self.assertEqual(self.subacct_id, data["subaccount_id"])
 
     def _configure_balance_response(
             self,
@@ -779,7 +779,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
-            'channel': f"{self.sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            'channel': f"{self.subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
@@ -808,7 +808,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
-            'channel': f"{self.sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            'channel': f"{self.subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
@@ -838,7 +838,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
         return {
-            'channel': f"{self.sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            'channel': f"{self.subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
             'data': [{
                 'subaccount_id': 37799,
                 'order_id': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",  # noqa: mock
@@ -869,7 +869,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self._simulate_trading_rules_initialized()
         return {
             'channel':
-                f"{self.sub_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
+                f"{self.subacct_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
                 'data': [
                     {
                         'subaccount_id': 37799,
@@ -1778,7 +1778,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.sub_id, request_params["subaccount_id"])
+        self.assertEqual(self.subacct_id, request_params["subaccount_id"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1916,7 +1916,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.sub_id, request_params["subaccount_id"])
+        self.assertEqual(self.subacct_id, request_params["subaccount_id"])
 
         self.assertEqual(1, len(self.order_filled_logger.event_log))
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
