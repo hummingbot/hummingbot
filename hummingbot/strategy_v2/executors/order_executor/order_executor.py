@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.gateway_utils import is_slippage_failure, next_slippage_pct
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
@@ -53,6 +54,10 @@ class OrderExecutor(ExecutorBase):
         self._canceled_orders: list[TrackedOrder] = []
         self._partial_filled_orders: list[TrackedOrder] = []
         self._shutdown_ticks: int = 0
+        # The tolerance the next Gateway swap will carry. Gateway connectors only — a CEX
+        # order has a price and a book and nothing to be tolerant about. Widens only on a
+        # failure Gateway attributed to slippage, never past max_slippage_pct.
+        self._slippage_pct: Decimal = config.slippage_pct
 
     # Shutdown ticks (5s apart) tolerated for an order stuck in a state that is
     # neither open nor filled (e.g. the created event never arrived) before the
@@ -239,15 +244,29 @@ class OrderExecutor(ExecutorBase):
             self.close_type = CloseType.POSITION_HOLD
             self.stop()
             return
-        order_id = self.place_order(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair,
-            order_type=self.get_order_type(),
-            amount=remaining,
-            price=self.get_order_price(),
-            side=self.config.side,
-            position_action=self.config.position_action,
-        )
+        connector = self.connectors[self.config.connector_name]
+        if isinstance(connector, GatewayBase):
+            # Straight to the connector, because the strategy's buy/sell carries no
+            # place for a slippage tolerance and a Gateway order is a swap against a
+            # pool. Same call the LP executor's close-out swap makes.
+            order_id = connector.place_order(
+                is_buy=self.config.side == TradeType.BUY,
+                trading_pair=self.config.trading_pair,
+                amount=remaining,
+                price=self.get_order_price(),
+                slippage_pct=float(self._slippage_pct),
+                max_retries=self._max_retries,
+            )
+        else:
+            order_id = self.place_order(
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                order_type=self.get_order_type(),
+                amount=remaining,
+                price=self.get_order_price(),
+                side=self.config.side,
+                position_action=self.config.position_action,
+            )
         self._order = TrackedOrder(order_id=order_id)
         self.logger().debug(
             f"Executor ID: {self.config.id} - Placing order {order_id} "
@@ -384,8 +403,41 @@ class OrderExecutor(ExecutorBase):
             else:
                 self._failed_orders.append(self._order)
             self._order = None
+            self._widen_slippage_if_that_was_it(event.order_id)
             self.logger().error(f"Order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
             self._current_retries += 1
+
+    def _widen_slippage_if_that_was_it(self, order_id: str):
+        """Widen the tolerance for the next attempt when slippage is what failed.
+
+        The order tracker records FAILED and no reason, so the reason comes from the
+        connector, which keeps what Gateway said. Retrying at a tolerance that has
+        already been refused is the behaviour this replaces: ten identical attempts, each
+        paying gas if it reached the chain.
+
+        Nothing here applies to a CEX order — a non-Gateway connector remembers no
+        reason, so the ramp never moves.
+        """
+        connector = self.connectors.get(self.config.connector_name)
+        reason = getattr(connector, "order_failure_reason", lambda _: None)(order_id)
+        if not reason or not is_slippage_failure(Exception(reason)):
+            return
+
+        widened = next_slippage_pct(
+            self._slippage_pct, self.config.slippage_multiplier, self.config.max_slippage_pct
+        )
+        if widened is None:
+            self.logger().warning(
+                f"Slippage failure at {self._slippage_pct}%, which is max_slippage_pct "
+                f"({self.config.max_slippage_pct}%). Not widening further."
+            )
+            return
+
+        self.logger().info(
+            f"Slippage failure at {self._slippage_pct}%; retrying at {widened}% "
+            f"(x{self.config.slippage_multiplier}, ceiling {self.config.max_slippage_pct}%)."
+        )
+        self._slippage_pct = widened
 
     def evaluate_max_retries(self):
         """

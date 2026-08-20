@@ -152,6 +152,8 @@ class GatewayBase(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
+        # order_id -> the reason its last failure gave. See order_failure_reason().
+        self._order_failure_reasons: Dict[str, str] = {}
         # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
@@ -1003,6 +1005,19 @@ class GatewayBase(ConnectorBase):
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
+    # How many order failures to keep a reason for. An executor asks within a tick or two
+    # of the failure, so this only has to outlive that.
+    MAX_REMEMBERED_FAILURES = 100
+
+    def order_failure_reason(self, order_id: str) -> Optional[str]:
+        """Why an order failed, as Gateway explained it, or None if it is not remembered.
+
+        Gateway's message carries its machine-readable code (`[code: SLIPPAGE_EXCEEDED]`),
+        which is what makes a caller's response to the failure something other than a
+        guess.
+        """
+        return self._order_failure_reasons.get(order_id)
+
     def _handle_operation_failure(self, order_id: str, trading_pair: str, operation_name: str, error: Exception):
         """
         Helper method to handle operation failures consistently across different methods.
@@ -1017,6 +1032,15 @@ class GatewayBase(ConnectorBase):
             f"Error {operation_name} for {trading_pair} on {self.connector_name}: {str(error)}",
             exc_info=True
         )
+        # Keep why it failed, not just that it did. The order tracker records FAILED and
+        # nothing else, so an executor watching the order sees a state with no reason and
+        # cannot tell a slippage rejection — which a wider tolerance would fix — from an
+        # insufficient balance, which it would not. Bounded, because this is a cache of
+        # last resort and not a log.
+        self._order_failure_reasons[order_id] = str(error)
+        if len(self._order_failure_reasons) > self.MAX_REMEMBERED_FAILURES:
+            self._order_failure_reasons.pop(next(iter(self._order_failure_reasons)))
+
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order_id,
             trading_pair=trading_pair,

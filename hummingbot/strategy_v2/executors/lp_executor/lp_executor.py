@@ -984,8 +984,13 @@ class LPExecutor(ExecutorBase):
                 self.lp_position_state.active_swap_order = None
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
             elif order.current_state == OrderState.FAILED:
-                self.logger().error(f"Close-out swap failed: {order.client_order_id}")
-                self._handle_swap_failure(ValueError("Swap order failed"))
+                # The order tracker records FAILED and no reason, so ask the connector
+                # what Gateway said. Without it the slippage ramp cannot act on this leg:
+                # every close-out swap failure would look the same, and widening on all
+                # of them would loosen a tolerance that was never the problem.
+                reason = connector.order_failure_reason(order.client_order_id) or "Swap order failed"
+                self.logger().error(f"Close-out swap failed: {order.client_order_id}: {reason}")
+                self._handle_swap_failure(ValueError(reason))
             elif order.current_state == OrderState.CANCELED:
                 self.logger().warning(f"Close-out swap cancelled: {order.client_order_id}")
                 self._handle_swap_failure(ValueError("Swap order cancelled"))
