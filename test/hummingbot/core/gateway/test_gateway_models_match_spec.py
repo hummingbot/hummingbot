@@ -42,10 +42,10 @@ GENERATED_PATH = _REPO_ROOT / "hummingbot" / "core" / "gateway" / "gateway_model
 MIRRORED_MODELS = [
     (TokenInfo, gateway_models.Token),
     (AMMPoolInfo, gateway_models.AmmPoolInfo),
-    (CLMMPoolInfo, gateway_models.PoolInfo),
+    (CLMMPoolInfo, gateway_models.ClmmPoolInfo),
     (AMMPositionDetail, gateway_models.PositionDetail),
     (AMMPositionInfo, gateway_models.AmmPositionInfo),
-    (CLMMPositionInfo, gateway_models.PositionInfo),
+    (CLMMPositionInfo, gateway_models.ClmmPositionInfo),
 ]
 
 # Fields the position models add for this side's own use. They are filled in after

@@ -30,19 +30,19 @@
           },
           "feePct": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -79,7 +79,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -98,15 +98,15 @@
             "x-connectors": [
               "meteora"
             ],
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -127,19 +127,19 @@
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountMax": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountMax": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -174,7 +174,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -193,15 +193,15 @@
             "x-connectors": [
               "meteora"
             ],
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -227,7 +227,7 @@
           "price": {
             "format": "decimal",
             "description": "Initial price the pool was seeded at (quote per base)",
-            "type": "number"
+            "type": "string"
           },
           "data": {
             "$ref": "#/components/schemas/AmmCreatePoolResponseData"
@@ -244,15 +244,15 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -271,15 +271,15 @@
           "lpTokenAmount": {
             "format": "decimal",
             "description": "Liquidity held by this position (LP units)",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -306,19 +306,19 @@
           },
           "lpTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "positions": {
             "type": "array",
@@ -339,6 +339,7 @@
         ]
       },
       "EstimateGasRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -369,7 +370,7 @@
         "properties": {
           "feePerComputeUnit": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "denomination": {
             "type": "string"
@@ -382,7 +383,7 @@
           },
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "timestamp": {
             "type": "number"
@@ -392,18 +393,18 @@
           },
           "maxFeePerGas": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "maxPriorityFeePerGas": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "priorityFeeLevel": {
             "type": "string"
           },
           "priorityFeePerCUEstimate": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -416,6 +417,7 @@
         ]
       },
       "BalanceRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -470,6 +472,7 @@
         ]
       },
       "PollRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -569,6 +572,7 @@
         ]
       },
       "StatusRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -643,32 +647,32 @@
           "amountIn": {
             "format": "decimal",
             "description": "Amount of tokenIn to be swapped",
-            "type": "number"
+            "type": "string"
           },
           "amountOut": {
             "format": "decimal",
             "description": "Expected amount of tokenOut to receive",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
             "description": "Exchange rate between tokenIn and tokenOut",
-            "type": "number"
+            "type": "string"
           },
           "priceImpactPct": {
             "format": "decimal",
             "description": "Estimated price impact percentage (0-100)",
-            "type": "number"
+            "type": "string"
           },
           "minAmountOut": {
             "format": "decimal",
             "description": "Minimum amount of tokenOut that will be accepted",
-            "type": "number"
+            "type": "string"
           },
           "maxAmountIn": {
             "format": "decimal",
             "description": "Maximum amount of tokenIn that will be spent",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool address for AMM/CLMM swaps",
@@ -681,7 +685,7 @@
           "slippagePct": {
             "format": "decimal",
             "description": "Slippage tolerance percentage",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -729,32 +733,32 @@
           "amountIn": {
             "format": "decimal",
             "description": "Actual amount of tokenIn swapped",
-            "type": "number"
+            "type": "string"
           },
           "amountOut": {
             "format": "decimal",
             "description": "Actual amount of tokenOut received",
-            "type": "number"
+            "type": "string"
           },
           "fee": {
             "format": "decimal",
             "description": "Transaction fee paid",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenBalanceChange": {
             "format": "decimal",
             "description": "Change in base token balance (negative for decrease)",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenBalanceChange": {
             "format": "decimal",
             "description": "Change in quote token balance (negative for decrease)",
-            "type": "number"
+            "type": "string"
           },
           "slippagePct": {
             "format": "decimal",
             "description": "Slippage tolerance percentage actually applied to the swap",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool the swap executed against. Set by the pool-scoped routes (/trading/clmm, /trading/amm), which resolve exactly one pool; a router picks its own path across pools and leaves this unset. Without it a settled fill cannot be reconciled to a venue without refetching the transaction.",
@@ -772,6 +776,7 @@
         ]
       },
       "WrapRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -811,6 +816,7 @@
         ]
       },
       "UnwrapRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -912,32 +918,32 @@
           "amountIn": {
             "format": "decimal",
             "description": "Amount of tokenIn to be swapped",
-            "type": "number"
+            "type": "string"
           },
           "amountOut": {
             "format": "decimal",
             "description": "Expected amount of tokenOut to receive",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
             "description": "Exchange rate between tokenIn and tokenOut",
-            "type": "number"
+            "type": "string"
           },
           "priceImpactPct": {
             "format": "decimal",
             "description": "Estimated price impact percentage (0-100)",
-            "type": "number"
+            "type": "string"
           },
           "minAmountOut": {
             "format": "decimal",
             "description": "Minimum amount of tokenOut that will be accepted",
-            "type": "number"
+            "type": "string"
           },
           "maxAmountIn": {
             "format": "decimal",
             "description": "Maximum amount of tokenIn that will be spent",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool address for AMM/CLMM swaps",
@@ -950,7 +956,7 @@
           "slippagePct": {
             "format": "decimal",
             "description": "Slippage tolerance percentage",
-            "type": "number"
+            "type": "string"
           },
           "quoteId": {
             "description": "Identifier to pass to /trading/router/execute-quote",
@@ -1007,37 +1013,37 @@
           "baseFee": {
             "format": "decimal",
             "description": "Base fee percentage",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
             "description": "Current price",
-            "type": "number"
+            "type": "string"
           },
           "tvl": {
             "format": "decimal",
             "description": "Total value locked in USD",
-            "type": "number"
+            "type": "string"
           },
           "apr": {
             "format": "decimal",
             "description": "Annual percentage rate",
-            "type": "number"
+            "type": "string"
           },
           "apy": {
             "format": "decimal",
             "description": "Annual percentage yield",
-            "type": "number"
+            "type": "string"
           },
           "volume24h": {
             "format": "decimal",
             "description": "24-hour trading volume",
-            "type": "number"
+            "type": "string"
           },
           "fees24h": {
             "format": "decimal",
             "description": "24-hour fees collected",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1090,15 +1096,15 @@
           },
           "price": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1125,19 +1131,19 @@
           },
           "feePct": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "activeBinId": {
             "type": "number"
@@ -1177,19 +1183,19 @@
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseFeeAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteFeeAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "lowerBinId": {
             "type": "number"
@@ -1199,15 +1205,15 @@
           },
           "lowerPrice": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "upperPrice": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "price": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1250,7 +1256,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -1261,15 +1267,15 @@
           },
           "positionRent": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1304,7 +1310,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -1316,11 +1322,11 @@
           },
           "baseTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountAdded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1353,7 +1359,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -1365,11 +1371,11 @@
           },
           "baseTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1402,7 +1408,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -1414,11 +1420,11 @@
           },
           "baseFeeAmountCollected": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteFeeAmountCollected": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1451,7 +1457,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "poolAddress": {
             "description": "Pool this operation acted on",
@@ -1463,23 +1469,23 @@
           },
           "positionRentRefunded": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountRemoved": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseFeeAmountCollected": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteFeeAmountCollected": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1508,7 +1514,7 @@
           "price": {
             "format": "decimal",
             "description": "Initial price the pool was initialized at (quote per base)",
-            "type": "number"
+            "type": "string"
           },
           "data": {
             "$ref": "#/components/schemas/ClmmCreatePoolResponseData"
@@ -1525,7 +1531,7 @@
         "properties": {
           "fee": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -1544,19 +1550,19 @@
           },
           "baseTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmount": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "baseTokenAmountMax": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "quoteTokenAmountMax": {
             "format": "decimal",
-            "type": "number"
+            "type": "string"
           },
           "liquidity": {}
         },
@@ -1569,6 +1575,7 @@
         ]
       },
       "AmmCreatePoolRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1579,7 +1586,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -1666,6 +1672,7 @@
         ]
       },
       "AmmAddRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1676,7 +1683,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -1747,6 +1753,7 @@
         ]
       },
       "AmmRemoveRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1757,7 +1764,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -1826,6 +1832,7 @@
         ]
       },
       "AmmPoolInfoRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1874,6 +1881,7 @@
         ]
       },
       "AmmPositionInfoRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1928,6 +1936,7 @@
         ]
       },
       "AmmPositionsOwnedRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -1977,6 +1986,7 @@
         ]
       },
       "AmmQuoteLiquidityRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2045,6 +2055,7 @@
         ]
       },
       "ClmmOpenRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2057,7 +2068,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2144,6 +2154,7 @@
         ]
       },
       "ClmmAddRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2156,7 +2167,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2229,6 +2239,7 @@
         ]
       },
       "ClmmRemoveRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2241,7 +2252,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2304,6 +2314,7 @@
         ]
       },
       "ClmmCollectFeesRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2316,7 +2327,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2361,6 +2371,7 @@
         ]
       },
       "ClmmCloseRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2373,7 +2384,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2426,6 +2436,7 @@
         ]
       },
       "ClmmCreatePoolRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2438,7 +2449,6 @@
               "uniswap",
               "pancakeswap"
             ],
-            "default": "meteora",
             "type": "string",
             "example": "meteora"
           },
@@ -2515,6 +2525,7 @@
         ]
       },
       "ClmmFetchPoolsRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chainNetwork": {
@@ -2606,6 +2617,7 @@
         ]
       },
       "ClmmPoolInfoRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2664,6 +2676,7 @@
         ]
       },
       "ClmmPositionInfoRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2715,6 +2728,7 @@
         ]
       },
       "ClmmPositionsOwnedRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2766,6 +2780,7 @@
         ]
       },
       "ClmmQuoteLiquidityRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "connector": {
@@ -2851,6 +2866,7 @@
         ]
       },
       "RouterExecuteQuoteRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chainNetwork": {
@@ -2886,7 +2902,6 @@
               "pancakeswap",
               "0x"
             ],
-            "default": "jupiter",
             "type": "string",
             "example": "jupiter"
           },
@@ -2907,6 +2922,7 @@
         ]
       },
       "RouterExecuteSwapRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chainNetwork": {
@@ -2942,7 +2958,6 @@
               "pancakeswap",
               "0x"
             ],
-            "default": "jupiter",
             "type": "string",
             "example": "jupiter"
           },
@@ -3006,6 +3021,7 @@
         ]
       },
       "RouterQuoteSwapRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chainNetwork": {
@@ -3041,7 +3057,6 @@
               "pancakeswap",
               "0x"
             ],
-            "default": "jupiter",
             "type": "string",
             "example": "jupiter"
           },
@@ -3458,6 +3473,7 @@
         ]
       },
       "AllowancesRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -3525,6 +3541,7 @@
         ]
       },
       "ApproveRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "network": {
@@ -3619,6 +3636,7 @@
         ]
       },
       "RemoveWalletRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chain": {
@@ -3641,6 +3659,7 @@
         ]
       },
       "AddHardwareWalletRequest": {
+        "additionalProperties": false,
         "type": "object",
         "properties": {
           "chain": {
@@ -5231,7 +5250,7 @@
                     },
                     "feePct": {
                       "format": "decimal",
-                      "type": "number"
+                      "type": "string"
                     },
                     "address": {
                       "type": "string"
@@ -5363,7 +5382,7 @@
                     },
                     "feePct": {
                       "format": "decimal",
-                      "type": "number"
+                      "type": "string"
                     },
                     "address": {
                       "type": "string"
@@ -5583,7 +5602,7 @@
                       },
                       "feePct": {
                         "format": "decimal",
-                        "type": "number"
+                        "type": "string"
                       },
                       "address": {
                         "type": "string"
@@ -5757,7 +5776,7 @@
                       },
                       "feePct": {
                         "format": "decimal",
-                        "type": "number"
+                        "type": "string"
                       },
                       "address": {
                         "type": "string"
@@ -6030,7 +6049,7 @@
                         },
                         "feePct": {
                           "format": "decimal",
-                          "type": "number"
+                          "type": "string"
                         },
                         "address": {
                           "type": "string"
@@ -6218,7 +6237,6 @@
                 "pancakeswap",
                 "0x"
               ],
-              "default": "jupiter",
               "type": "string"
             },
             "example": "jupiter",

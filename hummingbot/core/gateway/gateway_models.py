@@ -6,7 +6,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field, condecimal, confloat, conint
+from pydantic import BaseModel, ConfigDict, Field, condecimal, confloat, conint
 
 
 class AmmPoolInfo(BaseModel):
@@ -72,6 +72,9 @@ class AmmPositionInfo(BaseModel):
 
 
 class EstimateGasRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
 
 
@@ -90,6 +93,9 @@ class EstimateGasResponse(BaseModel):
 
 
 class BalanceRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str | None = None
     tokens: list[str] | None = Field(None, description='a list of token symbols or addresses')
@@ -101,6 +107,9 @@ class BalanceResponse(BaseModel):
 
 
 class PollRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     signature: str = Field(..., description='Transaction signature/hash')
 
@@ -116,6 +125,9 @@ class PollResponse(BaseModel):
 
 
 class StatusRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
 
 
@@ -156,12 +168,18 @@ class ChainExecuteSwapResponseData(BaseModel):
 
 
 class WrapRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str = Field(..., description='Wallet address holding the native token')
     amount: str = Field(..., description='Amount of the native token to wrap, in whole units (not lamports/wei)', examples=['1.0'])
 
 
 class UnwrapRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field(None, description="Network to use. Defaults to the chain's configured default network.", examples=['mainnet-beta'])
     address: str = Field(..., description='Wallet address holding the wrapped token')
     amount: str | None = Field(None, description='Amount of the wrapped token to unwrap, in whole units. Solana unwraps the full balance when omitted; EVM chains require it.', examples=['1.0'])
@@ -311,6 +329,9 @@ class ClmmQuoteLiquidityResponse(BaseModel):
 
 
 class AmmCreatePoolRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address (pool creator + payer)')
@@ -325,6 +346,9 @@ class AmmCreatePoolRequest(BaseModel):
 
 
 class AmmAddRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -336,6 +360,9 @@ class AmmAddRequest(BaseModel):
 
 
 class AmmRemoveRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -346,12 +373,18 @@ class AmmRemoveRequest(BaseModel):
 
 
 class AmmPoolInfoRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     pool_address: str = Field(..., alias='poolAddress', description='Pool contract address')
 
 
 class AmmPositionInfoRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     pool_address: str = Field(..., alias='poolAddress', description='Pool contract address')
@@ -359,12 +392,18 @@ class AmmPositionInfoRequest(BaseModel):
 
 
 class AmmPositionsOwnedRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector (only non-fungible-LP AMMs supported: meteora)', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address to list positions for')
 
 
 class AmmQuoteLiquidityRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='AMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     pool_address: str = Field(..., alias='poolAddress', description='Pool contract address')
@@ -374,6 +413,9 @@ class AmmQuoteLiquidityRequest(BaseModel):
 
 
 class ClmmOpenRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -387,6 +429,9 @@ class ClmmOpenRequest(BaseModel):
 
 
 class ClmmAddRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -398,6 +443,9 @@ class ClmmAddRequest(BaseModel):
 
 
 class ClmmRemoveRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -407,6 +455,9 @@ class ClmmRemoveRequest(BaseModel):
 
 
 class ClmmCollectFeesRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -414,6 +465,9 @@ class ClmmCollectFeesRequest(BaseModel):
 
 
 class ClmmCloseRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
@@ -422,6 +476,9 @@ class ClmmCloseRequest(BaseModel):
 
 
 class ClmmCreatePoolRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address (pool creator + payer)')
@@ -434,6 +491,9 @@ class ClmmCreatePoolRequest(BaseModel):
 
 
 class ClmmFetchPoolsRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     connector: str = Field(..., description='CLMM connector whose pool-discovery API to query', examples=['meteora'])
     limit: confloat(ge=1.0, le=1000.0) | None = Field(50, description='Maximum number of pools to return')
@@ -446,6 +506,9 @@ class ClmmFetchPoolsRequest(BaseModel):
 
 
 class ClmmPoolInfoRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     pool_address: str = Field(..., alias='poolAddress', description='Pool contract address', examples=['2sf5NYcY4zUPXUSmG6f66mskb24t5F8S11pC1Nz5nQT3'])
@@ -453,18 +516,27 @@ class ClmmPoolInfoRequest(BaseModel):
 
 
 class ClmmPositionInfoRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     position_address: str = Field(..., alias='positionAddress', description='Position address or NFT token ID', examples=['<sample-position-address>'])
 
 
 class ClmmPositionsOwnedRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address')
 
 
 class ClmmQuoteLiquidityRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     connector: str = Field(..., description='CLMM connector', examples=['meteora'])
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
     lower_price: Decimal = Field(..., alias='lowerPrice', description='Lower price bound for the position', examples=[150])
@@ -476,15 +548,21 @@ class ClmmQuoteLiquidityRequest(BaseModel):
 
 
 class RouterExecuteQuoteRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
-    connector: str | None = Field('jupiter', description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
+    connector: str | None = Field(None, description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the quote')
     quote_id: str = Field(..., alias='quoteId', description='ID of a quote returned by /trading/router/quote-swap')
 
 
 class RouterExecuteSwapRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
-    connector: str | None = Field('jupiter', description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
+    connector: str | None = Field(None, description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
     wallet_address: str = Field(..., alias='walletAddress', description='Wallet address that will execute the swap')
     base_token: str = Field(..., alias='baseToken', description='Symbol or address of the base token')
     quote_token: str = Field(..., alias='quoteToken', description='Symbol or address of the quote token')
@@ -495,8 +573,11 @@ class RouterExecuteSwapRequest(BaseModel):
 
 
 class RouterQuoteSwapRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain_network: str = Field(..., alias='chainNetwork', description='Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)', examples=['solana-mainnet-beta'])
-    connector: str | None = Field('jupiter', description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
+    connector: str | None = Field(None, description="Router connector. Defaults to the network's swapProvider", examples=['jupiter'])
     base_token: str = Field(..., alias='baseToken', description='Symbol or address of the base token')
     quote_token: str = Field(..., alias='quoteToken', description='Symbol or address of the quote token')
     amount: Decimal = Field(..., description='Amount of base token to trade')
@@ -554,6 +635,9 @@ class ClmmExecuteSwapRequest(BaseModel):
 
 
 class AllowancesRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field('mainnet', description='The Ethereum network to use')
     address: str | None = Field('<ethereum-wallet-address>', description='Ethereum wallet address')
     spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) or contract address', examples=['uniswap/router'])
@@ -566,6 +650,9 @@ class AllowancesResponse(BaseModel):
 
 
 class ApproveRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     network: str | None = Field('mainnet', description='The Ethereum network to use')
     address: str | None = Field('<ethereum-wallet-address>', description='Ethereum wallet address')
     spender: str = Field(..., description='Connector name (e.g., uniswap/clmm, uniswap/amm, 0x/router) contract address', examples=['uniswap/router'])
@@ -582,11 +669,17 @@ class ApproveResponseData(BaseModel):
 
 
 class RemoveWalletRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain: str = Field(..., description='Blockchain to remove wallet from', examples=['solana'])
     address: str = Field(..., description='Wallet address to remove')
 
 
 class AddHardwareWalletRequest(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
     chain: str = Field(..., description='Blockchain for hardware wallet', examples=['solana'])
     address: str = Field(..., description='Hardware wallet address to add (must exist on connected Ledger device)')
     set_default: bool | None = Field(False, alias='setDefault', description='Set this wallet as the default for the chain')
