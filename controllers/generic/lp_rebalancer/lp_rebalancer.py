@@ -59,7 +59,8 @@ class LPRebalancerConfig(ControllerConfigBase):
     position_offset_pct: Decimal = Field(
         default=Decimal("0.01"),
         json_schema_extra={"is_updatable": True},
-        description="Offset from current price. Positive = out-of-range (single-sided). Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
+        description="Offset from current price. Positive = out-of-range (single-sided). "
+                    "Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
     )
 
     # Rebalance threshold - used to set LP executor's limit prices
@@ -589,10 +590,11 @@ class LPRebalancer(ControllerBase):
             self._current_executor_id = None
 
             # Determine side for new position
-            if executor_failed and failed_executor_side is not None:
-                # Retry with same side on failure
+            if (executor_failed or involuntary_hold) and failed_executor_side is not None:
+                # Retry with same side after any abnormal terminal (FAILED, or an
+                # involuntary hold that left no on-chain position to recover)
                 side = failed_executor_side
-                self.logger().info(f"Retrying with same side={side} after executor failure")
+                self.logger().info(f"Retrying with same side={side} after abnormal executor end")
             elif not self._initial_position_created:
                 # Initial position: use configured side
                 side = self.config.side
@@ -609,7 +611,10 @@ class LPRebalancer(ControllerBase):
                 else:
                     # Price is within old bounds (shouldn't happen with limit-price auto-close)
                     side = self._determine_side_from_price(self._pool_price)
-                    self.logger().info(f"Price {self._pool_price} in range [{closed_lower_price}, {closed_upper_price}] → side={side} from limits")
+                    self.logger().info(
+                        f"Price {self._pool_price} in range [{closed_lower_price}, {closed_upper_price}] "
+                        f"→ side={side} from limits"
+                    )
             else:
                 # Fallback to price limits
                 if not self._pool_price:
@@ -817,24 +822,25 @@ class LPRebalancer(ControllerBase):
         """
         Check if price is within configured limits for the position type.
         """
+        # `is not None`: a limit set to exactly 0 is a real bound, not "unset"
         if side == TradeType.SELL:
-            if self.config.sell_price_min and price < self.config.sell_price_min:
+            if self.config.sell_price_min is not None and price < self.config.sell_price_min:
                 return False
-            if self.config.sell_price_max and price > self.config.sell_price_max:
+            if self.config.sell_price_max is not None and price > self.config.sell_price_max:
                 return False
         elif side == TradeType.BUY:
-            if self.config.buy_price_min and price < self.config.buy_price_min:
+            if self.config.buy_price_min is not None and price < self.config.buy_price_min:
                 return False
-            if self.config.buy_price_max and price > self.config.buy_price_max:
+            if self.config.buy_price_max is not None and price > self.config.buy_price_max:
                 return False
         else:  # RANGE
-            if self.config.buy_price_min and price < self.config.buy_price_min:
+            if self.config.buy_price_min is not None and price < self.config.buy_price_min:
                 return False
-            if self.config.buy_price_max and price > self.config.buy_price_max:
+            if self.config.buy_price_max is not None and price > self.config.buy_price_max:
                 return False
-            if self.config.sell_price_min and price < self.config.sell_price_min:
+            if self.config.sell_price_min is not None and price < self.config.sell_price_min:
                 return False
-            if self.config.sell_price_max and price > self.config.sell_price_max:
+            if self.config.sell_price_max is not None and price > self.config.sell_price_max:
                 return False
         return True
 
@@ -974,7 +980,8 @@ class LPRebalancer(ControllerBase):
         width = self.config.position_width_pct
         offset = self.config.position_offset_pct
         threshold = self.config.rebalance_threshold_pct
-        line = f"| Config: side={side_str}, amount={amt} {self._quote_token}, width={width}%, offset={offset}%, threshold={threshold}%"
+        line = (f"| Config: side={side_str}, amount={amt} {self._quote_token}, "
+                f"width={width}%, offset={offset}%, threshold={threshold}%")
         status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         status.append("|" + " " * box_width + "|")
@@ -1018,7 +1025,8 @@ class LPRebalancer(ControllerBase):
                 lower_limit = Decimal(str(lower_price)) * (Decimal("1") - threshold_pct)
                 upper_limit = Decimal(str(upper_price)) * (Decimal("1") + threshold_pct)
 
-                line = f"| Price: {float(self._pool_price):.{price_decimals}f}  |  Auto-close if: <{float(lower_limit):.{price_decimals}f} or >{float(upper_limit):.{price_decimals}f}"
+                line = (f"| Price: {float(self._pool_price):.{price_decimals}f}  |  Auto-close if: "
+                        f"<{float(lower_limit):.{price_decimals}f} or >{float(upper_limit):.{price_decimals}f}")
                 status.append(line + " " * (box_width - len(line) + 1) + "|")
 
                 state = custom.get("state", "UNKNOWN")
@@ -1103,7 +1111,8 @@ class LPRebalancer(ControllerBase):
             line = f"| Swaps Executed: {len(closed_swaps)}"
             status.append(line + " " * (box_width - len(line) + 1) + "|")
 
-        line = f"| Fees Collected: {float(total_fees_base):.6f} {self._base_token} + {float(total_fees_quote):.6f} {self._quote_token} = {float(total_fees_value):.6f} {self._quote_token}"
+        line = (f"| Fees Collected: {float(total_fees_base):.6f} {self._base_token} + "
+                f"{float(total_fees_quote):.6f} {self._quote_token} = {float(total_fees_value):.6f} {self._quote_token}")
         status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         status.append("+" + "-" * box_width + "+")
