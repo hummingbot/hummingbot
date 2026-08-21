@@ -99,11 +99,14 @@ class GatewayBase(ConnectorBase):
     POLL_INTERVAL = 1.0
     BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
     # Reconciliation polling for a broadcast-but-unconfirmed transaction: how often
-    # to poll the signature, how long before giving up (must cover Solana's ~90s
-    # blockhash validity window), and how many consecutive NOT_FOUND polls prove
-    # the transaction dropped (a single miss can be RPC lag).
+    # to poll the signature, and how long to poll before ruling on it. The timeout
+    # must OUTLAST Solana's ~90s blockhash validity window, not merely reach it:
+    # inside that window a NOT_FOUND signature is still landable, so nothing before
+    # the deadline can prove a transaction dropped. Same rule, same reason, as
+    # TX_NOT_FOUND_DEADLINE below. STRIKES then guards the verdict itself against a
+    # status that flapped on the last poll or two.
     SIGNATURE_POLL_INTERVAL = 2.0
-    SIGNATURE_POLL_TIMEOUT = 90.0
+    SIGNATURE_POLL_TIMEOUT = 120.0
     SIGNATURE_NOT_FOUND_STRIKES = 3
     # How long an order's transaction may poll as NOT_FOUND before the misses count
     # toward the tracker's lost-order limit. Must exceed Solana's blockhash validity
@@ -875,10 +878,17 @@ class GatewayBase(ConnectorBase):
         """
         Poll a broadcast-but-unconfirmed signature to a terminal state.
 
-        Returns "CONFIRMED" when the tx landed successfully, "DROPPED" when it can
-        no longer land (NOT_FOUND for SIGNATURE_NOT_FOUND_STRIKES consecutive polls).
+        Returns "CONFIRMED" when the tx landed successfully, and "DROPPED" only once
+        it can no longer land. NOT_FOUND on its own is never that proof: a signature
+        the cluster has not seen YET reads exactly like one it will never see, and the
+        transaction stays landable until its blockhash expires (~90s on Solana — see
+        Gateway's getSignatureStatus, which is where that rule is written down). So
+        NOT_FOUND is terminal only when it is STILL NOT_FOUND at SIGNATURE_POLL_TIMEOUT,
+        which outlasts that window; a streak reached earlier decides nothing, because
+        re-submitting on it posts a second transaction while the first is still live.
+
         Raises typed TX_NOT_CONFIRMED when it landed but failed on-chain, and typed
-        TRANSACTION_TIMEOUT when still unresolved at SIGNATURE_POLL_TIMEOUT — the
+        TX_UNRESOLVED when the cluster still calls it pending at the deadline — the
         caller must NOT re-submit in that case (the tx may still land).
         """
         deadline = time.time() + self.SIGNATURE_POLL_TIMEOUT
@@ -905,13 +915,21 @@ class GatewayBase(ConnectorBase):
                 )
             if tx_status == -2:
                 not_found_streak += 1
-                if not_found_streak >= self.SIGNATURE_NOT_FOUND_STRIKES:
-                    return "DROPPED"
             else:
                 not_found_streak = 0
 
-        # Deliberately NOT [code: TRANSACTION_TIMEOUT]: that code is retryable, and
-        # this exception must never re-enter the retry loop — the tx may still land.
+        # Deadline reached, so the blockhash has expired: a signature the cluster still
+        # does not know can never land now, and exactly one fresh submission is safe.
+        if not_found_streak >= self.SIGNATURE_NOT_FOUND_STRIKES:
+            self.logger().info(
+                f"{operation_name}: transaction {signature} still unknown to the cluster after "
+                f"{self.SIGNATURE_POLL_TIMEOUT:.0f}s (blockhash expired); it can no longer land."
+            )
+            return "DROPPED"
+
+        # Anything else — last seen pending, or polls that never resolved — leaves the
+        # transaction landable. Deliberately NOT [code: TRANSACTION_TIMEOUT]: that code is
+        # retryable, and this exception must never re-enter the retry loop.
         raise Exception(
             f"Transaction {signature} still unresolved after {self.SIGNATURE_POLL_TIMEOUT:.0f}s of "
             "polling; NOT re-submitting (it may still land) [code: TX_UNRESOLVED]"

@@ -445,15 +445,28 @@ class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
         self.connector = MockGatewayConnector()
         self.connector._chain = "solana"
         self.connector._network = "mainnet-beta"
-        self.connector.SIGNATURE_POLL_INTERVAL = 0.0
+        self.connector.SIGNATURE_POLL_INTERVAL = 0.001
+        # Real value is 120s (it has to outlast a blockhash); the verdict logic is
+        # identical at any deadline, so shrink it to keep the suite fast.
+        self.connector.SIGNATURE_POLL_TIMEOUT = 0.05
         self.submissions = 0
 
     def _patch_poll(self, results):
-        """Patch the gateway poll to return the given txStatus values in order."""
+        """Patch the gateway poll to return the given txStatus values in order.
+
+        The last value repeats once the list runs out: a cluster keeps answering, and
+        the terminal verdict is now read at the deadline rather than on a streak, so a
+        sequence that simply stopped would be testing exhaustion instead of status.
+        """
         seq = iter(results)
+        last = {"value": None}
 
         async def fake_poll(chain, network, tx_hash, fail_silently=False):
-            return {"txStatus": next(seq)}
+            try:
+                last["value"] = next(seq)
+            except StopIteration:
+                pass
+            return {"txStatus": last["value"]}
 
         gateway = MagicMock()
         gateway.get_transaction_status = fake_poll
@@ -472,9 +485,10 @@ class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
         self.assertEqual(1, self.submissions)  # never re-submitted
 
     def test_pending_dropped_resubmits_once(self):
-        # First submission's signature drops (3 consecutive NOT_FOUND); the second
+        # First submission's signature is still unknown to the cluster at the deadline,
+        # by which point its blockhash has expired and it can never land; the second
         # submission confirms inline.
-        self._patch_poll([-2, -2, -2])
+        self._patch_poll([-2])
         original_op = self._pending_operation
 
         async def operation():
@@ -487,6 +501,43 @@ class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
             operation, "test swap", max_retries=10, retry_delay=0.0))
         self.assertEqual(1, result["status"])
         self.assertEqual(2, self.submissions)
+
+    def test_not_found_streak_before_the_deadline_is_not_dropped(self):
+        # The regression this deadline exists for: NOT_FOUND early means "the cluster
+        # has not seen it YET", and the transaction is still landable until its
+        # blockhash expires. Ruling on a streak alone re-submitted a live transaction.
+        self._patch_poll([-2, -2, -2, -2, 1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("sig-1", result["signature"])
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
+    def test_still_pending_at_the_deadline_is_unresolved_not_dropped(self):
+        # Seen by the cluster but unconfirmed: it may still land, so this must never
+        # become a re-submission. TX_UNRESOLVED classifies non-retryable.
+        self._patch_poll([0])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
+
+    def test_unreadable_polls_are_unresolved_not_dropped(self):
+        # An RPC that never answers says nothing about the transaction. Absence of a
+        # NOT_FOUND streak is what keeps this off the re-submission path.
+        gateway = MagicMock()
+
+        async def failing_poll(chain, network, tx_hash, fail_silently=False):
+            raise Exception("RPC unavailable")
+
+        gateway.get_transaction_status = failing_poll
+        self.connector._get_gateway_instance = MagicMock(return_value=gateway)
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
 
     def test_pending_landed_but_failed_raises_typed(self):
         self._patch_poll([-1])
