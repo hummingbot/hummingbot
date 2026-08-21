@@ -301,6 +301,7 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
                           'net_pnl_quote',
                           'cum_fees_quote',
                           'filled_amount_quote',
+                          'volume_traded_quote',
                           'is_active',
                           'is_trading',
                           'custom_info',

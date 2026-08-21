@@ -19,6 +19,7 @@ Adopting a Gateway change is two steps:
 """
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -69,34 +70,41 @@ class GatewayModelsMatchSpecTest(unittest.TestCase):
         generator, and the comparisons below start checking against a shape Gateway
         never described.
         """
-        result = subprocess.run(
-            [
-                sys.executable, "-m", "datamodel_code_generator",
-                "--input", str(SPEC_PATH),
-                "--input-file-type", "openapi",
-                "--openapi-scopes", "schemas",
-                "--output", "/dev/stdout",
-                "--output-model-type", "pydantic_v2.BaseModel",
-                "--snake-case-field",
-                # Matches setup.py's python_requires floor, not the interpreter running
-                # the tests: targeting 3.12 emits StrEnum, which 3.10 does not have.
-                "--target-python-version", "3.10",
-                "--disable-timestamp",
-                # Keeps `connector`/`network` as plain strings rather than baking
-                # Gateway's current roster into this client. See the Makefile.
-                "--ignore-enum-constraints",
-                "--formatters", "black",
-                "--formatters", "isort",
-                "--custom-file-header", "\n".join(GENERATED_PATH.read_text().splitlines()[:2]),
-            ],
-            capture_output=True, text=True,
-        )
-        self.assertEqual(result.returncode, 0, f"datamodel-codegen failed:\n{result.stderr}")
-        self.assertEqual(
-            result.stdout, GENERATED_PATH.read_text(),
-            f"{GENERATED_PATH.name} is not what {SPEC_PATH.name} generates. "
-            "Run `make gateway-models` and commit the result.",
-        )
+        # Generate to a real file rather than /dev/stdout. Under capture_output the
+        # process's stdout is a pipe, so on Linux /dev/stdout resolves to
+        # /proc/<pid>/fd/1 -> "pipe:[...]", which the generator then tries to open BY
+        # NAME and cannot: FileNotFoundError on a path that is not a path. macOS
+        # resolves it differently, so this passed locally and failed only in CI.
+        with tempfile.TemporaryDirectory() as tmp:
+            generated = Path(tmp) / "gateway_models.py"
+            result = subprocess.run(
+                [
+                    sys.executable, "-m", "datamodel_code_generator",
+                    "--input", str(SPEC_PATH),
+                    "--input-file-type", "openapi",
+                    "--openapi-scopes", "schemas",
+                    "--output", str(generated),
+                    "--output-model-type", "pydantic_v2.BaseModel",
+                    "--snake-case-field",
+                    # Matches setup.py's python_requires floor, not the interpreter
+                    # running the tests: targeting 3.12 emits StrEnum, which 3.10 lacks.
+                    "--target-python-version", "3.10",
+                    "--disable-timestamp",
+                    # Keeps `connector`/`network` as plain strings rather than baking
+                    # Gateway's current roster into this client. See the Makefile.
+                    "--ignore-enum-constraints",
+                    "--formatters", "black",
+                    "--formatters", "isort",
+                    "--custom-file-header", "\n".join(GENERATED_PATH.read_text().splitlines()[:2]),
+                ],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, f"datamodel-codegen failed:\n{result.stderr}")
+            self.assertEqual(
+                generated.read_text(), GENERATED_PATH.read_text(),
+                f"{GENERATED_PATH.name} is not what {SPEC_PATH.name} generates. "
+                "Run `make gateway-models` and commit the result.",
+            )
 
     def test_mirrored_models_only_declare_fields_gateway_sends(self):
         for mirror, generated in MIRRORED_MODELS:
