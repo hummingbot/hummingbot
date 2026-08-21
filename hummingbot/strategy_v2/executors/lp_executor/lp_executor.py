@@ -63,6 +63,9 @@ class LPExecutor(ExecutorBase):
         self._max_retries = max_retries
         self.lp_position_state = LPExecutorState()
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
+        # One warning, not one per tick, when the pool reports no fee rate and the volume
+        # this position generated therefore cannot be derived. See volume_traded_quote.
+        self._warned_missing_fee_pct = False
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
         self._max_retries_reached = False  # True when max retries reached, requires intervention
         # The tolerance the next Gateway request will carry. Starts at the configured
@@ -1476,6 +1479,52 @@ class LPExecutor(ExecutorBase):
         # Initial investment value in pool quote currency
         return initial_base * add_price + initial_quote
 
+    @property
+    def volume_traded_quote(self) -> Decimal:
+        """The swap volume that actually flowed through this position, in quote.
+
+        The base class returns filled_amount_quote, which for an LP executor is the
+        CAPITAL DEPOSITED — so a position that put up $100 and traded nothing reported
+        $100 of volume the moment it opened, and the performance report added it again
+        when the executor finished. Depositing and withdrawing is not volume; it is the
+        same money moving in and back out.
+
+        What a position does generate is the swaps that crossed its range, and it holds a
+        direct measurement of those: the fees it earned are a fixed fraction of the volume
+        that paid them. So
+
+            volume = fees_earned_in_quote / fee_rate
+
+        Both fee sides invert to the same expression, which is why one division does it:
+        base fees were paid by base-denominated volume and quote fees by quote, and
+        (base_fee / rate) x price + (quote_fee / rate) == (base_fee x price + quote_fee) / rate.
+
+        The figure is the position's whole life, not a window, because this executor never
+        collects mid-life — pending fees accumulate until the close collects them, and the
+        close writes the collected total back to the same fields.
+
+        Returns 0 when the pool's fee rate is unknown, which is a missing measurement
+        rather than an absence of volume. Guessing a rate would put a number here that
+        reads as measured and is not.
+        """
+        fee_pct = getattr(self._pool_info, "fee_pct", None) if self._pool_info else None
+        if not fee_pct or Decimal(str(fee_pct)) <= 0:
+            if not self._warned_missing_fee_pct:
+                self._warned_missing_fee_pct = True
+                self.logger().warning(
+                    f"Pool {self.config.pool_address} reports no fee rate, so the volume this "
+                    "position generated cannot be derived from its fees. Reporting 0 volume."
+                )
+            return Decimal("0")
+
+        price = self._current_price if self._current_price else Decimal("0")
+        fees_quote = self.lp_position_state.base_fee * price + self.lp_position_state.quote_fee
+        if fees_quote <= 0:
+            return Decimal("0")
+
+        # fee_pct is a PERCENT on every Gateway surface (see GW-2), not a fraction.
+        return fees_quote / (Decimal(str(fee_pct)) / Decimal("100"))
+
     def get_custom_info(self) -> Dict:
         """Report LP position state to controller"""
         price_float = float(self._current_price) if self._current_price else 0.0
@@ -1507,6 +1556,9 @@ class LPExecutor(ExecutorBase):
             "fees_earned_quote": fees_earned,
             "total_value_quote": total_value,
             "unrealized_pnl_quote": float(self.get_net_pnl_quote()),
+            # The swap volume this position generated, derived from the fees it earned.
+            # Deliberately not filled_amount_quote, which is the capital deposited.
+            "volume_traded_quote": float(self.volume_traded_quote),
             "position_rent": float(self.lp_position_state.position_rent),
             "position_rent_refunded": float(self.lp_position_state.position_rent_refunded),
             "tx_fee": float(self.lp_position_state.tx_fee),

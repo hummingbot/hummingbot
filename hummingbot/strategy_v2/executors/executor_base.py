@@ -95,6 +95,18 @@ class ExecutorBase(RunnableBase):
         return Decimal("0")
 
     @property
+    def volume_traded_quote(self):
+        """
+        Returns the trading volume this executor generated, in quote currency.
+
+        For an executor that places orders, the volume IS the amount it filled, which is
+        why this defaults to filled_amount_quote. An executor whose filled amount is not
+        volume overrides it — an LP position's filled amount is the capital it deposited,
+        and depositing capital trades nothing.
+        """
+        return self.filled_amount_quote
+
+    @property
     def is_active(self):
         """
         Returns whether the executor is open or trading.
@@ -129,6 +141,7 @@ class ExecutorBase(RunnableBase):
             net_pnl_quote=_safe_decimal(self.net_pnl_quote),
             cum_fees_quote=_safe_decimal(self.cum_fees_quote),
             filled_amount_quote=_safe_decimal(self.filled_amount_quote),
+            volume_traded_quote=_safe_decimal(self.volume_traded_quote),
             is_active=self.is_active,
             is_trading=self.is_trading,
             custom_info=self.get_custom_info(),
