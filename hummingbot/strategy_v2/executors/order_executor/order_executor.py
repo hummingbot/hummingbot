@@ -462,6 +462,7 @@ class OrderExecutor(ExecutorBase):
 
         :return: A dictionary containing custom information.
         """
+        connector = self.connectors.get(self.config.connector_name)
         return {
             "side": self.config.side,
             "level_id": self.config.level_id,
@@ -472,6 +473,27 @@ class OrderExecutor(ExecutorBase):
             "held_position_orders": self._held_position_orders,
             "executed_amount_base": self.executed_amount_base,
             "average_executed_price": self.average_executed_price,
+            # The LIVE tolerance, not the configured one. A value above
+            # config.slippage_pct is the only evidence that attempts already failed and
+            # this one is paying to get through — lp_executor reports it for exactly that
+            # reason, and without it a widening leaves no trace after the fact.
+            "slippage_pct": self._slippage_pct,
+            "max_slippage_pct": self.config.max_slippage_pct,
+            # On a Gateway swap the connector sets exchange_order_id to the transaction
+            # hash. order_id is internal (buy-SOL-USDC-1787271213996599) and appears
+            # nowhere on chain, so without this there is no path from an executor record
+            # to what it actually did — confirming a swap meant querying the wallet's
+            # recent signatures and matching by timestamp.
+            "transaction_hash": (
+                self._order.order.exchange_order_id
+                if self._order and self._order.order else None
+            ),
+            # Who actually executed it, and from which wallet. connector_name names the
+            # NETWORK (solana-mainnet-beta); the DEX comes from that network's configured
+            # swapProvider and is resolved inside the connector, so this is the only place
+            # it can be observed. Both are None off Gateway, where neither applies.
+            "swap_provider": getattr(connector, "swap_provider", None),
+            "wallet_address": getattr(connector, "address", None),
         }
 
     def to_format_status(self, scale=1.0):
