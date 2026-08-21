@@ -1507,13 +1507,22 @@ class LPExecutor(ExecutorBase):
         rather than an absence of volume. Guessing a rate would put a number here that
         reads as measured and is not.
         """
-        fee_pct = getattr(self._pool_info, "fee_pct", None) if self._pool_info else None
+        if self._pool_info is None:
+            # Pool info not fetched yet — this is read on the very first tick, before
+            # update_pool_info() has run. Nothing is wrong and nothing is known, so say
+            # nothing: warning here would assert that the pool reports no fee rate, which
+            # is a claim about the pool made before ever having asked it.
+            return Decimal("0")
+
+        fee_pct = getattr(self._pool_info, "fee_pct", None)
         if not fee_pct or Decimal(str(fee_pct)) <= 0:
+            # Asked, and the answer really is no rate. That is worth saying once.
             if not self._warned_missing_fee_pct:
                 self._warned_missing_fee_pct = True
                 self.logger().warning(
-                    f"Pool {self.config.pool_address} reports no fee rate, so the volume this "
-                    "position generated cannot be derived from its fees. Reporting 0 volume."
+                    f"Pool {self.config.pool_address} reports a fee rate of {fee_pct!r}, so the "
+                    "volume this position generated cannot be derived from its fees. "
+                    "Reporting 0 volume."
                 )
             return Decimal("0")
 

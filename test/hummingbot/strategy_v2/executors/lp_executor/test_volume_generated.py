@@ -54,7 +54,10 @@ class TestVolumeIsDerivedFromFees(IsolatedAsyncioWrapperTestCase):
     def an_executor(self, fee_pct=ORCA_FEE_PCT, price="100", base_fee="0", quote_fee="0",
                     initial_base="1.0", initial_quote="100") -> LPExecutor:
         executor = LPExecutor(self.strategy, a_config(), update_interval=1.0)
-        executor._pool_info = MagicMock(fee_pct=fee_pct) if fee_pct is not None else None
+        # `fee_pct="unfetched"` stands for _pool_info still being None — pool info has
+        # not been requested yet. Any other value means it HAS been fetched and this is
+        # what the pool said, including None or 0.
+        executor._pool_info = None if fee_pct == "unfetched" else MagicMock(fee_pct=fee_pct)
         executor._current_price = Decimal(price)
         executor.lp_position_state.base_fee = Decimal(base_fee)
         executor.lp_position_state.quote_fee = Decimal(quote_fee)
@@ -123,28 +126,59 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
     def an_executor(self, **kwargs) -> LPExecutor:
         return TestVolumeIsDerivedFromFees.an_executor(self, **kwargs)
 
-    def test_no_pool_info_reports_no_volume_rather_than_a_guess(self):
-        """An executor that recovered onto an existing position may never have fetched
-        pool info. A missing measurement is not an absence of volume, but inventing a
-        fee rate would put a number here that reads as measured and is not.
+    def test_pool_info_not_fetched_yet_reports_no_volume(self):
+        """The first read happens before update_pool_info() has ever run."""
+        executor = self.an_executor(fee_pct="unfetched", quote_fee="1")
+
+        self.assertEqual(executor.volume_traded_quote, Decimal("0"))
+
+    def test_pool_info_not_fetched_yet_says_NOTHING(self):
+        """It must not claim the pool reports no fee rate — it has not been asked.
+
+        This fired one millisecond after an executor was created, on a Meteora pool that
+        reports 0.2%:
+
+            04:32:43,552  Creating position: side=RANGE, pool_price=0.256497 ...
+            04:32:43,553  WARNING - Pool BetLT47... reports no fee rate ...
+
+        The claim was simply false, and worse, the one-shot flag burned on it: a pool that
+        genuinely had no rate would then never be reported at all.
         """
-        executor = self.an_executor(fee_pct=None, quote_fee="1")
-
-        self.assertEqual(executor.volume_traded_quote, Decimal("0"))
-
-    def test_a_zero_fee_rate_reports_no_volume_rather_than_dividing_by_it(self):
-        executor = self.an_executor(fee_pct=0, quote_fee="1")
-
-        self.assertEqual(executor.volume_traded_quote, Decimal("0"))
-
-    def test_the_missing_rate_is_said_once_not_every_tick(self):
-        executor = self.an_executor(fee_pct=None, quote_fee="1")
+        executor = self.an_executor(fee_pct="unfetched", quote_fee="1")
         executor.logger = MagicMock()
 
         for _ in range(5):
             executor.volume_traded_quote
 
+        self.assertEqual(executor.logger.return_value.warning.call_count, 0)
+
+    def test_a_pool_that_really_reports_no_rate_is_still_reported(self):
+        """Asked, and the answer was no rate. That IS worth saying — once."""
+        executor = self.an_executor(fee_pct=0, quote_fee="1")
+        executor.logger = MagicMock()
+
+        for _ in range(5):
+            self.assertEqual(executor.volume_traded_quote, Decimal("0"))
+
         self.assertEqual(executor.logger.return_value.warning.call_count, 1)
+
+    def test_a_missing_rate_on_a_fetched_pool_is_reported_too(self):
+        executor = self.an_executor(fee_pct=None, quote_fee="1")
+        executor.logger = MagicMock()
+
+        executor.volume_traded_quote
+
+        self.assertEqual(executor.logger.return_value.warning.call_count, 1)
+
+    def test_the_warning_quotes_what_the_pool_actually_said(self):
+        """So the next reader can tell a 0 from a missing field without re-deriving it."""
+        executor = self.an_executor(fee_pct=0, quote_fee="1")
+        executor.logger = MagicMock()
+
+        executor.volume_traded_quote
+
+        message = executor.logger.return_value.warning.call_args[0][0]
+        self.assertIn("fee rate of 0", message)
 
 
 class TestItReachesTheReport(IsolatedAsyncioWrapperTestCase):
