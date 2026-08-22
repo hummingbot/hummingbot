@@ -33,7 +33,6 @@ class Executors(HummingbotBase):
     # places orders and deliberately not for an LP executor, whose filled amount is the
     # capital it deposited. Nullable so an existing database gains it without a rewrite;
     # rows written before it exists simply have no figure rather than a fabricated 0.
-    volume_traded_quote = Column(Float, nullable=True)
     is_active = Column(Boolean, nullable=False)
     is_trading = Column(Boolean, nullable=False)
     custom_info = Column(JSON, nullable=False)

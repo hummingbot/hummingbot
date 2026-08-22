@@ -31,7 +31,6 @@ class ExecutorInfo(BaseModel):
     # Trading volume generated, in quote. Defaults to filled_amount_quote, which is the
     # same number for any executor that places orders. An LP executor overrides it: its
     # filled amount is the capital it deposited, and a deposit trades nothing.
-    volume_traded_quote: Decimal = Decimal("0")
     is_active: bool
     is_trading: bool
     custom_info: Dict

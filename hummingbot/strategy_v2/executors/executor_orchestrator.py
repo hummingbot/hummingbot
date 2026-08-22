@@ -278,7 +278,7 @@ class ExecutorOrchestrator:
         # Only add to realized PnL if not a position hold (consistent with generate_performance_report)
         if executor_info.close_type != CloseType.POSITION_HOLD:
             report.realized_pnl_quote += executor_info.net_pnl_quote
-            report.volume_traded += executor_info.volume_traded_quote
+            report.volume_traded += executor_info.filled_amount_quote
         if executor_info.close_type:
             report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type,
                                                                                               0) + 1
@@ -789,13 +789,13 @@ class ExecutorOrchestrator:
             executor_info = executor.executor_info
             if not executor_info.is_done:
                 report.unrealized_pnl_quote += executor_info.net_pnl_quote
-                report.volume_traded += executor_info.volume_traded_quote
+                report.volume_traded += executor_info.filled_amount_quote
             else:
                 # For done executors, only add to realized PnL if they're not already in position holds
                 # Position holds will be counted separately to avoid double counting
                 if executor_info.close_type != CloseType.POSITION_HOLD:
                     report.realized_pnl_quote += executor_info.net_pnl_quote
-                    report.volume_traded += executor_info.volume_traded_quote
+                    report.volume_traded += executor_info.filled_amount_quote
                 if executor_info.close_type:
                     report.close_type_counts[executor_info.close_type] = report.close_type_counts.get(executor_info.close_type, 0) + 1
 

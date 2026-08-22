@@ -284,21 +284,26 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.filled_amount_quote, Decimal("0"))
 
     def test_filled_amount_quote_with_pool_info(self):
-        """Test filled_amount_quote calculates correctly"""
+        """filled_amount_quote is the volume that crossed the position, not its deposit.
+
+        Derived from the fees it earned, which are a fixed fraction of the volume that
+        paid them. The deposit below is deliberately large and deliberately ignored.
+        """
         executor = self.get_executor()
         executor._current_price = Decimal("100")
-        # Set initial amounts (actual deposited amounts) - these are used for filled_amount_quote
+        executor._pool_info = MagicMock(fee_pct=0.04)
+        # Deposited capital — no longer what this property reports.
         executor.lp_position_state.add_mid_price = Decimal("100")
         executor.lp_position_state.initial_base_amount = Decimal("2.0")
         executor.lp_position_state.initial_quote_amount = Decimal("50")
-        # Current state - not used for filled_amount_quote
         executor.lp_position_state.base_amount = Decimal("2.0")
         executor.lp_position_state.quote_amount = Decimal("50")
+        # Fees earned: 0.01 base at 100 + 1.0 quote = 2.0 quote.
         executor.lp_position_state.base_fee = Decimal("0.01")
         executor.lp_position_state.quote_fee = Decimal("1.0")
 
-        # filled_amount_quote = initial_base * add_price + initial_quote = 2.0 * 100 + 50 = 250
-        self.assertEqual(executor.filled_amount_quote, Decimal("250"))
+        # 2.0 of fees on a 0.04% pool took 2.0 / 0.0004 = 5000 of flow to earn.
+        self.assertEqual(executor.filled_amount_quote, Decimal("5000"))
 
     def test_get_net_pnl_quote_no_pool_info(self):
         """Test get_net_pnl_quote returns 0 when no pool info"""

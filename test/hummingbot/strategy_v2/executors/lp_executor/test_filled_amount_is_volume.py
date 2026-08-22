@@ -1,12 +1,11 @@
 """An LP position's volume is the swaps that crossed it, not the capital it deposited.
 
-The performance report summed `executor_info.filled_amount_quote` into `volume_traded`.
-For every executor that places orders that is the same number — the amount it filled IS
-the volume. For an LP executor it is not: `filled_amount_quote` is documented as "the
-capital deployed", `initial_base x add_price + initial_quote`. So a position that put up
-$100 and traded nothing reported $100 of volume the instant it opened, the report added
-it a second time when the executor finished, and `global_pnl_pct` divided PnL by that
-figure.
+`filled_amount_quote` means the same thing on every executor: the volume it traded. For
+one that places orders, the amount filled IS the volume. An LP executor used to return
+the capital it deposited instead — `initial_base x add_price + initial_quote` — so a
+position that put up $100 and traded nothing reported $100 of volume the instant it
+opened, the report added it a second time when the executor finished, and
+`global_pnl_pct` divided PnL by that figure.
 
 A position does not trade by being funded. What it generates is the swaps that cross its
 range, and it holds a direct measurement of those: fees are a fixed fraction of the
@@ -70,40 +69,36 @@ class TestVolumeIsDerivedFromFees(IsolatedAsyncioWrapperTestCase):
         # $1 of fees at 0.04% is $2,500 of swaps across the range.
         executor = self.an_executor(quote_fee="1")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("2500"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("2500"))
 
     def test_base_side_fees_are_valued_before_inverting(self):
         # 0.01 SOL of fees at $100/SOL is $1, so the same $2,500.
         executor = self.an_executor(base_fee="0.01", price="100")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("2500"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("2500"))
 
     def test_both_sides_add_up(self):
         # A range that saw flow in both directions earns on both sides, and one division
         # handles both: (base_fee x price + quote_fee) / rate.
         executor = self.an_executor(base_fee="0.01", quote_fee="1", price="100")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("5000"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("5000"))
 
     def test_a_funded_position_that_has_traded_nothing_reports_no_volume(self):
-        """The defect, stated directly: $100 of capital, no fees, no volume."""
+        """The defect, stated directly: $200 of capital deposited, no fees, no volume.
+
+        The deposit is deliberately not reported anywhere now. It is not volume, and it
+        was only ever exposed here because this property used to return it.
+        """
         executor = self.an_executor(base_fee="0", quote_fee="0")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("0"))
-        # And the capital it deployed is still reported, under its own name.
-        self.assertEqual(executor.filled_amount_quote, Decimal("200"))
-
-    def test_volume_is_not_the_capital_deployed(self):
-        """The two must not be the same number -- that sameness WAS the bug."""
-        executor = self.an_executor(quote_fee="1")
-
-        self.assertNotEqual(executor.volume_traded_quote, executor.filled_amount_quote)
+        self.assertEqual(executor.filled_amount_quote, Decimal("0"))
 
     def test_a_fee_tier_ten_times_thinner_implies_ten_times_the_volume(self):
         # The same $1 of fees on a 0.004% pool took $25,000 of flow to earn.
         executor = self.an_executor(quote_fee="1", fee_pct=0.004)
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("25000"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("25000"))
 
     def test_the_rate_is_read_as_a_percent_not_a_fraction(self):
         """Gateway reports feePct as a PERCENT on every surface (GW-2 made sure of it).
@@ -113,8 +108,8 @@ class TestVolumeIsDerivedFromFees(IsolatedAsyncioWrapperTestCase):
         """
         executor = self.an_executor(quote_fee="1")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("2500"))
-        self.assertNotEqual(executor.volume_traded_quote, Decimal("25"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("2500"))
+        self.assertNotEqual(executor.filled_amount_quote, Decimal("25"))
 
 
 class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
@@ -130,7 +125,7 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
         """The first read happens before update_pool_info() has ever run."""
         executor = self.an_executor(fee_pct="unfetched", quote_fee="1")
 
-        self.assertEqual(executor.volume_traded_quote, Decimal("0"))
+        self.assertEqual(executor.filled_amount_quote, Decimal("0"))
 
     def test_pool_info_not_fetched_yet_says_NOTHING(self):
         """It must not claim the pool reports no fee rate — it has not been asked.
@@ -148,7 +143,7 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
         executor.logger = MagicMock()
 
         for _ in range(5):
-            executor.volume_traded_quote
+            executor.filled_amount_quote
 
         self.assertEqual(executor.logger.return_value.warning.call_count, 0)
 
@@ -158,7 +153,7 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
         executor.logger = MagicMock()
 
         for _ in range(5):
-            self.assertEqual(executor.volume_traded_quote, Decimal("0"))
+            self.assertEqual(executor.filled_amount_quote, Decimal("0"))
 
         self.assertEqual(executor.logger.return_value.warning.call_count, 1)
 
@@ -166,7 +161,7 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
         executor = self.an_executor(fee_pct=None, quote_fee="1")
         executor.logger = MagicMock()
 
-        executor.volume_traded_quote
+        executor.filled_amount_quote
 
         self.assertEqual(executor.logger.return_value.warning.call_count, 1)
 
@@ -175,7 +170,7 @@ class TestWhenTheRateIsUnknown(IsolatedAsyncioWrapperTestCase):
         executor = self.an_executor(fee_pct=0, quote_fee="1")
         executor.logger = MagicMock()
 
-        executor.volume_traded_quote
+        executor.filled_amount_quote
 
         message = executor.logger.return_value.warning.call_args[0][0]
         self.assertIn("fee rate of 0", message)
@@ -195,34 +190,6 @@ class TestItReachesTheReport(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(info["volume_traded_quote"], 2500.0)
         # Still reported separately, because it is a different fact about the position.
         self.assertEqual(info["base_amount"], 0.0)
-
-    def test_an_order_placing_executor_still_reports_its_filled_amount_as_volume(self):
-        """The base class must not change for anything else: for an executor that places
-        orders, the amount it filled IS the volume it generated.
-        """
-        from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-
-        executor = MagicMock(spec=ExecutorBase)
-        executor.filled_amount_quote = Decimal("250")
-
-        self.assertEqual(
-            ExecutorBase.volume_traded_quote.fget(executor), Decimal("250")
-        )
-
-
-class TestThePerformanceReport(IsolatedAsyncioWrapperTestCase):
-    """The report is where the wrong number was actually visible."""
-
-    def a_report_over(self, executor):
-        from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
-        from hummingbot.strategy_v2.models.executors_info import PerformanceReport
-
-        orchestrator = ExecutorOrchestrator.__new__(ExecutorOrchestrator)
-        orchestrator.cached_performance = {"main": PerformanceReport()}
-        orchestrator.active_executors = {"main": [executor]}
-        orchestrator.positions_held = {"main": []}
-        orchestrator.strategy = MagicMock()
-        return orchestrator.generate_performance_report("main")
 
     def test_a_live_lp_position_contributes_the_volume_it_generated(self):
         strategy = MagicMock()
@@ -247,3 +214,14 @@ class TestThePerformanceReport(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(report.volume_traded, Decimal("0"))
         # And with no volume, PnL-over-volume is left alone rather than dividing by capital.
         self.assertEqual(report.global_pnl_pct, Decimal("0"))
+
+    def a_report_over(self, executor):
+        from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator
+        from hummingbot.strategy_v2.models.executors_info import PerformanceReport
+
+        orchestrator = ExecutorOrchestrator.__new__(ExecutorOrchestrator)
+        orchestrator.cached_performance = {"main": PerformanceReport()}
+        orchestrator.active_executors = {"main": [executor]}
+        orchestrator.positions_held = {"main": []}
+        orchestrator.strategy = MagicMock()
+        return orchestrator.generate_performance_report("main")

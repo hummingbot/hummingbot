@@ -64,7 +64,7 @@ class LPExecutor(ExecutorBase):
         self.lp_position_state = LPExecutorState()
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
         # One warning, not one per tick, when the pool reports no fee rate and the volume
-        # this position generated therefore cannot be derived. See volume_traded_quote.
+        # this position generated therefore cannot be derived. See filled_amount_quote.
         self._warned_missing_fee_pct = False
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
         self._max_retries_reached = False  # True when max retries reached, requires intervention
@@ -1454,40 +1454,13 @@ class LPExecutor(ExecutorBase):
 
     @property
     def filled_amount_quote(self) -> Decimal:
-        """Returns initial investment value in quote currency.
+        """The swap volume that flowed through this position, in quote.
 
-        For LP positions, this represents the capital deployed (initial deposit)
-        expressed in the pool's quote currency (e.g., SOL for PERCOLATOR-SOL).
-        Returns 0 if position was never created (FAILED state).
-        """
-        # If position was never created, nothing was filled
-        if self.lp_position_state.initial_base_amount == 0 and self.lp_position_state.initial_quote_amount == 0:
-            return Decimal("0")
-
-        # Use stored add_mid_price, fall back to current price if not set
-        add_price = self.lp_position_state.add_mid_price
-        if add_price <= 0:
-            add_price = self._current_price if self._current_price else Decimal("0")
-
-        if add_price == 0:
-            return Decimal("0")
-
-        # Use stored initial amounts (actual deposited)
-        initial_base = self.lp_position_state.initial_base_amount
-        initial_quote = self.lp_position_state.initial_quote_amount
-
-        # Initial investment value in pool quote currency
-        return initial_base * add_price + initial_quote
-
-    @property
-    def volume_traded_quote(self) -> Decimal:
-        """The swap volume that actually flowed through this position, in quote.
-
-        The base class returns filled_amount_quote, which for an LP executor is the
-        CAPITAL DEPOSITED — so a position that put up $100 and traded nothing reported
-        $100 of volume the moment it opened, and the performance report added it again
-        when the executor finished. Depositing and withdrawing is not volume; it is the
-        same money moving in and back out.
+        Volume, not capital. This used to return the initial deposit, which made an LP
+        executor incomparable with every other one: a position that put up $100 and
+        traded nothing reported $100 the moment it opened, and the performance report
+        added it again when the executor finished. Depositing and withdrawing is not
+        volume; it is the same money moving in and back out.
 
         What a position does generate is the swaps that crossed its range, and it holds a
         direct measurement of those: the fees it earned are a fixed fraction of the volume
@@ -1567,7 +1540,7 @@ class LPExecutor(ExecutorBase):
             "unrealized_pnl_quote": float(self.get_net_pnl_quote()),
             # The swap volume this position generated, derived from the fees it earned.
             # Deliberately not filled_amount_quote, which is the capital deposited.
-            "volume_traded_quote": float(self.volume_traded_quote),
+            "volume_traded_quote": float(self.filled_amount_quote),
             "position_rent": float(self.lp_position_state.position_rent),
             "position_rent_refunded": float(self.lp_position_state.position_rent_refunded),
             "tx_fee": float(self.lp_position_state.tx_fee),
