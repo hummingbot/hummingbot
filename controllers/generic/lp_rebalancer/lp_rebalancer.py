@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -187,6 +187,14 @@ class LPRebalancer(ControllerBase):
         # Set when a FAILED LP executor still reports a live on-chain position; the
         # controller halts new position creation until it is recovered manually
         self._orphaned_position_address: Optional[str] = None
+
+        # Slippage tolerance carried into the next attempt after a slippage failure.
+        # The executor ramps 0.05 -> 0.25 -> 1.25 -> 5 within its own lifetime, but a
+        # failed open *ends* that executor, and the replacement this controller creates
+        # would start at the configured tolerance again. The ladder therefore never got
+        # past its first rung and max_slippage_pct was unreachable: on a thin pool that
+        # is 64 identical retries at 0.25%, each paying gas. None means "start fresh".
+        self._retry_slippage_pct: Optional[Decimal] = None
 
         # Track amounts from last closed position (for autoswap sizing)
         self._last_closed_base_amount: Optional[Decimal] = None
@@ -564,6 +572,9 @@ class LPRebalancer(ControllerBase):
             failed_executor_side = None
             if executor_failed or involuntary_hold:
                 failed_executor_side = terminated_executor.custom_info.get("side")
+                # Resume the ramp where the dead executor left off, so the retry is
+                # actually doing something different from the attempt that just failed.
+                self._retry_slippage_pct = self._carry_slippage(terminated_executor)
                 # A terminal executor that still reports a position address went down on
                 # the CLOSE side: its deposit is still on-chain (involuntary hold, or a
                 # legacy FAILED-with-position from a force-stop). Re-opening would stack
@@ -585,6 +596,9 @@ class LPRebalancer(ControllerBase):
             if terminated_executor and not executor_failed and not involuntary_hold:
                 closed_lower_price = Decimal(str(terminated_executor.custom_info.get("lower_price", 0)))
                 closed_upper_price = Decimal(str(terminated_executor.custom_info.get("upper_price", 0)))
+                # A clean close ends the ramp: the next open is a new phase and asks
+                # for near-spot execution again, exactly as a fresh executor would.
+                self._retry_slippage_pct = None
 
             # Clear tracking
             self._current_executor_id = None
@@ -720,6 +734,8 @@ class LPRebalancer(ControllerBase):
             f"base={base_amt:.6f}, quote={quote_amt:.6f}"
         )
 
+        slippage_pct = self._next_slippage_pct()
+
         return LPExecutorConfig(
             timestamp=self.market_data_provider.time(),
             connector_name=self.config.connector_name,
@@ -731,6 +747,7 @@ class LPRebalancer(ControllerBase):
             base_amount=base_amt,
             quote_amount=quote_amt,
             side=side,
+            slippage_pct=slippage_pct,
             extra_params=extra_params if extra_params else None,
             # Key difference: set limit prices for auto-close
             upper_limit_price=upper_limit_price,
@@ -738,6 +755,35 @@ class LPRebalancer(ControllerBase):
             # Use keep_position=True - controller handles position tracking
             keep_position=True,
         )
+
+    @staticmethod
+    def _carry_slippage(terminated_executor) -> Optional[Decimal]:
+        """The tolerance a dead executor had reached, if it is worth carrying.
+
+        Only a value the executor actually widened to is carried; a failure that never
+        touched slippage leaves it at the configured start, and re-seeding the
+        replacement with that is the same as not carrying anything.
+        """
+        raw = terminated_executor.custom_info.get("slippage_pct")
+        if raw is None:
+            return None
+        try:
+            return Decimal(str(raw))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+    def _next_slippage_pct(self) -> Decimal:
+        """Tolerance for the executor about to be created.
+
+        Clamped to LPExecutorConfig's ceiling: the config rejects a slippage_pct above
+        max_slippage_pct, and a carried value at the ceiling is legal but must not
+        exceed it.
+        """
+        default = LPExecutorConfig.model_fields["slippage_pct"].default
+        ceiling = LPExecutorConfig.model_fields["max_slippage_pct"].default
+        if self._retry_slippage_pct is None:
+            return default
+        return min(self._retry_slippage_pct, ceiling)
 
     def _calculate_amounts(self, side: TradeType, current_price: Decimal) -> tuple:
         """
