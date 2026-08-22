@@ -182,13 +182,18 @@ class TestItReachesTheReport(IsolatedAsyncioWrapperTestCase):
         self.strategy = MagicMock()
         self.strategy.current_timestamp = 1234567890
 
-    def test_custom_info_carries_the_volume(self):
+    def test_custom_info_does_not_duplicate_the_volume(self):
+        """custom_info carried a volume_traded_quote copy while the split existed.
+
+        The executor reports filled_amount_quote at the top level, so a second copy
+        under the old name is a duplicate that invites the confusion this change
+        removed. Position state that is genuinely its own fact stays.
+        """
         executor = TestVolumeIsDerivedFromFees.an_executor(self, quote_fee="1")
 
         info = executor.get_custom_info()
 
-        self.assertEqual(info["volume_traded_quote"], 2500.0)
-        # Still reported separately, because it is a different fact about the position.
+        self.assertNotIn("volume_traded_quote", info)
         self.assertEqual(info["base_amount"], 0.0)
 
     def test_a_live_lp_position_contributes_the_volume_it_generated(self):

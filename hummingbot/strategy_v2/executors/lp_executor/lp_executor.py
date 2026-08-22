@@ -1538,9 +1538,6 @@ class LPExecutor(ExecutorBase):
             "fees_earned_quote": fees_earned,
             "total_value_quote": total_value,
             "unrealized_pnl_quote": float(self.get_net_pnl_quote()),
-            # The swap volume this position generated, derived from the fees it earned.
-            # Deliberately not filled_amount_quote, which is the capital deposited.
-            "volume_traded_quote": float(self.filled_amount_quote),
             "position_rent": float(self.lp_position_state.position_rent),
             "position_rent_refunded": float(self.lp_position_state.position_rent_refunded),
             "tx_fee": float(self.lp_position_state.tx_fee),
