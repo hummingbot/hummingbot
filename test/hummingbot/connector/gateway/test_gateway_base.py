@@ -523,6 +523,27 @@ class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
         self.assertIn("TX_UNRESOLVED", str(ctx.exception))
         self.assertEqual(1, self.submissions)
 
+    def test_a_streak_that_ends_in_pending_is_unresolved_not_dropped(self):
+        """The EVM shape: not-found for a while, then seen in the mempool.
+
+        This path is shared with non-Solana chains, where the 120s deadline is not tied
+        to anything like a blockhash window and a transaction can stay landable well
+        past it. It is safe anyway, for a reason that lives on the Gateway side: EVM's
+        eth_getTransactionByHash returns MEMPOOL transactions, so a still-landable
+        transaction polls PENDING, not NOT_FOUND (chains/ethereum/routes/poll.ts says
+        so in as many words). Any non-NOT_FOUND status resets the streak, and a zero
+        streak at the deadline is TX_UNRESOLVED -- which classifies non-retryable.
+
+        So the DROPPED verdict is unreachable for a transaction the node can still see,
+        on any chain, whatever the deadline is worth there.
+        """
+        self._patch_poll([-2, -2, -2, 0])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
     def test_unreadable_polls_are_unresolved_not_dropped(self):
         # An RPC that never answers says nothing about the transaction. Absence of a
         # NOT_FOUND streak is what keeps this off the re-submission path.
