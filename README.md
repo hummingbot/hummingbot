@@ -222,3 +222,4 @@ If you represent an exchange that wants an official Hummingbot connector, see [H
 
 * **License**: Hummingbot is open source and licensed under [Apache 2.0](./LICENSE).
 * **Data collection**: See [Reporting](https://hummingbot.org/reporting/) for information on anonymous data collection and reporting in Hummingbot.
+- [SolSniper](https://github.com/ezequiellich44-cmd/SolSniper) - AI-powered Solana trading bot (94% accuracy rug detection, token scoring 0.0-1.0, 0% fees, auto trading, Jito bundles). https://ezequiellich44-cmd.github.io/SolSniper/
