@@ -94,10 +94,18 @@ def _query(request: Any) -> Dict[str, str]:
     Gateway coerces the strings back per its schema. Fields left as None are dropped:
     Gateway applies its own default for an absent parameter, which is not the same as
     being told the value is null.
+
+    Untouched fields are dropped for the same reason. A generated model's default IS
+    Gateway's default, so sending it back says nothing — but it is not always a
+    parameter the route accepts: `approximateIfNoExactOut` defaults to True on the
+    router models and is rejected outright by the connectors it does not apply to, so
+    transmitting it unasked breaks every uniswap quote.
     """
     return {
         key: _wire_str(value)
-        for key, value in request.model_dump(by_alias=True, exclude_none=True).items()
+        for key, value in request.model_dump(
+            by_alias=True, exclude_none=True, exclude_unset=True
+        ).items()
     }
 
 
@@ -108,10 +116,14 @@ def _body(request: Any) -> Dict[str, Any]:
     renders Decimal as a string. Gateway declares these fields as `type: number` — its
     `decimal` format tells a client to *hold* the value as a decimal, not to send it as
     text — so a string would arrive as the wrong JSON type.
+
+    None and untouched fields are dropped for the reasons _query gives.
     """
     return {
         key: (float(value) if isinstance(value, Decimal) else value)
-        for key, value in request.model_dump(by_alias=True, exclude_none=True).items()
+        for key, value in request.model_dump(
+            by_alias=True, exclude_none=True, exclude_unset=True
+        ).items()
     }
 
 
@@ -448,7 +460,7 @@ class GatewayHttpClient:
 
         parsed_response = {}
         try:
-            timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
+            timeout = aiohttp.ClientTimeout(total=float(self._gateway_config.gateway_api_timeout))
             if method == "get":
                 if len(params) > 0:
                     if use_body:
@@ -554,6 +566,23 @@ class GatewayHttpClient:
             "get", f"chains/{chain}/status", {"network": network}, fail_silently=fail_silently)
 
     async def update_config(self, namespace: str, path: str, value: Any) -> Dict[str, Any]:
+        """
+        Write one Gateway config value, then restart Gateway so it takes effect.
+
+        The restart is not belt-and-braces. Gateway reads its config once, at startup:
+        a chain binds its RPC connection in the constructor of a per-network singleton,
+        and a connector's settings are the fields of a module-level object evaluated at
+        import. A write reaches disk immediately and changes nothing that is running.
+
+        Nothing warns you, either, because the read-back comes from the config tree
+        rather than from the code using it. Measured against a running Gateway: after
+        setting `jupiter.slippagePct` to 5, `GET /config` answered 5 while quotes went
+        on applying 1 -- Gateway reporting a tolerance it was not trading at.
+
+        Token and pool edits are the opposite case and go through their own routes:
+        those lists are read off disk per request, so they need no restart and their
+        commands do not ask for one.
+        """
         response = await self.api_request("post", "config/update", {
             "namespace": namespace,
             "path": path,
@@ -564,6 +593,14 @@ class GatewayHttpClient:
         return response
 
     async def post_restart(self):
+        """
+        Ask Gateway to restart itself.
+
+        Gateway answers 200 and then exits, so this returns on "accepted", not on
+        "back up". It exits with code 0, which a supervisor configured to revive only
+        on failure will not act on -- under Docker that is the difference between a
+        restart policy of `always` and the default.
+        """
         await self.api_request("post", "restart", fail_silently=False)
 
     # ============================================

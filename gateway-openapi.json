@@ -5961,7 +5961,7 @@
         "tags": [
           "/pools"
         ],
-        "description": "Find pool from GeckoTerminal and save it to the pool list. Auto-adds missing tokens.",
+        "description": "Save a pool to the pool list, auto-adding its tokens. Pass connector and type to name the pool directly from that connector; omit them and GeckoTerminal is asked which DEX the address belongs to first.",
         "parameters": [
           {
             "schema": {
@@ -5985,6 +5985,51 @@
             "name": "chainNetwork",
             "required": true,
             "description": "Chain and network in format: chain-network (e.g., solana-mainnet-beta, ethereum-mainnet)"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "examples": {
+              "meteora": {
+                "value": "meteora"
+              },
+              "raydium": {
+                "value": "raydium"
+              },
+              "orca": {
+                "value": "orca"
+              },
+              "uniswap": {
+                "value": "uniswap"
+              }
+            },
+            "in": "query",
+            "name": "connector",
+            "required": false,
+            "description": "DEX connector the pool belongs to. Supply it with `type` to skip the GeckoTerminal lookup — a caller that already knows the venue, such as one holding an LP provider config, always does."
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "amm"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "clmm"
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "Pool type. Required alongside `connector`."
           },
           {
             "schema": {
@@ -8947,6 +8992,40 @@
           }
         }
       }
+    },
+    "/restart": {
+      "post": {
+        "operationId": "restartGateway",
+        "tags": [
+          "/"
+        ],
+        "description": "Restarts the Gateway process so configuration changes take effect. Responds before exiting, so a 200 means the restart was accepted, not that Gateway is back. Note that Gateway exits with code 0: under a process supervisor that only revives on failure, it will not come back on its own.",
+        "responses": {
+          "200": {
+            "description": "Restart accepted; Gateway is going down."
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "servers": [
@@ -8986,6 +9065,10 @@
     {
       "name": "/trading/amm",
       "description": "Constant-product pools: swaps, liquidity, and pool management"
+    },
+    {
+      "name": "/",
+      "description": "Server lifecycle"
     }
   ]
 }

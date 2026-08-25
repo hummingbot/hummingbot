@@ -236,16 +236,12 @@ class GatewayPoolCommand:
                     if tokens_added:
                         self.notify(f"\nAuto-added tokens: {', '.join(tokens_added)}")
 
-                    # Restart gateway for changes to take effect
-                    self.notify("\nRestarting Gateway for changes to take effect...")
-                    try:
-                        await self._get_gateway_instance().post_restart()
-                        self.notify("✓ Gateway restarted successfully")
-                        trading_pair = f"{pool.get('baseSymbol', '?')}-{pool.get('quoteSymbol', '?')}"
-                        self.notify(f"\nYou can now use 'gateway pool {trading_pair}' to view the pool information.")
-                    except Exception as e:
-                        self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
-                        self.notify("You may need to restart Gateway manually for changes to take effect")
+                    # No restart: Gateway reads the pool list off disk on each request,
+                    # so the pool is live already. Verified against a running Gateway --
+                    # a pool added this way is listed, and priced by /trading pool-info,
+                    # on the very next call.
+                    trading_pair = f"{pool.get('baseSymbol', '?')}-{pool.get('quoteSymbol', '?')}"
+                    self.notify(f"\nYou can now use 'gateway pool {trading_pair}' to view the pool information.")
 
         except Exception as e:
             self.notify(f"Error updating pool: {str(e)}")

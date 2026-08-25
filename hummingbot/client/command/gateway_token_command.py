@@ -222,16 +222,10 @@ class GatewayTokenCommand:
                     self.notify(f"Error: {result['error']}")
                 else:
                     self.notify("✓ Token successfully added/updated!")
-
-                    # Restart gateway for changes to take effect
-                    self.notify("\nRestarting Gateway for changes to take effect...")
-                    try:
-                        await self._get_gateway_instance().post_restart()
-                        self.notify("✓ Gateway restarted successfully")
-                        self.notify(f"\nYou can now use 'gateway token {token_symbol}' to view the token information.")
-                    except Exception as e:
-                        self.notify(f"⚠️  Failed to restart Gateway: {str(e)}")
-                        self.notify("You may need to restart Gateway manually for changes to take effect")
+                    # No restart: Gateway reads the token list off disk on each request,
+                    # so the token is live already. Verified against a running Gateway --
+                    # a token added this way is returned by the very next lookup.
+                    self.notify(f"\nYou can now use 'gateway token {token_symbol}' to view the token information.")
 
         except Exception as e:
             self.notify(f"Error updating token: {str(e)}")

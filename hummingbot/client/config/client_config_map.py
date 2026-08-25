@@ -348,6 +348,15 @@ class GatewayConfigMap(BaseClientModel):
         default=False,
         json_schema_extra={"prompt": lambda cm: "Enable SSL endpoints for secure Gateway connection? (True / False)"},
     )
+    # An EVM router quote is an RPC fan-out across candidate pools, and it is slow: two
+    # pancakeswap BSC quotes measured 27.9s and 31.4s against Gateway's configured RPC.
+    # The 30s this replaced sat inside that spread, so those quotes timed out or not
+    # depending on the RPC's mood.
+    gateway_api_timeout: Decimal = Field(
+        default=Decimal("60"),
+        gt=Decimal("0"),
+        json_schema_extra={"prompt": lambda cm: "Gateway API request timeout (in seconds)"},
+    )
 
     model_config = ConfigDict(title="gateway")
 
