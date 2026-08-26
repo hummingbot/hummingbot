@@ -8,9 +8,6 @@ dependencies:
   - conda-build>=3.26.0
   - coverage>=7.2.7
   - cython
-  # Regenerates hummingbot/core/gateway/gateway_models.py from gateway-openapi.json
-  # (`make gateway-models`); test_gateway_models_match_spec reruns it to catch drift.
-  - datamodel-code-generator
   - flake8>=6.0.0
   - diff-cover>=7.7.0
   - pip>=23.2.1

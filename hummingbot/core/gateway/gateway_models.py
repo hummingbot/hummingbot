@@ -1,4 +1,4 @@
-# Generated from gateway-openapi.json by 'make gateway-models'. Do not edit.
+# Generated from Gateway's OpenAPI spec by datamodel-code-generator. Do not edit by hand.
 # flake8: noqa: E501
 
 from __future__ import annotations
