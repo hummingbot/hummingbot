@@ -21,7 +21,7 @@ BROKER_ID = "HBOT"
 
 class DerivePerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = "derive_perpetual"
-    derive_perpetual_api_key: SecretStr = Field(
+    derive_perpetual_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your DerivePerpetual Wallet address",
@@ -30,16 +30,16 @@ class DerivePerpetualConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
-    derive_perpetual_api_secret: SecretStr = Field(
+    session_private_key: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your wallet private key",
+            "prompt": "Enter your session private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    sub_id: SecretStr = Field(
+    subacct_id: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Subaccount Id",
@@ -69,7 +69,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"derive_perpetual_testnet": [0, 0.025]}
 
 class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "derive_perpetual_testnet"
-    derive_perpetual_testnet_api_key: SecretStr = Field(
+    derive_perpetual_testnet_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your DerivePerpetual Wallet address",
@@ -78,16 +78,16 @@ class DerivePerpetualTestnetConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
-    derive_perpetual_testnet_api_secret: SecretStr = Field(
+    session_private_key: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your wallet private key",
+            "prompt": "Enter your session private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    sub_id: SecretStr = Field(
+    subacct_id: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Subaccount Id",
