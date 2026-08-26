@@ -12,7 +12,12 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
-from hummingbot.strategy_v2.executors.gateway_utils import parse_provider, validate_and_normalize_connector
+from hummingbot.strategy_v2.executors.gateway_utils import (
+    is_slippage_failure,
+    next_slippage_pct,
+    parse_provider,
+    validate_and_normalize_connector,
+)
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorState, LPExecutorStates
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
@@ -58,17 +63,47 @@ class LPExecutor(ExecutorBase):
         self._max_retries = max_retries
         self.lp_position_state = LPExecutorState()
         self._pool_info: Optional[Union[CLMMPoolInfo, AMMPoolInfo]] = None
+        # One warning, not one per tick, when the pool reports no fee rate and the volume
+        # this position generated therefore cannot be derived. See filled_amount_quote.
+        self._warned_missing_fee_pct = False
         self._current_price: Optional[Decimal] = None  # Updated from pool_info or position_info
         self._max_retries_reached = False  # True when max retries reached, requires intervention
+        # The tolerance the next Gateway request will carry. Starts at the configured
+        # value and widens only on a failure Gateway attributed to slippage, never past
+        # max_slippage_pct. Reset at each phase boundary: an open and the close that
+        # follows it are separated by the position's whole lifetime, so a close should
+        # start tight again rather than inherit however wide the open had to go.
+        self._slippage_pct: Decimal = config.slippage_pct
         self._last_attempted_signature: Optional[str] = None  # Track for retry logging
         # Position tracking - store LP position for position aggregation when keep_position=True
         self._held_position_orders: List[Dict] = []
         # Swap tracking for close-out flow
         self._swap_not_found_count: int = 0
+        # Consecutive definitive "position does not exist" reads while monitoring;
+        # guards against a single lagging RPC node being read as an external close.
+        # Uses get_position_info_fresh so each miss is an independent Gateway read
+        # (the cached get_position_info would serve one 404 for several ticks).
+        self._position_not_found_count: int = 0
+        # External-close detection is only trusted once the position has been
+        # observed on-chain at least once; before that, a not-found streak is far
+        # more likely RPC lag on a just-created position than a real close.
+        self._position_seen_onchain: bool = False
+        # Backoff between close attempts (set by _handle_close_failure) so a burst
+        # of instant transport failures (e.g. a Gateway restart) cannot burn the
+        # whole retry budget in seconds
+        self._close_backoff_until: float = 0.0
+        # Why a POSITION_HOLD terminal was involuntary (e.g. "close_retries_exhausted");
+        # None for voluntary holds (keep_position=True stops). Consumers use this,
+        # not close_type, to distinguish stranded exposure from a requested hold.
+        self._hold_reason: Optional[str] = None
+        # early_stop() arrived while the create was in flight: let the create
+        # resolve, then route straight to CLOSING (killing the state mid-await used
+        # to strand a landed position behind a FAILED terminal).
+        self._close_after_open: bool = False
+        # Close-out swap attempts (each failure re-places with a fresh quote)
+        self._swap_failure_count: int = 0
         # Parse lp_provider into dex_name and trading_type for gateway calls
-        self.lp_dex_name, self.lp_trading_type = parse_provider(
-            config.lp_provider, default_trading_type="clmm"
-        )
+        self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider)
 
     def _validate_and_normalize_connector(self, connector_name: str) -> Optional[str]:
         """
@@ -123,6 +158,16 @@ class LPExecutor(ExecutorBase):
         gateway = GatewayHttpClient.get_instance()
         default_provider = await gateway.get_default_swap_provider(self.config.connector_name)
         if default_provider:
+            # The network default comes straight from Gateway's config, which is not
+            # covered by LPExecutorConfig's validator — reject an untyped one here
+            # instead of letting it become a 400 mid close-out swap.
+            if "/" not in default_provider:
+                self.logger().error(
+                    f"Network default swap provider '{default_provider}' for "
+                    f"{self.config.connector_name} is not in 'name/type' form "
+                    "(e.g. 'jupiter/router'). Fix swapProvider in the Gateway network config."
+                )
+                return False
             self.config = self.config.model_copy(update={'swap_provider': default_provider})
             self.logger().info(f"Using network default swap provider: {default_provider}")
             return True
@@ -155,15 +200,13 @@ class LPExecutor(ExecutorBase):
                 await self._create_position()
 
             case LPExecutorStates.OPENING:
-                # Position creation in progress - connector handles retry
-                # If we're still in OPENING state, the previous attempt failed
-                # and we should retry (connector will handle max retries)
+                # Position creation in progress (connector retries timeouts;
+                # any other open failure is terminal — see _handle_create_failure)
                 await self._create_position()
 
             case LPExecutorStates.CLOSING:
-                # Position close in progress - connector handles retry
-                # If we're still in CLOSING state, the previous attempt failed
-                # and we should retry (connector will handle max retries)
+                # This re-entry IS the close retry loop: _handle_close_failure counts
+                # the failed attempt and backs off, evaluate_max_retries terminates
                 await self._close_position()
 
             case LPExecutorStates.SWAPPING:
@@ -172,8 +215,11 @@ class LPExecutor(ExecutorBase):
                 await self._execute_closeout_swap()
 
             case LPExecutorStates.FAILED:
-                # Max retries reached - stop executor with failure
-                self.close_type = CloseType.FAILED
+                # Stop with failure — but never clobber a more specific close_type
+                # already assigned (e.g. EARLY_STOP set by early_stop() before the
+                # create failed).
+                if self.close_type is None:
+                    self.close_type = CloseType.FAILED
                 self.stop()
 
             case LPExecutorStates.IN_RANGE | LPExecutorStates.OUT_OF_RANGE:
@@ -218,7 +264,9 @@ class LPExecutor(ExecutorBase):
             return
 
         try:
-            position_info = await connector.get_position_info(
+            # Fresh (uncached) read: this method makes existence decisions, and the
+            # cached variant would serve a single 404 for several consecutive ticks
+            position_info = await connector.get_position_info_fresh(
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
@@ -226,6 +274,8 @@ class LPExecutor(ExecutorBase):
             )
 
             if position_info:
+                self._position_not_found_count = 0
+                self._position_seen_onchain = True
                 # Update amounts and fees from live position data
                 self.lp_position_state.base_amount = Decimal(str(position_info.base_token_amount))
                 self.lp_position_state.quote_amount = Decimal(str(position_info.quote_token_amount))
@@ -237,7 +287,30 @@ class LPExecutor(ExecutorBase):
                 # Update current price from position_info (avoids separate pool_info call)
                 self._current_price = Decimal(str(position_info.price))
             else:
-                self.logger().warning(f"get_position_info returned None for {self.lp_position_state.position_address}")
+                # None from the connector is a definitive Gateway 404 (transient errors
+                # raise and are handled below). Two gates before acting on it: the
+                # position must have been observed on-chain at least once (a miss on a
+                # just-created position is RPC lag, not a close), and the miss must
+                # repeat across independent reads.
+                self._position_not_found_count += 1
+                if self._position_seen_onchain and self._position_not_found_count >= 3:
+                    self.logger().info(
+                        f"Position {self.lp_position_state.position_address} no longer exists on-chain "
+                        "(closed externally or by a prior attempt) - marking complete"
+                    )
+                    # An external close still needs a terminal type — and under
+                    # keep_position=False it still owes the close-out swap (the
+                    # withdrawn tokens landed in the wallet either way).
+                    if self.close_type is None:
+                        self.close_type = (CloseType.POSITION_HOLD if self.config.keep_position
+                                           else CloseType.EARLY_STOP)
+                    self._handle_position_gone()
+                else:
+                    self.logger().warning(
+                        f"Position {self.lp_position_state.position_address} not found "
+                        f"({self._position_not_found_count} consecutive reads, "
+                        f"seen_onchain={self._position_seen_onchain})"
+                    )
         except Exception as e:
             # Gateway returns HttpError with message patterns:
             # - "Position closed: {addr}" (404) - position was closed on-chain
@@ -252,7 +325,9 @@ class LPExecutor(ExecutorBase):
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
                 self.lp_position_state.active_close_order = None
                 return
-            elif "not found" in error_msg:
+            elif "position not found" in error_msg:
+                # Position-specific 404 only: a bare "not found" also matches the HTTP
+                # client's "(Not Found)" suffix on unrelated 404s (missing route/wallet)
                 self.logger().error(
                     f"Position {self.lp_position_state.position_address} not found - "
                     "position may never have been created. Check position tracking."
@@ -298,6 +373,7 @@ class LPExecutor(ExecutorBase):
                 quote_token_amount=float(self.config.quote_amount),
                 pool_address=self.config.pool_address,
                 extra_params=self.config.extra_params,
+                slippage_pct=float(self._slippage_pct),
                 max_retries=self._max_retries,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
@@ -312,6 +388,22 @@ class LPExecutor(ExecutorBase):
             metadata = connector._lp_orders_metadata.get(order_id, {})
             position_address = metadata.get("position_address", "")
 
+            if not position_address and metadata.get("data_unavailable"):
+                # The open transaction CONFIRMED on-chain, but its confirmation was
+                # reconciled by polling the signature, and Gateway fills the response
+                # `data` (which carries positionAddress) only on the original confirmed
+                # reply. The position is LIVE — recover its address from chain state
+                # instead of reporting a creation failure and walking away from real funds.
+                self.lp_position_state.open_data_unavailable = True
+                position_address = await self._recover_position_address(connector)
+                if not position_address:
+                    self._handle_create_failure(ValueError(
+                        f"Open transaction {signature} CONFIRMED on-chain but its position address "
+                        f"could not be recovered from pool {self.config.pool_address}. A position is "
+                        "likely LIVE and unmanaged - reconcile this wallet by hand."
+                    ))
+                    return
+
             if not position_address:
                 self.logger().error(f"No position_address in metadata: {metadata}")
                 self._handle_create_failure(ValueError("Position creation failed - no position address in response"))
@@ -325,18 +417,32 @@ class LPExecutor(ExecutorBase):
 
             # Position is created - clear open order
             self.lp_position_state.active_open_order = None
+            # The open is done; the close is a separate phase and starts tight again.
+            self._reset_slippage()
 
             # Clean up connector metadata
             if order_id in connector._lp_orders_metadata:
                 del connector._lp_orders_metadata[order_id]
 
-            # Fetch full position info from chain to get actual amounts and bounds
-            position_info = await connector.get_position_info(
-                trading_pair=self.config.trading_pair,
-                dex_name=self.lp_dex_name,
-                trading_type=self.lp_trading_type,
-                position_address=position_address
-            )
+            # Fetch full position info from chain to get actual amounts and bounds.
+            # This enriches bookkeeping only - the position is already open, so a
+            # transient fetch error must not fail the create (which would route to
+            # CLOSING); fall back to config values instead.
+            try:
+                # Fresh read: caching a lagging 404 here would poison the next ticks'
+                # existence checks with "position gone" for a position that is live
+                position_info = await connector.get_position_info_fresh(
+                    trading_pair=self.config.trading_pair,
+                    dex_name=self.lp_dex_name,
+                    trading_type=self.lp_trading_type,
+                    position_address=position_address
+                )
+            except Exception as info_error:
+                self.logger().warning(f"Position info fetch after create failed: {info_error}")
+                position_info = None
+
+            if position_info:
+                self._position_seen_onchain = True
 
             if position_info:
                 self.lp_position_state.base_amount = Decimal(str(position_info.base_token_amount))
@@ -406,11 +512,121 @@ class LPExecutor(ExecutorBase):
             # balance as a BUY.
             self._store_lp_event_from_add(event)
 
+            if self._close_after_open:
+                # early_stop() arrived while this create was in flight: the position
+                # is live and funded, so close it now (close_type was already set by
+                # early_stop from its keep_position argument).
+                self.logger().info(
+                    f"Create resolved after early_stop: closing {position_address} immediately."
+                )
+                self.lp_position_state.state = LPExecutorStates.CLOSING
+                return
+
             # Update state immediately (don't wait for next tick)
             self.lp_position_state.update_state(current_price, self._strategy.current_timestamp)
 
         except Exception as e:
             self._handle_create_failure(e)
+
+    async def _recover_position_address(self, connector) -> str:
+        """
+        Identify the position an open created, when Gateway's response data was unavailable.
+
+        Reads the wallet's live positions in the configured pool. A single position in the
+        pool is unambiguous; with several, the configured bounds pick one out (the chain
+        snaps bounds to ticks/bins, so match within a small relative tolerance). Adopting
+        the wrong position would later close someone else's, so anything ambiguous returns
+        "" and the caller escalates for manual reconciliation rather than guessing.
+        """
+        try:
+            positions = await connector.get_user_positions(
+                dex_name=self.lp_dex_name,
+                trading_type=self.lp_trading_type,
+                pool_address=self.config.pool_address,
+            )
+        except Exception as e:
+            self.logger().error(f"Could not list positions to recover the opened position address: {e}")
+            return ""
+
+        if len(positions) == 1:
+            recovered = positions[0].address
+            self.logger().warning(
+                f"Recovered position address {recovered} from chain state after the open's "
+                "response data was unavailable."
+            )
+            return recovered
+
+        matches = [
+            p for p in positions
+            if self._bounds_match(Decimal(str(p.lower_price)), Decimal(str(p.upper_price)))
+        ]
+        if len(matches) == 1:
+            recovered = matches[0].address
+            self.logger().warning(
+                f"Recovered position address {recovered} by matching the configured bounds "
+                f"among {len(positions)} positions in pool {self.config.pool_address}."
+            )
+            return recovered
+
+        self.logger().error(
+            f"Cannot identify the opened position in pool {self.config.pool_address}: "
+            f"{len(positions)} positions owned, {len(matches)} match the configured bounds "
+            f"[{self.config.lower_price} - {self.config.upper_price}]."
+        )
+        return ""
+
+    def _bounds_match(self, lower_price: Decimal, upper_price: Decimal) -> bool:
+        """Whether on-chain bounds are the configured ones, within tick/bin snapping."""
+        tolerance = Decimal("0.01")  # 1% - wider than any connector's tick/bin spacing
+        for actual, configured in ((lower_price, self.config.lower_price),
+                                   (upper_price, self.config.upper_price)):
+            if configured <= 0:
+                return False
+            if abs(actual - configured) / configured > tolerance:
+                return False
+        return True
+
+    def _widen_slippage(self, error: Exception) -> bool:
+        """Widen the tolerance for the next attempt, if this failure was slippage.
+
+        Returns True when the next attempt will carry a wider tolerance than this one
+        did, which is the only case where retrying is doing something different.
+
+        Only a slippage failure widens. A wrong tick, an insufficient balance or a
+        transport error says nothing about the tolerance, and loosening one that was
+        never too tight spends the operator's money to fix the wrong problem.
+        """
+        if not is_slippage_failure(error):
+            return False
+
+        widened = next_slippage_pct(
+            self._slippage_pct, self.config.slippage_multiplier, self.config.max_slippage_pct
+        )
+        if widened is None:
+            self.logger().warning(
+                f"Slippage failure at {self._slippage_pct}%, which is max_slippage_pct "
+                f"({self.config.max_slippage_pct}%). Not widening further: the market has moved "
+                "past what this executor was configured to accept."
+            )
+            return False
+
+        self.logger().info(
+            f"Slippage failure at {self._slippage_pct}%; retrying at {widened}% "
+            f"(x{self.config.slippage_multiplier}, ceiling {self.config.max_slippage_pct}%)."
+        )
+        self._slippage_pct = widened
+        return True
+
+    def _reset_slippage(self):
+        """Start the next phase at the configured tolerance.
+
+        An open and the close that follows it are separated by the position's whole
+        lifetime. Carrying a widened tolerance across that boundary would silently
+        accept 5% on an exit because an entry once needed it.
+        """
+        if self._slippage_pct != self.config.slippage_pct:
+            self.logger().info(f"Resetting slippage to {self.config.slippage_pct}% for the next phase.")
+        self._slippage_pct = self.config.slippage_pct
 
     def _handle_create_failure(self, error: Exception):
         """Handle position creation failure.
@@ -426,6 +642,21 @@ class LPExecutor(ExecutorBase):
         would deposit a second position on top of the first.
         """
         self.lp_position_state.active_open_order = None
+
+        # A slippage failure is the one open failure that can be retried safely. Gateway
+        # raises it either from the pre-flight simulation, where nothing was sent, or
+        # from a transaction that landed and reverted — and a reverted open deposits
+        # nothing. Both mean there is no position to deposit a second one on top of,
+        # which is the risk the terminal rule below exists to prevent. Counted against
+        # the retry budget so evaluate_max_retries still ends it.
+        if not self.lp_position_state.position_address and self._widen_slippage(error):
+            self._current_retries += 1
+            self.logger().warning(
+                f"Position creation failed on slippage ({self._current_retries}/{self._max_retries} "
+                f"retries used): {error}. Retrying at {self._slippage_pct}%."
+            )
+            self.lp_position_state.state = LPExecutorStates.OPENING
+            return
 
         if self.lp_position_state.position_address:
             self.logger().error(
@@ -451,68 +682,98 @@ class LPExecutor(ExecutorBase):
             self._handle_close_failure(ValueError(f"Connector {self.config.connector_name} not found"))
             return
 
-        # Verify position still exists before trying to close (handles timeout-but-succeeded case)
+        # Respect the backoff set by a failed attempt: without it, a burst of instant
+        # transport failures (e.g. Gateway restarting) would burn the whole retry
+        # budget in as many seconds as there are retries.
+        if self._strategy.current_timestamp < self._close_backoff_until:
+            return
+
+        # Verify position still exists before trying to close (handles timeout-but-succeeded
+        # case). Fresh read; but ONE miss is never proof (a lagging RPC node's 404
+        # would otherwise declare a freshly funded position closed with a
+        # success-shaped event). Same 3-consecutive-miss gate as the monitoring
+        # path (retry-architecture §3.2).
         try:
-            position_info = await connector.get_position_info(
+            position_info = await connector.get_position_info_fresh(
                 trading_pair=self.config.trading_pair,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
                 position_address=self.lp_position_state.position_address
             )
-            if position_info is None:
-                self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping close"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
-                return
         except Exception as e:
-            # Gateway returns HttpError with message patterns (see _update_position_info)
+            # Gateway returns HttpError with message patterns for a definitively
+            # missing position; treat those exactly like a None read (a miss).
             error_msg = str(e).lower()
-            if "position closed" in error_msg:
+            if "position closed" in error_msg or "position not found" in error_msg:
+                position_info = None
+            else:
+                # Transient error - proceed with the close attempt
+                position_info = False
+
+        if position_info is None:
+            self._position_not_found_count += 1
+            if self._position_not_found_count >= 3:
                 self.logger().info(
-                    f"Position {self.lp_position_state.position_address} already closed - skipping"
+                    f"Position {self.lp_position_state.position_address} definitively absent "
+                    f"({self._position_not_found_count} consecutive misses) - already closed"
                 )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
+                self._handle_position_gone()
                 return
-            elif "not found" in error_msg:
-                self.logger().error(
-                    f"Position {self.lp_position_state.position_address} not found - "
-                    "marking complete to avoid retry loop"
-                )
-                self._emit_already_closed_event()
-                self.lp_position_state.state = LPExecutorStates.COMPLETE
-                return
-            # Other errors - proceed with close attempt
+            self.logger().warning(
+                f"Pre-flight miss {self._position_not_found_count}/3 for "
+                f"{self.lp_position_state.position_address}; not closing this tick"
+            )
+            # Don't submit a close against a position we cannot currently see —
+            # re-enter next tick; misses do not burn the close retry budget.
+            return
+        if position_info is not False:
+            self._position_not_found_count = 0
+            self._position_seen_onchain = True
 
         # Generate order_id for tracking
         order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
         self.lp_position_state.active_close_order = TrackedOrder(order_id=order_id)
 
         try:
-            # Directly await the async operation - connector handles retry for timeouts
+            # One gateway request per attempt (max_retries=0): this CLOSING loop is the
+            # only owner of close retries. Each re-entry rebuilds from fresh on-chain
+            # state, and the pre-flight above reconciles an attempt that landed after a
+            # timeout — a connector-level retry would re-submit without that check.
             signature = await connector._clmm_close_position(
                 trade_type=TradeType.RANGE,
                 order_id=order_id,
                 trading_pair=self.config.trading_pair,
                 position_address=self.lp_position_state.position_address,
-                max_retries=self._max_retries,
+                max_retries=0,
                 dex_name=self.lp_dex_name,
                 trading_type=self.lp_trading_type,
+                slippage_pct=float(self._slippage_pct),
             )
-            # Note: If operation fails after all retries, connector re-raises the exception
+            # Note: on failure the connector re-raises and _handle_close_failure counts it
             # so it will be caught by the except block below
 
             self.logger().info(f"Position close confirmed, signature={signature}")
 
             # Success - extract close data from connector's metadata
             metadata = connector._lp_orders_metadata.get(order_id, {})
-            self.lp_position_state.position_rent_refunded = metadata.get("position_rent_refunded", Decimal("0"))
-            self.lp_position_state.base_amount = metadata.get("base_amount", Decimal("0"))
-            self.lp_position_state.quote_amount = metadata.get("quote_amount", Decimal("0"))
-            self.lp_position_state.base_fee = metadata.get("base_fee", Decimal("0"))
-            self.lp_position_state.quote_fee = metadata.get("quote_fee", Decimal("0"))
+            if metadata.get("data_unavailable"):
+                # The close CONFIRMED on-chain but its response data is unrecoverable, so
+                # there are no collected-fee / removed-amount / rent-refund figures to
+                # book. Keep the last values read from chain while the position was open
+                # rather than overwriting them with zeros, and say plainly that this
+                # executor's close accounting is incomplete.
+                self.lp_position_state.close_data_unavailable = True
+                self.logger().error(
+                    f"Close transaction {signature} confirmed but Gateway returned no close data: "
+                    "collected fees, removed amounts and the rent refund are UNKNOWN for this "
+                    "close. Reported amounts are the last on-chain reading and PnL is incomplete."
+                )
+            else:
+                self.lp_position_state.position_rent_refunded = metadata.get("position_rent_refunded", Decimal("0"))
+                self.lp_position_state.base_amount = metadata.get("base_amount", Decimal("0"))
+                self.lp_position_state.quote_amount = metadata.get("quote_amount", Decimal("0"))
+                self.lp_position_state.base_fee = metadata.get("base_fee", Decimal("0"))
+                self.lp_position_state.quote_fee = metadata.get("quote_fee", Decimal("0"))
             # Add close tx_fee to cumulative total (open tx_fee + close tx_fee)
             close_tx_fee = metadata.get("tx_fee", Decimal("0"))
             self.lp_position_state.tx_fee += close_tx_fee
@@ -580,6 +841,8 @@ class LPExecutor(ExecutorBase):
                         f"(received={self.lp_position_state.base_amount + self.lp_position_state.base_fee:.6f}, "
                         f"initial={self.lp_position_state.initial_base_amount:.6f})"
                     )
+                    # A third phase, and a third chance to start tight.
+                    self._reset_slippage()
                     self.lp_position_state.state = LPExecutorStates.SWAPPING
                 else:
                     self.logger().info("No close-out swap needed (base amounts match)")
@@ -593,13 +856,96 @@ class LPExecutor(ExecutorBase):
     def _handle_close_failure(self, error: Exception):
         """Handle position close failure.
 
-        Retry logic is handled by the connector. This method handles
-        final failures after connector exhausted retries.
+        The connector retries transport and stale-state errors within a single
+        attempt; this handles an attempt that failed after those retries. The
+        position is still open on-chain, so going terminal here would strand it
+        (see gateway#678). Count the attempt, arm the backoff, and stay in
+        CLOSING — control_task re-enters _close_position on the next tick, and
+        each re-entry re-POSTs to Gateway, which rebuilds the transaction from
+        fresh on-chain state (the pre-flight reconciles a close that already
+        landed). Termination on exhaustion is decided by evaluate_max_retries,
+        the family hook the base control_loop calls right after this
+        control_task returns.
         """
-        # Connector exhausted retries or non-retryable error - transition to FAILED
-        self.logger().error(f"Position close failed: {error}")
+        self._current_retries += 1
         self.lp_position_state.active_close_order = None
-        self.lp_position_state.state = LPExecutorStates.FAILED
+        # Widen for the next attempt when the close failed on slippage. Unlike an open,
+        # an exit at the ceiling keeps retrying: the position is real and has to come
+        # out, and the alternative is stranding it.
+        self._widen_slippage(error)
+
+        if self._current_retries > self._max_retries:
+            # evaluate_max_retries terminates after this control_task returns.
+            self.logger().warning(f"Position close attempt failed: {error}. Retry budget exhausted.")
+            return
+
+        # Exponential backoff (capped at 30s) so instant failures — e.g. connection
+        # errors while Gateway restarts — spread the retry budget over minutes
+        # instead of burning it in seconds
+        backoff = min(30.0, 2.0 ** self._current_retries)
+        self._close_backoff_until = self._strategy.current_timestamp + backoff
+        self.logger().warning(
+            f"Position close attempt failed ({self._current_retries}/{self._max_retries} retries used): "
+            f"{error}. Rebuilding with fresh state in {backoff:.0f}s."
+        )
+        # State stays CLOSING - control_task re-enters _close_position after backoff.
+
+    def evaluate_max_retries(self):
+        """Terminate when the close-retry budget is exhausted.
+
+        Base-class semantics (``> max_retries``, i.e. ``max_retries + 1`` total
+        attempts — the family convention) decide *when*; this override decides
+        *how*. A position still on-chain is residual exposure, and the family
+        contract (see ``force_stop_with_position_hold``) ends residual exposure
+        as POSITION_HOLD, reserving FAILED for executors with nothing left
+        behind. PositionHold cannot book a live LP position as spot amounts, so
+        the hold carries a zero-amount marker order with the position's identity
+        instead — visible and durable in the hold store on both the bot and the
+        hummingbot-api topology, with accounting untouched.
+        """
+        if self._current_retries <= self._max_retries:
+            return
+        self._max_retries_reached = True
+        position_address = self.lp_position_state.position_address
+        if position_address:
+            self._hold_reason = "close_retries_exhausted"
+            self._record_unclosed_position_marker()
+            self.close_type = CloseType.POSITION_HOLD
+            self.logger().error(
+                f"Position close failed after {self._current_retries} attempts: position "
+                f"{position_address} ({self.config.trading_pair}) is still open on-chain. "
+                "Terminating as an involuntary POSITION_HOLD (hold_reason=close_retries_exhausted) - "
+                "close it via the gateway and resolve the orphan record."
+            )
+        else:
+            self.close_type = CloseType.FAILED
+            self.logger().error(
+                f"Retry budget exhausted after {self._current_retries} attempts with no position "
+                "on-chain - terminating as FAILED."
+            )
+        self.stop()
+
+    def _record_unclosed_position_marker(self):
+        """Append a zero-amount marker order carrying the unclosed position's identity.
+
+        A live on-chain position cannot be booked as spot amounts — the tokens
+        are in the pool, not the wallet — but an empty held_position_orders would
+        make the POSITION_HOLD invisible to the hold store. Zero amounts keep
+        accounting untouched (PositionHold._process_order skips them) while the
+        marker carries the address every recovery path needs.
+        """
+        self._held_position_orders.append({
+            "client_order_id": f"{self.config.id}-unclosed-lp",
+            "trading_pair": self.config.trading_pair,
+            "trade_type": "BUY",  # dummy; zero amounts never reach accounting
+            "price": float(self._current_price) if self._current_price else 0.0,
+            "executed_amount_base": 0.0,
+            "executed_amount_quote": 0.0,
+            "cumulative_fee_paid_quote": getattr(self, '_add_tx_fee_quote', 0.0),
+            "lp_source": True,
+            "lp_unclosed_position": True,
+            "position_address": self.lp_position_state.position_address,
+        })
 
     async def _execute_closeout_swap(self):
         """
@@ -641,8 +987,13 @@ class LPExecutor(ExecutorBase):
                 self.lp_position_state.active_swap_order = None
                 self.lp_position_state.state = LPExecutorStates.COMPLETE
             elif order.current_state == OrderState.FAILED:
-                self.logger().error(f"Close-out swap failed: {order.client_order_id}")
-                self._handle_swap_failure(ValueError("Swap order failed"))
+                # The order tracker records FAILED and no reason, so ask the connector
+                # what Gateway said. Without it the slippage ramp cannot act on this leg:
+                # every close-out swap failure would look the same, and widening on all
+                # of them would loosen a tolerance that was never the problem.
+                reason = connector.order_failure_reason(order.client_order_id) or "Swap order failed"
+                self.logger().error(f"Close-out swap failed: {order.client_order_id}: {reason}")
+                self._handle_swap_failure(ValueError(reason))
             elif order.current_state == OrderState.CANCELED:
                 self.logger().warning(f"Close-out swap cancelled: {order.client_order_id}")
                 self._handle_swap_failure(ValueError("Swap order cancelled"))
@@ -669,14 +1020,17 @@ class LPExecutor(ExecutorBase):
         )
 
         try:
-            # Place swap order using connector's place_order with swap_provider
+            # The executor's tolerance rather than the connector's configured one, so a
+            # close-out swap starts as tight as everything else this executor does and
+            # widens the same way. Hardcoding 1.0 here used to override the operator's
+            # Gateway config; omitting it entirely left this one leg unable to widen.
             order_id = connector.place_order(
                 is_buy=is_buy,
                 trading_pair=self.config.trading_pair,
                 amount=amount,
                 price=Decimal("0"),  # Market order
                 dex_name=self.config.swap_provider,
-                slippage_pct=Decimal("1.0"),  # 1% slippage for close-out
+                slippage_pct=float(self._slippage_pct),
                 max_retries=self._max_retries,
             )
             self.lp_position_state.active_swap_order = TrackedOrder(order_id=order_id)
@@ -687,11 +1041,75 @@ class LPExecutor(ExecutorBase):
             self.logger().error(f"Failed to place close-out swap: {e}")
             self._handle_swap_failure(e)
 
+    def _handle_position_gone(self):
+        """The position is definitively absent on-chain: a prior close attempt
+        landed, or it was closed externally. Emit the synthetic close event and
+        route exactly like a successful close — EARLY_STOP (keep_position=False)
+        still owes the close-out swap, since the withdrawn tokens are in the
+        wallet either way. Going straight to COMPLETE here used to leave that
+        net base change unswapped and unrecorded.
+        """
+        self._emit_already_closed_event()
+        self.lp_position_state.active_close_order = None
+        self.lp_position_state.position_address = None
+
+        if self.close_type == CloseType.EARLY_STOP:
+            base_diff = self._calculate_net_base_difference()
+            if abs(base_diff) > Decimal("0.000001"):
+                self.logger().info(
+                    f"Close-out swap needed after already-closed reconcile: base_diff={base_diff:.6f}"
+                )
+                self.lp_position_state.state = LPExecutorStates.SWAPPING
+                return
+        self.lp_position_state.state = LPExecutorStates.COMPLETE
+
+    # Close-out swap attempts before the executor stops fighting the market and
+    # holds the withdrawn tokens instead (each attempt re-quotes at market).
+    MAX_CLOSEOUT_SWAP_ATTEMPTS = 3
+
     def _handle_swap_failure(self, error: Exception):
-        """Handle close-out swap failure - transition to FAILED state."""
-        self.logger().error(f"Close-out swap failed: {error}")
+        """Handle close-out swap failure.
+
+        Bounded retries with a fresh quote each attempt; on exhaustion the
+        executor terminates POSITION_HOLD carrying the withdrawn tokens. The old
+        first-failure jump to FAILED reported "no residual exposure" while the
+        REMOVE's proceeds sat in the wallet, unrecorded.
+        """
         self.lp_position_state.active_swap_order = None
-        self.lp_position_state.state = LPExecutorStates.FAILED
+        self._swap_failure_count += 1
+        # Widen for the next quote when the market moved further than the tolerance.
+        # The swap has its own small budget, so the ramp has to fit inside it — with the
+        # default multiplier of 5 it reaches the ceiling in three attempts, which is the
+        # budget exactly.
+        self._widen_slippage(error)
+
+        if self._swap_failure_count < self.MAX_CLOSEOUT_SWAP_ATTEMPTS:
+            self.logger().error(
+                f"Close-out swap failed (attempt {self._swap_failure_count}/"
+                f"{self.MAX_CLOSEOUT_SWAP_ATTEMPTS}): {error}. Retrying with a fresh quote."
+            )
+            return  # stay in SWAPPING; next tick re-places at market
+
+        self.logger().error(
+            f"Close-out swap failed {self._swap_failure_count} times: {error}. "
+            "Holding the withdrawn tokens instead of reporting FAILED with hidden exposure."
+        )
+        self._hold_reason = "closeout_swap_failed"
+        self.close_type = CloseType.POSITION_HOLD
+        connector = self.connectors.get(self.config.connector_name)
+        current_price = self._current_price if self._current_price else Decimal("0")
+        if connector is not None:
+            order_id = connector.create_market_order_id(TradeType.RANGE, self.config.trading_pair)
+            self._store_net_trade_from_withdrawal(
+                total_base_returned=self.lp_position_state.base_amount + self.lp_position_state.base_fee,
+                total_quote_returned=self.lp_position_state.quote_amount + self.lp_position_state.quote_fee,
+                mid_price=current_price,
+                remove_tx_fee_quote=0.0,
+                order_id=order_id,
+                exchange_order_id="closeout-swap-failed",
+                trading_pair=self.config.trading_pair,
+            )
+        self.lp_position_state.state = LPExecutorStates.COMPLETE
 
     def _emit_already_closed_event(self):
         """
@@ -935,10 +1353,15 @@ class LPExecutor(ExecutorBase):
         if self.lp_position_state.state in [LPExecutorStates.IN_RANGE, LPExecutorStates.OUT_OF_RANGE]:
             self.lp_position_state.state = LPExecutorStates.CLOSING
         elif self.lp_position_state.state == LPExecutorStates.OPENING:
-            # Position creation in progress - mark as failed to stop retries
-            # The executor will complete without creating a position
-            self.lp_position_state.state = LPExecutorStates.FAILED
-            self.close_type = CloseType.EARLY_STOP
+            # The create is in flight and its transaction may LAND — killing the
+            # state here used to strand a live, funded position behind a FAILED
+            # terminal ("nothing on-chain"). Let the create resolve; its success
+            # tail routes straight to CLOSING, and its failure path ends normally.
+            self._close_after_open = True
+            self.logger().info(
+                "early_stop during OPENING: waiting for the in-flight create to "
+                "resolve, then closing."
+            )
         elif self.lp_position_state.state == LPExecutorStates.NOT_ACTIVE:
             # No position was created, just complete
             self.lp_position_state.state = LPExecutorStates.COMPLETE
@@ -1031,30 +1454,58 @@ class LPExecutor(ExecutorBase):
 
     @property
     def filled_amount_quote(self) -> Decimal:
-        """Returns initial investment value in quote currency.
+        """The swap volume that flowed through this position, in quote.
 
-        For LP positions, this represents the capital deployed (initial deposit)
-        expressed in the pool's quote currency (e.g., SOL for PERCOLATOR-SOL).
-        Returns 0 if position was never created (FAILED state).
+        Volume, not capital. This used to return the initial deposit, which made an LP
+        executor incomparable with every other one: a position that put up $100 and
+        traded nothing reported $100 the moment it opened, and the performance report
+        added it again when the executor finished. Depositing and withdrawing is not
+        volume; it is the same money moving in and back out.
+
+        What a position does generate is the swaps that crossed its range, and it holds a
+        direct measurement of those: the fees it earned are a fixed fraction of the volume
+        that paid them. So
+
+            volume = fees_earned_in_quote / fee_rate
+
+        Both fee sides invert to the same expression, which is why one division does it:
+        base fees were paid by base-denominated volume and quote fees by quote, and
+        (base_fee / rate) x price + (quote_fee / rate) == (base_fee x price + quote_fee) / rate.
+
+        The figure is the position's whole life, not a window, because this executor never
+        collects mid-life — pending fees accumulate until the close collects them, and the
+        close writes the collected total back to the same fields.
+
+        Returns 0 when the pool's fee rate is unknown, which is a missing measurement
+        rather than an absence of volume. Guessing a rate would put a number here that
+        reads as measured and is not.
         """
-        # If position was never created, nothing was filled
-        if self.lp_position_state.initial_base_amount == 0 and self.lp_position_state.initial_quote_amount == 0:
+        if self._pool_info is None:
+            # Pool info not fetched yet — this is read on the very first tick, before
+            # update_pool_info() has run. Nothing is wrong and nothing is known, so say
+            # nothing: warning here would assert that the pool reports no fee rate, which
+            # is a claim about the pool made before ever having asked it.
             return Decimal("0")
 
-        # Use stored add_mid_price, fall back to current price if not set
-        add_price = self.lp_position_state.add_mid_price
-        if add_price <= 0:
-            add_price = self._current_price if self._current_price else Decimal("0")
-
-        if add_price == 0:
+        fee_pct = getattr(self._pool_info, "fee_pct", None)
+        if not fee_pct or Decimal(str(fee_pct)) <= 0:
+            # Asked, and the answer really is no rate. That is worth saying once.
+            if not self._warned_missing_fee_pct:
+                self._warned_missing_fee_pct = True
+                self.logger().warning(
+                    f"Pool {self.config.pool_address} reports a fee rate of {fee_pct!r}, so the "
+                    "volume this position generated cannot be derived from its fees. "
+                    "Reporting 0 volume."
+                )
             return Decimal("0")
 
-        # Use stored initial amounts (actual deposited)
-        initial_base = self.lp_position_state.initial_base_amount
-        initial_quote = self.lp_position_state.initial_quote_amount
+        price = self._current_price if self._current_price else Decimal("0")
+        fees_quote = self.lp_position_state.base_fee * price + self.lp_position_state.quote_fee
+        if fees_quote <= 0:
+            return Decimal("0")
 
-        # Initial investment value in pool quote currency
-        return initial_base * add_price + initial_quote
+        # fee_pct is a PERCENT on every Gateway surface (see GW-2), not a fraction.
+        return fees_quote / (Decimal(str(fee_pct)) / Decimal("100"))
 
     def get_custom_info(self) -> Dict:
         """Report LP position state to controller"""
@@ -1106,6 +1557,20 @@ class LPExecutor(ExecutorBase):
             "filled_amount_base": float(self.lp_position_state.base_amount),
             "filled_amount_quote": float(self.lp_position_state.quote_amount),
             "held_position_orders": self._held_position_orders,
+            # Retry observability (consistent with order executor)
+            "current_retries": self._current_retries,
+            "max_retries": self._max_retries,
+            "max_retries_reached": self._max_retries_reached,
+            # What the next Gateway request will ask for. Worth reporting because it
+            # changes under the executor's own control: a value above slippage_pct means
+            # attempts have already failed on slippage and this one is paying for it.
+            "slippage_pct": float(self._slippage_pct),
+            "max_slippage_pct": float(self.config.max_slippage_pct),
+            "hold_reason": self._hold_reason,
+            # A transaction reconciled from its signature comes back without Gateway's
+            # response data, so some figures above were never available for this position.
+            "open_data_unavailable": self.lp_position_state.open_data_unavailable,
+            "close_data_unavailable": self.lp_position_state.close_data_unavailable,
         }
 
     # Required abstract methods from ExecutorBase

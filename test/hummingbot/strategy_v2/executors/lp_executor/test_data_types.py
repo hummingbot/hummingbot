@@ -1,6 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
+from pydantic import ValidationError
+
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig, LPExecutorState, LPExecutorStates
 from hummingbot.strategy_v2.models.executors import TrackedOrder
@@ -89,6 +91,43 @@ class TestLPExecutorConfig(TestCase):
         self.assertEqual(config.lower_limit_price, Decimal("80"))
         self.assertEqual(config.extra_params, {"strategyType": 0})
         self.assertTrue(config.keep_position)
+
+    def _minimal_kwargs(self, **overrides):
+        kwargs = dict(
+            id="test-provider",
+            timestamp=1234567890,
+            connector_name="solana-mainnet-beta",
+            lp_provider="meteora/clmm",
+            trading_pair="SOL-USDC",
+            pool_address="pool123",
+            lower_price=Decimal("100"),
+            upper_price=Decimal("110"),
+            quote_amount=Decimal("100"),
+            side=TradeType.RANGE,
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_untyped_lp_provider_rejected(self):
+        """A provider without its trading type must fail at config load, not at execution."""
+        with self.assertRaises(ValidationError) as ctx:
+            LPExecutorConfig(**self._minimal_kwargs(lp_provider="meteora"))
+        self.assertIn("name/type", str(ctx.exception))
+
+    def test_untyped_swap_provider_rejected(self):
+        """swap_provider is only used while closing out - an untyped one must not reach that point."""
+        with self.assertRaises(ValidationError) as ctx:
+            LPExecutorConfig(**self._minimal_kwargs(swap_provider="meteora"))
+        self.assertIn("name/type", str(ctx.exception))
+
+    def test_swap_provider_optional(self):
+        """None means 'use the network default' and stays valid."""
+        config = LPExecutorConfig(**self._minimal_kwargs(swap_provider=None))
+        self.assertIsNone(config.swap_provider)
+
+    def test_typed_swap_provider_accepted(self):
+        config = LPExecutorConfig(**self._minimal_kwargs(swap_provider="jupiter/router"))
+        self.assertEqual(config.swap_provider, "jupiter/router")
 
     def test_config_side_values(self):
         """Test different side values: 1=BUY, 2=SELL, 3=RANGE"""
