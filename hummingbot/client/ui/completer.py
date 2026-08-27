@@ -54,22 +54,14 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["allowance", "approve", "balance", "config", "connect", "generate-certs", "list", "lp", "ping", "pool", "swap", "token"], ignore_case=True)
-        self._gateway_swap_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
+        self._gateway_completer = WordCompleter(["allowance", "approve", "balance", "config", "connect", "generate-certs", "list"], ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_ping_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
         self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
         self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["update"], ignore_case=True)
-        self._gateway_lp_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
-        self._gateway_lp_action_completer = WordCompleter(["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], ignore_case=True)
-        self._gateway_pool_completer = WordCompleter(["<symbol_or_address>"], ignore_case=True)
-        self._gateway_pool_action_completer = WordCompleter(["update"], ignore_case=True)
-        self._gateway_token_completer = WordCompleter(["<symbol_or_address>"], ignore_case=True)
-        self._gateway_token_action_completer = WordCompleter(["update"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
         self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
@@ -246,15 +238,6 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("history ")
 
-    def _complete_gateway_swap_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway swap "):
-            return False
-        # Only complete if we're at the first argument (connector)
-        args_after_swap = text_before_cursor[13:].strip()  # Remove "gateway swap "
-        # If there's no space after the first argument, we're still completing the connector
-        return " " not in args_after_swap
-
     def _complete_gateway_network_selection(self, document: Document) -> bool:
         return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
 
@@ -269,10 +252,6 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_approve_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway approve ")
-
-    def _complete_gateway_ping_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ping ")
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -301,71 +280,6 @@ class HummingbotCompleter(Completer):
         # or if we're typing the second part
         return (len(parts) == 1 and args_after_config.endswith(" ")) or \
                (len(parts) == 2 and not args_after_config.endswith(" "))
-
-    def _complete_gateway_lp_connector(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway lp "):
-            return False
-        # Only complete if we're at the first argument (connector)
-        args_after_lp = text_before_cursor[11:]  # Remove "gateway lp " (keep trailing spaces)
-        # Complete connector only if:
-        # 1. We have no arguments yet (just typed "gateway lp ")
-        # 2. We're typing the first argument (no spaces in args_after_lp)
-        return " " not in args_after_lp
-
-    def _complete_gateway_lp_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway lp "):
-            return False
-        # Complete action if we have connector but not action yet
-        args_after_lp = text_before_cursor[11:]  # Remove "gateway lp " (keep trailing spaces)
-        parts = args_after_lp.strip().split()
-        # Complete action if we have exactly one part (connector) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_lp.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_lp.endswith(" "))
-
-    def _complete_gateway_pool_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway pool "):
-            return False
-        # Only complete if we're at the first argument (symbol/address)
-        args_after_pool = text_before_cursor[13:]  # Remove "gateway pool " (keep trailing spaces)
-        # Complete symbol only if we have no arguments yet or typing first argument
-        return " " not in args_after_pool
-
-    def _complete_gateway_pool_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway pool "):
-            return False
-        # Complete action if we have symbol but not action yet
-        args_after_pool = text_before_cursor[13:]  # Remove "gateway pool " (keep trailing spaces)
-        parts = args_after_pool.strip().split()
-        # Complete action if we have exactly one part (symbol_or_address) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_pool.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_pool.endswith(" "))
-
-    def _complete_gateway_token_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway token "):
-            return False
-        # Only complete if we're at the first argument (symbol/address)
-        args_after_token = text_before_cursor[14:]  # Remove "gateway token " (keep trailing spaces)
-        # Complete symbol only if we have no arguments yet or typing first argument
-        return " " not in args_after_token
-
-    def _complete_gateway_token_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway token "):
-            return False
-        # Complete action if we have symbol but not action yet
-        args_after_token = text_before_cursor[14:]  # Remove "gateway token " (keep trailing spaces)
-        parts = args_after_token.strip().split()
-        # Complete action if we have exactly one part (symbol) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_token.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_token.endswith(" "))
 
     def _complete_v2_config_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -507,10 +421,6 @@ class HummingbotCompleter(Completer):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_swap_arguments(document):
-            for c in self._gateway_swap_completer.get_completions(document, complete_event):
-                yield c
-
         elif self._complete_gateway_balance_arguments(document):
             for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
@@ -521,34 +431,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_gateway_approve_arguments(document):
             for c in self._gateway_approve_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_ping_arguments(document):
-            for c in self._gateway_ping_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_lp_connector(document):
-            for c in self._gateway_lp_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_lp_action(document):
-            for c in self._gateway_lp_action_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_pool_arguments(document):
-            for c in self._gateway_pool_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_pool_action(document):
-            for c in self._gateway_pool_action_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_token_arguments(document):
-            for c in self._gateway_token_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_token_action(document):
-            for c in self._gateway_token_action_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):

@@ -43,28 +43,10 @@ class GatewayCommand(GatewayChainApiManager):
         super().__init__(client_config_map)
         self.client_config_map = client_config_map
 
+    @ensure_gateway_online
     def gateway(self):
-        """Show gateway help when no subcommand is provided."""
-        self.notify("""
-Gateway Commands:
-  gateway allowance <connector> [tokens]                    - Check token allowances
-  gateway approve <connector> <tokens>                      - Approve tokens for spending
-  gateway balance [chain] [tokens]                          - Check token balances
-  gateway config [namespace]                                - Show configuration
-  gateway config <namespace> update                         - Update configuration (interactive)
-  gateway config <namespace> update <path> <value>          - Update configuration (direct)
-  gateway connect <chain>                                   - View and add wallets for a chain
-  gateway generate-certs                                    - Generate SSL certificates
-  gateway list                                              - List available connectors
-  gateway lp <connector> <action>                           - Manage liquidity positions
-  gateway ping [chain]                                      - Test node and chain/network status
-  gateway pool <symbol_or_address>                          - View pool information
-  gateway pool <symbol_or_address> update                   - Save pool from GeckoTerminal
-  gateway swap <connector> [pair] [side] [amount]           - Swap tokens
-  gateway token <symbol_or_address>                         - View token information
-  gateway token <symbol> update                             - Update token information
-
-Use 'gateway <command> --help' for more information about a command.""")
+        """Test node and chain/network status when no subcommand is provided."""
+        safe_ensure_future(self._gateway_ping(), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_status(self):
@@ -104,22 +86,6 @@ Use 'gateway <command> --help' for more information about a command.""")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
-
-    @ensure_gateway_online
-    def gateway_ping(self, chain: str = None):
-        safe_ensure_future(self._gateway_ping(chain), loop=self.ev_loop)
-
-    @ensure_gateway_online
-    def gateway_token(self, symbol_or_address: Optional[str], action: Optional[str]):
-        # Delegate to GatewayTokenCommand
-        from hummingbot.client.command.gateway_token_command import GatewayTokenCommand
-        GatewayTokenCommand.gateway_token(self, symbol_or_address, action)
-
-    @ensure_gateway_online
-    def gateway_pool(self, symbol_or_address: Optional[str], action: Optional[str]):
-        # Delegate to GatewayPoolCommand
-        from hummingbot.client.command.gateway_pool_command import GatewayPoolCommand
-        GatewayPoolCommand.gateway_pool(self, symbol_or_address, action)
 
     @ensure_gateway_online
     def gateway_list(self):

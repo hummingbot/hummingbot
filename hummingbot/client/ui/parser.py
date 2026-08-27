@@ -100,7 +100,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
                                   dest="precision", help="Level of precision for values displayed")
     lphistory_parser.set_defaults(func=hummingbot.lphistory)
 
-    gateway_parser = subparsers.add_parser("gateway", help="Helper commands for Gateway server.")
+    gateway_parser = subparsers.add_parser("gateway", help="Test Gateway node and chain/network status")
     gateway_parser.set_defaults(func=hummingbot.gateway)
     gateway_subparsers = gateway_parser.add_subparsers()
 
@@ -133,37 +133,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> ThrowingAr
 
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List available connectors")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
-
-    gateway_lp_parser = gateway_subparsers.add_parser("lp", help="Manage liquidity positions")
-    gateway_lp_parser.add_argument("dex_type", nargs="?", type=str, help="DEX type (e.g., raydium/amm, orca/clmm)")
-    gateway_lp_parser.add_argument("action", nargs="?", type=str, choices=["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], help="LP action to perform")
-    gateway_lp_parser.add_argument("trading_pair", nargs="?", default=None, help="Trading pair (e.g., WETH-USDC)")
-    gateway_lp_parser.set_defaults(func=hummingbot.gateway_lp)
-
-    gateway_ping_parser = gateway_subparsers.add_parser("ping", help="Test node and chain/network status")
-    gateway_ping_parser.add_argument("chain", nargs="?", default=None, help="Specific chain to test (optional)")
-    gateway_ping_parser.set_defaults(func=hummingbot.gateway_ping)
-
-    gateway_pool_parser = gateway_subparsers.add_parser("pool", help="View or update pool information")
-    gateway_pool_parser.add_argument("symbol_or_address", nargs="?", default=None, help="Token symbol, trading pair, or pool/token address")
-    gateway_pool_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
-    gateway_pool_parser.set_defaults(func=hummingbot.gateway_pool)
-
-    gateway_swap_parser = gateway_subparsers.add_parser(
-        "swap",
-        help="Swap tokens")
-    gateway_swap_parser.add_argument("connector", nargs="?", default=None,
-                                     help="Network (e.g., solana-mainnet-beta, ethereum-mainnet)")
-    gateway_swap_parser.add_argument("args", nargs="*",
-                                     help="Arguments: [base-quote] [side] [amount]. "
-                                          "Interactive mode if not all provided. "
-                                          "Example: gateway swap solana-mainnet-beta SOL-USDC BUY 0.1")
-    gateway_swap_parser.set_defaults(func=hummingbot.gateway_swap)
-
-    gateway_token_parser = gateway_subparsers.add_parser("token", help="View or update token information")
-    gateway_token_parser.add_argument("symbol_or_address", nargs="?", default=None, help="Token symbol or address")
-    gateway_token_parser.add_argument("action", nargs="?", default=None, help="Action to perform (update)")
-    gateway_token_parser.set_defaults(func=hummingbot.gateway_token)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",
