@@ -284,21 +284,26 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.filled_amount_quote, Decimal("0"))
 
     def test_filled_amount_quote_with_pool_info(self):
-        """Test filled_amount_quote calculates correctly"""
+        """filled_amount_quote is the volume that crossed the position, not its deposit.
+
+        Derived from the fees it earned, which are a fixed fraction of the volume that
+        paid them. The deposit below is deliberately large and deliberately ignored.
+        """
         executor = self.get_executor()
         executor._current_price = Decimal("100")
-        # Set initial amounts (actual deposited amounts) - these are used for filled_amount_quote
+        executor._pool_info = MagicMock(fee_pct=0.04)
+        # Deposited capital — no longer what this property reports.
         executor.lp_position_state.add_mid_price = Decimal("100")
         executor.lp_position_state.initial_base_amount = Decimal("2.0")
         executor.lp_position_state.initial_quote_amount = Decimal("50")
-        # Current state - not used for filled_amount_quote
         executor.lp_position_state.base_amount = Decimal("2.0")
         executor.lp_position_state.quote_amount = Decimal("50")
+        # Fees earned: 0.01 base at 100 + 1.0 quote = 2.0 quote.
         executor.lp_position_state.base_fee = Decimal("0.01")
         executor.lp_position_state.quote_fee = Decimal("1.0")
 
-        # filled_amount_quote = initial_base * add_price + initial_quote = 2.0 * 100 + 50 = 250
-        self.assertEqual(executor.filled_amount_quote, Decimal("250"))
+        # 2.0 of fees on a 0.04% pool took 2.0 / 0.0004 = 5000 of flow to earn.
+        self.assertEqual(executor.filled_amount_quote, Decimal("5000"))
 
     def test_get_net_pnl_quote_no_pool_info(self):
         """Test get_net_pnl_quote returns 0 when no pool info"""
@@ -493,7 +498,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(return_value="sig-remove")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -517,16 +522,76 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.close_type, CloseType.FAILED)
         self.assertEqual(executor._held_position_orders, [])
 
-    def test_handle_close_failure_transitions_to_failed(self):
-        """Test _handle_close_failure transitions to FAILED state (retry at connector level)"""
+    def test_handle_close_failure_stays_closing_for_bounded_retries(self):
+        """Test _handle_close_failure keeps state CLOSING so control_task re-enters
+        _close_position with fresh state; termination belongs to evaluate_max_retries"""
         executor = self.get_executor()
         executor.lp_position_state.state = LPExecutorStates.CLOSING
         executor.lp_position_state.active_close_order = MagicMock()
 
         executor._handle_close_failure(Exception("Test error"))
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
         self.assertIsNone(executor.lp_position_state.active_close_order)
+        self.assertEqual(executor._current_retries, 1)
+        self.assertFalse(executor._max_retries_reached)
+
+    def test_evaluate_max_retries_noop_within_budget(self):
+        """Family semantics (>): at retries == max the executor still runs; only
+        the (max+1)th failure crosses the threshold"""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor._current_retries = executor._max_retries
+
+        with patch.object(executor, 'stop') as mock_stop:
+            executor.evaluate_max_retries()
+            mock_stop.assert_not_called()
+
+        self.assertFalse(executor._max_retries_reached)
+        self.assertIsNone(executor.close_type)
+
+    def test_evaluate_max_retries_involuntary_hold_with_live_position(self):
+        """Exhaustion with the position still on-chain terminates as an involuntary
+        POSITION_HOLD carrying a zero-amount marker order — FAILED is reserved for
+        nothing-left-on-chain (family contract, force_stop_with_position_hold)"""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.position_address = "pos123"
+        executor._current_price = Decimal("100")
+        executor._current_retries = executor._max_retries + 1
+
+        with patch.object(executor, 'stop') as mock_stop:
+            executor.evaluate_max_retries()
+            mock_stop.assert_called_once()
+
+        self.assertTrue(executor._max_retries_reached)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "close_retries_exhausted")
+        self.assertEqual(executor.get_custom_info()["hold_reason"], "close_retries_exhausted")
+        # The marker order carries the position identity without touching accounting
+        self.assertEqual(len(executor._held_position_orders), 1)
+        marker = executor._held_position_orders[0]
+        self.assertTrue(marker["lp_unclosed_position"])
+        self.assertEqual(marker["position_address"], "pos123")
+        self.assertEqual(marker["executed_amount_base"], 0.0)
+        self.assertEqual(marker["executed_amount_quote"], 0.0)
+
+    def test_evaluate_max_retries_failed_without_position(self):
+        """Exhaustion with nothing on-chain terminates as FAILED, true to its
+        family meaning, with no marker order fabricated"""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.position_address = None
+        executor._current_retries = executor._max_retries + 1
+
+        with patch.object(executor, 'stop') as mock_stop:
+            executor.evaluate_max_retries()
+            mock_stop.assert_called_once()
+
+        self.assertTrue(executor._max_retries_reached)
+        self.assertEqual(executor.close_type, CloseType.FAILED)
+        self.assertIsNone(executor._hold_reason)
+        self.assertEqual(executor._held_position_orders, [])
 
     async def test_control_task_not_active_starts_opening(self):
         """Test control_task transitions from NOT_ACTIVE to OPENING"""
@@ -583,7 +648,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 120.0  # Above upper_limit_price (115)
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -615,7 +680,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 85.0  # Below lower_limit_price (90)
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -650,7 +715,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 96.0  # In range (95-105) but below lower_limit_price (98)
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -677,7 +742,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 103.0  # In range (95-105) but above upper_limit_price (102)
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -704,7 +769,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 120.0  # Out of range but no limit set
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -725,7 +790,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.upper_price = 106.0
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor._update_position_info()
 
@@ -740,7 +805,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Position closed: pos123"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position closed: pos123"))
         connector.create_market_order_id = MagicMock(return_value="order-123")
         connector._trigger_remove_liquidity_event = MagicMock()
 
@@ -754,11 +819,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = None
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock()
+        connector.get_position_info_fresh = AsyncMock()
 
         await executor._update_position_info()
 
-        connector.get_position_info.assert_not_called()
+        connector.get_position_info_fresh.assert_not_called()
 
     async def test_update_position_info_no_connector(self):
         """Test _update_position_info returns early when connector missing"""
@@ -770,15 +835,56 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should return without error
 
     async def test_update_position_info_returns_none(self):
-        """Test _update_position_info handles None response"""
+        """Test the external-close guard: definitive misses only complete after the
+        position was seen on-chain at least once AND 3 consecutive misses"""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=None)
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
+        connector._trigger_remove_liquidity_event = MagicMock(
+            return_value=create_mock_remove_event(
+                base_amount=Decimal("0"), quote_amount=Decimal("0")
+            )
+        )
+
+        # Never seen on-chain: misses accumulate but must NOT complete the executor
+        # (a not-found streak on a just-created position is RPC lag, not a close)
+        for _ in range(4):
+            await executor._update_position_info()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.IN_RANGE)
+        self.assertEqual(executor._position_not_found_count, 4)
+
+        # Seen on-chain: 3 consecutive misses now mean an external close
+        executor._position_not_found_count = 0
+        executor._position_seen_onchain = True
+        for _ in range(2):
+            await executor._update_position_info()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.IN_RANGE)
+        await executor._update_position_info()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+
+    async def test_update_position_info_success_resets_miss_counter(self):
+        """A successful read resets the miss counter and marks the position seen"""
+        executor = self.get_executor()
+        executor.lp_position_state.position_address = "pos123"
+        executor._position_not_found_count = 2
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 90.0
+        mock_position.upper_price = 110.0
+        mock_position.price = 100.0
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor._update_position_info()
-        # Should log warning but not crash
+        self.assertEqual(executor._position_not_found_count, 0)
+        self.assertTrue(executor._position_seen_onchain)
 
     async def test_update_position_info_not_found_error(self):
         """Test _update_position_info handles not found error"""
@@ -786,7 +892,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Position not found: pos123"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position not found: pos123"))
 
         await executor._update_position_info()
         # Should log error but not crash, state unchanged
@@ -797,7 +903,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.lp_position_state.position_address = "pos123"
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Network timeout"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Network timeout"))
 
         await executor._update_position_info()
         # Should log warning but not crash
@@ -817,7 +923,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 99.5
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor._update_position_info()
 
@@ -848,7 +954,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         with patch.object(executor, '_close_position', new_callable=AsyncMock) as mock_close:
             await executor.control_task()
@@ -872,7 +978,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.upper_price = 105.0
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -905,7 +1011,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.lower_price = 95.0
         mock_position.upper_price = 105.0
         mock_position.price = 100.0
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._trigger_add_liquidity_event = MagicMock()
 
         await executor._create_position()
@@ -930,6 +1036,104 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should transition to FAILED state since no position address returned
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
         self.assertIsNone(executor.lp_position_state.position_address)
+
+    async def test_create_position_confirmed_without_data_recovers_the_live_position(self):
+        """A confirmed-after-pending open has NO response data, so no position address.
+
+        The position is live on-chain: the executor must recover its address from chain
+        state, not report a creation failure and abandon it."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+
+        live_position = MagicMock()
+        live_position.address = "pos-recovered"
+        live_position.lower_price = 95.0
+        live_position.upper_price = 105.0
+        connector.get_user_positions = AsyncMock(return_value=[live_position])
+
+        mock_position = MagicMock()
+        mock_position.base_token_amount = 1.0
+        mock_position.quote_token_amount = 100.0
+        mock_position.base_fee_amount = 0.0
+        mock_position.quote_fee_amount = 0.0
+        mock_position.lower_price = 95.0
+        mock_position.upper_price = 105.0
+        mock_position.price = 100.0
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
+        connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
+
+        await executor._create_position()
+
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.position_address, "pos-recovered")
+        self.assertEqual(executor.lp_position_state.open_tx_hash, "sig-reconciled")
+        self.assertTrue(executor.lp_position_state.open_data_unavailable)
+
+    async def test_create_position_confirmed_without_data_picks_the_position_by_bounds(self):
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+
+        other = MagicMock(address="pos-other", lower_price=50.0, upper_price=60.0)
+        mine = MagicMock(address="pos-mine", lower_price=95.1, upper_price=104.9)
+        connector.get_user_positions = AsyncMock(return_value=[other, mine])
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
+        connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
+
+        await executor._create_position()
+
+        self.assertEqual(executor.lp_position_state.position_address, "pos-mine")
+
+    async def test_create_position_confirmed_without_data_escalates_when_ambiguous(self):
+        """Adopting the wrong position would later close someone else's, so an
+        unidentifiable position escalates instead of guessing."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.OPENING
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector._clmm_add_liquidity = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+        connector.get_user_positions = AsyncMock(return_value=[
+            MagicMock(address="pos-a", lower_price=95.0, upper_price=105.0),
+            MagicMock(address="pos-b", lower_price=95.0, upper_price=105.0),
+        ])
+
+        await executor._create_position()
+
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertIsNone(executor.lp_position_state.position_address)
+
+    async def test_close_position_confirmed_without_data_does_not_book_zero_fees(self):
+        """A close whose response data is unavailable must not overwrite the last
+        on-chain readings with zeros."""
+        executor = self.get_executor()
+        executor.lp_position_state.state = LPExecutorStates.CLOSING
+        executor.lp_position_state.position_address = "pos123"
+        executor.lp_position_state.base_amount = Decimal("1.5")
+        executor.lp_position_state.quote_amount = Decimal("150")
+        executor.lp_position_state.base_fee = Decimal("0.02")
+        executor.lp_position_state.quote_fee = Decimal("2.0")
+        executor.close_type = CloseType.POSITION_HOLD
+
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(return_value=MagicMock())
+        connector._clmm_close_position = AsyncMock(return_value="sig-reconciled")
+        connector._lp_orders_metadata = {"order-123": {"data_unavailable": True}}
+        connector._trigger_remove_liquidity_event = MagicMock(return_value=create_mock_remove_event())
+
+        await executor._close_position()
+
+        self.assertTrue(executor.lp_position_state.close_data_unavailable)
+        self.assertEqual(executor.lp_position_state.base_fee, Decimal("0.02"))
+        self.assertEqual(executor.lp_position_state.quote_fee, Decimal("2.0"))
+        self.assertEqual(executor.lp_position_state.base_amount, Decimal("1.5"))
 
     async def test_create_position_exception(self):
         """Test _create_position handles exception (connector handles retry internally)"""
@@ -977,7 +1181,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.lower_price = 94.5
         mock_position.upper_price = 105.5
         mock_position.price = 100.0
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event(
             base_amount=Decimal("0.95"), quote_amount=Decimal("105.0")
         ))
@@ -999,7 +1203,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector._lp_orders_metadata = {
             "order-123": {"position_address": "pos456", "position_rent": Decimal("0.002")}
         }
-        connector.get_position_info = AsyncMock(return_value=None)
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
         connector._trigger_add_liquidity_event = MagicMock(return_value=create_mock_add_event())
 
         await executor._create_position()
@@ -1017,43 +1221,61 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Should log error and return
 
     async def test_close_position_already_closed_none(self):
-        """Test _close_position handles already-closed position (None response)"""
+        """Pre-flight misses are gated: one miss never completes; a seen-on-chain
+        position completes after 3 consecutive fresh misses."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=None)
+        connector.get_position_info_fresh = AsyncMock(return_value=None)
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
+        # First two misses: no close submitted, not complete
         await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        connector._clmm_close_position.assert_not_awaited()
 
+        # Third consecutive miss: definitively gone
+        await executor._close_position()
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
         connector._trigger_remove_liquidity_event.assert_called_once()
 
     async def test_close_position_already_closed_exception(self):
-        """Test _close_position handles position closed exception"""
+        """A 'position closed' exception counts as a miss and is gated identically."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
+        executor._position_seen_onchain = True
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Position closed: pos123"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position closed: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
-        await executor._close_position()
+        for _ in range(3):
+            await executor._close_position()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        connector._clmm_close_position.assert_not_awaited()
 
     async def test_close_position_not_found_exception(self):
-        """Test _close_position handles position not found exception"""
+        """'Position not found' exceptions count as misses under the same 3-miss gate."""
         executor = self.get_executor()
         executor.lp_position_state.position_address = "pos123"
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Position not found: pos123"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position not found: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
+
+        for _ in range(2):
+            await executor._close_position()
+        self.assertNotEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
         await executor._close_position()
-
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_close_position_other_exception_proceeds(self):
@@ -1063,7 +1285,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
         # First call raises error, but it's not "closed" or "not found"
-        connector.get_position_info = AsyncMock(side_effect=Exception("Network timeout"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Network timeout"))
         connector._clmm_close_position = AsyncMock(return_value="sig789")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -1091,7 +1313,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(return_value="sig789")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -1124,14 +1346,36 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(side_effect=Exception("Gateway error"))
         connector._lp_orders_metadata = {}
 
         await executor._close_position()
 
-        # Connector handles retry internally; when it raises, executor transitions to FAILED
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # A single failed attempt stays in CLOSING for a bounded re-entry with fresh
+        # state; termination is decided by evaluate_max_retries after the control
+        # task. The failure also arms a backoff so instant failures can't burn the
+        # budget in seconds.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor._current_retries, 1)
+        self.assertGreater(executor._close_backoff_until, 0)
+
+        # While backed off, re-entry is a no-op (no additional retry consumed)
+        await executor._close_position()
+        self.assertEqual(executor._current_retries, 1)
+
+        # Exhaust the retry budget: the failing attempt leaves state CLOSING, and
+        # the family hook terminates as an involuntary hold (position still live)
+        executor._current_retries = executor._max_retries
+        executor._close_backoff_until = 0.0
+        await executor._close_position()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor._current_retries, executor._max_retries + 1)
+        with patch.object(executor, 'stop') as mock_stop:
+            executor.evaluate_max_retries()
+            mock_stop.assert_called_once()
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "close_retries_exhausted")
 
     async def test_close_position_exception_with_signature(self):
         """Test _close_position handles exception with signature in metadata"""
@@ -1142,14 +1386,16 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(side_effect=Exception("TRANSACTION_TIMEOUT"))
         connector._lp_orders_metadata = {"order-123": {"signature": "sig999"}}
 
         await executor._close_position()
 
-        # Connector handles retry internally; when it raises, executor transitions to FAILED
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # A failed attempt (even a timeout after connector retries) stays in CLOSING;
+        # the next re-entry's pre-flight reconciles a close that actually landed
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.CLOSING)
+        self.assertEqual(executor._current_retries, 1)
 
     def test_emit_already_closed_event(self):
         """Test _emit_already_closed_event emits synthetic event"""
@@ -1206,13 +1452,16 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             lower_price=Decimal("95"),
             upper_price=Decimal("105"),
             base_amount=Decimal("0"),
-            quote_amount=Decimal("0"),
+            quote_amount=Decimal("100"),
             side=TradeType.BUY,
         )
         executor = self.get_executor(config)
         executor._current_price = Decimal("100")
         executor.lp_position_state.base_amount = Decimal("1.0")
         executor.lp_position_state.quote_amount = Decimal("100.0")
+        # The config guarantees a funded side, so the amounts are zeroed after construction
+        # to reach the guard that protects the division by the initial value.
+        executor.config.quote_amount = Decimal("0")
 
         # Initial value is 0, should return 0 to avoid division by zero
         self.assertEqual(executor.get_net_pnl_pct(), Decimal("0"))
@@ -1321,12 +1570,12 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.price = 100.0
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector.get_pool_info_by_address = AsyncMock()
 
         await executor.control_task()
 
-        connector.get_position_info.assert_called_once()
+        connector.get_position_info_fresh.assert_called_once()
         connector.get_pool_info_by_address.assert_not_called()
 
     async def test_control_task_fetches_pool_info_when_no_position(self):
@@ -1453,7 +1702,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(return_value="sig789")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -1491,7 +1740,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(return_value="sig789")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -1528,7 +1777,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position = MagicMock()
         mock_position.price = 100.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
         connector._clmm_close_position = AsyncMock(return_value="sig789")
         connector._lp_orders_metadata = {
             "order-123": {
@@ -1549,23 +1798,30 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
 
     async def test_execute_closeout_swap_no_connector(self):
-        """Test _execute_closeout_swap handles missing connector"""
+        """Swap failures are retried with a fresh quote; exhaustion terminates as a
+        POSITION_HOLD carrying the withdrawn tokens — never FAILED with hidden
+        exposure."""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
         executor.connectors = {}  # No connectors
 
-        await executor._execute_closeout_swap()
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS):
+            await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
 
     async def test_execute_closeout_swap_no_swap_provider(self):
-        """Test _execute_closeout_swap handles missing swap_provider"""
+        """Missing swap_provider exhausts the swap attempts into a POSITION_HOLD."""
         executor = self.get_executor()
         executor.config.swap_provider = None
 
-        await executor._execute_closeout_swap()
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS):
+            await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
 
     async def test_execute_closeout_swap_active_order_filled(self):
         """Test _execute_closeout_swap handles FILLED swap order"""
@@ -1595,6 +1851,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-123")
 
         mock_order = MagicMock(spec=InFlightOrder)
@@ -1606,7 +1863,11 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # One failure = one burned attempt; the executor stays in SWAPPING and
+        # re-places with a fresh quote on the next tick.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertIsNone(executor.lp_position_state.active_swap_order)
+        self.assertEqual(executor._swap_failure_count, 1)
 
     async def test_execute_closeout_swap_active_order_canceled(self):
         """Test _execute_closeout_swap handles CANCELED swap order"""
@@ -1615,6 +1876,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.active_swap_order = TrackedOrder(order_id="swap-123")
 
         mock_order = MagicMock(spec=InFlightOrder)
@@ -1626,7 +1888,9 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await executor._execute_closeout_swap()
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # Cancellation also burns one attempt and re-places next tick.
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
+        self.assertEqual(executor._swap_failure_count, 1)
 
     async def test_execute_closeout_swap_active_order_not_found_multiple_times(self):
         """Test _execute_closeout_swap handles order not found after multiple checks"""
@@ -1727,6 +1991,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         """Test _execute_closeout_swap handles exception when placing swap"""
         executor = self.get_executor()
         executor.config.swap_provider = "jupiter/router"
+        executor.lp_position_state.state = LPExecutorStates.SWAPPING
         executor.lp_position_state.initial_base_amount = Decimal("1.0")
         executor.lp_position_state.base_amount = Decimal("1.5")
         executor.lp_position_state.base_fee = Decimal("0.01")
@@ -1735,8 +2000,14 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.place_order = MagicMock(side_effect=Exception("Swap failed"))
 
         await executor._execute_closeout_swap()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.SWAPPING)
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        # Exhaustion converts to a POSITION_HOLD of the withdrawn tokens
+        for _ in range(executor.MAX_CLOSEOUT_SWAP_ATTEMPTS - 1):
+            await executor._execute_closeout_swap()
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor._hold_reason, "closeout_swap_failed")
 
     def test_force_stop_mid_swap_holds_withdrawn_balance(self):
         """A forced stop mid-SWAPPING converts the withdrawn tokens into a position hold.
@@ -1915,13 +2186,16 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     # Tests for early_stop from OPENING state
 
     def test_early_stop_from_opening_state(self):
-        """Test early_stop from OPENING state goes to FAILED with EARLY_STOP"""
+        """early_stop during OPENING no longer kills the state mid-create: the
+        in-flight create is allowed to resolve (its tx may land), and the success
+        tail routes to CLOSING via _close_after_open."""
         executor = self.get_executor()
         executor.lp_position_state.state = LPExecutorStates.OPENING
 
-        executor.early_stop()
+        executor.early_stop(keep_position=False)
 
-        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.FAILED)
+        self.assertEqual(executor.lp_position_state.state, LPExecutorStates.OPENING)
+        self.assertTrue(executor._close_after_open)
         self.assertEqual(executor.close_type, CloseType.EARLY_STOP)
 
     # Tests for _calculate_net_base_difference
@@ -2005,7 +2279,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         position_info.base_fee_amount = 0.0
         position_info.quote_fee_amount = 0.0
         position_info.price = 100.0
-        connector.get_position_info = AsyncMock(return_value=position_info)
+        connector.get_position_info_fresh = AsyncMock(return_value=position_info)
         connector._clmm_add_liquidity = AsyncMock(return_value="sig-add")
         connector._lp_orders_metadata = {"order-123": {"position_address": "pos123"}}
         connector._trigger_add_liquidity_event = MagicMock(
@@ -2130,7 +2404,7 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         mock_position.upper_price = 105.0
         mock_position.price = 120.0
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(return_value=mock_position)
+        connector.get_position_info_fresh = AsyncMock(return_value=mock_position)
 
         await executor.control_task()
 
@@ -2169,10 +2443,13 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._add_quote_amount = Decimal("500.0")
 
         connector = self.strategy.connectors["solana-mainnet-beta"]
-        connector.get_position_info = AsyncMock(side_effect=Exception("Position closed: pos123"))
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("Position closed: pos123"))
         connector._trigger_remove_liquidity_event = MagicMock()
+        connector._clmm_close_position = AsyncMock()
 
-        await executor._close_position()
+        # 3-consecutive-miss gate before the position counts as gone
+        for _ in range(3):
+            await executor._close_position()
 
         self.assertEqual(executor.lp_position_state.state, LPExecutorStates.COMPLETE)
         orders = [o for o in executor._held_position_orders if o["executed_amount_base"]]

@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -59,7 +59,8 @@ class LPRebalancerConfig(ControllerConfigBase):
     position_offset_pct: Decimal = Field(
         default=Decimal("0.01"),
         json_schema_extra={"is_updatable": True},
-        description="Offset from current price. Positive = out-of-range (single-sided). Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
+        description="Offset from current price. Positive = out-of-range (single-sided). "
+                    "Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
     )
 
     # Rebalance threshold - used to set LP executor's limit prices
@@ -174,9 +175,7 @@ class LPRebalancer(ControllerBase):
         self.config: LPRebalancerConfig = config
 
         # Parse lp_provider into dex_name and trading_type for gateway calls
-        self.lp_dex_name, self.lp_trading_type = parse_provider(
-            config.lp_provider, default_trading_type="clmm"
-        )
+        self.lp_dex_name, self.lp_trading_type = parse_provider(config.lp_provider)
 
         # Parse token symbols from trading pair
         parts = config.trading_pair.split("-")
@@ -185,6 +184,17 @@ class LPRebalancer(ControllerBase):
 
         # Track the executor we created
         self._current_executor_id: Optional[str] = None
+        # Set when a FAILED LP executor still reports a live on-chain position; the
+        # controller halts new position creation until it is recovered manually
+        self._orphaned_position_address: Optional[str] = None
+
+        # Slippage tolerance carried into the next attempt after a slippage failure.
+        # The executor ramps 0.05 -> 0.25 -> 1.25 -> 5 within its own lifetime, but a
+        # failed open *ends* that executor, and the replacement this controller creates
+        # would start at the configured tolerance again. The ladder therefore never got
+        # past its first rung and max_slippage_pct was unreachable: on a thin pool that
+        # is 64 identical retries at 0.25%, each paying gas. None means "start fresh".
+        self._retry_slippage_pct: Optional[Decimal] = None
 
         # Track amounts from last closed position (for autoswap sizing)
         self._last_closed_base_amount: Optional[Decimal] = None
@@ -417,6 +427,16 @@ class LPRebalancer(ControllerBase):
 
         actions = []
 
+        # An orphaned on-chain position (FAILED close) must be recovered before any new
+        # position is opened - creating a fresh executor here would stack live exposure
+        # on top of the stranded one.
+        if self._orphaned_position_address:
+            self.logger().debug(
+                f"Halted: position {self._orphaned_position_address} from a FAILED executor is "
+                "still open on-chain and requires manual recovery"
+            )
+            return actions
+
         # Handle order executor tracking and completion (for autoswap)
         if self._pending_swap_side is not None:
             if not self._swap_executor_id:
@@ -510,10 +530,15 @@ class LPRebalancer(ControllerBase):
             # Previous executor terminated - capture final amounts and update position_hold
             terminated_executor = self.get_tracked_executor()
             if terminated_executor:
-                # Skip position_hold update if executor failed (no tokens were actually deposited/returned)
-                if terminated_executor.close_type == CloseType.FAILED:
+                # Skip position_hold update if the executor failed (nothing deposited or
+                # returned) or ended as an involuntary hold (close exhausted): in the
+                # latter case base/quote amounts are pool balances of a still-open
+                # position, and booking them as returned tokens would corrupt the hold.
+                if (terminated_executor.close_type == CloseType.FAILED
+                        or terminated_executor.custom_info.get("hold_reason")):
                     self.logger().warning(
-                        f"Executor {terminated_executor.id} FAILED - skipping position_hold update"
+                        f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
+                        "without returning tokens - skipping position_hold update"
                     )
                 else:
                     self._last_closed_base_amount = Decimal(str(terminated_executor.custom_info.get("base_amount", 0)))
@@ -540,27 +565,50 @@ class LPRebalancer(ControllerBase):
                         f"Position hold total: base={self._position_hold_base}, quote={self._position_hold_quote}"
                     )
 
-            # Check if executor FAILED - retry with same side from executor's config
+            # Check if the executor went terminal abnormally - FAILED (nothing on-chain)
+            # or an involuntary POSITION_HOLD (close retries exhausted, hold_reason set)
             executor_failed = terminated_executor and terminated_executor.close_type == CloseType.FAILED
+            involuntary_hold = bool(terminated_executor and terminated_executor.custom_info.get("hold_reason"))
             failed_executor_side = None
-            if executor_failed:
+            if executor_failed or involuntary_hold:
                 failed_executor_side = terminated_executor.custom_info.get("side")
+                # Resume the ramp where the dead executor left off, so the retry is
+                # actually doing something different from the attempt that just failed.
+                self._retry_slippage_pct = self._carry_slippage(terminated_executor)
+                # A terminal executor that still reports a position address went down on
+                # the CLOSE side: its deposit is still on-chain (involuntary hold, or a
+                # legacy FAILED-with-position from a force-stop). Re-opening would stack
+                # a second position on top of the stranded one.
+                orphaned_position = terminated_executor.custom_info.get("position_address")
+                if orphaned_position:
+                    self._orphaned_position_address = orphaned_position
+                    self._current_executor_id = None
+                    self.logger().error(
+                        f"Executor {terminated_executor.id} ended {terminated_executor.close_type} "
+                        f"with position {orphaned_position} still open on-chain. Halting new "
+                        "position creation until the position is closed or recovered manually."
+                    )
+                    return actions
 
             # Capture closed position bounds for side determination (only for successful closes)
             closed_lower_price = None
             closed_upper_price = None
-            if terminated_executor and not executor_failed:
+            if terminated_executor and not executor_failed and not involuntary_hold:
                 closed_lower_price = Decimal(str(terminated_executor.custom_info.get("lower_price", 0)))
                 closed_upper_price = Decimal(str(terminated_executor.custom_info.get("upper_price", 0)))
+                # A clean close ends the ramp: the next open is a new phase and asks
+                # for near-spot execution again, exactly as a fresh executor would.
+                self._retry_slippage_pct = None
 
             # Clear tracking
             self._current_executor_id = None
 
             # Determine side for new position
-            if executor_failed and failed_executor_side is not None:
-                # Retry with same side on failure
+            if (executor_failed or involuntary_hold) and failed_executor_side is not None:
+                # Retry with same side after any abnormal terminal (FAILED, or an
+                # involuntary hold that left no on-chain position to recover)
                 side = failed_executor_side
-                self.logger().info(f"Retrying with same side={side} after executor failure")
+                self.logger().info(f"Retrying with same side={side} after abnormal executor end")
             elif not self._initial_position_created:
                 # Initial position: use configured side
                 side = self.config.side
@@ -577,7 +625,10 @@ class LPRebalancer(ControllerBase):
                 else:
                     # Price is within old bounds (shouldn't happen with limit-price auto-close)
                     side = self._determine_side_from_price(self._pool_price)
-                    self.logger().info(f"Price {self._pool_price} in range [{closed_lower_price}, {closed_upper_price}] → side={side} from limits")
+                    self.logger().info(
+                        f"Price {self._pool_price} in range [{closed_lower_price}, {closed_upper_price}] "
+                        f"→ side={side} from limits"
+                    )
             else:
                 # Fallback to price limits
                 if not self._pool_price:
@@ -683,6 +734,8 @@ class LPRebalancer(ControllerBase):
             f"base={base_amt:.6f}, quote={quote_amt:.6f}"
         )
 
+        slippage_pct = self._next_slippage_pct()
+
         return LPExecutorConfig(
             timestamp=self.market_data_provider.time(),
             connector_name=self.config.connector_name,
@@ -694,6 +747,7 @@ class LPRebalancer(ControllerBase):
             base_amount=base_amt,
             quote_amount=quote_amt,
             side=side,
+            slippage_pct=slippage_pct,
             extra_params=extra_params if extra_params else None,
             # Key difference: set limit prices for auto-close
             upper_limit_price=upper_limit_price,
@@ -701,6 +755,35 @@ class LPRebalancer(ControllerBase):
             # Use keep_position=True - controller handles position tracking
             keep_position=True,
         )
+
+    @staticmethod
+    def _carry_slippage(terminated_executor) -> Optional[Decimal]:
+        """The tolerance a dead executor had reached, if it is worth carrying.
+
+        Only a value the executor actually widened to is carried; a failure that never
+        touched slippage leaves it at the configured start, and re-seeding the
+        replacement with that is the same as not carrying anything.
+        """
+        raw = terminated_executor.custom_info.get("slippage_pct")
+        if raw is None:
+            return None
+        try:
+            return Decimal(str(raw))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+
+    def _next_slippage_pct(self) -> Decimal:
+        """Tolerance for the executor about to be created.
+
+        Clamped to LPExecutorConfig's ceiling: the config rejects a slippage_pct above
+        max_slippage_pct, and a carried value at the ceiling is legal but must not
+        exceed it.
+        """
+        default = LPExecutorConfig.model_fields["slippage_pct"].default
+        ceiling = LPExecutorConfig.model_fields["max_slippage_pct"].default
+        if self._retry_slippage_pct is None:
+            return default
+        return min(self._retry_slippage_pct, ceiling)
 
     def _calculate_amounts(self, side: TradeType, current_price: Decimal) -> tuple:
         """
@@ -785,24 +868,25 @@ class LPRebalancer(ControllerBase):
         """
         Check if price is within configured limits for the position type.
         """
+        # `is not None`: a limit set to exactly 0 is a real bound, not "unset"
         if side == TradeType.SELL:
-            if self.config.sell_price_min and price < self.config.sell_price_min:
+            if self.config.sell_price_min is not None and price < self.config.sell_price_min:
                 return False
-            if self.config.sell_price_max and price > self.config.sell_price_max:
+            if self.config.sell_price_max is not None and price > self.config.sell_price_max:
                 return False
         elif side == TradeType.BUY:
-            if self.config.buy_price_min and price < self.config.buy_price_min:
+            if self.config.buy_price_min is not None and price < self.config.buy_price_min:
                 return False
-            if self.config.buy_price_max and price > self.config.buy_price_max:
+            if self.config.buy_price_max is not None and price > self.config.buy_price_max:
                 return False
         else:  # RANGE
-            if self.config.buy_price_min and price < self.config.buy_price_min:
+            if self.config.buy_price_min is not None and price < self.config.buy_price_min:
                 return False
-            if self.config.buy_price_max and price > self.config.buy_price_max:
+            if self.config.buy_price_max is not None and price > self.config.buy_price_max:
                 return False
-            if self.config.sell_price_min and price < self.config.sell_price_min:
+            if self.config.sell_price_min is not None and price < self.config.sell_price_min:
                 return False
-            if self.config.sell_price_max and price > self.config.sell_price_max:
+            if self.config.sell_price_max is not None and price > self.config.sell_price_max:
                 return False
         return True
 
@@ -942,7 +1026,8 @@ class LPRebalancer(ControllerBase):
         width = self.config.position_width_pct
         offset = self.config.position_offset_pct
         threshold = self.config.rebalance_threshold_pct
-        line = f"| Config: side={side_str}, amount={amt} {self._quote_token}, width={width}%, offset={offset}%, threshold={threshold}%"
+        line = (f"| Config: side={side_str}, amount={amt} {self._quote_token}, "
+                f"width={width}%, offset={offset}%, threshold={threshold}%")
         status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         status.append("|" + " " * box_width + "|")
@@ -986,7 +1071,8 @@ class LPRebalancer(ControllerBase):
                 lower_limit = Decimal(str(lower_price)) * (Decimal("1") - threshold_pct)
                 upper_limit = Decimal(str(upper_price)) * (Decimal("1") + threshold_pct)
 
-                line = f"| Price: {float(self._pool_price):.{price_decimals}f}  |  Auto-close if: <{float(lower_limit):.{price_decimals}f} or >{float(upper_limit):.{price_decimals}f}"
+                line = (f"| Price: {float(self._pool_price):.{price_decimals}f}  |  Auto-close if: "
+                        f"<{float(lower_limit):.{price_decimals}f} or >{float(upper_limit):.{price_decimals}f}")
                 status.append(line + " " * (box_width - len(line) + 1) + "|")
 
                 state = custom.get("state", "UNKNOWN")
@@ -1071,7 +1157,8 @@ class LPRebalancer(ControllerBase):
             line = f"| Swaps Executed: {len(closed_swaps)}"
             status.append(line + " " * (box_width - len(line) + 1) + "|")
 
-        line = f"| Fees Collected: {float(total_fees_base):.6f} {self._base_token} + {float(total_fees_quote):.6f} {self._quote_token} = {float(total_fees_value):.6f} {self._quote_token}"
+        line = (f"| Fees Collected: {float(total_fees_base):.6f} {self._base_token} + "
+                f"{float(total_fees_quote):.6f} {self._quote_token} = {float(total_fees_value):.6f} {self._quote_token}")
         status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         status.append("+" + "-" * box_width + "+")

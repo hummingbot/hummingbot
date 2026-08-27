@@ -2,10 +2,19 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.data_types import ExecutorConfigBase
+from hummingbot.strategy_v2.executors.validation import (
+    require_lower_than,
+    require_non_empty,
+    require_non_negative,
+    require_not_above,
+    require_positive,
+    require_provider,
+    require_trading_pair,
+)
 from hummingbot.strategy_v2.models.executors import TrackedOrder
 
 
@@ -83,6 +92,28 @@ class LPExecutorConfig(ExecutorConfigBase):
     upper_limit_price: Optional[Decimal] = None
     lower_limit_price: Optional[Decimal] = None
 
+    # Slippage, and how far the executor may widen it across retries.
+    #
+    # Before this existed there was no slippage setting at any executor level: the
+    # request omitted slippagePct entirely, so every attempt used the connector's
+    # configured value (1-2% depending on the venue) and every retry repeated the same
+    # request. A close that failed on slippage failed ten times identically, paying gas
+    # on any attempt that reached the chain.
+    #
+    # The ramp starts deliberately tight — 0.05% asks for near-spot execution — and
+    # widens by `slippage_multiplier` on each failure Gateway attributes to slippage,
+    # never past `max_slippage_pct`: 0.05, 0.25, 1.25, 5. A failure of any other kind
+    # does not widen it, or a wrong tick or an insufficient balance would loosen an
+    # order that was never too tight.
+    #
+    # It applies to entries as well as exits. An entry filled 5% worse than quoted is a
+    # worse trade than the strategy asked for, so the tight start matters there too;
+    # the difference is what happens at the ceiling, where an exit keeps trying (the
+    # position must come out) and an entry stops (nothing is stranded).
+    slippage_pct: Decimal = Decimal("0.05")
+    slippage_multiplier: Decimal = Decimal("5")
+    max_slippage_pct: Decimal = Decimal("5")
+
     # Connector-specific params
     extra_params: Optional[Dict] = None  # e.g., {"strategyType": 0} for Meteora
 
@@ -94,6 +125,38 @@ class LPExecutorConfig(ExecutorConfigBase):
     keep_position: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_validator(mode="after")
+    def validate_lp_position(self):
+        require_non_empty("connector_name", self.connector_name)
+        # Both providers have to carry their trading type: Gateway rejects a bare name
+        # with a 400, and for swap_provider that used to surface only on the close-out
+        # swap, i.e. while the position's funds are exposed.
+        require_provider("lp_provider", self.lp_provider)
+        require_provider("swap_provider", self.swap_provider, required=False)
+        require_non_empty("pool_address", self.pool_address)
+        require_trading_pair("trading_pair", self.trading_pair)
+        require_positive("lower_price", self.lower_price)
+        require_lower_than("lower_price", self.lower_price, "upper_price", self.upper_price)
+        # The limit prices close the position once the price leaves the range, so a limit inside
+        # the range would close the position while it is still earning fees.
+        require_positive("upper_limit_price", self.upper_limit_price)
+        require_positive("lower_limit_price", self.lower_limit_price)
+        require_not_above("upper_price", self.upper_price, "upper_limit_price", self.upper_limit_price)
+        require_not_above("lower_limit_price", self.lower_limit_price, "lower_price", self.lower_price)
+        require_non_negative("base_amount", self.base_amount)
+        require_non_negative("quote_amount", self.quote_amount)
+        if self.base_amount == 0 and self.quote_amount == 0:
+            raise ValueError("base_amount and quote_amount cannot both be 0: "
+                             "at least one side of the position has to be funded")
+        require_positive("slippage_pct", self.slippage_pct)
+        require_positive("max_slippage_pct", self.max_slippage_pct)
+        require_not_above("slippage_pct", self.slippage_pct, "max_slippage_pct", self.max_slippage_pct)
+        # A multiplier of 1 or less never widens, which makes max_slippage_pct a promise
+        # the ramp cannot keep: the retries would all repeat the starting value.
+        if self.slippage_multiplier <= 1:
+            raise ValueError(f"slippage_multiplier must be greater than 1, got {self.slippage_multiplier}")
+        return self
 
 
 class LPExecutorState(BaseModel):
@@ -122,6 +185,14 @@ class LPExecutorState(BaseModel):
     # Transaction hashes for tracking
     open_tx_hash: Optional[str] = None  # Transaction hash for ADD
     close_tx_hash: Optional[str] = None  # Transaction hash for REMOVE
+
+    # A transaction whose confirmation had to be reconciled by polling its signature comes
+    # back without Gateway's response `data`, so the figures only that block carries are
+    # unavailable. These flags mark the resulting hole in the accounting: position address
+    # and deposited amounts / rent on the open, collected fees, removed amounts and rent
+    # refund on the close.
+    open_data_unavailable: bool = False
+    close_data_unavailable: bool = False
 
     # Order tracking
     active_open_order: Optional[TrackedOrder] = None

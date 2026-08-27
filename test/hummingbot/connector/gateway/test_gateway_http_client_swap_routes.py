@@ -8,9 +8,10 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 
 
 class GatewayHttpClientSwapRouteTest(IsolatedAsyncioWrapperTestCase):
-    """The swap methods must hit Gateway's unified /trading/swap/* routes, keyed by the
-    full 'chain-network' identifier and a 'connector/type' swap provider (not the legacy
-    /connectors/{dex}/{type}/*-swap path)."""
+    """The swap methods must hit /trading/{router,clmm,amm}/*-swap.
+
+    The trading type selects the route and `connector` is the bare name; it is not a
+    'connector/type' string, and not the older /connectors/{dex}/{type}/*-swap path."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -32,9 +33,9 @@ class GatewayHttpClientSwapRouteTest(IsolatedAsyncioWrapperTestCase):
         method, path = mock_req.call_args.args[0], mock_req.call_args.args[1]
         payload = mock_req.call_args.args[2]
         self.assertEqual("get", method)
-        self.assertEqual("trading/swap/quote", path)
+        self.assertEqual("trading/router/quote-swap", path)
         self.assertEqual("solana-mainnet-beta", payload["chainNetwork"])
-        self.assertEqual("jupiter/router", payload["connector"])
+        self.assertEqual("jupiter", payload["connector"])
         self.assertEqual("SOL", payload["baseToken"])
         self.assertEqual("USDC", payload["quoteToken"])
         self.assertEqual("SELL", payload["side"])
@@ -50,9 +51,9 @@ class GatewayHttpClientSwapRouteTest(IsolatedAsyncioWrapperTestCase):
         method, path = mock_req.call_args.args[0], mock_req.call_args.args[1]
         payload = mock_req.call_args.args[2]
         self.assertEqual("post", method)
-        self.assertEqual("trading/swap/execute", path)
+        self.assertEqual("trading/router/execute-swap", path)
         self.assertEqual("solana-mainnet-beta", payload["chainNetwork"])
-        self.assertEqual("jupiter/router", payload["connector"])
+        self.assertEqual("jupiter", payload["connector"])
         self.assertEqual("WALLET", payload["walletAddress"])
         self.assertNotIn("network", payload)
 

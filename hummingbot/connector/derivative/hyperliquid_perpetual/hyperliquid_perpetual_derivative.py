@@ -4,7 +4,9 @@ import time
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple
 
+import eth_account
 from bidict import bidict
+from eth_utils import to_checksum_address
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.hyperliquid_perpetual import (
@@ -69,9 +71,13 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._dex_markets: List[Dict] = []  # Store HIP-3 DEX market info separately
         self._is_hip3_market: Dict[str, bool] = {}  # Track which coins are HIP-3
         self._user_abstraction_mode: Optional[str] = None
-        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        # Builder code (HGP-87). Fee starts at 0 and is resolved once per session
+        # (_ensure_builder_fee_resolved), at start_network or on the first order.
         self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
+        self._builder_fee_resolved: bool = False
+        self._builder_fee_lock: asyncio.Lock = asyncio.Lock()
+        self._key_authority_verified: bool = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -81,11 +87,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> Optional[HyperliquidPerpetualAuth]:
-        if self._trading_required:
+        if self._trading_required or self.hyperliquid_perpetual_secret_key:
             return HyperliquidPerpetualAuth(
                 self.hyperliquid_perpetual_address,
                 self.hyperliquid_perpetual_secret_key,
-                self._use_vault
+                self._use_vault,
+                self._connection_mode,
             )
         return None
 
@@ -143,7 +150,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         if self._trading_required:
-            await self._initialize_builder_fee()
+            await self._ensure_builder_fee_resolved()
+
+    async def stop_network(self):
+        await super().stop_network()
+        # Re-resolve the builder fee on the next session so mid-session approval changes are picked up.
+        self._builder_fee_resolved = False
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -531,14 +543,40 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             data=api_params,
             is_auth_required=True)
 
-        if cancel_result.get("status") == "err" or "error" in cancel_result["response"]["data"]["statuses"][0]:
-            self.logger().debug(f"The order {order_id} does not exist on Hyperliquid Perpetuals. "
-                                f"No cancelation needed.")
-            await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
-        if "success" in cancel_result["response"]["data"]["statuses"][0]:
-            return True
-        return False
+        return self._process_cancel_result(order_id, cancel_result)
+
+    def _process_cancel_result(self, order_id: str, cancel_result: Dict[str, Any]) -> bool:
+        """
+        Interprets the ``/exchange`` cancel response.
+
+        Two different shapes come back from Hyperliquid:
+        - the action was accepted: ``{"status": "ok", "response": {"data": {"statuses": [...]}}}``,
+          where each status is either the string ``"success"`` or ``{"error": "<message>"}``;
+        - the action was rejected before reaching the order book (bad nonce, rate limit, unknown
+          wallet, ...): ``{"status": "err", "response": "<message>"}``, where the response is a
+          plain string.
+
+        The rejected shape must not be indexed as a dict. Errors are raised as ``IOError`` so the
+        base class classifies them via ``_is_order_not_found_during_cancelation_error``, instead of
+        this method assuming every failure means the order is gone.
+        """
+        response = cancel_result.get("response")
+        if cancel_result.get("status") == "err" or not isinstance(response, dict):
+            self.logger().warning(f"Hyperliquid Perpetuals rejected the cancelation of order {order_id}. "
+                                  f"Raw response: {cancel_result}")
+            raise IOError(f"Error cancelling order {order_id}: {response}")
+
+        statuses = response.get("data", {}).get("statuses") or []
+        status = statuses[0] if statuses else None
+        if isinstance(status, dict) and "error" in status:
+            self.logger().debug(f"Hyperliquid Perpetuals did not cancel order {order_id}. "
+                                f"Raw response: {cancel_result}")
+            raise IOError(f"Error cancelling order {order_id}: {status['error']}")
+        if status != "success":
+            self.logger().warning(f"Unexpected cancelation status for order {order_id}. "
+                                  f"Raw response: {cancel_result}")
+            return False
+        return True
 
     # === Orders placing ===
 
@@ -650,7 +688,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "cloid": order_id,
             }
         }
-        # Builder code (HGP-87): part of the signed action dict.
+        # Builder code (HGP-87): part of the signed action dict. Resolve the fee here too —
+        # embedders like hummingbot-api start connector tasks without calling start_network().
+        await self._ensure_builder_fee_resolved()
         builder_field = self._build_builder_field()
         if builder_field is not None:
             api_params["builder"] = builder_field
@@ -690,12 +730,24 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
-    async def _initialize_builder_fee(self) -> None:
-        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
-        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
-        fails)."""
-        if not self._should_inject_builder():
+    async def _ensure_builder_fee_resolved(self) -> None:
+        """Resolve the builder fee once per network session, whichever path gets there first:
+        start_network on normal client startup, or the first _place_order for embedders that
+        start connector tasks without calling start_network. A failed lookup does not latch the
+        flag, so the next order retries; stop_network clears it, so a reconnect re-resolves."""
+        if self._builder_fee_resolved:
             return
+        async with self._builder_fee_lock:
+            if self._builder_fee_resolved:
+                return
+            self._builder_fee_resolved = await self._initialize_builder_fee()
+
+    async def _initialize_builder_fee(self) -> bool:
+        """Resolve the per-order builder fee as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not.
+        Returns False when the lookup failed (fee left at 0 until the next attempt)."""
+        if not self._should_inject_builder():
+            return True
         try:
             approved_max_tenths_bps = int(await self._api_post(
                 path_url=CONSTANTS.EXCHANGE_INFO_URL,
@@ -707,11 +759,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             ))
         except Exception:
             self.logger().exception(
-                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps until it can be resolved."
             )
             self._builder_fee_tenths_bps = 0
-            return
+            return False
         self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
+        return True
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -1140,11 +1193,65 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
+    async def _verify_key_authority(self):
+        """Surface a wrong-but-well-formed private key at connect time (#7866). Runs once.
+
+        The exchange cannot catch this itself: its balance query is an unauthenticated ``/info`` request
+        keyed by address, so it succeeds for any address. So we check explicitly whether the key may trade
+        for the account:
+          - arb_wallet: the key derives to the account address (offline, no network call).
+          - api_wallet: the key's address is an APPROVED AGENT of the account (one ``extraAgents`` lookup).
+        Vault mode is skipped here (the vault's agent set is out of scope for this check) and validated at
+        first authenticated request, as documented. Network/response errors do not block connect -- a truly
+        wrong key still fails at the first signed request; this only makes the common case explicit.
+        """
+        if self._key_authority_verified or not self.hyperliquid_perpetual_secret_key or self._use_vault:
+            self._key_authority_verified = True
+            return
+        try:
+            derived = eth_account.Account.from_key(self.hyperliquid_perpetual_secret_key).address
+        except Exception as exc:
+            raise ValueError(f"Invalid Hyperliquid private key format: {exc}") from exc
+        account = self.hyperliquid_perpetual_address
+        # owner key (arb_wallet): authorised offline, no network call
+        if HyperliquidPerpetualAuth.is_key_authorized(derived, account, []):
+            self._key_authority_verified = True
+            return
+        # otherwise the key must be an approved agent of the account
+        try:
+            agents = await self._api_post(
+                path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                data={"type": CONSTANTS.EXTRA_AGENTS_TYPE, "user": account},
+            )
+        except Exception:
+            self.logger().warning(
+                "Could not verify Hyperliquid API/agent wallet authorization at connect "
+                "(extraAgents query failed); a wrong agent key will surface at the first signed request.",
+                exc_info=True,
+            )
+            return
+        if not isinstance(agents, list):
+            self.logger().warning(
+                "Could not verify Hyperliquid API/agent wallet authorization at connect "
+                "(unexpected extraAgents response); a wrong agent key will surface at the first signed request."
+            )
+            return
+        if not HyperliquidPerpetualAuth.is_key_authorized(derived, account, agents):
+            raise ValueError(
+                f"The supplied private key is not a valid API wallet key for account {account}: "
+                f"its address {to_checksum_address(derived)} is not in the account's approved API (agent) "
+                "wallet list and is not the account owner. Approve this API wallet at "
+                "https://app.hyperliquid.xyz/API, verify you supplied the correct API wallet key, "
+                "or use the account owner's key with the arb_wallet connection mode."
+            )
+        self._key_authority_verified = True
+
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
         Under unified account or portfolio margin, use spot balances endpoint instead for trading account balance across spot and perps.
         """
+        await self._verify_key_authority()
 
         quote = CONSTANTS.CURRENCY
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
