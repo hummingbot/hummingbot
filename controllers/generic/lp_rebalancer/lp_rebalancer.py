@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from hummingbot.core.data_type.common import MarketDict, TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.logger import HummingbotLogger
@@ -81,6 +82,24 @@ class LPRebalancerConfig(ControllerConfigBase):
     # Connector-specific params (optional)
     strategy_type: Optional[int] = Field(default=None, json_schema_extra={"is_updatable": True})
 
+    # Startup reconciliation: what to do about positions that already exist
+    # on-chain when the controller starts.
+    startup_position_policy: str = Field(
+        default="recover",
+        description="How to handle a pre-existing on-chain position in this pool at startup. "
+                    "The controller keeps no state across restarts, so without this it opens a "
+                    "second position and the first is left unmanaged. "
+                    "'recover': close the stray position, returning its liquidity and uncollected "
+                    "fees to the wallet, then start clean. "
+                    "'halt': do not trade until the position is dealt with manually. "
+                    "'ignore': leave it and open anyway (previous behaviour; orphans capital)."
+    )
+    startup_recover_max_attempts: int = Field(
+        default=3, ge=1,
+        description="Consecutive failed recovery attempts before falling back to halting. "
+                    "A position is never opened while a stray one remains unaccounted for."
+    )
+
     # Auto-swap feature: swap tokens if balance insufficient for position
     autoswap: bool = Field(
         default=False,
@@ -92,6 +111,15 @@ class LPRebalancerConfig(ControllerConfigBase):
         json_schema_extra={"is_updatable": True},
         description="Extra % to swap beyond deficit to account for slippage (e.g., 0.01 = 0.01%)"
     )
+
+    @field_validator("startup_position_policy", mode="before")
+    @classmethod
+    def validate_startup_position_policy(cls, v):
+        """Reject unknown policies rather than silently falling back."""
+        allowed = ("recover", "halt", "ignore")
+        if v not in allowed:
+            raise ValueError(f"startup_position_policy must be one of {allowed}, got {v!r}")
+        return v
 
     @field_validator("sell_price_min", "sell_price_max", "buy_price_min", "buy_price_max", mode="before")
     @classmethod
@@ -213,6 +241,13 @@ class LPRebalancer(ControllerBase):
 
         # Track if initial position has been created (after that, always use side 1 or 2)
         self._initial_position_created: bool = False
+
+        # Startup reconciliation: until the controller has established what is
+        # already on-chain, it must not open anything.
+        self._startup_reconciled: bool = False
+        self._startup_halted: Optional[str] = None
+        self._startup_recover_attempts: int = 0
+        self._startup_wait_logged: bool = False
 
         # Initialize rate sources
         self.market_data_provider.initialize_rate_sources([
@@ -403,6 +438,11 @@ class LPRebalancer(ControllerBase):
         - Active executor: just wait for it to auto-close via limit prices
         - No manual OUT_OF_RANGE monitoring or timer logic needed
         """
+        # Nothing may be opened until pre-existing on-chain positions have been
+        # accounted for; opening now is what orphans their capital.
+        if self._startup_blocks_trading():
+            return []
+
         # Capture initial balances on first run
         if self._initial_base_balance is None:
             try:
@@ -903,6 +943,130 @@ class LPRebalancer(ControllerBase):
 
         return TradeType.BUY  # Default to BUY
 
+    async def _fetch_pool_positions(self) -> Optional[List]:
+        """On-chain positions this wallet holds in the configured pool.
+
+        Returns None when the question could not be answered. None is NOT the
+        same as "no positions": callers must keep waiting rather than assume a
+        clean slate.
+        """
+        try:
+            connector = self.market_data_provider.get_connector(self.config.connector_name)
+            positions = await connector.get_user_positions(
+                dex_name=self.lp_dex_name,
+                trading_type=self.lp_trading_type,
+                pool_address=self.config.pool_address,
+            )
+            return list(positions or [])
+        except Exception as e:
+            self.logger().warning(f"Startup reconciliation: could not read on-chain positions ({e})")
+            return None
+
+    async def _reconcile_startup_positions(self):
+        """Account for pre-existing on-chain positions before trading.
+
+        The controller keeps no state across restarts: executors_info starts
+        empty and _initial_position_created starts False, so a position opened
+        by a previous process is invisible to it. Left unhandled, the next tick
+        opens a second position while the first stops being rebalanced,
+        fee-harvested or closed, and the wallet no longer holds enough to size
+        the new one. Any restart with a position open reaches this - a deploy,
+        a crash, a machine reboot.
+
+        Runs each tick until it reaches a definite answer. Until it does, the
+        controller opens nothing.
+        """
+        if self._startup_reconciled or self._startup_halted:
+            return
+
+        positions = await self._fetch_pool_positions()
+        if positions is None:
+            # Could not read the chain. Do not guess - opening blind is exactly
+            # the failure this exists to prevent.
+            if not self._startup_wait_logged:
+                self.logger().info("Startup reconciliation: waiting for position data before trading.")
+                self._startup_wait_logged = True
+            return
+
+        if not positions:
+            self._startup_reconciled = True
+            self.logger().info("Startup reconciliation: no pre-existing position in this pool - starting clean.")
+            return
+
+        summary = ", ".join(
+            f"{p.address[:8]}... [{p.lower_price:.6f}-{p.upper_price:.6f}] "
+            f"{p.base_token_amount} base + {p.quote_token_amount} quote "
+            f"(uncollected fees {p.base_fee_amount}/{p.quote_fee_amount})"
+            for p in positions
+        )
+        policy = self.config.startup_position_policy
+
+        if policy == "ignore":
+            self._startup_reconciled = True
+            self.logger().warning(
+                f"Startup reconciliation: {len(positions)} pre-existing position(s) left as-is by "
+                f"startup_position_policy=ignore. They will NOT be managed by this controller "
+                f"and their capital is effectively orphaned: {summary}"
+            )
+            return
+
+        if policy == "halt":
+            self._startup_halted = f"{len(positions)} pre-existing position(s), startup_position_policy=halt"
+            self.logger().error(
+                f"Startup reconciliation: halted. {len(positions)} pre-existing position(s) in this pool; "
+                f"no position will be opened until they are dealt with: {summary}"
+            )
+            return
+
+        # policy == "recover": close the strays so their liquidity and fees
+        # return to the wallet, then start from a known-flat state.
+        self._startup_recover_attempts += 1
+        self.logger().warning(
+            f"Startup reconciliation: recovering {len(positions)} pre-existing position(s) "
+            f"(attempt {self._startup_recover_attempts}/{self.config.startup_recover_max_attempts}): {summary}"
+        )
+
+        connector = self.market_data_provider.get_connector(self.config.connector_name)
+        for position in positions:
+            try:
+                response = await GatewayHttpClient.get_instance().clmm_close_position(
+                    network=connector.network,
+                    wallet_address=connector.address,
+                    position_address=position.address,
+                    dex=self.lp_dex_name,
+                    trading_type=self.lp_trading_type,
+                )
+                signature = response.get("signature") if isinstance(response, dict) else response
+                self.logger().info(
+                    f"Startup reconciliation: closed stray position {position.address[:8]}... "
+                    f"signature={signature}"
+                )
+            except Exception as e:
+                self.logger().error(
+                    f"Startup reconciliation: failed to close {position.address[:8]}...: {e}"
+                )
+
+        # Confirm against the chain rather than trusting the close responses.
+        remaining = await self._fetch_pool_positions()
+        if remaining is not None and not remaining:
+            self._startup_reconciled = True
+            self._pending_balance_update = True
+            self.logger().info(
+                "Startup reconciliation: all stray positions closed; capital returned to the wallet."
+            )
+            return
+
+        if self._startup_recover_attempts >= self.config.startup_recover_max_attempts:
+            self._startup_halted = f"recovery failed after {self._startup_recover_attempts} attempts"
+            self.logger().error(
+                "Startup reconciliation: halted. Could not close pre-existing position(s) after "
+                f"{self._startup_recover_attempts} attempts; refusing to open a position on top of them."
+            )
+
+    def _startup_blocks_trading(self) -> bool:
+        """True while pre-existing positions are unresolved."""
+        return self._startup_halted is not None or not self._startup_reconciled
+
     async def update_processed_data(self):
         """Called every tick - fetch pool price."""
         try:
@@ -918,6 +1082,8 @@ class LPRebalancer(ControllerBase):
         except Exception as e:
             self.logger().debug(f"Could not fetch pool price: {e}")
 
+        await self._reconcile_startup_positions()
+
     def to_format_status(self) -> List[str]:
         """Format status for display."""
         status = []
@@ -929,6 +1095,12 @@ class LPRebalancer(ControllerBase):
         header = f"| LP Rebalancer: {self.config.trading_pair} on {self.config.connector_name}"
         status.append(header + " " * (box_width - len(header) + 1) + "|")
         status.append("+" + "-" * box_width + "+")
+
+        # Startup reconciliation - surfaced because it blocks all trading
+        if self._startup_blocks_trading():
+            reason = self._startup_halted or "checking for pre-existing positions"
+            line = f"| NOT TRADING - startup reconciliation: {reason}"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         # Config summary
         line = f"| Network: {self.config.connector_name} | LP: {self.config.lp_provider}"
