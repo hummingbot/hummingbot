@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import Field, field_validator, model_validator
 
@@ -266,9 +266,11 @@ class LPRebalancer(ControllerBase):
         self._startup_reconciled: bool = False
         self._startup_halted: Optional[str] = None
         self._startup_recover_attempts: int = 0
-        # position address -> timestamp of the close submitted for it, so a
-        # close that has not settled yet is waited on rather than re-submitted
-        self._startup_closes_in_flight: Dict[str, float] = {}
+        # position address -> (timestamp of the last close attempt, whether the
+        # submission was accepted). Both outcomes pace the next attempt: a close
+        # that has not settled must not be re-submitted, and a submission that
+        # failed must not be retried at the controller's tick rate either.
+        self._startup_close_attempts: Dict[str, Tuple[float, bool]] = {}
         self._startup_last_wait_log: float = 0.0
 
         # Initialize rate sources
@@ -1010,9 +1012,9 @@ class LPRebalancer(ControllerBase):
 
         if not positions:
             self._startup_reconciled = True
-            if self._startup_closes_in_flight:
+            if self._startup_close_attempts:
                 self._pending_balance_update = True
-                self._startup_closes_in_flight.clear()
+                self._startup_close_attempts.clear()
                 self.logger().info(
                     "Startup reconciliation: all stray positions closed; capital returned to the wallet."
                 )
@@ -1069,17 +1071,24 @@ class LPRebalancer(ControllerBase):
 
         position = positions[0]
         now = self.market_data_provider.time()
-        submitted_at = self._startup_closes_in_flight.get(position.address)
+        last_attempt = self._startup_close_attempts.get(position.address)
 
-        if submitted_at is not None:
-            # A close is already in flight. Closes settle asynchronously, so a
-            # position that is still visible does not mean the close failed -
-            # re-submitting here would burn every attempt within seconds of
-            # startup and halt a controller whose close actually succeeded.
-            if now - submitted_at < self.config.startup_close_confirm_timeout:
+        if last_attempt is not None:
+            # A close has already been attempted for this position. Closes
+            # settle asynchronously, so a position that is still visible does
+            # not mean the close failed; and a submission that was rejected
+            # says nothing about the next one. Either way, acting again before
+            # the timeout would burn every attempt within seconds of startup
+            # and halt a controller whose close may yet succeed.
+            attempted_at, submitted = last_attempt
+            if now - attempted_at < self.config.startup_close_confirm_timeout:
+                waited = int(now - attempted_at)
+                timeout = self.config.startup_close_confirm_timeout
                 self._log_startup_wait(
-                    f"waiting for the close of {position.address} to settle "
-                    f"({int(now - submitted_at)}s of {self.config.startup_close_confirm_timeout}s)."
+                    f"waiting for the close of {position.address} to settle ({waited}s of {timeout}s)."
+                    if submitted else
+                    f"waiting to retry the close of {position.address}, whose submission was "
+                    f"rejected ({waited}s of {timeout}s)."
                 )
                 return
             self._startup_recover_attempts += 1
@@ -1114,14 +1123,17 @@ class LPRebalancer(ControllerBase):
                 trading_type=self.lp_trading_type,
             )
             signature = response.get("signature") if isinstance(response, dict) else response
-            self._startup_closes_in_flight[position.address] = now
+            self._startup_close_attempts[position.address] = (now, True)
             self.logger().info(
                 f"Startup reconciliation: submitted close for {position.address} "
                 f"signature={signature}. Waiting for it to settle before trading."
             )
         except Exception as e:
-            # Submission itself failed, so nothing is in flight; the next tick
-            # retries. Only unconfirmed closes consume attempts.
+            # Record the failed attempt too. Leaving it unrecorded would let the
+            # next tick, a second later, treat the previous attempt as timed out
+            # and consume another attempt immediately - exhausting them all in a
+            # few seconds while Gateway is briefly unavailable.
+            self._startup_close_attempts[position.address] = (now, False)
             self.logger().error(
                 f"Startup reconciliation: failed to submit close for {position.address}: {e}"
             )

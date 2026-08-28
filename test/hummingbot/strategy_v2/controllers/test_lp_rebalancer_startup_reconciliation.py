@@ -249,7 +249,6 @@ class TestLPRebalancerStartupReconciliation(TestCase):
         self.assertTrue(controller._startup_blocks_trading())
 
     def test_failed_submission_does_not_consume_an_attempt(self):
-        """Nothing is in flight if submission threw, so the next tick retries."""
         controller = self._make_controller(
             positions=[MockPosition()], startup_position_policy="recover")
         gateway = self._gateway(close_error=RuntimeError("gateway down"))
@@ -257,6 +256,36 @@ class TestLPRebalancerStartupReconciliation(TestCase):
         self._tick(controller, gateway)
 
         self.assertEqual(controller._startup_recover_attempts, 0)
-        self.assertEqual(controller._startup_closes_in_flight, {})
         self.assertFalse(controller._startup_reconciled)
+        self.assertIsNone(controller._startup_halted)
+        # The failed attempt is still recorded, so the retry is paced.
+        _, submitted = controller._startup_close_attempts[MockPosition().address]
+        self.assertFalse(submitted)
+
+    def test_repeated_submission_failures_are_paced_not_ticked(self):
+        """A failing submission must not burn attempts at the tick rate.
+
+        Recording only successful submissions would leave the previous attempt
+        looking timed out, so every subsequent tick - one second apart - would
+        consume an attempt and halt the controller within seconds while Gateway
+        was briefly unavailable.
+        """
+        controller = self._make_controller(
+            positions=[MockPosition()], startup_position_policy="recover",
+            startup_close_confirm_timeout=60, startup_recover_max_attempts=3)
+        gateway = self._gateway(close_error=RuntimeError("gateway down"))
+
+        self._tick(controller, gateway)           # first attempt, submission fails
+        for _ in range(10):                       # ten ticks, one second apart
+            self.now += 1
+            self._tick(controller, gateway)
+
+        self.assertEqual(gateway.clmm_close_position.await_count, 1)
+        self.assertEqual(controller._startup_recover_attempts, 0)
+        self.assertIsNone(controller._startup_halted)
+
+        self.now += 61                            # past the timeout: one retry
+        self._tick(controller, gateway)
+        self.assertEqual(gateway.clmm_close_position.await_count, 2)
+        self.assertEqual(controller._startup_recover_attempts, 1)
         self.assertIsNone(controller._startup_halted)
