@@ -1751,6 +1751,16 @@ class GatewayHttpClient:
             }
         )
 
+    async def add_token_by_address(
+        self,
+        address: str,
+        chain: str,
+        network: str
+    ) -> Dict[str, Any]:
+        """Discover a token's metadata and add it to Gateway by address."""
+        query = urlencode({"chainNetwork": self._to_chain_network(network, chain)})
+        return await self.api_request("post", f"tokens/save/{address}?{query}")
+
     async def remove_token(
         self,
         address: str,
