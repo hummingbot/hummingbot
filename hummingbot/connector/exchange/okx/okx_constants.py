@@ -106,3 +106,11 @@ RATE_LIMITS = [
     RateLimit(limit_id=OKX_BALANCE_PATH, limit=10, time_interval=2),
     RateLimit(limit_id=OKX_TRADE_FILLS_PATH, limit=60, time_interval=2),
 ]
+
+# Error codes
+RET_CODE_OK = "0"
+RET_CODE_ORDER_DOES_NOT_EXIST = "51603"  # Order does not exist
+RET_CODE_ORDER_ALREADY_CANCELLED = "51401"  # Order already cancelled
+RET_CODE_INSTRUMENT_ID_DOES_NOT_EXIST = "51001"  # Instrument ID does not exist
+
+
