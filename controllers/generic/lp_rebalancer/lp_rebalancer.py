@@ -1,10 +1,11 @@
 import logging
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import Field, field_validator, model_validator
 
 from hummingbot.core.data_type.common import MarketDict, TradeType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 from hummingbot.logger import HummingbotLogger
@@ -81,6 +82,43 @@ class LPRebalancerConfig(ControllerConfigBase):
     # Connector-specific params (optional)
     strategy_type: Optional[int] = Field(default=None, json_schema_extra={"is_updatable": True})
 
+    # Startup reconciliation: what to do about positions that already exist
+    # on-chain when the controller starts.
+    #
+    # The default is 'halt' rather than 'recover' because position ownership
+    # cannot be established. Gateway reports positions per wallet, not per
+    # controller, and there is no on-chain marker tying a position to the
+    # workflow that opened it. A wallet may be shared with other controllers in
+    # the same instance or with manual liquidity, so closing "the" position in
+    # this pool can withdraw someone else's. Halting is always safe: it never
+    # touches funds, and it never opens a second position on top of the first,
+    # which is the capital-orphaning bug this reconciliation exists to fix.
+    startup_position_policy: str = Field(
+        default="halt",
+        description="How to handle a pre-existing on-chain position in this pool at startup. "
+                    "The controller keeps no state across restarts, so without this it opens a "
+                    "second position and the first is left unmanaged. "
+                    "'halt' (default): do not trade until the position is dealt with manually. "
+                    "'recover': close the pre-existing position, returning its liquidity and "
+                    "uncollected fees to the wallet, then start clean. This acts on whatever this "
+                    "wallet holds in this pool, not only on positions this controller opened, so "
+                    "it is only safe when the wallet is dedicated to this controller. "
+                    "'ignore': leave it and open anyway (previous behaviour; orphans capital)."
+    )
+    startup_recover_max_attempts: int = Field(
+        default=3, ge=1,
+        description="How many times a close may be re-submitted for a position that is still "
+                    "present after startup_close_confirm_timeout, before halting. A position is "
+                    "never opened while a stray one remains unaccounted for."
+    )
+    startup_close_confirm_timeout: int = Field(
+        default=120, ge=1,
+        description="Seconds to wait for a submitted close to be reflected on-chain before "
+                    "treating it as failed. Closes are asynchronous: without a wait, an "
+                    "unconfirmed close reads as a failure, re-submits, and can exhaust every "
+                    "attempt within seconds of startup."
+    )
+
     # Auto-swap feature: swap tokens if balance insufficient for position
     autoswap: bool = Field(
         default=False,
@@ -92,6 +130,15 @@ class LPRebalancerConfig(ControllerConfigBase):
         json_schema_extra={"is_updatable": True},
         description="Extra % to swap beyond deficit to account for slippage (e.g., 0.01 = 0.01%)"
     )
+
+    @field_validator("startup_position_policy", mode="before")
+    @classmethod
+    def validate_startup_position_policy(cls, v):
+        """Reject unknown policies rather than silently falling back."""
+        allowed = ("recover", "halt", "ignore")
+        if v not in allowed:
+            raise ValueError(f"startup_position_policy must be one of {allowed}, got {v!r}")
+        return v
 
     @field_validator("sell_price_min", "sell_price_max", "buy_price_min", "buy_price_max", mode="before")
     @classmethod
@@ -213,6 +260,18 @@ class LPRebalancer(ControllerBase):
 
         # Track if initial position has been created (after that, always use side 1 or 2)
         self._initial_position_created: bool = False
+
+        # Startup reconciliation: until the controller has established what is
+        # already on-chain, it must not open anything.
+        self._startup_reconciled: bool = False
+        self._startup_halted: Optional[str] = None
+        self._startup_recover_attempts: int = 0
+        # position address -> (timestamp of the last close attempt, whether the
+        # submission was accepted). Both outcomes pace the next attempt: a close
+        # that has not settled must not be re-submitted, and a submission that
+        # failed must not be retried at the controller's tick rate either.
+        self._startup_close_attempts: Dict[str, Tuple[float, bool]] = {}
+        self._startup_last_wait_log: float = 0.0
 
         # Initialize rate sources
         self.market_data_provider.initialize_rate_sources([
@@ -403,6 +462,11 @@ class LPRebalancer(ControllerBase):
         - Active executor: just wait for it to auto-close via limit prices
         - No manual OUT_OF_RANGE monitoring or timer logic needed
         """
+        # Nothing may be opened until pre-existing on-chain positions have been
+        # accounted for; opening now is what orphans their capital.
+        if self._startup_blocks_trading():
+            return []
+
         # Capture initial balances on first run
         if self._initial_base_balance is None:
             try:
@@ -903,6 +967,216 @@ class LPRebalancer(ControllerBase):
 
         return TradeType.BUY  # Default to BUY
 
+    async def _fetch_pool_positions(self) -> Optional[List]:
+        """On-chain positions this wallet holds in the configured pool.
+
+        Returns None when the question could not be answered, which is not the
+        same as an empty result: callers must keep waiting rather than assume a
+        clean slate.
+        """
+        try:
+            connector = self.market_data_provider.get_connector(self.config.connector_name)
+            positions = await connector.get_user_positions(
+                dex_name=self.lp_dex_name,
+                trading_type=self.lp_trading_type,
+                pool_address=self.config.pool_address,
+            )
+            return list(positions or [])
+        except Exception as e:
+            self.logger().warning(f"Startup reconciliation: could not read on-chain positions ({e})")
+            return None
+
+    async def _reconcile_startup_positions(self):
+        """Account for pre-existing on-chain positions before trading.
+
+        The controller keeps no state across restarts: executors_info starts
+        empty and _initial_position_created starts False, so a position opened
+        by a previous process is invisible to it. Left unhandled, the next tick
+        opens a second position while the first stops being rebalanced,
+        fee-harvested or closed, and the wallet no longer holds enough to size
+        the new one. Any restart with a position open reaches this - a deploy,
+        a crash, a machine reboot.
+
+        Runs each tick until it reaches a definite answer. Until it does, the
+        controller opens nothing.
+        """
+        if self._startup_reconciled or self._startup_halted:
+            return
+
+        positions = await self._fetch_pool_positions()
+        if positions is None:
+            # Could not read the chain. Do not guess - opening blind is exactly
+            # the failure this exists to prevent.
+            self._log_startup_wait("waiting for position data before trading.")
+            return
+
+        if not positions:
+            if self._startup_close_attempts:
+                # The chain says the position is gone, so the tokens it returned
+                # exist - but the connector's cached wallet balance is still the
+                # pre-close reading, and nothing here compensates for it: a
+                # reconciliation close goes straight through Gateway and never
+                # touches the executor bookkeeping the controller relies on to
+                # cover that lag. Releasing the gate now sizes the first
+                # position off a stale balance and fails with
+                # INSUFFICIENT_BALANCE, costing a full rebalance interval.
+                # Refresh before trading, and stay blocked if the refresh fails
+                # rather than sizing off a number known to be out of date.
+                try:
+                    connector = self.market_data_provider.get_connector(self.config.connector_name)
+                    if hasattr(connector, "update_balances"):
+                        await connector.update_balances()
+                except Exception as e:
+                    self._log_startup_wait(
+                        f"positions are closed but the wallet balance could not be refreshed ({e}); "
+                        f"holding rather than sizing off a stale reading."
+                    )
+                    return
+                self._pending_balance_update = True
+                self._startup_close_attempts.clear()
+                self._startup_reconciled = True
+                self.logger().info(
+                    "Startup reconciliation: all stray positions closed, capital returned and "
+                    "wallet balance refreshed."
+                )
+                return
+            self._startup_reconciled = True
+            self.logger().info(
+                "Startup reconciliation: no pre-existing position in this pool - starting clean."
+            )
+            return
+
+        summary = ", ".join(
+            f"{p.address} [{p.lower_price:.6f}-{p.upper_price:.6f}] "
+            f"{p.base_token_amount} base + {p.quote_token_amount} quote "
+            f"(uncollected fees {p.base_fee_amount}/{p.quote_fee_amount})"
+            for p in positions
+        )
+        policy = self.config.startup_position_policy
+
+        if policy == "ignore":
+            self._startup_reconciled = True
+            self.logger().warning(
+                f"Startup reconciliation: {len(positions)} pre-existing position(s) left as-is by "
+                f"startup_position_policy=ignore. They will not be managed by this controller, "
+                f"and their capital is effectively orphaned: {summary}"
+            )
+            return
+
+        if policy == "halt":
+            self._startup_halted = f"{len(positions)} pre-existing position(s), startup_position_policy=halt"
+            self.logger().error(
+                f"Startup reconciliation: halted. {len(positions)} pre-existing position(s) in this pool; "
+                f"no position will be opened until they are dealt with: {summary}"
+            )
+            return
+
+        # policy == "recover".
+        #
+        # Ownership cannot be verified: Gateway reports positions per wallet and
+        # nothing on-chain ties a position to the workflow that opened it. A
+        # single position is the expected shape for a dedicated wallet after a
+        # restart; several means the wallet is shared with something else, and
+        # guessing which one is ours risks withdrawing another workflow's
+        # liquidity. Halt instead.
+        if len(positions) > 1:
+            self._startup_halted = (
+                f"{len(positions)} positions found in this pool; ownership cannot be determined"
+            )
+            self.logger().error(
+                f"Startup reconciliation: halted. Expected at most one pre-existing position but found "
+                f"{len(positions)}, so this wallet is shared and recovery could close liquidity "
+                f"belonging to another controller or opened manually. Close the correct position "
+                f"yourself, or set startup_position_policy=ignore to leave them alone: {summary}"
+            )
+            return
+
+        position = positions[0]
+        now = self.market_data_provider.time()
+        last_attempt = self._startup_close_attempts.get(position.address)
+
+        if last_attempt is not None:
+            # A close has already been attempted for this position. Closes
+            # settle asynchronously, so a position that is still visible does
+            # not mean the close failed; and a submission that was rejected
+            # says nothing about the next one. Either way, acting again before
+            # the timeout would burn every attempt within seconds of startup
+            # and halt a controller whose close may yet succeed.
+            attempted_at, submitted = last_attempt
+            if now - attempted_at < self.config.startup_close_confirm_timeout:
+                waited = int(now - attempted_at)
+                timeout = self.config.startup_close_confirm_timeout
+                self._log_startup_wait(
+                    f"waiting for the close of {position.address} to settle ({waited}s of {timeout}s)."
+                    if submitted else
+                    f"waiting to retry the close of {position.address}, whose submission was "
+                    f"rejected ({waited}s of {timeout}s)."
+                )
+                return
+            self._startup_recover_attempts += 1
+            if self._startup_recover_attempts >= self.config.startup_recover_max_attempts:
+                self._startup_halted = (
+                    f"close of {position.address} unconfirmed after "
+                    f"{self._startup_recover_attempts} attempts"
+                )
+                self.logger().error(
+                    f"Startup reconciliation: halted. Position {position.address} is still open "
+                    f"after {self._startup_recover_attempts} close attempts; refusing to open a "
+                    f"position on top of it."
+                )
+                return
+            self.logger().warning(
+                f"Startup reconciliation: close of {position.address} not reflected after "
+                f"{self.config.startup_close_confirm_timeout}s, re-submitting "
+                f"(attempt {self._startup_recover_attempts + 1}/{self.config.startup_recover_max_attempts})."
+            )
+        else:
+            self.logger().warning(
+                f"Startup reconciliation: recovering pre-existing position: {summary}"
+            )
+
+        connector = self.market_data_provider.get_connector(self.config.connector_name)
+        try:
+            response = await GatewayHttpClient.get_instance().clmm_close_position(
+                network=connector.network,
+                wallet_address=connector.address,
+                position_address=position.address,
+                dex=self.lp_dex_name,
+                trading_type=self.lp_trading_type,
+            )
+            signature = response.get("signature") if isinstance(response, dict) else response
+            self._startup_close_attempts[position.address] = (now, True)
+            self.logger().info(
+                f"Startup reconciliation: submitted close for {position.address} "
+                f"signature={signature}. Waiting for it to settle before trading."
+            )
+        except Exception as e:
+            # Record the failed attempt too. Leaving it unrecorded would let the
+            # next tick, a second later, treat the previous attempt as timed out
+            # and consume another attempt immediately - exhausting them all in a
+            # few seconds while Gateway is briefly unavailable.
+            self._startup_close_attempts[position.address] = (now, False)
+            self.logger().error(
+                f"Startup reconciliation: failed to submit close for {position.address}: {e}"
+            )
+
+    def _log_startup_wait(self, message: str):
+        """Throttled logging for the reconciliation wait states.
+
+        update_processed_data runs on the controller's update_interval, which
+        defaults to one second, so an unthrottled message here would flood the
+        log while waiting on the chain.
+        """
+        now = self.market_data_provider.time()
+        if now - self._startup_last_wait_log < 30:
+            return
+        self._startup_last_wait_log = now
+        self.logger().info(f"Startup reconciliation: {message}")
+
+    def _startup_blocks_trading(self) -> bool:
+        """True while pre-existing positions are unresolved."""
+        return self._startup_halted is not None or not self._startup_reconciled
+
     async def update_processed_data(self):
         """Called every tick - fetch pool price."""
         try:
@@ -918,6 +1192,8 @@ class LPRebalancer(ControllerBase):
         except Exception as e:
             self.logger().debug(f"Could not fetch pool price: {e}")
 
+        await self._reconcile_startup_positions()
+
     def to_format_status(self) -> List[str]:
         """Format status for display."""
         status = []
@@ -929,6 +1205,12 @@ class LPRebalancer(ControllerBase):
         header = f"| LP Rebalancer: {self.config.trading_pair} on {self.config.connector_name}"
         status.append(header + " " * (box_width - len(header) + 1) + "|")
         status.append("+" + "-" * box_width + "+")
+
+        # Startup reconciliation - surfaced because it blocks all trading
+        if self._startup_blocks_trading():
+            reason = self._startup_halted or "checking for pre-existing positions"
+            line = f"| Startup reconciliation: not trading - {reason}"
+            status.append(line + " " * (box_width - len(line) + 1) + "|")
 
         # Config summary
         line = f"| Network: {self.config.connector_name} | LP: {self.config.lp_provider}"
