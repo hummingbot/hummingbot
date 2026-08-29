@@ -92,6 +92,14 @@ class LPRebalancerConfig(ControllerConfigBase):
         json_schema_extra={"is_updatable": True},
         description="Extra % to swap beyond deficit to account for slippage (e.g., 0.01 = 0.01%)"
     )
+    min_autoswap_quote: Decimal = Field(
+        default=Decimal("1"), ge=0,
+        json_schema_extra={"is_updatable": True},
+        description="Skip autoswaps worth less than this in quote terms. A deficit far below one "
+                    "unit of the quote asset is rounding, not a funding gap, and routers cannot "
+                    "execute a swap that small - the order fails and the controller retries it "
+                    "forever without ever opening a position. Set to 0 to attempt any deficit."
+    )
 
     @field_validator("sell_price_min", "sell_price_max", "buy_price_min", "buy_price_max", mode="before")
     @classmethod
@@ -327,6 +335,38 @@ class LPRebalancer(ControllerBase):
 
         # Buffer multiplier only applied to swap amount
         buffer_multiplier = Decimal("1") + (self.config.swap_buffer_pct / Decimal("100"))
+
+        # Ignore deficits too small to be worth a swap.
+        #
+        # Wallet balances rarely land exactly on total_amount_quote: fees, gas
+        # and rounding leave the wallet a fraction short, and any positive
+        # deficit used to produce a swap. A deficit of a few millionths of a
+        # token is not a funding gap, and no router will quote it - the order
+        # fails, and because the controller retries on the next tick it fails
+        # again, forever, without ever opening a position. That is a silent
+        # outage: the strategy is running, holds its full capital, and simply
+        # never trades.
+        #
+        # Skipping the swap is the right response because the position is then
+        # sized from the balance that is actually present, which differs from
+        # the target by less than min_autoswap_quote.
+        base_deficit_quote = base_deficit * current_price
+        if Decimal("0") < base_deficit_quote < self.config.min_autoswap_quote:
+            self.logger().info(
+                f"Autoswap: ignoring a {base_deficit:.9f} {self._base_token} deficit "
+                f"(~{base_deficit_quote:.6f} {self._quote_token}, below the "
+                f"{self.config.min_autoswap_quote} floor) - rounding, not a funding gap"
+            )
+            base_deficit = Decimal("0")
+        if Decimal("0") < quote_deficit < self.config.min_autoswap_quote:
+            self.logger().info(
+                f"Autoswap: ignoring a {quote_deficit:.9f} {self._quote_token} deficit "
+                f"(below the {self.config.min_autoswap_quote} floor) - rounding, not a funding gap"
+            )
+            quote_deficit = Decimal("0")
+
+        if base_deficit <= 0 and quote_deficit <= 0:
+            return None
 
         # If any deficit, swap
         if base_deficit > 0 and quote_deficit <= 0:
@@ -637,6 +677,42 @@ class LPRebalancer(ControllerBase):
         # No action needed - executor will auto-close via limit prices
         return actions
 
+    def _fit_amounts_to_balance(self, base_amt: Decimal, quote_amt: Decimal,
+                                current_price: Decimal) -> tuple:
+        """Trim a request that overshoots the wallet by less than the swap floor.
+
+        Deficits below min_autoswap_quote are deliberately not swapped for, so
+        the request can exceed the wallet by up to that much. Asking for it
+        anyway fails the open with INSUFFICIENT_BALANCE, which would just trade
+        one retry loop for another. Only sub-floor gaps are absorbed; a real
+        shortfall is left alone so it still surfaces rather than silently
+        opening a smaller position than configured.
+        """
+        for token, amount, is_base in ((self._base_token, base_amt, True),
+                                       (self._quote_token, quote_amt, False)):
+            if amount <= 0:
+                continue
+            try:
+                available = Decimal(str(
+                    self.market_data_provider.get_balance(self.config.connector_name, token)))
+            except Exception as e:
+                self.logger().debug(f"Could not read {token} balance while sizing: {e}")
+                continue
+            shortfall = amount - available
+            if shortfall <= 0:
+                continue
+            shortfall_quote = shortfall * current_price if is_base else shortfall
+            if shortfall_quote < self.config.min_autoswap_quote:
+                self.logger().info(
+                    f"Sizing {token} down to the wallet balance {available} "
+                    f"(short by {shortfall}, ~{shortfall_quote:.6f} {self._quote_token} of rounding)"
+                )
+                if is_base:
+                    base_amt = available
+                else:
+                    quote_amt = available
+        return base_amt, quote_amt
+
     def _create_executor_config(self, side: TradeType) -> Optional[LPExecutorConfig]:
         """
         Create executor config with limit prices for auto-close.
@@ -665,6 +741,7 @@ class LPRebalancer(ControllerBase):
 
         # Calculate amounts based on final side
         base_amt, quote_amt = self._calculate_amounts(side, current_price)
+        base_amt, quote_amt = self._fit_amounts_to_balance(base_amt, quote_amt, current_price)
 
         # Calculate limit prices for auto-close
         threshold = self.config.rebalance_threshold_pct / Decimal("100")
