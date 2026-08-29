@@ -1011,17 +1011,39 @@ class LPRebalancer(ControllerBase):
             return
 
         if not positions:
-            self._startup_reconciled = True
             if self._startup_close_attempts:
+                # The chain says the position is gone, so the tokens it returned
+                # exist - but the connector's cached wallet balance is still the
+                # pre-close reading, and nothing here compensates for it: a
+                # reconciliation close goes straight through Gateway and never
+                # touches the executor bookkeeping the controller relies on to
+                # cover that lag. Releasing the gate now sizes the first
+                # position off a stale balance and fails with
+                # INSUFFICIENT_BALANCE, costing a full rebalance interval.
+                # Refresh before trading, and stay blocked if the refresh fails
+                # rather than sizing off a number known to be out of date.
+                try:
+                    connector = self.market_data_provider.get_connector(self.config.connector_name)
+                    if hasattr(connector, "update_balances"):
+                        await connector.update_balances()
+                except Exception as e:
+                    self._log_startup_wait(
+                        f"positions are closed but the wallet balance could not be refreshed ({e}); "
+                        f"holding rather than sizing off a stale reading."
+                    )
+                    return
                 self._pending_balance_update = True
                 self._startup_close_attempts.clear()
+                self._startup_reconciled = True
                 self.logger().info(
-                    "Startup reconciliation: all stray positions closed; capital returned to the wallet."
+                    "Startup reconciliation: all stray positions closed, capital returned and "
+                    "wallet balance refreshed."
                 )
-            else:
-                self.logger().info(
-                    "Startup reconciliation: no pre-existing position in this pool - starting clean."
-                )
+                return
+            self._startup_reconciled = True
+            self.logger().info(
+                "Startup reconciliation: no pre-existing position in this pool - starting clean."
+            )
             return
 
         summary = ", ".join(

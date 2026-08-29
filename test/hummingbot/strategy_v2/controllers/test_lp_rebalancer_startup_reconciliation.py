@@ -33,7 +33,8 @@ class TestLPRebalancerStartupReconciliation(TestCase):
     def setUp(self):
         self.now = 1000.0
 
-    def _make_controller(self, positions=None, **config_overrides) -> LPRebalancer:
+    def _make_controller(self, positions=None, refresh_fails=False,
+                         **config_overrides) -> LPRebalancer:
         config_kwargs = dict(
             id="test",
             connector_name="solana-mainnet-beta",
@@ -49,6 +50,9 @@ class TestLPRebalancerStartupReconciliation(TestCase):
         connector = MagicMock()
         connector.network = "mainnet-beta"
         connector.address = "WalletAddress123"
+        connector.update_balances = AsyncMock(
+            side_effect=RuntimeError("balance rpc down") if refresh_fails else None)
+        self.connector = connector
         market_data_provider.get_connector.return_value = connector
 
         controller = LPRebalancer(
@@ -163,6 +167,43 @@ class TestLPRebalancerStartupReconciliation(TestCase):
         self.assertIn("startup_position_policy", str(ctx.exception))
 
     # -- recover -----------------------------------------------------------
+
+    def test_recover_refreshes_balances_before_releasing_the_gate(self):
+        """A reconciliation close goes straight through Gateway and never
+        touches the executor bookkeeping that covers balance-poll lag, so the
+        cached wallet reading is still pre-close. Sizing the first position off
+        it fails with INSUFFICIENT_BALANCE and costs a full rebalance interval.
+        """
+        controller = self._make_controller(
+            positions=[MockPosition()], startup_position_policy="recover")
+        gateway = self._gateway()
+        self._tick(controller, gateway)      # submits the close
+        controller._chain_positions = []     # the close settles on-chain
+        self._tick(controller, gateway)
+
+        self.connector.update_balances.assert_awaited_once()
+        self.assertTrue(controller._startup_reconciled)
+        self.assertFalse(controller._startup_blocks_trading())
+
+    def test_recover_stays_blocked_if_the_balance_refresh_fails(self):
+        """Better to wait than to size a position off a known-stale balance."""
+        controller = self._make_controller(
+            positions=[MockPosition()], refresh_fails=True,
+            startup_position_policy="recover")
+        gateway = self._gateway()
+        self._tick(controller, gateway)
+        controller._chain_positions = []
+        self._tick(controller, gateway)
+
+        self.assertFalse(controller._startup_reconciled)
+        self.assertTrue(controller._startup_blocks_trading())
+
+    def test_no_refresh_when_nothing_was_closed(self):
+        """A clean start has no stale reading to correct."""
+        controller = self._make_controller(positions=[])
+        self._tick(controller)
+        self.connector.update_balances.assert_not_awaited()
+        self.assertTrue(controller._startup_reconciled)
 
     def test_recover_halts_when_several_positions_exist(self):
         """Several positions mean a shared wallet: closing could take someone else's."""
