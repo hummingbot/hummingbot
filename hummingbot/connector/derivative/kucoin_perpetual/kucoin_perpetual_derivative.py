@@ -146,7 +146,9 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             trading_rule: TradingRule = self._trading_rules[trading_pair]
             contract_value = Decimal(number * trading_rule.min_base_amount_increment)
         else:
-            contract_value = Decimal(number * 0.001)
+            # Decimal(number * 0.001) would capture binary float error of 0.001
+            # (e.g. 0.007000000000000000145...); keep the value exact.
+            contract_value = Decimal(number) * Decimal("0.001")
         return contract_value
 
     def start(self, clock: Clock, timestamp: float):
