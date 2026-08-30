@@ -102,11 +102,18 @@ class KrakenSpotCandles(CandlesBase):
         For API documentation, please refer to:
         https://docs.kraken.com/rest/#tag/Spot-Market-Data/operation/getOHLCData
 
-        This endpoint allows you to return up to 3600 candles ago.
+        This endpoint returns up to MAX_CANDLES_AGO (720) candles. If the requested
+        start_time is older than the maximum supported lookback, clamp it to the
+        oldest retrievable timestamp rather than raising an exception.  Raising
+        caused the candle-fill loop to abort permanently for short intervals (e.g.
+        5 m) when _is_first_candle_not_included_in_rest_request == True pushed the
+        requested since value one interval beyond the 720-candle boundary.
+        See: https://github.com/hummingbot/hummingbot/issues/8208
         """
-        candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
-        if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
-            raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
+        if start_time is not None:
+            max_lookback_start = int(time.time()) - CONSTANTS.MAX_CANDLES_AGO * self.interval_in_seconds
+            if start_time < max_lookback_start:
+                start_time = max_lookback_start
         return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval],
                 "since": start_time}
 
