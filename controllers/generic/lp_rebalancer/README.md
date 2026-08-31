@@ -176,7 +176,7 @@ strategy_type: 0                       # Connector-specific (Meteora strategy ty
 | `side` | TradeType | BUY | Initial side: BUY, SELL, or RANGE (50/50 split) |
 | `position_width_pct` | decimal | 0.5 | Position width as percentage |
 | `position_offset_pct` | decimal | 0.01 | Offset from price. Positive=out-of-range. Negative=in-range |
-| `position_refresh_interval` | float | 1.0 | Minimum seconds between on-chain reads for each active LP position. Higher values reduce Gateway/RPC load but delay position and limit-price updates. |
+| `position_refresh_interval` | float | 1.0 | Minimum seconds between on-chain reads for each active LP position. Higher values reduce Gateway/RPC load but delay position and limit-price updates. Captured when an executor is created and not live-updatable. |
 | `rebalance_threshold_pct` | decimal | 1 | Price % beyond position bounds that triggers auto-close |
 | `sell_price_max` | decimal | null | Upper limit for SELL zone |
 | `sell_price_min` | decimal | null | Lower limit for SELL zone (anchor point) |

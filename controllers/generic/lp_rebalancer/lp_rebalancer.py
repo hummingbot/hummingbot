@@ -65,8 +65,9 @@ class LPRebalancerConfig(ControllerConfigBase):
     position_refresh_interval: float = Field(
         default=1.0,
         gt=0,
-        json_schema_extra={"is_updatable": True},
-        description="Minimum seconds between on-chain position reads made by each LP executor."
+        json_schema_extra={"is_updatable": False},
+        description="Minimum seconds between on-chain position reads made by each LP executor. "
+                    "Captured when the executor is created; not live-updatable."
     )
 
     # Rebalance threshold - used to set LP executor's limit prices
