@@ -62,6 +62,12 @@ class LPRebalancerConfig(ControllerConfigBase):
         description="Offset from current price. Positive = out-of-range (single-sided). "
                     "Negative = in-range (needs both tokens, autoswap will convert |offset|%)"
     )
+    position_refresh_interval: float = Field(
+        default=1.0,
+        gt=0,
+        json_schema_extra={"is_updatable": True},
+        description="Minimum seconds between on-chain position reads made by each LP executor."
+    )
 
     # Rebalance threshold - used to set LP executor's limit prices
     # When price moves this % beyond position bounds, executor auto-closes
@@ -747,6 +753,7 @@ class LPRebalancer(ControllerBase):
             base_amount=base_amt,
             quote_amount=quote_amt,
             side=side,
+            position_refresh_interval=self.config.position_refresh_interval,
             slippage_pct=slippage_pct,
             extra_params=extra_params if extra_params else None,
             # Key difference: set limit prices for auto-close
