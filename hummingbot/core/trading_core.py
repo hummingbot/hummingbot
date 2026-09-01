@@ -702,8 +702,9 @@ class TradingCore:
         return self.connector_manager.get_order_book(connector_name, trading_pair)
 
     async def get_current_balances(self, connector_name: str):
-        if connector_name in self.connector_manager.connectors and self.connector_manager.connectors[connector_name].ready:
-            return self.connector_manager.connectors[connector_name].get_all_balances()
+        connector = self.connector_manager.get_connector(connector_name)
+        if connector is not None and connector.ready:
+            return connector.get_all_balances()
         elif "Paper" in connector_name:
             paper_balances = self.client_config_map.paper_trade.paper_trade_account_balance
             if paper_balances is None:
