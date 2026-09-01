@@ -78,7 +78,8 @@ class TestControllerExecutorsView(unittest.TestCase):
         # One executor terminates per tick, so the whole run creates n_ticks - 1 terminated ones.
         self.assertEqual(len(engine.stopped_executors_info), n_ticks - 1)
         # The ledger returned to the caller keeps every one of them, plus the still-running one.
-        self.assertEqual(len(engine.collect_executors_ledger()), n_ticks)
+        last_timestamp = 1000.0 + (n_ticks - 1) * 60.0
+        self.assertEqual(len(engine.collect_executors_ledger(last_timestamp)), n_ticks)
         # The controller only ever sees the active executor plus the last WINDOW seconds of them
         # (a 600s window at one termination every 60s covers 11 of them, both ends included).
         self.assertLessEqual(max_view_len, 1 + self.WINDOW / 60 + 1)

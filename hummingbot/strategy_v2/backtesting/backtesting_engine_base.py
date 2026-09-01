@@ -292,7 +292,7 @@ class BacktestingEngineBase:
 
         # Final flush: convert any last-tick POSITION_HOLD executors into position holds
         self._update_positions_from_stopped_executors()
-        return self.collect_executors_ledger()
+        return self.collect_executors_ledger(last_index)
 
     def _reset_simulation_state(self):
         """Reset every accumulator a single backtesting run writes to."""
@@ -305,23 +305,26 @@ class BacktestingEngineBase:
         self.pnl_timeseries: List[Dict] = []
         self._executor_realized_pnl = 0.0
         self._cumulative_volume = 0.0
-        # Snapshot of the run ledger taken on every tick, see collect_executors_ledger().
-        self._ledger_active_executors_info: List[ExecutorInfo] = []
-        self._ledger_stopped_count: int = 0
         # Time-windowed view of terminated executors handed to the controller: the oldest ones
         # fall out of the left end. ``None`` means the controller gets the whole ledger.
         self._terminated_executors_view: Optional[Deque[ExecutorInfo]] = (
             None if self.terminated_executors_window is None else deque())
 
-    def collect_executors_ledger(self) -> List[ExecutorInfo]:
-        """The run ledger: the active and terminated executors of the whole run.
+    def collect_executors_ledger(self, timestamp: float) -> List[ExecutorInfo]:
+        """The run ledger at ``timestamp``: every executor of the run, terminated or not.
 
         This is what ``simulate_execution`` returns and what the results are summarized from, so
-        it must stay complete regardless of how much of it the controller gets to see. It is the
-        snapshot taken by the last ``update_executors_info()`` — the very list the controller used
-        to be handed before its view was bounded — so the reported metrics are unchanged.
+        it must stay complete regardless of how much of it the controller gets to see. It is built
+        from the two places an executor can live rather than from the view the controller was last
+        handed, so executors the controller created or stopped on the closing tick — after that
+        tick's ``update_executors_info()`` had already run — are reported too.
+
+        A simulation is either still in ``active_executor_simulations`` or has been moved to
+        ``stopped_executors_info``, never both, so nothing is counted twice.
         """
-        return self._ledger_active_executors_info + self.stopped_executors_info[:self._ledger_stopped_count]
+        still_simulating = [simulation.get_executor_info_at_timestamp(timestamp)
+                            for simulation in self.active_executor_simulations]
+        return still_simulating + self.stopped_executors_info
 
     def _record_terminated_executor(self, executor_info: ExecutorInfo):
         """Add a terminated executor to the complete ledger and to the controller's bounded view.
@@ -420,8 +423,6 @@ class BacktestingEngineBase:
             else:
                 active_executors_info.append(executor_info)
         self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]
-        self._ledger_active_executors_info = active_executors_info
-        self._ledger_stopped_count = len(self.stopped_executors_info)
         self._prune_terminated_executors_view(timestamp)
         terminated_view = (self.stopped_executors_info if self._terminated_executors_view is None
                            else list(self._terminated_executors_view))
