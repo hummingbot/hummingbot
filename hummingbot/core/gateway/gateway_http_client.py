@@ -2172,11 +2172,13 @@ class GatewayHttpClient:
             # Get gas estimation from gateway
             gas_resp = await self.estimate_gas(chain, network)
 
-            # Extract fee info directly from response
-            fee_per_unit = gas_resp.get("feePerComputeUnit", 0)
+            # Extract fee info directly from response. Gateway serialises these as
+            # strings to preserve precision, so coerce them here - every caller
+            # formats and compares them as numbers.
+            fee_per_unit = float(gas_resp.get("feePerComputeUnit", 0))
             denomination = gas_resp.get("denomination", "")
-            compute_units = gas_resp.get("computeUnits", 0)
-            fee_in_native = gas_resp.get("fee", 0)  # Use the fee directly from response
+            compute_units = int(gas_resp.get("computeUnits", 0))
+            fee_in_native = float(gas_resp.get("fee", 0))  # Use the fee directly from response
             native_token = gas_resp.get("feeAsset", chain.upper())  # Use feeAsset from response
 
             # Extract EIP-1559 specific fields if present
@@ -2197,9 +2199,9 @@ class GatewayHttpClient:
             if gas_type:
                 result["gas_type"] = gas_type
             if max_fee_per_gas is not None:
-                result["max_fee_per_gas"] = max_fee_per_gas
+                result["max_fee_per_gas"] = float(max_fee_per_gas)
             if max_priority_fee_per_gas is not None:
-                result["max_priority_fee_per_gas"] = max_priority_fee_per_gas
+                result["max_priority_fee_per_gas"] = float(max_priority_fee_per_gas)
 
             return result
 
