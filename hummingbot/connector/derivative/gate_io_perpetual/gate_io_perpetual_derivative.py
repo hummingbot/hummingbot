@@ -549,7 +549,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
                 if isinstance(event_message, dict):
                     channel: str = event_message.get("channel", None)
                     results: List[Dict[str, Any]] = event_message.get("result", None)
-                elif event_message is asyncio.CancelledError:
+                elif event_message is asyncio.CancelledError or isinstance(event_message, asyncio.CancelledError):
                     raise asyncio.CancelledError
                 else:
                     raise Exception(event_message)
