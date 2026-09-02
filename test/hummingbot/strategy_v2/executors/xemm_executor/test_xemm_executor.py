@@ -8,7 +8,12 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import BuyOrderCompletedEvent, BuyOrderCreatedEvent, MarketOrderFailureEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+)
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.data_types import ConnectorPair
 from hummingbot.strategy_v2.executors.xemm_executor.data_types import XEMMExecutorConfig
@@ -190,6 +195,11 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         await self.executor.control_task()
         self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
+        self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
+        # The order is kept until the cancellation is confirmed by the exchange
+        self.assertIsNotNone(self.executor.maker_order)
+        cancel_event = OrderCancelledEvent(timestamp=1234, order_id="OID-BUY-1")
+        self.executor.process_order_canceled_event(1, MagicMock(), cancel_event)
         self.assertEqual(self.executor.maker_order, None)
 
     @patch.object(XEMMExecutor, "get_resulting_price_for_amount")
@@ -213,6 +223,10 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         await self.executor.control_task()
         self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
+        self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
+        self.assertIsNotNone(self.executor.maker_order)
+        cancel_event = OrderCancelledEvent(timestamp=1234, order_id="OID-BUY-1")
+        self.executor.process_order_canceled_event(1, MagicMock(), cancel_event)
         self.assertEqual(self.executor.maker_order, None)
 
     async def test_control_task_shut_down_process(self):
@@ -223,6 +237,46 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor._status = RunnableStatus.SHUTTING_DOWN
         await self.executor.control_task()
         self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+
+    async def test_control_task_shut_down_process_with_maker_order_none(self):
+        self.executor.maker_order = None
+        self.executor.taker_order = Mock(spec=TrackedOrder)
+        self.executor.taker_order.is_done = True
+        self.executor._status = RunnableStatus.SHUTTING_DOWN
+        await self.executor.control_task()
+        self.assertEqual(self.executor._status, RunnableStatus.TERMINATED)
+
+    @patch.object(XEMMExecutor, "update_current_trade_profitability")
+    async def test_control_update_maker_order_skips_cancel_when_shutting_down(self, update_profitability_mock):
+        async def flip_status_to_shutting_down():
+            self.executor._status = RunnableStatus.SHUTTING_DOWN
+            return Decimal("0")
+
+        update_profitability_mock.side_effect = flip_status_to_shutting_down
+        self.executor._status = RunnableStatus.RUNNING
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.order_id = "OID-BUY-1"
+        self.executor.maker_order.order = InFlightOrder(
+            creation_timestamp=1234,
+            trading_pair="ETH-USDT",
+            client_order_id="OID-BUY-1",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("100"),
+            price=Decimal("99.5"),
+            initial_state=OrderState.OPEN,
+        )
+        await self.executor.control_update_maker_order()
+        self.strategy.cancel.assert_not_called()
+        self.assertIsNotNone(self.executor.maker_order)
+
+    def test_process_order_canceled_event(self):
+        self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
+        cancel_event = OrderCancelledEvent(timestamp=1234, order_id="OID-BUY-1")
+        self.executor.process_order_canceled_event(1, MagicMock(), cancel_event)
+        self.assertEqual(self.executor.maker_order, None)
+        self.assertEqual(len(self.executor.failed_orders), 1)
+        self.assertEqual(self.executor.failed_orders[0].order_id, "OID-BUY-1")
 
     @patch.object(XEMMExecutor, "get_in_flight_order")
     def test_process_order_created_event(self, in_flight_order_mock):
