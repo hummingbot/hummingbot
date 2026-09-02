@@ -88,6 +88,10 @@ class LPExecutor(ExecutorBase):
         # observed on-chain at least once; before that, a not-found streak is far
         # more likely RPC lag on a just-created position than a real close.
         self._position_seen_onchain: bool = False
+        # Keep the executor lifecycle responsive while bounding the expensive
+        # Gateway/RPC reads made by each active LP position. None makes the first
+        # read immediate, including when a position has just been created.
+        self._last_position_refresh_timestamp: Optional[float] = None
         # Backoff between close attempts (set by _handle_close_failure) so a burst
         # of instant transport failures (e.g. a Gateway restart) cannot burn the
         # whole retry budget in seconds
@@ -185,7 +189,12 @@ class LPExecutor(ExecutorBase):
         # Fetch position info when position exists (includes current price)
         # This avoids redundant pool_info call since position_info has price
         if self.lp_position_state.position_address:
-            await self._update_position_info()
+            if self._is_position_refresh_due(current_time):
+                # Record the attempt before awaiting it. A failed read must still be
+                # throttled or a degraded RPC endpoint turns the control loop into a
+                # retry storm across all active LP executors.
+                self._last_position_refresh_timestamp = current_time
+                await self._update_position_info()
         else:
             # Only fetch pool info when no position exists (for price during creation)
             await self.update_pool_info()
@@ -233,6 +242,15 @@ class LPExecutor(ExecutorBase):
             case LPExecutorStates.COMPLETE:
                 # Position closed - close_type already set by early_stop()
                 self.stop()
+
+    def _is_position_refresh_due(self, current_time: float) -> bool:
+        """Whether the active position should be read from Gateway this cycle."""
+        last_refresh = self._last_position_refresh_timestamp
+        return (
+            last_refresh is None
+            or current_time < last_refresh
+            or current_time - last_refresh >= self.config.position_refresh_interval
+        )
 
     def _check_limit_prices(self):
         """Close the position when the price crosses a configured limit price."""
