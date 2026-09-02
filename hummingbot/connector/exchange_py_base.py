@@ -18,7 +18,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -148,6 +148,10 @@ class ExchangePyBase(ExchangeBase, ABC):
     @abstractmethod
     def is_trading_required(self) -> bool:
         raise NotImplementedError
+
+    @property
+    def allow_reduce_only_orders_below_min_notional(self) -> bool:
+        return False
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -452,7 +456,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                                      f"for the pair {trading_pair}. The order will not be created."))
             return
 
-        elif notional_size < trading_rule.min_notional_size:
+        elif (notional_size < trading_rule.min_notional_size
+              and not (self.allow_reduce_only_orders_below_min_notional
+                       and kwargs.get("position_action") == PositionAction.CLOSE)):
             self._update_order_after_failure(
                 order_id=order_id, trading_pair=trading_pair,
                 exception=ValueError(f"Order notional {notional_size} is lower than minimum notional size {trading_rule.min_notional_size}"
