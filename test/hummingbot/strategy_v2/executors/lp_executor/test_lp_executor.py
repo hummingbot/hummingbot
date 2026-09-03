@@ -1578,6 +1578,48 @@ class TestLPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         connector.get_position_info_fresh.assert_called_once()
         connector.get_pool_info_by_address.assert_not_called()
 
+    async def test_control_task_respects_position_refresh_interval(self):
+        config_dict = self.get_default_config().model_dump()
+        config_dict["position_refresh_interval"] = 10
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        timestamp = PropertyMock(return_value=1000.0)
+        type(self.strategy).current_timestamp = timestamp
+
+        with patch.object(executor, '_update_position_info', new_callable=AsyncMock) as update_position:
+            await executor.control_task()
+            update_position.assert_awaited_once()
+
+            timestamp.return_value = 1009.0
+            await executor.control_task()
+            update_position.assert_awaited_once()
+
+            timestamp.return_value = 1010.0
+            await executor.control_task()
+            self.assertEqual(update_position.await_count, 2)
+
+    async def test_failed_position_read_is_throttled_by_refresh_interval(self):
+        config_dict = self.get_default_config().model_dump()
+        config_dict["position_refresh_interval"] = 10
+        executor = self.get_executor(LPExecutorConfig(**config_dict))
+        executor._status = RunnableStatus.RUNNING
+        executor.lp_position_state.state = LPExecutorStates.IN_RANGE
+        executor.lp_position_state.position_address = "pos123"
+
+        timestamp = PropertyMock(return_value=1000.0)
+        type(self.strategy).current_timestamp = timestamp
+        connector = self.strategy.connectors["solana-mainnet-beta"]
+        connector.get_position_info_fresh = AsyncMock(side_effect=Exception("503 Service Unavailable"))
+
+        await executor.control_task()
+        timestamp.return_value = 1001.0
+        await executor.control_task()
+
+        connector.get_position_info_fresh.assert_awaited_once()
+
     async def test_control_task_fetches_pool_info_when_no_position(self):
         """Test control_task fetches pool info when no position exists"""
         executor = self.get_executor()

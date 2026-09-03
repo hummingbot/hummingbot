@@ -5,7 +5,7 @@ import re
 import sys
 from os import listdir
 from os.path import exists, isfile, join
-from typing import List
+from typing import List, Optional
 
 from prompt_toolkit.completion import CompleteEvent, Completer, WordCompleter
 from prompt_toolkit.document import Document
@@ -26,7 +26,6 @@ from hummingbot.client.settings import (
 )
 from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
-from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.strategy.strategy_v2_base import StrategyV2ConfigBase
 
@@ -54,31 +53,27 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["allowance", "approve", "balance", "config", "connect", "generate-certs", "list", "lp", "ping", "pool", "swap", "token"], ignore_case=True)
-        self._gateway_swap_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
+        self._gateway_completer = WordCompleter(["allowance", "approve", "balance", "config", "connect", "generate-certs", "list"], ignore_case=True)
+        self._gateway_chain_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
         self._gateway_namespace_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
-        self._gateway_balance_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_ping_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_connect_completer = WordCompleter(GATEWAY_CHAINS, ignore_case=True)
-        self._gateway_allowance_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
-        self._gateway_approve_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
-        self._gateway_config_completer = WordCompleter(GATEWAY_NAMESPACES, ignore_case=True)
+        self._gateway_eth_connector_completer = WordCompleter(GATEWAY_ETH_DEXS, ignore_case=True)
         self._gateway_config_action_completer = WordCompleter(["update"], ignore_case=True)
-        self._gateway_lp_completer = WordCompleter(GATEWAY_DEXS, ignore_case=True)
-        self._gateway_lp_action_completer = WordCompleter(["add-liquidity", "remove-liquidity", "position-info", "collect-fees"], ignore_case=True)
-        self._gateway_pool_completer = WordCompleter(["<symbol_or_address>"], ignore_case=True)
-        self._gateway_pool_action_completer = WordCompleter(["update"], ignore_case=True)
-        self._gateway_token_completer = WordCompleter(["<symbol_or_address>"], ignore_case=True)
-        self._gateway_token_action_completer = WordCompleter(["update"], ignore_case=True)
+        # Positional argument completers per gateway subcommand: the list index is the
+        # argument position, so arguments past the end (a token symbol, a config value)
+        # and subcommands absent from the map get no suggestions.
+        self._gateway_arg_completers = {
+            "allowance": [self._gateway_eth_connector_completer],
+            "approve": [self._gateway_eth_connector_completer],
+            "balance": [self._gateway_chain_completer],
+            "config": [self._gateway_namespace_completer, self._gateway_config_action_completer],
+            "connect": [self._gateway_chain_completer],
+        }
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONF_DIR_PATH), "yml"))
         self._strategy_v2_create_config_completer = self.get_strategies_v2_with_config()
         self._controller_completer = self.get_available_controllers()
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
-        self._gateway_chains = GATEWAY_CHAINS
-        self._gateway_networks = []
-        self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
 
     def get_strategies_v2_with_config(self):
         file_names = file_name_list(str(SCRIPT_STRATEGIES_PATH), "py")
@@ -115,15 +110,6 @@ class HummingbotCompleter(Completer):
                     available_controllers.append(controller_name)
 
         return WordCompleter(available_controllers, ignore_case=True)
-
-    def set_gateway_chains(self, gateway_chains):
-        self._gateway_chains = gateway_chains
-
-    def set_gateway_networks(self, gateway_networks):
-        self._gateway_networks = gateway_networks
-
-    def set_list_gateway_wallets_parameters(self, wallets, chain):
-        self._list_gateway_wallets_parameters = {"wallets": wallets, "chain": chain}
 
     @property
     def prompt_text(self) -> str:
@@ -166,18 +152,6 @@ class HummingbotCompleter(Completer):
         connectors = AllConnectorSettings.get_exchange_names().union(
             AllConnectorSettings.get_gateway_amm_connector_names())
         return WordCompleter(sorted(connectors), ignore_case=True)
-
-    @property
-    def _gateway_chain_completer(self):
-        return WordCompleter(self._gateway_chains, ignore_case=True)
-
-    @property
-    def _gateway_network_completer(self):
-        return WordCompleter(self._gateway_networks, ignore_case=True)
-
-    @property
-    def _gateway_wallet_address_completer(self):
-        return WordCompleter(list_gateway_wallets(self._list_gateway_wallets_parameters["wallets"], self._list_gateway_wallets_parameters["chain"]), ignore_case=True)
 
     @property
     def _option_completer(self):
@@ -246,126 +220,21 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("history ")
 
-    def _complete_gateway_swap_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway swap "):
-            return False
-        # Only complete if we're at the first argument (connector)
-        args_after_swap = text_before_cursor[13:].strip()  # Remove "gateway swap "
-        # If there's no space after the first argument, we're still completing the connector
-        return " " not in args_after_swap
-
-    def _complete_gateway_network_selection(self, document: Document) -> bool:
-        return "Which" in self.prompt_text and "network do you want to connect to?" in self.prompt_text
-
-    def _complete_gateway_balance_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway balance ")
-
-    def _complete_gateway_allowance_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway allowance ")
-
-    def _complete_gateway_approve_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway approve ")
-
-    def _complete_gateway_ping_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ping ")
-
-    def _complete_gateway_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway config ")
-
-    def _complete_gateway_config_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        # Complete namespaces directly after "gateway config "
-        if not text_before_cursor.startswith("gateway config "):
-            return False
-        # Get everything after "gateway config "
-        args_after_config = text_before_cursor[15:]  # Keep trailing spaces
-        # Complete namespace only if:
-        # 1. We have no arguments yet (just typed "gateway config ")
-        # 2. We're typing the first argument (no spaces in args_after_config)
-        return " " not in args_after_config
-
-    def _complete_gateway_config_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway config "):
-            return False
-        # Complete action if we have namespace but not action yet
-        args_after_config = text_before_cursor[15:]  # Remove "gateway config " (keep trailing spaces)
-        parts = args_after_config.strip().split()
-        # Complete action if we have exactly one part (namespace) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_config.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_config.endswith(" "))
-
-    def _complete_gateway_lp_connector(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway lp "):
-            return False
-        # Only complete if we're at the first argument (connector)
-        args_after_lp = text_before_cursor[11:]  # Remove "gateway lp " (keep trailing spaces)
-        # Complete connector only if:
-        # 1. We have no arguments yet (just typed "gateway lp ")
-        # 2. We're typing the first argument (no spaces in args_after_lp)
-        return " " not in args_after_lp
-
-    def _complete_gateway_lp_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway lp "):
-            return False
-        # Complete action if we have connector but not action yet
-        args_after_lp = text_before_cursor[11:]  # Remove "gateway lp " (keep trailing spaces)
-        parts = args_after_lp.strip().split()
-        # Complete action if we have exactly one part (connector) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_lp.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_lp.endswith(" "))
-
-    def _complete_gateway_pool_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway pool "):
-            return False
-        # Only complete if we're at the first argument (symbol/address)
-        args_after_pool = text_before_cursor[13:]  # Remove "gateway pool " (keep trailing spaces)
-        # Complete symbol only if we have no arguments yet or typing first argument
-        return " " not in args_after_pool
-
-    def _complete_gateway_pool_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway pool "):
-            return False
-        # Complete action if we have symbol but not action yet
-        args_after_pool = text_before_cursor[13:]  # Remove "gateway pool " (keep trailing spaces)
-        parts = args_after_pool.strip().split()
-        # Complete action if we have exactly one part (symbol_or_address) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_pool.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_pool.endswith(" "))
-
-    def _complete_gateway_token_arguments(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway token "):
-            return False
-        # Only complete if we're at the first argument (symbol/address)
-        args_after_token = text_before_cursor[14:]  # Remove "gateway token " (keep trailing spaces)
-        # Complete symbol only if we have no arguments yet or typing first argument
-        return " " not in args_after_token
-
-    def _complete_gateway_token_action(self, document: Document) -> bool:
-        text_before_cursor: str = document.text_before_cursor
-        if not text_before_cursor.startswith("gateway token "):
-            return False
-        # Complete action if we have symbol but not action yet
-        args_after_token = text_before_cursor[14:]  # Remove "gateway token " (keep trailing spaces)
-        parts = args_after_token.strip().split()
-        # Complete action if we have exactly one part (symbol) followed by space
-        # or if we're typing the second part
-        return (len(parts) == 1 and args_after_token.endswith(" ")) or \
-               (len(parts) == 2 and not args_after_token.endswith(" "))
+    def _gateway_completer_for(self, document: Document) -> Optional[Completer]:
+        """
+        Completer for the `gateway` command at the cursor, or None when there is nothing
+        to suggest - an unknown subcommand, or an argument that takes a free-form value
+        such as a token symbol or a config value.
+        """
+        args = document.text_before_cursor[len("gateway "):]
+        if " " not in args:
+            # the subcommand itself is still being typed
+            return self._gateway_completer
+        subcommand, _, arguments = args.partition(" ")
+        completers = self._gateway_arg_completers.get(subcommand, [])
+        # a trailing space means the cursor has moved on to the next argument
+        index = len(arguments.split()) - (0 if not arguments or arguments.endswith(" ") else 1)
+        return completers[index] if index < len(completers) else None
 
     def _complete_v2_config_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -386,16 +255,6 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return (("path" in self.prompt_text and "file" in self.prompt_text) or
                 "import" in text_before_cursor)
-
-    def _complete_gateway_chain(self, document: Document) -> bool:
-        return "Which chain do you want" in self.prompt_text or \
-               (document.text.startswith("gateway connect") and len(document.text.split()) <= 2)
-
-    def _complete_gateway_network(self, document: Document) -> bool:
-        return "Which network do you want" in self.prompt_text
-
-    def _complete_gateway_wallet_addresses(self, document: Document) -> bool:
-        return "Select a gateway wallet" in self.prompt_text
 
     def _complete_command(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -442,18 +301,6 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_strategies(document):
             for c in self._strategy_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_chain(document):
-            for c in self._gateway_chain_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_network(document) or self._complete_gateway_network_selection(document):
-            for c in self._gateway_network_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_wallet_addresses(document):
-            for c in self._gateway_wallet_address_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_exchange_clob_amm_connectors(document):
@@ -507,61 +354,11 @@ class HummingbotCompleter(Completer):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_swap_arguments(document):
-            for c in self._gateway_swap_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_balance_arguments(document):
-            for c in self._gateway_balance_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_allowance_arguments(document):
-            for c in self._gateway_allowance_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_approve_arguments(document):
-            for c in self._gateway_approve_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_ping_arguments(document):
-            for c in self._gateway_ping_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_lp_connector(document):
-            for c in self._gateway_lp_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_lp_action(document):
-            for c in self._gateway_lp_action_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_pool_arguments(document):
-            for c in self._gateway_pool_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_pool_action(document):
-            for c in self._gateway_pool_action_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_token_arguments(document):
-            for c in self._gateway_token_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_token_action(document):
-            for c in self._gateway_token_action_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_arguments(document):
-            for c in self._gateway_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_config_arguments(document):
-            for c in self._gateway_config_completer.get_completions(document, complete_event):
-                yield c
-
-        elif self._complete_gateway_config_action(document):
-            for c in self._gateway_config_action_completer.get_completions(document, complete_event):
-                yield c
+        elif document.text_before_cursor.startswith("gateway "):
+            gateway_completer = self._gateway_completer_for(document)
+            if gateway_completer is not None:
+                for c in gateway_completer.get_completions(document, complete_event):
+                    yield c
 
         elif self._complete_derivatives(document):
             if self._complete_exchanges(document):
