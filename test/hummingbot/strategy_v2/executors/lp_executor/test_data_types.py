@@ -59,6 +59,7 @@ class TestLPExecutorConfig(TestCase):
         self.assertEqual(config.base_amount, Decimal("0"))
         self.assertEqual(config.quote_amount, Decimal("100"))
         self.assertEqual(config.side, TradeType.RANGE)
+        self.assertEqual(config.position_refresh_interval, 1.0)
         self.assertIsNone(config.upper_limit_price)
         self.assertIsNone(config.lower_limit_price)
         self.assertIsNone(config.extra_params)
@@ -128,6 +129,16 @@ class TestLPExecutorConfig(TestCase):
     def test_typed_swap_provider_accepted(self):
         config = LPExecutorConfig(**self._minimal_kwargs(swap_provider="jupiter/router"))
         self.assertEqual(config.swap_provider, "jupiter/router")
+
+    def test_position_refresh_interval_can_be_configured(self):
+        config = LPExecutorConfig(**self._minimal_kwargs(position_refresh_interval=15))
+        self.assertEqual(config.position_refresh_interval, 15)
+
+    def test_non_positive_position_refresh_interval_rejected(self):
+        for value in (0, -1):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                    ValidationError, "position_refresh_interval.*must be greater than 0"):
+                LPExecutorConfig(**self._minimal_kwargs(position_refresh_interval=value))
 
     def test_config_side_values(self):
         """Test different side values: 1=BUY, 2=SELL, 3=RANGE"""

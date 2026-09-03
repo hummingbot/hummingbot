@@ -82,6 +82,11 @@ class LPExecutorConfig(ExecutorConfigBase):
     base_amount: Decimal = Decimal("0")
     quote_amount: Decimal = Decimal("0")
 
+    # Minimum time between on-chain position reads. The executor control loop can
+    # continue running frequently for lifecycle actions without making one Gateway
+    # request per tick for every active LP position.
+    position_refresh_interval: float = 1.0
+
     # Position side: TradeType.BUY (quote only), TradeType.SELL (base only), TradeType.RANGE (50/50)
     side: TradeType
 
@@ -146,6 +151,7 @@ class LPExecutorConfig(ExecutorConfigBase):
         require_not_above("lower_limit_price", self.lower_limit_price, "lower_price", self.lower_price)
         require_non_negative("base_amount", self.base_amount)
         require_non_negative("quote_amount", self.quote_amount)
+        require_positive("position_refresh_interval", self.position_refresh_interval)
         if self.base_amount == 0 and self.quote_amount == 0:
             raise ValueError("base_amount and quote_amount cannot both be 0: "
                              "at least one side of the position has to be funded")
