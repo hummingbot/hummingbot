@@ -14,6 +14,7 @@ import pandas as pd
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.backtesting.backtesting_engine_base import BacktestingEngineBase
 from hummingbot.strategy_v2.backtesting.executor_simulator_base import ExecutorSimulation
+from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, StopExecutorAction
@@ -42,6 +43,29 @@ def _simulation(config: PositionExecutorConfig, timestamps, close_type=CloseType
         "close": [100.0] * len(timestamps),
     }, index=pd.Index(timestamps, name="timestamp"))
     return ExecutorSimulation(config=config, executor_simulation=df, close_type=close_type)
+
+
+def _order_config(executor_id: str, timestamp: float) -> OrderExecutorConfig:
+    return OrderExecutorConfig(
+        id=executor_id, timestamp=timestamp,
+        connector_name="binance", trading_pair="ETH-USDT",
+        side=TradeType.BUY, amount=Decimal("1"), price=Decimal("100"),
+        execution_strategy=ExecutionStrategy.MARKET,
+        level_id="buy_0",
+    )
+
+
+def _hold_simulation(config: OrderExecutorConfig, timestamps, entry_price=100.0) -> ExecutorSimulation:
+    """A maker order that fills and keeps the position: terminates as POSITION_HOLD."""
+    df = pd.DataFrame({
+        "net_pnl_pct": [0.0] * len(timestamps),
+        "net_pnl_quote": [0.0] * len(timestamps),
+        "cum_fees_quote": [0.0] * len(timestamps),
+        "filled_amount_quote": [entry_price] * len(timestamps),
+        "current_position_average_price": [entry_price] * len(timestamps),
+        "close": [entry_price] * len(timestamps),
+    }, index=pd.Index(timestamps, name="timestamp"))
+    return ExecutorSimulation(config=config, executor_simulation=df, close_type=CloseType.POSITION_HOLD)
 
 
 def _features() -> pd.DataFrame:
@@ -138,6 +162,33 @@ class TestFinalTickLedger(unittest.IsolatedAsyncioTestCase):
         for executor_id in booked_ids:
             self.assertEqual(ledger_by_id[executor_id].status, RunnableStatus.TERMINATED)
             self.assertIsNotNone(ledger_by_id[executor_id].close_type)
+
+    async def test_position_hold_created_on_the_final_tick_is_accounted_for(self):
+        """A maker order created and filled on the closing tick keeps its position, so it has to
+        go through position-hold accounting rather than land in the ledger unaccounted for."""
+        late = _order_config("late_hold", 120.0)
+        controller = _ScriptedController({
+            120.0: [CreateExecutorAction(controller_id="test", executor_config=late)],
+        })
+        engine = self._engine(controller, {"late_hold": _hold_simulation(late, [120.0])})
+
+        ledger = await engine.simulate_execution(trade_cost=0.0)
+
+        self.assertEqual([executor.id for executor in ledger], ["late_hold"])
+        self.assertEqual(ledger[0].close_type, CloseType.POSITION_HOLD)
+
+        # Its exposure reaches the position-hold ledger...
+        holds = list(engine.active_position_holds.values())
+        self.assertEqual(len(holds), 1)
+        self.assertEqual(holds[0].net_amount_base, Decimal("1"))
+        self.assertEqual(holds[0].volume_traded_quote, Decimal("100"))
+        # ...and the fill is not silently dropped from the summary: a POSITION_HOLD executor is
+        # excluded from the executor PnL, so without the hold its 100 quote of volume vanished.
+        results = BacktestingEngineBase.summarize_results(
+            ledger, total_amount_quote=1000,
+            position_holds=holds, final_price=Decimal("110"),
+            pnl_timeseries=engine.pnl_timeseries)
+        self.assertEqual(results["unrealized_pnl_quote"], 10.0)
 
     def test_executor_stopped_after_the_last_look_keeps_its_terminated_info(self):
         """A StopExecutorAction handled after update_executors_info() must win over the stale

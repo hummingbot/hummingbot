@@ -290,6 +290,14 @@ class BacktestingEngineBase:
                 elif isinstance(action, StopExecutorAction):
                     self.handle_stop_action(action, row["timestamp"])
 
+        # Closing tick: everything determine_executor_actions() did on the last row happened
+        # after that tick's update_executors_info(). Give the engine one last look so those
+        # executors are terminated, booked into the running totals and — when they keep their
+        # position — routed to the position-hold ledger, exactly as on any other tick. Without
+        # it a maker order created and filled on the last row reached the ledger as a
+        # POSITION_HOLD whose exposure no BacktestPositionHold ever accounted for, so its fill
+        # was dropped from both the executor PnL and the position summaries.
+        self.update_executors_info(last_index)
         # Final flush: convert any last-tick POSITION_HOLD executors into position holds
         self._update_positions_from_stopped_executors()
         return self.collect_executors_ledger(last_index)
