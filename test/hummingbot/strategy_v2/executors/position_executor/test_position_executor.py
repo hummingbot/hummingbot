@@ -8,7 +8,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
-from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent, OrderFilledEvent
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
@@ -386,6 +386,96 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor._close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
+
+    @patch.object(PositionExecutor, "_sleep")
+    @patch.object(PositionExecutor, "place_close_order_and_cancel_open_orders")
+    @patch.object(PositionExecutor, "get_in_flight_order")
+    async def test_late_fill_after_close_order_failure_does_not_place_duplicate_close_order(
+        self, mock_in_flight_order, place_close_order_mock, _
+    ):
+        position_config = self.get_position_config_market_long()
+        position_executor = self.get_position_executor_running_from_config(position_config)
+        position_executor._status = RunnableStatus.SHUTTING_DOWN
+        position_executor.close_type = CloseType.STOP_LOSS
+        position_executor._open_order = TrackedOrder("OID-BUY-1")
+        position_executor._open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID-BUY-1",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.triple_barrier_config.open_order_type,
+            trade_type=TradeType.BUY,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        position_executor._open_order.order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="open-fill",
+                client_order_id="OID-BUY-1",
+                exchange_order_id="EOID-BUY-1",
+                trading_pair=position_config.trading_pair,
+                fill_price=position_config.entry_price,
+                fill_base_amount=position_config.amount,
+                fill_quote_amount=position_config.amount * position_config.entry_price,
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=10,
+            )
+        )
+
+        close_order = InFlightOrder(
+            client_order_id="OID-SELL-FAIL",
+            exchange_order_id="EOID-SELL-FAIL",
+            trading_pair=position_config.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001113.223,
+            initial_state=OrderState.FAILED
+        )
+        close_order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="late-close-fill",
+                client_order_id="OID-SELL-FAIL",
+                exchange_order_id="EOID-SELL-FAIL",
+                trading_pair=position_config.trading_pair,
+                fill_price=position_config.entry_price,
+                fill_base_amount=position_config.amount,
+                fill_quote_amount=position_config.amount * position_config.entry_price,
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=11,
+            )
+        )
+        mock_in_flight_order.return_value = close_order
+
+        position_executor._close_order = TrackedOrder("OID-SELL-FAIL")
+        market = MagicMock()
+        position_executor.process_order_failed_event(
+            "102", market, MarketOrderFailureEvent(
+                order_id="OID-SELL-FAIL",
+                timestamp=1640001113.223,
+                order_type=OrderType.MARKET)
+        )
+        position_executor.process_order_filled_event(
+            "102", market, OrderFilledEvent(
+                timestamp=1640001113.333,
+                order_id="OID-SELL-FAIL",
+                trading_pair=position_config.trading_pair,
+                trade_type=TradeType.SELL,
+                order_type=OrderType.MARKET,
+                price=position_config.entry_price,
+                amount=position_config.amount,
+                trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                exchange_trade_id="late-close-fill",
+                exchange_order_id="EOID-SELL-FAIL",
+                position=PositionAction.CLOSE.value)
+        )
+
+        self.assertEqual(position_executor._close_order.order_id, "OID-SELL-FAIL")
+        self.assertTrue(position_executor.open_and_close_volume_match())
+        await position_executor.control_task()
+        place_close_order_mock.assert_not_called()
 
     @patch.object(PositionExecutor, "get_in_flight_order")
     def test_process_order_completed_event_open_order(self, in_flight_order_mock):
