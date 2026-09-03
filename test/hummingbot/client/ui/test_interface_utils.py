@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from decimal import Decimal
 from typing import Awaitable
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, PropertyMock, patch
 
 import pandas as pd
 
@@ -136,6 +136,44 @@ class InterfaceUtilsTest(unittest.TestCase):
         self.assertEqual(2, mock_result.log.call_count)
         self.assertEqual('Trades: 0, Total P&L: 0.00, Return %: 0.00%', mock_result.log.call_args_list[0].args[0])
         self.assertEqual('Trades: 2, Total P&L: 5.00 USDT, Return %: 1.50%', mock_result.log.call_args_list[1].args[0])
+
+    @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
+    @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    def test_start_trade_monitor_uses_strategy_start_time_for_current_session(self, mock_hb_app, mock_perf, mock_sleep):
+        mock_result = MagicMock()
+        mock_app = mock_hb_app.main_application()
+        mock_app.init_time = 1
+        mock_app.strategy_file_name = "conf_pmm_simple.yml"
+        mock_app.trading_core.start_time = 5000
+        mock_app.trading_core._strategy_running = True
+        mock_app.trading_core.strategy = MagicMock()
+        mock_app.trading_core.markets = {"kucoin": MagicMock(ready=True)}
+        mock_app.trading_core.trade_fill_db = MagicMock()
+
+        stale_trade = MagicMock(market="okx", symbol="HBOT-USDT")
+        current_trade = MagicMock(market="kucoin", symbol="HBOT-USDT")
+
+        def get_trades(start_timestamp, **_kwargs):
+            if start_timestamp == int(mock_app.init_time * 1e3):
+                return [stale_trade, current_trade]
+            return [current_trade]
+
+        mock_app._get_trades_from_session.side_effect = get_trades
+        mock_app.trading_core.get_current_balances = AsyncMock(return_value={})
+        mock_perf.return_value = MagicMock(return_pct=Decimal("0.01"), total_pnl=Decimal("2"))
+        mock_sleep.side_effect = asyncio.CancelledError()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(start_trade_monitor(mock_result))
+
+        mock_app._get_trades_from_session.assert_called_with(
+            int(mock_app.trading_core.start_time),
+            session=ANY,
+            config_file_path=mock_app.strategy_file_name,
+        )
+        mock_app.trading_core.get_current_balances.assert_awaited_once_with("kucoin")
+        self.assertEqual('Trades: 1, Total P&L: 2.00 USDT, Return %: 1.00%', mock_result.log.call_args_list[1].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")

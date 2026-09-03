@@ -256,16 +256,19 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
     @patch.object(TradingCore, "_initialize_v2_strategy")
     @patch.object(TradingCore, "detect_strategy_type")
     @patch("hummingbot.core.trading_core.RateOracle")
-    async def test_start_strategy(self, mock_rate_oracle, mock_detect, mock_init_script,
+    @patch("hummingbot.core.trading_core.time.time")
+    async def test_start_strategy(self, mock_time, mock_rate_oracle, mock_detect, mock_init_script,
                                   mock_start_exec, mock_start_clock):
         """Test starting a strategy"""
         # Set up mocks
+        mock_time.return_value = 1234.5
         mock_detect.return_value = StrategyType.V2
         mock_init_script.return_value = None
         mock_start_exec.return_value = None
         mock_start_clock.return_value = True
         mock_oracle_instance = Mock()
         mock_rate_oracle.get_instance.return_value = mock_oracle_instance
+        self.trading_core.start_time = 1000
 
         # Test starting strategy
         result = await self.trading_core.start_strategy("test_script", "config.yml", "config.yml")
@@ -273,6 +276,7 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(result)
         self.assertEqual(self.trading_core.strategy_name, "test_script")
         self.assertEqual(self.trading_core._strategy_file_name, "config.yml")
+        self.assertEqual(self.trading_core.start_time, 1234500.0)
         self.assertTrue(self.trading_core._strategy_running)
         mock_oracle_instance.start.assert_called_once()
 
