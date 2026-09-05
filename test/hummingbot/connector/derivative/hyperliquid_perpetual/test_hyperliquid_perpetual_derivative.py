@@ -3876,12 +3876,48 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
     def test_default_foundation_address_configured_so_field_injected(self):
         self.assertIsNotNone(CONSTANTS.FOUNDATION_BUILDER_ADDRESS)
         connector = self._build_connector()
+        connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
         self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), connector._builder_address)
         self.assertTrue(connector._should_inject_builder())
         self.assertEqual(
-            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
+            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 10},
             connector._build_builder_field(),
         )
+
+    def test_builder_field_omitted_when_fee_is_zero(self):
+        """A zero fee means the builder is unapproved (or the lookup failed).
+
+        Hyperliquid rejects an order carrying an unapproved builder outright -
+        "Builder fee has not been approved." - so sending the field at f=0 fails every
+        order while collecting nothing.
+        """
+        connector = self._build_connector()
+        self.assertTrue(connector._should_inject_builder())
+        self.assertEqual(0, connector._builder_fee_tenths_bps)
+        self.assertIsNone(connector._build_builder_field())
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_place_order_omits_builder_key_when_fee_is_zero(self, api_post_mock):
+        """The key must be absent from the signed action, not present with f=0."""
+        api_post_mock.return_value = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        connector = self._build_connector()
+        connector._builder_fee_tenths_bps = 0
+        connector.coin_to_asset = {"BTC": 0}
+        with patch.object(connector, "exchange_symbol_associated_to_pair",
+                          new_callable=AsyncMock, return_value="BTC"):
+            self.async_run_with_timeout(
+                connector._place_order(
+                    order_id="test-order",
+                    trading_pair="BTC-USD",
+                    amount=Decimal("1"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("10000"),
+                    position_action=PositionAction.OPEN,
+                )
+            )
+        sent = api_post_mock.call_args.kwargs["data"]
+        self.assertNotIn("builder", sent)
 
     def test_builder_field_omitted_when_not_supported(self):
         connector = self._build_connector()
@@ -3936,11 +3972,9 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
         connector = self._build_connector()
         self.async_run_with_timeout(connector._initialize_builder_fee())
         self.assertEqual(0, connector._builder_fee_tenths_bps)
-        # Still attributes to the Foundation builder address, just at 0 bps.
-        self.assertEqual(
-            {"b": CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower(), "f": 0},
-            connector._build_builder_field(),
-        )
+        # And the field is omitted: the venue rejects an order carrying a builder the
+        # user has not approved, so attributing at 0 bps would fail the order outright.
+        self.assertIsNone(connector._build_builder_field())
 
     @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
