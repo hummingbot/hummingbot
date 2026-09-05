@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Type
 from hummingbot.data_feed.candles_feed.aevo_perpetual_candles import AevoPerpetualCandles
 from hummingbot.data_feed.candles_feed.backpack_perpetual_candles import BackpackPerpetualCandles
 from hummingbot.data_feed.candles_feed.backpack_spot_candles import BackpackSpotCandles
+from hummingbot.data_feed.candles_feed.bing_x_spot_candles import BingXSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.bitget_perpetual_candles import BitgetPerpetualCandles
@@ -62,6 +63,7 @@ class CandlesFactory:
         "backpack_perpetual": BackpackPerpetualCandles,
         "binance_perpetual": BinancePerpetualCandles,
         "binance": BinanceSpotCandles,
+        "bing_x": BingXSpotCandles,
         "bitget": BitgetSpotCandles,
         "bitget_perpetual": BitgetPerpetualCandles,
         "gate_io": GateioSpotCandles,
