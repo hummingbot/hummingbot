@@ -681,8 +681,15 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _build_builder_field(self) -> Optional[Dict[str, Any]]:
         """The ``{"b": <address>, "f": <tenths_of_bps>}`` order field, or None when omitted. Address
-        is lowercased (the venue rejects mixed-case)."""
+        is lowercased (the venue rejects mixed-case).
+
+        Omitted when the resolved fee is 0, i.e. the user has not approved this builder (or the
+        lookup failed). Hyperliquid rejects an order carrying a builder the user has not approved
+        - "Builder fee has not been approved." - regardless of the fee being 0, so sending the
+        field would fail every order while collecting nothing."""
         if not self._should_inject_builder():
+            return None
+        if self._builder_fee_tenths_bps <= 0:
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
