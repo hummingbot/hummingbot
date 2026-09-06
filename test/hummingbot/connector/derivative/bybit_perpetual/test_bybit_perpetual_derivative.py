@@ -1295,6 +1295,33 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertEqual(Decimal("15"), total_balances[self.base_asset])
 
     @aioresponses()
+    def test_update_balances_keeps_previous_snapshot_while_fetching(self, mock_api):
+        # Concurrent readers (e.g. budget checks) must never see a partially populated
+        # balance map while the per-coin available balance requests are in flight
+        self.exchange._account_balances[self.quote_asset] = Decimal("2000")
+        self.exchange._account_available_balances[self.quote_asset] = Decimal("2000")
+
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        snapshots = []
+
+        async def capture_snapshot(coin: str):
+            snapshots.append((dict(self.exchange.get_all_balances()), dict(self.exchange.available_balances)))
+            return Decimal("10")
+
+        with patch.object(self.exchange, "_fetch_available_balance", side_effect=capture_snapshot):
+            self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertEqual(2, len(snapshots))
+        for total_snapshot, available_snapshot in snapshots:
+            self.assertEqual(Decimal("2000"), total_snapshot[self.quote_asset])
+            self.assertEqual(Decimal("2000"), available_snapshot[self.quote_asset])
+
+        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
+        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.quote_asset])
+
+    @aioresponses()
     def test_fetch_available_balance_failure(self, mock_api):
         mock_url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL
