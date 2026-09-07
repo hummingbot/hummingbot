@@ -300,6 +300,12 @@ class BacktestingEngineBase:
         self.update_executors_info(last_index)
         # Final flush: convert any last-tick POSITION_HOLD executors into position holds
         self._update_positions_from_stopped_executors()
+        # Re-snapshot the closing tick now that the flush has booked those executors. The point
+        # recorded for it inside the loop predates all of it, so without this the equity curve,
+        # the cumulative-volume line and the position-held series all end one tick's worth of
+        # activity short of the summarized results — and drawdown and Sharpe, which are computed
+        # from pnl_timeseries, would miss the closing tick entirely.
+        self._record_tick_snapshot(last_index, Decimal(str(processed_features["close_bt"].iloc[-1])))
         return self.collect_executors_ledger(last_index)
 
     def _reset_simulation_state(self):
@@ -372,8 +378,18 @@ class BacktestingEngineBase:
 
         # Step 2: Check for naturally terminated executors
         self.update_executors_info(row["timestamp"])
-        mid_price = Decimal(str(row["close_bt"]))
 
+        # Step 3: Publish the positions held and record this tick's point on the timeseries
+        self._record_tick_snapshot(row["timestamp"], Decimal(str(row["close_bt"])))
+
+    def _record_tick_snapshot(self, timestamp: float, mid_price: Decimal):
+        """Publish ``controller.positions_held`` and record this tick's point on the timeseries.
+
+        Recording a timestamp that is already the last point on a series replaces it instead of
+        appending a second point for the same tick. The closing tick is snapshotted twice — once
+        inside the run loop and again once the final flush has booked whatever the controller did
+        on that last row — and only the second snapshot agrees with the summarized results.
+        """
         # Build positions_held from aggregated position holds (like orchestrator)
         positions_held = []
         for ph in self.active_position_holds.values():
@@ -386,8 +402,8 @@ class BacktestingEngineBase:
         position_unrealized = sum(float(ps.unrealized_pnl_quote) for ps in positions_held)
         total_pnl = self._executor_realized_pnl + position_realized + position_unrealized
 
-        self.pnl_timeseries.append({
-            "timestamp": row["timestamp"],
+        self._record_timeseries_point(self.pnl_timeseries, {
+            "timestamp": timestamp,
             "executor_realized_pnl": self._executor_realized_pnl,
             "position_realized_pnl": position_realized,
             "position_unrealized_pnl": position_unrealized,
@@ -400,8 +416,8 @@ class BacktestingEngineBase:
         if positions_held:
             long_amount = sum(float(ps.amount * mid_price) for ps in positions_held if ps.side == TradeType.BUY)
             short_amount = sum(float(ps.amount * mid_price) for ps in positions_held if ps.side == TradeType.SELL)
-            self.position_held_timeseries.append({
-                "timestamp": row["timestamp"],
+            self._record_timeseries_point(self.position_held_timeseries, {
+                "timestamp": timestamp,
                 "long_amount": long_amount,
                 "short_amount": short_amount,
                 "net_amount": long_amount - short_amount,
@@ -409,6 +425,22 @@ class BacktestingEngineBase:
                 "realized_pnl": position_realized,
                 "n_holds": len([ph for ph in self.active_position_holds.values() if not ph.is_closed]),
             })
+        elif self._is_last_timestamp(self.position_held_timeseries, timestamp):
+            # Re-snapshotting a tick whose holds have since netted flat: drop the stale point
+            # rather than leave the chart showing a position the run no longer has.
+            self.position_held_timeseries.pop()
+
+    @classmethod
+    def _record_timeseries_point(cls, series: List[Dict], point: Dict):
+        """Append ``point``, replacing the series' last point when it covers the same tick."""
+        if cls._is_last_timestamp(series, point["timestamp"]):
+            series[-1] = point
+        else:
+            series.append(point)
+
+    @staticmethod
+    def _is_last_timestamp(series: List[Dict], timestamp: float) -> bool:
+        return bool(series) and series[-1]["timestamp"] == timestamp
 
     def update_executors_info(self, timestamp: float):
         active_executors_info = []

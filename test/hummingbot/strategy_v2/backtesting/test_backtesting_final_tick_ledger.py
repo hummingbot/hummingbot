@@ -190,6 +190,98 @@ class TestFinalTickLedger(unittest.IsolatedAsyncioTestCase):
             pnl_timeseries=engine.pnl_timeseries)
         self.assertEqual(results["unrealized_pnl_quote"], 10.0)
 
+    async def test_closing_tick_executor_reaches_the_equity_curve(self):
+        """The timeseries is what drawdown and Sharpe are computed from, so an executor booked by
+        the closing-tick flush has to land on it too — not just in the summary totals."""
+        late = _config("late", 120.0)
+        controller = _ScriptedController({
+            120.0: [CreateExecutorAction(controller_id="test", executor_config=late)],
+        })
+        engine = self._engine(controller, {"late": _simulation(late, [120.0], net_pnl_quote=Decimal("7"))})
+
+        ledger = await engine.simulate_execution(trade_cost=0.0)
+        results = BacktestingEngineBase.summarize_results(
+            ledger, total_amount_quote=1000, pnl_timeseries=engine.pnl_timeseries)
+
+        last_point = engine.pnl_timeseries[-1]
+        self.assertEqual(last_point["timestamp"], 120.0)
+        self.assertEqual(last_point["total_pnl"], 7.0)
+        self.assertEqual(last_point["cumulative_volume"], results["total_volume"])
+        # ...and the risk metrics no longer read a flat, all-zero curve.
+        self.assertNotEqual(results["sharpe_ratio"], 0.0)
+
+    async def test_closing_tick_position_hold_reaches_the_position_series(self):
+        """A hold created on the closing tick has to reach position_held_timeseries: the results
+        gate the whole position-held chart row on that series being non-empty."""
+        late = _order_config("late_hold", 120.0)
+        controller = _ScriptedController({
+            120.0: [CreateExecutorAction(controller_id="test", executor_config=late)],
+        })
+        engine = self._engine(controller, {"late_hold": _hold_simulation(late, [120.0])})
+
+        await engine.simulate_execution(trade_cost=0.0)
+
+        self.assertEqual(len(engine.position_held_timeseries), 1)
+        held = engine.position_held_timeseries[-1]
+        self.assertEqual(held["timestamp"], 120.0)
+        self.assertEqual(held["net_amount"], 100.0)
+        self.assertEqual(held["n_holds"], 1)
+        # The controller's published view agrees with the ledger it was built from.
+        self.assertEqual(len(engine.controller.positions_held), 1)
+
+    async def test_summary_and_timeseries_agree_on_the_closing_tick(self):
+        """The invariant a cross-branch executor diff cannot catch: the last point of the equity
+        curve is where the summarized results say the run ended."""
+        early, late = _config("early", 0.0), _order_config("late_hold", 120.0)
+        controller = _ScriptedController({
+            0.0: [CreateExecutorAction(controller_id="test", executor_config=early)],
+            120.0: [CreateExecutorAction(controller_id="test", executor_config=late)],
+        })
+        engine = self._engine(controller, {
+            "early": _simulation(early, [0.0, 60.0]),
+            "late_hold": _hold_simulation(late, [120.0]),
+        })
+
+        ledger = await engine.simulate_execution(trade_cost=0.0)
+        holds = list(engine.active_position_holds.values())
+        results = BacktestingEngineBase.summarize_results(
+            ledger, total_amount_quote=1000, position_holds=holds,
+            final_price=Decimal("100"), pnl_timeseries=engine.pnl_timeseries)
+
+        last_point = engine.pnl_timeseries[-1]
+        self.assertEqual(results["net_pnl_quote"] + results["unrealized_pnl_quote"],
+                         last_point["total_pnl"])
+        # Volume covers the POSITION_HOLD fill the summary reports only through the holds.
+        self.assertEqual(last_point["cumulative_volume"], 200.0)
+        self.assertEqual(float(holds[0].volume_traded_quote), 100.0)
+
+    async def test_the_closing_tick_is_recorded_once(self):
+        """Re-snapshotting the closing tick replaces its point rather than duplicating it."""
+        late = _order_config("late_hold", 120.0)
+        controller = _ScriptedController({
+            120.0: [CreateExecutorAction(controller_id="test", executor_config=late)],
+        })
+        engine = self._engine(controller, {"late_hold": _hold_simulation(late, [120.0])})
+
+        await engine.simulate_execution(trade_cost=0.0)
+
+        for series in (engine.pnl_timeseries, engine.position_held_timeseries):
+            timestamps = [point["timestamp"] for point in series]
+            self.assertEqual(len(timestamps), len(set(timestamps)))
+        self.assertEqual([point["timestamp"] for point in engine.pnl_timeseries], TICKS)
+
+    def test_a_hold_that_nets_flat_on_the_closing_tick_leaves_no_stale_point(self):
+        """Re-snapshotting a tick whose holds have netted flat drops its position-held point
+        instead of leaving the chart showing a position the run no longer has."""
+        engine = BacktestingEngineBase()
+        engine.controller = MagicMock()
+        engine.position_held_timeseries = [{"timestamp": 120.0, "net_amount": 100.0}]
+
+        engine._record_tick_snapshot(120.0, Decimal("100"))
+
+        self.assertEqual(engine.position_held_timeseries, [])
+        self.assertEqual(engine.controller.positions_held, [])
+
     def test_executor_stopped_after_the_last_look_keeps_its_terminated_info(self):
         """A StopExecutorAction handled after update_executors_info() must win over the stale
         running snapshot the controller was holding."""
