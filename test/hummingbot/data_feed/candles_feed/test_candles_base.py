@@ -153,7 +153,11 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             # Second call is a no-op thanks to the idempotency guard.
             await self.data_feed.initialize_exchange_data()
             mock_init.assert_awaited_once()
-        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+            # Reconnects can force a refresh for exchanges with expiring websocket tokens.
+            await self.data_feed.initialize_exchange_data(force=True)
+            self.assertEqual(mock_init.await_count, 2)
+        self.assertEqual(connector.exchange_symbol_associated_to_pair.await_count, 2)
+        connector.exchange_symbol_associated_to_pair.assert_awaited_with(self.trading_pair)
 
     @patch("os.path.exists", return_value=True)
     @patch("pandas.read_csv")
@@ -309,6 +313,28 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             self.is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to public klines. Retrying in 1 seconds..."))
+
+    @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase.initialize_exchange_data",
+           new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.candles_base.CandlesBase._sleep", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_refreshes_data_and_backs_off_after_connection_errors(
+            self, mock_ws, sleep_mock: AsyncMock, initialize_mock: AsyncMock):
+        if type(self.data_feed).listen_for_subscriptions is not CandlesBase.listen_for_subscriptions:
+            return
+
+        mock_ws.side_effect = [
+            ConnectionError("first connection failed"),
+            ConnectionError("second connection failed"),
+            asyncio.CancelledError(),
+        ]
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_feed.listen_for_subscriptions()
+
+        self.assertEqual(initialize_mock.await_count, 2)
+        initialize_mock.assert_awaited_with(force=True)
+        self.assertEqual([call.args[0] for call in sleep_mock.await_args_list], [1.0, 2.0])
 
     async def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
