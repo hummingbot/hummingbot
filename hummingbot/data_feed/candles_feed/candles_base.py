@@ -144,14 +144,17 @@ class CandlesBase(NetworkBase):
         # Allow exchange data to be refreshed on the next start (e.g. WS tokens that expire).
         self._exchange_data_initialized = False
 
-    async def initialize_exchange_data(self):
+    async def initialize_exchange_data(self, force: bool = False):
         """
         Idempotent entry point that ensures the exchange-specific data is set up exactly once
         per network lifecycle. Subclasses should override ``_initialize_exchange_data`` instead
         of this method. The guard avoids redundant work when this is called repeatedly (e.g. by
         ``fetch_candles`` inside ``get_historical_candles``'s pagination loop).
+
+        :param force: Refresh exchange-specific data even when it was already initialized. This
+            is used when reconnecting websocket feeds whose connection tokens can expire.
         """
-        if self._exchange_data_initialized:
+        if self._exchange_data_initialized and not force:
             return
         # Re-resolve the exchange symbol through the connector when one is attached (async, lazy).
         # This runs once per network lifecycle (guarded) and before the subclass hook, so overrides
@@ -440,22 +443,35 @@ class CandlesBase(NetworkBase):
         exchange.
         """
         ws: Optional[WSAssistant] = None
+        retry_delay = 1.0
+        refresh_exchange_data = False
         while True:
             try:
-                ws: WSAssistant = await self._connected_websocket_assistant()
+                if refresh_exchange_data:
+                    await self.initialize_exchange_data(force=True)
+                    refresh_exchange_data = False
+
+                ws = None
+                ws = await self._connected_websocket_assistant()
                 await self._subscribe_channels(ws)
+                retry_delay = 1.0
                 await self._process_websocket_messages(websocket_assistant=ws)
             except asyncio.CancelledError:
                 raise
             except ConnectionError as connection_exception:
                 self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+                refresh_exchange_data = True
             except Exception:
                 self.logger().exception(
-                    "Unexpected error occurred when listening to public klines. Retrying in 1 seconds...",
+                    f"Unexpected error occurred when listening to public klines. "
+                    f"Retrying in {retry_delay:g} seconds...",
                 )
-                await self._sleep(1.0)
+                refresh_exchange_data = True
             finally:
                 await self._on_order_stream_interruption(websocket_assistant=ws)
+
+            await self._sleep(retry_delay)
+            retry_delay = min(retry_delay * 2.0, 60.0)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
