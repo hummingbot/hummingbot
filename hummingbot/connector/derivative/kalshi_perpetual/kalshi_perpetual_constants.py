@@ -46,3 +46,11 @@ WS_TRADE_MESSAGE = "trade"
 WS_TICKER_MESSAGE = "ticker"
 WS_SUBSCRIBED_MESSAGE = "subscribed"
 WS_ERROR_MESSAGE = "error"
+
+# Private WebSocket channels. There is no balance or position channel: those are polled over REST.
+# https://docs.kalshi.com/margin-ws/websockets/user-fills
+# https://docs.kalshi.com/margin-ws/websockets/user-orders
+WS_FILL_CHANNEL = "fill"
+WS_USER_ORDERS_CHANNEL = "user_orders"
+WS_FILL_MESSAGE = "fill"
+WS_USER_ORDER_MESSAGE = "user_order"
