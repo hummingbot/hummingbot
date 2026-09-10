@@ -754,6 +754,59 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(2, rate_source.call_count)
         self.assertEqual(1, log_exception.call_count)
 
+    def test_cumulative_fee_paid_require_complete_does_not_return_partial_total(self):
+        order = InFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("2"),
+            creation_timestamp=1640001112.0,
+            price=Decimal("100"),
+        )
+
+        direct_fee_fill = TradeUpdate(
+            trade_id="direct-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("1"))]
+            ),
+            fill_timestamp=1,
+        )
+        missing_rate_fill = TradeUpdate(
+            trade_id="bnb-fee-trade",
+            client_order_id=self.client_order_id,
+            exchange_order_id=self.exchange_order_id,
+            trading_pair=self.trading_pair,
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[TokenAmount(token="BNB", amount=Decimal("0.01"))]
+            ),
+            fill_timestamp=2,
+        )
+        order.update_with_trade_update(direct_fee_fill)
+        order.update_with_trade_update(missing_rate_fill)
+
+        class MissingRateSource:
+            def get_pair_rate(self, pair):
+                return None
+
+        with patch.object(order.logger(), "exception"):
+            fee_paid = order.cumulative_fee_paid(
+                token=self.quote_asset,
+                rate_source=MissingRateSource(),
+                require_complete=True,
+            )
+
+        self.assertIsNone(fee_paid)
+
     def test_update_with_trade_update_duplicate_trade_update(self):
         order: InFlightOrder = InFlightOrder(
             client_order_id=self.client_order_id,

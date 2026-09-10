@@ -1241,6 +1241,53 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(custom_info["open_liquidity_placed"], executor.open_liquidity_placed)
         self.assertEqual(custom_info["close_liquidity_placed"], executor.close_liquidity_placed)
 
+    async def test_control_task_stops_when_completed_fee_snapshot_is_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+
+        await GridExecutor.control_task(executor)
+
+        executor.update_grid_levels.assert_called_once_with()
+        executor.update_metrics.assert_not_called()
+        executor.control_triple_barrier.assert_not_called()
+
+    async def test_control_task_stops_when_position_fee_metrics_are_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+
+        await GridExecutor.control_task(executor)
+
+        executor.update_grid_levels.assert_called_once_with()
+        executor.update_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_not_called()
+        executor.get_close_orders_to_create.assert_not_called()
+
+    def test_update_grid_levels_reports_incomplete_fee_snapshot(self):
+        executor = MagicMock()
+        level = MagicMock()
+        level.state = GridLevelStates.COMPLETE
+        level.active_open_order.order.completely_filled_event.is_set.return_value = True
+        level.active_close_order.order.completely_filled_event.is_set.return_value = True
+
+        executor.grid_levels = [level]
+        executor._get_order_snapshot.side_effect = [None, {}]
+
+        result = GridExecutor.update_grid_levels(executor)
+
+        self.assertFalse(result)
+        self.assertEqual(2, executor._get_order_snapshot.call_count)
+        level.reset_level.assert_not_called()
+
+    def test_adjust_and_place_close_order_skips_unavailable_candidate(self):
+        executor = MagicMock()
+        executor._get_close_order_candidate.return_value = None
+
+        GridExecutor.adjust_and_place_close_order(executor, MagicMock())
+
+        executor.adjust_order_candidates.assert_not_called()
+        executor.place_order.assert_not_called()
+
     @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
     def test_fee_conversion_uses_strategy_market_data_provider(self):
         from hummingbot.core.data_type.in_flight_order import TradeUpdate
