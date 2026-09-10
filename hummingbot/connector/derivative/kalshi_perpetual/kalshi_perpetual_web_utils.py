@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import hummingbot.connector.derivative.kalshi_perpetual.kalshi_perpetual_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -45,6 +45,18 @@ def build_api_factory(
 
 def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+
+def is_exchange_information_valid(market: Dict[str, Any]) -> bool:
+    """
+    Only active KX<ASSET>PERP markets are tradable perpetuals (inactive and closed ones are skipped).
+
+    :param market: a market from the /margin/markets response
+    """
+    ticker = market.get("ticker", "")
+    return (market.get("status") == "active"
+            and ticker.startswith(CONSTANTS.MARKET_TICKER_PREFIX)
+            and ticker.endswith(CONSTANTS.MARKET_TICKER_SUFFIX))
 
 
 async def get_current_server_time(

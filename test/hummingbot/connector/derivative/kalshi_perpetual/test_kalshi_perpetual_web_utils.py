@@ -55,6 +55,12 @@ class KalshiPerpetualWebUtilsTests(IsolatedAsyncioWrapperTestCase):
             web_utils.wss_url(domain=CONSTANTS.DEFAULT_DOMAIN),
         )
 
+    def test_is_exchange_information_valid(self):
+        self.assertTrue(web_utils.is_exchange_information_valid({"ticker": "KXBTCPERP", "status": "active"}))
+        self.assertFalse(web_utils.is_exchange_information_valid({"ticker": "KXGOLDPERP", "status": "inactive"}))
+        self.assertFalse(web_utils.is_exchange_information_valid({"ticker": "KXBTCPERP", "status": "closed"}))
+        self.assertFalse(web_utils.is_exchange_information_valid({"ticker": "BTC-USD", "status": "active"}))
+
     def test_build_api_factory(self):
         api_factory = web_utils.build_api_factory()
 
