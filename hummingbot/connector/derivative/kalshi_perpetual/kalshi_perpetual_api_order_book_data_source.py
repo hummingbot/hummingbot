@@ -187,7 +187,10 @@ class KalshiPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         if message_type == CONSTANTS.WS_SUBSCRIBED_MESSAGE:
             self._channel_sids[event_message["msg"]["channel"]] = event_message["msg"]["sid"]
         elif message_type == CONSTANTS.WS_ERROR_MESSAGE:
-            self.logger().error(f"Error message received from the order book stream: {event_message.get('msg')}")
+            # Kalshi answers a rejected subscribe or update_subscription with an error and keeps the connection open,
+            # without those streams. Raising reconnects after a pause, and the new subscription covers every tracked
+            # pair. Not a ConnectionError, which would reconnect without pausing.
+            raise IOError(f"Kalshi order book stream error: {event_message.get('msg')}")
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         msg = raw_message["msg"]

@@ -313,15 +313,22 @@ class KalshiPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(3, rest_snapshot.update_id)
         self.assertEqual(4, queued[self.data_source._snapshot_messages_queue_key][0]["update_id"])
 
-    async def test_process_websocket_messages_records_sids_and_logs_errors(self):
-        error_event = {"id": 1, "type": "error", "msg": {"code": 9, "msg": "Authentication required"}}
-
-        await self._processed([*self._subscribed_events(), error_event])
+    async def test_process_websocket_messages_records_sids(self):
+        await self._processed(self._subscribed_events())
 
         self.assertEqual({"orderbook_delta": 1, "trade": 2, "ticker": 3}, self.data_source._channel_sids)
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            "Error message received from the order book stream: {'code': 9, 'msg': 'Authentication required'}"))
+
+    async def test_error_message_raises_to_reconnect_after_a_pause(self):
+        # A rejected subscription keeps the connection open without its streams
+        error_event = {"id": 1, "type": "error", "msg": {"code": 9, "msg": "Authentication required"}}
+
+        with self.assertRaises(IOError) as context:
+            await self._processed([*self._subscribed_events(), error_event])
+
+        # A ConnectionError would reconnect without pausing, in a loop if the error persists
+        self.assertNotIsInstance(context.exception, ConnectionError)
+        self.assertEqual(
+            "Kalshi order book stream error: {'code': 9, 'msg': 'Authentication required'}", str(context.exception))
 
     # WEBSOCKET — listen_for_trades
 

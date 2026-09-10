@@ -143,18 +143,21 @@ class KalshiPerpetualAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase
         self.assertEqual(0, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def test_listen_for_user_stream_logs_error_messages_without_queueing_them(self, ws_connect_mock):
+    async def test_listen_for_user_stream_reconnects_after_an_error_message(self, ws_connect_mock):
+        # A rejected subscription keeps the connection open without private events
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         error_event = {"id": 1, "type": "error", "msg": {"code": 9, "msg": "Authentication required"}}
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(error_event))
+        self.data_source._sleep = AsyncMock(side_effect=asyncio.CancelledError)  # the pause before reconnecting
         msg_queue = asyncio.Queue()
 
-        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.listen_for_user_stream(msg_queue)
 
         self.assertEqual(0, msg_queue.qsize())
-        self.assertTrue(self._is_logged(
-            "ERROR", "Error message received from the user stream: {'code': 9, 'msg': 'Authentication required'}"))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+        self.assertIsNone(self.data_source._ws_assistant)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")

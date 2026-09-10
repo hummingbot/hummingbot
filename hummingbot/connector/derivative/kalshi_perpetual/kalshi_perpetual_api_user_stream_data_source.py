@@ -62,4 +62,6 @@ class KalshiPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if message_type in (CONSTANTS.WS_FILL_MESSAGE, CONSTANTS.WS_USER_ORDER_MESSAGE):
             queue.put_nowait(event_message)
         elif message_type == CONSTANTS.WS_ERROR_MESSAGE:
-            self.logger().error(f"Error message received from the user stream: {event_message.get('msg')}")
+            # A rejected subscription keeps the connection open without private events: raising reconnects after a
+            # pause and subscribes again.
+            raise IOError(f"Kalshi user stream error: {event_message.get('msg')}")
