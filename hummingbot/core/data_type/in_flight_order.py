@@ -17,7 +17,7 @@ from hummingbot.logger import HummingbotLogger
 s_decimal_0 = Decimal("0")
 
 GET_EX_ORDER_ID_TIMEOUT = 10  # seconds
-FEE_CONVERSION_RETRY_INTERVAL = 30.0
+FEE_CONVERSION_LOG_INTERVAL = 30.0
 
 
 class OrderState(Enum):
@@ -121,8 +121,7 @@ class InFlightOrder:
         self.last_update_timestamp: float = creation_timestamp
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
-        self._fee_conversion_retry_at: Dict[str, float] = {}
-        self._fee_conversion_cached_amounts: Dict[str, Decimal] = {}
+        self._fee_conversion_last_log_at: Dict[str, float] = {}
 
         self.exchange_order_id_update_event = asyncio.Event()
         if self.exchange_order_id:
@@ -317,11 +316,6 @@ class InFlightOrder:
         :return: the cumulative fee paid for all partial fills in the specified token
         """
         source_key = f"{token}:{id(rate_source) if rate_source is not None else 0}"
-        now = time.monotonic()
-        retry_at = self._fee_conversion_retry_at.get(source_key)
-
-        if retry_at is not None and now < retry_at:
-            return self._fee_conversion_cached_amounts.get(source_key, Decimal("0"))
 
         total_fee_in_token = Decimal("0")
         try:
@@ -334,12 +328,13 @@ class InFlightOrder:
                     rate_source=rate_source,
                 )
         except Exception:
-            self.logger().exception(f"Error calculating fee paid in {token}.")
-            self._fee_conversion_retry_at[source_key] = now + FEE_CONVERSION_RETRY_INTERVAL
-            self._fee_conversion_cached_amounts[source_key] = total_fee_in_token
+            now = time.monotonic()
+            last_log_at = self._fee_conversion_last_log_at.get(source_key)
+            if last_log_at is None or now - last_log_at >= FEE_CONVERSION_LOG_INTERVAL:
+                self.logger().exception(f"Error calculating fee paid in {token}.")
+                self._fee_conversion_last_log_at[source_key] = now
         else:
-            self._fee_conversion_retry_at.pop(source_key, None)
-            self._fee_conversion_cached_amounts.pop(source_key, None)
+            self._fee_conversion_last_log_at.pop(source_key, None)
 
         return total_fee_in_token
 
@@ -380,8 +375,7 @@ class InFlightOrder:
             return False
 
         self.order_fills[trade_id] = trade_update
-        self._fee_conversion_retry_at.clear()
-        self._fee_conversion_cached_amounts.clear()
+        self._fee_conversion_last_log_at.clear()
 
         self.executed_amount_base += trade_update.fill_base_amount
         self.executed_amount_quote += trade_update.fill_quote_amount

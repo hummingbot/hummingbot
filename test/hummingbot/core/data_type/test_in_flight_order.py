@@ -644,7 +644,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(Decimal("6"), fee_paid)
         self.assertEqual(f"BNB-{self.quote_asset}", rate_source.requested_pair)
 
-    def test_cumulative_fee_paid_throttles_repeated_conversion_failures(self):
+    def test_cumulative_fee_paid_throttles_repeated_conversion_error_logs(self):
         order = InFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.trading_pair,
@@ -698,9 +698,9 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             )
 
         self.assertEqual(2, log_exception.call_count)
-        self.assertEqual(2, rate_source.call_count)
+        self.assertEqual(3, rate_source.call_count)
 
-    def test_cumulative_fee_paid_retries_after_cooldown_and_recovers(self):
+    def test_cumulative_fee_paid_recovers_as_soon_as_rate_becomes_available(self):
         order = InFlightOrder(
             client_order_id=self.client_order_id,
             trading_pair=self.trading_pair,
@@ -738,13 +738,9 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         with patch(
             "hummingbot.core.data_type.in_flight_order.time.monotonic",
-            side_effect=[0.0, 1.0, 31.0],
+            return_value=0.0,
         ), patch.object(order.logger(), "exception") as log_exception:
             first = order.cumulative_fee_paid(
-                token=self.quote_asset,
-                rate_source=rate_source,
-            )
-            second = order.cumulative_fee_paid(
                 token=self.quote_asset,
                 rate_source=rate_source,
             )
@@ -754,7 +750,6 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             )
 
         self.assertEqual(Decimal("0"), first)
-        self.assertEqual(Decimal("0"), second)
         self.assertEqual(Decimal("6"), recovered)
         self.assertEqual(2, rate_source.call_count)
         self.assertEqual(1, log_exception.call_count)
