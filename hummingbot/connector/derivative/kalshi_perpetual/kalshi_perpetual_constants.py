@@ -1,3 +1,7 @@
+from typing import List
+
+from hummingbot.core.api_throttler.data_types import RateLimit
+
 EXCHANGE_NAME = "kalshi_perpetual"
 
 # Production only. Kalshi also has a demo environment (https://external-api.demo.kalshi.co/trade-api/v2), which is
@@ -14,3 +18,6 @@ REST_URLS = {
 # No SERVER_TIME_PATH_URL: Kalshi has no server-time endpoint and documents no tolerance window for the
 # KALSHI-ACCESS-TIMESTAMP (ms) signed header, so requests are signed with local time and never resynced.
 # https://docs.kalshi.com/getting_started/api_keys
+
+# Filled in with the main class, once every REST call is known. Until then the throttler lets requests through.
+RATE_LIMITS: List[RateLimit] = []
