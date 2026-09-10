@@ -282,8 +282,6 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         # The generic setUp builds the symbol map directly, so the contract specs it would load are seeded here.
         exchange._contract_sizes[self.trading_pair] = Decimal("1")
         exchange._tick_sizes[self.trading_pair] = Decimal("0.0001")
-        # The generic fill mocks are timestamped at order creation; the grace period has its own tests below.
-        exchange.REST_FILL_GRACE_PERIOD = 0
         exchange.ACCOUNT_REFRESH_MIN_INTERVAL = 0
         # Fills refresh positions and balances, which has its own tests below; elsewhere the refresh would send
         # requests no test mocks.
@@ -888,37 +886,26 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             trade_type=TradeType.BUY, price=Decimal("10000"), amount=Decimal("1"),
             position_action=PositionAction.OPEN)
         self.exchange._set_current_timestamp(NOW)
-        self.exchange.REST_FILL_GRACE_PERIOD = KalshiPerpetualDerivative.REST_FILL_GRACE_PERIOD
         return self.exchange.in_flight_orders["11"]
 
     @aioresponses()
-    def test_rest_fills_only_add_the_amount_the_websocket_did_not_report(self, mock_api):
+    def test_rest_fills_add_only_the_fills_the_websocket_missed(self, mock_api):
         order = self._track_order_for_rest_fills()
-        # The websocket already delivered the first fill, under its own trade id
+        # The websocket missed the first fill and delivered the second, whose trade_id is the REST fill_id
         self.exchange._process_fill_event(
-            self._fill_event(order, "ws-trade-1", Decimal("10000"), Decimal("0.4"), ts=NOW - 60)["msg"])
-        other_order_fill = {**self._fill(order, "rest-other", Decimal("10000"), Decimal("1"), created_time=NOW - 50),
+            self._fill_event(order, "fill-2", Decimal("10000"), Decimal("0.6"), ts=NOW - 30)["msg"])
+        other_order_fill = {**self._fill(order, "fill-other", Decimal("10000"), Decimal("1"), created_time=NOW - 50),
                             "order_id": "99"}
-        fills = [self._fill(order, "rest-2", Decimal("10000"), Decimal("0.6"), created_time=NOW - 30),
+        fills = [self._fill(order, "fill-2", Decimal("10000"), Decimal("0.6"), created_time=NOW - 30),
                  other_order_fill,
-                 self._fill(order, "rest-1", Decimal("10000"), Decimal("0.4"), created_time=NOW - 60)]
+                 self._fill(order, "fill-1", Decimal("10000"), Decimal("0.4"), created_time=NOW - 60)]
         mock_api.get(self.fills_url, body=json.dumps({"fills": fills, "cursor": ""}))
 
-        trade_updates = self.async_run_with_timeout(self.exchange._all_trade_updates_for_order(order))
+        self.async_run_with_timeout(self.exchange._update_orders_fills([order]))
 
-        self.assertEqual(["rest-2"], [trade_update.trade_id for trade_update in trade_updates])
-        self.assertEqual(Decimal("0.6"), trade_updates[0].fill_base_amount)
-
-    @aioresponses()
-    def test_rest_fills_within_the_grace_period_are_left_to_the_websocket(self, mock_api):
-        order = self._track_order_for_rest_fills()
-        fills = [self._fill(order, "rest-1", Decimal("10000"), Decimal("0.4"), created_time=NOW - 60),
-                 self._fill(order, "rest-2", Decimal("10000"), Decimal("0.6"), created_time=NOW - 5)]
-        mock_api.get(self.fills_url, body=json.dumps({"fills": fills, "cursor": ""}))
-
-        trade_updates = self.async_run_with_timeout(self.exchange._all_trade_updates_for_order(order))
-
-        self.assertEqual(["rest-1"], [trade_update.trade_id for trade_update in trade_updates])
+        self.assertEqual({"fill-1", "fill-2"}, set(order.order_fills))
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(2, len(self.order_filled_logger.event_log))
 
     @aioresponses()
     def test_rest_fills_follow_the_pagination_cursor(self, mock_api):

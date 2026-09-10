@@ -64,8 +64,6 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
 
     SHORT_POLL_INTERVAL = 5.0
     LONG_POLL_INTERVAL = 120.0
-    # REST fills younger than this are left to the websocket, the primary fill source (see _all_trade_updates_for_order)
-    REST_FILL_GRACE_PERIOD = 10.0
     # Balance and position refreshes triggered by the user stream run at most this often: a balance request costs
     # BALANCE_REQUEST_COST of the READ_TOKENS_PER_SECOND read budget.
     ACCOUNT_REFRESH_MIN_INTERVAL = 1.0
@@ -373,10 +371,8 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
-        The websocket is the primary fill source, and Kalshi does not document whether its fill ids (websocket
-        trade_id, REST fill_id) match, so the tracker can't deduplicate across sources. To never count a fill twice,
-        REST only contributes fills older than the grace period and beyond the amount already recorded for the order
-        (both sources report an order's fills in the same time order).
+        A fill has the same id over REST (fill_id) and the websocket (trade_id), as checked against live fills, so the
+        order tracker drops the fills the user stream already delivered and only the missing ones are added.
         """
         if order.exchange_order_id is None:
             # Never created (e.g. rejected), or its creation request hasn't returned: there are no fills to fetch, and
@@ -385,26 +381,18 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
         fills = [fill for fill in await self._request_fills(since=order.creation_timestamp)
                  if fill["order_id"] == order.exchange_order_id]
         fills.sort(key=lambda fill: self._parse_timestamp(fill["created_time"]))
-
-        trade_updates = []
-        cumulative_amount = Decimal("0")
-        for fill in fills:
-            cumulative_amount += self._from_exchange_count(order.trading_pair, fill["count"])
-            if cumulative_amount <= order.executed_amount_base:
-                continue
-            fill_timestamp = self._parse_timestamp(fill["created_time"])
-            if self.current_timestamp - fill_timestamp < self.REST_FILL_GRACE_PERIOD:
-                break
-            trade_updates.append(self._trade_update(
+        return [
+            self._trade_update(
                 order=order,
                 trade_id=fill["fill_id"],
                 exchange_order_id=fill["order_id"],
-                fill_timestamp=fill_timestamp,
+                fill_timestamp=self._parse_timestamp(fill["created_time"]),
                 price=fill["price"],
                 count=fill["count"],
                 fee_paid=fill["fees"],
-            ))
-        return trade_updates
+            )
+            for fill in fills
+        ]
 
     async def _request_fills(self, since: float) -> List[Dict[str, Any]]:
         # The fills endpoint can't filter by order or market, only by time; it is paginated with a cursor.
