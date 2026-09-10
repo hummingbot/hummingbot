@@ -49,6 +49,12 @@ class KalshiPerpetualWebUtilsTests(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(KeyError):
             web_utils.public_rest_url(path_url="/margin/exchange/status", domain="kalshi_perpetual_demo")
 
+    def test_wss_url(self):
+        self.assertEqual(
+            "wss://external-api-margin-ws.kalshi.com/trade-api/ws/v2/margin",
+            web_utils.wss_url(domain=CONSTANTS.DEFAULT_DOMAIN),
+        )
+
     def test_build_api_factory(self):
         api_factory = web_utils.build_api_factory()
 

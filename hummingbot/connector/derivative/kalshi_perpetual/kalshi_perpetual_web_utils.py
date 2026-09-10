@@ -28,6 +28,10 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     return public_rest_url(path_url=path_url, domain=domain)
 
 
+def wss_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    return CONSTANTS.WSS_URLS[domain]
+
+
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
