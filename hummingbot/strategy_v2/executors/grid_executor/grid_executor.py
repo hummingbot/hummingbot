@@ -444,6 +444,28 @@ class GridExecutor(ExecutorBase):
             price=entry_price
         )
 
+    def _get_fee_rate_source(self):
+        rate_source = getattr(self._strategy, "market_data_provider", None)
+        if callable(getattr(rate_source, "get_pair_rate", None)):
+            return rate_source
+        return None
+
+    def _get_cum_fees_base(self, tracked_order: TrackedOrder) -> Decimal:
+        if tracked_order.order:
+            return tracked_order.order.cumulative_fee_paid(
+                token=tracked_order.order.base_asset,
+                rate_source=self._get_fee_rate_source(),
+            )
+        return Decimal("0")
+
+    def _get_cum_fees_quote(self, tracked_order: TrackedOrder) -> Decimal:
+        if tracked_order.order:
+            return tracked_order.order.cumulative_fee_paid(
+                token=tracked_order.order.quote_asset,
+                rate_source=self._get_fee_rate_source(),
+            )
+        return Decimal("0")
+
     def _get_close_order_candidate(self, level: GridLevel):
         take_profit_price = self.get_take_profit_price(level)
         if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
@@ -452,7 +474,7 @@ class GridExecutor(ExecutorBase):
                 1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (
                 1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
-            amount = level.active_open_order.executed_amount_base - level.active_open_order.cum_fees_base
+            amount = level.active_open_order.executed_amount_base - self._get_cum_fees_base(level.active_open_order)
             self._open_fee_in_base = True
         else:
             amount = level.active_open_order.executed_amount_base
@@ -848,12 +870,12 @@ class GridExecutor(ExecutorBase):
                 [level.active_open_order.order.price * level.active_open_order.order.amount
                  for level in open_filled_levels]) / executed_amount_base
             if self._open_fee_in_base:
-                executed_amount_base -= sum([level.active_open_order.cum_fees_base for level in open_filled_levels])
+                executed_amount_base -= sum([self._get_cum_fees_base(level.active_open_order) for level in open_filled_levels])
             close_order_size_base = self._close_order.executed_amount_base if self._close_order and self._close_order.is_done else Decimal(
                 "0")
             self.position_size_base = executed_amount_base - close_order_size_base
             self.position_size_quote = self.position_size_base * self.position_break_even_price
-            self.position_fees_quote = Decimal(sum([level.active_open_order.cum_fees_quote for level in open_filled_levels]))
+            self.position_fees_quote = Decimal(sum([self._get_cum_fees_quote(level.active_open_order) for level in open_filled_levels]))
             self.position_pnl_quote = side_multiplier * ((self.mid_price - self.position_break_even_price) / self.position_break_even_price) * self.position_size_quote - self.position_fees_quote
             self.position_pnl_pct = self.position_pnl_quote / self.position_size_quote if self.position_size_quote > 0 else Decimal(
                 "0")

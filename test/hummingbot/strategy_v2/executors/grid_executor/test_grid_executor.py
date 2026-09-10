@@ -1241,6 +1241,79 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(custom_info["open_liquidity_placed"], executor.open_liquidity_placed)
         self.assertEqual(custom_info["close_liquidity_placed"], executor.close_liquidity_placed)
 
+    @patch.object(GridExecutor, "get_price", MagicMock(return_value=Decimal("100")))
+    def test_fee_conversion_uses_strategy_market_data_provider(self):
+        from hummingbot.core.data_type.in_flight_order import TradeUpdate
+        from hummingbot.strategy_v2.models.executors import TrackedOrder
+
+        config = GridExecutorConfig(
+            id="test",
+            timestamp=123,
+            side=TradeType.BUY,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            start_price=Decimal("100"),
+            end_price=Decimal("120"),
+            total_amount_quote=Decimal("100"),
+            min_spread_between_orders=Decimal("0.01"),
+            min_order_amount_quote=Decimal("9"),
+            order_frequency=1.0,
+            max_open_orders=5,
+            max_orders_per_batch=2,
+            limit_price=Decimal("90"),
+            triple_barrier_config=TripleBarrierConfig(
+                take_profit=Decimal("0.001"),
+                stop_loss=Decimal("0.05"),
+                trailing_stop=TrailingStop(
+                    activation_price=Decimal("0.05"),
+                    trailing_delta=Decimal("0.005"),
+                ),
+            ),
+        )
+
+        executor = self.get_grid_executor_from_config(config)
+
+        rate_source = MagicMock()
+        rate_source.get_pair_rate.return_value = Decimal("600")
+        executor._strategy.market_data_provider = rate_source
+
+        order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID-BUY-1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=123,
+        )
+
+        trade_update = TradeUpdate(
+            trade_id="BNB-FEE-TRADE",
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID-BUY-1",
+            trading_pair="ETH-USDT",
+            fill_price=Decimal("100"),
+            fill_base_amount=Decimal("1"),
+            fill_quote_amount=Decimal("100"),
+            fee=AddedToCostTradeFee(
+                flat_fees=[
+                    TokenAmount(token="BNB", amount=Decimal("0.01"))
+                ]
+            ),
+            fill_timestamp=124,
+        )
+
+        self.assertTrue(order.update_with_trade_update(trade_update))
+
+        tracked_order = TrackedOrder(order_id="OID-BUY-1")
+        tracked_order.order = order
+
+        fee_paid = executor._get_cum_fees_quote(tracked_order)
+
+        self.assertEqual(Decimal("6"), fee_paid)
+        rate_source.get_pair_rate.assert_called_once_with("BNB-USDT")
+
     def test_creating_grid_with_unsupported_stop_loss_order(self, ):
         # The barrier order types are validated by the config, so the grid can never be built.
         with self.assertRaises(ValueError):
