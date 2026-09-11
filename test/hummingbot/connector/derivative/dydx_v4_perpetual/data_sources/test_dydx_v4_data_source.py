@@ -52,6 +52,28 @@ class DydxPerpetualV4ClientTests(IsolatedAsyncioWrapperTestCase):
         self.async_tasks.append(task)
         return task
 
+    def test_init_with_empty_secret_phrase_raises_actionable_error(self):
+        # Regression for issue #7409: an empty secret phrase must surface a clear,
+        # actionable error naming the config field, not the opaque bip_utils message
+        # "Mnemonic words count is not valid (0)".
+        with self.assertRaises(ValueError) as ctx:
+            DydxPerpetualV4Client("", self._dydx_v4_chain_address, self.exchange)
+        message = str(ctx.exception)
+        self.assertIn("Invalid dYdX v4 secret phrase", message)
+        self.assertIn("connect dydx_v4_perpetual", message)
+        self.assertNotIn("Mnemonic words count", message)
+
+    def test_init_with_wrong_length_secret_phrase_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            DydxPerpetualV4Client("abandon abandon abandon", self._dydx_v4_chain_address, self.exchange)
+        self.assertIn("but got 3", str(ctx.exception))
+
+    def test_init_with_valid_secret_phrase_succeeds(self):
+        # A well-formed 24-word mnemonic must still construct the client (guard is a
+        # gate, not a wall) — this is the same phrase used throughout the suite.
+        client = DydxPerpetualV4Client(self.secret_phrase, self._dydx_v4_chain_address, self.exchange)
+        self.assertIsNotNone(client)
+
     @property
     def _order_cancelation_request_successful_mock_response(self):
         return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
