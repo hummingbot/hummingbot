@@ -1303,7 +1303,9 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await GridExecutor.control_task(executor)
 
-        executor.control_shutdown_process.assert_awaited_once_with()
+        executor.control_shutdown_process.assert_awaited_once_with(
+            fee_snapshots_complete=True
+        )
 
     def test_incomplete_fee_metrics_still_trigger_provable_stop_loss(self):
         executor = MagicMock()
@@ -1317,15 +1319,93 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(result)
         self.assertEqual(CloseType.STOP_LOSS, executor.close_type)
 
-    async def test_control_task_stops_when_completed_fee_snapshot_is_incomplete(self):
+    async def test_incomplete_completed_snapshot_does_not_suppress_risk_controls(self):
         executor = MagicMock()
         executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.RUNNING
+        executor.control_risk_barriers_without_fee_metrics.return_value = True
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_risk_barriers_without_fee_metrics.assert_called_once_with()
+        executor.cancel_open_orders.assert_called_once_with()
+        self.assertEqual(RunnableStatus.SHUTTING_DOWN, executor._status)
+
+    async def test_incomplete_completed_snapshot_does_not_suppress_shutdown(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = True
+        executor.status = RunnableStatus.SHUTTING_DOWN
+        executor.control_shutdown_process = AsyncMock()
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_shutdown_process.assert_awaited_once_with(
+            fee_snapshots_complete=False
+        )
+
+    async def test_shutdown_does_not_finalize_with_incomplete_completed_snapshot(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.EARLY_STOP
+        executor.position_size_base = Decimal("0")
+        executor._sleep = AsyncMock()
+
+        await GridExecutor.control_shutdown_process(
+            executor,
+            fee_snapshots_complete=False,
+        )
+
+        executor.stop.assert_not_called()
+        executor.control_close_order.assert_not_called()
+        executor._sleep.assert_awaited_once_with(5.0)
+
+    async def test_shutdown_can_close_exposure_with_incomplete_completed_snapshot(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.STOP_LOSS
+        executor.position_size_base = Decimal("1")
+        executor.control_close_order = AsyncMock()
+        executor._sleep = AsyncMock()
+
+        await GridExecutor.control_shutdown_process(
+            executor,
+            fee_snapshots_complete=False,
+        )
+
+        executor.control_close_order.assert_awaited_once_with()
+        executor.stop.assert_not_called()
+
+    async def test_control_task_pauses_grid_activity_when_completed_fee_snapshot_is_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = False
+        executor.update_metrics.return_value = True
+        executor.status = RunnableStatus.RUNNING
+        executor.control_triple_barrier.return_value = False
 
         await GridExecutor.control_task(executor)
 
         executor.update_grid_levels.assert_called_once_with()
-        executor.update_metrics.assert_not_called()
-        executor.control_triple_barrier.assert_not_called()
+        executor.update_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_called_once_with()
+
+        # Incomplete accounting must not suppress risk controls, but it must
+        # prevent creation or refresh of normal grid activity.
+        executor.get_open_orders_to_create.assert_not_called()
+        executor.get_close_orders_to_create.assert_not_called()
+        executor.get_open_order_ids_to_cancel.assert_not_called()
+        executor.get_close_order_ids_to_cancel.assert_not_called()
 
     async def test_control_task_stops_when_position_fee_metrics_are_incomplete(self):
         executor = MagicMock()

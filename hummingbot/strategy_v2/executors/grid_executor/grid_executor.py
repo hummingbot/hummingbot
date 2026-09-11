@@ -239,9 +239,7 @@ class GridExecutor(ExecutorBase):
 
         :return: None
         """
-        if not self.update_grid_levels():
-            return
-
+        fee_snapshots_complete = self.update_grid_levels()
         fee_metrics_complete = self.update_metrics()
 
         if self.status == RunnableStatus.RUNNING:
@@ -257,7 +255,7 @@ class GridExecutor(ExecutorBase):
 
             # Do not create or refresh grid orders while fee-dependent metrics
             # are incomplete, but do not suppress protective controls above.
-            if not fee_metrics_complete:
+            if not fee_snapshots_complete or not fee_metrics_complete:
                 return
 
             open_orders_to_create = self.get_open_orders_to_create()
@@ -276,7 +274,9 @@ class GridExecutor(ExecutorBase):
                     order_id=orders_id_to_cancel
                 )
         elif self.status == RunnableStatus.SHUTTING_DOWN:
-            await self.control_shutdown_process()
+            await self.control_shutdown_process(
+                fee_snapshots_complete=fee_snapshots_complete
+            )
 
     def early_stop(self, keep_position: bool = False):
         """
@@ -331,9 +331,13 @@ class GridExecutor(ExecutorBase):
 
         return fee_snapshots_complete
 
-    async def control_shutdown_process(self):
+    async def control_shutdown_process(self, fee_snapshots_complete: bool = True):
         """
-        Control the shutdown process of the executor, handling held positions separately
+        Control the shutdown process of the executor, handling held positions separately.
+
+        Incomplete completed-order fee snapshots must not suppress cancellation or
+        exposure-closing work, but they must prevent final executor termination until
+        the accounting snapshot can be persisted completely.
         """
         self.close_timestamp = self._strategy.current_timestamp
         open_orders_completed = self.open_liquidity_placed == Decimal("0")
@@ -341,6 +345,10 @@ class GridExecutor(ExecutorBase):
 
         if open_orders_completed and close_orders_completed:
             if self.close_type == CloseType.POSITION_HOLD:
+                if not fee_snapshots_complete:
+                    await self._sleep(5.0)
+                    return
+
                 # Validate every fee snapshot before mutating held-position state.
                 open_snapshots = []
                 for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
@@ -375,6 +383,10 @@ class GridExecutor(ExecutorBase):
                 # Regular shutdown process for non-held positions
                 order_execution_completed = self.position_size_base == Decimal("0")
                 if order_execution_completed:
+                    if not fee_snapshots_complete:
+                        await self._sleep(5.0)
+                        return
+
                     open_snapshots = []
                     for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
                         if level.active_open_order and level.active_open_order.order:
