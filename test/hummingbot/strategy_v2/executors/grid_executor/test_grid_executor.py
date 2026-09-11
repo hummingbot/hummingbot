@@ -1307,6 +1307,62 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             fee_snapshots_complete=True
         )
 
+    def test_base_exposure_ignores_third_token_fee_for_base_deduction(self):
+        executor = MagicMock()
+        rate_source = MagicMock()
+        executor._get_fee_rate_source.return_value = rate_source
+
+        tracked_order = MagicMock()
+        order = MagicMock()
+        tracked_order.order = order
+        order.base_asset = "ETH"
+        order.trading_pair = "ETH-USDT"
+
+        eth_fee_fill = MagicMock()
+        eth_fee_fill.fee_asset = "ETH"
+        eth_fee_fill.fill_price = Decimal("100")
+        eth_fee_fill.fill_base_amount = Decimal("1")
+        eth_fee_fill.fee.fee_amount_in_token.return_value = Decimal("0.01")
+
+        bnb_fee_fill = MagicMock()
+        bnb_fee_fill.fee_asset = "BNB"
+
+        order.order_fills = {
+            "eth-fee": eth_fee_fill,
+            "bnb-fee": bnb_fee_fill,
+        }
+
+        result = GridExecutor._get_deducted_base_fees(executor, tracked_order)
+
+        self.assertEqual(Decimal("0.01"), result)
+        eth_fee_fill.fee.fee_amount_in_token.assert_called_once()
+        bnb_fee_fill.fee.fee_amount_in_token.assert_not_called()
+
+    def test_position_size_refreshes_when_quote_fee_conversion_is_unavailable(self):
+        executor = MagicMock()
+        executor.config.side = TradeType.BUY
+        executor._open_fee_in_base = True
+        executor._close_order = None
+
+        level = MagicMock()
+        level.active_open_order.order.amount = Decimal("1")
+        level.active_open_order.order.price = Decimal("100")
+
+        executor.levels_by_state = {
+            GridLevelStates.OPEN_ORDER_FILLED: [level],
+            GridLevelStates.CLOSE_ORDER_PLACED: [],
+            GridLevelStates.OPEN_ORDER_PLACED: [],
+        }
+
+        executor._get_deducted_base_fees.return_value = Decimal("0.01")
+        executor._get_cum_fees_quote.return_value = None
+
+        result = GridExecutor.update_position_metrics(executor)
+
+        self.assertFalse(result)
+        self.assertEqual(Decimal("0.99"), executor.position_size_base)
+        self.assertEqual(Decimal("99.00"), executor.position_size_quote)
+
     def test_incomplete_fee_metrics_still_trigger_provable_stop_loss(self):
         executor = MagicMock()
         executor.config.side = TradeType.BUY

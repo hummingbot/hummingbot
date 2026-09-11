@@ -549,6 +549,23 @@ class GridExecutor(ExecutorBase):
             )
         return Decimal("0")
 
+    def _get_deducted_base_fees(self, tracked_order: TrackedOrder) -> Decimal:
+        if not tracked_order.order:
+            return Decimal("0")
+
+        order = tracked_order.order
+        total = Decimal("0")
+        for trade_update in order.order_fills.values():
+            if trade_update.fee_asset == order.base_asset:
+                total += trade_update.fee.fee_amount_in_token(
+                    trading_pair=order.trading_pair,
+                    price=trade_update.fill_price,
+                    order_amount=trade_update.fill_base_amount,
+                    token=order.base_asset,
+                    rate_source=self._get_fee_rate_source(),
+                )
+        return total
+
     def _get_close_order_candidate(self, level: GridLevel):
         take_profit_price = self.get_take_profit_price(level)
         if ((level.side == TradeType.BUY and take_profit_price <= self.current_close_quote) or
@@ -557,10 +574,8 @@ class GridExecutor(ExecutorBase):
                 1 + self.config.safe_extra_spread) if level.side == TradeType.BUY else self.current_close_quote * (
                 1 - self.config.safe_extra_spread)
         if level.active_open_order.fee_asset == self.config.trading_pair.split("-")[0] and self.config.deduct_base_fees:
-            cumulative_fees_base = self._get_cum_fees_base(level.active_open_order)
-            if cumulative_fees_base is None:
-                return None
-            amount = level.active_open_order.executed_amount_base - cumulative_fees_base
+            deducted_base_fees = self._get_deducted_base_fees(level.active_open_order)
+            amount = level.active_open_order.executed_amount_base - deducted_base_fees
             self._open_fee_in_base = True
         else:
             amount = level.active_open_order.executed_amount_base
@@ -1022,15 +1037,12 @@ class GridExecutor(ExecutorBase):
             for level in open_filled_levels
         ]) / executed_amount_base
 
-        cumulative_fees_base = []
         if self._open_fee_in_base:
-            cumulative_fees_base = [
-                self._get_cum_fees_base(level.active_open_order)
+            deducted_base_fees = [
+                self._get_deducted_base_fees(level.active_open_order)
                 for level in open_filled_levels
             ]
-            if any(fee is None for fee in cumulative_fees_base):
-                return False
-            executed_amount_base -= Decimal(sum(cumulative_fees_base))
+            executed_amount_base -= Decimal(sum(deducted_base_fees))
 
         close_order_size_base = (
             self._close_order.executed_amount_base
