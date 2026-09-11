@@ -1277,6 +1277,46 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor.stop.assert_not_called()
         executor._sleep.assert_awaited_once_with(5.0)
 
+    async def test_control_task_runs_risk_controls_when_fee_metrics_are_incomplete(self):
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.RUNNING
+        executor.control_risk_barriers_without_fee_metrics.return_value = True
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_risk_barriers_without_fee_metrics.assert_called_once_with()
+        executor.control_triple_barrier.assert_not_called()
+        executor.cancel_open_orders.assert_called_once_with()
+        self.assertEqual(RunnableStatus.SHUTTING_DOWN, executor._status)
+        executor.get_open_orders_to_create.assert_not_called()
+
+    async def test_control_task_runs_shutdown_when_fee_metrics_are_incomplete(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor.update_grid_levels.return_value = True
+        executor.update_metrics.return_value = False
+        executor.status = RunnableStatus.SHUTTING_DOWN
+        executor.control_shutdown_process = AsyncMock()
+
+        await GridExecutor.control_task(executor)
+
+        executor.control_shutdown_process.assert_awaited_once_with()
+
+    def test_incomplete_fee_metrics_still_trigger_provable_stop_loss(self):
+        executor = MagicMock()
+        executor.config.side = TradeType.BUY
+        executor.config.triple_barrier_config.stop_loss = Decimal("0.05")
+        executor.position_break_even_price = Decimal("100")
+        executor.mid_price = Decimal("90")
+
+        result = GridExecutor.control_risk_barriers_without_fee_metrics(executor)
+
+        self.assertTrue(result)
+        self.assertEqual(CloseType.STOP_LOSS, executor.close_type)
+
     async def test_control_task_stops_when_completed_fee_snapshot_is_incomplete(self):
         executor = MagicMock()
         executor.update_grid_levels.return_value = False
