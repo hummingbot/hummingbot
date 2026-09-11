@@ -1241,6 +1241,42 @@ class TestGridExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(custom_info["open_liquidity_placed"], executor.open_liquidity_placed)
         self.assertEqual(custom_info["close_liquidity_placed"], executor.close_liquidity_placed)
 
+    async def test_position_hold_does_not_finalize_when_fee_snapshot_is_incomplete(self):
+        from unittest.mock import AsyncMock
+
+        executor = MagicMock()
+        executor._strategy.current_timestamp = 123
+        executor.open_liquidity_placed = Decimal("0")
+        executor.close_liquidity_placed = Decimal("0")
+        executor.close_type = CloseType.POSITION_HOLD
+        executor._held_position_orders = []
+        executor._sleep = AsyncMock()
+
+        open_level = MagicMock()
+        open_level.active_open_order.order = MagicMock()
+        close_level = MagicMock()
+        close_level.active_close_order.order = MagicMock()
+
+        executor.levels_by_state = {
+            GridLevelStates.OPEN_ORDER_FILLED: [open_level],
+            GridLevelStates.CLOSE_ORDER_PLACED: [close_level],
+        }
+
+        # The open snapshot succeeds, but the close snapshot cannot yet
+        # convert every fee component. No held-position state may be committed.
+        executor._get_order_snapshot.side_effect = [
+            {"client_order_id": "open-1"},
+            None,
+        ]
+
+        await GridExecutor.control_shutdown_process(executor)
+
+        self.assertEqual([], executor._held_position_orders)
+        open_level.reset_level.assert_not_called()
+        close_level.reset_level.assert_not_called()
+        executor.stop.assert_not_called()
+        executor._sleep.assert_awaited_once_with(5.0)
+
     async def test_control_task_stops_when_completed_fee_snapshot_is_incomplete(self):
         executor = MagicMock()
         executor.update_grid_levels.return_value = False

@@ -329,14 +329,31 @@ class GridExecutor(ExecutorBase):
 
         if open_orders_completed and close_orders_completed:
             if self.close_type == CloseType.POSITION_HOLD:
-                # Move filled orders to held positions instead of regular filled orders
+                # Validate every fee snapshot before mutating held-position state.
+                open_snapshots = []
                 for level in self.levels_by_state[GridLevelStates.OPEN_ORDER_FILLED]:
                     if level.active_open_order and level.active_open_order.order:
-                        self._held_position_orders.append(level.active_open_order.order.to_json())
-                    level.reset_level()
+                        snapshot = self._get_order_snapshot(level.active_open_order.order)
+                        if snapshot is None:
+                            await self._sleep(5.0)
+                            return
+                        open_snapshots.append((level, snapshot))
+
+                close_snapshots = []
                 for level in self.levels_by_state[GridLevelStates.CLOSE_ORDER_PLACED]:
                     if level.active_close_order and level.active_close_order.order:
-                        self._held_position_orders.append(level.active_close_order.order.to_json())
+                        snapshot = self._get_order_snapshot(level.active_close_order.order)
+                        if snapshot is None:
+                            await self._sleep(5.0)
+                            return
+                        close_snapshots.append((level, snapshot))
+
+                for level, snapshot in open_snapshots:
+                    self._held_position_orders.append(snapshot)
+                    level.reset_level()
+
+                for level, snapshot in close_snapshots:
+                    self._held_position_orders.append(snapshot)
                     level.reset_level()
                 if len(self._held_position_orders) == 0:
                     self.close_type = CloseType.EARLY_STOP
