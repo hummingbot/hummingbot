@@ -71,6 +71,33 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         for action in stop_actions:
             self.assertIsInstance(action, StopExecutorAction)
 
+    @patch(
+        "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config",
+        new_callable=MagicMock,
+    )
+    def test_create_actions_proposal_skips_invalid_price_and_amount(self, executor_config_mock: MagicMock):
+        self.controller.processed_data = {"reference_price": Decimal("NaN"), "spread_multiplier": Decimal("1")}
+        self.controller.executors_info = []
+
+        actions = self.controller.create_actions_proposal()
+
+        self.assertEqual([], actions)
+        executor_config_mock.assert_not_called()
+
+    def test_check_position_rebalance_skips_invalid_reference_price(self):
+        self.mock_controller_config.connector_name = "binance"
+        controller = MarketMakingControllerBase(
+            config=self.mock_controller_config,
+            market_data_provider=self.mock_market_data_provider,
+            actions_queue=self.mock_actions_queue
+        )
+        controller.processed_data = {"reference_price": Decimal("NaN")}
+        controller.executors_info = []
+
+        result = controller.check_position_rebalance()
+
+        self.assertIsNone(result)
+
     def test_validate_order_type(self):
         for order_type_name in OrderType.__members__:
             self.assertEqual(
