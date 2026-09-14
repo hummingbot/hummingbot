@@ -1191,6 +1191,76 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(other))
         self.assertFalse(self.exchange._is_order_not_found_during_status_update_error(other))
 
+    @aioresponses()
+    async def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
+        # Overrides the generic test: only Kalshi's not_found counts towards losing an order, not any failed request
+        order = self._track_open_order()
+        self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
+
+        await self.exchange._update_orders()
+
+        self.assertTrue(order.is_open)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker._order_not_found_records)
+        self.assertTrue(any(
+            record.levelname == "WARNING"
+            and record.getMessage().startswith(f"Error fetching status update for the active order {order.client_order_id}")
+            for record in self.log_records))
+
+    async def test_network_errors_during_status_updates_do_not_lose_the_order(self):
+        order = self._track_open_order()
+        self.exchange._request_order_status = AsyncMock(
+            side_effect=IOError("Cannot connect to host external-api.kalshi.com:443 ssl:default"))
+
+        for _ in range(self.exchange._order_tracker.lost_order_count_limit + 2):
+            await self.exchange._update_orders()
+
+        self.assertTrue(order.is_open)
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertEqual(0, len(self.order_failure_logger.event_log))
+
+    @aioresponses()
+    async def test_not_found_during_status_updates_loses_the_order(self, mock_api):
+        order = self._track_open_order()
+        for _ in range(self.exchange._order_tracker.lost_order_count_limit + 1):
+            self.configure_order_not_found_error_order_status_response(order=order, mock_api=mock_api)
+            await self.exchange._update_orders()
+
+        self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertTrue(order.is_failure)
+
+    async def test_status_update_timeout_without_exchange_order_id_counts_towards_losing_the_order(self):
+        self.exchange._set_current_timestamp(NOW)
+        self.exchange.start_tracking_order(
+            order_id="11", exchange_order_id=None, trading_pair=self.trading_pair, order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY, price=Decimal("77825"), amount=Decimal("1"), position_action=PositionAction.OPEN)
+        self.exchange._request_order_status = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        await self.exchange._update_orders()
+
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records["11"])
+
+    async def test_status_update_timeout_with_exchange_order_id_is_retried(self):
+        order = self._track_open_order()
+        self.exchange._request_order_status = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        await self.exchange._update_orders()
+
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker._order_not_found_records)
+
+    async def test_cancel_request_timeout_does_not_count_towards_losing_the_order(self):
+        order = self._track_open_order()
+        self.exchange._api_delete = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        result = await self.exchange._execute_order_cancel(order)
+
+        self.assertIsNone(result)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker._order_not_found_records)
+        self.assertTrue(self.is_logged("ERROR", f"Failed to cancel order {order.client_order_id}"))
+        self.assertFalse(self.is_logged(
+            "WARNING", f"Failed to cancel the order {order.client_order_id} because it does not have an exchange "
+                       f"order id yet"))
+
     # Time synchronizer: Kalshi has no server time, so the connector keeps local time and never resyncs.
 
     def test_update_time_synchronizer_successfully(self):
