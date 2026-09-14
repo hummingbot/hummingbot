@@ -1191,21 +1191,6 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(other))
         self.assertFalse(self.exchange._is_order_not_found_during_status_update_error(other))
 
-    @aioresponses()
-    async def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
-        # Overrides the generic test: only Kalshi's not_found counts towards losing an order, not any failed request
-        order = self._track_open_order()
-        self.configure_http_error_order_status_response(order=order, mock_api=mock_api)
-
-        await self.exchange._update_orders()
-
-        self.assertTrue(order.is_open)
-        self.assertNotIn(order.client_order_id, self.exchange._order_tracker._order_not_found_records)
-        self.assertTrue(any(
-            record.levelname == "WARNING"
-            and record.getMessage().startswith(f"Error fetching status update for the active order {order.client_order_id}")
-            for record in self.log_records))
-
     async def test_network_errors_during_status_updates_do_not_lose_the_order(self):
         order = self._track_open_order()
         self.exchange._request_order_status = AsyncMock(

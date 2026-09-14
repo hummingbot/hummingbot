@@ -347,29 +347,12 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         exchange_order_id = await tracked_order.get_exchange_order_id()
-        try:
-            await self._api_delete(
-                path_url=CONSTANTS.ORDER_PATH_URL.format(order_id=exchange_order_id),
-                is_auth_required=True,
-                limit_id=CONSTANTS.CANCEL_ORDER_LIMIT_ID)
-        except asyncio.TimeoutError as timeout_error:
-            # The base class reads a timeout as "no exchange order id yet" and counts it towards losing the order.
-            raise IOError(f"The cancel request for order {order_id} timed out.") from timeout_error
+        await self._api_delete(
+            path_url=CONSTANTS.ORDER_PATH_URL.format(order_id=exchange_order_id),
+            is_auth_required=True,
+            limit_id=CONSTANTS.CANCEL_ORDER_LIMIT_ID)
         # Cancellation is synchronous: a 200 means the remaining contracts are cancelled.
         return True
-
-    async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
-        """
-        The base class counts every failed status request towards losing the order, so a network outage of a few
-        polls fails orders still resting on Kalshi and stops tracking them, and their later fills are ignored. Only
-        Kalshi's not_found, or an order that never got its exchange order id, counts; other errors are retried.
-        """
-        if (self._is_order_not_found_during_status_update_error(status_update_exception=error)
-                or (isinstance(error, asyncio.TimeoutError) and order.exchange_order_id is None)):
-            await super()._handle_update_error_for_active_order(order=order, error=error)
-        else:
-            self.logger().warning(
-                f"Error fetching status update for the active order {order.client_order_id}: {error}.")
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         exchange_order_id = await tracked_order.get_exchange_order_id()

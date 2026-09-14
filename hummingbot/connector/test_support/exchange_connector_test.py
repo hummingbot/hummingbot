@@ -1235,7 +1235,8 @@ class AbstractExchangeConnectorTests:
             self.assertFalse(order.is_filled)
             self.assertFalse(order.is_done)
 
-            self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+            # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
+            self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
         @aioresponses()
         async def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):

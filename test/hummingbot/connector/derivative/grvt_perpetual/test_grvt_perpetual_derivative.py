@@ -820,7 +820,7 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
     ) -> str:
         url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.") + ".*")
-        mock_api.post(regex_url, status=404, body=CONSTANTS.ORDER_NOT_FOUND_MESSAGE, callback=callback)
+        mock_api.post(regex_url, status=500, body="Internal Server Error", callback=callback)
         return url
 
     def configure_partially_filled_order_status_response(
@@ -844,7 +844,10 @@ class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
-        return [self.configure_http_error_order_status_response(order, mock_api, callback=callback)]
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.") + ".*")
+        mock_api.post(regex_url, status=404, body=CONSTANTS.ORDER_NOT_FOUND_MESSAGE, callback=callback)
+        return [url]
 
     def configure_partial_fill_trade_response(
         self,

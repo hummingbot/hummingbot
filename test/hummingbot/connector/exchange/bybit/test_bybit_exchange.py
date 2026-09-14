@@ -1303,7 +1303,8 @@ class TestBybitExchange(unittest.TestCase):
         self.assertFalse(order.is_filled)
         self.assertFalse(order.is_done)
 
-        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
+        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
     @aioresponses()
     def test_update_account_type(self, mock_api):
