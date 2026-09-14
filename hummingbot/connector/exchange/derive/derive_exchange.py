@@ -38,17 +38,17 @@ class DeriveExchange(ExchangePyBase):
             self,
             balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
             rate_limits_share_pct: Decimal = Decimal("100"),
-            derive_api_secret: str = None,
-            sub_id: int = None,
+            session_private_key: str = None,
+            subacct_id: int = None,
             account_type: str = None,
-            derive_api_key: str = None,
+            derive_wallet_address: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-        self.derive_api_key = derive_api_key
-        self.derive_secret_key = derive_api_secret
-        self._sub_id = sub_id
+        self.derive_wallet_address = derive_wallet_address
+        self.session_private_key = session_private_key
+        self._subacct_id = subacct_id
         self._account_type = account_type
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -71,7 +71,7 @@ class DeriveExchange(ExchangePyBase):
 
     @property
     def authenticator(self) -> DeriveAuth:
-        return DeriveAuth(self.derive_api_key, self.derive_secret_key, self._sub_id, self._trading_required, self._domain)
+        return DeriveAuth(self.derive_wallet_address, self.session_private_key, self._subacct_id, self._trading_required, self._domain)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -239,7 +239,7 @@ class DeriveExchange(ExchangePyBase):
         api_params = {
             "instrument_name": symbol,
             "order_id": oid,
-            "subaccount_id": int(self._sub_id)
+            "subaccount_id": int(self._subacct_id)
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
@@ -380,7 +380,7 @@ class DeriveExchange(ExchangePyBase):
             "order_type": price_type,
             "mmp": False,
             "time_in_force": param_order_type,
-            "recipient_id": self._sub_id,
+            "recipient_id": self._subacct_id,
         }
 
         order_result = await self._api_post(
@@ -409,7 +409,7 @@ class DeriveExchange(ExchangePyBase):
                 all_fills_response = await self._api_get(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
                     params={
-                        "subaccount_id": self._sub_id
+                        "subaccount_id": self._subacct_id
                     },
                     is_auth_required=True,
                     limit_id=CONSTANTS.MY_TRADES_PATH_URL)
@@ -519,8 +519,8 @@ class DeriveExchange(ExchangePyBase):
         Traders, Orders, and Balance updates from the WS.
         """
         user_channels = [
-            f"{self._sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
-            f"{self._sub_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
+            f"{self._subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            f"{self._subacct_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
         ]
         async for event_message in self._iter_user_event_queue():
             try:
@@ -706,7 +706,7 @@ class DeriveExchange(ExchangePyBase):
 
         account_info = await self._api_post(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            data={"subaccount_id": self._sub_id},
+            data={"subaccount_id": self._subacct_id},
             is_auth_required=True)
         if "error" in account_info:
             self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
@@ -732,7 +732,7 @@ class DeriveExchange(ExchangePyBase):
         order_update = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
             data={
-                "subaccount_id": self._sub_id,
+                "subaccount_id": self._subacct_id,
                 "order_id": oid
             },
             is_auth_required=True)
@@ -776,7 +776,7 @@ class DeriveExchange(ExchangePyBase):
             for trading_pair in trading_pairs:
                 params = {
                     "instrument_name": trading_pair,
-                    "subaccount_id": self._sub_id,
+                    "subaccount_id": self._subacct_id,
                 }
                 if self._last_poll_timestamp > 0:
                     params["from_timestamp"] = query_time
@@ -861,7 +861,7 @@ class DeriveExchange(ExchangePyBase):
                 params={
                     "instrument_name": trading_pair,
                     "order_id": exchange_order_id,
-                    "subaccount_id": self._sub_id
+                    "subaccount_id": self._subacct_id
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)

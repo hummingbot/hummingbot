@@ -562,3 +562,35 @@ class BudgetCheckerTest(unittest.TestCase):
 
         self.assertEqual(Decimal("7"), first_adjusted_candidate.amount)
         self.assertEqual(Decimal("5"), second_adjusted_candidate.amount)
+
+    def test_adjust_candidate_with_nan_price_does_not_raise(self):
+        """A NaN-priced candidate must be handled, not blow up the caller.
+
+        A venue with no order book (a Gateway swap) prices a candidate as NaN, which
+        propagates into both collateral amounts. `Decimal < NaN` raises
+        InvalidOperation rather than returning False, so both comparisons in
+        OrderCandidate.adjust_from_balances have to be NaN-guarded -- the order
+        collateral one always was, the percent-fee one was not.
+        """
+        self.exchange.set_balanced_order_book(
+            trading_pair=self.trading_pair,
+            mid_price=Decimal("2"),
+            min_price=Decimal("1"),
+            max_price=Decimal("3"),
+            price_step_size=Decimal("1"),
+            volume_step_size=Decimal("1"),
+        )
+        self.exchange.set_balance(self.quote_asset, Decimal("100"))
+        order_candidate = OrderCandidate(
+            trading_pair=self.trading_pair,
+            is_maker=False,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("nan"),
+        )
+
+        adjusted_candidate = self.budget_checker.adjust_candidate(order_candidate, all_or_none=False)
+
+        # Nothing can be scaled from a NaN price, so the amount is left untouched.
+        self.assertEqual(Decimal("10"), adjusted_candidate.amount)

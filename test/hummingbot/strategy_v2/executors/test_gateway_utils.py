@@ -187,17 +187,18 @@ class TestParseProvider(unittest.TestCase):
         self.assertEqual(dex, "meteora")
         self.assertEqual(trading_type, "clmm")
 
-    def test_parse_provider_without_slash(self):
-        """Test parsing provider without slash uses default."""
-        dex, trading_type = parse_provider("jupiter", default_trading_type="router")
+    def test_parse_provider_router_type(self):
+        """Test parsing a router provider."""
+        dex, trading_type = parse_provider("jupiter/router")
         self.assertEqual(dex, "jupiter")
         self.assertEqual(trading_type, "router")
 
-    def test_parse_provider_without_slash_different_default(self):
-        """Test parsing provider without slash with clmm default."""
-        dex, trading_type = parse_provider("orca", default_trading_type="clmm")
-        self.assertEqual(dex, "orca")
-        self.assertEqual(trading_type, "clmm")
+    def test_parse_provider_without_slash_raises(self):
+        """An untyped provider must raise: Gateway answers a guessed type with a 400."""
+        with self.assertRaises(ValueError) as ctx:
+            parse_provider("meteora")
+        self.assertIn("meteora", str(ctx.exception))
+        self.assertIn("name/type", str(ctx.exception))
 
 
 class TestValidateNetworkConnector(unittest.TestCase):
