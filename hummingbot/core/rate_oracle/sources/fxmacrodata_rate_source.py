@@ -2,16 +2,22 @@ import os
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-import aiohttp
-
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 DEFAULT_BASE_URL = "https://api.fxmacrodata.com/v1"
 REQUEST_TIMEOUT = 30
 SUBSCRIBE_URL = "https://fxmacrodata.com/subscribe"
+RATE_LIMIT_ID = "fxmacrodata"
+# One discovery call plus one call per covered currency each minute is well
+# inside this, so the throttler only bites if something goes wrong upstream.
+RATE_LIMITS = [RateLimit(limit_id=RATE_LIMIT_ID, limit=120, time_interval=60)]
 
 
 class FXMacroDataRateSource(RateSourceBase):
@@ -32,6 +38,11 @@ class FXMacroDataRateSource(RateSourceBase):
     inverse or the cross itself, so this asks for the pair it wants directly
     rather than reciprocating a rate locally.
 
+    Requests go through ``WebAssistantsFactory`` like the other rate sources
+    and data feeds, so this class owns no HTTP session of its own: it borrows
+    the process-wide ``ConnectionsFactory`` session, which is closed with the
+    rest of the application rather than being tied to this object.
+
     The FX reference endpoints require a subscription. Set ``FXMACRODATA_API_KEY``;
     it is sent as a header so it does not appear in a URL or a log line.
     """
@@ -39,16 +50,16 @@ class FXMacroDataRateSource(RateSourceBase):
     def __init__(self, base_url: str = DEFAULT_BASE_URL):
         super().__init__()
         self._base_url = base_url.rstrip("/")
-        self._shared_client: Optional[aiohttp.ClientSession] = None
+        self._api_factory: Optional[WebAssistantsFactory] = None
 
     @property
     def name(self) -> str:
         return "fxmacrodata"
 
-    def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+    def _get_api_factory(self) -> WebAssistantsFactory:
+        if self._api_factory is None:
+            self._api_factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=RATE_LIMITS))
+        return self._api_factory
 
     @staticmethod
     def _api_key() -> Optional[str]:
@@ -64,15 +75,19 @@ class FXMacroDataRateSource(RateSourceBase):
             headers["X-API-Key"] = api_key
         return headers
 
-    async def _get_json(self, endpoint: str) -> Any:
-        client = self._http_client()
+    async def _get_json(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        rest_assistant = await self._get_api_factory().get_rest_assistant()
         url = f"{self._base_url}/{endpoint.lstrip('/')}"
-        async with client.get(
-            url, headers=self._headers(), timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
-        ) as response:
-            if response.status != 200:
-                raise IOError(f"FXMacroData request to {endpoint} failed with HTTP {response.status}")
-            return await response.json()
+        # execute_request_and_get_response raises IOError on any 4xx or 5xx.
+        response = await rest_assistant.execute_request_and_get_response(
+            url=url,
+            params=params,
+            method=RESTMethod.GET,
+            headers=self._headers(),
+            throttler_limit_id=RATE_LIMIT_ID,
+            timeout=REQUEST_TIMEOUT,
+        )
+        return await response.json()
 
     async def _covered_currencies(self) -> List[str]:
         """Ask the API which currencies it covers.
@@ -93,7 +108,7 @@ class FXMacroDataRateSource(RateSourceBase):
 
     async def _pair_rate(self, base: str, quote: str) -> Tuple[str, Optional[Decimal]]:
         """Fetch the rate FXMacroData serves for ``base``/``quote``."""
-        payload = await self._get_json(f"forex/{base.lower()}/{quote.lower()}?limit=1")
+        payload = await self._get_json(f"forex/{base.lower()}/{quote.lower()}", params={"limit": 1})
         rows = payload.get("data") or []
         trading_pair = combine_to_hb_trading_pair(base=base, quote=quote)
         if not rows:
@@ -101,11 +116,13 @@ class FXMacroDataRateSource(RateSourceBase):
         value = rows[0].get("val")
         # val is documented as anyOf[number, null] and a zero rate would become
         # an infinite conversion, so anything not strictly positive is dropped
-        # rather than published as a price.
+        # rather than published as a price. A non-finite number (JSON Infinity,
+        # or an exponent that overflows) would be just as bad, and NaN cannot
+        # even be compared, so finiteness is checked first.
         if value is None:
             return trading_pair, None
         rate = Decimal(str(value))
-        if rate <= 0:
+        if not rate.is_finite() or rate <= 0:
             return trading_pair, None
         return trading_pair, rate
 
@@ -161,8 +178,3 @@ class FXMacroDataRateSource(RateSourceBase):
             if rate is not None:
                 results[trading_pair] = rate
         return results
-
-    async def stop_network(self):
-        if self._shared_client is not None:
-            await self._shared_client.close()
-            self._shared_client = None
