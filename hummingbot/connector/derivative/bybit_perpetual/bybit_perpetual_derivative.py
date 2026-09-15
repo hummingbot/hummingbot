@@ -395,10 +395,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
                     app_warning_msg=f"Failed to fetch status update for the order {active_order.client_order_id}."
                 )
-                # Other errors (e.g. a network outage) say nothing about the order: losing it would stop tracking it
-                if (active_order.exchange_order_id is None
-                        or self._is_order_not_found_during_status_update_error(status_update_exception=resp)):
-                    await self._order_tracker.process_order_not_found(active_order.client_order_id)
+                await self._order_tracker.process_order_not_found(active_order.client_order_id)
 
         for order_status in parsed_status_responses:
             self._process_order_event_message(order_status["list"][0])

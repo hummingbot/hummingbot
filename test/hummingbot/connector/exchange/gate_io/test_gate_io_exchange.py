@@ -1142,7 +1142,7 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(order.is_open)
 
     @aioresponses()
-    def test_update_order_status_request_error_does_not_register_order_not_found(self, mock_api):
+    def test_update_order_status_registers_order_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -1175,8 +1175,7 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.assertTrue(order.is_open)
-        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
-        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
         self.assertTrue(
             self._is_logged(

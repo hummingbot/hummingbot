@@ -741,10 +741,7 @@ class FoxbitExchange(ExchangePyBase):
                     )
                     # Wait until the order not found error have repeated a few times before actually treating
                     # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                    # Other errors (e.g. a network outage) say nothing about the order: losing it would stop tracking it
-                    if (tracked_order.exchange_order_id is None
-                            or self._is_order_not_found_during_status_update_error(order_update)):
-                        await self._order_tracker.process_order_not_found(client_order_id)
+                    await self._order_tracker.process_order_not_found(client_order_id)
 
                 else:
                     # Update order execution status

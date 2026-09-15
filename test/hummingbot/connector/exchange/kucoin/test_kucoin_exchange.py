@@ -2116,7 +2116,7 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertFalse(orders[0].is_done)
 
     @aioresponses()
-    def test_update_order_status_request_fails_does_not_mark_order_as_not_found_using_fills(self, mock_api):
+    def test_update_order_status_when_request_fails_marks_order_as_not_found_using_fills(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -2158,11 +2158,10 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertFalse(orders[0].is_filled)
         self.assertFalse(orders[0].is_done)
 
-        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
-        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
 
     @aioresponses()
-    def test_update_order_status_exchange_id_timeout_does_not_mark_order_as_not_found_using_fills(self, mock_api):
+    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found_using_fills(self, mock_api):
         update_event = MagicMock()
         update_event.wait.side_effect = asyncio.TimeoutError
 
@@ -2201,8 +2200,7 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertFalse(orders[0].is_filled)
         self.assertFalse(orders[0].is_done)
 
-        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
-        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
 
     # ---- End of testing for _update_orders_fills() method overwritten from the ExchangePyBase
 
@@ -2238,8 +2236,7 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertFalse(order.is_filled)
         self.assertFalse(order.is_done)
 
-        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
-        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
     @aioresponses()
     def test_update_order_status_marks_order_with_no_exchange_id_as_not_found(self, mock_api):

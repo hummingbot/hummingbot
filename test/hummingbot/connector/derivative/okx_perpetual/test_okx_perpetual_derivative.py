@@ -2340,8 +2340,7 @@ class OkxPerpetualDerivativeTests(
         self.assertFalse(order.is_filled)
         self.assertFalse(order.is_done)
 
-        # A failed request (e.g. a network outage) says nothing about the order, so it doesn't count as not found
-        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
     @aioresponses()
     def test_create_order_to_close_short_position(self, mock_api):
