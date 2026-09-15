@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from cryptography.hazmat.primitives import serialization
@@ -921,6 +922,52 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         requests = self._all_executed_requests(mock_api, self.fills_url)
         self.assertEqual({"min_ts": NOW - 100, "limit": 1000}, requests[0].kwargs["params"])
         self.assertEqual({"min_ts": NOW - 100, "limit": 1000, "cursor": "page-2"}, requests[1].kwargs["params"])
+
+    @aioresponses()
+    def test_rest_fills_of_all_orders_are_fetched_with_a_single_request(self, mock_api):
+        first_order = self._track_order_for_rest_fills()
+        self.exchange.start_tracking_order(
+            order_id="12", exchange_order_id="22", trading_pair=self.trading_pair, order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL, price=Decimal("10000"), amount=Decimal("1"),
+            position_action=PositionAction.OPEN)
+        self.exchange.start_tracking_order(
+            order_id="13", exchange_order_id=None, trading_pair=self.trading_pair, order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY, price=Decimal("10000"), amount=Decimal("1"),
+            position_action=PositionAction.OPEN)
+        second_order = self.exchange.in_flight_orders["12"]
+        pending_order = self.exchange.in_flight_orders["13"]
+        fills = [self._fill(first_order, "fill-1", Decimal("10000"), Decimal("0.4"), created_time=NOW - 60),
+                 self._fill(second_order, "fill-2", Decimal("10000"), Decimal("0.6"), created_time=NOW - 30)]
+        mock_api.get(self.fills_url, body=json.dumps({"fills": fills, "cursor": ""}))
+
+        self.async_run_with_timeout(self.exchange._update_orders_fills([first_order, second_order, pending_order]))
+
+        self.assertEqual({"fill-1"}, set(first_order.order_fills))
+        self.assertEqual({"fill-2"}, set(second_order.order_fills))
+        requests = self._all_executed_requests(mock_api, self.fills_url)
+        self.assertEqual(1, len(requests))
+        self.assertEqual({"min_ts": NOW - 100, "limit": 1000}, requests[0].kwargs["params"])
+
+    @aioresponses()
+    def test_rest_fills_network_error_logs_once_and_the_next_poll_recovers_the_fills(self, mock_api):
+        order = self._track_order_for_rest_fills()
+        error = aiohttp.ClientConnectionError("Cannot connect to host external-api.kalshi.com:443 ssl:default")
+        mock_api.get(self.fills_url, exception=error)
+        fills = [self._fill(order, "fill-1", Decimal("10000"), Decimal("0.4"), created_time=NOW - 60)]
+        mock_api.get(self.fills_url, body=json.dumps({"fills": fills, "cursor": ""}))
+
+        self.async_run_with_timeout(self.exchange._update_orders_fills([order]))
+
+        failures = [record for record in self.log_records
+                    if record.getMessage().startswith("Failed to fetch trade updates")]
+        self.assertEqual(1, len(failures))
+        self.assertEqual("WARNING", failures[0].levelname)
+        self.assertIsNone(failures[0].exc_info)
+        self.assertEqual({}, order.order_fills)
+
+        self.async_run_with_timeout(self.exchange._update_orders_fills([order]))
+
+        self.assertEqual({"fill-1"}, set(order.order_fills))
 
     @aioresponses()
     def test_repeated_rest_fill_triggers_only_one_event(self, mock_api):

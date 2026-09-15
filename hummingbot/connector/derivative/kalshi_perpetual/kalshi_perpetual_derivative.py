@@ -386,17 +386,40 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=str(order["order_id"]),
         )
 
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        """
+        The fills endpoint can't filter by order, so the base class's request per order downloads the same fills once
+        for each tracked order, and during a network outage logs a failure with its traceback for each of them. The
+        fills of all the orders are fetched with a single request instead.
+        """
+        # Orders without an exchange order id were never created (e.g. rejected), or their creation request hasn't
+        # returned: there are no fills to fetch, and waiting for the id would hold up the status polling loop.
+        orders = [order for order in orders if order.exchange_order_id is not None]
+        if not orders:
+            return
+        try:
+            fills = await self._request_fills(since=min(order.creation_timestamp for order in orders))
+        except asyncio.CancelledError:
+            raise
+        except Exception as request_error:
+            # Missed fills are fetched again on the next poll, as fills are requested since the orders' creation.
+            self.logger().warning(f"Failed to fetch trade updates for {len(orders)} orders. Error: {request_error}")
+            return
+        for order in orders:
+            for trade_update in self._trade_updates_from_fills(order=order, fills=fills):
+                self._order_tracker.process_trade_update(trade_update)
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         """
         A fill has the same id over REST (fill_id) and the websocket (trade_id), as checked against live fills, so the
         order tracker drops the fills the user stream already delivered and only the missing ones are added.
         """
         if order.exchange_order_id is None:
-            # Never created (e.g. rejected), or its creation request hasn't returned: there are no fills to fetch, and
-            # waiting for the id would hold up the status polling loop for GET_EX_ORDER_ID_TIMEOUT per order.
             return []
-        fills = [fill for fill in await self._request_fills(since=order.creation_timestamp)
-                 if fill["order_id"] == order.exchange_order_id]
+        return self._trade_updates_from_fills(order=order, fills=await self._request_fills(since=order.creation_timestamp))
+
+    def _trade_updates_from_fills(self, order: InFlightOrder, fills: List[Dict[str, Any]]) -> List[TradeUpdate]:
+        fills = [fill for fill in fills if fill["order_id"] == order.exchange_order_id]
         fills.sort(key=lambda fill: self._parse_timestamp(fill["created_time"]))
         return [
             self._trade_update(
