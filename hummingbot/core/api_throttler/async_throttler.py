@@ -34,6 +34,7 @@ class AsyncRequestContext(AsyncRequestContextBase):
                 capacity_used: int = sum([task.weight
                                           for task in limit_id_to_task_log_map[rate_limit.limit_id]
                                           if
+                                          not task.completed or
                                           Decimal(str(now)) - Decimal(str(task.timestamp)) - Decimal(str(task.rate_limit.time_interval * self._safety_margin_pct)) <= task.rate_limit.time_interval])
 
                 if capacity_used + weight > rate_limit.limit:
