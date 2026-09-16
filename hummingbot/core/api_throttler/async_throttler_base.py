@@ -2,6 +2,7 @@ import asyncio
 import copy
 import logging
 import math
+import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
@@ -16,6 +17,12 @@ class AsyncThrottlerBase(ABC):
     The APIThrottlerBase is an abstract class meant to describe the functions necessary to handle the
     throttling of API requests through the usage of asynchronous context managers.
     """
+
+    # Longest pause we take, whatever the exchange asks for.
+    MAX_PAUSE_SECONDS: float = 300.0
+    # Shortest and longest pause when the exchange doesn't say how long to wait.
+    MIN_DEFAULT_PAUSE_SECONDS: float = 1.0
+    MAX_DEFAULT_PAUSE_SECONDS: float = 60.0
 
     _default_config_map = {}
     _logger = None
@@ -55,6 +62,9 @@ class AsyncThrottlerBase(ABC):
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
+
+        # When each limit_id can be used again. Set when the exchange answers 429.
+        self._resets: Dict[str, float] = {}
 
     def set_rate_limits(self, rate_limits: List[RateLimit]):
         # Rate Limit Definitions
@@ -105,3 +115,46 @@ class AsyncThrottlerBase(ABC):
     @abstractmethod
     def execute_task(self, limit_id: str) -> AsyncRequestContextBase:
         raise NotImplementedError
+
+    async def pause_after_too_many_requests(self, limit_id: str, retry_after: Optional[float]):
+        """Stop sending requests on `limit_id`, and the limits linked to it, for a while.
+
+        Called when the exchange says we are sending too many requests. By then our count
+        and the exchange's count no longer agree, for example because of clock differences,
+        another bot using the same account, or a limit the connector doesn't know about.
+        If we keep sending at the configured rate we just get more rejections, and many
+        exchanges then block us for longer. So we wait as long as the exchange asks.
+
+        Linked limits are paused too. Exchanges usually count these per IP or per account
+        (like Binance's request weight), so every endpoint that shares the linked limit
+        would be rejected as well, not just the one that got the 429.
+
+        :param limit_id: the limit the rejected request was sent under
+        :param retry_after: seconds to wait, as sent by the exchange. If None, wait for the
+            limit's own time window (between 1s and 60s), since that is when our count resets.
+            If zero or negative, the exchange says the limit has already reset, so don't wait.
+        """
+        rate_limit, related_limits = self.get_related_limits(limit_id=limit_id)
+        if retry_after is None:
+            window = rate_limit.time_interval if rate_limit is not None else self.MIN_DEFAULT_PAUSE_SECONDS
+            retry_after = min(max(window, self.MIN_DEFAULT_PAUSE_SECONDS), self.MAX_DEFAULT_PAUSE_SECONDS)
+        elif retry_after <= 0:
+            return
+        # Cap the wait so a bad header value can't stop the connector for a very long time.
+        retry_after = min(retry_after, self.MAX_PAUSE_SECONDS)
+        limit_ids = [limit_id] + [related.limit_id for related, _ in related_limits]
+        async with self._lock:
+            reset_at = self._time() + retry_after
+            extended = []
+            for paused_id in limit_ids:
+                if reset_at > self._resets.get(paused_id, 0.0):
+                    self._resets[paused_id] = reset_at
+                    extended.append(paused_id)
+            if extended:
+                self.logger().warning(
+                    f"Rate limited by the exchange on {limit_id}; "
+                    f"pausing {', '.join(extended)} for {retry_after:.1f}s."
+                )
+
+    def _time(self) -> float:
+        return time.time()

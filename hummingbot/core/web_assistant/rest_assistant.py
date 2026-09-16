@@ -1,7 +1,8 @@
 import json
+import time
 from asyncio import wait_for
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -9,6 +10,43 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+
+# Headers exchanges use to say how long to wait before sending again. Retry-After is the
+# standard one (RFC 9110). The others are common but less strictly defined, so they are
+# checked after it.
+_RETRY_AFTER_HEADERS = ("Retry-After", "RateLimit-Reset", "X-RateLimit-Reset")
+
+# A value this large is a timestamp, not a number of seconds to wait. Some exchanges send
+# the time the limit resets instead of how long to wait, even in headers meant for a delay.
+_EPOCH_THRESHOLD_SECONDS = 1_000_000_000.0
+
+# HTTP statuses that mean we are sending too many requests.
+RATE_LIMITED_STATUSES = (418, 429)
+
+
+def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = None) -> Optional[float]:
+    """Seconds to wait before sending again, read from a 429 response's headers.
+
+    Returns None if there is no such header or its value can't be read. The throttler then
+    waits for the limit's own time window instead.
+    """
+    now = time.time() if now is None else now
+    for name in _RETRY_AFTER_HEADERS:
+        raw = headers.get(name)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            # Retry-After can also be a date. We don't parse that, so try the next header.
+            continue
+        if value > _EPOCH_THRESHOLD_SECONDS:
+            # A timestamp. If it's even larger, it's in milliseconds.
+            if value > _EPOCH_THRESHOLD_SECONDS * 1000:
+                value /= 1000.0
+            return value - now
+        return value
+    return None
 
 
 class RESTAssistant:
@@ -95,6 +133,13 @@ class RESTAssistant:
             response = await self.call(request=request, timeout=timeout)
 
             if 400 <= response.status:
+                # 429 means too many requests. Binance and some others send 418 once an IP has been
+                # banned for ignoring 429s, also with a Retry-After header.
+                if response.status in RATE_LIMITED_STATUSES:
+                    await self._throttler.pause_after_too_many_requests(
+                        limit_id=throttler_limit_id,
+                        retry_after=retry_after_from_headers(response.headers or {}),
+                    )
                 if not return_err:
                     error_response = await response.text()
                     error_text = "N/A" if "<html" in error_response else error_response
