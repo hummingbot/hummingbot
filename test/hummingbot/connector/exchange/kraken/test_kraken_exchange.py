@@ -1369,3 +1369,33 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
             # Verify the result
             self.assertEqual(self.latest_prices_request_mock_response["result"], ticker_data)
+
+    def test_create_trade_update_handles_string_fill_timestamp(self):
+        # Regression for #8199: Kraken returns the fill time as a numeric
+        # string in some payloads (ownTrades). It must be coerced to float so
+        # InFlightOrder.last_update_timestamp keeps its declared float type and
+        # downstream consumers (e.g. controllers calling max()) do not crash
+        # with "'>' not supported between instances of 'str' and 'float'".
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+        order_fill = {
+            "trade_id": 30000,
+            "ordertxid": "OQCLML-BW3P3-BUCMWZ",
+            "fee": "30",
+            "vol": "1",
+            "price": "10000",
+            "time": "1560516023.070651",
+        }
+        trade_update = self.exchange._create_trade_update_with_order_fill_data(
+            order_fill=order_fill, order=order)
+        self.assertIsInstance(trade_update.fill_timestamp, float)
+        self.assertEqual(trade_update.fill_timestamp, 1560516023.070651)
