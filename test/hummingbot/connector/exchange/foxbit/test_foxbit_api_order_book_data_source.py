@@ -472,7 +472,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        expected_id = eval(diff_event["o"])[0][0]
+        expected_id = json.loads(diff_event["o"])[0][0]
         self.assertEqual(expected_id, msg.update_id)
 
     # Dynamic subscription tests
@@ -585,3 +585,81 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(
             self._is_logged("ERROR", f"Unexpected error occurred unsubscribing from {self.trading_pair}...")
         )
+
+    # Tests for the eval() -> json.loads() fix (issue #8084)
+
+    async def test_parse_trade_message_parses_valid_json(self):
+        """_parse_trade_message parses a well-formed JSON trade payload without error."""
+        # Index 1 is INSTRUMENTID; instrument_id 1 maps to COINALPHA-HBOT in setUp
+        raw_message = {
+            'n': CONSTANTS.WS_TRADE_RESPONSE,
+            'o': '[[194,1,"0.1","8432.0",787704,792085,1661952966311,0,0,0,0]]',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_trade_message(raw_message, msg_queue)
+
+        self.assertFalse(msg_queue.empty())
+        trade_msg: OrderBookMessage = msg_queue.get_nowait()
+        self.assertEqual(194, trade_msg.trade_id)
+
+    async def test_parse_trade_message_raises_on_invalid_json(self):
+        """_parse_trade_message raises json.JSONDecodeError for a malformed/injection payload."""
+        raw_message = {
+            'n': CONSTANTS.WS_TRADE_RESPONSE,
+            'o': '__import__("os").system("id")',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(json.JSONDecodeError):
+            await self.data_source._parse_trade_message(raw_message, msg_queue)
+
+    async def test_parse_trade_message_skips_unrelated_event_type(self):
+        """_parse_trade_message does not enqueue messages for unrecognised event types."""
+        raw_message = {
+            'n': 'SomeUnrelatedEvent',
+            'o': '[[194,1,"0.1","8432.0",787704,792085,1661952966311,0,0,0,0]]',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_trade_message(raw_message, msg_queue)
+
+        self.assertTrue(msg_queue.empty())
+
+    async def test_parse_order_book_diff_message_parses_valid_json(self):
+        """_parse_order_book_diff_message parses a well-formed JSON order book payload."""
+        # Index 7 is PRODUCTPAIRCODE; instrument_id 1 maps to COINALPHA-HBOT in setUp
+        raw_message = {
+            'n': CONSTANTS.WS_ORDER_BOOK_RESPONSE,
+            'o': '[[187,0,1661952966257,1,8432,0,8432,1,7.6,1]]',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(raw_message, msg_queue)
+
+        self.assertFalse(msg_queue.empty())
+        diff_msg: OrderBookMessage = msg_queue.get_nowait()
+        self.assertEqual(187, diff_msg.update_id)
+
+    async def test_parse_order_book_diff_message_raises_on_invalid_json(self):
+        """_parse_order_book_diff_message raises json.JSONDecodeError for a malformed/injection payload."""
+        raw_message = {
+            'n': CONSTANTS.WS_ORDER_BOOK_RESPONSE,
+            'o': '__import__("os").system("id")',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(json.JSONDecodeError):
+            await self.data_source._parse_order_book_diff_message(raw_message, msg_queue)
+
+    async def test_parse_order_book_diff_message_skips_unrelated_event_type(self):
+        """_parse_order_book_diff_message does not enqueue messages for unrecognised event types."""
+        raw_message = {
+            'n': 'SomeUnrelatedEvent',
+            'o': '[[187,0,1661952966257,1,8432,0,8432,1,7.6,1]]',
+        }
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        await self.data_source._parse_order_book_diff_message(raw_message, msg_queue)
+
+        self.assertTrue(msg_queue.empty())
