@@ -234,18 +234,23 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
             retry_interval=0.001,
         )
         admitted = 0
+        limit_reached = asyncio.Event()
 
         async def request():
             nonlocal admitted
             async with throttler.execute_task(limit_id=limit_id):
                 admitted += 1
+                if admitted >= 3:
+                    limit_reached.set()
 
         async def scenario():
             async with throttler._lock:
                 # Queue every request on the lock before any of them can check capacity.
                 tasks = [asyncio.create_task(request()) for _ in range(10)]
                 await asyncio.sleep(0)
-            await asyncio.sleep(0.2)
+            await asyncio.wait_for(limit_reached.wait(), timeout=5)
+            # Give any over-admitted request, already queued on the lock, the chance to get through.
+            await asyncio.sleep(0.05)
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
