@@ -896,7 +896,8 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 order_type=OrderType.LIMIT, trade_type=trade_type, price=Decimal("10000"), amount=Decimal("1"),
                 position_action=position_action)
         self.exchange._set_current_timestamp(NOW + 1)
-        # Placed as the request is sent: it may close a position the response doesn't include yet
+        # Placed as the request is sent: it may close a position the response doesn't include yet, so another
+        # refresh checks it again
         self.exchange.start_tracking_order(
             order_id="fresh", exchange_order_id="ex-fresh", trading_pair=self.trading_pair, order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY, price=Decimal("10000"), amount=Decimal("1"), position_action=PositionAction.CLOSE)
@@ -907,6 +908,7 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.async_run_with_timeout(asyncio.sleep(0))
 
         self.exchange._execute_cancel.assert_awaited_once_with(self.trading_pair, "stale")
+        self.exchange._schedule_account_refresh.assert_called_once_with()
 
     def test_order_state_is_derived_from_fill_and_remaining_counts(self):
         self._use_contract_size("0.0001")

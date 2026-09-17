@@ -681,11 +681,15 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
         for pos_key in set(self._perpetual_trading.account_positions.keys()) - open_position_keys:
             self._perpetual_trading.remove_position(pos_key)
         # Resting close orders aren't reduce_only on Kalshi: once their position is gone, filling them would open one.
-        # Orders placed after the request may follow a fill this response doesn't include yet, so they're left alone.
+        # Orders placed after the request may follow a fill this response doesn't include yet, so they're checked
+        # again by another refresh instead.
         for order in list(self.in_flight_orders.values()):
-            if (order.position is PositionAction.CLOSE and order.is_open and order.creation_timestamp < requested_at
+            if (order.position is PositionAction.CLOSE and order.is_open
                     and self._close_would_open_position(order.trading_pair, order.trade_type)):
-                safe_ensure_future(self._execute_cancel(order.trading_pair, order.client_order_id))
+                if order.creation_timestamp < requested_at:
+                    safe_ensure_future(self._execute_cancel(order.trading_pair, order.client_order_id))
+                else:
+                    self._schedule_account_refresh()
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         if mode == PositionMode.ONEWAY:
