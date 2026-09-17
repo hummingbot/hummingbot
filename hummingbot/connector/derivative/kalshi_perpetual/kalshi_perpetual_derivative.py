@@ -308,8 +308,13 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
         if order_type is OrderType.LIMIT_MAKER:
             order["post_only"] = True
         if position_action is PositionAction.CLOSE and time_in_force == CONSTANTS.TIME_IN_FORCE_IOC:
-            # Kalshi rejects reduce_only on resting orders, so only immediate orders can carry it.
             order["reduce_only"] = True
+        elif position_action is PositionAction.CLOSE and self._close_would_open_position(trading_pair, trade_type):
+            # Kalshi rejects reduce_only on resting orders, so it's emulated. The cached position may not include the
+            # fill this close follows yet, so it's refreshed before rejecting.
+            await self._update_positions()
+            if self._close_would_open_position(trading_pair, trade_type):
+                raise ValueError(f"No {trading_pair} position for the {trade_type.name} order {order_id} to close.")
         response = await self._api_post(
             path_url=CONSTANTS.ORDERS_PATH_URL,
             data=order,
@@ -641,7 +646,12 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
                                       for key in ("initial_margin", "maintenance_margin", "resting_orders_margin")}
         self._orders_in_balance = acknowledged
 
+    def _close_would_open_position(self, trading_pair: str, trade_type: TradeType) -> bool:
+        position = self._perpetual_trading.get_position(trading_pair)
+        return position is None or (position.amount > 0) == (trade_type is TradeType.BUY)
+
     async def _update_positions(self):
+        requested_at = self.current_timestamp
         response = await self._api_get(
             path_url=CONSTANTS.POSITIONS_PATH_URL,
             params={"subaccount": 0},
@@ -670,6 +680,12 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
         # Kalshi only lists open positions: anything no longer listed was closed.
         for pos_key in set(self._perpetual_trading.account_positions.keys()) - open_position_keys:
             self._perpetual_trading.remove_position(pos_key)
+        # Resting close orders aren't reduce_only on Kalshi: once their position is gone, filling them would open one.
+        # Orders placed after the request may follow a fill this response doesn't include yet, so they're left alone.
+        for order in list(self.in_flight_orders.values()):
+            if (order.position is PositionAction.CLOSE and order.is_open and order.creation_timestamp < requested_at
+                    and self._close_would_open_position(order.trading_pair, order.trade_type)):
+                safe_ensure_future(self._execute_cancel(order.trading_pair, order.client_order_id))
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         if mode == PositionMode.ONEWAY:

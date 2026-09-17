@@ -57,7 +57,8 @@ GET_ORDER_LIMIT_ID = f"GET{ORDER_PATH_URL}"
 CANCEL_ORDER_LIMIT_ID = f"DELETE{ORDER_PATH_URL}"
 
 # Order parameters. Kalshi only takes limit orders (price is required), so market orders are sent as
-# immediate-or-cancel limit orders priced this far through the book. reduce_only is rejected on resting orders.
+# immediate-or-cancel limit orders priced this far through the book. reduce_only is rejected on resting orders, so the
+# connector emulates it for them.
 TIME_IN_FORCE_GTC = "good_till_canceled"
 TIME_IN_FORCE_IOC = "immediate_or_cancel"
 SELF_TRADE_PREVENTION_TYPE = "taker_at_cross"
