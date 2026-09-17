@@ -3,6 +3,8 @@ import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiohttp import WSMessage, WSMsgType
+
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth import OkxPerpetualAuth
@@ -146,6 +148,38 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(expected_payload, subscription_wallet_request)
 
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_sends_plain_text_ping_on_timeout(
+            self,
+            ws_connect_mock):
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.receive.side_effect = [
+            WSMessage(
+                type=WSMsgType.TEXT,
+                data=self._authentication_response(True),
+                extra=None,
+            ),
+            asyncio.TimeoutError("Test timeout"),
+            asyncio.CancelledError,
+        ]
+
+        messages = asyncio.Queue()
+
+        try:
+            await self.data_source._listen_for_user_stream_on_url(
+                "test_url",
+                messages,
+            )
+        except asyncio.CancelledError:
+            pass
+
+        sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value
+        )
+
+        self.assertEqual("ping", sent_messages[0])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_authentication_failure(self, ws_connect_mock):
