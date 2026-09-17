@@ -225,6 +225,36 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
                 asyncio.wait_for(context.acquire(), 1.0)
             )
 
+    def test_concurrent_acquirers_cannot_overbook_a_limit(self):
+        # Many requests queued on the lock at once: the capacity check and the booking of the slot
+        # must happen under one lock hold, or a queued waiter sees capacity already claimed.
+        limit_id = "test_limit"
+        throttler = AsyncThrottler(
+            rate_limits=[RateLimit(limit_id=limit_id, limit=3, time_interval=60)],
+            retry_interval=0.001,
+        )
+        admitted = 0
+
+        async def request():
+            nonlocal admitted
+            async with throttler.execute_task(limit_id=limit_id):
+                admitted += 1
+
+        async def scenario():
+            async with throttler._lock:
+                # Queue every request on the lock before any of them can check capacity.
+                tasks = [asyncio.create_task(request()) for _ in range(10)]
+                await asyncio.sleep(0)
+            await asyncio.sleep(0.2)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        with patch("hummingbot.logger.logger.HummingbotLogger.notify", lambda *a, **k: None):
+            self.ev_loop.run_until_complete(scenario())
+
+        self.assertEqual(3, admitted)
+
     def test_within_capacity_returns_true_for_throttler_without_configured_limits(self):
         throttler = AsyncThrottler(rate_limits=[])
         context = throttler.execute_task(limit_id="test_limit_id")
