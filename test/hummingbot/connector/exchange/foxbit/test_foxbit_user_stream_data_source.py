@@ -135,7 +135,7 @@ class FoxbitUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.connect = AsyncMock()
         mock_ws.send = AsyncMock()
         # Simulate authenticated response
-        mock_ws.receive = AsyncMock(return_value=MagicMock(data={"o": '{"Authenticated": True}'}))
+        mock_ws.receive = AsyncMock(return_value=MagicMock(data={"o": '{"Authenticated": true}'}))
         mock_ws_assistant_cls.return_value = mock_ws
 
         mock_api_factory = MagicMock()

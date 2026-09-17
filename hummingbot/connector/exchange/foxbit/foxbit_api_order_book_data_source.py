@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -144,7 +145,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if CONSTANTS.WS_SUBSCRIBE_TRADES or CONSTANTS.WS_TRADE_RESPONSE in raw_message['n']:
-            full_msg = eval(raw_message['o'].replace(",false,", ",False,"))
+            full_msg = json.loads(raw_message['o'])
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitTradeFields.INSTRUMENTID.value])
                 trading_pair = ""
@@ -162,7 +163,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if CONSTANTS.WS_ORDER_BOOK_RESPONSE or CONSTANTS.WS_ORDER_STATE in raw_message['n']:
-            full_msg = eval(raw_message['o'])
+            full_msg = json.loads(raw_message['o'])
             for msg in full_msg:
                 instrument_id = int(msg[FoxbitOrderBookFields.PRODUCTPAIRCODE.value])
 
