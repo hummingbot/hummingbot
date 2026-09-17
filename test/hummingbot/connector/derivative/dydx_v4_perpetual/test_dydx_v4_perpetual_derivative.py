@@ -1636,3 +1636,30 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    def test_process_order_fills_parses_iso_createdat_to_float(self):
+        # Regression: dYdX returns fill createdAt as an ISO-8601 string.
+        # It must be parsed to epoch-seconds float so
+        # InFlightOrder.last_update_timestamp keeps its declared float type
+        # (a raw string crashes downstream max()/arithmetic consumers).
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        fill_data = {
+            "id": "fill-1",
+            "side": "BUY",
+            "fee": "0.1",
+            "price": "10000",
+            "size": "1",
+            "createdAt": "2021-01-04T23:44:59.690Z",
+        }
+        trade_update = self.exchange._process_order_fills(fill_data=fill_data, order=order)
+        self.assertIsInstance(trade_update.fill_timestamp, float)
+        self.assertAlmostEqual(trade_update.fill_timestamp, 1609803899.69, places=2)

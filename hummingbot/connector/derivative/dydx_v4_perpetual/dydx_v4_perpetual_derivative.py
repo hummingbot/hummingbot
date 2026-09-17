@@ -3,6 +3,7 @@ import time
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
+import dateutil.parser as dp
 from bidict import bidict
 
 import hummingbot.connector.derivative.dydx_v4_perpetual.dydx_v4_perpetual_constants as CONSTANTS
@@ -610,7 +611,10 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
                 client_order_id=order.client_order_id,
                 exchange_order_id=order.exchange_order_id,
                 trading_pair=order.trading_pair,
-                fill_timestamp=fill_data["createdAt"],
+                # dYdX returns createdAt as an ISO-8601 string; parse to epoch
+                # seconds so InFlightOrder.last_update_timestamp keeps its
+                # declared float type (mirrors the order book data source).
+                fill_timestamp=dp.parse(fill_data["createdAt"]).timestamp(),
                 fill_price=Decimal(fill_data["price"]),
                 fill_base_amount=Decimal(fill_data["size"]),
                 fill_quote_amount=Decimal(fill_data["price"]) * Decimal(fill_data["size"]),
