@@ -474,6 +474,23 @@ class TestXRPLExchangeNetwork(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
         )
         self.assertEqual(result, "SOLO")
 
+    def test_get_token_symbol_from_custom_market_without_explicit_trading_pair_symbol(self):
+        """Custom market without explicit trading_pair_symbol uses the market name."""
+        from hummingbot.connector.exchange.xrpl.xrpl_utils import XRPLMarket
+
+        custom_market = XRPLMarket(
+            base="USDC",
+            quote="XRP",
+            base_issuer="rcEGREd8NmkKRE8GE424sksyt1tJVFZwu",
+            quote_issuer="",
+        )
+        self.connector._custom_markets["USDC.gh-XRP"] = custom_market
+
+        result = self.connector.get_token_symbol_from_all_markets(
+            "USDC", "rcEGREd8NmkKRE8GE424sksyt1tJVFZwu"
+        )
+        self.assertEqual(result, "USDC.GH")
+
     def test_get_token_symbol_not_found(self):
         """Unknown code+issuer returns None."""
         result = self.connector.get_token_symbol_from_all_markets("INVALID", "invalid_issuer")
