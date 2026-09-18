@@ -9,10 +9,18 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings, gateway_connector_trading_pairs
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.market_price import get_last_price
+from hummingbot.logger import HummingbotLogger
 
 
 class UserBalances:
     __instance = None
+    _logger: Optional[HummingbotLogger] = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     @staticmethod
     def connect_market(exchange, client_config_map: ClientConfigMap, **api_details):
@@ -41,7 +49,7 @@ class UserBalances:
         try:
             await market._update_balances()
         except Exception as e:
-            logging.getLogger().debug(f"Failed to update balances for {market}", exc_info=True)
+            UserBalances.logger().debug(f"Failed to update balances for {market}", exc_info=True)
             return str(e)
         return None
 
@@ -71,7 +79,15 @@ class UserBalances:
         self._markets.pop(exchange, None)
         is_gateway_market = self.is_gateway_market(exchange)
         if not is_gateway_market:
-            market = UserBalances.connect_market(exchange, client_config_map, **api_details)
+            try:
+                market = UserBalances.connect_market(exchange, client_config_map, **api_details)
+            except Exception as e:
+                # Connector construction can fail credential validation (e.g. Hyperliquid rejects a
+                # private key that does not derive to the supplied wallet address). Surface it as a
+                # normal connection error message instead of an unhandled exception that leaves the
+                # client prompt unusable.
+                self.logger().debug(f"Failed to create connector for {exchange}", exc_info=True)
+                return str(e)
             if not market:
                 return "API keys have not been added."
             err_msg = await UserBalances._update_balances(market)
