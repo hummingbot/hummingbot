@@ -19,6 +19,7 @@ from hummingbot.connector.derivative.kalshi_perpetual.kalshi_perpetual_derivativ
     KalshiPerpetualBudgetChecker,
     KalshiPerpetualDerivative,
 )
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
@@ -836,6 +837,78 @@ class KalshiPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual("9500.0000", sell["price"])
         self.exchange.get_price.assert_any_call(self.trading_pair, is_buy=True)
         self.exchange.get_price.assert_any_call(self.trading_pair, is_buy=False)
+
+    def _set_position(self, amount: str):
+        position_side = PositionSide.LONG if Decimal(amount) > 0 else PositionSide.SHORT
+        self.exchange._perpetual_trading.set_position(self.trading_pair, Position(
+            trading_pair=self.trading_pair, position_side=position_side, unrealized_pnl=Decimal("0"),
+            entry_price=Decimal("10000"), amount=Decimal(amount), leverage=Decimal("1")))
+
+    def test_create_order_to_close_short_position(self):
+        # Resting closes need a position to close
+        self._set_position("-100")
+        super().test_create_order_to_close_short_position()
+
+    def test_create_order_to_close_long_position(self):
+        self._set_position("100")
+        super().test_create_order_to_close_long_position()
+
+    @aioresponses()
+    def test_resting_close_order_without_position_is_rejected_after_refreshing_positions(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self._set_position("1")  # a long position: a buy would add to it
+        positions_url = web_utils.private_rest_url(CONSTANTS.POSITIONS_PATH_URL)
+        mock_api.get(_regex(positions_url), body=json.dumps({"positions": []}))
+
+        with self.assertRaises(ValueError):
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="11", trading_pair=self.trading_pair, amount=Decimal("1"), trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT, price=Decimal("10000"), position_action=PositionAction.CLOSE))
+
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, positions_url)))
+        self.assertEqual([], self._all_executed_requests(mock_api, self.order_creation_url))
+
+    @aioresponses()
+    def test_resting_close_order_is_placed_when_refreshed_positions_include_the_position(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        position = {"subaccount": 0, "market_ticker": self.exchange_trading_pair, "position": "-1.00",
+                    "entry_price": "10000", "unrealized_pnl": "0", "fees": "0", "is_portfolio": False}
+        mock_api.get(_regex(web_utils.private_rest_url(CONSTANTS.POSITIONS_PATH_URL)),
+                     body=json.dumps({"positions": [position]}))
+        mock_api.post(self.order_creation_url, body=json.dumps(self.order_creation_request_successful_mock_response))
+
+        self.async_run_with_timeout(self.exchange._place_order(
+            order_id="11", trading_pair=self.trading_pair, amount=Decimal("1"), trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT_MAKER, price=Decimal("10000"), position_action=PositionAction.CLOSE))
+
+        request_data = json.loads(self._all_executed_requests(mock_api, self.order_creation_url)[0].kwargs["data"])
+        self.assertNotIn("reduce_only", request_data)
+
+    @aioresponses()
+    def test_update_positions_cancels_resting_close_orders_left_without_a_position(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(NOW)
+        self._set_position("-1")
+        for order_id, trade_type, position_action in (("stale", TradeType.BUY, PositionAction.CLOSE),
+                                                      ("open", TradeType.BUY, PositionAction.OPEN)):
+            self.exchange.start_tracking_order(
+                order_id=order_id, exchange_order_id=f"ex-{order_id}", trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT, trade_type=trade_type, price=Decimal("10000"), amount=Decimal("1"),
+                position_action=position_action)
+        self.exchange._set_current_timestamp(NOW + 1)
+        # Placed as the request is sent: it may close a position the response doesn't include yet, so another
+        # refresh checks it again
+        self.exchange.start_tracking_order(
+            order_id="fresh", exchange_order_id="ex-fresh", trading_pair=self.trading_pair, order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY, price=Decimal("10000"), amount=Decimal("1"), position_action=PositionAction.CLOSE)
+        self.exchange._execute_cancel = AsyncMock()
+        mock_api.get(_regex(web_utils.private_rest_url(CONSTANTS.POSITIONS_PATH_URL)), body=json.dumps({"positions": []}))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.async_run_with_timeout(asyncio.sleep(0))
+
+        self.exchange._execute_cancel.assert_awaited_once_with(self.trading_pair, "stale")
+        self.exchange._schedule_account_refresh.assert_called_once_with()
 
     def test_order_state_is_derived_from_fill_and_remaining_counts(self):
         self._use_contract_size("0.0001")
