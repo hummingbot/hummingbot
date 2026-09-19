@@ -832,8 +832,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             data={"subaccount_id": self._subacct_id},
             is_auth_required=True)
         if "error" in account_info:
-            self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
-            raise
+            raise IOError(f"Error fetching account balances: {account_info['error']['message']}")
         else:
             balances = account_info["result"]["collaterals"]
             for balance_entry in balances:
