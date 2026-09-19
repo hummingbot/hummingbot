@@ -67,8 +67,7 @@ class FoxbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Authenticated to Foxbit User Stream Data...")
                 return ws
             else:
-                self.logger().info("Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials.")
-                raise
+                raise IOError("Could not authenticate to Foxbit User Stream Data, check your credentials.")
 
         except Exception as ex:
             self.logger().error(
@@ -106,8 +105,7 @@ class FoxbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._user_stream_data_source_initialized = is_subscrebed
                     self.logger().info("Subscribed to a private account events, like Position, Orders and Trades events...")
                 else:
-                    self.logger().info("Some issue happens when try to subscribe at Foxbit User Stream Data, check your credentials.")
-                    raise
+                    raise IOError("Could not subscribe to Foxbit private account events, check your credentials.")
 
         except asyncio.CancelledError:
             raise
