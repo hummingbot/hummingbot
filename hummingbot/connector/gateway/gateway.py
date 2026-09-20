@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.connector.gateway.gateway_base import TX_DATA_UNAVAILABLE, GatewayBase, extract_error_code
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import LPType, OrderType, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
@@ -27,9 +27,10 @@ from hummingbot.core.event.events import (
     RangePositionLiquidityRemovedEvent,
     RangePositionUpdateFailureEvent,
 )
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 
 class TokenInfo(BaseModel):
@@ -52,12 +53,28 @@ class CLMMPoolInfo(BaseModel):
     address: str
     base_token_address: str = Field(alias="baseTokenAddress")
     quote_token_address: str = Field(alias="quoteTokenAddress")
-    bin_step: int = Field(alias="binStep")
+    # Optional in Gateway's CLMM PoolInfo schema ("Optional - Meteora-specific"): only
+    # bin-based CLMMs report a bin step. Requiring it here turned every other connector's
+    # pool-info response into a pydantic ValidationError, which get_pool_info_by_address
+    # swallows into None and the user sees as a misleading "pool not found".
+    bin_step: Optional[int] = Field(default=None, alias="binStep")
     fee_pct: float = Field(alias="feePct")
     price: float
     base_token_amount: float = Field(alias="baseTokenAmount")
     quote_token_amount: float = Field(alias="quoteTokenAmount")
     active_bin_id: int = Field(alias="activeBinId")
+
+
+class AMMPositionDetail(BaseModel):
+    """One individually addressable position, for AMMs whose LP is non-fungible.
+
+    Meteora DAMM v2 positions are NFTs and a wallet may hold several in the same pool;
+    remove-liquidity / add-liquidity need this address to name one of them.
+    """
+    position_address: str = Field(alias="positionAddress")
+    lp_token_amount: float = Field(alias="lpTokenAmount")
+    base_token_amount: float = Field(alias="baseTokenAmount")
+    quote_token_amount: float = Field(alias="quoteTokenAmount")
 
 
 class AMMPositionInfo(BaseModel):
@@ -69,6 +86,9 @@ class AMMPositionInfo(BaseModel):
     base_token_amount: float = Field(alias="baseTokenAmount")
     quote_token_amount: float = Field(alias="quoteTokenAmount")
     price: float
+    # Per-position breakdown; omitted by fungible-LP AMMs, where the pool address
+    # identifies the whole holding.
+    positions: Optional[List[AMMPositionDetail]] = None
     base_token: Optional[str] = None
     quote_token: Optional[str] = None
 
@@ -133,11 +153,41 @@ class Gateway(GatewayBase):
         # Fall back to NaN if no cached price
         return Decimal("nan")
 
+    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
+        """
+        Return a dictionary with the trading pair as key and its current price as value,
+        for each trading pair passed as parameter.
+
+        ExchangeBase supplies this fan-out for order-book connectors, but Gateway
+        extends ConnectorBase directly and so never inherited it. That left
+        _get_last_traded_price below with no caller at all, and every consumer of the
+        plural form raising AttributeError instead of returning prices.
+
+        A pair that cannot be priced is omitted rather than reported as zero, so a
+        caller can tell "no price available" from "the price is 0".
+
+        :param trading_pairs: list of trading pairs to get the prices for
+        :returns: Dictionary of associations between token pair and its latest price
+        """
+        results = await safe_gather(
+            *[self._get_last_traded_price(trading_pair=trading_pair) for trading_pair in trading_pairs],
+            return_exceptions=True,
+        )
+        prices: Dict[str, float] = {}
+        for trading_pair, price in zip(trading_pairs, results):
+            if isinstance(price, Exception):
+                self.logger().warning(f"Failed to get last traded price for {trading_pair}: {price}")
+                continue
+            if price and price > 0:
+                prices[trading_pair] = price
+        return prices
+
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         """
         Gets the last traded price for a trading pair.
 
-        Uses RateOracle for cached prices (set by MarketDataProvider).
+        Prefers the RateOracle cache (set by MarketDataProvider) and falls back to a
+        Gateway quote.
 
         :param trading_pair: The market trading pair
         :returns: The last traded price or 0 if not available
@@ -149,27 +199,47 @@ class Gateway(GatewayBase):
                 return float(price)
         except Exception:
             pass
+        # The oracle only holds pairs MarketDataProvider was asked to track, so a pair
+        # priced on demand -- a pool just opened in a dashboard, a memecoin addressed by
+        # mint -- finds nothing cached and used to fall straight through to 0. Quote it
+        # instead: Gateway prices anything the configured swap provider can route.
+        try:
+            quoted = await self.get_quote_price(trading_pair, is_buy=True, amount=Decimal("1"))
+            if quoted and quoted > 0:
+                return float(quoted)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().debug(f"Could not quote a fallback price for {trading_pair}.", exc_info=True)
         return 0.0
 
     @staticmethod
-    def _parse_dex_name(dex_name: str, default_trading_type: str = "router") -> tuple:
+    def _parse_dex_name(dex_name: str) -> tuple:
         """
         Parse dex_name into (dex, trading_type) tuple.
 
+        The trading type is never defaulted: Gateway rejects a guessed one with a 400,
+        and guessing "router" for e.g. "meteora" only surfaced at execution time — on
+        the LP executor's close-out swap, with funds already exposed.
+
         Args:
-            dex_name: DEX identifier, can be:
-                - "jupiter" -> ("jupiter", default_trading_type)
+            dex_name: DEX identifier in "name/type" form
                 - "jupiter/router" -> ("jupiter", "router")
                 - "orca/clmm" -> ("orca", "clmm")
-            default_trading_type: Default trading type if not specified
 
         Returns:
             Tuple of (dex, trading_type)
+
+        Raises:
+            ValueError: if dex_name does not carry a trading type
         """
-        if "/" in dex_name:
-            parts = dex_name.split("/", 1)
-            return parts[0], parts[1]
-        return dex_name, default_trading_type
+        if "/" not in dex_name:
+            raise ValueError(
+                f"Invalid swap provider '{dex_name}' - expected 'name/type' "
+                "(e.g. 'jupiter/router', 'meteora/clmm')"
+            )
+        parts = dex_name.split("/", 1)
+        return parts[0], parts[1]
 
     # ==================== SWAP OPERATIONS ====================
 
@@ -179,8 +249,7 @@ class Gateway(GatewayBase):
             trading_pair: str,
             is_buy: bool,
             amount: Decimal,
-            slippage_pct: Optional[Decimal] = None,
-            pool_address: Optional[str] = None
+            slippage_pct: Optional[Decimal] = None
     ) -> Optional[Decimal]:
         """
         Retrieves the volume weighted average price for a swap.
@@ -189,7 +258,6 @@ class Gateway(GatewayBase):
         :param is_buy: True for an intention to buy, False for an intention to sell
         :param amount: The amount required (in base token unit)
         :param slippage_pct: Maximum allowed slippage percentage
-        :param pool_address: Optional specific pool address
         :return: The quote price.
         """
         base, quote = trading_pair.split("-")
@@ -210,8 +278,7 @@ class Gateway(GatewayBase):
                 quote_asset=quote,
                 amount=amount,
                 side=side,
-                slippage_pct=slippage_pct,
-                pool_address=pool_address
+                slippage_pct=slippage_pct
             )
             price = resp.get("price", None)
             return Decimal(price) if price is not None else None
@@ -273,7 +340,7 @@ class Gateway(GatewayBase):
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
         :param price: The order price
-        :param kwargs: Additional parameters (dex, quote_id, pool_address, slippage_pct, max_retries)
+        :param kwargs: Additional parameters (dex_name, quote_id, slippage_pct, max_retries)
         """
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
@@ -294,40 +361,44 @@ class Gateway(GatewayBase):
 
         # Extract optional parameters
         quote_id = kwargs.get("quote_id")
-        pool_address = kwargs.get("pool_address")
         slippage_pct = kwargs.get("slippage_pct")
         max_retries = kwargs.get("max_retries", 10)
-
-        if not self._swap_provider:
-            raise ValueError(f"No swap provider configured for {self.network}.")
-
-        dex, trading_type = self._parse_dex_name(self._swap_provider)
-
-        async def execute_gateway_swap() -> Dict[str, Any]:
-            if quote_id:
-                return await self._get_gateway_instance().execute_quote(
-                    dex=dex,
-                    trading_type=trading_type,
-                    quote_id=quote_id,
-                    network=self.network,
-                    wallet_address=self.address
-                )
-            else:
-                return await self._get_gateway_instance().execute_swap(
-                    dex=dex,
-                    trading_type=trading_type,
-                    base_asset=base,
-                    quote_asset=quote,
-                    side=trade_type,
-                    amount=amount,
-                    network=self.network,
-                    chain=self.chain,
-                    wallet_address=self.address,
-                    pool_address=pool_address,
-                    slippage_pct=slippage_pct
-                )
+        # An explicit dex_name (e.g. the LP executor's configured swap_provider)
+        # overrides the network's default provider — it used to be silently ignored.
+        swap_provider = kwargs.get("dex_name") or self._swap_provider
 
         try:
+            # Inside the try: a missing provider must fail the ORDER (via
+            # _handle_operation_failure) — raising before this block left the order
+            # tracked-but-stuck in OPEN forever with no failure event.
+            if not swap_provider:
+                raise ValueError(f"No swap provider configured for {self.network}.")
+
+            dex, trading_type = self._parse_dex_name(swap_provider)
+
+            async def execute_gateway_swap() -> Dict[str, Any]:
+                if quote_id:
+                    return await self._get_gateway_instance().execute_quote(
+                        dex=dex,
+                        network=self.network,
+                        quote_id=quote_id,
+                        wallet_address=self.address,
+                        chain=self.chain,
+                    )
+                else:
+                    return await self._get_gateway_instance().execute_swap(
+                        dex=dex,
+                        trading_type=trading_type,
+                        base_asset=base,
+                        quote_asset=quote,
+                        side=trade_type,
+                        amount=amount,
+                        network=self.network,
+                        chain=self.chain,
+                        wallet_address=self.address,
+                        slippage_pct=slippage_pct
+                    )
+
             order_result = await self._execute_with_retry(
                 operation=execute_gateway_swap,
                 operation_name=f"swap {trade_type.name} {amount} on {trading_pair}",
@@ -532,8 +603,9 @@ class Gateway(GatewayBase):
         """Override to trigger RangePositionUpdateFailureEvent for LP operations."""
         super()._handle_operation_failure(order_id, trading_pair, operation_name, error)
 
-        error_str = str(error)
-        is_timeout_error = self.TRANSACTION_TIMEOUT_CODE in error_str
+        # Read the code off the exception when Gateway gave us one, instead of
+        # looking for it in the rendered message.
+        is_timeout_error = extract_error_code(error) == self.TRANSACTION_TIMEOUT_CODE
 
         if is_timeout_error and order_id in self._lp_orders_metadata:
             metadata = self._lp_orders_metadata[order_id]
@@ -552,7 +624,7 @@ class Gateway(GatewayBase):
             )
             del self._lp_orders_metadata[order_id]
         elif order_id in self._lp_orders_metadata:
-            self.logger().warning(f"Non-retryable error for {order_id}: {error_str[:100]}")
+            self.logger().warning(f"Non-retryable error for {order_id}: {str(error)[:100]}")
             del self._lp_orders_metadata[order_id]
 
     def _trigger_add_liquidity_event(
@@ -688,6 +760,7 @@ class Gateway(GatewayBase):
         try:
             resp: Dict[str, Any] = await self._get_gateway_instance().pool_info(
                 network=self.network,
+                chain=self.chain,
                 pool_address=pool_address,
                 dex=dex_name,
                 trading_type=trading_type,
@@ -753,6 +826,7 @@ class Gateway(GatewayBase):
         try:
             pool_info_resp = await self._get_gateway_instance().pool_info(
                 network=self.network,
+                chain=self.chain,
                 pool_address=pool_address,
                 dex=dex_name,
                 trading_type=trading_type,
@@ -889,6 +963,7 @@ class Gateway(GatewayBase):
         async def execute_open_position() -> Dict[str, Any]:
             return await self._get_gateway_instance().clmm_open_position(
                 network=self.network,
+                chain=self.chain,
                 wallet_address=self.address,
                 pool_address=pool_address,
                 lower_price=lower_price,
@@ -910,14 +985,26 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
-                data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "position_address": data.get("positionAddress", ""),
-                    "base_amount": Decimal(str(data.get("baseTokenAmountAdded", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountAdded", 0))),
-                    "position_rent": Decimal(str(data.get("positionRent", 0))),
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                if transaction_result.get(TX_DATA_UNAVAILABLE):
+                    # The open landed on-chain but its response data is unrecoverable.
+                    # Record the gap rather than writing a blank position address and
+                    # zero amounts, which the caller cannot tell apart from a failure —
+                    # the position is LIVE and must not be abandoned.
+                    self.logger().error(
+                        f"CLMM open position {transaction_hash} confirmed on-chain but Gateway's "
+                        "response data is unavailable: the position address and deposited amounts "
+                        "must be recovered from chain state."
+                    )
+                    self._lp_orders_metadata[order_id]["data_unavailable"] = True
+                else:
+                    data = transaction_result.get("data", {})
+                    self._lp_orders_metadata[order_id].update({
+                        "position_address": data.get("positionAddress", ""),
+                        "base_amount": Decimal(str(data.get("baseTokenAmountAdded", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountAdded", 0))),
+                        "position_rent": Decimal(str(data.get("positionRent", 0))),
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    })
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -938,6 +1025,8 @@ class Gateway(GatewayBase):
         dex_name: str,
         trading_type: str = "amm",
         slippage_pct: Optional[float] = None,
+        position_address: Optional[str] = None,
+        max_retries: int = 10,
     ):
         """Opens a regular AMM liquidity position."""
         tokens = trading_pair.split("-")
@@ -958,16 +1047,28 @@ class Gateway(GatewayBase):
         if not pool_address:
             raise ValueError(f"Could not find pool for {trading_pair}")
 
-        try:
-            transaction_result = await self._get_gateway_instance().amm_add_liquidity(
+        async def execute_add_liquidity() -> Dict[str, Any]:
+            return await self._get_gateway_instance().amm_add_liquidity(
                 network=self.network,
+                chain=self.chain,
                 wallet_address=self.address,
                 pool_address=pool_address,
                 base_token_amount=base_token_amount,
                 quote_token_amount=quote_token_amount,
                 dex=dex_name,
                 trading_type=trading_type,
-                slippage_pct=slippage_pct
+                slippage_pct=slippage_pct,
+                position_address=position_address,
+            )
+
+        try:
+            # Same chokepoint as the CLMM verbs: a status 0 (broadcast, unconfirmed) or
+            # -1 (landed and failed) response carries a signature too, so returning it
+            # unchecked would report an unlanded or reverted add as a success.
+            transaction_result = await self._execute_with_retry(
+                operation=execute_add_liquidity,
+                operation_name=f"AMM add liquidity on {trading_pair}",
+                max_retries=max_retries,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -995,7 +1096,9 @@ class Gateway(GatewayBase):
         :param trading_pair: The market trading pair
         :param dex_name: DEX protocol name (e.g., "orca", "meteora", "raydium")
         :param trading_type: Trading type (e.g., "clmm", "amm"). Defaults to "clmm".
-        :param position_address: The address of the position (required for CLMM)
+        :param position_address: The address of the position. Required for CLMM, and for
+            AMMs whose LP is non-fungible (Meteora DAMM v2 positions are NFTs and a wallet
+            may hold several per pool); ignored by fungible-LP AMMs.
         :param percentage: Percentage of liquidity to remove (defaults to 100%)
         :return: A newly created order id (internal).
         """
@@ -1011,7 +1114,7 @@ class Gateway(GatewayBase):
             else:
                 safe_ensure_future(self._clmm_remove_liquidity(trade_type, order_id, trading_pair, position_address, percentage, dex_name=dex_name, trading_type=trading_type, **request_args))
         elif trading_type == "amm":
-            safe_ensure_future(self._amm_remove_liquidity(trade_type, order_id, trading_pair, percentage, dex_name=dex_name, trading_type=trading_type, **request_args))
+            safe_ensure_future(self._amm_remove_liquidity(trade_type, order_id, trading_pair, percentage, dex_name=dex_name, trading_type=trading_type, position_address=position_address, **request_args))
         else:
             raise ValueError(f"Trading type {trading_type} does not support liquidity provision")
 
@@ -1027,6 +1130,7 @@ class Gateway(GatewayBase):
         max_retries: int = 10,
         dex_name: Optional[str] = None,
         trading_type: str = "clmm",
+        slippage_pct: Optional[float] = None,
     ):
         """Closes a concentrated liquidity position."""
         if not dex_name:
@@ -1050,17 +1154,25 @@ class Gateway(GatewayBase):
         _trading_type = trading_type
         _network = self.network
 
+        _slippage_pct = slippage_pct
+
         async def execute_close_position() -> Dict[str, Any]:
             return await self._get_gateway_instance().clmm_close_position(
                 network=_network,
+                chain=self.chain,
                 wallet_address=self.address,
                 position_address=position_address,
                 dex=_dex_name,
                 trading_type=_trading_type,
-                fail_silently=fail_silently
+                fail_silently=fail_silently,
+                slippage_pct=_slippage_pct,
             )
 
         try:
+            # Close retry policy lives in the LP executor's CLOSING loop, which passes
+            # max_retries=0 for a single attempt per re-entry and reconciles a
+            # landed-but-unconfirmed attempt against fresh position state before
+            # re-submitting — a blind retry here cannot do that check.
             transaction_result = await self._execute_with_retry(
                 operation=execute_close_position,
                 operation_name=f"CLMM close position {position_address}",
@@ -1069,15 +1181,30 @@ class Gateway(GatewayBase):
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
-                data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                if transaction_result.get(TX_DATA_UNAVAILABLE):
+                    # The close landed but its response data is unrecoverable. Writing the
+                    # six financial keys as 0 here would silently book real collected fees
+                    # and a real rent refund as zero, so record the gap instead and let the
+                    # caller report incomplete accounting.
+                    self.logger().error(
+                        f"CLMM close position {transaction_hash} confirmed on-chain but Gateway's "
+                        "response data is unavailable: collected fees, removed amounts and rent "
+                        "refund could NOT be booked for this close."
+                    )
+                    self._lp_orders_metadata[order_id]["data_unavailable"] = True
+                else:
+                    data = transaction_result.get("data", {})
+                    # ClosePositionResponse.data declares the collected-fee and rent keys
+                    # (unlike RemoveLiquidityResponse) — the LP executor books them from
+                    # this metadata, so dropping them would zero close-time fee/rent PnL.
+                    self._lp_orders_metadata[order_id].update({
+                        "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                        "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
+                        "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
+                        "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    })
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -1097,6 +1224,7 @@ class Gateway(GatewayBase):
         dex_name: str,
         trading_type: str = "clmm",
         fail_silently: bool = False,
+        max_retries: int = 10,
     ):
         """Removes liquidity from a CLMM position (partial removal)."""
         existing_order = self._order_tracker.fetch_order(order_id)
@@ -1113,9 +1241,10 @@ class Gateway(GatewayBase):
             "position_address": position_address,
         }
 
-        try:
-            transaction_result = await self._get_gateway_instance().clmm_remove_liquidity(
+        async def execute_remove_liquidity() -> Dict[str, Any]:
+            return await self._get_gateway_instance().clmm_remove_liquidity(
                 network=self.network,
+                chain=self.chain,
                 wallet_address=self.address,
                 position_address=position_address,
                 percentage=percentage,
@@ -1123,18 +1252,36 @@ class Gateway(GatewayBase):
                 trading_type=trading_type,
                 fail_silently=fail_silently
             )
+
+        try:
+            # Same chokepoint as _clmm_add_liquidity / _clmm_close_position: a status 0
+            # (broadcast, unconfirmed) or -1 (landed and failed) response also carries a
+            # signature, so returning it unchecked booked an unlanded or reverted removal
+            # as a completed one.
+            transaction_result = await self._execute_with_retry(
+                operation=execute_remove_liquidity,
+                operation_name=f"CLMM remove liquidity from {position_address}",
+                max_retries=max_retries,
+            )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
                 self.update_order_from_hash(order_id, trading_pair, transaction_hash, transaction_result)
-                data = transaction_result.get("data", {})
-                self._lp_orders_metadata[order_id].update({
-                    "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
-                    "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
-                    "base_fee": Decimal(str(data.get("baseFeeAmountCollected", 0))),
-                    "quote_fee": Decimal(str(data.get("quoteFeeAmountCollected", 0))),
-                    "position_rent_refunded": Decimal(str(data.get("positionRentRefunded", 0))),
-                    "tx_fee": Decimal(str(data.get("fee", 0))),
-                })
+                if transaction_result.get(TX_DATA_UNAVAILABLE):
+                    self.logger().error(
+                        f"CLMM remove liquidity {transaction_hash} confirmed on-chain but Gateway's "
+                        "response data is unavailable: removed amounts could NOT be booked."
+                    )
+                    self._lp_orders_metadata[order_id]["data_unavailable"] = True
+                else:
+                    data = transaction_result.get("data", {})
+                    # RemoveLiquidityResponse.data carries only fee + removed amounts.
+                    # Fee-collected/rent keys exist only on the CLOSE response — reading
+                    # them here always yielded 0 and masqueraded as "no fees collected".
+                    self._lp_orders_metadata[order_id].update({
+                        "base_amount": Decimal(str(data.get("baseTokenAmountRemoved", 0))),
+                        "quote_amount": Decimal(str(data.get("quoteTokenAmountRemoved", 0))),
+                        "tx_fee": Decimal(str(data.get("fee", 0))),
+                    })
                 return transaction_hash
             else:
                 raise ValueError("No transaction hash returned from gateway")
@@ -1151,7 +1298,9 @@ class Gateway(GatewayBase):
         percentage: float,
         dex_name: str,
         trading_type: str = "amm",
+        position_address: Optional[str] = None,
         fail_silently: bool = False,
+        max_retries: int = 10,
     ):
         """Removes liquidity from an AMM pool."""
         pool_address = await self.get_pool_address(trading_pair, dex_name=dex_name, trading_type=trading_type)
@@ -1163,15 +1312,25 @@ class Gateway(GatewayBase):
                                   trade_type=trade_type,
                                   order_type=OrderType.AMM_REMOVE)
 
-        try:
-            transaction_result = await self._get_gateway_instance().amm_remove_liquidity(
+        async def execute_remove_liquidity() -> Dict[str, Any]:
+            return await self._get_gateway_instance().amm_remove_liquidity(
                 network=self.network,
+                chain=self.chain,
                 wallet_address=self.address,
                 pool_address=pool_address,
                 percentage=percentage,
                 dex=dex_name,
                 trading_type=trading_type,
+                position_address=position_address,
                 fail_silently=fail_silently
+            )
+
+        try:
+            # Same chokepoint as the CLMM verbs — see _clmm_remove_liquidity.
+            transaction_result = await self._execute_with_retry(
+                operation=execute_remove_liquidity,
+                operation_name=f"AMM remove liquidity on {trading_pair}",
+                max_retries=max_retries,
             )
             transaction_hash: Optional[str] = transaction_result.get("signature")
             if transaction_hash is not None and transaction_hash != "":
@@ -1192,7 +1351,34 @@ class Gateway(GatewayBase):
         trading_type: str = "clmm",
         position_address: Optional[str] = None
     ) -> Union[AMMPositionInfo, CLMMPositionInfo, None]:
-        """Retrieves position information for a given liquidity position."""
+        """Cached position info for display/analytics consumers.
+
+        WARNING: the TTL cache stores None ("position gone") like any other value,
+        so a single 404 is served for up to 5s of subsequent calls. Anything that
+        makes an existence DECISION from this signal (close pre-flight, external-
+        close detection) must use get_position_info_fresh instead — otherwise one
+        read can masquerade as several independent confirmations.
+        """
+        return await self.get_position_info_fresh(
+            trading_pair=trading_pair,
+            dex_name=dex_name,
+            trading_type=trading_type,
+            position_address=position_address,
+        )
+
+    async def get_position_info_fresh(
+        self,
+        trading_pair: str,
+        dex_name: str,
+        trading_type: str = "clmm",
+        position_address: Optional[str] = None
+    ) -> Union[AMMPositionInfo, CLMMPositionInfo, None]:
+        """Uncached position info read.
+
+        Contract: returns None only when Gateway definitively reports the position
+        does not exist on-chain; transient errors (RPC/network/5xx, unrelated 404s
+        like a missing route or wallet) raise instead of being swallowed into None.
+        """
         try:
             tokens = trading_pair.split("-")
             if len(tokens) != 2:
@@ -1204,8 +1390,8 @@ class Gateway(GatewayBase):
 
                 resp: Dict[str, Any] = await self._get_gateway_instance().clmm_position_info(
                     network=self.network,
+                    chain=self.chain,
                     position_address=position_address,
-                    wallet_address=self.address,
                     dex=dex_name,
                     trading_type=trading_type,
                 )
@@ -1214,6 +1400,7 @@ class Gateway(GatewayBase):
             elif trading_type == "amm":
                 resp: Dict[str, Any] = await self._get_gateway_instance().amm_position_info(
                     network=self.network,
+                    chain=self.chain,
                     pool_address=position_address,
                     wallet_address=self.address,
                     dex=dex_name,
@@ -1228,12 +1415,34 @@ class Gateway(GatewayBase):
             raise
         except Exception as e:
             addr_info = f"position {position_address}" if position_address else trading_pair
+            error_msg = str(e).lower()
+            # None means "the position definitively does not exist on-chain". Match only
+            # position-specific Gateway messages: the HTTP client stamps "(Not Found)" on
+            # EVERY 404 (missing route after a redeploy, missing wallet file, ...), so a
+            # bare "not found" check would report a live position as gone. Transient
+            # errors must NOT be swallowed into None: callers such as
+            # LPExecutor._close_position interpret None as "already closed", and a
+            # swallowed transient error would silently abandon a live position.
+            # A GatewayError also carries the HTTP status: require the 404 a missing
+            # position returns, so a 500 whose prose happens to name the position (or a
+            # transport error carrying no status at all) still raises.
+            status = e.status if isinstance(e, GatewayError) else None
+            is_position_gone = (
+                "position not found" in error_msg
+                or "position closed" in error_msg
+                or "position does not exist" in error_msg
+            )
+            if is_position_gone and status in (None, 404):
+                self.logger().info(
+                    f"Position info for {addr_info} on {dex_name}/{trading_type}: position does not exist ({e})"
+                )
+                return None
             self.logger().network(
                 f"Error fetching position info for {addr_info} on {dex_name}/{trading_type}.",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            return None
+            raise
 
     async def get_user_positions(
         self,
@@ -1248,6 +1457,7 @@ class Gateway(GatewayBase):
             if trading_type == "clmm":
                 response = await self._get_gateway_instance().clmm_positions_owned(
                     network=self.network,
+                    chain=self.chain,
                     wallet_address=self.address,
                     dex=dex_name,
                     trading_type=trading_type,
@@ -1259,6 +1469,7 @@ class Gateway(GatewayBase):
 
                 pool_resp = await self._get_gateway_instance().pool_info(
                     network=self.network,
+                    chain=self.chain,
                     pool_address=pool_address,
                     dex=dex_name,
                     trading_type=trading_type,
@@ -1269,6 +1480,7 @@ class Gateway(GatewayBase):
 
                 resp = await self._get_gateway_instance().amm_position_info(
                     network=self.network,
+                    chain=self.chain,
                     pool_address=pool_address,
                     wallet_address=self.address,
                     dex=dex_name,

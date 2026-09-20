@@ -5,6 +5,7 @@ from typing import Dict, Optional, Set
 
 from pydantic import BaseModel
 
+from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -17,9 +18,9 @@ from hummingbot.logger import HummingbotLogger
 class TokenBuySellPrice(BaseModel):
     base: str
     quote: str
-    connector: str
     chain: str
     network: str
+    swap_provider: str
     order_amount_in_base: Decimal
     buy_price: Decimal
     sell_price: Decimal
@@ -43,7 +44,7 @@ class AmmGatewayDataFeed(NetworkBase):
 
     def __init__(
         self,
-        connector: str,
+        network: str,
         trading_pairs: Set[str],
         order_amount_in_base: Decimal,
         update_interval: float = 1.0,
@@ -54,17 +55,27 @@ class AmmGatewayDataFeed(NetworkBase):
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
         # param required for DEX API request
-        self.connector = connector
+        self.network = network
         self.trading_pairs = trading_pairs
         self.order_amount_in_base = order_amount_in_base
 
-        # New format: connector/type (e.g., jupiter/router)
-        if "/" not in connector:
-            raise ValueError(f"Invalid connector format: {connector}. Use format like 'jupiter/router' or 'uniswap/amm'")
-        self._connector_name = connector
-        # We'll get chain and network from gateway during price fetching
-        self._chain = None
-        self._network = None
+        # Gateway prices a swap against a network, and that network's config names the
+        # swapProvider that quotes it. So the feed is configured with a network, not with
+        # a dex: picking the dex is Gateway's job, and doing it here would let the feed
+        # quote one venue while the connectors trade another.
+        known_chains = tuple(c.chain for c in Chain)
+        if not network.startswith(tuple(f"{chain}-" for chain in known_chains)):
+            raise ValueError(
+                f"Invalid network: {network}. Use Gateway's 'chain-network' format, "
+                f"e.g. 'solana-mainnet-beta' or 'ethereum-mainnet' "
+                f"(chains: {', '.join(known_chains)})"
+            )
+        self._chain = network.split("-", 1)[0]
+        # Read from the network's config on the first price fetch. The lock is what makes
+        # that first read single: every pair's buy and sell leg starts concurrently, so
+        # without it they all miss the empty cache and read the config at once.
+        self._swap_provider: Optional[str] = None
+        self._swap_provider_lock = asyncio.Lock()
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -74,17 +85,16 @@ class AmmGatewayDataFeed(NetworkBase):
 
     @property
     def name(self) -> str:
-        return f"AmmDataFeed[{self.connector}]"
+        return f"AmmDataFeed[{self.network}]"
 
     @property
     def chain(self) -> str:
-        # Chain is determined from gateway
-        return self._chain or ""
+        return self._chain
 
     @property
-    def network(self) -> str:
-        # Network is determined from gateway
-        return self._network or ""
+    def swap_provider(self) -> str:
+        # The dex/trading_type quoting this network, once Gateway has been asked for it.
+        return self._swap_provider or ""
 
     @property
     def price_dict(self) -> Dict[str, TokenBuySellPrice]:
@@ -140,9 +150,9 @@ class AmmGatewayDataFeed(NetworkBase):
                 self._price_dict[trading_pair] = TokenBuySellPrice(
                     base=base,
                     quote=quote,
-                    connector=self.connector,
-                    chain=self._chain or "",
-                    network=self._network or "",
+                    chain=self._chain,
+                    network=self.network,
+                    swap_provider=self.swap_provider,
                     order_amount_in_base=self.order_amount_in_base,
                     buy_price=buy_price,
                     sell_price=sell_price,
@@ -150,32 +160,41 @@ class AmmGatewayDataFeed(NetworkBase):
         except Exception as e:
             self.logger().warning(f"Failed to get price for {trading_pair}: {e}")
 
+    async def _resolve_swap_provider(self) -> str:
+        """
+        The dex/trading_type the network config names as its swapProvider.
+
+        Resolved once and kept: quote_swap resolves it the same way when it is not told
+        one, but it does so per call, which would re-read the network config on every
+        quote this feed takes.
+        """
+        async with self._swap_provider_lock:
+            if self._swap_provider is None:
+                swap_provider = await self.gateway_client.get_default_swap_provider(self.network)
+                if not swap_provider:
+                    raise ValueError(f"No swap provider configured for network {self.network}")
+                if "/" not in swap_provider:
+                    raise ValueError(
+                        f"Invalid swap provider '{swap_provider}' for network {self.network} "
+                        f"- expected 'dex/trading_type'"
+                    )
+                self._swap_provider = swap_provider
+        return self._swap_provider
+
     async def _request_token_price(self, trading_pair: str, trade_type: TradeType) -> Optional[Decimal]:
         base, quote = split_hb_trading_pair(trading_pair)
 
-        # Use gateway's quote_swap which handles chain/network internally
         try:
+            dex, trading_type = (await self._resolve_swap_provider()).split("/", 1)
 
-            # Get chain and network from connector if not cached
-            if not self._chain or not self._network:
-                dex_name, trading_type, chain, network, error = await self.gateway_client.get_dex_info(
-                    self.connector
-                )
-                if not error:
-                    self._chain = chain
-                    self._network = network
-                else:
-                    self.logger().warning(f"Failed to get chain/network for {self.connector}: {error}")
-                    return None
-
-            # Use quote_swap - dex/trading_type will be fetched from network config
             response = await self.gateway_client.quote_swap(
-                network=self._network,
-                chain=self._chain,
+                network=self.network,
+                dex=dex,
+                trading_type=trading_type,
                 base_asset=base,
                 quote_asset=quote,
                 amount=self.order_amount_in_base,
-                side=trade_type
+                side=trade_type,
             )
 
             if response and "price" in response:

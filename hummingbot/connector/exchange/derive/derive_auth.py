@@ -19,15 +19,15 @@ class DeriveAuth(AuthBase):
     Auth class required by Derive API
     """
 
-    def __init__(self, api_key: str, api_secret: str, sub_id: int, trading_required: bool, domain: str):
-        self._api_key: str = api_key
-        self._api_secret: str = api_secret
-        self._sub_id: int = sub_id
+    def __init__(self, wallet_address: str, session_private_key: str, subacct_id: int, trading_required: bool, domain: str):
+        self._wallet_address: str = wallet_address
+        self._session_private_key: str = session_private_key
+        self._subacct_id: int = subacct_id
         self._trading_required: bool = trading_required
         self._w3 = Web3()
         self._domain = domain
         if trading_required:
-            self.session_key_wallet = Web3().eth.account.from_key(self._api_secret)
+            self.session_key_wallet = Web3().eth.account.from_key(self._session_private_key)
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
@@ -59,14 +59,14 @@ class DeriveAuth(AuthBase):
         payload = {}
         timestamp = str(self.utc_now_ms())
         signature = to_0x_hex(self._w3.eth.account.sign_message(
-            encode_defunct(text=timestamp), private_key=self._api_secret
+            encode_defunct(text=timestamp), private_key=self._session_private_key
         ).signature)
         """
         This method is intended to configure a websocket request to be authenticated. Dexalot does not use this
         functionality
         """
         payload["accept"] = 'application/json'
-        payload["wallet"] = self._api_key
+        payload["wallet"] = self._wallet_address
         payload["timestamp"] = timestamp
         payload["signature"] = signature
         return payload
@@ -94,8 +94,8 @@ class DeriveAuth(AuthBase):
         domain_seperator = CONSTANTS.DOMAIN_SEPARATOR if "testnet" not in self._domain else CONSTANTS.TESTNET_DOMAIN_SEPARATOR
         action_typehash = CONSTANTS.ACTION_TYPEHASH if "testnet" not in self._domain else CONSTANTS.TESTNET_ACTION_TYPEHASH
         action = SignedAction(
-            subaccount_id=int(self._sub_id),
-            owner=self._api_key,
+            subaccount_id=int(self._subacct_id),
+            owner=self._wallet_address,
             signer=self.session_key_wallet.address,
             signature_expiry_sec=MAX_INT_32,
             nonce=get_action_nonce(),
@@ -122,12 +122,12 @@ class DeriveAuth(AuthBase):
     def header_for_authentication(self) -> Dict[str, str]:
         timestamp = str(self.utc_now_ms())
         signature = to_0x_hex(self._w3.eth.account.sign_message(
-            encode_defunct(text=timestamp), private_key=self._api_secret
+            encode_defunct(text=timestamp), private_key=self._session_private_key
         ).signature)
         payload = {}
 
         payload["accept"] = 'application/json'
-        payload["X-LyraWallet"] = self._api_key
+        payload["X-LyraWallet"] = self._wallet_address
         payload["X-LyraTimestamp"] = timestamp
         payload["X-LyraSignature"] = signature
         return payload

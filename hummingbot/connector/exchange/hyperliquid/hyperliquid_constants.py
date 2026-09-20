@@ -41,6 +41,9 @@ ASSET_CONTEXT_TYPE = "spotMetaAndAssetCtxs"
 TRADES_TYPE = "userFills"
 ORDER_STATUS_TYPE = "orderStatus"
 USER_STATE_TYPE = "spotClearinghouseState"
+# Info-endpoint request type listing the API/agent wallets a user has approved. Used at connect time to
+# verify an api_wallet key is actually an approved agent of the account (#7866).
+EXTRA_AGENTS_TYPE = "extraAgents"
 
 # yes
 TICKER_PRICE_CHANGE_URL = "/info"

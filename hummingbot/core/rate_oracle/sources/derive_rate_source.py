@@ -50,9 +50,9 @@ class DeriveRateSource(RateSourceBase):
         from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
 
         return DeriveExchange(
-            derive_api_secret="",
+            session_private_key="",
             trading_pairs=[],
-            sub_id = "",
-            derive_api_key="",
+            subacct_id="",
+            derive_wallet_address="",
             trading_required=False,
         )

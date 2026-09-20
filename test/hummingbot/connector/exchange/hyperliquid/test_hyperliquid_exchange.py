@@ -37,7 +37,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.api_address = "someAddress"
+        cls.api_address = "0x836eE2b55d173245832995082a8600709c38D099"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False
@@ -1325,7 +1325,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             erroneous_order=order2,
             mock_api=mock_api)
 
-        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10), timeout=15)
 
         for url in urls:
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -1967,6 +1967,56 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertTrue(self.is_logged("INFO", expected_log))
 
+    @aioresponses()
+    async def test_execute_cancel_when_action_is_rejected_by_the_venue(self, mock_api):
+        """When the action is rejected before reaching the order book the response is a plain
+        string, not a dict: {"status": "err", "response": "<message>"}."""
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID4",
+            exchange_order_id="EOID4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+
+        order = self.exchange.in_flight_orders["OID4"]
+
+        url = web_utils.public_rest_url(CONSTANTS.CANCEL_ORDER_URL)
+        mock_api.post(
+            url,
+            body=json.dumps({"status": "err", "response": "Invalid nonce"})
+        )
+
+        result = await self.exchange._execute_cancel(order.trading_pair, order.client_order_id)
+
+        self.assertFalse(result)
+        self.assertTrue(
+            any("Invalid nonce" in record.getMessage() and record.levelname == "WARNING"
+                for record in self.log_records)
+        )
+        # A venue-level rejection is not an "order not found": the order must stay tracked.
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+
+    def test_process_cancel_result_unknown_order(self):
+        cancel_result = {
+            "status": "ok",
+            "response": {"type": "cancel", "data": {"statuses": [
+                {"error": "Order was never placed, already canceled, or filled."}
+            ]}},
+        }
+
+        with self.assertRaises(IOError) as exception_context:
+            self.exchange._process_cancel_result("OID1", cancel_result)
+
+        self.assertTrue(
+            self.exchange._is_order_not_found_during_cancelation_error(exception_context.exception)
+        )
+
 
 class HyperliquidBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid spot connector."""
@@ -1978,9 +2028,10 @@ class HyperliquidBuilderCodeTests(TestCase):
         return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
 
     def _build_connector(self, domain: str = CONSTANTS.DOMAIN, use_vault: bool = False):
+        # Post-#7866: use address derived from api_secret to pass validation
         return HyperliquidExchange(
             hyperliquid_secret_key=self.api_secret,
-            hyperliquid_address="0x1111111111111111111111111111111111111111",
+            hyperliquid_address="0x836eE2b55d173245832995082a8600709c38D099",
             use_vault=use_vault,
             trading_pairs=["HFUN-USDC"],
             trading_required=False,
@@ -2019,6 +2070,7 @@ class HyperliquidBuilderCodeTests(TestCase):
                                           (self._build_connector(use_vault=True), False),
                                           (self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN), False)):
             connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
+            connector._builder_fee_resolved = True  # skip the lazy fee lookup in _place_order
             connector.coin_to_asset = {"HFUN": 0}
             with patch.object(connector, "exchange_symbol_associated_to_pair",
                               new_callable=AsyncMock, return_value="HFUN"):
@@ -2030,6 +2082,63 @@ class HyperliquidBuilderCodeTests(TestCase):
             self.assertEqual(expect_builder, "builder" in sent)
             if expect_builder:
                 self.assertEqual({"b": connector._builder_address, "f": 10}, sent["builder"])
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_place_order_resolves_builder_fee_without_start_network(self, api_post_mock):
+        # Embedders like hummingbot-api start connector tasks without calling start_network,
+        # so the first order must resolve the approved fee itself instead of charging 0 bps —
+        # and only the first: the maxBuilderFee lookup runs once, not per order.
+        order_result = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        api_post_mock.side_effect = [10, order_result, order_result]
+        connector = self._build_connector()
+        connector.coin_to_asset = {"HFUN": 0}
+        with patch.object(connector, "exchange_symbol_associated_to_pair",
+                          new_callable=AsyncMock, return_value="HFUN"):
+            for _ in range(2):
+                self.async_run_with_timeout(connector._place_order(
+                    order_id="0xabc", trading_pair="HFUN-USDC", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                ))
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        self.assertEqual(
+            {"b": connector._builder_address, "f": 10},
+            api_post_mock.call_args.kwargs["data"]["builder"],
+        )
+        self.assertEqual(3, api_post_mock.call_count)
+
+    @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
+    def test_failed_fee_lookup_does_not_latch_and_next_order_retries(self, api_post_mock):
+        # A transient maxBuilderFee lookup failure must not freeze the fee at 0 for the whole
+        # session: the failing order goes out at 0 bps, and the next order retries the lookup.
+        order_result = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        api_post_mock.side_effect = [Exception("info endpoint down"), order_result, 10, order_result]
+        connector = self._build_connector()
+        connector.coin_to_asset = {"HFUN": 0}
+        with patch.object(connector, "exchange_symbol_associated_to_pair",
+                          new_callable=AsyncMock, return_value="HFUN"):
+            self.async_run_with_timeout(connector._place_order(
+                order_id="0xabc", trading_pair="HFUN-USDC", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+            ))
+            self.assertFalse(connector._builder_fee_resolved)
+            self.assertEqual(0, connector._builder_fee_tenths_bps)
+            self.async_run_with_timeout(connector._place_order(
+                order_id="0xdef", trading_pair="HFUN-USDC", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+            ))
+        self.assertTrue(connector._builder_fee_resolved)
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        self.assertEqual(
+            {"b": connector._builder_address, "f": 10},
+            api_post_mock.call_args.kwargs["data"]["builder"],
+        )
+
+    def test_stop_network_resets_builder_fee_resolution(self):
+        # A reconnect must re-query the approval so mid-session approvals/revocations are picked up.
+        connector = self._build_connector()
+        connector._builder_fee_resolved = True
+        self.async_run_with_timeout(connector.stop_network())
+        self.assertFalse(connector._builder_fee_resolved)
 
     @patch.object(HyperliquidExchange, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_applies_approved(self, api_post_mock):
@@ -2086,3 +2195,61 @@ class HyperliquidBuilderCodeTests(TestCase):
             self.async_run_with_timeout(connector._initialize_builder_fee())
             self.assertEqual(0, connector._builder_fee_tenths_bps)
             api_post_mock.assert_not_called()
+
+
+class HyperliquidKeyAuthorityTests(TestCase):
+    """Connect-time key-authority check (#7866, api_wallet gap): verify a wrong-but-well-formed key
+    surfaces at connect via the extraAgents approved-agent lookup, mode-agnostically."""
+
+    api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+    owner_address = "0x836eE2b55d173245832995082a8600709c38D099"          # api_secret derives to this
+    other_account = "0x000000000000000000000000000000000000dEaD"
+    other_agent = "0x0000000000000000000000000000000000000001"
+
+    def async_run_with_timeout(self, coroutine, timeout: int = 1):
+        return asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _build_connector(self, address, mode="arb_wallet", use_vault=False):
+        return HyperliquidExchange(
+            hyperliquid_secret_key=self.api_secret,
+            hyperliquid_address=address,
+            hyperliquid_mode=mode,
+            use_vault=use_vault,
+            trading_pairs=["COINALPHA-USD"],
+            trading_required=True,
+        )
+
+    def test_owner_key_authorized_without_network_call(self):
+        connector = self._build_connector(self.owner_address)
+        connector._api_post = AsyncMock(side_effect=AssertionError("owner key must not hit the network"))
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+
+    def test_approved_agent_authorized(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value=[{"address": self.owner_address, "name": "hb"}])
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+        connector._api_post.assert_awaited_once()
+
+    def test_unapproved_agent_raises(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value=[{"address": self.other_agent}])
+        with self.assertRaises(ValueError) as ctx:
+            self.async_run_with_timeout(connector._verify_key_authority())
+        # The failure happens during API-wallet setup, so the message must speak of the
+        # API wallet (not a bare "agent wallet") and point at the approved-wallet list.
+        self.assertIn("api wallet", str(ctx.exception).lower())
+        self.assertIn("approved", str(ctx.exception).lower())
+
+    def test_vault_mode_skips_check(self):
+        connector = self._build_connector(self.other_account, use_vault=True)
+        connector._api_post = AsyncMock(side_effect=AssertionError("vault mode must not hit the network"))
+        self.async_run_with_timeout(connector._verify_key_authority())
+        self.assertTrue(connector._key_authority_verified)
+
+    def test_unexpected_extra_agents_response_does_not_block_connect(self):
+        connector = self._build_connector(self.other_account, mode="api_wallet")
+        connector._api_post = AsyncMock(return_value={"unexpected": "shape"})
+        # Must not raise: an endpoint quirk should not false-reject a possibly-valid key.
+        self.async_run_with_timeout(connector._verify_key_authority())

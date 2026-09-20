@@ -142,14 +142,25 @@ class XRPLMarket(BaseModel):
         return str(self.model_dump())
 
     def get_token_symbol(self, code: str, issuer: str) -> Optional[str]:
-        if self.trading_pair_symbol is None:
-            return None
+        """Symbol this market knows the given currency/issuer pair by, if it is one of them.
 
+        ``trading_pair_symbol`` is optional and only exists to alias a token to a different
+        display symbol. When it is not set there is still a perfectly good answer for a
+        matching currency and issuer — the market's own ``base``/``quote`` code — so the
+        match is what decides the outcome, not the presence of the alias.
+
+        Returning None whenever the alias was unset made the caller in ``_update_balances``
+        skip the balance entirely (``if token_symbol is None: continue``), so a real
+        on-ledger holding disappeared from balances and portfolio rather than showing up
+        with a zero value. Every entry in ``custom_markets`` is written without an alias
+        unless the user knows to add one — including the ``SOLO-XRP`` example shipped as
+        the field's own default — so this hit the default configuration too.
+        """
         if code.upper() == self.base.upper() and issuer.upper() == self.base_issuer.upper():
-            return self.trading_pair_symbol.split("-")[0]
+            return self.trading_pair_symbol.split("-")[0] if self.trading_pair_symbol else self.base.upper()
 
         if code.upper() == self.quote.upper() and issuer.upper() == self.quote_issuer.upper():
-            return self.trading_pair_symbol.split("-")[1]
+            return self.trading_pair_symbol.split("-")[1] if self.trading_pair_symbol else self.quote.upper()
 
         return None
 
