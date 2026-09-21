@@ -1169,6 +1169,19 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(order.is_cancelled)
 
+    async def test_user_stream_partially_filled_then_cancelled_order_is_cancelled(self):
+        # Bybit reports an order cancelled after a partial fill as PartiallyFilledCanceled
+        order = self._start_tracking_limit_order()
+        order_event = self.order_event_for_new_order_websocket_update(order)
+        order_event["data"][0]["orderStatus"] = "PartiallyFilledCanceled"
+
+        await self._feed_user_stream(order_event)
+
+        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        self.assertEqual(order.client_order_id, cancel_event.order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_cancelled)
+
     async def test_user_stream_unknown_order_status_is_logged_and_the_next_event_still_lands(self):
         order = self._start_tracking_limit_order()
         unknown_event = self.order_event_for_new_order_websocket_update(order)
