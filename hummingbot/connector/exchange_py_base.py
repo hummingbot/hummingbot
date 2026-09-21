@@ -497,6 +497,17 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         return exchange_order_id
 
+    def _is_maker_only_rejection(self, exception: Exception) -> bool:
+        """
+        True when the exchange rejected a post-only (LIMIT_MAKER) order because it would have crossed
+        the book and taken liquidity. That rejection is the exchange's maker-only protection working as
+        intended, so it is reported as a plain warning instead of a network error with a traceback and
+        an "API key" hint that sends the user to debug the wrong thing. Connectors override this with
+        their own error code or text (Binance -2010 "Order would immediately match and take", Kalshi
+        "post only cross"); the default recognises nothing, so every other failure keeps its path.
+        """
+        return False
+
     def _on_order_failure(
         self,
         order_id: str,
@@ -508,6 +519,16 @@ class ExchangePyBase(ExchangeBase, ABC):
         exception: Exception,
         **kwargs,
     ):
+        if order_type is OrderType.LIMIT_MAKER and self._is_maker_only_rejection(exception):
+            self.logger().warning(
+                f"{self.name_cap} rejected the {trade_type.name.upper()} LIMIT_MAKER order for {amount} "
+                f"{trading_pair} at {price} because it would have executed immediately. The exchange's "
+                f"maker-only protection worked as intended and no order was placed; adjust the price so the "
+                f"order rests on the book."
+            )
+            self.logger().debug(f"Maker-only rejection for order {order_id}: {exception}", exc_info=True)
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair, exception=exception)
+            return
         self.logger().network(
             f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
             f"{amount} {trading_pair} {price}.",

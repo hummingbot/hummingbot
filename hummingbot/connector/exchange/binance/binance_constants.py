@@ -112,4 +112,7 @@ RATE_LIMITS = [
 ORDER_NOT_EXIST_ERROR_CODE = -2013
 ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
 UNKNOWN_ORDER_ERROR_CODE = -2011
+# A post-only (LIMIT_MAKER) order that would have crossed the book and taken liquidity
+MAKER_ONLY_REJECTION_ERROR_CODE = -2010
+MAKER_ONLY_REJECTION_MESSAGE = "Order would immediately match and take"
 UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
