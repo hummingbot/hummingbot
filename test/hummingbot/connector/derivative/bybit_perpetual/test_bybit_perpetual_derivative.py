@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from itertools import chain, product
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from urllib.parse import urlencode
 
 from aioresponses import aioresponses
@@ -22,6 +22,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import OrderCancelledEvent
 
 
 class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -1119,6 +1120,71 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         order_event = self.order_event_for_new_order_websocket_update(order)
         order_event["data"][0]["orderStatus"] = "Filled"
         return order_event
+
+    def _start_tracking_limit_order(self) -> InFlightOrder:
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        return self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+    async def _feed_user_stream(self, *events):
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [*events, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+        try:
+            await self.exchange._user_stream_event_listener()
+        except asyncio.CancelledError:
+            pass
+        await asyncio.sleep(0.1)
+
+    async def test_user_stream_untriggered_conditional_order_stays_open(self):
+        # A stop-loss or take-profit placed as a conditional order reports Untriggered until
+        # its trigger price prints; that status used to raise KeyError out of the listener.
+        order = self._start_tracking_limit_order()
+        order_event = self.order_event_for_new_order_websocket_update(order)
+        order_event["data"][0]["orderStatus"] = "Untriggered"
+
+        await self._feed_user_stream(order_event)
+
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_open)
+        self.assertFalse(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
+
+    async def test_user_stream_deactivated_conditional_order_is_cancelled(self):
+        order = self._start_tracking_limit_order()
+        order_event = self.order_event_for_new_order_websocket_update(order)
+        order_event["data"][0]["orderStatus"] = "Deactivated"
+
+        await self._feed_user_stream(order_event)
+
+        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        self.assertEqual(order.client_order_id, cancel_event.order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(order.is_cancelled)
+
+    async def test_user_stream_unknown_order_status_is_logged_and_the_next_event_still_lands(self):
+        order = self._start_tracking_limit_order()
+        unknown_event = self.order_event_for_new_order_websocket_update(order)
+        unknown_event["data"][0]["orderStatus"] = "SomethingBybitAddedLater"
+        cancel_event = self.order_event_for_canceled_order_websocket_update(order)
+
+        await self._feed_user_stream(unknown_event, cancel_event)
+
+        self.assertTrue(
+            self.is_logged(
+                "WARNING",
+                f"Ignoring order event with unknown status 'SomethingBybitAddedLater' for order {order.client_order_id}.",
+            )
+        )
+        self.assertFalse(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
+        self.assertTrue(order.is_cancelled)
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
