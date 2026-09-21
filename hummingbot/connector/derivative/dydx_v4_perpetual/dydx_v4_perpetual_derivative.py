@@ -467,7 +467,13 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         markets_info = exchange_info_dict["markets"]
         for market_name, market_info in markets_info.items():
             if web_utils.is_exchange_information_valid(market_info):
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
+                try:
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=market_name)
+                except KeyError:
+                    # a market listed after the symbol map was built (ELX-USD in #7492); one unknown
+                    # name must not fail the rules of every other pair on every tick
+                    self.logger().debug(f"Skipping trading rules for unknown market {market_name}")
+                    continue
                 market = markets_info[market_name]
                 try:
                     collateral_token = CONSTANTS.CURRENCY
