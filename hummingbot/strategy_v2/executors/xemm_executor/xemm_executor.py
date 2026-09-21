@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 from hummingbot.connector.connector_base import ConnectorBase, Union
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -11,6 +11,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
+    OrderCancelledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
@@ -99,6 +100,7 @@ class XEMMExecutor(ExecutorBase):
         self.maker_order = None
         self.taker_order = None
         self.failed_orders = []
+        self._canceled_orders = []
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval, max_retries=max_retries)
@@ -232,10 +234,12 @@ class XEMMExecutor(ExecutorBase):
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+            self._canceled_orders.append(self.maker_order)
             self.maker_order = None
         elif self._current_trade_profitability - self._tx_cost_pct > self.config.max_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is above maximum profitability {self.config.max_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+            self._canceled_orders.append(self.maker_order)
             self.maker_order = None
 
     async def update_current_trade_profitability(self):
@@ -274,19 +278,32 @@ class XEMMExecutor(ExecutorBase):
                                       event_tag: int,
                                       market: ConnectorBase,
                                       event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
-        if self.maker_order and event.order_id == self.maker_order.order_id:
+        is_maker = (
+            (self.maker_order and event.order_id == self.maker_order.order_id)
+            or any(order.order_id == event.order_id for order in self._canceled_orders)
+            or any(order.order_id == event.order_id for order in self.failed_orders)
+        )
+        if is_maker:
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
-            self.place_taker_order()
+            fill_amount = getattr(event, "base_asset_amount", None) or self.config.order_amount
+            self.place_taker_order(amount=fill_amount)
             self._status = RunnableStatus.SHUTTING_DOWN
 
-    def place_taker_order(self):
+    def place_taker_order(self, amount: Optional[Decimal] = None):
+        order_amount = amount or self.config.order_amount
         taker_order_id = self.place_order(
             connector_name=self.taker_connector,
             trading_pair=self.taker_trading_pair,
             order_type=OrderType.MARKET,
             side=self.taker_order_side,
-            amount=self.config.order_amount)
+            amount=order_amount)
         self.taker_order = TrackedOrder(order_id=taker_order_id)
+
+    def process_order_canceled_event(self, _, market: ConnectorBase, event: OrderCancelledEvent):
+        if self.maker_order and event.order_id == self.maker_order.order_id:
+            self.logger().info(f"Maker order {event.order_id} canceled.")
+            self._canceled_orders.append(self.maker_order)
+            self.maker_order = None
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         if self.maker_order and self.maker_order.order_id == event.order_id:

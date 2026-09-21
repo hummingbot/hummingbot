@@ -189,10 +189,14 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
         total_pct = sum(buy_amounts_pct) + sum(sell_amounts_pct)
 
         # Normalize amounts_pct based on total percentages
-        if trade_type == TradeType.BUY:
-            normalized_amounts_pct = [amt_pct / total_pct for amt_pct in buy_amounts_pct]
-        else:  # TradeType.SELL
-            normalized_amounts_pct = [amt_pct / total_pct for amt_pct in sell_amounts_pct]
+        if total_pct > 0:
+            if trade_type == TradeType.BUY:
+                normalized_amounts_pct = [amt_pct / total_pct for amt_pct in buy_amounts_pct]
+            else:  # TradeType.SELL
+                normalized_amounts_pct = [amt_pct / total_pct for amt_pct in sell_amounts_pct]
+        else:
+            amounts_pct = buy_amounts_pct if trade_type == TradeType.BUY else sell_amounts_pct
+            normalized_amounts_pct = [1.0 / len(amounts_pct) for _ in amounts_pct] if amounts_pct else []
 
         spreads = getattr(self, f'{trade_type.name.lower()}_spreads')
         return spreads, [amt_pct * self.total_amount_quote for amt_pct in normalized_amounts_pct]
