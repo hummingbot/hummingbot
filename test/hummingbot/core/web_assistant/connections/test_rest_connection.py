@@ -99,3 +99,26 @@ class RESTConnectionTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(2, len(attempts))
         await client_session.close()
+
+    async def test_a_streaming_body_is_not_sent_again(self):
+        # a file or async iterable may already be partly consumed; only buffered bodies are retried
+        url = "https://www.test.com/url"
+        error_type = getattr(aiohttp, "ClientConnectionResetError", aiohttp.ClientOSError)
+        attempts = []
+
+        async def fake_request(**kwargs):
+            attempts.append(kwargs)
+            raise error_type("Cannot write to closing transport")
+
+        async def body_chunks():
+            yield b"payload"
+
+        client_session = aiohttp.ClientSession()
+        client_session.request = fake_request
+        connection = RESTConnection(client_session)
+
+        with self.assertRaises(error_type):
+            await connection.call(RESTRequest(method=RESTMethod.POST, url=url, data=body_chunks()))
+
+        self.assertEqual(1, len(attempts))
+        await client_session.close()

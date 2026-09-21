@@ -18,7 +18,7 @@ class RESTConnection:
         try:
             aiohttp_resp = await self._request(request)
         except _CONNECTION_RESET_ERROR as e:
-            if not self._request_never_left(e):
+            if not (self._request_never_left(e) and self._body_can_be_sent_again(request)):
                 raise
             # the pool will not reuse the closing transport; one retry gets a live connection
             aiohttp_resp = await self._request(request)
@@ -34,6 +34,12 @@ class RESTConnection:
             data=request.data,
             headers=request.headers,
         )
+
+    @staticmethod
+    def _body_can_be_sent_again(request: RESTRequest) -> bool:
+        # a str, bytes or dict body is rebuilt from the value on every attempt; a file or an
+        # async iterable may already be partly consumed, so those are not retried
+        return request.data is None or isinstance(request.data, (str, bytes, dict))
 
     @staticmethod
     def _request_never_left(error: Exception) -> bool:
