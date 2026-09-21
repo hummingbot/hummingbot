@@ -101,6 +101,8 @@ class XEMMExecutor(ExecutorBase):
         self.taker_order = None
         self.failed_orders = []
         self._canceled_orders = []
+        self._failed_maker_orders = []
+        self._failed_taker_orders = []
         super().__init__(strategy=strategy,
                          connectors=[config.buying_market.connector_name, config.selling_market.connector_name],
                          config=config, update_interval=update_interval, max_retries=max_retries)
@@ -281,13 +283,32 @@ class XEMMExecutor(ExecutorBase):
         is_maker = (
             (self.maker_order and event.order_id == self.maker_order.order_id)
             or any(order.order_id == event.order_id for order in self._canceled_orders)
-            or any(order.order_id == event.order_id for order in self.failed_orders)
+            or any(order.order_id == event.order_id for order in self._failed_maker_orders)
         )
         if is_maker:
             self.logger().info(f"Maker order {event.order_id} completed. Executing taker order.")
+            # If an active replacement maker order exists that is different from this completed maker order,
+            # cancel it immediately before shutting down to prevent double execution.
+            if self.maker_order and self.maker_order.order_id != event.order_id:
+                self.logger().info(f"Canceling active replacement maker order {self.maker_order.order_id} after race fill.")
+                self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
+                self._canceled_orders.append(self.maker_order)
+                self.maker_order = None
+
+            # Remove the filled order from canceled and failed maker tracking so it cannot trigger duplicate hedges
+            self._canceled_orders = [order for order in self._canceled_orders if order.order_id != event.order_id]
+            self._failed_maker_orders = [order for order in self._failed_maker_orders if order.order_id != event.order_id]
+
             fill_amount = getattr(event, "base_asset_amount", None) or self.config.order_amount
             self.place_taker_order(amount=fill_amount)
             self._status = RunnableStatus.SHUTTING_DOWN
+        elif (self.taker_order and event.order_id == self.taker_order.order_id) or any(
+            order.order_id == event.order_id for order in self._failed_taker_orders
+        ):
+            self.logger().info(f"Taker order {event.order_id} completed.")
+            if not self.taker_order or self.taker_order.order_id != event.order_id:
+                self.taker_order = next((order for order in self._failed_taker_orders if order.order_id == event.order_id), self.taker_order)
+            self._failed_taker_orders = [order for order in self._failed_taker_orders if order.order_id != event.order_id]
 
     def place_taker_order(self, amount: Optional[Decimal] = None):
         order_amount = amount or self.config.order_amount
@@ -308,10 +329,12 @@ class XEMMExecutor(ExecutorBase):
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
         if self.maker_order and self.maker_order.order_id == event.order_id:
             self.failed_orders.append(self.maker_order)
+            self._failed_maker_orders.append(self.maker_order)
             self.maker_order = None
             self._current_retries += 1
         elif self.taker_order and self.taker_order.order_id == event.order_id:
             self.failed_orders.append(self.taker_order)
+            self._failed_taker_orders.append(self.taker_order)
             self._current_retries += 1
             self.place_taker_order()
 
