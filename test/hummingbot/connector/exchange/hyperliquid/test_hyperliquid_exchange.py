@@ -2017,6 +2017,75 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             self.exchange._is_order_not_found_during_cancelation_error(exception_context.exception)
         )
 
+    def test_quantize_order_price_keeps_spot_decimals_beyond_six(self):
+        pair = combine_to_hb_trading_pair("CHEAP", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.00000001"),
+            min_order_size=Decimal("1"),
+            min_notional_size=Decimal("10"),
+        )
+        # Spot allows 8 decimals where perpetuals allow 6. Rounding to a fixed 6
+        # turned this price into 0, and an order priced at 0 is rejected.
+        self.assertEqual(
+            Decimal("0.00000033"),
+            self.exchange.quantize_order_price(pair, Decimal("0.0000003315")),
+        )
+
+    def test_quantize_order_price_aligns_to_min_price_increment(self):
+        pair = combine_to_hb_trading_pair("PURR", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.00001"),
+            min_order_size=Decimal("1"),
+            min_notional_size=Decimal("10"),
+        )
+        self.assertEqual(
+            Decimal("0.08803"),
+            self.exchange.quantize_order_price(pair, Decimal("0.088027")),
+        )
+
+    def test_quantize_order_price_respects_five_significant_figures(self):
+        pair = combine_to_hb_trading_pair("UBTC", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.1"),
+            min_order_size=Decimal("0.00001"),
+            min_notional_size=Decimal("10"),
+        )
+        # The 0.1 tick alone would allow 68013.8, six significant figures. The
+        # 5-sig-fig pass runs first so tick rounding cannot reintroduce a sixth.
+        self.assertEqual(
+            Decimal("68014"),
+            self.exchange.quantize_order_price(pair, Decimal("68013.75")),
+        )
+
+    def test_quantize_order_price_does_not_pad_the_scale(self):
+        pair = combine_to_hb_trading_pair("UETH", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.0001"),
+            min_order_size=Decimal("0.0001"),
+            min_notional_size=Decimal("10"),
+        )
+        quantized = self.exchange.quantize_order_price(pair, Decimal("10000"))
+        self.assertEqual(Decimal("10000"), quantized)
+        self.assertEqual("10000", str(quantized))
+
+    def test_quantize_order_price_does_not_leak_binary_float_artifacts(self):
+        pair = combine_to_hb_trading_pair("HYPE", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.001"),
+            min_order_size=Decimal("0.01"),
+            min_notional_size=Decimal("10"),
+        )
+        # Decimal(float) captures the binary expansion, so the old path returned
+        # 0.05000000000000000277... for this price.
+        quantized = self.exchange.quantize_order_price(pair, Decimal("0.05"))
+        self.assertEqual(Decimal("0.05"), quantized)
+        self.assertEqual("0.05", str(quantized))
+
 
 class HyperliquidBuilderCodeTests(TestCase):
     """Builder-code support (HGP-87) on the Hyperliquid spot connector."""
