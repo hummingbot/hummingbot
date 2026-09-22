@@ -703,7 +703,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_tx_client(self) -> Optional[DydxPerpetualV4Client]:
-        if not self._trading_required or not self._dydx_v4_perpetual_secret_phrase or not str(self._dydx_v4_perpetual_secret_phrase).strip():
+        if not self._trading_required:
             return None
         return DydxPerpetualV4Client(
             self._dydx_v4_perpetual_secret_phrase,

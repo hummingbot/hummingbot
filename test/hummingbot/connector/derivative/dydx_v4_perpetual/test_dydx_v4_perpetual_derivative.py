@@ -1692,3 +1692,12 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         with self.assertRaises(RuntimeError):
             await connector._place_cancel(order_id="123", tracked_order=tracked_order)
 
+    def test_trading_required_connector_with_empty_mnemonic_raises_error(self):
+        with self.assertRaises(ValueError):
+            DydxV4PerpetualDerivative(
+                dydx_v4_perpetual_secret_phrase="",
+                dydx_v4_perpetual_chain_address="",
+                trading_required=True,
+            )
+
+
