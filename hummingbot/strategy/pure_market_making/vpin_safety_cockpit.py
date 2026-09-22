@@ -1,5 +1,5 @@
 import logging
-from followsm import FollowSM
+from followsm import FollowSMClient
 
 logger = logging.getLogger(__name__)
 
@@ -9,13 +9,13 @@ class VPINSafetyCockpit:
     Widens bid-ask spread when orderbook depth imbalance or VPIN spikes.
     """
     def __init__(self):
-        self.client = FollowSM()
+        self.client = FollowSMClient()
 
     def get_spread_multiplier(self, symbol: str) -> float:
         try:
-            metrics = self.client.get_market_metrics(symbol)
-            vpin = metrics.get('vpin', 0.0)
-            ob_toxicity = metrics.get('ob_toxicity_1pct', 1.0)
+            snapshot = self.client.get_toxicity_snapshot(symbol)
+            vpin = getattr(snapshot, 'vpin', 0.0)
+            ob_toxicity = getattr(snapshot, 'ob_toxicity_1pct', 1.0)
             
             if vpin > 0.70 or ob_toxicity > 2.0:
                 # Widen spreads 3x to prevent adverse selection
