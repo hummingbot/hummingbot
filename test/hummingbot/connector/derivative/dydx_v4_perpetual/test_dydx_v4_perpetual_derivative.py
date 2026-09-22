@@ -1636,3 +1636,59 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.target_funding_info_next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    def test_non_trading_connector_initialization_empty_mnemonic(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        self.assertIsNone(connector._tx_client)
+        self.assertFalse(connector.is_trading_required)
+
+    @patch.object(DydxV4PerpetualDerivative, "_update_trading_rules", new_callable=AsyncMock)
+    async def test_non_trading_connector_start_network_does_not_call_tx_client(self, mock_update_trading_rules):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        with patch("hummingbot.connector.perpetual_derivative_py_base.PerpetualDerivativePyBase.start_network", new_callable=AsyncMock):
+            await connector.start_network()
+        mock_update_trading_rules.assert_called_once()
+        self.assertIsNone(connector._tx_client)
+
+    async def test_non_trading_connector_place_order_raises_runtime_error(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        with self.assertRaises(RuntimeError):
+            await connector._place_order(
+                order_id="123",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10"),
+            )
+
+    async def test_non_trading_connector_place_cancel_raises_runtime_error(self):
+        connector = DydxV4PerpetualDerivative(
+            dydx_v4_perpetual_secret_phrase="",
+            dydx_v4_perpetual_chain_address="",
+            trading_required=False,
+        )
+        tracked_order = InFlightOrder(
+            client_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("10"),
+            creation_timestamp=123456789,
+        )
+        with self.assertRaises(RuntimeError):
+            await connector._place_cancel(order_id="123", tracked_order=tracked_order)
+

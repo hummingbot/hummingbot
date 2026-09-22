@@ -52,7 +52,7 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
 
-        self._tx_client: DydxPerpetualV4Client = self._create_tx_client()
+        self._tx_client: Optional[DydxPerpetualV4Client] = self._create_tx_client()
 
         self._margin_fractions = {}
         self._position_id = None
@@ -152,9 +152,12 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
     async def start_network(self):
         await super().start_network()
         await self._update_trading_rules()
-        await self._tx_client.initialize_trading_account()
+        if self._trading_required and self._tx_client is not None:
+            await self._tx_client.initialize_trading_account()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        if self._tx_client is None:
+            raise RuntimeError("Trading client is not initialized for non-trading connector.")
         async with self._throttler.execute_task(limit_id=CONSTANTS.LIMIT_ID_ORDER_CANCEL):
             if not self._margin_fractions:
                 await self._update_trading_rules()
@@ -272,6 +275,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         expiration = CONSTANTS.ORDER_EXPIRATION
         reduce_only = False
 
+        if self._tx_client is None:
+            raise RuntimeError("Trading client is not initialized for non-trading connector.")
         post_only = order_type is OrderType.LIMIT_MAKER
         market = await self.exchange_symbol_associated_to_pair(trading_pair)
         try:
@@ -496,6 +501,8 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
         return trading_rules
 
     async def _update_balances(self):
+        if not self._dydx_v4_perpetual_chain_address:
+            return
         path = f"{CONSTANTS.PATH_SUBACCOUNT}/{self._dydx_v4_perpetual_chain_address}/subaccountNumber/{self.subaccount_id}"
         response: Dict[str, Dict[str, Any]] = await self._api_get(
             path_url=path, params={}, limit_id=CONSTANTS.PATH_SUBACCOUNT
@@ -695,7 +702,9 @@ class DydxV4PerpetualDerivative(PerpetualDerivativePyBase):
             throttler=self._throttler,
         )
 
-    def _create_tx_client(self) -> DydxPerpetualV4Client:
+    def _create_tx_client(self) -> Optional[DydxPerpetualV4Client]:
+        if not self._trading_required or not self._dydx_v4_perpetual_secret_phrase or not str(self._dydx_v4_perpetual_secret_phrase).strip():
+            return None
         return DydxPerpetualV4Client(
             self._dydx_v4_perpetual_secret_phrase,
             self._dydx_v4_perpetual_chain_address,
