@@ -190,20 +190,32 @@ class TestBingXExchange(unittest.TestCase):
         resp = self.get_exchange_rules_mock()
         mock_api.get(url, body=json.dumps(resp))
 
-        get_last_traded_price_url = web_utils.rest_url(CONSTANTS.LAST_TRADED_PRICE_PATH)
-        get_last_traded_price_url_regex_url = re.compile(f"^{get_last_traded_price_url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = {
-            "data": [
-                {
-                    "lastPrice": 0.00001
-                }
-            ]
-        }
-        mock_api.get(get_last_traded_price_url_regex_url, body=json.dumps(resp))
-
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
 
         self.assertTrue(self.trading_pair in self.exchange._trading_rules)
+        self.assertEqual(Decimal("74"), self.exchange._trading_rules[self.trading_pair].min_order_size)
+        self.assertEqual(Decimal("296331.5"), self.exchange._trading_rules[self.trading_pair].max_order_size)
+
+    @aioresponses()
+    def test_update_trading_rules_includes_all_active_symbols(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+        url = web_utils.rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        resp = self.get_exchange_rules_mock()
+        resp["data"]["symbols"].append({
+            "symbol": "BTC-USDT",
+            "minQty": 0.000001,
+            "maxQty": 100,
+            "minNotional": 0.5,
+            "maxNotional": 20000,
+            "status": 1,
+            "tickSize": 0.01,
+            "stepSize": 0.000001,
+        })
+        mock_api.get(url, body=json.dumps(resp))
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertEqual({"AURA-USDT", "BTC-USDT"}, set(self.exchange._trading_rules))
 
     @aioresponses()
     def test_update_trading_rules_ignores_rule_with_error(self, mock_api):

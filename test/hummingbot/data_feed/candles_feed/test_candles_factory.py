@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import hummingbot.data_feed.candles_feed as candles_feed_pkg
 from hummingbot.connector.exchange.binance import binance_constants
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.data_feed.candles_feed.bing_x_spot_candles import BingXSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import (
     BinanceSpotCandles,
@@ -16,6 +17,13 @@ from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
 
 
 class TestCandlesFactory(unittest.TestCase):
+    def test_get_bing_x_candles_spot(self):
+        candles = CandlesFactory.get_candle(CandlesConfig(
+            connector="bing_x", trading_pair="BTC-USDT", interval="1m"
+        ))
+        self.assertIsInstance(candles, BingXSpotCandles)
+        candles.stop()
+
     def test_get_binance_candles_spot(self):
         candles = CandlesFactory.get_candle(CandlesConfig(
             connector="binance",
