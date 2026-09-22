@@ -30,7 +30,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTest
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
-        cls.api_address = "someAddress"
+        cls.api_address = "0x836eE2b55d173245832995082a8600709c38D099"
         cls.hyperliquid_mode = "arb_wallet"  # noqa: mock
         cls.use_vault = False
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"

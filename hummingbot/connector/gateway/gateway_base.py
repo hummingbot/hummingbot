@@ -20,6 +20,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, T
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent, MarketTransactionFailureEvent
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -48,16 +49,45 @@ NON_RETRYABLE_ERROR_CODES = {
     "NO_ROUTE_FOUND",         # No swap route available for this direction
 }
 
-# The only retryable error code
-RETRYABLE_ERROR_CODE = "TRANSACTION_TIMEOUT"
+# Retryable error codes. TRANSACTION_TIMEOUT means a tx WAS broadcast and its
+# confirmation window raced out — the signature must be polled to a terminal
+# state before any re-submission (re-posting while it can still land duplicates
+# the trade). RATE_LIMITED is a pre-broadcast RPC rejection — nothing is
+# in flight, so a plain delayed retry is safe.
+RETRYABLE_ERROR_CODES = {"TRANSACTION_TIMEOUT", "RATE_LIMITED"}
+
+# Marker stamped on a transaction response whose CONFIRMED status was established by
+# polling the signature rather than by the route's own reply.
+#
+# Gateway populates a route's `data` block ONLY on the CONFIRMED reply. A PENDING reply
+# ({signature, status: 0}) carries no `data`, and neither does a TRANSACTION_TIMEOUT
+# exception. The only thing available afterwards is /chains/{chain}/poll, whose
+# PollResponse returns raw chain `txData` (a Solana getTransaction dump: slot, meta,
+# logs) — there is no mapping from that back to a route's `data` shape (positionAddress,
+# baseTokenAmountRemoved, positionRentRefunded, ...). So the reconciled response omits
+# `data` entirely and says so with this flag, rather than returning a `data`-shaped block
+# of zeros: every caller reads those keys with `.get(key, 0)` and would otherwise book a
+# real fee/amount as 0, or read an empty positionAddress for a position that is live
+# on-chain. Callers MUST branch on this flag instead of trusting `data`.
+TX_DATA_UNAVAILABLE = "txDataUnavailable"
+
+# Gateway's timeout message embeds the broadcast signature:
+# "Transaction <sig> was not confirmed before its blockhash expired..." /
+# "Transaction <sig> pending after N retries" — capture it for reconciliation.
+_TIMEOUT_SIGNATURE_PATTERN = re.compile(r"Transaction (\S+) (?:was not confirmed|pending)")
 
 
-def extract_error_code(error_str: str) -> Optional[str]:
-    """Extract Gateway error code from error string.
+def extract_error_code(error: Exception) -> Optional[str]:
+    """Resolve the Gateway error code for an exception.
 
-    Gateway formats errors as: "Gateway error: ... [code: ERROR_CODE]"
+    A GatewayError carries the code Gateway returned as a real attribute. Everything
+    else — including the connector's own synthesized transaction errors below, which
+    embed "[code: TX_NOT_CONFIRMED]" and friends in their message — only has the code
+    in its prose, so fall back to matching it out of the string.
     """
-    match = re.search(r'\[code:\s*(\w+)\]', error_str)
+    if isinstance(error, GatewayError):
+        return error.code
+    match = re.search(r'\[code:\s*(\w+)\]', str(error))
     return match.group(1) if match else None
 
 
@@ -68,6 +98,20 @@ class GatewayBase(ConnectorBase):
 
     POLL_INTERVAL = 1.0
     BALANCE_POLL_INTERVAL = 60.0  # Update balances every 60 seconds
+    # Reconciliation polling for a broadcast-but-unconfirmed transaction: how often
+    # to poll the signature, and how long to poll before ruling on it. The timeout
+    # must OUTLAST Solana's ~90s blockhash validity window, not merely reach it:
+    # inside that window a NOT_FOUND signature is still landable, so nothing before
+    # the deadline can prove a transaction dropped. Same rule, same reason, as
+    # TX_NOT_FOUND_DEADLINE below. STRIKES then guards the verdict itself against a
+    # status that flapped on the last poll or two.
+    SIGNATURE_POLL_INTERVAL = 2.0
+    SIGNATURE_POLL_TIMEOUT = 120.0
+    SIGNATURE_NOT_FOUND_STRIKES = 3
+    # How long an order's transaction may poll as NOT_FOUND before the misses count
+    # toward the tracker's lost-order limit. Must exceed Solana's blockhash validity
+    # window (~90s): within it, not-found can still mean "in flight".
+    TX_NOT_FOUND_DEADLINE = 120.0
     APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
@@ -111,6 +155,8 @@ class GatewayBase(ConnectorBase):
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
         self._connector_name = connector_name
+        # order_id -> the reason its last failure gave. See order_failure_reason().
+        self._order_failure_reasons: Dict[str, str] = {}
         # Temporarily set chain/network/address - will be populated in start_network if not provided
         self._chain = chain
         self._network = network
@@ -676,6 +722,7 @@ class GatewayBase(ConnectorBase):
         operation: Callable[[], T],
         operation_name: str,
         max_retries: int = 10,
+        retry_delay: float = 1.0,
     ) -> T:
         """
         Execute a gateway operation with retry logic for timeout errors.
@@ -684,11 +731,16 @@ class GatewayBase(ConnectorBase):
         - TRANSACTION_TIMEOUT errors (exception from Gateway)
         - Pending/unconfirmed transactions (status != 1 in response)
 
-        Does NOT retry on: SIMULATION_FAILED, INSUFFICIENT_BALANCE, etc.
+        Does NOT retry on operation errors (SIMULATION_FAILED, SLIPPAGE_EXCEEDED,
+        INSUFFICIENT_BALANCE, ...): what a failure means for the operation is the
+        caller's decision, not the transport's. The LP executor's CLOSING loop, for
+        example, owns close retries and passes max_retries=0 for a single attempt
+        per re-entry.
 
         :param operation: Async callable that performs the gateway operation
         :param operation_name: Description for logging (e.g., "execute swap")
         :param max_retries: Maximum number of retry attempts for timeout errors
+        :param retry_delay: Seconds to sleep between retry attempts
         :return: Result from the operation
         :raises: Original exception if non-retryable or max retries exceeded
         """
@@ -708,26 +760,52 @@ class GatewayBase(ConnectorBase):
                         # Transaction confirmed - success
                         return result
                     elif status == -1:
-                        # Transaction not confirmed (failed on-chain) - don't retry
+                        # Transaction landed but failed on-chain. Typed so the caller
+                        # can decide what it means for its operation; never retried
+                        # here since re-submitting e.g. a swap can double-spend.
                         self.logger().error(
                             f"{operation_name} FAILED: Transaction {signature} not confirmed on-chain."
                         )
-                        raise Exception(f"Transaction {signature} not confirmed on-chain")
+                        raise Exception(f"Transaction {signature} not confirmed on-chain [code: TX_NOT_CONFIRMED]")
                     elif status == 0:
-                        # Transaction pending - retry (may still confirm)
+                        # Transaction broadcast but unconfirmed. NEVER re-submit while
+                        # it can still land — re-invoking the operation posts a brand-new
+                        # transaction while every previous pending one remains landable
+                        # (Gateway's own timeout says "verify the signature on-chain
+                        # before retrying"). Poll the signature to a terminal state.
+                        if not signature or signature == "unknown":
+                            # Nothing pollable and possibly something broadcast:
+                            # TX_UNRESOLVED classifies non-retryable, so the plain
+                            # retry path can never re-submit it.
+                            raise Exception(
+                                f"{operation_name} returned pending with no signature to reconcile "
+                                "[code: TX_UNRESOLVED]"
+                            )
+                        outcome = await self._await_signature_terminal(signature, operation_name)
+                        if outcome == "CONFIRMED":
+                            # Landed, but the route's `data` block is gone for good: the
+                            # PENDING reply never carried one and poll only returns raw
+                            # chain txData. Flag the gap (see TX_DATA_UNAVAILABLE) so
+                            # callers fail loudly instead of booking zeros.
+                            return self._confirmed_without_data(result, signature)
+                        # DROPPED: the tx can no longer land, so one fresh submission
+                        # is safe — it counts against the retry budget.
                         current_retries += 1
                         if current_retries >= max_retries:
                             self.logger().error(
-                                f"{operation_name} FAILED after {max_retries} retries. "
-                                f"Transaction {signature} still pending. Manual intervention required."
+                                f"{operation_name} FAILED: transaction dropped and retry budget "
+                                f"({max_retries}) exhausted."
                             )
-                            raise Exception(f"Transaction {signature} pending after {max_retries} retries [code: TRANSACTION_TIMEOUT]")
-
+                            raise Exception(
+                                f"Transaction {signature} dropped after {current_retries} submissions "
+                                "[code: TRANSACTION_TIMEOUT]"
+                            )
                         self.logger().warning(
-                            f"{operation_name} transaction pending (retry {current_retries}/{max_retries}). "
-                            f"Signature: {signature}. Retrying..."
+                            f"{operation_name}: transaction {signature} dropped (never landed); "
+                            f"re-submitting (attempt {current_retries + 1}/{max_retries + 1})."
                         )
-                        continue  # Retry
+                        await asyncio.sleep(retry_delay)
+                        continue
                     else:
                         # Unknown status, return as-is
                         return result
@@ -746,11 +824,116 @@ class GatewayBase(ConnectorBase):
                     raise
                 elif action == RetryAction.RETRY:
                     current_retries += 1
-                    self.logger().warning(
-                        f"{operation_name} timeout (retry {current_retries}/{max_retries}). "
-                        "Chain may be congested. Retrying..."
-                    )
+                    # A timeout error means a transaction WAS broadcast; its signature
+                    # (embedded in Gateway's message) must be reconciled before any
+                    # re-submission. RATE_LIMITED and signature-less timeouts broadcast
+                    # nothing, so a plain delayed retry is safe.
+                    timeout_signature = self._extract_timeout_signature(str(e))
+                    if timeout_signature:
+                        outcome = await self._await_signature_terminal(timeout_signature, operation_name)
+                        if outcome == "CONFIRMED":
+                            self.logger().warning(
+                                f"{operation_name}: transaction {timeout_signature} confirmed after "
+                                "timeout; not re-submitting."
+                            )
+                            return self._confirmed_without_data({}, timeout_signature)
+                        self.logger().warning(
+                            f"{operation_name}: transaction {timeout_signature} dropped (never landed); "
+                            f"re-submitting (retry {current_retries}/{max_retries})."
+                        )
+                    else:
+                        self.logger().warning(
+                            f"{operation_name} error (retry {current_retries}/{max_retries}): {e}. Retrying..."
+                        )
+                    await asyncio.sleep(retry_delay)
                     # Continue to next iteration
+
+    def _confirmed_without_data(self, result: Dict[str, Any], signature: str) -> Dict[str, Any]:
+        """
+        Build the CONFIRMED response for a transaction reconciled by polling its signature.
+
+        The route's `data` block cannot be recovered on this path (see TX_DATA_UNAVAILABLE),
+        so it is dropped rather than faked, and the response is flagged so callers can tell
+        "confirmed, data unavailable" apart from "confirmed, data says zero".
+        """
+        reconciled = {k: v for k, v in result.items() if k != "data"}
+        reconciled["signature"] = signature
+        reconciled["status"] = 1
+        reconciled[TX_DATA_UNAVAILABLE] = True
+        self.logger().warning(
+            f"Transaction {signature} confirmed by signature reconciliation; Gateway's response "
+            "data (amounts, fees, position address) is not recoverable for this transaction."
+        )
+        return reconciled
+
+    @staticmethod
+    def _extract_timeout_signature(error_str: str) -> Optional[str]:
+        """Signature embedded in a Gateway TRANSACTION_TIMEOUT message, if any."""
+        if "TRANSACTION_TIMEOUT" not in error_str:
+            return None
+        match = _TIMEOUT_SIGNATURE_PATTERN.search(error_str)
+        return match.group(1) if match else None
+
+    async def _await_signature_terminal(self, signature: str, operation_name: str) -> str:
+        """
+        Poll a broadcast-but-unconfirmed signature to a terminal state.
+
+        Returns "CONFIRMED" when the tx landed successfully, and "DROPPED" only once
+        it can no longer land. NOT_FOUND on its own is never that proof: a signature
+        the cluster has not seen YET reads exactly like one it will never see, and the
+        transaction stays landable until its blockhash expires (~90s on Solana — see
+        Gateway's getSignatureStatus, which is where that rule is written down). So
+        NOT_FOUND is terminal only when it is STILL NOT_FOUND at SIGNATURE_POLL_TIMEOUT,
+        which outlasts that window; a streak reached earlier decides nothing, because
+        re-submitting on it posts a second transaction while the first is still live.
+
+        Raises typed TX_NOT_CONFIRMED when it landed but failed on-chain, and typed
+        TX_UNRESOLVED when the cluster still calls it pending at the deadline — the
+        caller must NOT re-submit in that case (the tx may still land).
+        """
+        deadline = time.time() + self.SIGNATURE_POLL_TIMEOUT
+        not_found_streak = 0
+        while time.time() < deadline:
+            await asyncio.sleep(self.SIGNATURE_POLL_INTERVAL)
+            try:
+                poll = await self._get_gateway_instance().get_transaction_status(
+                    self._chain, self._network, signature, fail_silently=True
+                )
+            except Exception as poll_error:
+                self.logger().warning(
+                    f"{operation_name}: error polling {signature}: {poll_error}; retrying poll."
+                )
+                continue
+
+            tx_status = (poll or {}).get("txStatus")
+            if tx_status == 1:
+                return "CONFIRMED"
+            if tx_status == -1:
+                error_msg = (poll or {}).get("error") or "Transaction failed on-chain"
+                raise Exception(
+                    f"Transaction {signature} failed on-chain: {error_msg} [code: TX_NOT_CONFIRMED]"
+                )
+            if tx_status == -2:
+                not_found_streak += 1
+            else:
+                not_found_streak = 0
+
+        # Deadline reached, so the blockhash has expired: a signature the cluster still
+        # does not know can never land now, and exactly one fresh submission is safe.
+        if not_found_streak >= self.SIGNATURE_NOT_FOUND_STRIKES:
+            self.logger().info(
+                f"{operation_name}: transaction {signature} still unknown to the cluster after "
+                f"{self.SIGNATURE_POLL_TIMEOUT:.0f}s (blockhash expired); it can no longer land."
+            )
+            return "DROPPED"
+
+        # Anything else — last seen pending, or polls that never resolved — leaves the
+        # transaction landable. Deliberately NOT [code: TRANSACTION_TIMEOUT]: that code is
+        # retryable, and this exception must never re-enter the retry loop.
+        raise Exception(
+            f"Transaction {signature} still unresolved after {self.SIGNATURE_POLL_TIMEOUT:.0f}s of "
+            "polling; NOT re-submitting (it may still land) [code: TX_UNRESOLVED]"
+        )
 
     def _classify_error(
         self,
@@ -769,7 +952,7 @@ class GatewayBase(ConnectorBase):
         :return: RetryAction indicating what to do
         """
         error_str = str(error)
-        error_code = extract_error_code(error_str)
+        error_code = extract_error_code(error)
 
         # Check for non-retryable errors
         if error_code and error_code in NON_RETRYABLE_ERROR_CODES:
@@ -779,8 +962,9 @@ class GatewayBase(ConnectorBase):
             )
             return RetryAction.FAIL_IMMEDIATE
 
-        # Check for timeout (retryable)
-        is_timeout = error_code == RETRYABLE_ERROR_CODE or "TRANSACTION_TIMEOUT" in error_str
+        # Check for retryable codes (timeout with signature reconciliation handled
+        # by the caller; rate limiting with a plain delayed retry)
+        is_timeout = error_code in RETRYABLE_ERROR_CODES or "TRANSACTION_TIMEOUT" in error_str
 
         if not is_timeout:
             # No error code and not a timeout - fail immediately
@@ -839,6 +1023,19 @@ class GatewayBase(ConnectorBase):
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
 
+    # How many order failures to keep a reason for. An executor asks within a tick or two
+    # of the failure, so this only has to outlive that.
+    MAX_REMEMBERED_FAILURES = 100
+
+    def order_failure_reason(self, order_id: str) -> Optional[str]:
+        """Why an order failed, as Gateway explained it, or None if it is not remembered.
+
+        Gateway's message carries its machine-readable code (`[code: SLIPPAGE_EXCEEDED]`),
+        which is what makes a caller's response to the failure something other than a
+        guess.
+        """
+        return self._order_failure_reasons.get(order_id)
+
     def _handle_operation_failure(self, order_id: str, trading_pair: str, operation_name: str, error: Exception):
         """
         Helper method to handle operation failures consistently across different methods.
@@ -853,6 +1050,15 @@ class GatewayBase(ConnectorBase):
             f"Error {operation_name} for {trading_pair} on {self.connector_name}: {str(error)}",
             exc_info=True
         )
+        # Keep why it failed, not just that it did. The order tracker records FAILED and
+        # nothing else, so an executor watching the order sees a state with no reason and
+        # cannot tell a slippage rejection — which a wider tolerance would fix — from an
+        # insufficient balance, which it would not. Bounded, because this is a cache of
+        # last resort and not a log.
+        self._order_failure_reasons[order_id] = str(error)
+        if len(self._order_failure_reasons) > self.MAX_REMEMBERED_FAILURES:
+            self._order_failure_reasons.pop(next(iter(self._order_failure_reasons)))
+
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order_id,
             trading_pair=trading_pair,
@@ -922,6 +1128,19 @@ class GatewayBase(ConnectorBase):
             # Check if transaction is still pending
             elif tx_status == TransactionStatus.PENDING.value:
                 pass
+
+            # Transaction unknown to the chain. Transient right after submission
+            # (propagation lag), but terminal once old enough that the transaction
+            # can no longer land — without this, a dropped transaction polls as
+            # pending forever and the order never resolves.
+            elif tx_status == TransactionStatus.NOT_FOUND.value:
+                if self.current_timestamp - tracked_order.creation_timestamp > self.TX_NOT_FOUND_DEADLINE:
+                    self.logger().warning(
+                        f"Transaction {tracked_order.exchange_order_id} for order "
+                        f"{tracked_order.client_order_id} still not found on-chain more than "
+                        f"{self.TX_NOT_FOUND_DEADLINE:.0f}s after order creation; counting toward lost-order limit."
+                    )
+                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
 
             # Transaction failed
             elif tx_status == TransactionStatus.FAILED.value:
@@ -1070,7 +1289,10 @@ class GatewayBase(ConnectorBase):
                 trade_type=TradeType.BUY,  # Use BUY as a placeholder for approval
                 price=s_decimal_0,
                 amount=amount or s_decimal_0,
-                gas_price=Decimal(str(approve_result.get("gasPrice", 0))),
+                # No gas_price: Gateway's approve response is {signature, status, data},
+                # and data carries a total `fee`, never a per-unit gasPrice. Reading one
+                # produced Decimal(0) on every approval — the same value the parameter
+                # already defaults to, but dressed up as something Gateway had reported.
                 is_approval=True
             )
 

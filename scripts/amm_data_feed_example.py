@@ -15,8 +15,9 @@ from hummingbot.strategy.strategy_v2_base import StrategyV2Base, StrategyV2Confi
 
 class AMMDataFeedConfig(StrategyV2ConfigBase):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    connector: str = Field("jupiter/router", json_schema_extra={
-        "prompt": "DEX connector in format 'name/type' (e.g., jupiter/router, uniswap/amm)", "prompt_on_new": True})
+    network: str = Field("solana-mainnet-beta", json_schema_extra={
+        "prompt": "Gateway network in 'chain-network' format (e.g., solana-mainnet-beta, ethereum-mainnet)",
+        "prompt_on_new": True})
     order_amount_in_base: Decimal = Field(Decimal("1.0"), json_schema_extra={
         "prompt": "Order amount in base currency", "prompt_on_new": True})
     trading_pair_1: str = Field("SOL-USDC", json_schema_extra={
@@ -26,7 +27,7 @@ class AMMDataFeedConfig(StrategyV2ConfigBase):
     trading_pair_3: Optional[str] = Field(None, json_schema_extra={
         "prompt": "Third trading pair (optional)", "prompt_on_new": False})
     file_name: Optional[str] = Field(None, json_schema_extra={
-        "prompt": "Output file name (without extension, defaults to connector_chain_network_timestamp)",
+        "prompt": "Output file name (without extension, defaults to network_timestamp)",
         "prompt_on_new": False})
 
     def update_markets(self, markets: MarketDict) -> MarketDict:
@@ -53,9 +54,9 @@ class AMMDataFeedExample(StrategyV2Base):
         if config.trading_pair_3:
             trading_pairs.add(config.trading_pair_3)
 
-        # Initialize the AMM data feed with new connector format
+        # The network's configured swapProvider decides which DEX quotes these pairs.
         self.amm_data_feed = AmmGatewayDataFeed(
-            connector=config.connector,  # Now in format name/type
+            network=config.network,
             trading_pairs=trading_pairs,
             order_amount_in_base=config.order_amount_in_base,
         )
@@ -71,9 +72,7 @@ class AMMDataFeedExample(StrategyV2Base):
             self.file_name = f"{config.file_name}.csv"
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            # Replace slash with underscore for filename
-            connector_filename = config.connector.replace("/", "_")
-            self.file_name = f"{connector_filename}_{timestamp}.csv"
+            self.file_name = f"{config.network}_{timestamp}.csv"
 
         self.file_path = os.path.join(self.data_dir, self.file_name)
         self.logger().info(f"Data will be saved to: {self.file_path}")
@@ -150,7 +149,9 @@ class AMMDataFeedExample(StrategyV2Base):
             if rows:
                 df = pd.DataFrame(rows)
                 prices_str = format_df_for_printout(df, table_format="psql")
-                lines.append(f"AMM Data Feed is ready.\n{prices_str}")
+                lines.append(
+                    f"AMM Data Feed is ready. Network: {self.config.network} | "
+                    f"Swap provider: {self.amm_data_feed.swap_provider}\n{prices_str}")
 
             # Show which pairs failed to fetch data
             if pairs_without_data:
