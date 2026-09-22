@@ -1,4 +1,7 @@
+import logging
 from followsm import FollowSM
+
+logger = logging.getLogger(__name__)
 
 class VPINSafetyCockpit:
     """
@@ -17,6 +20,6 @@ class VPINSafetyCockpit:
             if vpin > 0.70 or ob_toxicity > 2.0:
                 # Widen spreads 3x to prevent adverse selection
                 return 3.0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"FollowSM telemetry fetch failed for {symbol}: {e}")
         return 1.0
