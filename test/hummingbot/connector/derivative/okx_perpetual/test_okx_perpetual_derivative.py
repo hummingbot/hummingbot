@@ -1280,6 +1280,23 @@ class OkxPerpetualDerivativeTests(
             self.assertIsNotNone(amount, "Amount is None")
             self.assertIsInstance(amount, Decimal, "Amount is not a Decimal")
 
+    def test_get_position_side(self):
+        # Test long position in net mode with decimal pos
+        msg_long = {"posSide": "net", "pos": "0.5"}
+        self.assertEqual(self.exchange.get_position_side(msg_long), PositionSide.LONG)
+
+        # Test short position in net mode with negative decimal pos
+        msg_short = {"posSide": "net", "pos": "-0.25"}
+        self.assertEqual(self.exchange.get_position_side(msg_short), PositionSide.SHORT)
+
+        # Test long position in long/short mode
+        msg_hedge_long = {"posSide": "long", "pos": "1"}
+        self.assertEqual(self.exchange.get_position_side(msg_hedge_long), PositionSide.LONG)
+
+        # Test short position in long/short mode
+        msg_hedge_short = {"posSide": "short", "pos": "1"}
+        self.assertEqual(self.exchange.get_position_side(msg_hedge_short), PositionSide.SHORT)
+
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         # position_value = unrealized_pnl + order.amount * order.price * order.leverage
         return {

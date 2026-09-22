@@ -436,3 +436,11 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
 
         # Should not include any rebalance actions
         self.assertEqual(len(actions), 0)
+
+    def test_get_spreads_and_amounts_in_quote_zero_total_pct(self):
+        # Test that when total_pct is 0, ZeroDivisionError is avoided
+        self.mock_controller_config.buy_amounts_pct = []
+        self.mock_controller_config.sell_amounts_pct = []
+        spreads, amounts = self.mock_controller_config.get_spreads_and_amounts_in_quote(TradeType.BUY)
+        self.assertEqual(amounts, [])
+

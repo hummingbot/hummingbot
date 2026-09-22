@@ -292,6 +292,81 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor.status, RunnableStatus.SHUTTING_DOWN)
         self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
 
+    def test_process_order_completed_event_race_condition_after_cancel(self):
+        # Test race condition: maker order was canceled due to profitability change,
+        # but exchange completed the fill right as cancel was in flight.
+        self.executor._status = RunnableStatus.RUNNING
+        canceled_order = TrackedOrder(order_id="OID-BUY-CANCELED")
+        self.executor._canceled_orders.append(canceled_order)
+        self.executor.maker_order = None
+        self.assertEqual(self.executor.taker_order, None)
+
+        buy_order_completed_event = BuyOrderCompletedEvent(
+            base_asset="ETH",
+            quote_asset="USDT",
+            base_asset_amount=Decimal("100"),
+            quote_asset_amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+            timestamp=1234,
+            order_id="OID-BUY-CANCELED",
+        )
+        self.executor.process_order_completed_event(1, MagicMock(), buy_order_completed_event)
+        self.assertEqual(self.executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
+
+    def test_process_order_completed_event_cancels_active_replacement_maker(self):
+        # When a canceled maker order A completes, if replacement maker B is active, B should be canceled.
+        self.executor._status = RunnableStatus.RUNNING
+        canceled_order = TrackedOrder(order_id="OID-BUY-CANCELED")
+        self.executor._canceled_orders.append(canceled_order)
+
+        # Replacement maker order placed by control task
+        self.executor.maker_order = TrackedOrder(order_id="OID-BUY-REPLACEMENT")
+        self.assertEqual(self.executor.taker_order, None)
+
+        buy_order_completed_event = BuyOrderCompletedEvent(
+            base_asset="ETH",
+            quote_asset="USDT",
+            base_asset_amount=Decimal("100"),
+            quote_asset_amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+            timestamp=1234,
+            order_id="OID-BUY-CANCELED",
+        )
+        self.executor.process_order_completed_event(1, MagicMock(), buy_order_completed_event)
+
+        # Verify strategy.cancel was called for the replacement order
+        self.strategy.cancel.assert_called_with(
+            self.executor.maker_connector,
+            self.executor.maker_trading_pair,
+            "OID-BUY-REPLACEMENT"
+        )
+        self.assertEqual(self.executor.maker_order, None)
+        self.assertEqual(self.executor.status, RunnableStatus.SHUTTING_DOWN)
+        self.assertEqual(self.executor.taker_order.order_id, "OID-SELL-1")
+
+    def test_process_order_completed_event_failed_taker_not_treated_as_maker(self):
+        # Verify that if a failed taker order late-completes, it does not trigger an extra taker order
+        self.executor._status = RunnableStatus.RUNNING
+        failed_taker = TrackedOrder(order_id="OID-TAKER-FAILED")
+        self.executor._failed_taker_orders.append(failed_taker)
+        self.executor.taker_order = TrackedOrder(order_id="OID-TAKER-RETRY")
+
+        taker_completed_event = SellOrderCompletedEvent(
+            base_asset="ETH",
+            quote_asset="USDT",
+            base_asset_amount=Decimal("100"),
+            quote_asset_amount=Decimal("100"),
+            order_type=OrderType.MARKET,
+            timestamp=1234,
+            order_id="OID-TAKER-FAILED",
+        )
+        self.executor.process_order_completed_event(1, MagicMock(), taker_completed_event)
+
+        # taker_order should be updated to the completed order and no new order placed
+        self.assertEqual(self.executor.taker_order.order_id, "OID-TAKER-FAILED")
+        self.assertEqual(len(self.executor._failed_taker_orders), 0)
+
     def test_process_order_failed_event(self):
         self.executor.maker_order = TrackedOrder(order_id="OID-BUY-1")
         maker_failure_event = MarketOrderFailureEvent(

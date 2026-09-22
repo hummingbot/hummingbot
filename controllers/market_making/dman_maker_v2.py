@@ -43,32 +43,52 @@ class DManMakerV2Config(MarketMakingControllerConfigBase):
     @field_validator('dca_spreads', mode="before")
     @classmethod
     def parse_dca_spreads(cls, v):
-        if v is None:
+        if v is None or v == "":
             return []
         if isinstance(v, str):
-            if v == "":
-                return []
-            return [float(x.strip()) for x in v.split(',')]
-        return v
+            spreads = [Decimal(x.strip()) for x in v.split(',')]
+        elif isinstance(v, list):
+            spreads = [Decimal(str(x)) for x in v]
+        else:
+            spreads = [Decimal(str(v))]
+        if any(x <= 0 for x in spreads):
+            raise ValueError("dca_spreads must contain positive numbers.")
+        return spreads
 
     @field_validator('dca_amounts', mode="before")
     @classmethod
     def parse_and_validate_dca_amounts(cls, v, validation_info):
+        spreads = validation_info.data.get('dca_spreads', [])
         if v is None or v == "":
-            return [1 for _ in validation_info.data['dca_spreads']]
-        if isinstance(v, str):
-            return [float(x.strip()) for x in v.split(',')]
-        elif isinstance(v, list) and len(v) != len(validation_info.data['dca_spreads']):
+            amounts = [Decimal("1") for _ in spreads]
+        elif isinstance(v, str):
+            amounts = [Decimal(x.strip()) for x in v.split(',')]
+        elif isinstance(v, list):
+            amounts = [Decimal(str(x)) for x in v]
+        else:
+            amounts = [Decimal(str(v))]
+
+        if len(amounts) != len(spreads):
             raise ValueError(
-                f"The number of dca amounts must match the number of {validation_info.data['dca_spreads']}.")
-        return v
+                f"The number of dca amounts ({len(amounts)}) must match the number of dca spreads ({len(spreads)}).")
+        if any(x <= 0 for x in amounts):
+            raise ValueError("dca_amounts must contain positive numbers.")
+        if sum(amounts) <= 0:
+            raise ValueError("The sum of dca_amounts must be greater than zero.")
+        return amounts
 
 
 class DManMakerV2(MarketMakingControllerBase):
     def __init__(self, config: DManMakerV2Config, *args, **kwargs):
         super().__init__(config, *args, **kwargs)
         self.config = config
-        self.dca_amounts_pct = [Decimal(amount) / sum(self.config.dca_amounts) for amount in self.config.dca_amounts]
+        total_dca_amount = sum(self.config.dca_amounts) if self.config.dca_amounts else Decimal("0")
+        if total_dca_amount > Decimal("0"):
+            self.dca_amounts_pct = [Decimal(str(amount)) / total_dca_amount for amount in self.config.dca_amounts]
+        elif len(self.config.dca_amounts) > 0:
+            self.dca_amounts_pct = [Decimal("1") / Decimal(len(self.config.dca_amounts)) for _ in self.config.dca_amounts]
+        else:
+            self.dca_amounts_pct = []
         self.spreads = self.config.dca_spreads
 
     def first_level_refresh_condition(self, executor):
