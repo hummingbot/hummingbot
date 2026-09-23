@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Set, Tuple
 
 import eth_account
@@ -193,10 +193,29 @@ class HyperliquidExchange(ExchangePyBase):
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
-        Applies trading rule to quantize order price.
+        Align price to Hyperliquid's limitPx rules: at most 5 significant figures
+        and at most ``MAX_DECIMALS - szDecimals`` decimal places.
+
+        Spot allows 8 decimals where perpetuals allow 6, so rounding to a fixed 6
+        is wrong in both directions here. A cheap token priced at 0.0000003315
+        rounds to 0 and the order is rejected, while a token whose szDecimals
+        leaves fewer than 6 decimals keeps too many. Rounding to
+        min_price_increment uses the decimals the exchange itself reports in
+        markPx, the same approach the perpetual connector takes.
         """
-        d_price = Decimal(round(float(f"{price:.5g}"), 6))
-        return d_price
+        # HL allows at most 5 significant figures on limitPx
+        price = Decimal(str(float(f"{price:.5g}")))
+        trading_rule = self._trading_rules.get(trading_pair)
+        if trading_rule is not None and trading_rule.min_price_increment:
+            tick = trading_rule.min_price_increment
+            quantized = (price / tick).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * tick
+            # Multiplying back by the tick inflates the scale (10000 -> 10000.0000).
+            # Strip the padding, without letting normalize() pick exponent form (1E+4).
+            quantized = quantized.normalize()
+            if quantized.as_tuple().exponent > 0:
+                quantized = quantized.quantize(Decimal("1"))
+            return quantized
+        return price
 
     async def _update_trading_rules(self):
         exchange_info = await self._api_post(path_url=self.trading_rules_request_path,
