@@ -308,10 +308,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair=tracked_order.trading_pair,
         )
         data = cancel_result["data"][0]
-        ret_code_ok = data["sCode"] == CONSTANTS.RET_CODE_OK
-        ret_code_order_not_exists = data["sCode"] == CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_NOT_EXISTS
-        ret_code_already_canceled = data["sCode"] == CONSTANTS.RET_CODE_ORDER_ALREADY_CANCELLED
-        if ret_code_ok or ret_code_order_not_exists or ret_code_already_canceled:
+        # 51400 is the same "order does not exist" code the spot connector accepts.
+        # Raising here makes the client retry a cancel the exchange already finished.
+        accepted_codes = {
+            CONSTANTS.RET_CODE_OK,
+            CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_NOT_EXISTS,
+            CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_DOES_NOT_EXIST,
+            CONSTANTS.RET_CODE_ORDER_ALREADY_CANCELLED,
+        }
+        if data["sCode"] in accepted_codes:
             final_result = True
         else:
             raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
