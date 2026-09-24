@@ -20,8 +20,9 @@ class AsyncRequestContextBase(ABC):
     _last_max_cap_warning_ts: float = 0.0
 
     # Max seconds a request that hasn't finished can keep its slot. Stops a task that
-    # never gets marked complete from blocking the limit forever.
-    IN_FLIGHT_HOLD_LIMIT: float = 60.0
+    # never gets marked complete from blocking the limit forever. Kept above aiohttp's
+    # default total timeout (300s) so a REST call that is still open keeps its slot.
+    IN_FLIGHT_HOLD_LIMIT: float = 330.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -73,6 +74,11 @@ class AsyncRequestContextBase(ABC):
             window = task.rate_limit.time_interval * (1 + self._safety_margin_pct)
             if age <= window or (not task.completed and age <= self.IN_FLIGHT_HOLD_LIMIT):
                 retained.append(task)
+            elif not task.completed:
+                self.logger().warning(
+                    f"Freeing a rate limit slot for {task.rate_limit.limit_id} held for {age:.0f}s "
+                    f"by a request that never finished."
+                )
         self._task_logs[:] = retained
 
     @abstractmethod

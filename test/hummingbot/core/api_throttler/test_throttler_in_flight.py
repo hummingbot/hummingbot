@@ -3,6 +3,8 @@ import time
 import unittest
 from unittest.mock import patch
 
+import aiohttp
+
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
@@ -58,6 +60,37 @@ class InFlightAccountingTests(unittest.TestCase):
 
         self.assertEqual([], self.throttler._task_logs)
         self.assertTrue(context.within_capacity())
+
+    def test_freeing_a_slot_that_was_never_released_logs_a_warning(self):
+        context = self._context()
+        self.throttler._task_logs.append(
+            self._log(age=AsyncRequestContextBase.IN_FLIGHT_HOLD_LIMIT + 1, completed=False)
+        )
+
+        with self.assertLogs("hummingbot.core.api_throttler.async_request_context_base", level="WARNING") as logs:
+            context.flush()
+
+        self.assertEqual(1, len(logs.records))
+        self.assertIn(LIMIT_ID, logs.output[0])
+
+    def test_a_finished_request_leaving_its_window_does_not_log(self):
+        context = self._context()
+        self.throttler._task_logs.append(self._log(age=5, completed=True))
+
+        with self.assertNoLogs("hummingbot.core.api_throttler.async_request_context_base", level="WARNING"):
+            context.flush()
+
+    def test_the_hold_outlasts_aiohttps_default_timeout(self):
+        # A REST call can stay open until aiohttp's total timeout, and should keep its slot until then.
+        self.assertGreater(AsyncRequestContextBase.IN_FLIGHT_HOLD_LIMIT, aiohttp.client.DEFAULT_TIMEOUT.total)
+
+        context = self._context()
+        self.throttler._task_logs.append(self._log(age=aiohttp.client.DEFAULT_TIMEOUT.total, completed=False))
+
+        context.flush()
+
+        self.assertEqual(1, len(self.throttler._task_logs))
+        self.assertFalse(context.within_capacity())
 
     def test_slot_is_released_when_the_request_raises(self):
         async def scenario():
