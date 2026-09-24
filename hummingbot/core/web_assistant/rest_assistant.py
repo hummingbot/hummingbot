@@ -93,6 +93,9 @@ class RESTAssistant:
 
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
             response = await self.call(request=request, timeout=timeout)
+            # Read the body before leaving the throttler context so the rate limit slot
+            # is held until the whole response has arrived, not just the headers.
+            await response.read()
 
             if 400 <= response.status:
                 if not return_err:
