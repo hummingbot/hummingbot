@@ -2,6 +2,8 @@ import json
 import time
 from asyncio import wait_for
 from copy import deepcopy
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
@@ -30,7 +32,11 @@ def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = 
     Returns None if there is no such header or its value can't be read. The throttler then
     waits for the limit's own time window instead.
     """
-    now = time.time() if now is None else now
+    # When the exchange gives a time rather than a delay, measure it against the exchange's
+    # own clock (the response's Date header) if we have it, so a difference between our
+    # clock and theirs doesn't change how long we wait.
+    server_now = _http_date_to_timestamp(headers.get("Date"))
+    now = server_now if server_now is not None else (time.time() if now is None else now)
     for name in _RETRY_AFTER_HEADERS:
         raw = headers.get(name)
         if raw is None:
@@ -38,8 +44,11 @@ def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = 
         try:
             value = float(raw)
         except (TypeError, ValueError):
-            # Retry-After can also be a date. We don't parse that, so try the next header.
-            continue
+            # Retry-After can also be a date, like "Wed, 21 Oct 2015 07:28:00 GMT".
+            retry_at = _http_date_to_timestamp(raw)
+            if retry_at is None:
+                continue
+            return retry_at - now
         if value > _EPOCH_THRESHOLD_SECONDS:
             # A timestamp. If it's even larger, it's in milliseconds.
             if value > _EPOCH_THRESHOLD_SECONDS * 1000:
@@ -47,6 +56,20 @@ def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = 
             return value - now
         return value
     return None
+
+
+def _http_date_to_timestamp(raw: Any) -> Optional[float]:
+    """Unix time for an HTTP date header value, or None if it isn't one."""
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if parsed.tzinfo is None:
+        # HTTP dates are always in GMT.
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
 
 
 class RESTAssistant:
