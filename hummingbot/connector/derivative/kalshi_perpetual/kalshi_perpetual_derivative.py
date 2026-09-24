@@ -217,6 +217,9 @@ class KalshiPerpetualDerivative(PerpetualDerivativePyBase):
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         return False
 
+    def _is_maker_only_rejection(self, exception: Exception) -> bool:
+        return CONSTANTS.MAKER_ONLY_REJECTION_MESSAGE in str(exception)
+
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return self._is_not_found_error(status_update_exception)
 
