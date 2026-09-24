@@ -18,8 +18,10 @@ class AsyncThrottlerBase(ABC):
     throttling of API requests through the usage of asynchronous context managers.
     """
 
-    # Longest pause we take, whatever the exchange asks for.
-    MAX_PAUSE_SECONDS: float = 300.0
+    # Longest pause we take, whatever the exchange asks for. Binance IP bans last up to
+    # 3 days, so this is long enough to wait out a real ban and only cuts off values
+    # that are clearly wrong.
+    MAX_PAUSE_SECONDS: float = 3 * 24 * 60 * 60.0
     # Shortest and longest pause when the exchange doesn't say how long to wait.
     MIN_DEFAULT_PAUSE_SECONDS: float = 1.0
     MAX_DEFAULT_PAUSE_SECONDS: float = 60.0
@@ -130,31 +132,37 @@ class AsyncThrottlerBase(ABC):
         would be rejected as well, not just the one that got the 429.
 
         :param limit_id: the limit the rejected request was sent under
-        :param retry_after: seconds to wait, as sent by the exchange. If None, wait for the
-            limit's own time window (between 1s and 60s), since that is when our count resets.
-            If zero or negative, the exchange says the limit has already reset, so don't wait.
+        :param retry_after: seconds to wait, as sent by the exchange. If None, each limit waits
+            for its own time window (between 1s and 60s), since that is when our count of it
+            resets. If zero or negative, the exchange says the limit has already reset, so
+            don't wait.
         """
-        rate_limit, related_limits = self.get_related_limits(limit_id=limit_id)
-        if retry_after is None:
-            window = rate_limit.time_interval if rate_limit is not None else self.MIN_DEFAULT_PAUSE_SECONDS
-            retry_after = min(max(window, self.MIN_DEFAULT_PAUSE_SECONDS), self.MAX_DEFAULT_PAUSE_SECONDS)
-        elif retry_after <= 0:
+        if retry_after is not None and retry_after <= 0:
             return
-        # Cap the wait so a bad header value can't stop the connector for a very long time.
-        retry_after = min(retry_after, self.MAX_PAUSE_SECONDS)
-        limit_ids = [limit_id] + [related.limit_id for related, _ in related_limits]
+        rate_limit, related_limits = self.get_related_limits(limit_id=limit_id)
+        limits = [(limit_id, rate_limit)] + [(related.limit_id, related) for related, _ in related_limits]
         async with self._lock:
-            reset_at = self._time() + retry_after
+            now = self._time()
             extended = []
-            for paused_id in limit_ids:
-                if reset_at > self._resets.get(paused_id, 0.0):
-                    self._resets[paused_id] = reset_at
-                    extended.append(paused_id)
+            for paused_id, limit in limits:
+                pause = retry_after if retry_after is not None else self._default_pause(limit)
+                # Cap the wait so a bad header value can't stop the connector for too long.
+                pause = min(pause, self.MAX_PAUSE_SECONDS)
+                if now + pause > self._resets.get(paused_id, 0.0):
+                    self._resets[paused_id] = now + pause
+                    extended.append(f"{paused_id} for {pause:.1f}s")
             if extended:
                 self.logger().warning(
-                    f"Rate limited by the exchange on {limit_id}; "
-                    f"pausing {', '.join(extended)} for {retry_after:.1f}s."
+                    f"Rate limited by the exchange on {limit_id}; pausing {', '.join(extended)}."
                 )
+
+    def _default_pause(self, rate_limit: Optional[RateLimit]) -> float:
+        # Without a hint from the exchange we don't know which limit ran out, so we wait for the
+        # limit's own window, but no longer than a minute. Pausing a 24h limit for 24h on a guess
+        # could stop all trading for a day. If the limit really is used up, the next request gets
+        # another 429 and we pause again.
+        window = rate_limit.time_interval if rate_limit is not None else self.MIN_DEFAULT_PAUSE_SECONDS
+        return min(max(window, self.MIN_DEFAULT_PAUSE_SECONDS), self.MAX_DEFAULT_PAUSE_SECONDS)
 
     def _time(self) -> float:
         return time.time()
