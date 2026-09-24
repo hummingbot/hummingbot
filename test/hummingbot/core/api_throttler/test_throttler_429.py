@@ -42,9 +42,28 @@ class RetryAfterHeaderTests(unittest.TestCase):
         self.assertEqual(45.0, self._parse({"RateLimit-Reset": str((self.NOW + 45) * 1000)}))
 
     def test_unparseable_values_are_ignored(self):
-        # Retry-After can also be a date, which we don't parse.
-        self.assertIsNone(self._parse({"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"}))
         self.assertIsNone(self._parse({"Retry-After": ""}))
+        self.assertIsNone(self._parse({"Retry-After": "soon"}))
+
+    def test_an_unparseable_value_falls_through_to_the_next_header(self):
+        self.assertEqual(12.0, self._parse({"Retry-After": "soon", "RateLimit-Reset": "12"}))
+
+    def test_retry_after_as_an_http_date_is_converted_to_a_delay(self):
+        # NOW is 2023-11-14 22:13:20 GMT, so this is 60s later.
+        self.assertEqual(60.0, self._parse({"Retry-After": "Tue, 14 Nov 2023 22:14:20 GMT"}))
+
+    def test_an_http_date_is_measured_against_the_servers_clock(self):
+        # Our clock is 100s ahead of the exchange's. The wait should still be 60s.
+        headers = {"Date": "Tue, 14 Nov 2023 22:11:40 GMT", "Retry-After": "Tue, 14 Nov 2023 22:12:40 GMT"}
+        self.assertEqual(60.0, self._parse(headers))
+
+    def test_an_epoch_is_measured_against_the_servers_clock(self):
+        server_now = self.NOW - 100
+        headers = {"Date": "Tue, 14 Nov 2023 22:11:40 GMT", "RateLimit-Reset": str(server_now + 45)}
+        self.assertEqual(45.0, self._parse(headers))
+
+    def test_a_delay_is_not_affected_by_the_date_header(self):
+        self.assertEqual(30.0, self._parse({"Date": "Tue, 14 Nov 2023 22:11:40 GMT", "Retry-After": "30"}))
 
 
 class PauseAfterTooManyRequestsTests(unittest.TestCase):
@@ -141,6 +160,37 @@ class PauseAfterTooManyRequestsTests(unittest.TestCase):
 
         self.assertFalse(self.throttler.execute_task(limit_id=other).within_capacity())
         self.assertTrue(self.throttler.execute_task(limit_id="unrelated").within_capacity())
+
+    def test_missing_retry_after_pauses_each_linked_limit_for_its_own_window(self):
+        # The endpoint's own window is 1s, but the IP-wide weight it draws on resets every 60s,
+        # and the daily order count every 24h (capped to the 60s default maximum).
+        weight, daily = "REQUEST_WEIGHT", "ORDERS_24H"
+        self.throttler.set_rate_limits([
+            RateLimit(limit_id=weight, limit=1200, time_interval=60),
+            RateLimit(limit_id=daily, limit=200000, time_interval=86400),
+            RateLimit(limit_id=LIMIT_ID, limit=100, time_interval=1,
+                      linked_limits=[LinkedLimitWeightPair(weight, 1), LinkedLimitWeightPair(daily, 1)]),
+        ])
+
+        before = time.time()
+        self.loop.run_until_complete(
+            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=None)
+        )
+
+        self.assertAlmostEqual(before + 1, self.throttler._resets[LIMIT_ID], delta=1)
+        self.assertAlmostEqual(before + 60, self.throttler._resets[weight], delta=1)
+        self.assertAlmostEqual(before + AsyncThrottler.MAX_DEFAULT_PAUSE_SECONDS, self.throttler._resets[daily], delta=1)
+        # The endpoint can't be used while the linked weight is paused, even after its own 1s.
+        with patch.object(AsyncRequestContext, "_time", return_value=before + 5):
+            self.assertFalse(self._context().within_capacity())
+
+    def test_a_long_ban_is_waited_out_in_full(self):
+        # Binance bans an IP for minutes up to days, and says how long in Retry-After.
+        self.loop.run_until_complete(
+            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600)
+        )
+        remaining = self.throttler._resets[LIMIT_ID] - time.time()
+        self.assertGreater(remaining, 3590)
 
     def test_pause_is_capped(self):
         self.loop.run_until_complete(
