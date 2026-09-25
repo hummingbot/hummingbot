@@ -160,3 +160,25 @@ class RESTAssistantTest(IsolatedAsyncioWrapperTestCase):
         self.assertIn("HTTP status is 400", str(error.exception))
         self.assertIn("bad request", str(error.exception))
         await aiohttp_client_session.close()
+
+    @patch("hummingbot.core.web_assistant.connections.rest_connection.RESTConnection.call")
+    async def test_body_is_not_read_when_the_caller_only_needs_headers(self, mocked_call):
+        url = "https://www.test.com/url"
+        limit_id = "test_limit"
+        throttler = AsyncThrottler(rate_limits=[RateLimit(limit_id=limit_id, limit=1, time_interval=1)])
+
+        aiohttp_response = MagicMock()
+        aiohttp_response.status = 200
+        aiohttp_response.headers = {"Date": "Wed, 21 Oct 2015 07:28:00 GMT"}
+        mocked_call.return_value = RESTResponse(aiohttp_response)
+
+        aiohttp_client_session = aiohttp.ClientSession()
+        assistant = RESTAssistant(RESTConnection(aiohttp_client_session), throttler=throttler)
+
+        response = await assistant.execute_request_and_get_response(
+            url=url, throttler_limit_id=limit_id, read_body=False)
+
+        self.assertEqual("Wed, 21 Oct 2015 07:28:00 GMT", response.headers["Date"])
+        aiohttp_response.read.assert_not_called()
+        self.assertEqual([True], [task.completed for task in throttler._task_logs])
+        await aiohttp_client_session.close()
