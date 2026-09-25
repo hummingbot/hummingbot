@@ -63,6 +63,9 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
         self._leverage_by_trading_pair: Dict[str, Decimal] = {}
         self._symbol_map = bidict()
         self.real_time_balance_update = False
+        self._builder_account_id: str = CONSTANTS.FOUNDATION_BUILDER_ACCOUNT_ID.lower()
+        self._builder_authorized: bool = False
+        self._builder_fee_pct: Decimal = Decimal("0")
         super().__init__(balance_asset_limit=balance_asset_limit, rate_limits_share_pct=rate_limits_share_pct)
 
     @property
@@ -209,6 +212,48 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
     async def _make_network_check_request(self):
         await self._api_post(path_url=self.check_network_request_path, data={"kind": ["PERPETUAL"], "limit": 1})
 
+    async def start_network(self):
+        await super().start_network()
+        if self._trading_required:
+            await self._initialize_builder_fee()
+
+    def _should_inject_builder(self) -> bool:
+        """Builder attribution applies only when the user has authorized the Foundation builder on
+        GRVT — orders carrying an unauthorized builder are rejected by the venue
+        (BUILDER_ORDER_BUILDER_NOT_AUTHORIZED)."""
+        return CONSTANTS.BUILDER_SUPPORTED and self._builder_authorized
+
+    async def _initialize_builder_fee(self) -> None:
+        """Resolve builder authorization once at startup: inject the builder code only if the user
+        has authorized the Foundation builder, at min(authorized max, hardcoded fee). Fails safe to
+        no injection (unlike Hyperliquid, GRVT rejects unauthorized builder attribution outright)."""
+        if not CONSTANTS.BUILDER_SUPPORTED:
+            return
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.GET_AUTHORIZED_BUILDERS_PATH_URL,
+                data={},
+                is_auth_required=True,
+            )
+            authorized = {
+                str(entry["builder_account_id"]).lower(): Decimal(str(entry["max_futures_fee_rate"]))
+                for entry in response.get("results", [])
+            }
+        except Exception:
+            self.logger().exception(
+                "Could not query authorized GRVT builders; omitting the builder code this session."
+            )
+            self._builder_authorized = False
+            self._builder_fee_pct = Decimal("0")
+            return
+        max_authorized_fee_pct = authorized.get(self._builder_account_id)
+        if max_authorized_fee_pct is None:
+            self._builder_authorized = False
+            self._builder_fee_pct = Decimal("0")
+            return
+        self._builder_authorized = True
+        self._builder_fee_pct = min(max_authorized_fee_pct, Decimal(CONSTANTS.FOUNDATION_BUILDER_FEE_PCT))
+
     async def _make_trading_rules_request(self) -> Any:
         return await self._make_trading_pairs_request()
 
@@ -339,6 +384,7 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
     ) -> Tuple[str, float]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
         instrument_info = self._instrument_info_by_symbol[exchange_symbol]
+        inject_builder = self._should_inject_builder()
         payload = self._auth.get_order_payload(
             instrument=instrument_info,
             client_order_id=order_id,
@@ -348,6 +394,8 @@ class GrvtPerpetualDerivative(PerpetualDerivativePyBase):
             trade_type=trade_type,
             order_type=order_type,
             reduce_only=position_action == PositionAction.CLOSE,
+            builder=self._builder_account_id if inject_builder else None,
+            builder_fee_pct=self._builder_fee_pct if inject_builder else None,
         )
         response = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
