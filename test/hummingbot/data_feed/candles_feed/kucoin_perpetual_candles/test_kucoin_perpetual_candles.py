@@ -31,6 +31,7 @@ class TestKucoinPerpetualCandles(TestCandlesBase):
         self.data_feed.symbols_dict = self.get_symbols_dict_mock()
         self.data_feed._ws_url = "wss://api.kucoin.com"
         self.data_feed._ws_token = "test"
+        self.data_feed._exchange_data_initialized = True  # pre-set to skip initialize_exchange_data API call
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)

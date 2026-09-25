@@ -16,7 +16,6 @@ from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.asyncio.transaction.main import _LEDGER_OFFSET, _calculate_fee_per_transaction_type, _tx_needs_networkID
 from xrpl.models import Currency, IssuedCurrency, Request, Response, ServerInfo, Transaction, TransactionMetadata, Tx
 from xrpl.models.requests.request import LookupByLedgerRequest, RequestMethod
-from xrpl.models.utils import require_kwargs_on_init
 from xrpl.utils.txn_parser.utils import NormalizedNode, normalize_nodes
 from xrpl.utils.txn_parser.utils.order_book_parser import (
     _get_change_amount,
@@ -143,14 +142,25 @@ class XRPLMarket(BaseModel):
         return str(self.model_dump())
 
     def get_token_symbol(self, code: str, issuer: str) -> Optional[str]:
-        if self.trading_pair_symbol is None:
-            return None
+        """Symbol this market knows the given currency/issuer pair by, if it is one of them.
 
+        ``trading_pair_symbol`` is optional and only exists to alias a token to a different
+        display symbol. When it is not set there is still a perfectly good answer for a
+        matching currency and issuer — the market's own ``base``/``quote`` code — so the
+        match is what decides the outcome, not the presence of the alias.
+
+        Returning None whenever the alias was unset made the caller in ``_update_balances``
+        skip the balance entirely (``if token_symbol is None: continue``), so a real
+        on-ledger holding disappeared from balances and portfolio rather than showing up
+        with a zero value. Every entry in ``custom_markets`` is written without an alias
+        unless the user knows to add one — including the ``SOLO-XRP`` example shipped as
+        the field's own default — so this hit the default configuration too.
+        """
         if code.upper() == self.base.upper() and issuer.upper() == self.base_issuer.upper():
-            return self.trading_pair_symbol.split("-")[0]
+            return self.trading_pair_symbol.split("-")[0] if self.trading_pair_symbol else self.base.upper()
 
         if code.upper() == self.quote.upper() and issuer.upper() == self.quote_issuer.upper():
-            return self.trading_pair_symbol.split("-")[1]
+            return self.trading_pair_symbol.split("-")[1] if self.trading_pair_symbol else self.quote.upper()
 
         return None
 
@@ -162,8 +172,7 @@ def represent_xrpl_market(dumper, data):
 SafeRepresenter.add_representer(XRPLMarket, represent_xrpl_market)
 
 
-@require_kwargs_on_init
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Ledger(Request, LookupByLedgerRequest):
     """
     Retrieve information about the public ledger.

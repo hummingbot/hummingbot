@@ -29,6 +29,9 @@ class TransactionStatus(Enum):
     CONFIRMED = 1
     PENDING = 0
     FAILED = -1
+    # Unknown to the chain: never received or dropped. On Solana this is terminal
+    # once the transaction's blockhash expires (~90s after submission).
+    NOT_FOUND = -2
 
 
 class Token(TypedDict):

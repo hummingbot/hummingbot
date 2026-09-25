@@ -2,7 +2,7 @@
 Shared utilities for gateway commands - UI and display functions.
 """
 import asyncio
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from hummingbot.connector.gateway.gateway_base import GatewayBase
@@ -336,91 +336,6 @@ class GatewayCommandUtils:
         app.notify(f"\n⚠️  {title}:")
         for warning in warnings:
             app.notify(f"  • {warning}")
-
-    @staticmethod
-    def calculate_and_display_fees(
-        app: Any,  # HummingbotApplication
-        positions: List[Any],
-        base_token: str = None,
-        quote_token: str = None
-    ) -> Dict[str, float]:
-        """
-        Calculate total fees across positions and display them.
-
-        :param app: HummingbotApplication instance
-        :param positions: List of positions with fee information
-        :param base_token: Base token symbol (optional, extracted from positions if not provided)
-        :param quote_token: Quote token symbol (optional, extracted from positions if not provided)
-        :return: Dictionary of total fees by token
-        """
-        fees_by_token = {}
-
-        for pos in positions:
-            # Extract tokens from position if not provided
-            if not base_token and hasattr(pos, 'base_token'):
-                base_token = pos.base_token
-            if not quote_token and hasattr(pos, 'quote_token'):
-                quote_token = pos.quote_token
-
-            # Skip if no fee attributes
-            if not hasattr(pos, 'base_fee_amount'):
-                continue
-
-            # Use position tokens if available
-            pos_base = getattr(pos, 'base_token', base_token)
-            pos_quote = getattr(pos, 'quote_token', quote_token)
-
-            if pos_base and pos_base not in fees_by_token:
-                fees_by_token[pos_base] = 0
-            if pos_quote and pos_quote not in fees_by_token:
-                fees_by_token[pos_quote] = 0
-
-            if pos_base:
-                fees_by_token[pos_base] += getattr(pos, 'base_fee_amount', 0)
-            if pos_quote:
-                fees_by_token[pos_quote] += getattr(pos, 'quote_fee_amount', 0)
-
-        # Display fees if any
-        if any(amount > 0 for amount in fees_by_token.values()):
-            app.notify("\nTotal Uncollected Fees:")
-            for token, amount in fees_by_token.items():
-                if amount > 0:
-                    app.notify(f"  {token}: {amount:.6f}")
-
-        return fees_by_token
-
-    @staticmethod
-    async def prompt_for_percentage(
-        app: Any,  # HummingbotApplication
-        prompt_text: str = "Enter percentage (0-100): ",
-        default: float = 100.0
-    ) -> Optional[float]:
-        """
-        Prompt user for a percentage value.
-
-        :param app: HummingbotApplication instance
-        :param prompt_text: Custom prompt text
-        :param default: Default value if user presses enter
-        :return: Percentage value or None if invalid
-        """
-        try:
-            response = await app.app.prompt(prompt=prompt_text)
-
-            if app.app.to_stop_config:
-                return None
-
-            if not response.strip():
-                return default
-
-            percentage = float(response)
-            if 0 <= percentage <= 100:
-                return percentage
-            else:
-                app.notify("Error: Percentage must be between 0 and 100")
-                return None
-        except ValueError:
-            app.notify("Error: Please enter a valid number")
-            return None
 
     @staticmethod
     async def enter_interactive_mode(app: Any) -> Any:

@@ -44,12 +44,8 @@ class GridExecutor(ExecutorBase):
         :param update_interval: The interval at which the PositionExecutor should be updated, defaults to 1.0.
         :param max_retries: The maximum number of retries for the PositionExecutor, defaults to 5.
         """
+        # The config validates itself on construction, see GridExecutorConfig.
         self.config: GridExecutorConfig = config
-        if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
-                config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
-            error = "Only market orders are supported for time_limit and stop_loss"
-            self.logger().error(error)
-            raise ValueError(error)
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
                          update_interval=update_interval, max_retries=max_retries)
         self.open_order_price_type = PriceType.BestBid if config.side == TradeType.BUY else PriceType.BestAsk
@@ -277,6 +273,26 @@ class GridExecutor(ExecutorBase):
         self.cancel_open_orders()
         self._status = RunnableStatus.SHUTTING_DOWN
         self.close_type = CloseType.POSITION_HOLD if keep_position else CloseType.EARLY_STOP
+
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Mirrors the POSITION_HOLD branch of control_shutdown_process without waiting
+        for open/close liquidity to drain: levels whose open order filled but whose
+        close order has not completed are the net exposure still on the exchange.
+        """
+        held = list(self._held_position_orders)
+        seen = {order.get("client_order_id") for order in held}
+        for state in (GridLevelStates.OPEN_ORDER_FILLED, GridLevelStates.CLOSE_ORDER_PLACED):
+            for level in self.levels_by_state.get(state, []):
+                tracked = (level.active_open_order if state == GridLevelStates.OPEN_ORDER_FILLED
+                           else level.active_close_order)
+                if tracked and tracked.order:
+                    order_json = tracked.order.to_json()
+                    if order_json.get("client_order_id") not in seen:
+                        seen.add(order_json.get("client_order_id"))
+                        held.append(order_json)
+        return held
 
     def update_grid_levels(self):
         self.levels_by_state = {state: [] for state in GridLevelStates}
@@ -700,7 +716,7 @@ class GridExecutor(ExecutorBase):
             "realized_pnl_pct": self.realized_pnl_pct,
             "position_size_quote": self.position_size_quote,
             "position_fees_quote": self.position_fees_quote,
-            "break_even_price": self.position_break_even_price,
+            "current_position_average_price": self.position_break_even_price,
             "position_pnl_quote": self.position_pnl_quote,
             "open_liquidity_placed": self.open_liquidity_placed,
             "close_liquidity_placed": self.close_liquidity_placed,

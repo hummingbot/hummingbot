@@ -29,7 +29,7 @@ class KucoinPerpetualAuth(AuthBase):
     def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
         return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
 
-    async def rest_authenticate(self, request: RESTRequest, use_time_provider=0) -> RESTRequest:
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
@@ -40,7 +40,7 @@ class KucoinPerpetualAuth(AuthBase):
         headers = {}
         if request.headers is not None:
             headers.update(request.headers)
-        headers.update(self.authentication_headers(request=request, use_time_provider=use_time_provider))
+        headers.update(self.authentication_headers(request=request))
         request.headers = headers
 
         return request
@@ -104,11 +104,11 @@ class KucoinPerpetualAuth(AuthBase):
         }
         return third_party
 
-    def authentication_headers(self, request: RESTRequest, use_time_provider) -> Dict[str, Any]:
-        if use_time_provider == 1 and self._time_provider.time() > 0:
-            timestamp = self._time_provider.time()
-        else:
-            timestamp = int(self._get_timestamp())
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        # Sign with the server-synchronized time (in milliseconds), like the spot connector. Signing
+        # with the local clock caused intermittent 400002 "Invalid KC-API-TIMESTAMP" errors whenever
+        # the machine clock drifted from KuCoin's server time.
+        timestamp = int(self._time_provider.time() * 1e3)
 
         header = {
             "KC-API-KEY": self._api_key,

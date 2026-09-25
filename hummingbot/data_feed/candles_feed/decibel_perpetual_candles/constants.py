@@ -40,7 +40,9 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 1000
 
 # Rate limits for candles feed
 # Decibel API rate limit: 400 requests per minute (API key required)
-DECIBEL_CANDLES_LIMIT_ID = "DECIBEL_CANDLES_LIMIT"
+# Shared request pool of the decibel_perpetual connector (decibel_perpetual_constants.DECIBEL_LIMIT_ID).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+DECIBEL_CANDLES_LIMIT_ID = "DECIBEL_LIMIT"
 STANDARD_REQUEST_COST = 1
 
 RATE_LIMITS = [

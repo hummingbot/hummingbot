@@ -191,7 +191,17 @@ class ExecutorBase(RunnableBase):
         """
         Override control loop to evaluate max retries after each control task.
         """
-        await self.on_start()
+        try:
+            await self.on_start()
+        except Exception as e:
+            # on_start() runs before the retry loop below, so an exception here used to
+            # escape control_loop altogether and strand the executor: never terminated,
+            # so it kept reporting RUNNING/is_active with no close_type, and nothing
+            # ticked it again. Close it as FAILED instead, so a startup failure reaches
+            # a terminal state and stays visible rather than becoming a silent zombie.
+            self.logger().error(f"Executor failed to start: {e}", exc_info=True)
+            self.close_type = CloseType.FAILED
+            self.stop()
         while not self.terminated.is_set():
             try:
                 await self.control_task()
@@ -207,6 +217,49 @@ class ExecutorBase(RunnableBase):
         This method allows strategy to stop the executor early.
         """
         raise NotImplementedError
+
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """
+        Synchronous snapshot of every fill that still represents exchange exposure.
+
+        Subclasses override this to report their fills from state they already hold —
+        no awaiting, no extra control-loop ticks — so that a forced stop at the
+        shutdown deadline can convert whatever executed into a position hold. The
+        default returns the orders a normal shutdown already accumulated.
+        """
+        return list(self._held_position_orders)
+
+    def _cancel_outstanding_orders(self):
+        """
+        Best-effort cancellation of live orders before a forced stop. Subclasses whose
+        cancellation entry point is not ``cancel_open_orders`` override this.
+        """
+        cancel_open_orders = getattr(self, "cancel_open_orders", None)
+        if callable(cancel_open_orders):
+            cancel_open_orders()
+
+    def force_stop_with_position_hold(self):
+        """
+        Terminate immediately, converting whatever has already executed into a
+        position hold.
+
+        This is the shutdown-deadline fallback. A normal shutdown lets the control
+        loop finish its close/unwind asynchronously; when the orchestrator's budget
+        expires the loop is about to lose its market registrations, so the only safe
+        move is to stop synchronously and hand any residual exposure to the position
+        store for recovery on the next start. Executors with nothing executed are
+        closed as FAILED so the abnormal end stays visible.
+        """
+        try:
+            self._cancel_outstanding_orders()
+        except Exception:
+            # The exposure still has to be persisted and the control loop stopped even
+            # if shutdown has already made strategy-level cancellation unavailable.
+            self.logger().exception("Failed to cancel outstanding orders during forced stop.")
+        held_orders = self._collect_held_position_orders()
+        self._held_position_orders = held_orders
+        self.close_type = CloseType.POSITION_HOLD if held_orders else CloseType.FAILED
+        self.stop()
 
     def evaluate_max_retries(self):
         """

@@ -965,6 +965,91 @@ class BackpackExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.assertEqual(Decimal("90"), available_balances["SOL"])
         self.assertEqual(Decimal("100"), total_balances["SOL"])
 
+    @aioresponses()
+    def test_update_balances_includes_staked_in_total(self, mock_api):
+        """
+        Test that _update_balances counts the `staked` field (funds in staking/auto-lend)
+        towards the total balance. On Backpack, idle USDC is auto-lent and reported under
+        `staked`; ignoring it would under-report (or hide) the balance.
+        """
+        url = self.balance_url
+        response = {
+            "USDC": {
+                "available": "100.0",
+                "locked": "10.0",
+                "staked": "890.0"
+            }
+        }
+
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        # available reflects only the operable funds
+        self.assertEqual(Decimal("100.0"), available_balances["USDC"])
+        # total includes available + locked + staked
+        self.assertEqual(Decimal("1000.0"), total_balances["USDC"])
+
+    @aioresponses()
+    def test_update_balances_folds_in_auto_lent_funds(self, mock_api):
+        """
+        Backpack auto-lends idle funds, which leave the `capital` balance and are reported only
+        under borrowLend positions. _update_balances must fold the net lent quantity back into the
+        balance so the funds remain visible/usable. Borrowed positions (negative netQuantity) are
+        ignored.
+        """
+        capital_url = self.balance_url
+        capital_response = {
+            "USDC": {
+                "available": "50.0",
+                "locked": "0.0",
+                "staked": "0.0"
+            }
+        }
+        mock_api.get(capital_url, body=json.dumps(capital_response))
+
+        lend_url = web_utils.private_rest_url(
+            CONSTANTS.BORROW_LEND_POSITIONS_PATH_URL, domain=self.exchange._domain)
+        lend_response = [
+            {"symbol": "USDC", "netQuantity": "950.0"},   # lent -> should be added
+            {"symbol": "SOL", "netQuantity": "-2.0"},     # borrowed -> should be ignored
+        ]
+        mock_api.get(lend_url, body=json.dumps(lend_response))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        # 50 spot available + 950 lent = 1000, both in available and total
+        self.assertEqual(Decimal("1000.0"), available_balances["USDC"])
+        self.assertEqual(Decimal("1000.0"), total_balances["USDC"])
+        # borrowed position must not create a phantom balance
+        self.assertNotIn("SOL", total_balances)
+
+    @aioresponses()
+    def test_update_balances_survives_borrow_lend_failure(self, mock_api):
+        """
+        A failure fetching borrowLend positions must not break the primary balance update;
+        the capital balances should still be applied.
+        """
+        capital_url = self.balance_url
+        capital_response = {
+            "USDC": {"available": "123.0", "locked": "0.0", "staked": "0.0"}
+        }
+        mock_api.get(capital_url, body=json.dumps(capital_response))
+
+        lend_url = web_utils.private_rest_url(
+            CONSTANTS.BORROW_LEND_POSITIONS_PATH_URL, domain=self.exchange._domain)
+        mock_api.get(lend_url, status=500, body=json.dumps({"message": "boom"}))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertEqual(Decimal("123.0"), self.exchange.get_all_balances()["USDC"])
+
     def test_user_stream_update_with_missing_client_order_id(self):
         """
         Test that websocket updates work correctly when client_order_id field is missing (None).

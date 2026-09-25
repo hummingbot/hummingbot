@@ -678,6 +678,11 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return None
 
+    def test_throttler_property_exposes_internal_throttler(self):
+        # The public throttler property returns the same instance the connector uses internally,
+        # so other REST consumers (e.g. a candles feed) can share its rate-limit budget.
+        self.assertIs(self.exchange.throttler, self.exchange._throttler)
+
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
     def test_update_time_synchronizer_successfully(self, mock_api, seconds_counter_mock):

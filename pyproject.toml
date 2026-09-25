@@ -1,5 +1,10 @@
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+# Fail any single test that runs longer than this (seconds) instead of hanging the
+# whole CI run. Uses the SIGALRM-based method so a timed-out test raises in the main
+# thread and the suite continues, surfacing every real failure in one run.
+timeout = 120
+timeout_method = "signal"
 
 [tool.black]
 line-length = 120

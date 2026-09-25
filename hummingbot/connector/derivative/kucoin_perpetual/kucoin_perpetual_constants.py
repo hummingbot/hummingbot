@@ -10,6 +10,12 @@ DEFAULT_DOMAIN = "kucoin_perpetual_main"
 
 DEFAULT_TIME_IN_FORCE = "GTC"
 
+# KuCoin made margin mode a per-symbol setting (ISOLATED/CROSS). An order whose "marginMode" does
+# not match the symbol's selected mode is rejected at runtime (observed error code 330005), so the
+# connector reads the symbol's mode and sends a matching value. This is only the fallback used
+# before the per-symbol mode has been read.
+DEFAULT_MARGIN_MODE = "ISOLATED"
+
 REST_URLS = {"kucoin_perpetual_main": "https://api-futures.kucoin.com/"}
 WSS_PUBLIC_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_public"}
 WSS_PRIVATE_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_private"}
@@ -60,6 +66,8 @@ GET_WALLET_BALANCE_PATH_URL = f"{REST_API_VERSION}/account-overview?currency={{c
 GET_POSITIONS_PATH_URL = f"{REST_API_VERSION}/positions"
 QUERY_ACTIVE_ORDER_PATH_URL = f"{REST_API_VERSION}/orders?status=active"
 QUERY_ALL_ORDER_PATH_URL = f"{REST_API_VERSION}/orders"
+# Margin mode is read per symbol from API v2 (the connector follows the user's setting)
+GET_MARGIN_MODE_PATH_URL = "api/v2/position/getMarginMode?symbol={symbol}"
 
 # Websocket
 PUBLIC_WS_DATA_PATH_URL = f"{REST_API_VERSION}/bullet-public"
@@ -99,6 +107,7 @@ RET_CODE_OK = "200000"
 RET_CODE_PARAMS_ERROR = "100001"
 RET_CODE_API_KEY_INVALID = "400001"
 RET_CODE_ORDER_NOT_EXISTS = "20001"
+RET_CODE_ORDER_CANNOT_BE_CANCELED = "100004"
 RET_CODE_MODE_POSITION_NOT_EMPTY = "30082"
 RET_CODE_MODE_NOT_MODIFIED = "300010"
 RET_CODE_LEVERAGE_NOT_MODIFIED = "300016"
@@ -129,4 +138,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RISK_LIMIT_LEVEL_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=GET_MARGIN_MODE_PATH_URL, limit=9, time_interval=3),
 ]

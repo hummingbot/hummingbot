@@ -370,17 +370,17 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
     def active_positions_df(self) -> pd.DataFrame:
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
-        market, trading_pair = self._market_info.market, self._market_info.trading_pair
         for idx in self.active_positions.values():
-            is_buy = True if idx.amount > 0 else False
-            unrealized_profit = ((market.get_price(trading_pair, is_buy) - idx.entry_price) * idx.amount)
+            # Use the connector-reported unrealized PnL instead of recomputing it. The previous
+            # recompute mispriced every position with this strategy's trading_pair (wrong for any
+            # position in another pair) and lost the sign for shorts (amount is stored as abs()).
             data.append([
                 idx.trading_pair,
                 idx.position_side.name,
                 idx.entry_price,
                 idx.amount,
                 idx.leverage,
-                unrealized_profit
+                idx.unrealized_pnl
             ])
 
         return pd.DataFrame(data=data, columns=columns)

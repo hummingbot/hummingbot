@@ -24,7 +24,9 @@ INTERVALS = bidict({
     "1w": "10080",
 })
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = MAX_CANDLES_AGO = 720
-PUBLIC_ENDPOINT_LIMIT_ID = "PublicPoints"
+# Public points pool of the kraken connector (kraken_constants.PUBLIC_ENDPOINT_LIMIT_ID).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+PUBLIC_ENDPOINT_LIMIT_ID = "PublicEndpointLimitID"
 RATE_LIMITS = [
     RateLimit(
         limit_id=PUBLIC_ENDPOINT_LIMIT_ID,

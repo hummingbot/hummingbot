@@ -132,8 +132,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     else:
                         self.logger().error(
                             f"Failed to refresh listen key {self._current_listen_key}. Getting new key...")
-                        raise
-                        # Continue to next iteration which will get a new key
+                        # Raise so the except below resets the key and a new one is obtained next iteration
+                        raise IOError(f"Failed to refresh listen key {self._current_listen_key}")
                 await self._sleep(self.LISTEN_KEY_RETRY_INTERVAL)
             except asyncio.CancelledError:
                 self._current_listen_key = None

@@ -107,7 +107,8 @@ class PacificaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 await asyncio.sleep(CONSTANTS.WS_PING_INTERVAL)
-                await ws.send(WSJSONRequest(payload={"op": "ping"}))
+                # the venue only understands {"method": "ping"} — {"op": "ping"} is rejected with a 400 frame
+                await ws.send(WSJSONRequest(payload={"method": "ping"}))
             except asyncio.CancelledError:
                 raise
             except RuntimeError as e:

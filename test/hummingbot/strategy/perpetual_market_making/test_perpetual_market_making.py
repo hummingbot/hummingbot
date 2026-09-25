@@ -739,7 +739,7 @@ class PerpetualMarketMakingTests(TestCase):
                            "\n\n  No active maker orders."
                            "\n\n  Positions:"
                            "\n            Symbol Type Entry Price Amount Leverage Unrealized PnL"
-                           "\n    COINALPHA-HBOT LONG      100.50      1       10           0.00")
+                           "\n    COINALPHA-HBOT LONG      100.50      1       10           1000")
         status = self.strategy.format_status()
 
         self.assertEqual(expected_status, status)

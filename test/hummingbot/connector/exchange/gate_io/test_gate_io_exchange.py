@@ -1322,7 +1322,7 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(result, expected_client_order_id)
 
-    def test_user_stream_update_for_new_order_does_not_update_status(self):
+    def test_user_stream_put_event_marks_order_open_and_creates_it_once(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id="OID1",
@@ -1378,7 +1378,8 @@ class TestGateIoExchange(IsolatedAsyncioWrapperTestCase):
         except asyncio.CancelledError:
             pass
 
-        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+        self.assertEqual(OrderState.OPEN, order.current_state)
         self.assertTrue(order.is_open)
 
     def test_user_stream_update_for_cancelled_order(self):

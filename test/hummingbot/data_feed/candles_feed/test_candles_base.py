@@ -94,6 +94,67 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
         result = self.data_feed.get_exchange_trading_pair(self.trading_pair)
         self.assertEqual(result, self.ex_trading_pair)
 
+    def test_attach_connector_sets_reference_and_shares_throttler(self):
+        # No connector by default (standalone); attach_connector wires the backing connector and,
+        # when the connector exposes a throttler, the feed reuses that exact instance.
+        self.assertIsNone(self.data_feed._connector)
+        shared_throttler = MagicMock()
+        connector = MagicMock(throttler=shared_throttler)
+        self.data_feed.attach_connector(connector)
+        self.assertIs(self.data_feed._connector, connector)
+        shared_throttler.add_rate_limits.assert_called_once_with(self.data_feed.rate_limits)
+        self.assertIs(self.data_feed._api_factory._throttler, shared_throttler)
+
+    def test_attach_connector_without_throttler_keeps_own(self):
+        # A connector with no throttler (e.g. Gateway): the feed keeps its own request factory.
+        own_factory = self.data_feed._api_factory
+        connector = MagicMock(throttler=None)
+        self.data_feed.attach_connector(connector)
+        self.assertIs(self.data_feed._connector, connector)
+        self.assertIs(self.data_feed._api_factory, own_factory)
+
+    async def test_resolve_exchange_symbol_without_connector_uses_fallback(self):
+        # Standalone: the symbol is resolved by the subclass' own get_exchange_trading_pair.
+        self.data_feed._connector = None
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_resolve_exchange_symbol_with_connector_uses_symbol_map(self):
+        # Backed by a connector: the symbol comes from the connector's public symbol map.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.attach_connector(connector)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, "CONNECTOR-SYMBOL")
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
+    async def test_resolve_exchange_symbol_connector_failure_falls_back(self):
+        # If the connector lookup raises (map not ready, pair absent), fall back to standalone logic.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(side_effect=KeyError(self.trading_pair))
+        self.data_feed.attach_connector(connector)
+        expected = self.data_feed.get_exchange_trading_pair(self.data_feed._trading_pair)
+        resolved = await self.data_feed._resolve_exchange_symbol()
+        self.assertEqual(resolved, expected)
+
+    async def test_initialize_exchange_data_resolves_symbol_via_connector(self):
+        # The idempotent wrapper re-resolves _ex_trading_pair through the connector before the
+        # subclass hook runs, and only once per network lifecycle.
+        connector = MagicMock(throttler=None)
+        connector.exchange_symbol_associated_to_pair = AsyncMock(return_value="CONNECTOR-SYMBOL")
+        self.data_feed.attach_connector(connector)
+        # Ensure a clean lifecycle: some subclasses' setUp may have already initialised the data.
+        self.data_feed._exchange_data_initialized = False
+        with patch.object(self.data_feed, "_initialize_exchange_data", new_callable=AsyncMock) as mock_init:
+            await self.data_feed.initialize_exchange_data()
+            self.assertEqual(self.data_feed._ex_trading_pair, "CONNECTOR-SYMBOL")
+            mock_init.assert_awaited_once()
+            # Second call is a no-op thanks to the idempotency guard.
+            await self.data_feed.initialize_exchange_data()
+            mock_init.assert_awaited_once()
+        connector.exchange_symbol_associated_to_pair.assert_awaited_once_with(self.trading_pair)
+
     @patch("os.path.exists", return_value=True)
     @patch("pandas.read_csv")
     def test_load_candles_from_csv(self, mock_read_csv, _):
@@ -416,6 +477,37 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             result = await self.data_feed.get_historical_candles(config)
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()
+
+    async def test_get_historical_candles_deduplicates_boundary_candle(self):
+        """Pagination landing exactly on the start boundary must not duplicate the boundary candle."""
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
+             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
+             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
+
+            interval_s = self.data_feed.interval_in_seconds
+            start_ts = 1622505600
+            first_page = np.array([
+                [start_ts + i * interval_s, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]
+                for i in range(3)
+            ])
+            # The final missing_records == 0 iteration re-fetches the boundary candle
+            boundary_page = first_page[:1]
+            mock_fetch_candles.side_effect = [first_page, boundary_page]
+
+            config = HistoricalCandlesConfig(
+                connector_name="test",
+                trading_pair="BTC-USDT",
+                interval=self.interval,
+                start_time=start_ts,
+                end_time=start_ts + 2 * interval_s
+            )
+            result = await self.data_feed.get_historical_candles(config)
+
+            self.assertEqual(mock_fetch_candles.call_count, 2)
+            self.assertEqual(len(result), 3)
+            self.assertEqual(result["timestamp"].duplicated().sum(), 0)
 
     async def test_stop_network_cancels_fill_candles_task(self):
         """Test that stop_network cancels _fill_candles_task when it exists (lines 83-85)"""

@@ -7,6 +7,8 @@ DEFAULT_DOMAIN = "bitget.com"
 REST_SUBDOMAIN = "api"
 WSS_SUBDOMAIN = "ws"
 DEFAULT_TIME_IN_FORCE = "gtc"
+# Post-only (maker-only) "force" value, used for LIMIT_MAKER orders.
+POST_ONLY_TIME_IN_FORCE = "post_only"
 
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
@@ -20,6 +22,7 @@ TRADE_TYPES = {
 }
 ORDER_TYPES = {
     OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
 STATE_TYPES = {

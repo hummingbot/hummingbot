@@ -26,8 +26,14 @@ INTERVALS = bidict({
 
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 500
 
+# Shared global pool of the hyperliquid connector (hyperliquid_constants.ALL_ENDPOINTS_LIMIT).
+# Matching this limit_id lets the candle feed consume from the connector's pool when they share a throttler.
+ALL_ENDPOINTS_LIMIT = "All"
+
 RATE_LIMITS = [
-    RateLimit(REST_URL, limit=1200, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)])
+    RateLimit(ALL_ENDPOINTS_LIMIT, limit=1200, time_interval=60),
+    RateLimit(REST_URL, limit=1200, time_interval=60,
+              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT, 1)])
 ]
 
 PING_TIMEOUT = 30.0

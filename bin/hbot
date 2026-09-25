@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+"""Launcher for the `hbot` CLI.
+
+Resolved on PATH inside the activated `hummingbot` conda env (the install script symlinks this
+into the env's bin directory). Uses `env python` so it runs against whichever environment is
+active, with the repo on sys.path via `conda develop`.
+"""
+import sys
+
+import path_util  # noqa: F401  (puts the repo root ahead of bin/ on sys.path)
+
+from hummingbot.cli.main import main
+
+if __name__ == "__main__":
+    sys.exit(main())

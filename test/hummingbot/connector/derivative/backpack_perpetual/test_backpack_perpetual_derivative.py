@@ -21,7 +21,7 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 
@@ -904,6 +904,232 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("100.5"), available_balances[CONSTANTS.CURRENCY])
         self.assertEqual(Decimal("151.0"), total_balances[CONSTANTS.CURRENCY])
 
+    @aioresponses()
+    async def test_in_flight_order_reserves_margin_not_full_notional(self, mock_api):
+        """Regression for #8168. Backpack has no balance websocket stream, so real_time_balance_update
+        is False and the base class locally reserves in-flight orders between REST polls. Because the
+        market is cross-margin and USDC-settled, in_flight_asset_balances() must reserve only the order's
+        initial margin (notional / leverage) against USDC -- NOT the full quote notional (the spot base
+        behaviour that over-reserved longs and triggered the false "Not enough budget" of #8168)."""
+        # No balance websocket -> local in-flight reservation must be active.
+        self.assertFalse(self.exchange.real_time_balance_update)
+        self.exchange._leverage = Decimal("10")
+        self.exchange._leverage_initialized = True
+
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "netEquity": "229.40",
+            "netEquityAvailable": "224.41",
+        }
+        mock_api.get(regex_url, body=json.dumps(response))
+        await self.exchange._update_balances()
+
+        self.exchange.start_tracking_order(
+            order_id="OID-MARGIN",
+            exchange_order_id="EID-1",
+            trading_pair="SOL-USDC",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),  # 199.465 USDC notional -> 19.9465 margin at 10x
+            position_action=PositionAction.OPEN,
+        )
+
+        notional = Decimal("2.87") * Decimal("69.5")
+        margin = notional / Decimal("10")
+        # Available reflects only the margin reservation...
+        self.assertEqual(Decimal("224.41") - margin, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+        # ...and explicitly NOT the full-notional over-deduction that caused #8168.
+        self.assertNotEqual(Decimal("224.41") - notional, self.exchange.get_available_balance(CONSTANTS.CURRENCY))
+
+    # ── apply_balance_update_since_snapshot tests (post-#8323 regression) ──
+
+    def _setup_balance_and_leverage(self, available: Decimal, leverage: Decimal):
+        """Common setup: set leverage, seed REST available balance, and configure
+        the connector for non-real-time balance updates (the default for Backpack perp)."""
+        self.assertFalse(self.exchange.real_time_balance_update)
+        self.exchange._leverage = leverage
+        self.exchange._leverage_initialized = True
+        self.exchange._account_available_balances[CONSTANTS.CURRENCY] = available
+
+    @property
+    def _usdc_trading_pair(self) -> str:
+        """A USDC-quoted pair for fill/balance tests (Backpack perp only settles in USDC)."""
+        return f"SOL-{CONSTANTS.CURRENCY}"
+
+    def _create_fill_event(self, trade_type: TradeType, price: Decimal, amount: Decimal,
+                           position: PositionAction, timestamp: float,
+                           trading_pair: str = None) -> OrderFilledEvent:
+        """Create an OrderFilledEvent and register it with the connector's event logger.
+        Uses a USDC-quoted pair by default since Backpack perp only settles in USDC."""
+        if trading_pair is None:
+            trading_pair = f"SOL-{CONSTANTS.CURRENCY}"
+        fill = OrderFilledEvent(
+            timestamp=timestamp,
+            order_id="OID-FILL",
+            trading_pair=trading_pair,
+            trade_type=trade_type,
+            order_type=OrderType.LIMIT,
+            price=price,
+            amount=amount,
+            trade_fee=AddedToCostTradeFee(),
+            position=position.value,
+        )
+        # Trigger the event so the connector's internal EventLogger records it
+        # (event_logs property returns _event_logger.event_log)
+        self.exchange.trigger_event(MarketEvent.OrderFilled, fill)
+        return fill
+
+    def test_apply_balance_update_buy_open_fill_keeps_margin_locked(self):
+        """A buy OPEN fill converts order margin into position margin.
+        Available balance should decrease by exactly the fill's margin (notional / leverage),
+        NOT the full notional. This is the core regression test for the post-#8323 bug."""
+        self._setup_balance_and_leverage(available=Decimal("1000"), leverage=Decimal("10"))
+        # Snapshot taken with one open buy order (margin = 199.465 / 10 = 19.9465)
+        buy_order = InFlightOrder(
+            client_order_id="OID1",
+            exchange_order_id="1234",
+            trading_pair=self._usdc_trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),
+            creation_timestamp=1640000000,
+            leverage=10,
+            position=PositionAction.OPEN,
+        )
+        self.exchange._in_flight_orders_snapshot = {"OID1": buy_order}
+        self.exchange._in_flight_orders_snapshot_timestamp = 1640000000
+        # At calculation time the order is fully filled → no longer in in_flight_orders
+        self.exchange._in_flight_orders = {}
+        # Fill event after snapshot
+        self._create_fill_event(
+            TradeType.BUY, Decimal("69.5"), Decimal("2.87"), PositionAction.OPEN, 1640000001)
+
+        notional = Decimal("69.5") * Decimal("2.87")
+        margin = notional / Decimal("10")
+        result = self.exchange.apply_balance_update_since_snapshot(CONSTANTS.CURRENCY, Decimal("1000"))
+        # REST available (1000) already subtracted snapshot_margin (19.9465).
+        # Fill is OPEN → margin stays locked → result = 1000 + 19.9465 - 0 - 19.9465 = 1000
+        self.assertEqual(Decimal("1000"), result)
+        # And NOT the spot behaviour: 1000 + 19.9465 - 0 - 199.465 = 820.4815 (over-deducted)
+        self.assertNotEqual(Decimal("1000") + margin - notional, result)
+
+    def test_apply_balance_update_sell_open_fill_does_not_over_credit(self):
+        """A sell OPEN fill (opening a short) must NOT credit the full notional to available.
+        On a USDC-settled perp, selling to open a short locks margin (it becomes position
+        margin), it does not credit USDC. The base spot implementation returns +notional for
+        a sell, which would over-credit available by ~2× margin. This test verifies the
+        sign correction: a sell OPEN fill behaves like a buy OPEN fill (margin stays locked)."""
+        self._setup_balance_and_leverage(available=Decimal("1000"), leverage=Decimal("10"))
+        sell_order = InFlightOrder(
+            client_order_id="OID2",
+            exchange_order_id="1235",
+            trading_pair=self._usdc_trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("69.5"),
+            amount=Decimal("2.87"),
+            creation_timestamp=1640000000,
+            leverage=10,
+            position=PositionAction.OPEN,
+        )
+        self.exchange._in_flight_orders_snapshot = {"OID2": sell_order}
+        self.exchange._in_flight_orders_snapshot_timestamp = 1640000000
+        self.exchange._in_flight_orders = {}
+        self._create_fill_event(
+            TradeType.SELL, Decimal("69.5"), Decimal("2.87"), PositionAction.OPEN, 1640000001)
+
+        notional = Decimal("69.5") * Decimal("2.87")
+        margin = notional / Decimal("10")
+        result = self.exchange.apply_balance_update_since_snapshot(CONSTANTS.CURRENCY, Decimal("1000"))
+        # Sell OPEN: margin stays locked → result = 1000 + 19.9465 - 0 - 19.9465 = 1000
+        self.assertEqual(Decimal("1000"), result)
+        # The old buggy behaviour would have been: 1000 + 19.9465 - 0 + 19.9465 = 1039.893 (over-credited)
+        self.assertNotEqual(Decimal("1000") + margin + margin, result)
+        # And the original spot formula (before this PR) would have been: 1000 + 19.9465 - 0 + 199.465/10 = 1039.893
+        self.assertNotEqual(Decimal("1000") + margin - Decimal("0") + notional / Decimal("10"), result)
+
+    def test_apply_balance_update_sell_close_fill_releases_margin(self):
+        """A sell CLOSE fill (closing a long) releases the position margin AND credits the
+        realised USDC. The net effect on available is +margin (the margin of the closed
+        portion is returned). This is the correct behaviour for a reduce-only fill."""
+        self._setup_balance_and_leverage(available=Decimal("1000"), leverage=Decimal("10"))
+        # No snapshot orders (position was already open before the snapshot)
+        self.exchange._in_flight_orders_snapshot = {}
+        self.exchange._in_flight_orders_snapshot_timestamp = 1640000000
+        self.exchange._in_flight_orders = {}
+        self._create_fill_event(
+            TradeType.SELL, Decimal("69.5"), Decimal("2.87"), PositionAction.CLOSE, 1640000001)
+
+        notional = Decimal("69.5") * Decimal("2.87")
+        margin = notional / Decimal("10")
+        result = self.exchange.apply_balance_update_since_snapshot(CONSTANTS.CURRENCY, Decimal("1000"))
+        # CLOSE releases margin → result = 1000 + 0 - 0 + 19.9465 = 1019.9465
+        self.assertEqual(Decimal("1000") + margin, result)
+
+    def test_apply_balance_update_buy_close_fill_releases_margin(self):
+        """A buy CLOSE fill (closing a short) releases the position margin. Symmetric to
+        sell CLOSE: the margin of the closed portion is returned to available."""
+        self._setup_balance_and_leverage(available=Decimal("1000"), leverage=Decimal("10"))
+        self.exchange._in_flight_orders_snapshot = {}
+        self.exchange._in_flight_orders_snapshot_timestamp = 1640000000
+        self.exchange._in_flight_orders = {}
+        self._create_fill_event(
+            TradeType.BUY, Decimal("69.5"), Decimal("2.87"), PositionAction.CLOSE, 1640000001)
+
+        notional = Decimal("69.5") * Decimal("2.87")
+        margin = notional / Decimal("10")
+        result = self.exchange.apply_balance_update_since_snapshot(CONSTANTS.CURRENCY, Decimal("1000"))
+        # CLOSE releases margin → result = 1000 + 0 - 0 + 19.9465 = 1019.9465
+        self.assertEqual(Decimal("1000") + margin, result)
+
+    def test_apply_balance_update_non_usdc_passthrough(self):
+        """Non-USDC currencies must fall through to the base (spot) implementation.
+        Backpack perp only settles in USDC, but the passthrough ensures safety for
+        any future multi-collateral support."""
+        self._setup_balance_and_leverage(available=Decimal("1000"), leverage=Decimal("10"))
+        # Use a non-USDC currency — should delegate to super()
+        result = self.exchange.apply_balance_update_since_snapshot("SOL", Decimal("500"))
+        # With no orders/fills, the base implementation returns the available balance as-is
+        self.assertEqual(Decimal("500"), result)
+
+    @aioresponses()
+    async def test_update_balances_refreshes_in_flight_orders_snapshot(self, mock_api):
+        """_update_balances() must refresh the in-flight orders snapshot so that
+        apply_balance_update_since_snapshot() and order_filled_balances(snapshot_timestamp)
+        only consider orders/fills since the last REST poll. Without this, the snapshot
+        timestamp stays at 0.0 for the bot's lifetime (perpetual_derivative_py_base bypasses
+        _update_all_balances which normally refreshes it), causing cumulative double-counting."""
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {"netEquity": "200.0", "netEquityAvailable": "150.0"}
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        # Track an order before the balance update
+        self.exchange.start_tracking_order(
+            order_id="OID-SNAP",
+            exchange_order_id="EID-1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        self.assertEqual(0.0, self.exchange._in_flight_orders_snapshot_timestamp)
+        self.assertEqual({}, self.exchange._in_flight_orders_snapshot)
+
+        await self.exchange._update_balances()
+
+        # Snapshot should now contain a copy of the current in-flight orders
+        self.assertEqual(self.exchange.current_timestamp, self.exchange._in_flight_orders_snapshot_timestamp)
+        self.assertIn("OID-SNAP", self.exchange._in_flight_orders_snapshot)
+        # Verify it's a copy, not the same object
+        self.assertIsNot(self.exchange.in_flight_orders["OID-SNAP"],
+                         self.exchange._in_flight_orders_snapshot["OID-SNAP"])
+
     async def test_user_stream_logs_errors(self):
         mock_user_stream = AsyncMock()
         account_update = self._get_account_update_ws_event_single_position_dict()
@@ -1186,6 +1412,28 @@ class BackpackPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Both should return values from trading rules
         self.assertIsNotNone(buy_collateral)
         self.assertIsNotNone(sell_collateral)
+
+    @aioresponses()
+    async def test_leverage_initialization_signs_account_query(self, req_mock):
+        """The GET /api/v1/account request must be signed with the ``accountQuery`` instruction,
+        otherwise Backpack rejects it with 'Invalid signature' (regression for the leverage fetch).
+        """
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, body=json.dumps({"leverageLimit": "5"}), status=200)
+
+        await self.exchange._initialize_leverage_if_needed()
+
+        self.assertTrue(self.exchange._leverage_initialized)
+        self.assertEqual(Decimal("5"), self.exchange._leverage)
+
+        # The request must be signed; the instruction is folded into the signature and must NOT
+        # leak as a plain query param.
+        request = next(iter(req_mock.requests.values()))[0]
+        self.assertIn("X-Signature", request.kwargs["headers"])
+        self.assertNotIn("instruction", request.kwargs.get("params") or {})
 
     @aioresponses()
     async def test_leverage_initialization_failure(self, req_mock):

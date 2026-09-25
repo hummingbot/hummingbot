@@ -176,6 +176,15 @@ class BitmartPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
+    def get_contract_size(self, trading_pair: str) -> Optional[Decimal]:
+        """
+        Returns the contract size for the given trading pair as parsed from the exchange's contract
+        details, or ``None`` if the trading rules have not been loaded yet for that pair. Public
+        accessor so callers (e.g. the candles feed) can reuse this cached value instead of fetching
+        the contract details endpoint again.
+        """
+        return self._contract_sizes.get(trading_pair)
+
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
         return int(amount / self._contract_sizes[trading_pair])
 

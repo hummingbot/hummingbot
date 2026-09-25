@@ -2,31 +2,23 @@
 
 import argparse
 import asyncio
-import grp
 import logging
 import os
-import pwd
-import subprocess
-from pathlib import Path
 from typing import Coroutine, List
 
 import path_util  # noqa: F401
 
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
-from hummingbot.client.command.start_command import GATEWAY_READY_TIMEOUT
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_helpers import (
-    ClientConfigAdapter,
-    all_configs_complete,
-    create_yml_files_legacy,
-    load_client_config_map_from_file,
-    load_strategy_config_map_from_file,
-    read_system_configs_from_yml,
-)
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_helpers import load_client_config_map_from_file
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.settings import SCRIPT_STRATEGY_CONF_DIR_PATH, STRATEGIES_CONF_DIR_PATH, AllConnectorSettings
+from hummingbot.client.runner import (
+    autofix_permissions,
+    bootstrap_application,
+    load_and_start_strategy,
+    wait_for_gateway_ready,
+)
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
@@ -63,26 +55,6 @@ class CmdlineParser(argparse.ArgumentParser):
                           help="Run in headless mode without CLI interface.")
 
 
-def autofix_permissions(user_group_spec: str):
-    uid, gid = [sub_str for sub_str in user_group_spec.split(':')]
-
-    uid = int(uid) if uid.isnumeric() else pwd.getpwnam(uid).pw_uid
-    gid = int(gid) if gid.isnumeric() else grp.getgrnam(gid).gr_gid
-
-    os.environ["HOME"] = pwd.getpwuid(uid).pw_dir
-    project_home: str = os.path.realpath(os.path.join(__file__, "../../"))
-
-    gateway_path: str = Path.home().joinpath(".hummingbot-gateway").as_posix()
-    subprocess.run(
-        f"cd '{project_home}' && "
-        f"sudo chown -R {user_group_spec} conf/ data/ logs/ scripts/ {gateway_path}",
-        capture_output=True,
-        shell=True
-    )
-    os.setgid(gid)
-    os.setuid(uid)
-
-
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     """Start Hummingbot using unified HummingbotApplication in either UI or headless mode."""
     client_config_map = load_client_config_map_from_file()
@@ -90,28 +62,21 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
 
-    if not Security.login(secrets_manager):
-        logging.getLogger().error("Invalid password.")
+    # Shared boot (login, yml, basic logging, system configs, paper-trade, build app). Logging is
+    # re-initialized later in run_application with the strategy file name. MQTT autostarts only headless.
+    hb = await bootstrap_application(client_config_map, secrets_manager,
+                                     headless=args.headless, mqtt_autostart=args.headless)
+    if hb is None:
         return
-
-    await Security.wait_til_decryption_done()
-    await create_yml_files_legacy()
-    # Initialize logging with basic setup first - will be re-initialized later with correct strategy file name if needed
-    init_logging("hummingbot_logs.yml", client_config_map)
-    await read_system_configs_from_yml()
-
-    # Automatically enable MQTT autostart for headless mode
-    if args.headless:
-        client_config_map.mqtt_bridge.mqtt_autostart = True
-
-    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
-
-    # Create unified application that handles both headless and UI modes
-    hb = HummingbotApplication.main_application(client_config_map=client_config_map, headless_mode=args.headless)
 
     # Load and start strategy if provided
     if args.v2_conf is not None or args.config_file_name is not None:
-        success = await load_and_start_strategy(hb, args)
+        success = await load_and_start_strategy(
+            hb,
+            config_file_name=args.config_file_name,
+            v2_conf=args.v2_conf,
+            headless=bool(args.headless),
+        )
         if not success:
             logging.getLogger().error("Failed to load strategy. Exiting.")
             raise SystemExit(1)
@@ -122,108 +87,10 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     await run_application(hb, args, client_config_map)
 
 
-async def wait_for_gateway_ready(hb):
-    """Wait until the gateway is ready before starting the strategy."""
-    exchange_settings = [
-        AllConnectorSettings.get_connector_settings().get(e, None)
-        for e in hb.trading_core.connector_manager.connectors.keys()
-    ]
-    uses_gateway = any([s.uses_gateway_generic_connector() for s in exchange_settings])
-    if not uses_gateway:
-        return
-    try:
-        await asyncio.wait_for(hb.trading_core.gateway_monitor.ready_event.wait(), timeout=GATEWAY_READY_TIMEOUT)
-    except asyncio.TimeoutError:
-        logging.getLogger().error(
-            f"TimeoutError waiting for gateway service to go online... Please ensure Gateway is configured correctly."
-            f"Unable to start strategy {hb.trading_core.strategy_name}. ")
-        raise
-
-
-async def load_and_start_strategy(hb: HummingbotApplication, args: argparse.Namespace,):
-    """Load and start strategy based on file type and mode."""
-    import yaml
-
-    if args.v2_conf:
-        # V2 config-driven start: derive script from config file
-        conf_path = SCRIPT_STRATEGY_CONF_DIR_PATH / args.v2_conf
-        if not conf_path.exists():
-            logging.getLogger().error(f"V2 config file not found: {conf_path}")
-            return False
-
-        with open(conf_path) as f:
-            config_data = yaml.safe_load(f) or {}
-        script_file = config_data.get("script_file_name", "")
-        if not script_file:
-            logging.getLogger().error("Config file is missing 'script_file_name' field.")
-            return False
-
-        strategy_name = script_file.replace(".py", "")
-        hb.strategy_file_name = args.v2_conf
-        hb.trading_core.strategy_name = strategy_name
-
-        if args.headless:
-            logging.getLogger().info(f"Starting V2 script strategy: {strategy_name}")
-            success = await hb.trading_core.start_strategy(
-                strategy_name,
-                args.v2_conf,
-                args.v2_conf
-            )
-            if not success:
-                logging.getLogger().error("Failed to start strategy")
-                return False
-        else:
-            # UI mode - trigger start via listener
-            hb.script_config = args.v2_conf
-
-    elif args.config_file_name is not None:
-        # Regular strategy with YAML config (V1 flow)
-        hb.strategy_file_name = args.config_file_name.split(".")[0]  # Remove .yml extension
-
-        try:
-            strategy_config = await load_strategy_config_map_from_file(
-                STRATEGIES_CONF_DIR_PATH / args.config_file_name
-            )
-        except FileNotFoundError:
-            logging.getLogger().error(f"Strategy config file not found: {STRATEGIES_CONF_DIR_PATH / args.config_file_name}")
-            return False
-        except Exception as e:
-            logging.getLogger().error(f"Error loading strategy config file: {e}")
-            return False
-
-        strategy_name = (
-            strategy_config.strategy
-            if isinstance(strategy_config, ClientConfigAdapter)
-            else strategy_config.get("strategy").value
-        )
-        hb.trading_core.strategy_name = strategy_name
-
-        if args.headless:
-            logging.getLogger().info(f"Starting regular strategy: {strategy_name}")
-            success = await hb.trading_core.start_strategy(
-                strategy_name,
-                strategy_config,
-                args.config_file_name
-            )
-            if not success:
-                logging.getLogger().error("Failed to start strategy")
-                return False
-        else:
-            # UI mode - set properties for UIStartListener
-            hb.strategy_config_map = strategy_config
-
-            # Check if config is complete for UI mode
-            if not all_configs_complete(strategy_config, hb.client_config_map):
-                hb.status()
-
-    return True
-
-
 async def run_application(hb: HummingbotApplication, args: argparse.Namespace, client_config_map):
     """Run the application in headless or UI mode."""
     if args.headless:
         # Re-initialize logging with proper strategy file name for headless mode
-        from hummingbot import init_logging
         log_file_name = hb.strategy_file_name.split(".")[0] if hb.strategy_file_name else "hummingbot"
         init_logging("hummingbot_logs.yml", hb.client_config_map,
                      override_log_level=hb.client_config_map.log_level,

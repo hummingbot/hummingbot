@@ -36,6 +36,7 @@ SERVER_TIME_PATH_URL = "api/v1/time"
 EXCHANGE_INFO_PATH_URL = "api/v1/markets"
 SNAPSHOT_PATH_URL = "api/v1/depth"
 BALANCE_PATH_URL = "api/v1/capital"  # instruction balanceQuery
+BORROW_LEND_POSITIONS_PATH_URL = "api/v1/borrowLend/positions"  # instruction borrowLendPositionQuery
 TICKER_BOOK_PATH_URL = "api/v1/tickers"
 TICKER_PRICE_CHANGE_PATH_URL = "api/v1/ticker"
 ORDER_PATH_URL = "api/v1/order"
@@ -74,6 +75,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=BALANCE_PATH_URL,
+        limit=2000,
+        time_interval=60,
+        linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=BORROW_LEND_POSITIONS_PATH_URL,
         limit=2000,
         time_interval=60,
         linked_limits=[LinkedLimitWeightPair(GLOBAL_RATE_LIMIT)],

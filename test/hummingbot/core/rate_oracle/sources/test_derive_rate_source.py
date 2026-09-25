@@ -39,9 +39,9 @@ class DeriveRateSourceTest(unittest.TestCase):
 
     def create_exchange_instance(self):
         return DeriveExchange(
-            derive_api_key="testAPIKey",
-            derive_api_secret="testSecret",
-            sub_id="45465",
+            derive_wallet_address="testAPIKey",
+            session_private_key="testSecret",
+            subacct_id="45465",
             trading_required = False,
             trading_pairs=[self.trading_pair],
         )

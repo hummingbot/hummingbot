@@ -30,6 +30,8 @@ MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 200
 
 WS_TICKER_CHANNEL = "ticker-500ms"
 
+# The aevo connector throttles per-endpoint (no global weight pool), so this feed cannot coordinate
+# a shared budget with it; each endpoint keeps its own standalone cap.
 RATE_LIMITS = [
     RateLimit(limit_id=CANDLES_ENDPOINT, limit=120, time_interval=60),
     RateLimit(limit_id=HEALTH_CHECK_ENDPOINT, limit=120, time_interval=60),

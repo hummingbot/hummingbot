@@ -106,7 +106,7 @@ class BitgetExchange(ExchangePyBase):
         return f"Error: {code} - {message}"
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(
         self,
@@ -186,12 +186,18 @@ class BitgetExchange(ExchangePyBase):
             step_size = Decimal(self.trading_rules[trading_pair].min_base_amount_increment)
             amount = (amount * current_price).quantize(step_size, rounding=ROUND_UP)
             self._expected_market_amounts[order_id] = amount
+        # LIMIT_MAKER maps to a post-only limit order (orderType "limit" + force "post_only").
+        force = (
+            CONSTANTS.POST_ONLY_TIME_IN_FORCE
+            if order_type is OrderType.LIMIT_MAKER
+            else CONSTANTS.DEFAULT_TIME_IN_FORCE
+        )
         data = {
             "side": CONSTANTS.TRADE_TYPES[trade_type],
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             "size": str(amount),
             "orderType": CONSTANTS.ORDER_TYPES[order_type],
-            "force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
+            "force": force,
             "clientOid": order_id,
         }
         if order_type.is_limit_type():

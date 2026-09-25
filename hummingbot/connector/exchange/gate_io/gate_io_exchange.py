@@ -373,8 +373,6 @@ class GateIoExchange(ExchangePyBase):
         state = None
         # we do not handle:
         #   "failed" because it is handled by create order
-        #   "put" as the exchange order id is returned in the create order response
-        #   "open" for same reason
 
         # same field for both WS and REST
         amount_left = Decimal(order_msg.get("left"))
@@ -383,6 +381,12 @@ class GateIoExchange(ExchangePyBase):
         # WS
         if "event" in order_msg:
             event_type = order_msg.get("event")
+            # "put" is the order accepted/open acknowledgement. We map it to OPEN so the order leaves
+            # PENDING_CREATE promptly (firing the creation event once) instead of staying PENDING_CREATE
+            # until the first fill. Otherwise the creation event is triggered on a FILLED transition,
+            # which races inside ClientOrderTracker.wait_until_completely_filled and can be emitted twice.
+            if event_type == "put":
+                state = OrderState.OPEN
             if event_type == "update":
                 state = OrderState.FILLED
                 if amount_left > 0:
@@ -397,6 +401,9 @@ class GateIoExchange(ExchangePyBase):
                     state = OrderState.PARTIALLY_FILLED
         else:
             status = order_msg.get("status")
+            if status == "open":
+                # REST equivalent of the WS "put" event (see note above).
+                state = OrderState.PARTIALLY_FILLED if filled_amount > 0 else OrderState.OPEN
             if status == "closed":
                 finish_as = order_msg.get("finish_as")
                 if finish_as == "filled" or finish_as == "ioc":

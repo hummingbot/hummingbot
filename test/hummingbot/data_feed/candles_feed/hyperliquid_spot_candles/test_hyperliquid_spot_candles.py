@@ -26,7 +26,8 @@ class TestHyperliquidSpotC0andles(TestCandlesBase):
     def setUp(self) -> None:
         super().setUp()
         self.data_feed = HyperliquidSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
-        self.data_feed._coins_dict = {"USDC": 0, "HFUN": 1}
+        self.data_feed._coins_dict = {"HFUN-USDC": "@1"}
+        self.data_feed._exchange_data_initialized = True  # pre-set to skip initialize_exchange_data API call
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
@@ -168,6 +169,30 @@ class TestHyperliquidSpotC0andles(TestCandlesBase):
         mock_api.post(url=url, payload=self.get_universe_data_mock())
         self.run_async_with_timeout(self.data_feed._initialize_coins_dict())
         self.assertEqual(self.data_feed._universe, self.get_universe_data_mock())
+        # Coins are keyed by the full BASE-QUOTE pair.
+        self.assertEqual(self.data_feed._coins_dict["PURR-USDC"], "PURR/USDC")
+        self.assertEqual(self.data_feed._coins_dict["HFUN-USDC"], "@1")
+
+    @aioresponses()
+    def test_initialize_coins_dict_multi_quote(self, mock_api):
+        # A single base token (HYPE) listed against several quotes must not collapse:
+        # each BASE-QUOTE pair maps to its own market name.
+        universe_mock = {
+            "universe": [
+                {"tokens": [1, 0], "name": "@107", "index": 107},
+                {"tokens": [1, 2], "name": "@255", "index": 255},
+            ],
+            "tokens": [
+                {"name": "USDC", "index": 0},
+                {"name": "HYPE", "index": 1},
+                {"name": "USDE", "index": 2},
+            ],
+        }
+        url = self.data_feed.rest_url
+        mock_api.post(url=url, payload=universe_mock)
+        self.run_async_with_timeout(self.data_feed._initialize_coins_dict())
+        self.assertEqual(self.data_feed._coins_dict["HYPE-USDC"], "@107")
+        self.assertEqual(self.data_feed._coins_dict["HYPE-USDE"], "@255")
 
     @aioresponses()
     def test_ping_pong(self, mock_api):

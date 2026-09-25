@@ -250,11 +250,20 @@ class ControllerBase(RunnableBase):
         """
         Update the controller configuration. With the variables that in the client_data have the is_updatable flag set
         to True. This will be only available for those variables that don't interrupt the bot operation.
+
+        All updatable fields are applied together in a single model copy rather than field-by-field. With
+        validate_assignment enabled, setting one field at a time runs the model validators on the intermediate
+        state, so cross-field invariants (e.g. curve_prices and curve_allocations must have equal length) would
+        raise after the first field is set but before the second is. new_config has already been validated as a
+        whole, so taking its updatable values together keeps the config consistent.
         """
-        for name, field_info in self.config.__class__.model_fields.items():
-            json_schema_extra = field_info.json_schema_extra or {}
-            if json_schema_extra.get("is_updatable", False):
-                setattr(self.config, name, getattr(new_config, name))
+        updatable = {
+            name: getattr(new_config, name)
+            for name, field_info in self.config.__class__.model_fields.items()
+            if (field_info.json_schema_extra or {}).get("is_updatable", False)
+        }
+        if updatable:
+            self.config = self.config.model_copy(update=updatable)
 
     async def control_task(self):
         if self.market_data_provider.ready and self.executors_update_event.is_set():

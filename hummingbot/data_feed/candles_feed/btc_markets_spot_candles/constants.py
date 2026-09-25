@@ -1,6 +1,6 @@
 from bidict import bidict
 
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 REST_URL = "https://api.btcmarkets.net"
 HEALTH_CHECK_ENDPOINT = "/v3/time"
@@ -38,8 +38,6 @@ SERVER_TIME_PATH_URL = "/v3/time"
 RATE_LIMITS = [
     RateLimit(limit_id=MARKETS_URL, limit=150, time_interval=10),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=50, time_interval=10),
-    RateLimit(limit_id=CANDLES_ENDPOINT, limit=50, time_interval=10, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(
-        limit_id=HEALTH_CHECK_ENDPOINT, limit=50, time_interval=10, linked_limits=[LinkedLimitWeightPair("raw", 1)]
-    ),
+    RateLimit(limit_id=CANDLES_ENDPOINT, limit=50, time_interval=10),
+    RateLimit(limit_id=HEALTH_CHECK_ENDPOINT, limit=50, time_interval=10),
 ]

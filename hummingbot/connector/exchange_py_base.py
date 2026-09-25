@@ -15,6 +15,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -155,6 +156,14 @@ class ExchangePyBase(ExchangeBase, ABC):
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
+
+    @property
+    def throttler(self) -> AsyncThrottlerBase:
+        """
+        The rate-limit throttler used by this connector. Exposed publicly so other REST consumers
+        targeting the same exchange (e.g. a candles feed) can share a single rate-limit budget.
+        """
+        return self._throttler
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:

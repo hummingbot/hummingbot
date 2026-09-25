@@ -1,4 +1,4 @@
-from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 REST_URL = "https://contract.mexc.com"
 HEALTH_CHECK_ENDPOINT = "/api/v1/contract/ping"
@@ -22,5 +22,5 @@ INTERVALS = {
 MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST = 2000
 
 RATE_LIMITS = [
-    RateLimit(CANDLES_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20, time_interval=2, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+    RateLimit(CANDLES_ENDPOINT, limit=20, time_interval=2),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=20, time_interval=2)]
