@@ -18,13 +18,10 @@ class AsyncThrottlerBase(ABC):
     throttling of API requests through the usage of asynchronous context managers.
     """
 
-    # Longest pause after a 429, whatever the exchange asks for, so one bad header value can't
-    # stop trading for long. If the real wait is longer, the next request gets another 429
-    # and we pause again.
-    MAX_PAUSE_SECONDS: float = 300.0
-    # Longest pause after a ban (418). Binance IP bans last up to 3 days, and while banned
-    # every request is rejected anyway, so we wait out the whole ban.
-    MAX_BAN_PAUSE_SECONDS: float = 3 * 24 * 60 * 60.0
+    # Longest pause we take, whatever the exchange asks for. Binance IP bans last up to 3 days,
+    # so this is long enough to wait out a real ban. Headers whose units we can't be sure of
+    # are capped much lower when they are read (see rest_assistant.py).
+    MAX_PAUSE_SECONDS: float = 3 * 24 * 60 * 60.0
     # Shortest and longest pause when the exchange doesn't say how long to wait.
     MIN_DEFAULT_PAUSE_SECONDS: float = 1.0
     MAX_DEFAULT_PAUSE_SECONDS: float = 60.0
@@ -121,8 +118,7 @@ class AsyncThrottlerBase(ABC):
     def execute_task(self, limit_id: str) -> AsyncRequestContextBase:
         raise NotImplementedError
 
-    async def pause_after_too_many_requests(self, limit_id: str, retry_after: Optional[float],
-                                            banned: bool = False):
+    async def pause_after_too_many_requests(self, limit_id: str, retry_after: Optional[float]):
         """Stop sending requests on `limit_id`, and the limits linked to it, for a while.
 
         Called when the exchange says we are sending too many requests. By then our count
@@ -140,21 +136,18 @@ class AsyncThrottlerBase(ABC):
             for its own time window (between 1s and 60s), since that is when our count of it
             resets. If zero or negative, the exchange says the limit has already reset, so
             don't wait.
-        :param banned: the exchange says we are banned (418), not just rate limited (429).
-            A ban can be waited out for up to MAX_BAN_PAUSE_SECONDS, a 429 for MAX_PAUSE_SECONDS.
         """
         if retry_after is not None and retry_after <= 0:
             return
         rate_limit, related_limits = self.get_related_limits(limit_id=limit_id)
         limits = [(limit_id, rate_limit)] + [(related.limit_id, related) for related, _ in related_limits]
-        max_pause = self.MAX_BAN_PAUSE_SECONDS if banned else self.MAX_PAUSE_SECONDS
         async with self._lock:
             now = self._time()
             extended = []
             for paused_id, limit in limits:
                 pause = retry_after if retry_after is not None else self._default_pause(limit)
                 # Cap the wait so a bad header value can't stop the connector for too long.
-                pause = min(pause, max_pause)
+                pause = min(pause, self.MAX_PAUSE_SECONDS)
                 if now + pause > self._resets.get(paused_id, 0.0):
                     self._resets[paused_id] = now + pause
                     extended.append(f"{paused_id} for {pause:.1f}s")
