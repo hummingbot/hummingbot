@@ -45,6 +45,23 @@ class RetryAfterHeaderTests(unittest.TestCase):
         self.assertIsNone(self._parse({"Retry-After": ""}))
         self.assertIsNone(self._parse({"Retry-After": "soon"}))
 
+    def test_infinite_and_nan_values_are_ignored(self):
+        # They parse as floats but aren't a real wait. 1e400 overflows to inf.
+        for value in ("inf", "-inf", "nan", "1e400"):
+            with self.subTest(value=value):
+                self.assertIsNone(self._parse({"Retry-After": value}))
+        self.assertEqual(12.0, self._parse({"Retry-After": "inf", "RateLimit-Reset": "12"}))
+
+    def test_an_empty_date_header_is_ignored(self):
+        self.assertEqual(30.0, self._parse({"Date": "", "Retry-After": "30"}))
+        self.assertIsNone(self._parse({"Retry-After": ""}))
+
+    def test_a_date_parser_returning_none_is_ignored(self):
+        # Older Python versions return None instead of raising for a bad date.
+        with patch("hummingbot.core.web_assistant.rest_assistant.parsedate_to_datetime", return_value=None):
+            self.assertEqual(30.0, self._parse({"Date": "bad", "Retry-After": "30"}))
+            self.assertIsNone(self._parse({"Retry-After": "Tue, 14 Nov 2023 22:14:20 GMT"}))
+
     def test_an_unparseable_value_falls_through_to_the_next_header(self):
         self.assertEqual(12.0, self._parse({"Retry-After": "soon", "RateLimit-Reset": "12"}))
 
@@ -187,10 +204,26 @@ class PauseAfterTooManyRequestsTests(unittest.TestCase):
     def test_a_long_ban_is_waited_out_in_full(self):
         # Binance bans an IP for minutes up to days, and says how long in Retry-After.
         self.loop.run_until_complete(
-            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600)
+            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600, banned=True)
         )
         remaining = self.throttler._resets[LIMIT_ID] - time.time()
         self.assertGreater(remaining, 3590)
+
+    def test_a_ban_pause_is_capped(self):
+        self.loop.run_until_complete(
+            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=10 ** 9, banned=True)
+        )
+        remaining = self.throttler._resets[LIMIT_ID] - time.time()
+        self.assertLessEqual(remaining, AsyncThrottler.MAX_BAN_PAUSE_SECONDS + 1)
+        self.assertGreater(remaining, AsyncThrottler.MAX_BAN_PAUSE_SECONDS - 10)
+
+    def test_a_long_wait_on_a_429_is_capped_at_the_short_limit(self):
+        # A bad value on a 429 shouldn't stop trading for days.
+        self.loop.run_until_complete(
+            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600)
+        )
+        remaining = self.throttler._resets[LIMIT_ID] - time.time()
+        self.assertLessEqual(remaining, AsyncThrottler.MAX_PAUSE_SECONDS + 1)
 
     def test_pause_is_capped(self):
         self.loop.run_until_complete(
@@ -246,6 +279,18 @@ class RestAssistantRateLimitedResponseTests(unittest.TestCase):
     def test_418_ban_pauses_the_limit(self):
         throttler = self._execute(418, {"Retry-After": "120"})
         self.assertGreater(throttler._resets[LIMIT_ID], time.time() + 115)
+
+    def test_418_ban_is_waited_out_past_the_429_cap(self):
+        throttler = self._execute(418, {"Retry-After": "3600"})
+        self.assertGreater(throttler._resets[LIMIT_ID], time.time() + 3590)
+
+    def test_429_long_wait_is_capped(self):
+        throttler = self._execute(429, {"Retry-After": "3600"})
+        self.assertLessEqual(throttler._resets[LIMIT_ID], time.time() + AsyncThrottler.MAX_PAUSE_SECONDS + 1)
+
+    def test_429_with_infinite_retry_after_uses_the_default_pause(self):
+        throttler = self._execute(429, {"Retry-After": "inf"})
+        self.assertLessEqual(throttler._resets[LIMIT_ID], time.time() + AsyncThrottler.MAX_DEFAULT_PAUSE_SECONDS + 1)
 
     def test_other_errors_do_not_pause(self):
         throttler = self._execute(400, {"Retry-After": "30"})

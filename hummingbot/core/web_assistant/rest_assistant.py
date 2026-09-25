@@ -1,4 +1,5 @@
 import json
+import math
 import time
 from asyncio import wait_for
 from copy import deepcopy
@@ -24,6 +25,8 @@ _EPOCH_THRESHOLD_SECONDS = 1_000_000_000.0
 
 # HTTP statuses that mean we are sending too many requests.
 RATE_LIMITED_STATUSES = (418, 429)
+# Binance and some others send this once an IP has been banned for ignoring 429s.
+BANNED_STATUS = 418
 
 
 def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = None) -> Optional[float]:
@@ -49,6 +52,9 @@ def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = 
             if retry_at is None:
                 continue
             return retry_at - now
+        if not math.isfinite(value):
+            # "inf" and "nan" parse as numbers but aren't a real wait.
+            continue
         if value > _EPOCH_THRESHOLD_SECONDS:
             # A timestamp. If it's even larger, it's in milliseconds.
             if value > _EPOCH_THRESHOLD_SECONDS * 1000:
@@ -65,6 +71,9 @@ def _http_date_to_timestamp(raw: Any) -> Optional[float]:
     try:
         parsed = parsedate_to_datetime(raw)
     except (TypeError, ValueError, IndexError):
+        return None
+    if parsed is None:
+        # Older Python versions return None instead of raising for an empty or bad value.
         return None
     if parsed.tzinfo is None:
         # HTTP dates are always in GMT.
@@ -162,6 +171,7 @@ class RESTAssistant:
                     await self._throttler.pause_after_too_many_requests(
                         limit_id=throttler_limit_id,
                         retry_after=retry_after_from_headers(response.headers or {}),
+                        banned=response.status == BANNED_STATUS,
                     )
                 if not return_err:
                     error_response = await response.text()
