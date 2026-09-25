@@ -2,6 +2,7 @@ import asyncio
 import copy
 import logging
 import math
+import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
@@ -16,6 +17,14 @@ class AsyncThrottlerBase(ABC):
     The APIThrottlerBase is an abstract class meant to describe the functions necessary to handle the
     throttling of API requests through the usage of asynchronous context managers.
     """
+
+    # Longest pause we take, whatever the exchange asks for. Binance IP bans last up to 3 days,
+    # so this is long enough to wait out a real ban. Headers whose units we can't be sure of
+    # are capped much lower when they are read (see rest_assistant.py).
+    MAX_PAUSE_SECONDS: float = 3 * 24 * 60 * 60.0
+    # Shortest and longest pause when the exchange doesn't say how long to wait.
+    MIN_DEFAULT_PAUSE_SECONDS: float = 1.0
+    MAX_DEFAULT_PAUSE_SECONDS: float = 60.0
 
     _default_config_map = {}
     _logger = None
@@ -55,6 +64,9 @@ class AsyncThrottlerBase(ABC):
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
+
+        # When each limit_id can be used again. Set when the exchange answers 429.
+        self._resets: Dict[str, float] = {}
 
     def set_rate_limits(self, rate_limits: List[RateLimit]):
         # Rate Limit Definitions
@@ -105,3 +117,52 @@ class AsyncThrottlerBase(ABC):
     @abstractmethod
     def execute_task(self, limit_id: str) -> AsyncRequestContextBase:
         raise NotImplementedError
+
+    async def pause_after_too_many_requests(self, limit_id: str, retry_after: Optional[float]):
+        """Stop sending requests on `limit_id`, and the limits linked to it, for a while.
+
+        Called when the exchange says we are sending too many requests. By then our count
+        and the exchange's count no longer agree, for example because of clock differences,
+        another bot using the same account, or a limit the connector doesn't know about.
+        If we keep sending at the configured rate we just get more rejections, and many
+        exchanges then block us for longer. So we wait as long as the exchange asks.
+
+        Linked limits are paused too. Exchanges usually count these per IP or per account
+        (like Binance's request weight), so every endpoint that shares the linked limit
+        would be rejected as well, not just the one that got the 429.
+
+        :param limit_id: the limit the rejected request was sent under
+        :param retry_after: seconds to wait, as sent by the exchange. If None, each limit waits
+            for its own time window (between 1s and 60s), since that is when our count of it
+            resets. If zero or negative, the exchange says the limit has already reset, so
+            don't wait.
+        """
+        if retry_after is not None and retry_after <= 0:
+            return
+        rate_limit, related_limits = self.get_related_limits(limit_id=limit_id)
+        limits = [(limit_id, rate_limit)] + [(related.limit_id, related) for related, _ in related_limits]
+        async with self._lock:
+            now = self._time()
+            extended = []
+            for paused_id, limit in limits:
+                pause = retry_after if retry_after is not None else self._default_pause(limit)
+                # Cap the wait so a bad header value can't stop the connector for too long.
+                pause = min(pause, self.MAX_PAUSE_SECONDS)
+                if now + pause > self._resets.get(paused_id, 0.0):
+                    self._resets[paused_id] = now + pause
+                    extended.append(f"{paused_id} for {pause:.1f}s")
+            if extended:
+                self.logger().warning(
+                    f"Rate limited by the exchange on {limit_id}; pausing {', '.join(extended)}."
+                )
+
+    def _default_pause(self, rate_limit: Optional[RateLimit]) -> float:
+        # Without a hint from the exchange we don't know which limit ran out, so we wait for the
+        # limit's own window, but no longer than a minute. Pausing a 24h limit for 24h on a guess
+        # could stop all trading for a day. If the limit really is used up, the next request gets
+        # another 429 and we pause again.
+        window = rate_limit.time_interval if rate_limit is not None else self.MIN_DEFAULT_PAUSE_SECONDS
+        return min(max(window, self.MIN_DEFAULT_PAUSE_SECONDS), self.MAX_DEFAULT_PAUSE_SECONDS)
+
+    def _time(self) -> float:
+        return time.time()
