@@ -69,6 +69,8 @@ async def get_current_server_time(
         url=public_rest_url(path_url=CONSTANTS.SYMBOLS_PATH_URL, domain=domain),
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.SYMBOLS_PATH_URL,
+        # Only the Date header is used, so don't wait for the body.
+        read_body=False,
     )
     date_str = response.headers.get("Date") if response.headers is not None else None
     if not date_str:
