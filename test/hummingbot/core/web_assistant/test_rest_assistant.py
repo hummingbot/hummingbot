@@ -182,3 +182,17 @@ class RESTAssistantTest(IsolatedAsyncioWrapperTestCase):
         aiohttp_response.read.assert_not_called()
         self.assertEqual([True], [task.completed for task in throttler._task_logs])
         await aiohttp_client_session.close()
+
+    @aioresponses()
+    async def test_release_frees_the_connection_without_reading_the_body(self, mocked_api):
+        url = "https://www.test.com/url"
+        mocked_api.get(url, body=json.dumps({"one": 1}).encode())
+
+        aiohttp_client_session = aiohttp.ClientSession()
+        connection = RESTConnection(aiohttp_client_session)
+        response = await connection.call(RESTRequest(method=RESTMethod.GET, url=url))
+
+        response.release()
+
+        self.assertTrue(response._aiohttp_response.closed)
+        await aiohttp_client_session.close()

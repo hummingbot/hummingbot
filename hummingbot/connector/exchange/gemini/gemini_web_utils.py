@@ -72,7 +72,11 @@ async def get_current_server_time(
         # Only the Date header is used, so don't wait for the body.
         read_body=False,
     )
-    date_str = response.headers.get("Date") if response.headers is not None else None
+    try:
+        date_str = response.headers.get("Date") if response.headers is not None else None
+    finally:
+        # The body is never read, so free the connection now.
+        response.release()
     if not date_str:
         raise IOError("Gemini server time response is missing the Date header")
     return parsedate_to_datetime(date_str).timestamp() * 1e3
