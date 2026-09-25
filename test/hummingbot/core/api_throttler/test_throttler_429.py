@@ -45,6 +45,18 @@ class RetryAfterHeaderTests(unittest.TestCase):
         self.assertIsNone(self._parse({"Retry-After": ""}))
         self.assertIsNone(self._parse({"Retry-After": "soon"}))
 
+    def test_a_long_retry_after_is_not_capped(self):
+        self.assertEqual(3600.0, self._parse({"Retry-After": "3600"}))
+        self.assertEqual(3600.0, self._parse({"Retry-After": "Tue, 14 Nov 2023 23:13:20 GMT"}))
+
+    def test_a_long_wait_from_a_non_standard_header_is_capped(self):
+        # These headers are in seconds on some exchanges and milliseconds on others, so
+        # "30000" might mean 30s. Cap it rather than risk an 8 hour pause.
+        for name in ("RateLimit-Reset", "X-RateLimit-Reset"):
+            with self.subTest(name=name):
+                self.assertEqual(300.0, self._parse({name: "30000"}))
+                self.assertEqual(300.0, self._parse({name: str(self.NOW + 3600)}))
+
     def test_infinite_and_nan_values_are_ignored(self):
         # They parse as floats but aren't a real wait. 1e400 overflows to inf.
         for value in ("inf", "-inf", "nan", "1e400"):
@@ -204,26 +216,10 @@ class PauseAfterTooManyRequestsTests(unittest.TestCase):
     def test_a_long_ban_is_waited_out_in_full(self):
         # Binance bans an IP for minutes up to days, and says how long in Retry-After.
         self.loop.run_until_complete(
-            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600, banned=True)
-        )
-        remaining = self.throttler._resets[LIMIT_ID] - time.time()
-        self.assertGreater(remaining, 3590)
-
-    def test_a_ban_pause_is_capped(self):
-        self.loop.run_until_complete(
-            self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=10 ** 9, banned=True)
-        )
-        remaining = self.throttler._resets[LIMIT_ID] - time.time()
-        self.assertLessEqual(remaining, AsyncThrottler.MAX_BAN_PAUSE_SECONDS + 1)
-        self.assertGreater(remaining, AsyncThrottler.MAX_BAN_PAUSE_SECONDS - 10)
-
-    def test_a_long_wait_on_a_429_is_capped_at_the_short_limit(self):
-        # A bad value on a 429 shouldn't stop trading for days.
-        self.loop.run_until_complete(
             self.throttler.pause_after_too_many_requests(limit_id=LIMIT_ID, retry_after=3600)
         )
         remaining = self.throttler._resets[LIMIT_ID] - time.time()
-        self.assertLessEqual(remaining, AsyncThrottler.MAX_PAUSE_SECONDS + 1)
+        self.assertGreater(remaining, 3590)
 
     def test_pause_is_capped(self):
         self.loop.run_until_complete(
@@ -231,6 +227,7 @@ class PauseAfterTooManyRequestsTests(unittest.TestCase):
         )
         remaining = self.throttler._resets[LIMIT_ID] - time.time()
         self.assertLessEqual(remaining, AsyncThrottler.MAX_PAUSE_SECONDS + 1)
+        self.assertGreater(remaining, AsyncThrottler.MAX_PAUSE_SECONDS - 10)
 
     def test_a_longer_pause_extends_but_a_shorter_one_does_not_shorten(self):
         run = self.loop.run_until_complete
@@ -280,13 +277,18 @@ class RestAssistantRateLimitedResponseTests(unittest.TestCase):
         throttler = self._execute(418, {"Retry-After": "120"})
         self.assertGreater(throttler._resets[LIMIT_ID], time.time() + 115)
 
-    def test_418_ban_is_waited_out_past_the_429_cap(self):
+    def test_418_long_retry_after_is_waited_out_in_full(self):
         throttler = self._execute(418, {"Retry-After": "3600"})
         self.assertGreater(throttler._resets[LIMIT_ID], time.time() + 3590)
 
-    def test_429_long_wait_is_capped(self):
+    def test_429_long_retry_after_is_waited_out_in_full(self):
+        # Retry-After is always in seconds, so a long wait on a 429 is honoured too.
         throttler = self._execute(429, {"Retry-After": "3600"})
-        self.assertLessEqual(throttler._resets[LIMIT_ID], time.time() + AsyncThrottler.MAX_PAUSE_SECONDS + 1)
+        self.assertGreater(throttler._resets[LIMIT_ID], time.time() + 3590)
+
+    def test_429_long_wait_from_a_non_standard_header_is_capped(self):
+        throttler = self._execute(429, {"RateLimit-Reset": "3600"})
+        self.assertLessEqual(throttler._resets[LIMIT_ID], time.time() + 301)
 
     def test_429_with_infinite_retry_after_uses_the_default_pause(self):
         throttler = self._execute(429, {"Retry-After": "inf"})

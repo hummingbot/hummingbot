@@ -17,7 +17,14 @@ from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBa
 # Headers exchanges use to say how long to wait before sending again. Retry-After is the
 # standard one (RFC 9110). The others are common but less strictly defined, so they are
 # checked after it.
-_RETRY_AFTER_HEADERS = ("Retry-After", "RateLimit-Reset", "X-RateLimit-Reset")
+_STANDARD_RETRY_AFTER_HEADER = "Retry-After"
+_RETRY_AFTER_HEADERS = (_STANDARD_RETRY_AFTER_HEADER, "RateLimit-Reset", "X-RateLimit-Reset")
+
+# Retry-After is always in seconds, so we wait as long as it says. The other headers are in
+# seconds on some exchanges and milliseconds on others, so if we read the unit wrong a
+# 30s wait could turn into 8 hours. A wait read from them is capped at this. If the real
+# wait is longer, the next request gets another 429 and we pause again.
+_NON_STANDARD_HEADER_MAX_SECONDS = 300.0
 
 # A value this large is a timestamp, not a number of seconds to wait. Some exchanges send
 # the time the limit resets instead of how long to wait, even in headers meant for a delay.
@@ -25,8 +32,6 @@ _EPOCH_THRESHOLD_SECONDS = 1_000_000_000.0
 
 # HTTP statuses that mean we are sending too many requests.
 RATE_LIMITED_STATUSES = (418, 429)
-# Binance and some others send this once an IP has been banned for ignoring 429s.
-BANNED_STATUS = 418
 
 
 def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = None) -> Optional[float]:
@@ -41,27 +46,34 @@ def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = 
     server_now = _http_date_to_timestamp(headers.get("Date"))
     now = server_now if server_now is not None else (time.time() if now is None else now)
     for name in _RETRY_AFTER_HEADERS:
-        raw = headers.get(name)
-        if raw is None:
+        wait = _wait_from_header_value(headers.get(name), now)
+        if wait is None:
             continue
-        try:
-            value = float(raw)
-        except (TypeError, ValueError):
-            # Retry-After can also be a date, like "Wed, 21 Oct 2015 07:28:00 GMT".
-            retry_at = _http_date_to_timestamp(raw)
-            if retry_at is None:
-                continue
-            return retry_at - now
-        if not math.isfinite(value):
-            # "inf" and "nan" parse as numbers but aren't a real wait.
-            continue
-        if value > _EPOCH_THRESHOLD_SECONDS:
-            # A timestamp. If it's even larger, it's in milliseconds.
-            if value > _EPOCH_THRESHOLD_SECONDS * 1000:
-                value /= 1000.0
-            return value - now
-        return value
+        if name != _STANDARD_RETRY_AFTER_HEADER:
+            wait = min(wait, _NON_STANDARD_HEADER_MAX_SECONDS)
+        return wait
     return None
+
+
+def _wait_from_header_value(raw: Any, now: float) -> Optional[float]:
+    """Seconds to wait for one header value, or None if it can't be read."""
+    if raw is None:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        # Retry-After can also be a date, like "Wed, 21 Oct 2015 07:28:00 GMT".
+        retry_at = _http_date_to_timestamp(raw)
+        return None if retry_at is None else retry_at - now
+    if not math.isfinite(value):
+        # "inf" and "nan" parse as numbers but aren't a real wait.
+        return None
+    if value > _EPOCH_THRESHOLD_SECONDS:
+        # A timestamp. If it's even larger, it's in milliseconds.
+        if value > _EPOCH_THRESHOLD_SECONDS * 1000:
+            value /= 1000.0
+        return value - now
+    return value
 
 
 def _http_date_to_timestamp(raw: Any) -> Optional[float]:
@@ -171,7 +183,6 @@ class RESTAssistant:
                     await self._throttler.pause_after_too_many_requests(
                         limit_id=throttler_limit_id,
                         retry_after=retry_after_from_headers(response.headers or {}),
-                        banned=response.status == BANNED_STATUS,
                     )
                 if not return_err:
                     error_response = await response.text()
