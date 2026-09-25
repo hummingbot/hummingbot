@@ -191,7 +191,17 @@ class ExecutorBase(RunnableBase):
         """
         Override control loop to evaluate max retries after each control task.
         """
-        await self.on_start()
+        try:
+            await self.on_start()
+        except Exception as e:
+            # on_start() runs before the retry loop below, so an exception here used to
+            # escape control_loop altogether and strand the executor: never terminated,
+            # so it kept reporting RUNNING/is_active with no close_type, and nothing
+            # ticked it again. Close it as FAILED instead, so a startup failure reaches
+            # a terminal state and stays visible rather than becoming a silent zombie.
+            self.logger().error(f"Executor failed to start: {e}", exc_info=True)
+            self.close_type = CloseType.FAILED
+            self.stop()
         while not self.terminated.is_set():
             try:
                 await self.control_task()

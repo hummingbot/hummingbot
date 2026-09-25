@@ -3,6 +3,7 @@ import os
 from typing import TYPE_CHECKING, Any, List, Optional
 
 from hummingbot.client.command.gateway_api_manager import begin_placeholder_mode
+from hummingbot.core.gateway.gateway_error import GatewayError
 from hummingbot.core.gateway.gateway_http_client import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import build_config_dict_display
@@ -97,6 +98,8 @@ class GatewayConfigCommand:
             build_config_dict_display(lines, config_dict)
             self.notify("\n".join(lines))
 
+        except GatewayError as e:
+            self.notify(f"\nError: {e.message}")
         except Exception:
             remote_host = ':'.join([host, port])
             self.notify(f"\nError: Connection to Gateway {remote_host} failed")
@@ -115,7 +118,10 @@ class GatewayConfigCommand:
                 value=value
             )
             self.notify(response["message"])
+        except GatewayError as e:
+            self.notify(f"\nError: {e.message}")
         except Exception:
+            self.logger().error("Gateway configuration update failed", exc_info=True)
             self.notify(
                 "\nError: Gateway configuration update failed. See log file for more details."
             )
