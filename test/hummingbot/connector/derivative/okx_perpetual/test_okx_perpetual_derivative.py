@@ -1448,6 +1448,57 @@ class OkxPerpetualDerivativeTests(
             str(exception_context.exception)
         )
 
+    @patch("hummingbot.connector.derivative.okx_perpetual.okx_perpetual_api_order_book_data_source."
+           "OkxPerpetualAPIOrderBookDataSource.get_funding_info")
+    async def test_mark_price_reader_does_not_mix_pairs_or_keep_the_queue(self, get_funding_info):
+        from hummingbot.core.data_type.funding_info import FundingInfo
+
+        doge = "DOGE-USDT"
+        xrp = "XRP-USDT"
+        self.exchange._trading_pairs = [doge, xrp]
+        self.exchange._okx_funding_card_retry_seconds = 0.05
+
+        async def fake_card(trading_pair):
+            return FundingInfo(
+                trading_pair=trading_pair,
+                index_price=Decimal("1"),
+                mark_price=Decimal("1"),
+                next_funding_utc_timestamp=10,
+                rate=Decimal("0.01") if trading_pair == xrp else Decimal("0.02"),
+            )
+
+        get_funding_info.side_effect = fake_card
+
+        async def symbol_for(trading_pair):
+            return trading_pair + "-SWAP"
+
+        async def associated(symbol):
+            return symbol.replace("-SWAP", "")
+
+        self.exchange.exchange_symbol_associated_to_pair = symbol_for
+        self.exchange.trading_pair_associated_to_exchange_symbol = associated
+        await self.exchange.ensure_funding_price_streams()
+        self.assertIn(doge, self.exchange._perpetual_trading._funding_info)
+        self.assertIn(xrp, self.exchange._perpetual_trading._funding_info)
+
+        queue = self.exchange._orderbook_ds._message_queue[self.exchange._orderbook_ds._mark_price_queue_key]
+        queue.put_nowait({
+            "arg": {"channel": "mark-price", "instId": "DOGE-USDT-SWAP"},
+            "data": [{"instId": "DOGE-USDT-SWAP", "markPx": "0.2", "ts": "1"}],
+        })
+        await asyncio.sleep(0.2)
+        self.assertEqual(0, queue.qsize())
+        self.assertEqual(Decimal("0.2"), self.exchange._perpetual_trading._funding_info[doge].mark_price)
+        self.assertEqual(Decimal("0.01"), self.exchange._perpetual_trading._funding_info[xrp].rate)
+        self.assertEqual(Decimal("0.02"), self.exchange._perpetual_trading._funding_info[doge].rate)
+        for task in (
+            self.exchange._okx_funding_wrapper_task,
+            self.exchange._mark_price_listener_task,
+            self.exchange._index_price_listener_task,
+            self.exchange._perpetual_trading._funding_info_updater_task,
+        ):
+            task.cancel()
+
     @aioresponses()
     def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
         def callback(*args, **kwargs):
@@ -1458,7 +1509,9 @@ class OkxPerpetualDerivativeTests(
         url = self.funding_payment_url
         # TODO: Check with dman if this is ok
         # Since the funding payment is not updated in the order book, we need to set the last rate
-        self.exchange._orderbook_ds._last_rate = self.target_funding_payment_funding_rate
+        self.exchange._orderbook_ds._last_rate_by_pair[self.trading_pair] = (
+            self.target_funding_payment_funding_rate
+        )
 
         async def run_test():
             response = self.empty_funding_payment_mock_response

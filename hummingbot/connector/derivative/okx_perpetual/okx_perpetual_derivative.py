@@ -24,7 +24,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -36,6 +36,7 @@ s_decimal_0 = Decimal(0)
 class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     web_utils = web_utils
+    _okx_funding_card_retry_seconds = 5.0
 
     def __init__(
         self,
@@ -65,7 +66,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return OkxPerpetualAuth(self.okx_perpetual_api_key,
                                 self.okx_perpetual_secret_key,
                                 self.okx_perpetual_passphrase,
-                                self._time_synchronizer)
+                                self._time_synchronizer,
+                                domain=self._domain)
 
     @property
     def name(self) -> str:
@@ -197,6 +199,118 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             self._throttler.add_rate_limits(pair_rate_limits)
 
         await super().start_network()
+        base_listener = self._funding_info_listener_task
+        wrapper = getattr(self, "_okx_funding_wrapper_task", None)
+        if base_listener is not None and base_listener is not wrapper:
+            base_listener.cancel()
+            try:
+                await base_listener
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                self.logger().debug("Base funding listener stopped before OKX wrapper.", exc_info=True)
+            self._funding_info_listener_task = None
+        await self.ensure_funding_price_streams()
+
+    async def stop_network(self):
+        for attr in ("_mark_price_listener_task", "_index_price_listener_task", "_okx_funding_wrapper_task"):
+            task = getattr(self, attr, None)
+            if task is not None and not task.done():
+                task.cancel()
+            setattr(self, attr, None)
+        await super().stop_network()
+
+    def _register_okx_pair_rate_limits(self) -> None:
+        pairs = list(self._trading_pairs)
+        if not pairs:
+            return
+        self._throttler.add_rate_limits(web_utils._build_private_pair_specific_rate_limits(pairs))
+
+    def _okx_task_running(self, task) -> bool:
+        return task is not None and not task.done()
+
+    def _ensure_okx_funding_updater(self) -> None:
+        task = self._perpetual_trading._funding_info_updater_task
+        if self._okx_task_running(task):
+            return
+        self._perpetual_trading._funding_info_updater_task = safe_ensure_future(
+            self._perpetual_trading._funding_info_updater()
+        )
+
+    async def _fill_missing_funding_cards_once(self) -> None:
+        self._register_okx_pair_rate_limits()
+        for trading_pair in list(self._trading_pairs):
+            if trading_pair in self._perpetual_trading._funding_info:
+                continue
+            try:
+                funding_info = await self._orderbook_ds.get_funding_info(trading_pair)
+            except Exception:
+                self.logger().debug(
+                    f"Could not load funding card for {trading_pair}. Will retry.",
+                    exc_info=True,
+                )
+                continue
+            self._perpetual_trading.initialize_funding_info(funding_info)
+
+    def _start_okx_price_listeners_if_cards_ready(self) -> None:
+        missing = [
+            trading_pair for trading_pair in self._trading_pairs
+            if trading_pair not in self._perpetual_trading._funding_info
+        ]
+        if missing:
+            return
+        output = self._perpetual_trading.funding_info_stream
+        listeners = (
+            ("_mark_price_listener_task", self._orderbook_ds.listen_for_mark_price_info),
+            ("_index_price_listener_task", self._orderbook_ds.listen_for_index_price_info),
+        )
+        for attr, method in listeners:
+            task = getattr(self, attr, None)
+            if self._okx_task_running(task):
+                continue
+            setattr(self, attr, safe_ensure_future(method(output)))
+        self.logger().info(
+            "OKX funding price readers started for %s" % ",".join(self._trading_pairs)
+        )
+
+    async def _okx_funding_stream_wrapper(self) -> None:
+        listen_task = safe_ensure_future(
+            self._orderbook_ds.listen_for_funding_info(self._perpetual_trading.funding_info_stream)
+        )
+        try:
+            while True:
+                await self._fill_missing_funding_cards_once()
+                self._start_okx_price_listeners_if_cards_ready()
+                await asyncio.sleep(self._okx_funding_card_retry_seconds)
+        finally:
+            if not listen_task.done():
+                listen_task.cancel()
+
+    async def ensure_funding_price_streams(self) -> None:
+        """Start mark, index and funding readers without restarting the trading polls."""
+        self.logger().info(
+            "OKX funding streams check for %s" % ",".join(self._trading_pairs)
+        )
+        self._register_okx_pair_rate_limits()
+        self._ensure_okx_funding_updater()
+        wrapper = getattr(self, "_okx_funding_wrapper_task", None)
+        if not self._okx_task_running(wrapper):
+            self._okx_funding_wrapper_task = safe_ensure_future(self._okx_funding_stream_wrapper())
+            self._funding_info_listener_task = self._okx_funding_wrapper_task
+        await self._fill_missing_funding_cards_once()
+        self._start_okx_price_listeners_if_cards_ready()
+        safe_ensure_future(self._log_mark_price_queue_later())
+
+    async def _log_mark_price_queue_later(self) -> None:
+        import logging
+        log = logging.getLogger("services.unified_connector_service")
+        queue_key = self._orderbook_ds._mark_price_queue_key
+        for delay in (15, 45):
+            await asyncio.sleep(delay if delay == 15 else 30)
+            queue = self._orderbook_ds._message_queue.get(queue_key)
+            size = queue.qsize() if queue is not None else None
+            cards = len(self._perpetual_trading._funding_info)
+            log.info("OKX mark_price queue size=%s cards=%s", size, cards)
 
     async def add_trading_pair(self, trading_pair: str) -> bool:
         """
@@ -870,7 +984,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             timestamp, funding_rate = 0, Decimal("-1")
         else:
             timestamp: int = int(trading_pair_data[0]["ts"])
-            funding_rate: Decimal = self._orderbook_ds._last_rate if self._orderbook_ds._last_rate is not None else Decimal(str(-1))
+            stored_rate = self._orderbook_ds.last_rate_for_pair(trading_pair)
+            funding_rate: Decimal = stored_rate if stored_rate is not None else Decimal("-1")
             if trading_pair_data[0].get("type") == CONSTANTS.FUNDING_PAYMENT_TYPE:
                 payment: Decimal = Decimal(str(trading_pair_data[0]["pnl"]))
 

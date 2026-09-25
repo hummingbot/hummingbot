@@ -38,10 +38,10 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
-        self._last_index_price = None
-        self._last_mark_price = None
-        self._last_next_funding_utc_timestamp = None
-        self._last_rate = None
+        self._last_index_price_by_pair: Dict[str, Decimal] = {}
+        self._last_mark_price_by_pair: Dict[str, Decimal] = {}
+        self._last_next_funding_by_pair: Dict[str, int] = {}
+        self._last_rate_by_pair: Dict[str, Decimal] = {}
         self._trading_rules = {}
 
     # 1 - Order Book Snapshot REST
@@ -388,38 +388,37 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         symbol = raw_message["arg"]["instId"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         funding_data = raw_message["data"][0]
-        self._last_next_funding_utc_timestamp = int(float(funding_data["nextFundingTime"]) * 1e-3)
-        self._last_rate = (Decimal(str(funding_data["fundingRate"])))
-        info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                        index_price=self._last_index_price,
-                                        mark_price=self._last_mark_price,
-                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                        rate=self._last_rate)
+        next_funding = int(float(funding_data["nextFundingTime"]) * 1e-3)
+        rate = Decimal(str(funding_data["fundingRate"]))
+        self._last_next_funding_by_pair[trading_pair] = next_funding
+        self._last_rate_by_pair[trading_pair] = rate
+        info_update = FundingInfoUpdate(
+            trading_pair=trading_pair,
+            next_funding_utc_timestamp=next_funding,
+            rate=rate,
+        )
         message_queue.put_nowait(info_update)
 
     async def _parse_index_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         symbol = raw_message["arg"]["instId"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         index_price_data = raw_message["data"][0]
-        self._last_index_price = Decimal(str(index_price_data["idxPx"]))
-        info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                        index_price=self._last_index_price,
-                                        mark_price=self._last_mark_price,
-                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                        rate=self._last_rate)
+        index_price = Decimal(str(index_price_data["idxPx"]))
+        self._last_index_price_by_pair[trading_pair] = index_price
+        info_update = FundingInfoUpdate(trading_pair=trading_pair, index_price=index_price)
         message_queue.put_nowait(info_update)
 
     async def _parse_mark_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         symbol = raw_message["arg"]["instId"]
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         mark_price_data = raw_message["data"][0]
-        self._last_mark_price = Decimal(str(mark_price_data["markPx"]))
-        info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                        index_price=self._last_index_price,
-                                        mark_price=self._last_mark_price,
-                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                        rate=self._last_rate)
+        mark_price = Decimal(str(mark_price_data["markPx"]))
+        self._last_mark_price_by_pair[trading_pair] = mark_price
+        info_update = FundingInfoUpdate(trading_pair=trading_pair, mark_price=mark_price)
         message_queue.put_nowait(info_update)
+
+    def last_rate_for_pair(self, trading_pair: str) -> Optional[Decimal]:
+        return self._last_rate_by_pair.get(trading_pair)
 
     def _get_messages_queue_keys(self) -> List[str]:
         return [
@@ -443,7 +442,10 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             elif (event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL
                   and event_message["action"] == "snapshot"):
                 channel = self._snapshot_messages_queue_key
-            elif event_channel == CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL:
+            elif event_channel in (
+                CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL,
+                CONSTANTS.WS_FUNDING_INFO_CHANNEL,
+            ):
                 channel = self._funding_info_messages_queue_key
             elif event_channel == CONSTANTS.WS_MARK_PRICE_CHANNEL:
                 channel = self._mark_price_queue_key

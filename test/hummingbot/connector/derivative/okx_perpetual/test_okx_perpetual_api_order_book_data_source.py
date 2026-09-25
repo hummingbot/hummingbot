@@ -849,19 +849,13 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_mark_price_info(msg_queue))
 
         mark_price_update = Decimal(mark_price_event["data"][0]["markPx"])
-        expected_last_index_price = -1
-        expected_last_next_funding_utc_timestamp = -1
-        expected_last_rate = -1
-        self.data_source._last_index_price = expected_last_index_price
-        self.data_source._last_next_funding_utc_timestamp = expected_last_next_funding_utc_timestamp
-        self.data_source._last_rate = expected_last_rate
         msg: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
         self.assertEqual(mark_price_update, msg.mark_price)
-        self.assertEqual(expected_last_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
-        self.assertEqual(expected_last_rate, msg.rate)
-        self.assertEqual(expected_last_index_price, msg.index_price)
+        self.assertIsNone(msg.next_funding_utc_timestamp)
+        self.assertIsNone(msg.rate)
+        self.assertIsNone(msg.index_price)
 
     async def test_listen_for_index_price_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -903,20 +897,13 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_index_price_info(msg_queue))
 
         index_price_update = Decimal(index_price_event["data"][0]["idxPx"])
-        expected_last_mark_price = -2
-        expected_last_next_funding_utc_timestamp = -2
-        expected_last_rate = -2
-
-        self.data_source._last_mark_price = expected_last_mark_price
-        self.data_source._last_next_funding_utc_timestamp = expected_last_next_funding_utc_timestamp
-        self.data_source._last_rate = expected_last_rate
         msg: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
         self.assertEqual(index_price_update, msg.index_price)
-        self.assertEqual(expected_last_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
-        self.assertEqual(expected_last_rate, msg.rate)
-        self.assertEqual(expected_last_mark_price, msg.mark_price)
+        self.assertIsNone(msg.next_funding_utc_timestamp)
+        self.assertIsNone(msg.rate)
+        self.assertIsNone(msg.mark_price)
 
     async def test_listen_for_funding_info_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -957,20 +944,20 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
-        expected_last_index_price = -3
-        expected_last_mark_price = -3
         update_next_funding_utc_timestamp = int(float(index_price_event["data"][0]["nextFundingTime"]) * 1e-3)
         update_rate = Decimal(index_price_event["data"][0]["fundingRate"])
-
-        self.data_source._last_mark_price = expected_last_mark_price
-        self.data_source._last_index_price = expected_last_index_price
         msg: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        self.assertEqual(expected_last_index_price, msg.index_price)
+        self.assertIsNone(msg.index_price)
         self.assertEqual(update_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
         self.assertEqual(update_rate, msg.rate)
-        self.assertEqual(expected_last_mark_price, msg.mark_price)
+        self.assertIsNone(msg.mark_price)
+
+    def test_channel_originating_message_routes_funding_rate(self):
+        event_message = self.get_ws_funding_info_msg()
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._funding_info_messages_queue_key)
 
     async def test_channel_originating_message_snapshot_queue(self):
         event_message = self.get_ws_order_book_snapshot_msg()
