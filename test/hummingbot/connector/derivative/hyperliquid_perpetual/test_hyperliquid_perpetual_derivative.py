@@ -17,6 +17,7 @@ import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetu
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
     HyperliquidPerpetualDerivative,
 )
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -1808,6 +1809,93 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    async def test_close_order_below_min_notional_is_submitted_when_capability_enabled(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._trading_rules[self.trading_pair].min_notional_size = Decimal("10")
+        self.exchange._place_order_and_process_update = AsyncMock()
+
+        await self.exchange._create_order(
+            trade_type=TradeType.SELL,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("0.02"),
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.CLOSE,
+            price=Decimal("100"),
+        )
+
+        self.exchange._place_order_and_process_update.assert_awaited_once()
+
+    async def test_open_order_below_min_notional_is_rejected_when_capability_enabled(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._trading_rules[self.trading_pair].min_notional_size = Decimal("10")
+        self.exchange._place_order_and_process_update = AsyncMock()
+
+        await self.exchange._create_order(
+            trade_type=TradeType.BUY,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("0.02"),
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.OPEN,
+            price=Decimal("100"),
+        )
+        await asyncio.sleep(0.001)
+
+        self.exchange._place_order_and_process_update.assert_not_awaited()
+        self.assertNotIn("OID1", self.exchange.in_flight_orders)
+        self.assertEqual("OID1", self.order_failure_logger.event_log[0].order_id)
+
+    async def test_close_order_below_min_order_size_is_rejected(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._trading_rules[self.trading_pair].min_notional_size = Decimal("10")
+        self.exchange._place_order_and_process_update = AsyncMock()
+
+        await self.exchange._create_order(
+            trade_type=TradeType.SELL,
+            order_id="OID1",
+            trading_pair=self.trading_pair,
+            amount=Decimal("0.001"),
+            order_type=OrderType.LIMIT,
+            position_action=PositionAction.CLOSE,
+            price=Decimal("100"),
+        )
+        await asyncio.sleep(0.001)
+
+        self.exchange._place_order_and_process_update.assert_not_awaited()
+        self.assertNotIn("OID1", self.exchange.in_flight_orders)
+        self.assertEqual("OID1", self.order_failure_logger.event_log[0].order_id)
+
+    async def test_connector_without_capability_rejects_close_below_min_notional(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._trading_rules[self.trading_pair].min_notional_size = Decimal("10")
+        self.exchange._place_order_and_process_update = AsyncMock()
+
+        with patch.object(
+                HyperliquidPerpetualDerivative,
+                "allow_reduce_only_orders_below_min_notional",
+                ExchangePyBase.allow_reduce_only_orders_below_min_notional,
+        ):
+            await self.exchange._create_order(
+                trade_type=TradeType.SELL,
+                order_id="OID1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("0.02"),
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.CLOSE,
+                price=Decimal("100"),
+            )
+        await asyncio.sleep(0.001)
+
+        self.exchange._place_order_and_process_update.assert_not_awaited()
+        self.assertNotIn("OID1", self.exchange.in_flight_orders)
+        self.assertEqual("OID1", self.order_failure_logger.event_log[0].order_id)
+
+    def test_reduce_only_and_min_notional_rejections_map_to_failed_order_state(self):
+        for rejection_status in ["reduceOnlyRejected", "minTradeNtlRejected"]:
+            with self.subTest(rejection_status=rejection_status):
+                self.assertEqual(OrderState.FAILED, CONSTANTS.ORDER_STATE[rejection_status])
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
