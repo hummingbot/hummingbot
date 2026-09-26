@@ -23,6 +23,7 @@ from hummingbot.core.rate_oracle.sources.decibel_perpetual_rate_source import De
 from hummingbot.core.rate_oracle.sources.derive_rate_source import DeriveRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
 from hummingbot.core.rate_oracle.sources.evedex_perpetual_rate_source import EvedexPerpetualRateSource
+from hummingbot.core.rate_oracle.sources.fxmacrodata_rate_source import FXMacroDataRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.hyperliquid_perpetual_rate_source import HyperliquidPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.hyperliquid_rate_source import HyperliquidRateSource
@@ -52,6 +53,7 @@ RATE_ORACLE_SOURCES = {
     "evedex_perpetual": EvedexPerpetualRateSource,
     "pacifica_perpetual": PacificaPerpetualRateSource,
     "decibel_perpetual": DecibelPerpetualRateSource,
+    "fxmacrodata": FXMacroDataRateSource,
 }
 
 
