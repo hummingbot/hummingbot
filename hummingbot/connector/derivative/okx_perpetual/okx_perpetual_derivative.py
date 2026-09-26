@@ -67,8 +67,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return OkxPerpetualAuth(self.okx_perpetual_api_key,
                                 self.okx_perpetual_secret_key,
                                 self.okx_perpetual_passphrase,
-                                self._time_synchronizer,
-                                domain=self._domain)
+                                self._time_synchronizer)
 
     @property
     def name(self) -> str:
