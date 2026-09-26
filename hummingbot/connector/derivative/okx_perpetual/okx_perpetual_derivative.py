@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -264,12 +265,20 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             ("_mark_price_listener_task", self._orderbook_ds.listen_for_mark_price_info),
             ("_index_price_listener_task", self._orderbook_ds.listen_for_index_price_info),
         )
+        started = False
         for attr, method in listeners:
             task = getattr(self, attr, None)
             if self._okx_task_running(task):
                 continue
             setattr(self, attr, safe_ensure_future(method(output)))
-        self.logger().info(
+            started = True
+        if not started:
+            return
+        notice = logging.getLogger(
+            "hummingbot.connector.derivative.okx_perpetual.funding_readers"
+        )
+        notice.setLevel(logging.INFO)
+        notice.info(
             "OKX funding price readers started for %s" % ",".join(self._trading_pairs)
         )
 

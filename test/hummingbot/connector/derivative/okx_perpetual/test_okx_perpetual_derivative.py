@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
@@ -2627,3 +2628,87 @@ class OkxPerpetualDerivativeTests(
         mock_api.get(self.latest_prices_url, body=json.dumps(self.latest_prices_request_mock_response))
         lastprice_response = self.run_async_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
         self.assertEqual(lastprice_response, 9999.9)
+
+
+class FundingReadersLogTests(IsolatedAsyncioWrapperTestCase):
+    async def test_funding_readers_log_reaches_warning_root_only_when_started(self):
+        notice_name = "hummingbot.connector.derivative.okx_perpetual.funding_readers"
+        connector_name = (
+            "hummingbot.connector.derivative.okx_perpetual."
+            "okx_perpetual_derivative.OkxPerpetualDerivative"
+        )
+        ancestors = [
+            "hummingbot",
+            "hummingbot.connector",
+            "hummingbot.connector.derivative",
+            "hummingbot.connector.derivative.okx_perpetual",
+        ]
+        root = logging.getLogger()
+        notice = logging.getLogger(notice_name)
+        connector_log = logging.getLogger(connector_name)
+        saved = {name: logging.getLogger(name).level for name in ancestors}
+        saved[""] = root.level
+        saved_notice = notice.level
+        saved_connector = connector_log.level
+        root_records = []
+        connector_records = []
+
+        class _Capture(logging.Handler):
+            def __init__(self, sink):
+                super().__init__(level=logging.INFO)
+                self.sink = sink
+
+            def emit(self, record):
+                self.sink.append(record)
+
+        root_handler = _Capture(root_records)
+        connector_handler = _Capture(connector_records)
+        exchange = OkxPerpetualDerivative.__new__(OkxPerpetualDerivative)
+
+        async def _hold(_output):
+            await asyncio.sleep(30)
+
+        try:
+            root.setLevel(logging.WARNING)
+            for name in ancestors:
+                logging.getLogger(name).setLevel(logging.WARNING)
+            notice.setLevel(logging.NOTSET)
+            connector_log.setLevel(logging.INFO)
+            root.addHandler(root_handler)
+            connector_log.addHandler(connector_handler)
+
+            exchange._trading_pairs = ["XRP-USDT"]
+            exchange._perpetual_trading = type("Cards", (), {})()
+            exchange._perpetual_trading._funding_info = {"XRP-USDT": object()}
+            exchange._perpetual_trading.funding_info_stream = object()
+            exchange._orderbook_ds = type("Books", (), {})()
+            exchange._orderbook_ds.listen_for_mark_price_info = _hold
+            exchange._orderbook_ds.listen_for_index_price_info = _hold
+            exchange._mark_price_listener_task = None
+            exchange._index_price_listener_task = None
+            asyncio.set_event_loop(asyncio.get_running_loop())
+
+            exchange._start_okx_price_listeners_if_cards_ready()
+            await asyncio.sleep(0)
+            started = [record.getMessage() for record in root_records]
+            self.assertEqual(["OKX funding price readers started for XRP-USDT"], started)
+            self.assertEqual([], [record.getMessage() for record in connector_records])
+
+            exchange._start_okx_price_listeners_if_cards_ready()
+            self.assertEqual(started, [record.getMessage() for record in root_records])
+        finally:
+            root.removeHandler(root_handler)
+            connector_log.removeHandler(connector_handler)
+            root.setLevel(saved[""])
+            for name in ancestors:
+                logging.getLogger(name).setLevel(saved[name])
+            notice.setLevel(saved_notice)
+            connector_log.setLevel(saved_connector)
+            for attr in ("_mark_price_listener_task", "_index_price_listener_task"):
+                task = getattr(exchange, attr, None)
+                if task is not None and hasattr(task, "done") and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
