@@ -5,7 +5,7 @@ import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, List, Optional, Tuple
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 from aioresponses import aioresponses
@@ -14,6 +14,7 @@ from aioresponses.core import RequestCall
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -2712,3 +2713,75 @@ class FundingReadersLogTests(IsolatedAsyncioWrapperTestCase):
                         await task
                     except asyncio.CancelledError:
                         pass
+
+
+class OkxFundingStreamCoverageTests(IsolatedAsyncioWrapperTestCase):
+    def _bare(self):
+        exchange = OkxPerpetualDerivative.__new__(OkxPerpetualDerivative)
+        exchange._trading_pairs = []
+        exchange._throttler = MagicMock()
+        exchange._perpetual_trading = MagicMock()
+        exchange._perpetual_trading._funding_info = {}
+        exchange._perpetual_trading._funding_info_updater_task = None
+        exchange._orderbook_ds = MagicMock()
+        exchange._mark_price_listener_task = None
+        exchange._index_price_listener_task = None
+        exchange._okx_funding_wrapper_task = None
+        exchange._funding_info_listener_task = None
+        exchange._okx_funding_card_retry_seconds = 0.01
+        return exchange
+
+    async def test_stop_network_cancels_reader_tasks(self):
+        exchange = self._bare()
+        task = MagicMock()
+        task.done.return_value = False
+        exchange._mark_price_listener_task = task
+        with patch.object(PerpetualDerivativePyBase, "stop_network", new=AsyncMock()):
+            await exchange.stop_network()
+        task.cancel.assert_called_once()
+        self.assertIsNone(exchange._mark_price_listener_task)
+
+    async def test_start_network_cancels_base_listener_before_wrapper(self):
+        exchange = self._bare()
+
+        async def parent_start(self):
+            self._funding_info_listener_task = asyncio.create_task(asyncio.sleep(30))
+
+        with patch.object(PerpetualDerivativePyBase, "start_network", parent_start):
+            with patch.object(exchange, "ensure_funding_price_streams", new=AsyncMock()):
+                await exchange.start_network()
+        self.assertIsNone(exchange._funding_info_listener_task)
+
+    async def test_fill_card_error_is_retried_later(self):
+        exchange = self._bare()
+        exchange._trading_pairs = ["DOGE-USDT"]
+        exchange._orderbook_ds.get_funding_info = AsyncMock(side_effect=RuntimeError("no card"))
+        await exchange._fill_missing_funding_cards_once()
+        exchange._perpetual_trading.initialize_funding_info.assert_not_called()
+
+    def test_empty_pairs_do_not_register_limits(self):
+        exchange = self._bare()
+        exchange._register_okx_pair_rate_limits()
+        exchange._throttler.add_rate_limits.assert_not_called()
+
+    def test_running_updater_is_not_replaced(self):
+        exchange = self._bare()
+        running = MagicMock()
+        running.done.return_value = False
+        exchange._perpetual_trading._funding_info_updater_task = running
+        exchange._ensure_okx_funding_updater()
+        self.assertIs(running, exchange._perpetual_trading._funding_info_updater_task)
+
+    def test_listeners_wait_until_cards_exist(self):
+        exchange = self._bare()
+        exchange._trading_pairs = ["DOGE-USDT"]
+        exchange._start_okx_price_listeners_if_cards_ready()
+        self.assertIsNone(exchange._mark_price_listener_task)
+
+    async def test_queue_size_is_logged_after_readers_start(self):
+        exchange = self._bare()
+        exchange._orderbook_ds._mark_price_queue_key = "mark_price"
+        exchange._orderbook_ds._message_queue = {"mark_price": asyncio.Queue()}
+        exchange._perpetual_trading._funding_info = {"DOGE-USDT": object()}
+        with patch("asyncio.sleep", new=AsyncMock()):
+            await exchange._log_mark_price_queue_later()
