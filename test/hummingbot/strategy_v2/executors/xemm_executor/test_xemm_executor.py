@@ -85,12 +85,11 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor._status = RunnableStatus.TERMINATED
         self.executor.maker_order = Mock(spec=TrackedOrder)
         self.executor.taker_order = Mock(spec=TrackedOrder)
-        self.executor.maker_order.executed_amount_base = Decimal('1')
-        self.executor.taker_order.executed_amount_base = Decimal('1')
-        self.executor.maker_order.average_executed_price = Decimal('100')
-        self.executor.taker_order.average_executed_price = Decimal('200')
+        self.executor.maker_order.executed_amount_quote = Decimal('100')
+        self.executor.taker_order.executed_amount_quote = Decimal('200')
         self.executor.maker_order.cum_fees_quote = Decimal('1')
         self.executor.taker_order.cum_fees_quote = Decimal('1')
+        # The maker buys for 100 and the taker sells for 200, less 2 in fees.
         self.assertEqual(self.executor.net_pnl_quote, Decimal('98'))
         self.assertEqual(self.executor.net_pnl_pct, Decimal('0.98'))
 
@@ -99,14 +98,94 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor._status = RunnableStatus.TERMINATED
         executor.maker_order = Mock(spec=TrackedOrder)
         executor.taker_order = Mock(spec=TrackedOrder)
-        executor.maker_order.executed_amount_base = Decimal('1')
-        executor.taker_order.executed_amount_base = Decimal('1')
-        executor.maker_order.average_executed_price = Decimal('100')
-        executor.taker_order.average_executed_price = Decimal('200')
+        executor.maker_order.executed_amount_quote = Decimal('100')
+        executor.taker_order.executed_amount_quote = Decimal('200')
         executor.maker_order.cum_fees_quote = Decimal('1')
         executor.taker_order.cum_fees_quote = Decimal('1')
-        self.assertEqual(executor.net_pnl_quote, Decimal('98'))
-        self.assertEqual(executor.net_pnl_pct, Decimal('0.98'))
+        # Here the maker is the one selling, for 100, while the taker buys for
+        # 200, so the round trip loses 100 on the spread and 2 more in fees.
+        self.assertEqual(executor.net_pnl_quote, Decimal('-102'))
+        # Measured against the 200 the taker leg spent.
+        self.assertEqual(executor.net_pnl_pct, Decimal('-0.51'))
+
+    def test_net_pnl_pct_is_a_return_on_quote_spent(self):
+        # The two legs move different amounts of quote, so a denominator taken
+        # from the wrong leg or the wrong unit cannot coincide with the answer.
+        self.executor._status = RunnableStatus.TERMINATED
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.taker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.executed_amount_quote = Decimal('6000')
+        self.executor.taker_order.executed_amount_quote = Decimal('6020')
+        self.executor.maker_order.cum_fees_quote = Decimal('2')
+        self.executor.taker_order.cum_fees_quote = Decimal('2')
+        # 6020 received, 6000 spent, 4 in fees.
+        self.assertEqual(self.executor.net_pnl_quote, Decimal('16'))
+        self.assertEqual(self.executor.net_pnl_pct, Decimal('16') / Decimal('6000'))
+
+    def test_net_pnl_pct_with_an_unfilled_market_order(self):
+        # The taker leg is a market order and ExecutorBase.place_order defaults
+        # its price to NaN, so reconstructing the quote from the base amount
+        # and the average price would give NaN here, and NaN raises on
+        # comparison rather than coming out false.
+        executor = XEMMExecutor(self.strategy, self.base_config_short, self.update_interval)
+        unfilled = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1234,
+            amount=Decimal('1'),
+            price=Decimal('NaN'),
+        )
+        executor.taker_order = TrackedOrder(order_id="OID-BUY-1")
+        executor.taker_order.order = unfilled
+        executor.maker_order = Mock(spec=TrackedOrder)
+        executor.maker_order.executed_amount_quote = Decimal('100')
+        executor.maker_order.cum_fees_quote = Decimal('1')
+        executor._status = RunnableStatus.TERMINATED
+        self.assertEqual(executor.net_pnl_pct, Decimal('0'))
+
+    def test_net_pnl_quote_with_a_cancelled_leg_is_not_nan(self):
+        # A cancelled order is done with no fills, so its price is still the
+        # NaN that place_order defaulted to. Reconstructing the quote from it
+        # left the pnl NaN, which ExecutorInfo reports as zero, hiding a loss.
+        self.executor.maker_order = Mock(spec=TrackedOrder)
+        self.executor.maker_order.executed_amount_quote = Decimal('6000')
+        self.executor.maker_order.cum_fees_quote = Decimal('2')
+        cancelled = InFlightOrder(
+            client_order_id="OID-SELL-1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            creation_timestamp=1234,
+            amount=Decimal('2'),
+            price=Decimal('NaN'),
+            initial_state=OrderState.CANCELED,
+        )
+        self.executor.taker_order = TrackedOrder(order_id="OID-SELL-1")
+        self.executor.taker_order.order = cancelled
+        self.executor._status = RunnableStatus.TERMINATED
+        # 6000 spent on the maker leg, nothing sold, 2 in fees.
+        self.assertFalse(self.executor.net_pnl_quote.is_nan())
+        self.assertEqual(self.executor.net_pnl_quote, Decimal('-6002'))
+
+    def test_status_names_the_token_the_tx_cost_is_denominated_in(self):
+        # get_tx_cost_in_asset converts both fees into the base asset of the
+        # buying market, unwrapped, so the status line has to name that.
+        self.assertEqual(self.executor._tx_cost_token, "ETH")
+        self.assertIn(f"{self.executor._tx_cost:.3f} ETH", self.executor.to_format_status())
+
+        wrapped = XEMMExecutorConfig(
+            timestamp=1234,
+            buying_market=ConnectorPair(connector_name='binance', trading_pair='WETH-USDT'),
+            selling_market=ConnectorPair(connector_name='kucoin', trading_pair='ETH-USDT'),
+            maker_side=TradeType.BUY,
+            order_amount=Decimal('100'),
+            min_profitability=Decimal('0.01'),
+            target_profitability=Decimal('0.015'),
+            max_profitability=Decimal('0.02'),
+        )
+        self.assertEqual(XEMMExecutor(self.strategy, wrapped, self.update_interval)._tx_cost_token, "ETH")
 
     @patch.object(XEMMExecutor, 'get_trading_rules')
     @patch.object(XEMMExecutor, 'adjust_order_candidates')

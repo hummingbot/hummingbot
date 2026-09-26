@@ -4,7 +4,8 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
@@ -55,15 +56,47 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.executor.close_type = CloseType.COMPLETED
         self.executor._buy_order = Mock(spec=TrackedOrder)
         self.executor._sell_order = Mock(spec=TrackedOrder)
-        self.executor._buy_order.order.executed_amount_base = Decimal('1')
-        self.executor._sell_order.order.executed_amount_base = Decimal('1')
-        self.executor._buy_order.average_executed_price = Decimal('100')
-        self.executor._sell_order.average_executed_price = Decimal('200')
+        self.executor._buy_order.executed_amount_quote = Decimal('100')
+        self.executor._sell_order.executed_amount_quote = Decimal('200')
         self.executor._buy_order.cum_fees_quote = Decimal('1')
         self.executor._sell_order.cum_fees_quote = Decimal('1')
         self.executor._status = RunnableStatus.TERMINATED
         self.assertEqual(self.executor.get_net_pnl_quote(), Decimal('98'))
-        self.assertEqual(self.executor.get_net_pnl_pct(), Decimal('98'))
+        # 98 USDT earned on the 100 USDT the buy leg spent.
+        self.assertEqual(self.executor.get_net_pnl_pct(), Decimal('0.98'))
+
+    def test_net_pnl_pct_is_a_return_on_quote_spent(self):
+        # The two legs move different amounts of quote, so a denominator taken
+        # from the wrong leg or the wrong unit cannot coincide with the answer.
+        self.executor.close_type = CloseType.COMPLETED
+        self.executor._buy_order = Mock(spec=TrackedOrder)
+        self.executor._sell_order = Mock(spec=TrackedOrder)
+        self.executor._buy_order.executed_amount_quote = Decimal('6000')
+        self.executor._sell_order.executed_amount_quote = Decimal('6020')
+        self.executor._buy_order.cum_fees_quote = Decimal('2')
+        self.executor._sell_order.cum_fees_quote = Decimal('2')
+        self.executor._status = RunnableStatus.TERMINATED
+        # 6020 received, 6000 spent, 4 in fees.
+        self.assertEqual(self.executor.get_net_pnl_quote(), Decimal('16'))
+        self.assertEqual(self.executor.get_net_pnl_pct(), Decimal('16') / Decimal('6000'))
+
+    def test_net_pnl_pct_with_an_unfilled_market_order(self):
+        # ExecutorBase.place_order defaults the price to NaN, so reconstructing
+        # the quote from the base amount and the average price would give NaN
+        # here, and NaN raises on comparison rather than coming out false.
+        unfilled = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1234,
+            amount=Decimal('1'),
+            price=Decimal('NaN'),
+        )
+        self.executor._buy_order = TrackedOrder(order_id="OID-BUY-1")
+        self.executor._buy_order.order = unfilled
+        self.executor._status = RunnableStatus.TERMINATED
+        self.assertEqual(self.executor.get_net_pnl_pct(), Decimal('0'))
 
     @patch.object(ArbitrageExecutor, "get_resulting_price_for_amount")
     @patch.object(ArbitrageExecutor, "get_tx_cost_in_asset")

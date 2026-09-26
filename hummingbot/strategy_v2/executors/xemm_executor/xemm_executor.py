@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 from hummingbot.connector.connector_base import ConnectorBase, Union
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -75,6 +75,10 @@ class XEMMExecutor(ExecutorBase):
         self._maker_target_price = Decimal("1")
         self._tx_cost = Decimal("1")
         self._tx_cost_pct = Decimal("1")
+        # Both fees are converted into the base asset, so the status line has
+        # to name that token rather than the quote.
+        buying_base, _ = split_hb_trading_pair(config.buying_market.trading_pair)
+        self._tx_cost_token = buying_base[1:] if buying_base.startswith("W") else buying_base
         self._current_trade_profitability = Decimal("0")
         self.maker_order = None
         self.taker_order = None
@@ -137,15 +141,13 @@ class XEMMExecutor(ExecutorBase):
             self._maker_target_price = self._taker_result_price / (Decimal("1") + self.config.target_profitability + self._tx_cost_pct)
 
     async def update_tx_costs(self):
-        base, quote = split_hb_trading_pair(trading_pair=self.config.buying_market.trading_pair)
-        base_without_wrapped = base[1:] if base.startswith("W") else base
         taker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
             exchange=self.taker_connector,
             trading_pair=self.taker_trading_pair,
             order_type=OrderType.MARKET,
             is_buy=self.taker_order_side == TradeType.BUY,
             order_amount=self.config.order_amount,
-            asset=base_without_wrapped
+            asset=self._tx_cost_token
         ))
         maker_fee_task = asyncio.create_task(self.get_tx_cost_in_asset(
             exchange=self.maker_connector,
@@ -153,7 +155,7 @@ class XEMMExecutor(ExecutorBase):
             order_type=OrderType.LIMIT,
             is_buy=self.maker_order_side == TradeType.BUY,
             order_amount=self.config.order_amount,
-            asset=base_without_wrapped
+            asset=self._tx_cost_token
         ))
 
         taker_fee, maker_fee = await asyncio.gather(taker_fee_task, maker_fee_task)
@@ -312,17 +314,34 @@ class XEMMExecutor(ExecutorBase):
         else:
             return Decimal("0")
 
+    @property
+    def buy_order(self) -> Optional[TrackedOrder]:
+        """The leg that spends quote, whichever venue it sits on."""
+        return self.maker_order if self.maker_order_side == TradeType.BUY else self.taker_order
+
+    @property
+    def sell_order(self) -> Optional[TrackedOrder]:
+        """The leg that receives quote, whichever venue it sits on."""
+        return self.taker_order if self.maker_order_side == TradeType.BUY else self.maker_order
+
     def get_net_pnl_quote(self) -> Decimal:
         if self.is_closed and self.maker_order and self.taker_order and self.maker_order.is_done and self.taker_order.is_done:
-            maker_pnl = self.maker_order.executed_amount_base * self.maker_order.average_executed_price
-            taker_pnl = self.taker_order.executed_amount_base * self.taker_order.average_executed_price
-            return taker_pnl - maker_pnl - self.get_cum_fees_quote()
+            # Which leg spends the quote depends on the maker side, so the
+            # subtraction has to follow it rather than assume the taker sells.
+            return (self.sell_order.executed_amount_quote
+                    - self.buy_order.executed_amount_quote
+                    - self.get_cum_fees_quote())
         else:
             return Decimal("0")
 
     def get_net_pnl_pct(self) -> Decimal:
-        pnl_quote = self.get_net_pnl_quote()
-        return pnl_quote / self.config.order_amount
+        # config.order_amount is a requested size in base, so dividing a quote
+        # pnl by it both scales the result by the entry price and ignores
+        # partial fills. The capital at risk is what the buy leg spent.
+        quote_spent = self.buy_order.executed_amount_quote if self.buy_order else Decimal("0")
+        if quote_spent > 0:
+            return self.get_net_pnl_quote() / quote_spent
+        return Decimal("0")
 
     async def get_quote_asset_conversion_rate(self) -> Decimal:
         """
@@ -346,6 +365,6 @@ Maker Side: {self.maker_order_side}
     - Maker: {self.maker_connector} {self.maker_trading_pair} | Taker: {self.taker_connector} {self.taker_trading_pair}
     - Min profitability: {self.config.min_profitability * 100:.2f}% | Target profitability: {self.config.target_profitability * 100:.2f}% | Max profitability: {self.config.max_profitability * 100:.2f}% | Current profitability: {(self._current_trade_profitability - self._tx_cost_pct) * 100:.2f}%
     - Trade profitability: {self._current_trade_profitability * 100:.2f}% | Tx cost: {self._tx_cost_pct * 100:.2f}%
-    - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self.maker_trading_pair.split('-')[-1]} | Order amount (Base): {self.config.order_amount:.2f}
+    - Taker result price: {self._taker_result_price:.3f} | Tx cost: {self._tx_cost:.3f} {self._tx_cost_token} | Order amount (Base): {self.config.order_amount:.2f}
 -----------------------------------------------------------------------------------------------------------------------
 """
