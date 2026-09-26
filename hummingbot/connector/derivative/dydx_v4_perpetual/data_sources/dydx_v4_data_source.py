@@ -90,10 +90,8 @@ class DydxPerpetualV4Client:
         future = now + interval
         return int(future.timestamp())
 
-    def get_sequence(self):
-        current_seq = self.sequence
-        self.sequence += 1
-        return current_seq
+    def peek_sequence(self):
+        return self.sequence
 
     def get_number(self):
         return self.number
@@ -101,7 +99,7 @@ class DydxPerpetualV4Client:
     async def trading_account_sequence(self) -> int:
         if not self._is_trading_account_initialized:
             await self.initialize_trading_account()
-        return self.get_sequence()
+        return self.peek_sequence()
 
     async def trading_account_number(self) -> int:
         if not self._is_trading_account_initialized:
@@ -279,10 +277,28 @@ class DydxPerpetualV4Client:
             broadcast_req = BroadcastTxRequest(
                 tx_bytes=tx.tx.SerializeToString(), mode=BroadcastMode.BROADCAST_MODE_SYNC
             )
-            result = await self.send_tx_sync_mode(broadcast_req)
+            try:
+                result = await self.send_tx_sync_mode(broadcast_req)
+            except Exception:
+                # The broadcast call itself failed (network/gRPC error, timeout, etc.),
+                # not just an on-chain rejection. `sequence` was never advanced for this
+                # attempt, so force the next attempt to re-fetch the real on-chain
+                # sequence rather than reusing this one, in case a partial submission
+                # actually landed despite the client-side error.
+                self._is_trading_account_initialized = False
+                raise
+
             err_msg = result.get("raw_log", "")
-            if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in err_msg:
+            if err_msg and err_msg != "[]":
+                # Any on-chain rejection - not just a sequence mismatch specifically -
+                # means this sequence number was not consumed. Resync from chain instead
+                # of advancing the local counter, so the next transaction doesn't inherit
+                # a stale value that was never actually used.
                 await self.initialize_trading_account()
+            else:
+                # Broadcast accepted: only now is it safe to assume this sequence number
+                # was consumed and advance to the next one.
+                self.sequence += 1
 
             return result
 
