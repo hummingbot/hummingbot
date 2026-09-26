@@ -3,7 +3,7 @@ import json
 import os
 import platform
 from collections import namedtuple
-from hashlib import md5
+from hashlib import sha256
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from hexbytes import HexBytes
@@ -44,7 +44,7 @@ def validate_trading_pair(trading_pair: str) -> bool:
 
 
 def _bot_instance_id() -> str:
-    return md5(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
+    return sha256(f"{platform.uname()}_pid:{os.getpid()}_ppid:{os.getppid()}".encode("utf-8")).hexdigest()
 
 
 def get_new_client_order_id(
@@ -76,7 +76,7 @@ def get_new_client_order_id(
         id_prefix = f"{hbot_order_id_prefix}{side}{base_str}{quote_str}"
         suffix_max_length = max_id_len - len(id_prefix)
         if suffix_max_length < len(ts_hex):
-            id_suffix = md5(f"{ts_hex}{client_instance_id}".encode()).hexdigest()
+            id_suffix = sha256(f"{ts_hex}{client_instance_id}".encode()).hexdigest()
             client_order_id = f"{id_prefix}{id_suffix[:suffix_max_length]}"
         else:
             client_order_id = client_order_id[:max_id_len]
