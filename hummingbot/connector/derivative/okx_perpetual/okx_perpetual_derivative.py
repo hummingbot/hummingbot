@@ -213,7 +213,12 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         await self.ensure_funding_price_streams()
 
     async def stop_network(self):
-        for attr in ("_mark_price_listener_task", "_index_price_listener_task", "_okx_funding_wrapper_task"):
+        for attr in (
+            "_mark_price_listener_task",
+            "_index_price_listener_task",
+            "_okx_funding_wrapper_task",
+            "_mark_price_queue_log_task",
+        ):
             task = getattr(self, attr, None)
             if task is not None and not task.done():
                 task.cancel()
@@ -253,12 +258,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             self._perpetual_trading.initialize_funding_info(funding_info)
 
     def _start_okx_price_listeners_if_cards_ready(self) -> None:
-        missing = [
-            trading_pair for trading_pair in self._trading_pairs
-            if trading_pair not in self._perpetual_trading._funding_info
-        ]
-        if missing:
-            return
+        """Start price readers even if one pair still has no funding card."""
         output = self._perpetual_trading.funding_info_stream
         listeners = (
             ("_mark_price_listener_task", self._orderbook_ds.listen_for_mark_price_info),
@@ -307,7 +307,11 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             self._funding_info_listener_task = self._okx_funding_wrapper_task
         await self._fill_missing_funding_cards_once()
         self._start_okx_price_listeners_if_cards_ready()
-        safe_ensure_future(self._log_mark_price_queue_later())
+        log_task = getattr(self, "_mark_price_queue_log_task", None)
+        if not self._okx_task_running(log_task):
+            self._mark_price_queue_log_task = safe_ensure_future(
+                self._log_mark_price_queue_later()
+            )
 
     async def _log_mark_price_queue_later(self) -> None:
         import logging

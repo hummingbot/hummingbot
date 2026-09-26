@@ -1498,8 +1498,103 @@ class OkxPerpetualDerivativeTests(
             self.exchange._mark_price_listener_task,
             self.exchange._index_price_listener_task,
             self.exchange._perpetual_trading._funding_info_updater_task,
+            getattr(self.exchange, "_mark_price_queue_log_task", None),
         ):
-            task.cancel()
+            if task is not None:
+                task.cancel()
+
+    @patch("hummingbot.connector.derivative.okx_perpetual.okx_perpetual_api_order_book_data_source."
+           "OkxPerpetualAPIOrderBookDataSource.get_funding_info")
+    async def test_one_missing_card_does_not_block_the_other_reader(self, get_funding_info):
+        doge = "DOGE-USDT"
+        xrp = "XRP-USDT"
+        self.exchange._trading_pairs = [doge, xrp]
+        self.exchange._okx_funding_card_retry_seconds = 0.05
+
+        async def fake_card(trading_pair):
+            if trading_pair == xrp:
+                raise RuntimeError("no card")
+            return FundingInfo(
+                trading_pair=trading_pair,
+                index_price=Decimal("1"),
+                mark_price=Decimal("1"),
+                next_funding_utc_timestamp=10,
+                rate=Decimal("0.02"),
+            )
+
+        get_funding_info.side_effect = fake_card
+
+        async def symbol_for(trading_pair):
+            return trading_pair + "-SWAP"
+
+        async def associated(symbol):
+            return symbol.replace("-SWAP", "")
+
+        self.exchange.exchange_symbol_associated_to_pair = symbol_for
+        self.exchange.trading_pair_associated_to_exchange_symbol = associated
+        notice = logging.getLogger(
+            "hummingbot.connector.derivative.okx_perpetual.funding_readers"
+        )
+        started = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record):
+                started.append(record.getMessage())
+
+        handler = _Capture()
+        notice.addHandler(handler)
+        notice.setLevel(logging.INFO)
+        try:
+            await self.exchange.ensure_funding_price_streams()
+            self.assertIn(doge, self.exchange._perpetual_trading._funding_info)
+            self.assertNotIn(xrp, self.exchange._perpetual_trading._funding_info)
+            self.assertIsNotNone(self.exchange._mark_price_listener_task)
+            self.assertIsNotNone(self.exchange._index_price_listener_task)
+            mark_task = self.exchange._mark_price_listener_task
+            self.exchange._start_okx_price_listeners_if_cards_ready()
+            self.assertIs(mark_task, self.exchange._mark_price_listener_task)
+
+            queue = self.exchange._orderbook_ds._message_queue[
+                self.exchange._orderbook_ds._mark_price_queue_key
+            ]
+            queue.put_nowait({
+                "arg": {"channel": "mark-price", "instId": "XRP-USDT-SWAP"},
+                "data": [{"instId": "XRP-USDT-SWAP", "markPx": "9", "ts": "1"}],
+            })
+            await asyncio.sleep(0.2)
+            self.assertEqual(0, queue.qsize())
+            self.assertNotIn(xrp, self.exchange._perpetual_trading._funding_info)
+            self.assertEqual(
+                Decimal("1"),
+                self.exchange._perpetual_trading._funding_info[doge].mark_price,
+            )
+
+            queue.put_nowait({
+                "arg": {"channel": "mark-price", "instId": "DOGE-USDT-SWAP"},
+                "data": [{"instId": "DOGE-USDT-SWAP", "markPx": "0.2", "ts": "1"}],
+            })
+            await asyncio.sleep(0.2)
+            self.assertEqual(0, queue.qsize())
+            self.assertEqual(
+                Decimal("0.2"),
+                self.exchange._perpetual_trading._funding_info[doge].mark_price,
+            )
+            self.assertNotIn(xrp, self.exchange._perpetual_trading._funding_info)
+            self.assertEqual(
+                ["OKX funding price readers started for DOGE-USDT,XRP-USDT"],
+                [message for message in started if message.startswith("OKX funding price readers started")],
+            )
+        finally:
+            notice.removeHandler(handler)
+            for task in (
+                self.exchange._okx_funding_wrapper_task,
+                self.exchange._mark_price_listener_task,
+                self.exchange._index_price_listener_task,
+                self.exchange._perpetual_trading._funding_info_updater_task,
+                getattr(self.exchange, "_mark_price_queue_log_task", None),
+            ):
+                if task is not None and not task.done():
+                    task.cancel()
 
     @aioresponses()
     def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
@@ -2772,11 +2867,77 @@ class OkxFundingStreamCoverageTests(IsolatedAsyncioWrapperTestCase):
         exchange._ensure_okx_funding_updater()
         self.assertIs(running, exchange._perpetual_trading._funding_info_updater_task)
 
-    def test_listeners_wait_until_cards_exist(self):
+    async def test_listeners_start_when_one_card_is_missing(self):
         exchange = self._bare()
-        exchange._trading_pairs = ["DOGE-USDT"]
-        exchange._start_okx_price_listeners_if_cards_ready()
-        self.assertIsNone(exchange._mark_price_listener_task)
+        exchange._trading_pairs = ["DOGE-USDT", "XRP-USDT"]
+        exchange._perpetual_trading._funding_info = {"DOGE-USDT": object()}
+        exchange._perpetual_trading.funding_info_stream = object()
+
+        async def _hold(_output):
+            await asyncio.sleep(30)
+
+        exchange._orderbook_ds.listen_for_mark_price_info = _hold
+        exchange._orderbook_ds.listen_for_index_price_info = _hold
+        try:
+            exchange._start_okx_price_listeners_if_cards_ready()
+            await asyncio.sleep(0)
+            self.assertIsNotNone(exchange._mark_price_listener_task)
+            self.assertFalse(exchange._mark_price_listener_task.done())
+            self.assertIsNotNone(exchange._index_price_listener_task)
+            self.assertFalse(exchange._index_price_listener_task.done())
+        finally:
+            for attr in ("_mark_price_listener_task", "_index_price_listener_task"):
+                task = getattr(exchange, attr, None)
+                if task is not None and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+
+    async def test_stop_network_cancels_the_queue_size_note(self):
+        exchange = self._bare()
+        exchange._orderbook_ds._mark_price_queue_key = "mark_price"
+        exchange._orderbook_ds._message_queue = {}
+        exchange._perpetual_trading._funding_info = {}
+        records = []
+        log = logging.getLogger("services.unified_connector_service")
+
+        class _Capture(logging.Handler):
+            def emit(self, record):
+                records.append(record.getMessage())
+
+        handler = _Capture()
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+        exchange._mark_price_queue_log_task = asyncio.create_task(
+            exchange._log_mark_price_queue_later()
+        )
+        try:
+            with patch.object(PerpetualDerivativePyBase, "stop_network", new=AsyncMock()):
+                await exchange.stop_network()
+            await asyncio.sleep(0)
+            self.assertIsNone(exchange._mark_price_queue_log_task)
+            self.assertEqual([], [message for message in records if "queue size" in message])
+        finally:
+            log.removeHandler(handler)
+
+    async def test_a_running_queue_note_is_not_started_again(self):
+        exchange = self._bare()
+        running = MagicMock()
+        running.done.return_value = False
+        exchange._mark_price_queue_log_task = running
+        exchange._okx_funding_wrapper_task = MagicMock()
+        exchange._okx_funding_wrapper_task.done.return_value = False
+        exchange._perpetual_trading._funding_info_updater_task = MagicMock()
+        exchange._perpetual_trading._funding_info_updater_task.done.return_value = False
+        exchange.logger = MagicMock(return_value=MagicMock())
+        exchange._fill_missing_funding_cards_once = AsyncMock()
+        exchange._start_okx_price_listeners_if_cards_ready = MagicMock()
+
+        await exchange.ensure_funding_price_streams()
+
+        self.assertIs(running, exchange._mark_price_queue_log_task)
 
     async def test_queue_size_is_logged_after_readers_start(self):
         exchange = self._bare()
