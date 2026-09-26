@@ -472,7 +472,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         msg: OrderBookMessage = await msg_queue.get()
 
-        expected_id = eval(diff_event["o"])[0][0]
+        expected_id = json.loads(diff_event["o"])[0][0]
         self.assertEqual(expected_id, msg.update_id)
 
     # Dynamic subscription tests
