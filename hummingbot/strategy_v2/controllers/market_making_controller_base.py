@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import List, Optional, Tuple, Union
 
 from pydantic import Field, field_validator
@@ -244,6 +244,11 @@ class MarketMakingControllerBase(ControllerBase):
         levels_to_execute = self.get_levels_to_execute()
         for level_id in levels_to_execute:
             price, amount = self.get_price_and_amount(level_id)
+            if not self._is_positive_finite_decimal(price) or not self._is_positive_finite_decimal(amount):
+                self.logger().debug(
+                    f"Skipping executor creation for {level_id}: invalid price={price} amount={amount}"
+                )
+                continue
             executor_config = self.get_executor_config(level_id, price, amount)
             if executor_config is not None:
                 create_actions.append(CreateExecutorAction(
@@ -345,6 +350,10 @@ class MarketMakingControllerBase(ControllerBase):
         if "_perpetual" in self.config.connector_name or "reference_price" not in self.processed_data or self.config.skip_rebalance:
             return None
 
+        reference_price = Decimal(self.processed_data["reference_price"])
+        if not self._is_positive_finite_decimal(reference_price):
+            return None
+
         active_rebalance = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: x.is_active and x.custom_info.get("level_id") == "position_rebalance"
@@ -353,7 +362,7 @@ class MarketMakingControllerBase(ControllerBase):
             # If there's already an active rebalance executor, skip rebalancing
             return None
 
-        required_base_amount = self.config.get_required_base_amount(Decimal(self.processed_data["reference_price"]))
+        required_base_amount = self.config.get_required_base_amount(reference_price)
         current_base_amount = self.get_current_base_position()
 
         # Calculate the difference
@@ -412,3 +421,11 @@ class MarketMakingControllerBase(ControllerBase):
             controller_id=self.config.id,
             executor_config=order_config
         )
+
+    @staticmethod
+    def _is_positive_finite_decimal(value: Optional[Decimal]) -> bool:
+        try:
+            value = Decimal(value)
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        return value.is_finite() and value > Decimal("0")
