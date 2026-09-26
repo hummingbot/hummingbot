@@ -816,7 +816,8 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         # Set up state
         self.trading_core._strategy_running = False
         self.trading_core._is_running = True
-        self.trading_core.clock = Mock()
+        clock_mock = Mock()
+        self.trading_core.clock = clock_mock
 
         # Add metrics collectors
         mock_collector1 = Mock(spec=MetricsCollector)
@@ -827,13 +828,12 @@ class TradingCoreTest(IsolatedAsyncioWrapperTestCase):
         }
 
         # Set up to raise exception on one collector (to test error handling)
-        self.trading_core.clock.remove_iterator.side_effect = [Exception("Test error"), None]
+        clock_mock.remove_iterator.side_effect = [Exception("Test error"), None]
 
         # Shutdown
         result = await self.trading_core.shutdown(skip_order_cancellation=True)
 
-        # Verify
+        # Verify (use clock_mock: shutdown() calls stop_clock() which sets self.clock = None)
         self.assertTrue(result)
         self.assertEqual(len(self.trading_core._metrics_collectors), 0)
-        # Verify both collectors were attempted to be removed
-        self.assertEqual(self.trading_core.clock.remove_iterator.call_count, 2)
+        self.assertEqual(clock_mock.remove_iterator.call_count, 2)
