@@ -568,6 +568,9 @@ class MQTTGateway:
         self._reconnect_interval: float = 5.0
         self._reconnect_max_interval: float = 60.0
         self._reconnect_attempt: int = 0
+        # Throttle repeated disconnect warnings (#8012): only the first of a
+        # streak of consecutive reconnect failures is logged at warning level.
+        self._disconnect_warning_logged: bool = False
 
         # aiomqtt connection state (all MQTT I/O lives on hb_app.ev_loop).
         self._client: Optional[aiomqtt.Client] = None
@@ -648,6 +651,7 @@ class MQTTGateway:
                     self._client = client
                     self._connected = True
                     self._reconnect_attempt = 0
+                    self._disconnect_warning_logged = False
                     for topic, qos in self._desired_subscriptions().items():
                         await client.subscribe(topic, qos=qos)
                     self._hb_app.logger().debug(
@@ -668,9 +672,17 @@ class MQTTGateway:
                 raise
             except aiomqtt.MqttError as e:
                 reconnect_delay = self._next_reconnect_delay()
-                self._hb_app.logger().warning(
-                    f'MQTT bridge disconnected: {e}. '
-                    f'Reconnecting in {reconnect_delay}s.')
+                if self._disconnect_warning_logged:
+                    # Still down after the first warning: demote repeats to
+                    # debug so a dead broker doesn't spam the logs (#8012).
+                    self._hb_app.logger().debug(
+                        f'MQTT bridge still disconnected: {e}. '
+                        f'Reconnecting in {reconnect_delay}s.')
+                else:
+                    self._hb_app.logger().warning(
+                        f'MQTT bridge disconnected: {e}. '
+                        f'Reconnecting in {reconnect_delay}s.')
+                    self._disconnect_warning_logged = True
             except Exception as e:  # pragma: no cover
                 reconnect_delay = self._next_reconnect_delay()
                 self._hb_app.logger().error(

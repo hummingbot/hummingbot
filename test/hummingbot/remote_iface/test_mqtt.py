@@ -695,16 +695,60 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.gateway.health)
         # Log volume is bounded: each retry's delay widens instead of a
         # fixed-rate warning every cycle for as long as the outage lasts.
+        # With the warning throttle (#8012) only the first failure warns;
+        # the repeats are demoted to DEBUG, still carrying the backoff delay.
         warnings = [
             record.getMessage() for record in self.log_records
             if record.levelname == "WARNING" and "Simulated connect failure" in record.getMessage()
         ]
-        self.assertEqual(len(warnings), 3)
+        debugs = [
+            record.getMessage() for record in self.log_records
+            if record.levelname == "DEBUG" and "Simulated connect failure" in record.getMessage()
+        ]
+        self.assertEqual(len(warnings), 1)
         self.assertIn("Reconnecting in 0.01s.", warnings[0])
-        self.assertIn("Reconnecting in 0.02s.", warnings[1])
-        self.assertIn("Reconnecting in 0.04s.", warnings[2])
+        self.assertEqual(len(debugs), 2)
+        self.assertIn("Reconnecting in 0.02s.", debugs[0])
+        self.assertIn("Reconnecting in 0.04s.", debugs[1])
         # The successful connect resets the counter for the next outage.
         self.assertEqual(self.gateway._reconnect_attempt, 0)
+
+    def test_mqtt_reconnect_warning_throttled(self):
+        # A dead broker must not spam WARNING logs on every reconnect attempt.
+        # Only the first of a streak of consecutive failures is a warning;
+        # repeats are demoted to DEBUG until a connection succeeds again.
+        import aiomqtt
+
+        class _FailingClient:
+            async def __aenter__(self):
+                raise aiomqtt.MqttError("Simulated persistent broker outage")
+
+            async def __aexit__(self, *args):
+                return False
+
+        with patch('hummingbot.remote_iface.mqtt.MQTTGateway._create_client',
+                   lambda gw: _FailingClient()):
+            self.gateway._reconnect_interval = 0.05
+            self.gateway._reconnect_attempt = 0
+            self.start_mqtt()
+            warning_message = ("MQTT bridge disconnected: "
+                               "Simulated persistent broker outage. "
+                               "Reconnecting in 0.05s.")
+            # The first failure still logs at WARNING ...
+            self.async_run_with_timeout(
+                self.wait_for_logged("WARNING", warning_message), timeout=10)
+            # ... but consecutive failures are demoted to DEBUG. The second
+            # attempt backs off to 0.05 * 2 = 0.1s, which the debug line shows.
+            debug_message = ("MQTT bridge still disconnected: "
+                             "Simulated persistent broker outage. "
+                             "Reconnecting in 0.1s.")
+            self.async_run_with_timeout(
+                self.wait_for_logged("DEBUG", debug_message), timeout=10)
+            warnings = [record for record in self.log_records
+                        if record.levelname == "WARNING"
+                        and record.getMessage() == warning_message]
+            self.assertEqual(1, len(warnings))
+            self.gateway.stop()
 
     def test_mqtt_publish_from_non_main_thread(self):
         self.start_mqtt()
