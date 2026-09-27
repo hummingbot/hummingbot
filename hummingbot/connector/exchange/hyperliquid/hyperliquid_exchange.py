@@ -200,8 +200,8 @@ class HyperliquidExchange(ExchangePyBase):
         is wrong in both directions here. A cheap token priced at 0.0000003315
         rounds to 0 and the order is rejected, while a token whose szDecimals
         leaves fewer than 6 decimals keeps too many. Rounding to
-        min_price_increment uses the decimals the exchange itself reports in
-        markPx, the same approach the perpetual connector takes.
+        min_price_increment fixes both, since _format_trading_rules caps that
+        tick at ``MAX_DECIMALS - szDecimals``.
         """
         # HL allows at most 5 significant figures on limitPx
         price = Decimal(str(float(f"{price:.5g}")))
@@ -711,8 +711,17 @@ class HyperliquidExchange(ExchangePyBase):
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=coin_info["name"])
                 except KeyError:
                     continue
-                step_size = Decimal(str(10 ** -exchange_info_dict[0]["tokens"][base].get("szDecimals")))
-                price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+                sz_decimals = exchange_info_dict[0]["tokens"][base].get("szDecimals")
+                step_size = Decimal(str(10 ** -sz_decimals))
+                # markPx is a mark price, not an order price, so it can carry more
+                # decimals than a limitPx is allowed to. 25 of the 330 live spot pairs
+                # do: RIP has szDecimals 2 (6 decimals allowed) and markPx 0.0000053.
+                # Cap the tick at the rule, or quantizing to it produces a price the
+                # exchange rejects.
+                mark_px = price_info.get("markPx")
+                mark_decimals = len(mark_px.split('.')[1]) if '.' in mark_px else 0
+                max_price_decimals = max(CONSTANTS.SPOT_MAX_PRICE_DECIMALS - sz_decimals, 0)
+                price_size = Decimal(str(10 ** -min(mark_decimals, max_price_decimals)))
                 return_val.append(
                     TradingRule(
                         trading_pair,

@@ -421,8 +421,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         coin_info = self.trading_rules_request_mock_response[0]['tokens'][1]
         price_info = self.trading_rules_request_mock_response[1][0]
 
-        step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
-        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+        sz_decimals = coin_info.get("szDecimals")
+        step_size = Decimal(str(10 ** -sz_decimals))
+        mark_decimals = len(price_info.get("markPx").split('.')[1])
+        price_size = Decimal(str(10 ** -min(mark_decimals, max(8 - sz_decimals, 0))))
 
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
@@ -2031,6 +2033,39 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             Decimal("0.00000033"),
             self.exchange.quantize_order_price(pair, Decimal("0.0000003315")),
         )
+
+    def test_format_trading_rules_caps_tick_at_the_price_decimal_limit(self):
+        # markPx is a mark price, not an order price, so it can be finer than a
+        # limitPx may be. 25 of the 330 live spot pairs are: RIP has szDecimals 2
+        # (6 decimals allowed) and markPx 0.0000053, which is 7.
+        exchange_info = [
+            {
+                "tokens": [
+                    {"name": "USDC", "szDecimals": 8, "weiDecimals": 8, "index": 0},
+                    {"name": "RIP", "szDecimals": 2, "weiDecimals": 5, "index": 1},
+                ],
+                "universe": [
+                    {"name": "RIP/USDC", "tokens": [1, 0], "index": 0, "isCanonical": True},
+                ],
+            },
+            [{"markPx": "0.00000453", "midPx": "0.00000453", "prevDayPx": "0.00000453"}],
+        ]
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
+        self.assertEqual(1, len(rules))
+        # 8 - szDecimals = 6, so the tick stops at 1e-6 even though markPx shows 8.
+        self.assertEqual(Decimal("0.000001"), rules[0].min_price_increment)
+
+    def test_quantize_order_price_never_exceeds_the_price_decimal_limit(self):
+        pair = combine_to_hb_trading_pair("RIP", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.000001"),
+            min_order_size=Decimal("0.01"),
+            min_notional_size=Decimal("10"),
+        )
+        quantized = self.exchange.quantize_order_price(pair, Decimal("0.00000453"))
+        self.assertEqual(Decimal("0.000005"), quantized)
+        self.assertLessEqual(-quantized.as_tuple().exponent, 6)
 
     def test_quantize_order_price_aligns_to_min_price_increment(self):
         pair = combine_to_hb_trading_pair("PURR", "USDC")
