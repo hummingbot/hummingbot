@@ -249,6 +249,73 @@ class TradeFeeTests(TestCase):
 
         self.assertEqual(Decimal("0"), fee_amount)
 
+    def test_quote_flat_fee_converts_to_base_with_fill_price_not_rate_oracle(self):
+        rate_source = MagicMock()
+        for fee_class in (AddedToCostTradeFee, DeductedFromReturnsTradeFee):
+            fee = fee_class(
+                percent=Decimal("0"),
+                flat_fees=[TokenAmount(token="USDT", amount=Decimal("1"))],
+            )
+            fee_amount = fee.fee_amount_in_token(
+                trading_pair="XRP-USDT",
+                price=Decimal("2"),
+                order_amount=Decimal("1"),
+                token="XRP",
+                rate_source=rate_source,
+            )
+            self.assertEqual(Decimal("0.5"), fee_amount)
+        rate_source.get_pair_rate.assert_not_called()
+
+    def test_base_flat_fee_converts_to_quote_with_fill_price_not_rate_oracle(self):
+        rate_source = MagicMock()
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0"),
+            flat_fees=[TokenAmount(token="XRP", amount=Decimal("1"))],
+        )
+        fee_amount = fee.fee_amount_in_token(
+            trading_pair="XRP-USDT",
+            price=Decimal("2"),
+            order_amount=Decimal("1"),
+            token="USDT",
+            rate_source=rate_source,
+        )
+        self.assertEqual(Decimal("2"), fee_amount)
+        rate_source.get_pair_rate.assert_not_called()
+
+    def test_third_token_flat_fee_still_asks_the_rate_oracle(self):
+        rate_source = MagicMock()
+        rate_source.get_pair_rate.return_value = Decimal("3")
+        fee = AddedToCostTradeFee(
+            percent=Decimal("0"),
+            flat_fees=[TokenAmount(token="BNB", amount=Decimal("1"))],
+        )
+        fee_amount = fee.fee_amount_in_token(
+            trading_pair="XRP-USDT",
+            price=Decimal("2"),
+            order_amount=Decimal("1"),
+            token="USDT",
+            rate_source=rate_source,
+        )
+        self.assertEqual(Decimal("3"), fee_amount)
+        rate_source.get_pair_rate.assert_called_once_with("BNB-USDT")
+
+    def test_quote_flat_fee_with_zero_price_does_not_ask_the_rate_oracle(self):
+        rate_source = MagicMock()
+        for fee_class in (AddedToCostTradeFee, DeductedFromReturnsTradeFee):
+            fee = fee_class(
+                percent=Decimal("0"),
+                flat_fees=[TokenAmount(token="USDT", amount=Decimal("1"))],
+            )
+            fee_amount = fee.fee_amount_in_token(
+                trading_pair="XRP-USDT",
+                price=Decimal("0"),
+                order_amount=Decimal("1"),
+                token="XRP",
+                rate_source=rate_source,
+            )
+            self.assertEqual(Decimal("0"), fee_amount)
+        rate_source.get_pair_rate.assert_not_called()
+
 
 class GetExchangeRateTests(TestCase):
 
