@@ -451,6 +451,118 @@ class GrvtPerpetualDerivativeUnitTests(IsolatedAsyncioTestCase):
         self.assertEqual(2, safe_future.call_count)
 
 
+class GrvtPerpetualBuilderCodeTests(IsolatedAsyncioTestCase):
+    """Builder-code support (HGP-87) on the GRVT perpetual connector."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.exchange = GrvtPerpetualDerivative(
+            grvt_perpetual_api_key="api-key",
+            grvt_perpetual_private_key="0x59c6995e998f97a5a0044966f094538e37d1d5cbf1e6fa7e87e55ce49963cf34",  # noqa: mock
+            grvt_perpetual_trading_account_id="123456",
+            trading_pairs=["BTC-USDT"],
+            trading_required=False,
+        )
+        self.exchange._symbol_map = bidict({"BTC_USDT_Perp": "BTC-USDT"})
+        self.exchange._set_trading_pair_symbol_map(self.exchange._symbol_map)
+        self.exchange._instrument_info_by_symbol = {
+            "BTC_USDT_Perp": {
+                "instrument": "BTC_USDT_Perp",
+                "instrument_hash": "0x030501",
+                "base": "BTC",
+                "quote": "USDT",
+                "kind": "PERPETUAL",
+                "base_decimals": 3,
+            }
+        }
+
+    def _authorized_builders_response(self, builder_account_id: str, max_futures_fee_rate: str) -> Dict[str, Any]:
+        return {
+            "results": [
+                {
+                    "builder_account_id": builder_account_id,
+                    "max_futures_fee_rate": max_futures_fee_rate,
+                    "max_spot_fee_rate": max_futures_fee_rate,
+                }
+            ]
+        }
+
+    def test_builder_omitted_by_default(self):
+        self.assertEqual(CONSTANTS.FOUNDATION_BUILDER_ACCOUNT_ID.lower(), self.exchange._builder_account_id)
+        self.assertFalse(self.exchange._should_inject_builder())
+
+    def test_builder_omitted_when_not_supported(self):
+        self.exchange._builder_authorized = True
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            self.assertFalse(self.exchange._should_inject_builder())
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_initialize_builder_fee_clamped_to_configured_fee(self, api_post_mock):
+        api_post_mock.return_value = self._authorized_builders_response(
+            CONSTANTS.FOUNDATION_BUILDER_ACCOUNT_ID, "1"
+        )
+        await self.exchange._initialize_builder_fee()
+        self.assertTrue(self.exchange._builder_authorized)
+        self.assertEqual(Decimal(CONSTANTS.FOUNDATION_BUILDER_FEE_PCT), self.exchange._builder_fee_pct)
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_initialize_builder_fee_below_configured_charges_authorized(self, api_post_mock):
+        api_post_mock.return_value = self._authorized_builders_response(
+            CONSTANTS.FOUNDATION_BUILDER_ACCOUNT_ID.upper().replace("0X", "0x"), "0.001"
+        )
+        await self.exchange._initialize_builder_fee()
+        self.assertTrue(self.exchange._builder_authorized)
+        self.assertEqual(Decimal("0.001"), self.exchange._builder_fee_pct)
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_initialize_builder_fee_not_authorized(self, api_post_mock):
+        api_post_mock.return_value = self._authorized_builders_response(
+            "0x0000000000000000000000000000000000000001", "1"
+        )
+        self.exchange._builder_authorized = True
+        await self.exchange._initialize_builder_fee()
+        self.assertFalse(self.exchange._builder_authorized)
+        self.assertEqual(Decimal("0"), self.exchange._builder_fee_pct)
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_initialize_builder_fee_fails_safe_to_no_injection(self, api_post_mock):
+        api_post_mock.side_effect = Exception("endpoint down")
+        self.exchange._builder_authorized = True
+        self.exchange._builder_fee_pct = Decimal("99")
+        await self.exchange._initialize_builder_fee()
+        self.assertFalse(self.exchange._builder_authorized)
+        self.assertEqual(Decimal("0"), self.exchange._builder_fee_pct)
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_initialize_builder_fee_skipped_when_not_supported(self, api_post_mock):
+        with patch.object(CONSTANTS, "BUILDER_SUPPORTED", False):
+            await self.exchange._initialize_builder_fee()
+        api_post_mock.assert_not_called()
+        self.assertFalse(self.exchange._builder_authorized)
+
+    @patch.object(GrvtPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    async def test_place_order_injects_builder_only_when_authorized(self, api_post_mock):
+        api_post_mock.return_value = {"result": {"order_id": "1"}}
+        for authorized in (False, True):
+            self.exchange._builder_authorized = authorized
+            self.exchange._builder_fee_pct = Decimal("0.01") if authorized else Decimal("0")
+            await self.exchange._place_order(
+                order_id="9223372036854775808",
+                trading_pair="BTC-USDT",
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("62000"),
+                position_action=PositionAction.OPEN,
+            )
+            sent_order = api_post_mock.call_args.kwargs["data"]["order"]
+            self.assertEqual(authorized, "builder" in sent_order)
+            self.assertEqual(authorized, "builder_fee" in sent_order)
+            if authorized:
+                self.assertEqual(self.exchange._builder_account_id, sent_order["builder"])
+                self.assertEqual("0.01", sent_order["builder_fee"])
+
+
 class GrvtPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     @classmethod
     def setUpClass(cls) -> None:
