@@ -12,6 +12,7 @@ serves with authenticated GET requests) is left to the base class.
 import asyncio
 import json
 import re
+import time
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Callable, List, Optional
@@ -581,6 +582,164 @@ class LighterExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         call_kwargs = self.exchange._signer_client.create_market_order.await_args.kwargs
         self.assertEqual(self.market_id, call_kwargs["market_index"])
         self.assertTrue(call_kwargs["is_ask"])
+
+    def _approval_snapshot(self, account_index=None, expires_in=3600) -> dict:
+        index = CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX if account_index is None else account_index
+        return {
+            "approved_integrators": [{
+                "account_index": index,
+                "approval_expiry": int((time.time() + expires_in) * 1000),
+            }]
+        }
+
+    async def test_update_integrator_approval_detects_active_approval(self, *_):
+        self.exchange._update_integrator_approval(self._approval_snapshot())
+        self.assertTrue(self.exchange._integrator_approved)
+
+    async def test_update_integrator_approval_ignores_expired_approval(self, *_):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval(self._approval_snapshot(expires_in=-3600))
+        self.assertFalse(self.exchange._integrator_approved)
+
+    async def test_update_integrator_approval_ignores_other_integrator(self, *_):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval(self._approval_snapshot(account_index=111111))
+        self.assertFalse(self.exchange._integrator_approved)
+
+    async def test_update_integrator_approval_handles_account_without_approvals(self, *_):
+        self.exchange._integrator_approved = True
+        self.exchange._update_integrator_approval({})
+        self.assertFalse(self.exchange._integrator_approved)
+
+    async def test_create_order_injects_integrator_attribution_once_approved(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._integrator_approved = True
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_TAKER_FEE", 3), \
+                patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_MAKER_FEE", 1):
+            self.place_buy_order()
+            await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertEqual(987654, call_kwargs["integrator_account_index"])
+        self.assertEqual(3, call_kwargs["integrator_taker_fee"])
+        self.assertEqual(1, call_kwargs["integrator_maker_fee"])
+
+    async def test_create_market_order_injects_integrator_attribution_once_approved(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.get_mid_price = MagicMock(return_value=Decimal("10000"))
+        self.exchange.quantize_order_price = MagicMock(side_effect=lambda trading_pair, price: price)
+        self.exchange._integrator_approved = True
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654):
+            await self.exchange._place_order(
+                order_id="123",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.SELL,
+                order_type=OrderType.MARKET,
+                price=Decimal("NaN"),
+            )
+
+        call_kwargs = self.exchange._signer_client.create_market_order.await_args.kwargs
+        self.assertEqual(987654, call_kwargs["integrator_account_index"])
+
+    async def test_create_order_credits_foundation_integrator_once_approved(self, *_):
+        # With the account's approval in place, mainnet volume is attributed to the
+        # Foundation's Lighter account at zero fees (attribution only).
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._integrator_approved = True
+
+        self.place_buy_order()
+        await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertEqual(734601, CONSTANTS.FOUNDATION_INTEGRATOR_ACCOUNT_INDEX)
+        self.assertEqual(734601, call_kwargs["integrator_account_index"])
+        self.assertEqual(0, call_kwargs["integrator_taker_fee"])
+        self.assertEqual(0, call_kwargs["integrator_maker_fee"])
+
+    async def test_create_order_omits_integrator_attribution_when_not_approved(self, *_):
+        # Default state: Lighter rejects an unapproved integrator (21149), so nothing is sent.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.assertFalse(self.exchange._integrator_approved)
+
+        self.place_buy_order()
+        await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+        self.assertNotIn("integrator_taker_fee", call_kwargs)
+        self.assertNotIn("integrator_maker_fee", call_kwargs)
+
+    async def test_create_order_omits_integrator_attribution_when_unconfigured(self, *_):
+        # An unset (0) integrator index disables attribution -> no integrator kwargs.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._integrator_approved = True
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 0):
+            self.place_buy_order()
+            await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+        self.assertNotIn("integrator_taker_fee", call_kwargs)
+        self.assertNotIn("integrator_maker_fee", call_kwargs)
+
+    async def test_create_order_omits_integrator_attribution_on_testnet(self, *_):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._domain = CONSTANTS.TESTNET_DOMAIN
+        self.exchange._integrator_approved = True
+
+        with patch.object(CONSTANTS, "FOUNDATION_INTEGRATOR_ACCOUNT_INDEX", 987654):
+            self.place_buy_order()
+            await asyncio.sleep(0.1)
+
+        self.exchange._signer_client.create_order.assert_awaited_once()
+        call_kwargs = self.exchange._signer_client.create_order.await_args.kwargs
+        self.assertNotIn("integrator_account_index", call_kwargs)
+
+    async def test_place_order_resubmits_without_integrator_when_rejected(self, *_):
+        # A stale approval must never take the order down: on 21149 the connector drops
+        # attribution and resubmits instead of failing the order.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._integrator_approved = True
+        calls = []
+
+        async def _reject_then_accept(**kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                return (None, None, "HTTP response body: code=21149 message='integrator is not approved'")
+            return (None, {"code": 200}, None)
+
+        self.exchange._signer_client.create_order = AsyncMock(side_effect=_reject_then_accept)
+
+        order_id, _ = await self.exchange._place_order(
+            order_id="123",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("10000"),
+        )
+
+        self.assertEqual("123", order_id)
+        self.assertEqual(2, len(calls))
+        self.assertIn("integrator_account_index", calls[0])
+        self.assertNotIn("integrator_account_index", calls[1])
+        self.assertFalse(self.exchange._integrator_approved)
 
     async def test_create_order_fails_and_raises_failure_event(self, *_):
         self._simulate_trading_rules_initialized()
