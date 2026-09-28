@@ -1408,6 +1408,39 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(0, len(self.exchange._perpetual_trading._account_positions))
 
     @aioresponses()
+    async def test_get_last_traded_prices_for_several_pairs_is_one_request_per_product_type(self, mock_api):
+        usdc_pair = combine_to_hb_trading_pair("ETH", "USDC")
+        self.exchange._set_trading_pair_symbol_map(bidict({
+            self.exchange_trading_pair: self.trading_pair,
+            "ETHUSDC": usdc_pair,
+        }))
+        single_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_TICKER_ENDPOINT)
+        bulk_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT)
+        bulk_regex_url = re.compile(f"^{bulk_url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(bulk_regex_url, body=json.dumps({
+            "code": "00000",
+            "data": [
+                {"symbol": self.exchange_trading_pair, "lastPr": "29904.5"},
+                {"symbol": "OTHERUSDT", "lastPr": "1.5"},
+            ],
+        }))
+        mock_api.get(bulk_regex_url, body=json.dumps({
+            "code": "00000",
+            "data": [{"symbol": "ETHUSDC", "lastPr": "1600.25"}],
+        }))
+
+        latest_prices = await self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair, usdc_pair])
+
+        self.assertEqual({self.trading_pair: 29904.5, usdc_pair: 1600.25}, latest_prices)
+        bulk_requests = self._all_executed_requests(mock_api, bulk_regex_url)
+        self.assertEqual(2, len(bulk_requests))
+        self.assertEqual(
+            {CONSTANTS.USDT_PRODUCT_TYPE, CONSTANTS.USDC_PRODUCT_TYPE},
+            {request.kwargs["params"]["productType"] for request in bulk_requests},
+        )
+        self.assertEqual(0, len(self._all_executed_requests(mock_api, re.compile("^" + re.escape(single_url) + r"\?"))))
+
+    @aioresponses()
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
         rate_url = web_utils.public_rest_url(CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
