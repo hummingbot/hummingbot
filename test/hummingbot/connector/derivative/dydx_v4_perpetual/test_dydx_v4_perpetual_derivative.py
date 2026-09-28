@@ -1699,5 +1699,3 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 dydx_v4_perpetual_chain_address="",
                 trading_required=True,
             )
-
-
