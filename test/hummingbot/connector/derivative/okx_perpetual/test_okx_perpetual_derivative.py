@@ -1781,6 +1781,43 @@ class OkxPerpetualDerivativeTests(
                 self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
                 self.assertTrue(order.is_pending_cancel_confirmation)
 
+    def test_place_cancel_accepts_order_already_gone(self):
+        order = InFlightOrder(
+            client_order_id="11",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            creation_timestamp=1640780000,
+            price=Decimal("10000"),
+            exchange_order_id="4",
+        )
+        accepted = (
+            CONSTANTS.RET_CODE_OK,
+            CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_NOT_EXISTS,
+            CONSTANTS.RET_CODE_CANCEL_FAILED_BECAUSE_ORDER_DOES_NOT_EXIST,
+            CONSTANTS.RET_CODE_ORDER_ALREADY_CANCELLED,
+        )
+
+        async def fake_symbol(_trading_pair):
+            return "BTC-USDT-SWAP"
+
+        self.exchange.exchange_symbol_associated_to_pair = fake_symbol
+        for scode in accepted:
+            async def fake_post(*args, _scode=scode, **kwargs):
+                return {"code": "0", "data": [{"sCode": _scode, "sMsg": ""}]}
+
+            self.exchange._api_post = fake_post
+            result = self.run_async_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+            self.assertTrue(result)
+
+        async def reject_post(*args, **kwargs):
+            return {"code": "1", "data": [{"sCode": "51000", "sMsg": "Parameter error"}]}
+
+        self.exchange._api_post = reject_post
+        with self.assertRaises(IOError):
+            self.run_async_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+
     # Starting here, the subsequent tests have been overridden because of URL conflicts with the OKX spot connector.
     # The content remains identical to that of the parent class.
     @aioresponses()
