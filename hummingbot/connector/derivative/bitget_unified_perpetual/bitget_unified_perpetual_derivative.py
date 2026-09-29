@@ -392,31 +392,42 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         return fee
 
     async def _update_trading_fees(self):
-        symbol_data = []
+        """
+        Loads the account's own maker/taker rates from the private fee-rate endpoint.
 
-        for product_type in CONSTANTS.ALL_PRODUCT_TYPES:
-            exchange_info = await self._api_get(
-                path_url=self.trading_rules_request_path,
-                params={
-                    "category": product_type
-                }
-            )
-            symbol_data.extend(exchange_info["data"])
-
-        for symbol_details in symbol_data:
-            maker_fee = symbol_details.get("makerFeeRate")
-            taker_fee = symbol_details.get("takerFeeRate")
-            if (
-                bitget_unified_perpetual_utils.is_exchange_information_valid(exchange_info=symbol_details)
-                and maker_fee is not None
-                and taker_fee is not None
-            ):
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(
-                    symbol=symbol_details["symbol"]
+        The V3 instruments response does carry makerFeeRate/takerFeeRate for futures, but those
+        are the public base rates: being a public endpoint it cannot reflect the account's VIP
+        tier or BGB discount. fee-rate is per symbol, but it is only polled every
+        TRADING_FEES_INTERVAL and only for the pairs this connector trades.
+        """
+        for trading_pair in self._trading_pairs or []:
+            try:
+                symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+                product_type = await self.product_type_associated_to_trading_pair(trading_pair)
+                fee_response = await self._api_get(
+                    path_url=CONSTANTS.FEE_RATE_ENDPOINT,
+                    params={"category": product_type, "symbol": symbol},
+                    is_auth_required=True,
                 )
+                fee_data = fee_response.get("data") or {}
+                maker_fee = fee_data.get("makerFeeRate")
+                taker_fee = fee_data.get("takerFeeRate")
+
+                if maker_fee is None or taker_fee is None:
+                    continue
+
                 self._trading_fees[trading_pair] = TradeFeeSchema(
-                    maker_percent_fee_decimal=Decimal(maker_fee),
-                    taker_percent_fee_decimal=Decimal(taker_fee)
+                    maker_percent_fee_decimal=Decimal(str(maker_fee)),
+                    taker_percent_fee_decimal=Decimal(str(taker_fee))
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # One unavailable pair must not stop the others; _get_fee falls back to
+                # DEFAULT_FEES for any pair with no schema.
+                self.logger().exception(
+                    f"Error fetching the trading fee for {trading_pair}. Falling back to the "
+                    f"default fee schema for this pair."
                 )
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:

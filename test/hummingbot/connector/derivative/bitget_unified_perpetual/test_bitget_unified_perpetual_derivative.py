@@ -1530,32 +1530,51 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
 
     @aioresponses()
     def test_update_trading_fees(self, mock_api):
+        """
+        Fees come from the private fee-rate endpoint, which reports the account's own VIP/BGB
+        adjusted rate. The instruments endpoint is public and only ever returns the base rate.
+        """
         self.exchange._set_trading_pair_symbol_map(
-            bidict(
-                {
-                    self.exchange_trading_pair: self.trading_pair,
-                    "BTCUSD": "BTC-USD",
-                    "BTCPERP": "BTC-USDC",
-                }
-            )
+            bidict({self.exchange_trading_pair: self.trading_pair})
         )
 
-        urls = self.configure_all_symbols_response(mock_api=mock_api)
-        url = urls[0]
-        resp = self.all_symbols_request_mock_response
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1751972326323,
+            "data": {"makerFeeRate": "0.00012", "takerFeeRate": "0.00042"},
+        }))
 
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
-        fees_request = self._all_executed_requests(mock_api, url)[0]
-        request_params = fees_request.kwargs["params"]
+        request_params = self._all_executed_requests(mock_api, url)[0].kwargs["params"]
         self.assertEqual(CONSTANTS.USDT_PRODUCT_TYPE, request_params["category"])
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
 
-        expected_trading_fees = TradeFeeSchema(
-            maker_percent_fee_decimal=Decimal(resp["data"][0]["makerFeeRate"]),
-            taker_percent_fee_decimal=Decimal(resp["data"][0]["takerFeeRate"]),
+        self.assertEqual(
+            TradeFeeSchema(
+                maker_percent_fee_decimal=Decimal("0.00012"),
+                taker_percent_fee_decimal=Decimal("0.00042"),
+            ),
+            self.exchange._trading_fees[self.trading_pair],
         )
 
-        self.assertEqual(expected_trading_fees, self.exchange._trading_fees[self.trading_pair])
+    @aioresponses()
+    def test_update_trading_fees_falls_back_when_the_endpoint_fails(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, status=500, body=json.dumps({"code": "40000", "msg": "boom"}))
+
+        # A failing fee lookup must not take the polling loop down; _get_fee then falls back to
+        # the default schema for that pair.
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        self.assertNotIn(self.trading_pair, self.exchange._trading_fees)
 
     def test_collateral_token_balance_updated_when_processing_order_creation_update(self):
         self.exchange._set_current_timestamp(1640780000)

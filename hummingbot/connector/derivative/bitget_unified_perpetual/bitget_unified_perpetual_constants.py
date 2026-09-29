@@ -80,6 +80,7 @@ CANCEL_ORDER_ENDPOINT = "/api/v3/trade/cancel-order"
 ORDER_DETAIL_ENDPOINT = "/api/v3/trade/order-info"
 ORDER_FILLS_ENDPOINT = "/api/v3/trade/fills"
 ACCOUNTS_INFO_ENDPOINT = "/api/v3/account/assets"
+FEE_RATE_ENDPOINT = "/api/v3/account/fee-rate"
 ACCOUNT_INFO_ENDPOINT = "/api/v3/account/settings"
 SET_POSITION_MODE_ENDPOINT = "/api/v3/account/set-hold-mode"
 SET_MARGIN_MODE_ENDPOINT = "/api/v3/account/adjust-account-mode"
@@ -132,6 +133,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDER_DETAIL_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ORDER_FILLS_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNTS_INFO_ENDPOINT, limit=10, time_interval=1),
+    RateLimit(limit_id=FEE_RATE_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNT_INFO_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNT_BILLS_ENDPOINT, limit=10, time_interval=1),
     RateLimit(limit_id=SET_POSITION_MODE_ENDPOINT, limit=5, time_interval=1),

@@ -16,7 +16,7 @@ from hummingbot.connector.test_support.exchange_connector_test import AbstractEx
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
 
 
 class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -1199,3 +1199,62 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
             "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
             "status was added to the API that the connector does not map yet."
         ))
+
+    @aioresponses()
+    def test_update_trading_fees_uses_the_account_fee_rate(self, mock_api) -> None:
+        """
+        The V3 SPOT instruments response carries no fee fields at all, so fees have to come from
+        the private fee-rate endpoint or every order is costed at the hardcoded default instead
+        of the account's VIP tier or BGB discount.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1751972326323,
+            "data": {"makerFeeRate": "0.0006", "takerFeeRate": "0.0008"},
+        }))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        request_params = self._all_executed_requests(mock_api, url)[0].kwargs["params"]
+        self.assertEqual(CONSTANTS.CATEGORY, request_params["category"])
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
+
+        self.assertEqual(
+            TradeFeeSchema(
+                maker_percent_fee_decimal=Decimal("0.0006"),
+                taker_percent_fee_decimal=Decimal("0.0008"),
+            ),
+            self.exchange._trading_fees[self.trading_pair],
+        )
+
+        # And the rate is what _get_fee actually charges.
+        fee = self.exchange._get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("10000"),
+            is_maker=True,
+        )
+        self.assertEqual(Decimal("0.0006"), fee.percent)
+
+    @aioresponses()
+    def test_update_trading_fees_falls_back_when_the_endpoint_fails(self, mock_api) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, status=500, body=json.dumps({"code": "40000", "msg": "boom"}))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        self.assertNotIn(self.trading_pair, self.exchange._trading_fees)
