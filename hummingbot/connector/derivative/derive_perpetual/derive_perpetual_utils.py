@@ -1,3 +1,26 @@
+"""
+Derive perpetual connector configuration.
+
+Setting up an account on the v3 API
+-----------------------------------
+v3 settles on Ethereum L1 (mainnet) and Sepolia (testnet) rather than the old Derive L2.
+
+1. Create the account by depositing on L1. v3 removed ``private/create_subaccount``, so there is
+   no API call that creates one; the deposit does it.
+2. Register a **scoped** session key at derive.xyz. v3 session keys carry a scope, an expiry and
+   optionally a subaccount allow-list and an IP allow-list. Perpetual trading needs
+   ``trade:orderbook:perp`` (5) or ``trade:orderbook:all`` (3), plus the off-chain
+   ``account_info`` scope so balances and orders can be read.
+3. The key's expiry has to outlast the signatures the connector produces. Signatures are valid
+   for SIGNATURE_VALIDITY_SEC (one hour by default); a shorter-lived key is rejected with 14038.
+
+Errors 14026 (key not registered), 14030 (expired) and 14031 (scope does not permit the action)
+are reported with that guidance attached.
+
+Existing v2 users are migrating, not upgrading: funds move to L1, and a new session key is
+needed because the v2 key is not valid against the v3 domain separator.
+"""
+
 from decimal import Decimal
 
 from pydantic import ConfigDict, Field, SecretStr
@@ -7,8 +30,8 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Maker rebates(-0.02%) are paid out continuously on each trade directly to the trading wallet.(https://derive_perpetual.gitbook.io/derive_perpetual-docs/trading/fees)
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.01"),
-    taker_percent_fee_decimal=Decimal("0.03"),
+    maker_percent_fee_decimal=Decimal("0.0001"),
+    taker_percent_fee_decimal=Decimal("0.0003"),
     buy_percent_fee_deducted_from_returns=True
 )
 

@@ -44,6 +44,9 @@ WSS_URL = "wss://api.derive.xyz/v3/ws"
 TESTNET_BASE_URL = "https://testnet.api.derive.xyz/v3"
 TESTNET_WSS_URL = "wss://testnet.api.derive.xyz/v3/ws"
 
+# v3 caps page_size on the instruments endpoint, so the connector walks the pages.
+INSTRUMENTS_PAGE_SIZE = 500
+
 # The v3 instrument_type this connector trades.
 INSTRUMENT_TYPE = "perp"
 

@@ -161,15 +161,33 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return trading_rule.sell_order_collateral_token
 
     async def _make_trading_pairs_request(self) -> Any:
-        payload = {
-            "expired": True,
-            "instrument_type": "perp",
-            "page": 1,
-            "page_size": 1000,
-        }
+        """
+        Fetches every instrument of this connector's type.
 
-        exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-        info = exchange_info["result"]["instruments"]
+        v3 returns {instruments, pagination} and caps page_size, so a single request is no longer
+        guaranteed to return everything. Walk the pages rather than assuming one is enough.
+        """
+        info = []
+        page = 1
+        while True:
+            payload = {
+                # Expired instruments cannot be traded and only bloat the symbol map.
+                "expired": False,
+                "instrument_type": CONSTANTS.INSTRUMENT_TYPE,
+                "page": page,
+                "page_size": CONSTANTS.INSTRUMENTS_PAGE_SIZE,
+            }
+            exchange_info = await self._api_post(
+                path_url=self.trading_currencies_request_path, data=payload
+            )
+            result = exchange_info["result"]
+            info.extend(result["instruments"])
+
+            num_pages = (result.get("pagination") or {}).get("num_pages", 1)
+            if page >= num_pages:
+                break
+            page += 1
+
         self._instrument_ticker = info
         return info
 
