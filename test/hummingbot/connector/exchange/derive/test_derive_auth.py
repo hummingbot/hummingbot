@@ -41,9 +41,9 @@ class DeriveAuthTests(TestCase):
         headers = self.auth.header_for_authentication()
 
         self.assertEqual(headers["accept"], "application/json")
-        self.assertEqual(headers["X-LyraWallet"], self.wallet_address)
-        self.assertEqual(headers["X-LyraTimestamp"], "1234567890")
-        self.assertEqual(headers["X-LyraSignature"], mock_signature)
+        self.assertEqual(headers["X-DeriveWallet"], self.wallet_address)
+        self.assertEqual(headers["X-DeriveTimestamp"], "1234567890")
+        self.assertEqual(headers["X-DeriveSignature"], mock_signature)
 
     @patch("hummingbot.core.web_assistant.connections.data_types.WSRequest.send_with_connection")
     async def test_ws_authenticate(self, mock_send):
@@ -104,9 +104,9 @@ class DeriveAuthTests(TestCase):
 
         payload = self.auth.get_ws_auth_payload()
 
-        self.assertEqual(payload["accept"], "application/json")
         self.assertEqual(payload["wallet"], self.wallet_address)
-        self.assertEqual(payload["timestamp"], "1234567890")
+        self.assertEqual(payload["timestamp"], 1234567890)
+        self.assertIsInstance(payload["timestamp"], int)
         self.assertEqual(payload["signature"], mock_signature)
 
     @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.utc_now_ms")

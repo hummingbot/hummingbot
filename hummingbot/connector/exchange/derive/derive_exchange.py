@@ -217,19 +217,6 @@ class DeriveExchange(ExchangePyBase):
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return self._error_code(cancelation_exception) in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES
 
-    def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
-        """
-        Applies trading rule to quantize order price.
-
-        Rounds to the instrument's tick size. Rounding to a fixed number of significant figures,
-        as this used to, produces prices the exchange rejects on instruments whose tick is coarser
-        than the rounded value, and needlessly loses precision on those whose tick is finer.
-        """
-        trading_rule = self._trading_rules.get(trading_pair)
-        if trading_rule is None or trading_rule.min_price_increment <= s_decimal_0:
-            return price
-        return (price // trading_rule.min_price_increment) * trading_rule.min_price_increment
-
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -865,7 +852,7 @@ class DeriveExchange(ExchangePyBase):
         oid = await tracked_order.get_exchange_order_id()
         client_order_id = tracked_order.client_order_id
         order_update = await self._api_post(
-            path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
+            path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
             data={
                 "subaccount_id": self._subacct_id,
                 "order_id": oid

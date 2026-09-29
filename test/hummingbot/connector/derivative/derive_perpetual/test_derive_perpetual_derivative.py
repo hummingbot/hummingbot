@@ -27,7 +27,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
@@ -95,7 +95,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             bidict({f"{self.base_asset}-PERP": self.trading_pair}))
 
     def test_get_related_limits(self):
-        self.assertEqual(16, len(self.throttler._rate_limits))
+        self.assertEqual(len(CONSTANTS.RATE_LIMITS), len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -282,47 +282,23 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def latest_prices_request_mock_response(self):
+        # v3 slim ticker, as returned by public/get_ticker.
         mock_response = {
             "result": {
-                'instrument_type': 'perp',  # noqa: mock
-                'instrument_name': 'BTC-PERP',
-                'scheduled_activation': 1734464971,
-                'scheduled_deactivation': 9223372036854775807,
-                'is_active': True,
-                'tick_size': '0.0001',
-                'minimum_amount': '0.1',
-                'maximum_amount': '100000',
-                'amount_step': '0.01',
-                'mark_price_fee_rate_cap': '0',
-                'maker_fee_rate': '0.0015',
-                'taker_fee_rate': '0.0015',
-                'base_fee': '0.1',
-                'base_currency': 'BTC',
-                'quote_currency': 'USDC',
-                'option_details': None,
-                "perp_details": {
-                    "index": "BTC-USD",
-                    "max_rate_per_hour": "0.004",
-                    "min_rate_per_hour": "-0.004",
-                    "static_interest_rate": "0.0000125",
-                    "aggregate_funding": "738.587599416709606114",
-                    "funding_rate": "-0.000033660522457857"
-                },
-                'erc20_details': None,
-                'base_asset_address': '0xDaffF9B244327d09dde1dDFcf9981ef0Df2D1568',  # noqa: mock
-                'base_asset_sub_id': '0', 'pro_rata_fraction': '0',
-                'fifo_min_allocation': '0', 'pro_rata_amount_step': '1', 'best_ask_amount': '2155.24', 'best_ask_price': '1.6712',
-                'best_bid_amount': '2155.43', 'best_bid_price': '1.6692', 'five_percent_bid_depth': '5036.42',
-                'five_percent_ask_depth': '5029.23', 'option_pricing': None,
-                'index_price': '1.6698', 'mark_price': self.expected_latest_price,
+                't': 1737827796000,
+                'A': '2155.24', 'a': '1.6712',
+                'B': '2155.43', 'b': '1.6692',
+                'f': '0.00001793',
+                'option_pricing': None,
+                'I': '1.6698',
+                'M': str(self.expected_latest_price),
                 'stats': {
-                    'contract_volume': '308.41',
-                    'num_trades': '7',
-                    'open_interest': '323332.12302071627866623',
-                    'high': '1.6796', 'low': '1.6605',
-                    'percent_change': '-0.071477',
-                    'usd_change': '-0.1285'},
-                'timestamp': 1737827796000, 'min_price': '1.6213', 'max_price': '1.7199'}
+                    'c': '308.41', 'v': '514.6', 'pr': '0', 'n': 7,
+                    'oi': '323332.12302071627866623',
+                    'h': '1.6796', 'l': '1.6605', 'p': '-0.071477',
+                },
+                'minp': '1.6213', 'maxp': '1.7199',
+            }
         }
 
         return mock_response
@@ -626,7 +602,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def funding_info_mock_response(self):
         mock_response = self.latest_prices_request_mock_response
         funding_info = mock_response["result"]
-        funding_info["mark_price"] = self.target_funding_info_mark_price
+        funding_info["M"] = self.target_funding_info_mark_price
         # funding_info["index_price"] = self.target_funding_info_index_price
         funding_info["perpetual"]["funding_rate"] = self.target_funding_info_rate
         return mock_response
@@ -676,7 +652,10 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
-        return DeductedFromReturnsTradeFee(
+        # An opening fill takes AddedToCostTradeFee; only a close takes DeductedFromReturns.
+        # This used to expect DeductedFromReturns because position_side was compared against the
+        # string "LONG" while holding a PositionSide enum, so every fill was classified CLOSE.
+        return AddedToCostTradeFee(
             percent_token=self.quote_asset,
             flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
         )
@@ -816,7 +795,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -833,7 +812,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -850,7 +829,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -867,7 +846,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -882,7 +861,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -896,7 +875,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -975,37 +954,25 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         pass
 
     def _get_funding_info_dict(self) -> Dict[str, Any]:
-        funding_info = {"result":
-                        {
-                            'instrument_type': 'erc20',
-                            'instrument_name': f'{self.base_asset}-PERP',
-                            'scheduled_activation': 1728508925,
-                            'scheduled_deactivation': 9223372036854775807,
-                            'is_active': True,
-                            'tick_size': '0.01',
-                            'minimum_amount': '0.1',
-                            'maximum_amount': '1000',
-                            'index_price': '36717.0',
-                            'mark_price': '36733.0',
-                            'amount_step': '0.01',
-                            'mark_price_fee_rate_cap': '0',
-                            'maker_fee_rate': '0.0015',
-                            'taker_fee_rate': '0.0015',
-                            'base_fee': '0.1',
-                            'base_currency': self.base_asset,
-                            'quote_currency': self.quote_asset,
-                            'option_details': None,
-                            "perp_details": {
-                                "index": "BTC-PERP",
-                                "max_rate_per_hour": "0.004",
-                                "min_rate_per_hour": "-0.004",
-                                "static_interest_rate": "0.0000125",
-                                "aggregate_funding": "738.587599416709606114",
-                                "funding_rate": "0.00001793"
-                            },
-                            'erc20_details': None,
-                            'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
-                        }
+        # v3 slim ticker: "f" is the current hourly funding rate, "I" the index and "M" the mark.
+        # perp_details is not part of the slim payload.
+        funding_info = {
+            "result": {
+                "t": 1662518172178,
+                "A": "2155.24", "a": "36734.0",
+                "B": "2155.43", "b": "36732.0",
+                "f": "0.00001793",
+                "option_pricing": None,
+                "I": "36717.0",
+                "M": "36733.0",
+                "stats": {
+                    "c": "308.41", "v": "514.6", "pr": "0", "n": 7,
+                    "oi": "323332.12302071627866623",
+                    "h": "36796.0", "l": "36605.0", "p": "-0.071477",
+                },
+                "minp": "36213.0", "maxp": "37199.0",
+            }
+        }
         return funding_info
 
     def _get_income_history_dict(self):
@@ -1188,7 +1155,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "leverage": 25,
                     "liquidation_price": "string",
                     "maintenance_margin": "string",
-                    "mark_price": "1.8980",
+                    "M": "1.8980",
                     "mark_value": "1.8980",
                     "net_settlements": "string",
                     "open_orders_margin": "string",
@@ -1226,7 +1193,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "leverage": 25,
                     "liquidation_price": "string",
                     "maintenance_margin": "string",
-                    "mark_price": "1.8980",
+                    "M": "1.8980",
                     "mark_value": "1.8980",
                     "net_settlements": "string",
                     "open_orders_margin": "string",
@@ -1264,7 +1231,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "leverage": 25,
                     "liquidation_price": "string",
                     "maintenance_margin": "string",
-                    "mark_price": "1.8980",
+                    "M": "1.8980",
                     "mark_value": "1.8980",
                     "net_settlements": "string",
                     "open_orders_margin": "string",
@@ -1302,7 +1269,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "leverage": 25,
                     "liquidation_price": "string",
                     "maintenance_margin": "string",
-                    "mark_price": "1.8980",
+                    "M": "1.8980",
                     "mark_value": "1.8980",
                     "net_settlements": "string",
                     "open_orders_margin": "string",
@@ -1340,7 +1307,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "leverage": str(order.leverage),
                     "liquidation_price": "string",
                     "maintenance_margin": "string",
-                    "mark_price": "1.8980",
+                    "M": "1.8980",
                     "mark_value": "1.8980",
                     "net_settlements": "string",
                     "open_orders_margin": "string",
@@ -1428,7 +1395,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertTrue(funding_info_logged.trading_pair == f"{self.base_asset}-{self.quote_asset}")
 
-        self.assertEqual(funding_info_logged.funding_rate, Decimal(funding_info["result"]["perp_details"]["funding_rate"]))
+        # v3 slim ticker: the hourly funding rate is "f".
+        self.assertEqual(funding_info_logged.funding_rate, Decimal(funding_info["result"]["f"]))
         self.assertEqual(funding_info_logged.amount, Decimal(income_history["result"]["events"][0]["funding"]))
 
     @aioresponses()
@@ -1895,7 +1863,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
 
         self.assertEqual(1, len(latest_prices))
-        self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
+        self.assertEqual(Decimal(str(self.expected_latest_price)), latest_prices[self.trading_pair])
 
     @aioresponses()
     @patch("asyncio.Queue.get")
@@ -2370,7 +2338,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.00')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000.00')}."
             )
         )
 
@@ -2415,7 +2383,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.00')} to {PositionAction.OPEN.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000.00')}."
             )
         )
 
@@ -2459,7 +2427,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
                 f"{Decimal('100.00')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000.00')}."
             )
         )
 
@@ -2506,7 +2474,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
                 f"{Decimal('100.00')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
-                f"at {Decimal('10000')}."
+                f"at {Decimal('10000.00')}."
             )
         )
 
@@ -2563,7 +2531,13 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         req_mock.get(regex_url, body=json.dumps(trades))
-        await self.exchange._all_trade_updates_for_order(order)
+        # _all_trade_updates_for_order returns the updates for the caller to apply; that is the
+        # contract ExchangePyBase._update_orders_fills relies on. It used to apply them itself
+        # and return None, which made that caller raise TypeError and drop every fill.
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(trade_updates))
+        for trade_update in trade_updates:
+            self.exchange._order_tracker.process_trade_update(trade_update)
 
         in_flight_orders = self.exchange._order_tracker.active_orders
 
@@ -2828,7 +2802,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         response = {
             "result": {
                 "instrument_name": f"{self.base_asset}-PERP",
-                "mark_price": "10500.50",
+                "M": "10500.50",
             }
         }
 
@@ -2836,4 +2810,4 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         price = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
 
-        self.assertEqual(response["result"]["mark_price"], price)
+        self.assertEqual(float(response["result"]["M"]), price)

@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.derivative.derive_perpetual.derive_perpetual_constants as CONSTANTS
@@ -113,3 +114,13 @@ def order_to_call(order):
         "time_in_force": order["time_in_force"],
         "label": order["label"]
     }
+
+
+def utc_now_ms() -> int:
+    """
+    Current UTC time in milliseconds.
+
+    Used for websocket request ids and the login timestamp. The signing helpers, including the
+    nanosecond action nonce, live in derive_common_utils.
+    """
+    return int(datetime.now(timezone.utc).timestamp() * 1000)

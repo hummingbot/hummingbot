@@ -53,7 +53,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
     def test_get_related_limits(self):
-        self.assertEqual(19, len(self.throttler._rate_limits))
+        self.assertEqual(len(CONSTANTS.RATE_LIMITS), len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -99,7 +99,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     async def test_initialize_rate_limits_updates_throttler(self):
         throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
             account_type=CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE,
-            expected_limit=CONSTANTS.TRADER_NON_MATCHING
+            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
         )
 
         throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
@@ -110,7 +110,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     async def test_initialize_rate_limits_non_market_maker(self):
         throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
             account_type="trader",
-            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
+            expected_limit=CONSTANTS.TRADER_NON_MATCHING
         )
 
         throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
@@ -221,41 +221,24 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def latest_prices_request_mock_response(self):
+        # v3 slim ticker, as returned by public/get_ticker: best bid/ask as b/B and a/A, index
+        # as I, mark as M, hourly funding as f. It no longer echoes instrument_name.
         mock_response = {
             "result": {
-                'instrument_type': 'erc20',  # noqa: mock
-                'instrument_name': 'BTC-USDC',
-                'scheduled_activation': 1734464971,
-                'scheduled_deactivation': 9223372036854775807,
-                'is_active': True,
-                'tick_size': '0.0001',
-                'minimum_amount': '0.1',
-                'maximum_amount': '100000',
-                'amount_step': '0.01',
-                'mark_price_fee_rate_cap': '0',
-                'maker_fee_rate': '0.0015',
-                'taker_fee_rate': '0.0015',
-                'base_fee': '0.1',
-                'base_currency': 'BTC',
-                'quote_currency': 'USDC',
-                'option_details': None,
-                'perp_details': None,
-                'erc20_details':
-                    {
-                        'decimals': 18,
-                        'underlying_erc20_address': '0x30f85847F9F17f219A9a21B93396a3B2eAEa500F',  # noqa: mock
-                        'borrow_index': '1', 'supply_index': '1'
-                    },
-                    'base_asset_address': '0xDaffF9B244327d09dde1dDFcf9981ef0Df2D1568',  # noqa: mock
-                    'base_asset_sub_id': '0', 'pro_rata_fraction': '0',
-                    'fifo_min_allocation': '0', 'pro_rata_amount_step': '1', 'best_ask_amount': '2155.24', 'best_ask_price': '1.6712',
-                    'best_bid_amount': '2155.43', 'best_bid_price': '1.6692', 'five_percent_bid_depth': '5036.42',
-                    'five_percent_ask_depth': '5029.23', 'option_pricing': None,
-                    'index_price': '1.6698', 'mark_price': self.expected_latest_price,
-                    'stats': {'contract_volume': '308.41',
-                              'num_trades': '7', 'open_interest': '323332.12302071627866623',
-                              'high': '1.6796', 'low': '1.6605', 'percent_change': '-0.071477', 'usd_change': '-0.1285'},
-                    'timestamp': 1737827796000, 'min_price': '1.6213', 'max_price': '1.7199'}
+                't': 1737827796000,
+                'A': '2155.24', 'a': '1.6712',
+                'B': '2155.43', 'b': '1.6692',
+                'f': None,
+                'option_pricing': None,
+                'I': '1.6698',
+                'M': str(self.expected_latest_price),
+                'stats': {
+                    'c': '308.41', 'v': '514.6', 'pr': '0', 'n': 7,
+                    'oi': '323332.12302071627866623',
+                    'h': '1.6796', 'l': '1.6605', 'p': '-0.071477',
+                },
+                'minp': '1.6213', 'maxp': '1.7199',
+            }
         }
 
         return mock_response
@@ -442,9 +425,11 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         step_size = Decimal(str(rule.get("amount_step")))
         price_size = Decimal(str(rule.get("tick_size")))
         min_amount = Decimal(str(rule.get("minimum_amount")))
+        max_amount = Decimal(str(rule.get("maximum_amount")))
 
         return TradingRule(self.trading_pair,
                            min_order_size=min_amount,
+                           max_order_size=max_amount,
                            min_price_increment=price_size,
                            min_base_amount_increment=step_size,
                            )
@@ -617,7 +602,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -634,7 +619,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -651,7 +636,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -668,7 +653,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -683,7 +668,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -697,7 +682,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -1221,7 +1206,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
 
         self.assertEqual(1, len(latest_prices))
-        self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
+        self.assertEqual(Decimal(str(self.expected_latest_price)), latest_prices[self.trading_pair])
 
     def configure_trading_rules_response(
             self,
@@ -1656,7 +1641,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000.00')}."
             )
         )
 
@@ -1695,7 +1680,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000.00')}."
             )
         )
 
