@@ -4,6 +4,7 @@ from typing import Any, Dict
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+from hummingbot.connector.derivative.bitget_unified_perpetual import bitget_unified_perpetual_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # BitgetUnified fees: https://www.bitget.com/en/rate?tab=1
@@ -25,8 +26,11 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     symbol = bool(exchange_info.get("symbol"))
     dated_futures = bool(exchange_info.get("deliveryPeriod"))
+    # V3 instruments reports the listing state in "status"; only an online instrument accepts
+    # orders, so a suspended or delisted contract must not reach the symbol map or trading rules.
+    online = exchange_info.get("status") == CONSTANTS.INSTRUMENT_STATUS_ONLINE
 
-    return symbol and not dated_futures
+    return symbol and online and not dated_futures
 
 
 class BitgetUnifiedPerpetualConfigMap(BaseConnectorConfigMap):

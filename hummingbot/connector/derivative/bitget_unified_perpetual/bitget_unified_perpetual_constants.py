@@ -23,6 +23,9 @@ POST_ONLY_TIME_IN_FORCE = "post_only"
 # Private (account) websocket subscriptions use the "UTA" instType.
 INST_TYPE_UTA = "UTA"
 
+# V3 instruments listing state; only an online instrument accepts orders.
+INSTRUMENT_STATUS_ONLINE = "online"
+
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
 

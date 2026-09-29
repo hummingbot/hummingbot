@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 import hummingbot.connector.exchange.bitget_unified.bitget_unified_constants as CONSTANTS
 import hummingbot.connector.exchange.bitget_unified.bitget_unified_utils as bitget_unified_utils
@@ -80,15 +81,15 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
                     "symbol": self.exchange_trading_pair,
                     "baseCoin": self.base_asset,
                     "quoteCoin": self.quote_asset,
-                    "minTradeAmount": "0",
-                    "maxTradeAmount": "900000000000000000000",
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
                     "takerFeeRate": str(self.expected_fill_fee.flat_fees[0].amount),
                     "makerFeeRate": str(self.expected_fill_fee.flat_fees[0].amount),
                     "pricePrecision": "2",
                     "quantityPrecision": "6",
                     "quotePrecision": "8",
                     "status": "online",
-                    "minTradeUSDT": "1",
+                    "minOrderAmount": "1",
                     "buyLimitPriceRatio": "0.05",
                     "sellLimitPriceRatio": "0.05",
                     "areaSymbol": "no",
@@ -110,15 +111,15 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
                     "symbol": self.exchange_trading_pair,
                     "baseCoin": self.base_asset,
                     "quoteCoin": self.quote_asset,
-                    "minTradeAmount": "0",
-                    "maxTradeAmount": "900000000000000000000",
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
                     "takerFeeRate": "0.002",
                     "makerFeeRate": "0.002",
                     "pricePrecision": "2",
                     "quantityPrecision": "6",
                     "quotePrecision": "8",
                     "status": "online",
-                    "minTradeUSDT": "1",
+                    "minOrderAmount": "1",
                     "buyLimitPriceRatio": "0.05",
                     "sellLimitPriceRatio": "0.05",
                     "areaSymbol": "no",
@@ -181,15 +182,15 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
                     "symbol": self.exchange_trading_pair,
                     "baseCoin": self.base_asset,
                     "quoteCoin": self.quote_asset,
-                    "minTradeAmount": "0",
-                    "maxTradeAmount": "900000000000000000000",
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
                     "takerFeeRate": "0.002",
                     "makerFeeRate": "0.002",
                     "pricePrecision": "2",
                     "quantityPrecision": "6",
                     "quotePrecision": "8",
                     "status": "online",
-                    "minTradeUSDT": "1",
+                    "minOrderAmount": "1",
                     "buyLimitPriceRatio": "0.05",
                     "sellLimitPriceRatio": "0.05",
                     "areaSymbol": "no",
@@ -345,11 +346,11 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
         rule = self.trading_rules_request_mock_response["data"][0]
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size=Decimal(f"1e-{rule['quantityPrecision']}"),
+            min_order_size=Decimal(rule["minOrderQty"]),
             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
             min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),
-            min_notional_size=Decimal(rule["minTradeUSDT"]),
+            min_notional_size=Decimal(rule["minOrderAmount"]),
         )
 
     @property
@@ -1041,3 +1042,88 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
         self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
             {"status": "online"}
         ))
+
+    def test_trading_rule_min_order_size_comes_from_min_order_qty(self) -> None:
+        """
+        Live V3 SPOT instruments carry a minOrderQty that is independent of quantityPrecision:
+        53 online pairs report quantityPrecision 0 while still accepting 0.0001. Deriving the
+        minimum from the precision reports it 10000x too large and makes the executors refuse
+        valid orders.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "category": "SPOT",
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minOrderQty": "0.0001",
+                "maxOrderQty": "0",
+                "pricePrecision": "2",
+                "quantityPrecision": "0",
+                "quotePrecision": "2",
+                "minOrderAmount": "20",
+                "status": "online",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(1, len(rules))
+        self.assertEqual(Decimal("0.0001"), rules[0].min_order_size)
+        self.assertEqual(Decimal("1"), rules[0].min_base_amount_increment)
+        self.assertEqual(Decimal("20"), rules[0].min_notional_size)
+
+    def test_trading_rule_falls_back_to_legacy_field_names(self) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minTradeAmount": "0.002",
+                "pricePrecision": "2",
+                "quantityPrecision": "6",
+                "quotePrecision": "8",
+                "minTradeUSDT": "5",
+                "status": "online",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(Decimal("0.002"), rules[0].min_order_size)
+        self.assertEqual(Decimal("5"), rules[0].min_notional_size)
+
+    def test_trading_rules_skip_instruments_that_are_not_online(self) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minOrderQty": "0.0001",
+                "pricePrecision": "2",
+                "quantityPrecision": "6",
+                "quotePrecision": "8",
+                "minOrderAmount": "1",
+                # Seen live on newly-listed pairs still in the call-auction phase.
+                "status": "limit_open",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(0, len(rules))

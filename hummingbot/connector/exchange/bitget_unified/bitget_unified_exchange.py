@@ -653,10 +653,15 @@ class BitgetUnifiedExchange(ExchangePyBase):
                     # V3 instruments renames minTradeUSDT -> minOrderAmount; precision fields
                     # (pricePrecision/quantityPrecision/quotePrecision) keep their names.
                     min_notional = rule.get("minOrderAmount", rule.get("minTradeUSDT"))
+                    # minOrderQty is the exchange's own minimum order size and is not always the
+                    # same as the quantity step: instruments with quantityPrecision 0 still accept
+                    # 0.0001, so deriving the minimum from the precision would overstate it by
+                    # orders of magnitude and make the executors reject valid orders.
+                    min_order_size = rule.get("minOrderQty", rule.get("minTradeAmount"))
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
-                            min_order_size=Decimal(f"1e-{rule['quantityPrecision']}"),
+                            min_order_size=Decimal(str(min_order_size)),
                             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
                             min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
                             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),

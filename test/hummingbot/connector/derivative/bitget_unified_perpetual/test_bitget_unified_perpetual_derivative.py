@@ -139,7 +139,7 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
                     "maxSymbolOrderNum": "999999",
                     "maxProductOrderNum": "999999",
                     "maxPositionNum": "150",
-                    "symbolStatus": "normal",
+                    "status": "online",
                     "offTime": "-1",
                     "limitOpenTime": "-1",
                     "deliveryTime": "",
@@ -186,7 +186,7 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
                     "maxSymbolOrderNum": "999999",
                     "maxProductOrderNum": "999999",
                     "maxPositionNum": "150",
-                    "symbolStatus": "normal",
+                    "status": "online",
                     "offTime": "-1",
                     "limitOpenTime": "-1",
                     "deliveryTime": "",
@@ -233,7 +233,7 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
                     "maxSymbolOrderNum": "999999",
                     "maxProductOrderNum": "999999",
                     "maxPositionNum": "150",
-                    "symbolStatus": "normal",
+                    "status": "online",
                     "offTime": "-1",
                     "limitOpenTime": "-1",
                     "deliveryTime": "",
@@ -316,6 +316,7 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
                     "symbol": self.exchange_trading_pair,
                     "baseCoin": self.base_asset,
                     "quoteCoin": self.quote_asset,
+                    "status": "online",
                 }
             ]
         }
@@ -2156,3 +2157,88 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
         self.async_run_with_timeout(self.exchange._update_positions())
 
         self.assertEqual(0, len(self.exchange.account_positions))
+
+    def test_format_trading_rules_from_v3_instrument_payload(self):
+        """
+        The shared symbol mocks still use the V2 field names, so the V3 branches of
+        _format_trading_rules were never exercised. This pins them against the field set the
+        live /api/v3/market/instruments endpoint actually returns.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        instrument = {
+            "symbol": self.exchange_trading_pair,
+            "category": CONSTANTS.USDT_PRODUCT_TYPE,
+            "baseCoin": self.base_asset,
+            "quoteCoin": self.quote_asset,
+            "minOrderQty": "0.0001",
+            "maxOrderQty": "1200",
+            "pricePrecision": "1",
+            "quantityPrecision": "4",
+            # The live futures payload really does return an empty quotePrecision.
+            "quotePrecision": "",
+            "minOrderAmount": "5",
+            "status": "online",
+            "deliveryPeriod": "",
+            "type": "perpetual",
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules([instrument]))
+
+        self.assertEqual(1, len(rules))
+        rule = rules[0]
+        self.assertEqual(Decimal("0.0001"), rule.min_order_size)
+        self.assertEqual(Decimal("1200"), rule.max_order_size)
+        self.assertEqual(Decimal("5"), rule.min_order_value)
+        self.assertEqual(Decimal("0.1"), rule.min_price_increment)
+        self.assertEqual(Decimal("0.0001"), rule.min_base_amount_increment)
+        # USDT-margined: the collateral is the quote coin.
+        self.assertEqual(self.quote_asset, rule.buy_order_collateral_token)
+        self.assertEqual(self.quote_asset, rule.sell_order_collateral_token)
+
+    def test_format_trading_rules_uses_base_coin_as_collateral_for_coin_futures(self):
+        coin_pair = combine_to_hb_trading_pair(self.base_asset, "USD")
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}USD": coin_pair})
+        )
+        instrument = {
+            "symbol": f"{self.base_asset}USD",
+            "category": CONSTANTS.USD_PRODUCT_TYPE,
+            "baseCoin": self.base_asset,
+            "quoteCoin": "USD",
+            "minOrderQty": "0.01",
+            "maxOrderQty": "1000000",
+            "pricePrecision": "1",
+            "quantityPrecision": "2",
+            "minOrderAmount": "5",
+            "status": "online",
+            "deliveryPeriod": "",
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules([instrument]))
+
+        self.assertEqual(self.base_asset, rules[0].buy_order_collateral_token)
+        self.assertEqual(self.base_asset, rules[0].sell_order_collateral_token)
+
+    def test_format_trading_rules_skips_instruments_that_are_not_online(self):
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        instrument = {
+            "symbol": self.exchange_trading_pair,
+            "category": CONSTANTS.USDT_PRODUCT_TYPE,
+            "baseCoin": self.base_asset,
+            "quoteCoin": self.quote_asset,
+            "minOrderQty": "0.0001",
+            "maxOrderQty": "1200",
+            "pricePrecision": "1",
+            "quantityPrecision": "4",
+            "minOrderAmount": "5",
+            "status": "offline",
+            "deliveryPeriod": "",
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules([instrument]))
+
+        self.assertEqual(0, len(rules))
