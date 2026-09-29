@@ -5,7 +5,7 @@ import pandas as pd
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, connectable_exchange_names
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
@@ -14,8 +14,7 @@ from hummingbot.user.user_balances import UserBalances
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
-OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() if cs.name != "probit_kr"}
+OPTIONS = connectable_exchange_names()
 
 
 class ConnectCommand:
@@ -144,3 +143,8 @@ class ConnectCommand:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:
                 Security.update_secure_config(original_config)
+            else:
+                # Validation failed on a fresh connect: remove the config that was persisted above,
+                # otherwise the client would report the connector's keys as added even though they
+                # never validated.
+                Security.remove_secure_config(connector_name)

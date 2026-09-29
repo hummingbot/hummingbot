@@ -478,6 +478,37 @@ class TestCandlesBase(IsolatedAsyncioWrapperTestCase, ABC):
             self.assertIsInstance(result, pd.DataFrame)
             mock_fetch_candles.assert_called_once()
 
+    async def test_get_historical_candles_deduplicates_boundary_candle(self):
+        """Pagination landing exactly on the start boundary must not duplicate the boundary candle."""
+        from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
+
+        with patch.object(self.data_feed, '_round_timestamp_to_interval_multiple', side_effect=lambda x: x), \
+             patch.object(self.data_feed, 'initialize_exchange_data', new_callable=AsyncMock), \
+             patch.object(self.data_feed, 'fetch_candles', new_callable=AsyncMock) as mock_fetch_candles:
+
+            interval_s = self.data_feed.interval_in_seconds
+            start_ts = 1622505600
+            first_page = np.array([
+                [start_ts + i * interval_s, 50000, 50100, 49900, 50050, 1000, 0, 0, 0, 0]
+                for i in range(3)
+            ])
+            # The final missing_records == 0 iteration re-fetches the boundary candle
+            boundary_page = first_page[:1]
+            mock_fetch_candles.side_effect = [first_page, boundary_page]
+
+            config = HistoricalCandlesConfig(
+                connector_name="test",
+                trading_pair="BTC-USDT",
+                interval=self.interval,
+                start_time=start_ts,
+                end_time=start_ts + 2 * interval_s
+            )
+            result = await self.data_feed.get_historical_candles(config)
+
+            self.assertEqual(mock_fetch_candles.call_count, 2)
+            self.assertEqual(len(result), 3)
+            self.assertEqual(result["timestamp"].duplicated().sum(), 0)
+
     async def test_stop_network_cancels_fill_candles_task(self):
         """Test that stop_network cancels _fill_candles_task when it exists (lines 83-85)"""
         # Skip for subclasses that override stop_network (e.g. BtcMarketsSpotCandles)

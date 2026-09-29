@@ -12,20 +12,20 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 class DeriveAuthTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.api_key = "0x1234567890abcdef1234567890abcdef12345678"  # noqa: mock
-        self.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
-        self.sub_id = "45686"  # noqa: mock
+        self.wallet_address = "0x1234567890abcdef1234567890abcdef12345678"  # noqa: mock
+        self.session_private_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+        self.subacct_id = "45686"  # noqa: mock
         self.domain = "derive_testnet"  # noqa: mock
-        self.auth = DeriveAuth(api_key=self.api_key,
-                               api_secret=self.api_secret,
-                               sub_id=self.sub_id,
+        self.auth = DeriveAuth(wallet_address=self.wallet_address,
+                               session_private_key=self.session_private_key,
+                               subacct_id=self.subacct_id,
                                trading_required=True,
                                domain=self.domain)
 
     def test_initialization(self):
-        self.assertEqual(self.auth._api_key, self.api_key)
-        self.assertEqual(self.auth._api_secret, self.api_secret)
-        self.assertEqual(self.auth._sub_id, self.sub_id)
+        self.assertEqual(self.auth._wallet_address, self.wallet_address)
+        self.assertEqual(self.auth._session_private_key, self.session_private_key)
+        self.assertEqual(self.auth._subacct_id, self.subacct_id)
         self.assertTrue(self.auth._trading_required)
         self.assertIsInstance(self.auth._w3, Web3)
 
@@ -41,7 +41,7 @@ class DeriveAuthTests(TestCase):
         headers = self.auth.header_for_authentication()
 
         self.assertEqual(headers["accept"], "application/json")
-        self.assertEqual(headers["X-LyraWallet"], self.api_key)
+        self.assertEqual(headers["X-LyraWallet"], self.wallet_address)
         self.assertEqual(headers["X-LyraTimestamp"], "1234567890")
         self.assertEqual(headers["X-LyraSignature"], mock_signature)
 
@@ -105,7 +105,7 @@ class DeriveAuthTests(TestCase):
         payload = self.auth.get_ws_auth_payload()
 
         self.assertEqual(payload["accept"], "application/json")
-        self.assertEqual(payload["wallet"], self.api_key)
+        self.assertEqual(payload["wallet"], self.wallet_address)
         self.assertEqual(payload["timestamp"], "1234567890")
         self.assertEqual(payload["signature"], mock_signature)
 

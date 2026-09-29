@@ -87,7 +87,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
-        subaccount_id = self._connector._sub_id
+        subaccount_id = self._connector._subacct_id
         try:
             await self._authenticate(websocket_assistant)  # Authenticate once
 

@@ -38,9 +38,9 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = DeriveExchange(
             client_config_map,
-            derive_api_key="testkey",
-            derive_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
-            sub_id="45686",
+            derive_wallet_address="testkey",
+            session_private_key="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
+            subacct_id="45686",
             domain="derive_testnet",
             account_type="market_maker",
             trading_required=True,

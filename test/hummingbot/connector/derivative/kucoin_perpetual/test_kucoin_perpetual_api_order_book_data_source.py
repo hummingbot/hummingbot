@@ -219,7 +219,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_trade_subscription = {
             "id": 1,
             "type": "subscribe",
-            "topic": f"/contractMarket/ticker:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -227,7 +227,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         expected_diff_subscription = {
             "id": 2,
             "type": "subscribe",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -306,7 +306,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
 
     async def test_listen_for_trades_logs_exception(self):
         incomplete_resp = {
-            "channel": CONSTANTS.WS_TRADES_TOPIC,
+            "channel": CONSTANTS.WS_EXECUTION_DATA_TOPIC,
             "market": self.ex_trading_pair,
             "type": "update",
             "data": [
@@ -335,8 +335,8 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         mock_queue = AsyncMock()
         trade_event = {
             "type": "message",
-            "topic": f"/market/match:{self.trading_pair}",
-            "subject": "trade.l3match",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
+            "subject": "match",
             "data": {
                 "sequence": "1545896669145",
                 "type": "match",
@@ -347,7 +347,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                 "tradeId": "5c24c5da03aa673885cd67aa",
                 "takerOrderId": "5c24c5d903aa6772d55b371e",
                 "makerOrderId": "5c2187d003aa677bd09d5c93",
-                "time": "1545913818099033203"
+                "ts": "1545913818099033203"
             }
         }
 
@@ -364,6 +364,79 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertTrue(trade_event["data"]["tradeId"], msg.trade_id)
 
+    def test_channel_originating_message_routes_execution_topic_to_trade_queue(self):
+        # Regression test for issue #7482: the public trade feed for KuCoin futures is the
+        # "/contractMarket/execution" topic (WS_EXECUTION_DATA_TOPIC). Messages on that topic must be
+        # routed to the trade queue key, otherwise listen_for_trades never receives them. Before
+        # the fix the data source subscribed to (and routed) "/contractMarket/ticker", so every
+        # public trade update was silently dropped.
+        event_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
+            "subject": "match",
+            "data": {"symbol": self.trading_pair},
+        }
+
+        channel = self.data_source._channel_originating_message(event_message)
+
+        self.assertEqual(self.data_source._trade_messages_queue_key, channel)
+
+    def test_channel_originating_message_does_not_route_ticker_topic_to_trade_queue(self):
+        # The ticker topic is a different public feed and must never be mistaken for trades.
+        event_message = {
+            "type": "message",
+            "topic": f"{CONSTANTS.WS_TICKER_INFO_TOPIC}:{self.trading_pair}",
+            "subject": "ticker",
+            "data": {"symbol": self.trading_pair},
+        }
+
+        channel = self.data_source._channel_originating_message(event_message)
+
+        self.assertNotEqual(self.data_source._trade_messages_queue_key, channel)
+
+    async def test_parse_trade_message_dedupes_and_orders_on_reconnect(self):
+        # Regression for the #7482 review: once the trade feed is correctly subscribed, a websocket
+        # reconnect can replay recent executions (and the re-subscribe order-book snapshot overlaps the
+        # live stream). The data source must drop that overlap so trades are not double-counted, and
+        # the emitted trades must stay ordered by exchange sequence and timestamp -- otherwise a
+        # corrected feed still distorts anything built from it when the overlap is processed twice.
+        self._simulate_trading_rules_initialized()
+
+        def raw(seq, ts, tid):
+            return {
+                "type": "message",
+                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{self.trading_pair}",
+                "subject": "match",
+                "data": {
+                    "sequence": str(seq), "type": "match", "symbol": self.trading_pair,
+                    "side": "buy", "price": "0.082", "size": "0.01", "tradeId": tid, "ts": str(ts),
+                },
+            }
+
+        queue: asyncio.Queue = asyncio.Queue()
+        # First connection: three ordered matches.
+        for seq, ts, tid in [(100, 1000, "t100"), (101, 1100, "t101"), (102, 1200, "t102")]:
+            await self.data_source._parse_trade_message(raw(seq, ts, tid), queue)
+        # Reconnect: the feed replays 101 and 102 (overlap) before delivering a new match 103,
+        # and a stale/out-of-order match (99) also arrives late.
+        for seq, ts, tid in [(101, 1100, "t101"), (102, 1200, "t102"),
+                             (99, 990, "t099"), (103, 1300, "t103")]:
+            await self.data_source._parse_trade_message(raw(seq, ts, tid), queue)
+
+        emitted = []
+        while not queue.empty():
+            emitted.append(queue.get_nowait())
+
+        # Duplicate suppression: the replayed matches (101, 102) and the stale match (99) are dropped,
+        # so each match is emitted exactly once and in order.
+        self.assertEqual(["t100", "t101", "t102", "t103"], [m.trade_id for m in emitted])
+        # Monotonic exchange timestamps: the emitted trade timestamps are non-decreasing.
+        timestamps = [m.timestamp for m in emitted]
+        self.assertEqual(timestamps, sorted(timestamps))
+        # And a repeat of the last seen sequence stays suppressed (idempotent on further replays).
+        await self.data_source._parse_trade_message(raw(103, 1300, "t103"), queue)
+        self.assertTrue(queue.empty())
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
@@ -377,7 +450,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
     async def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = {
             "type": "message",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
         }
 
         mock_queue = AsyncMock()
@@ -399,7 +472,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         mock_queue = AsyncMock()
         diff_event = {
             "subject": "level2",
-            "topic": f"/contractMarket/level2:{self.trading_pair}",
+            "topic": f"{CONSTANTS.WS_ORDER_BOOK_EVENTS_TOPIC}:{self.trading_pair}",
             "type": "message",
             "data": {
                 "sequence": 18,
@@ -655,6 +728,12 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertTrue(result)
         # KuCoin perpetual sends 3 messages: match, level2, funding
         self.assertEqual(3, mock_ws.send.call_count)
+
+        # Regression for issue #7482: the per-pair subscription must use the public trade
+        # execution topic, never the ticker topic (which carries no trade prints).
+        sent_topics = [call.args[0].payload["topic"] for call in mock_ws.send.call_args_list]
+        self.assertIn(f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{new_pair}", sent_topics)
+        self.assertNotIn(f"{CONSTANTS.WS_TICKER_INFO_TOPIC}:{new_pair}", sent_topics)
 
         # Verify pair was added to trading pairs
         self.assertIn(new_pair, self.data_source._trading_pairs)

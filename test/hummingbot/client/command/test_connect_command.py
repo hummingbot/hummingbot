@@ -93,6 +93,85 @@ class ConnectCommandTest(IsolatedAsyncioWrapperTestCase):
         self.assertFalse(self.app.placeholder_mode)
         self.assertFalse(self.app.app.hide_input)
 
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    @patch("hummingbot.client.config.security.Security.remove_secure_config")
+    @patch("hummingbot.client.config.security.Security.update_secure_config")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
+    @patch("hummingbot.client.config.security.Security.api_keys")
+    @patch("hummingbot.user.user_balances.UserBalances.connect_market")
+    async def test_connect_exchange_validation_failure_does_not_save_config(
+        self,
+        connect_market_mock: MagicMock,
+        api_keys_mock: MagicMock,
+        connector_config_file_exists_mock: MagicMock,
+        update_secure_config_mock: MagicMock,
+        remove_secure_config_mock: MagicMock,
+        _: MagicMock,
+    ):
+        # A connector whose construction rejects the credentials (e.g. Hyperliquid private key that
+        # does not derive to the supplied wallet address) must surface a clean error message, must
+        # not leave the client prompt unusable, and must not leave a connector config file behind.
+        error_msg = (
+            "Hyperliquid private key does not derive to the supplied wallet address. "
+            "Verify the private key matches the wallet address you intend to trade from, "
+            "set use_vault=True if the supplied address is a vault address, or select the "
+            "api_wallet connection mode if you are using a Hyperliquid API/agent wallet key."
+        )
+        connect_market_mock.side_effect = ValueError(error_msg)
+        exchange = "binance"
+        api_key = "someKey"
+        api_secret = "someSecret"
+        api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
+        connector_config_file_exists_mock.return_value = False
+        self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
+        self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
+
+        await self.app.connect_exchange(exchange)
+
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg=f"\nError: {error_msg}"))
+        # config was persisted before validation and must be rolled back on failure
+        self.assertEqual(update_secure_config_mock.call_count, 1)
+        remove_secure_config_mock.assert_called_once_with(exchange)
+        # the client must return to a usable prompt
+        self.assertFalse(self.app.placeholder_mode)
+        self.assertFalse(self.app.app.hide_input)
+
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    @patch("hummingbot.client.config.security.Security.remove_secure_config")
+    @patch("hummingbot.client.config.security.Security.update_secure_config")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
+    @patch("hummingbot.client.config.security.Security.api_keys")
+    @patch("hummingbot.user.user_balances.UserBalances.connect_market")
+    async def test_connect_exchange_validation_failure_restores_previous_config(
+        self,
+        connect_market_mock: MagicMock,
+        api_keys_mock: MagicMock,
+        connector_config_file_exists_mock: MagicMock,
+        update_secure_config_mock: MagicMock,
+        remove_secure_config_mock: MagicMock,
+        _: MagicMock,
+    ):
+        # When existing keys are being replaced and the new ones fail validation, the previous
+        # config is restored (and nothing is removed).
+        connect_market_mock.side_effect = ValueError("invalid credentials")
+        exchange = "binance"
+        api_key = "someKey"
+        api_secret = "someSecret"
+        api_keys_mock.return_value = {"binance_api_key": api_key, "binance_api_secret": api_secret}
+        connector_config_file_exists_mock.return_value = True
+        self.cli_mock_assistant.queue_prompt_reply("Yes")  # replace existing keys
+        self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
+        self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
+
+        await self.app.connect_exchange(exchange)
+
+        self.assertTrue(self.cli_mock_assistant.check_log_called_with(msg="\nError: invalid credentials"))
+        # first call saves the new config, second call restores the original one
+        self.assertEqual(update_secure_config_mock.call_count, 2)
+        remove_secure_config_mock.assert_not_called()
+        self.assertFalse(self.app.placeholder_mode)
+        self.assertFalse(self.app.app.hide_input)
+
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
     async def test_connection_df_handles_network_timeouts(self, _: AsyncMock, update_exchanges_mock: AsyncMock):

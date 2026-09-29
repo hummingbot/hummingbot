@@ -20,8 +20,8 @@ from hummingbot.connector.derivative.pacifica_perpetual.pacifica_perpetual_deriv
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, TradeUpdate
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
@@ -701,3 +701,231 @@ class PacificaPerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 taker_percent_fee_decimal=Decimal("0.0004"),
             )
         )
+
+    # === WS filled order updates trigger a REST fills fetch (account_trades can be late) ===
+
+    @aioresponses()
+    async def test_ws_filled_order_update_fetches_fills_via_rest(self, req_mock):
+        await self._simulate_trading_rules_initialized()
+
+        url = web_utils.public_rest_url(CONSTANTS.GET_TRADE_HISTORY_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, payload={
+            "success": True,
+            "data": [
+                {
+                    "history_id": 19329801,
+                    "order_id": 123456789,
+                    "client_order_id": None,
+                    "symbol": self.symbol,
+                    "amount": "0.6",
+                    "price": "1900.0",
+                    "entry_price": "1899.0",
+                    "fee": "0.1",
+                    "pnl": "-0.001",
+                    "event_type": "fulfill_taker",
+                    "side": "open_long",
+                    "created_at": 1640780000500,
+                    "cause": "normal"
+                }
+            ],
+            "has_more": False,
+        })
+
+        self.exchange._order_tracker.start_tracking_order(
+            InFlightOrder(
+                client_order_id="test_client_order_id",
+                exchange_order_id="123456789",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.MARKET,
+                trade_type=TradeType.BUY,
+                amount=Decimal("0.6"),
+                price=Decimal("1900.0"),
+                creation_timestamp=1640780000,
+            )
+        )
+
+        await self.exchange._process_account_order_updates_ws_event_message({
+            "channel": "account_order_updates",
+            "data": [
+                {"i": 123456789, "os": "filled", "f": "0.6", "ut": 1640780001000},
+            ],
+        })
+        # let the tracker's order-update future run to completion
+        await asyncio.sleep(0.1)
+
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event = self.order_filled_logger.event_log[0]
+        self.assertEqual("test_client_order_id", fill_event.order_id)
+        self.assertEqual(Decimal("0.6"), fill_event.amount)
+        self.assertEqual(Decimal("1900.0"), fill_event.price)
+
+        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
+        completed_event = self.buy_order_completed_logger.event_log[0]
+        # the incident signature was base_asset_amount == 0 here
+        self.assertEqual(Decimal("0.6"), completed_event.base_asset_amount)
+
+    @aioresponses()
+    async def test_ws_filled_order_update_skips_rest_when_fills_already_known(self, req_mock):
+        """No trade-history request is made when account_trades already delivered the fills
+        (the GET is deliberately not mocked — an attempt to call it would fail the test)."""
+        await self._simulate_trading_rules_initialized()
+
+        order = InFlightOrder(
+            client_order_id="test_client_order_id",
+            exchange_order_id="123456789",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            amount=Decimal("0.6"),
+            price=Decimal("1900.0"),
+            creation_timestamp=1640780000,
+        )
+        self.exchange._order_tracker.start_tracking_order(order)
+        self.exchange._order_tracker.process_trade_update(TradeUpdate(
+            trade_id="ws_trade_1",
+            client_order_id="test_client_order_id",
+            exchange_order_id="123456789",
+            trading_pair=self.trading_pair,
+            fill_timestamp=1640780000.5,
+            fill_price=Decimal("1900.0"),
+            fill_base_amount=Decimal("0.6"),
+            fill_quote_amount=Decimal("1140.0"),
+            fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDC", amount=Decimal("0.1"))]),
+        ))
+
+        await self.exchange._process_account_order_updates_ws_event_message({
+            "channel": "account_order_updates",
+            "data": [
+                {"i": 123456789, "os": "filled", "f": "0.6", "ut": 1640780001000},
+            ],
+        })
+        await asyncio.sleep(0.1)
+
+        # completed correctly from the WS-delivered fill alone
+        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
+        self.assertEqual(Decimal("0.6"), self.buy_order_completed_logger.event_log[0].base_asset_amount)
+
+    # === Spot instruments are skipped (the venue lists them alongside perpetuals) ===
+
+    async def test_format_trading_rules_skips_spot_instruments(self):
+        exchange_info = {
+            "success": True,
+            "data": [
+                {
+                    "symbol": self.symbol,
+                    "tick_size": "0.1",
+                    "lot_size": "0.0001",
+                    "min_order_size": "10",
+                    "instrument_type": "perpetual",
+                },
+                {
+                    "symbol": "SOL-USDC",
+                    "tick_size": "0.01",
+                    "lot_size": "0.001",
+                    "min_order_size": "10",
+                    "instrument_type": "spot",
+                },
+            ],
+        }
+
+        rules = await self.exchange._format_trading_rules(exchange_info)
+
+        self.assertEqual(1, len(rules))
+        self.assertEqual(self.trading_pair, rules[0].trading_pair)
+
+    async def test_symbol_map_skips_spot_instruments(self):
+        exchange_info = {
+            "success": True,
+            "data": [
+                {"symbol": "SOL-USDC", "instrument_type": "spot"},
+                {"symbol": "DOGE", "instrument_type": "perpetual"},
+            ],
+        }
+
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(exchange_info)
+
+        mapping = await self.exchange.trading_pair_symbol_map()
+        self.assertIn("DOGE", mapping)
+        self.assertEqual("DOGE-USDC", mapping["DOGE"])
+        self.assertNotIn("SOL-USDC", mapping)
+
+    # === Perpetuals listed by the venue since the last poll are tolerated ===
+
+    async def test_format_trading_rules_skips_symbols_missing_from_the_symbol_map(self):
+        exchange_info = {
+            "success": True,
+            "data": [
+                {
+                    "symbol": self.symbol,
+                    "tick_size": "0.1",
+                    "lot_size": "0.0001",
+                    "min_order_size": "10",
+                    "instrument_type": "perpetual",
+                },
+                {
+                    # listed by the venue after the symbol map was built, so not in it yet
+                    "symbol": "VVV",
+                    "tick_size": "0.001",
+                    "lot_size": "0.1",
+                    "min_order_size": "10",
+                    "instrument_type": "perpetual",
+                },
+            ],
+        }
+
+        rules = await self.exchange._format_trading_rules(exchange_info)
+
+        self.assertEqual(1, len(rules))
+        self.assertEqual(self.trading_pair, rules[0].trading_pair)
+
+    @aioresponses()
+    async def test_update_trading_rules_recovers_from_newly_listed_symbols(self, req_mock):
+        url = web_utils.public_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        exchange_info = {
+            "success": True,
+            "data": [
+                {
+                    "symbol": self.symbol,
+                    "tick_size": "0.1",
+                    "lot_size": "0.0001",
+                    "min_order_size": "10",
+                    "instrument_type": "perpetual",
+                },
+                {
+                    "symbol": "VVV",
+                    "tick_size": "0.001",
+                    "lot_size": "0.1",
+                    "min_order_size": "10",
+                    "instrument_type": "perpetual",
+                },
+            ],
+        }
+        req_mock.get(regex_url, payload=exchange_info)
+
+        await self.exchange._update_trading_rules()
+
+        # the known pair keeps its rules...
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        # ...and the symbol map refresh still runs, so the next poll can price the new listing
+        mapping = await self.exchange.trading_pair_symbol_map()
+        self.assertEqual("VVV-USDC", mapping["VVV"])
+
+    @aioresponses()
+    async def test_get_all_pairs_prices_skips_unmapped_symbols(self, req_mock):
+        url = web_utils.public_rest_url(CONSTANTS.GET_PRICES_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        req_mock.get(regex_url, payload={
+            "success": True,
+            "data": [
+                {"symbol": self.symbol, "mark": "1900.5"},
+                {"symbol": "SOL-USDC", "mark": "85.9"},
+            ],
+        })
+
+        results = await self.exchange.get_all_pairs_prices()
+
+        self.assertEqual(1, len(results))
+        self.assertEqual(self.trading_pair, results[0]["trading_pair"])
+        self.assertEqual("1900.5", results[0]["price"])

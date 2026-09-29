@@ -242,3 +242,21 @@ class PacificaPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase)
         # ping_found = any(msg.get("op") == "ping" for msg in sent_messages)
         # Note: ping might not be sent depending on timing, this test is optional
         # The important thing is that it doesn't error
+
+    async def test_ping_uses_method_field(self):
+        """The venue only understands {"method": "ping"}; {"op": "ping"} is rejected with a 400 frame."""
+        sent_payloads = []
+        ws = MagicMock()
+        ws.send = AsyncMock(side_effect=lambda request: sent_payloads.append(request.payload))
+
+        with patch.object(CONSTANTS, "WS_PING_INTERVAL", 0):
+            ping_task = asyncio.create_task(self.data_source._ping_loop(ws))
+            await asyncio.sleep(0.05)
+            ping_task.cancel()
+            try:
+                await ping_task
+            except asyncio.CancelledError:
+                pass
+
+        self.assertGreater(len(sent_payloads), 0)
+        self.assertEqual({"method": "ping"}, sent_payloads[0])

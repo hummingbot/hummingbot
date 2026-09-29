@@ -22,6 +22,7 @@ from hummingbot.strategy_v2.executors.order_executor.order_executor import Order
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.twap_executor import TWAPExecutor
 from hummingbot.strategy_v2.executors.xemm_executor.xemm_executor import XEMMExecutor
+from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executor_actions import (
     CreateExecutorAction,
     ExecutorAction,
@@ -364,20 +365,97 @@ class ExecutorOrchestrator:
                 self.logger().info(f"Created initial position for controller {controller_id}: {position_config.amount} "
                                    f"{position_config.side.name} {position_config.trading_pair} on {position_config.connector_name}")
 
+    def _all_executors_done(self) -> bool:
+        return all(executor.executor_info.is_done
+                   for executors_list in self.active_executors.values()
+                   for executor in executors_list)
+
+    def _executors_shutdown_signature(self) -> tuple:
+        """
+        Observable shutdown progress across all executors. Any change — a status or
+        close_type transition, an executor finishing, or an internal state advance the
+        executor reports through custom_info["state"] (e.g. an LP unwind moving from
+        CLOSING to SWAPPING) — counts as progress and earns the shutdown wait more time.
+        """
+        signature = []
+        for executors_list in self.active_executors.values():
+            for executor in executors_list:
+                info = executor.executor_info
+                signature.append((
+                    executor.config.id,
+                    executor.status,
+                    info.is_done,
+                    executor.close_type,
+                    str(info.custom_info.get("state")),
+                ))
+        return tuple(signature)
+
     async def stop(self, max_executors_close_attempts: int = 3):
         """
         Stop the orchestrator task and all active executors.
+
+        Executors that are already SHUTTING_DOWN keep the close_type their controller
+        chose; the wait extends while executors make observable progress (an on-chain
+        unwind takes several ticks); and any executor still unfinished at the deadline
+        is force-stopped synchronously, converting whatever it executed into a
+        position hold so no exposure goes untracked.
         """
-        # first we stop all active executors
         for controller_id, executors_list in self.active_executors.items():
             for executor in executors_list:
-                if not executor.is_closed:
-                    executor.early_stop()
-        for i in range(max_executors_close_attempts):
-            if all([executor.executor_info.is_done for executors_list in self.active_executors.values()
-                    for executor in executors_list]):
-                break  # All executors are done, exit early
-            await asyncio.sleep(2.0)
+                if executor.is_closed or executor.status == RunnableStatus.SHUTTING_DOWN:
+                    # A SHUTTING_DOWN executor already had its close_type chosen (by a
+                    # StopExecutorAction or its own logic). Calling early_stop again
+                    # would overwrite it with this type's default keep_position — e.g.
+                    # flipping an LP mid-unwind from EARLY_STOP to POSITION_HOLD, which
+                    # silently skips its close-out swap.
+                    continue
+                executor.early_stop()
+
+        # Wait for executors to finish, extending the deadline while any of them makes
+        # observable progress. max_executors_close_attempts keeps its historical
+        # meaning as a budget of ~2s units, but the budget now bounds *stall* time
+        # rather than total time: a draining grid or a mid-swap LP keeps earning time,
+        # while a hung executor still hits the deadline.
+        poll_interval = 1.0
+        stall_budget = max_executors_close_attempts * 2.0
+        hard_cap = max(30.0, stall_budget)
+        elapsed = stalled = 0.0
+        last_signature = None
+        while not self._all_executors_done():
+            if stalled >= stall_budget or elapsed >= hard_cap:
+                break
+            if last_signature is None:
+                last_signature = self._executors_shutdown_signature()
+            await asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+            signature = self._executors_shutdown_signature()
+            if signature != last_signature:
+                stalled = 0.0
+                last_signature = signature
+            else:
+                stalled += poll_interval
+
+        unfinished_executors = [
+            (controller_id, executor)
+            for controller_id, executors_list in self.active_executors.items()
+            for executor in executors_list
+            if not executor.executor_info.is_done
+        ]
+        if unfinished_executors:
+            executor_ids = [executor.config.id for _, executor in unfinished_executors]
+            self.logger().error(
+                f"Executors {executor_ids} did not finish closing before shutdown. "
+                f"Force-stopping them and converting executed exposure into position holds.")
+            for controller_id, executor in unfinished_executors:
+                try:
+                    executor.force_stop_with_position_hold()
+                except Exception:
+                    self.logger().exception(
+                        f"Error forcing executor {executor.config.id} for controller {controller_id} to stop.")
+
+        # Convert executors that ended holding exposure into persisted position records
+        # while connector prices and strategy market registrations are still available.
+        self._update_positions_from_done_executors()
         # Store all positions and executors
         self.store_all_positions()
         self.store_all_executors()

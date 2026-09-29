@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -27,6 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -97,6 +99,95 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
             margin = outstanding_amount * order.price / leverage
             asset_balances[order.quote_asset] = asset_balances.get(order.quote_asset, Decimal("0")) + margin
         return asset_balances
+
+    def order_filled_balances(self, starting_timestamp: float = 0) -> Dict[str, Decimal]:
+        """Cross-margin, USDC-settled perpetual version of filled-balance accounting.
+
+        The base (spot) implementation returns *full notional* for each fill: a buy fill
+        debits ``-price * amount`` from quote, a sell fill credits ``+price * amount``.
+        On a spot exchange this is correct because the quote currency actually changes
+        hands. On a USDC-settled perpetual, however, fills do **not** move the full
+        notional in/out of collateral -- only the *initial margin* (notional / leverage)
+        is locked or released:
+
+        - **OPEN** fill: the order's margin becomes position margin. Collateral is still
+          locked, so the net effect on available balance is ``-margin`` regardless of
+          buy/sell direction. The base class would return ``-notional`` (buy) or
+          ``+notional`` (sell), both wrong by a factor of ~leverage.
+        - **CLOSE** fill: the position margin is released **and** the realised PnL is
+          settled in USDC. The net effect on available balance is ``+margin`` (the
+          margin of the closed portion is returned). The base class would return
+          ``-notional`` (buy-to-close) or ``+notional`` (sell-to-close), again wrong.
+
+        We therefore return *margin* (notional / leverage) with a sign determined by
+        ``PositionAction``: negative for OPEN (collateral stays locked), positive for
+        CLOSE (collateral is released). This keeps the unit consistent with
+        ``in_flight_asset_balances()`` so that ``apply_balance_update_since_snapshot()``
+        can combine them without a leverage correction.
+
+        Non-USDC currencies fall through to the base implementation (Backpack perp only
+        settles in USDC, so this branch is never hit in production but keeps the override
+        safe for any future multi-collateral support).
+        """
+        order_filled_events = list(filter(lambda e: isinstance(e, OrderFilledEvent), self.event_logs))
+        order_filled_events = [o for o in order_filled_events if o.timestamp > starting_timestamp]
+        leverage = self._leverage if self._leverage and self._leverage > 0 else Decimal("1")
+        balances: Dict[str, Decimal] = {}
+        for event in order_filled_events:
+            quote = event.trading_pair.split("-")[1]
+            if quote != CONSTANTS.CURRENCY:
+                # Delegate to spot logic for non-USDC quotes (future-proofing)
+                return super().order_filled_balances(starting_timestamp)
+            notional = event.price * event.amount
+            margin = notional / leverage
+            # OPEN locks margin (negative), CLOSE releases margin (positive)
+            if event.position == PositionAction.OPEN.value:
+                quote_value = -margin
+            elif event.position == PositionAction.CLOSE.value:
+                quote_value = margin
+            else:
+                # NIL (unknown) — fall back to spot sign to avoid hiding bugs
+                quote_value = notional if event.trade_type is TradeType.SELL else -notional
+            if quote not in balances:
+                balances[quote] = Decimal("0")
+            balances[quote] += quote_value
+        return balances
+
+    def apply_balance_update_since_snapshot(self, currency: str, available_balance: Decimal) -> Decimal:
+        """Cross-margin, USDC-settled perpetual version of the snapshot reconciliation.
+
+        The base (spot) implementation mixes two incompatible units:
+          - ``in_flight_asset_balances()`` returns *margin* (notional / leverage) -- overridden above
+          - ``order_filled_balances()`` returns *full notional* (not divided by leverage)
+
+        That mismatch causes ~leverage-fold over-reservation after each fill, driving
+        ``get_available_balance()`` negative and triggering false "Not enough budget" errors
+        (root cause of the post-fill failure observed after PR #8323).
+
+        Backpack's REST ``netEquityAvailable`` is the *free collateral* -- it already nets out the
+        margin of open positions AND open orders (confirmed empirically: with 79.14$ total,
+        25.78$ position margin and 14.92$ open-orders margin, REST returns 38.44$; with no open
+        orders it returns total - position_margin). See ``MarginAccountSummary`` in Backpack docs:
+        ``netExposureFutures`` is "Total exposure of positions as well potential open positions".
+
+        Both ``in_flight_asset_balances()`` and ``order_filled_balances()`` are overridden to
+        return *margin* (notional / leverage) in consistent units, so the reconciliation is a
+        simple algebraic identity:
+
+        - ``available_balance`` (REST) already subtracts ``snapshot_margin`` at time T0
+        - ``in_flight_margin`` covers ALL current in-flight orders (snapshot + new ones)
+        - adding ``snapshot_margin`` back cancels the part already netted out by REST, leaving
+          only the margin of orders created since T0 to subtract
+        - ``fills_margin`` corrects for fills since T0: OPEN fills keep collateral locked
+          (negative), CLOSE fills release it (positive). This matches what REST will report
+          at the next poll, so the local view stays accurate between polls.
+        """
+        if currency != CONSTANTS.CURRENCY:
+            return super().apply_balance_update_since_snapshot(currency, available_balance)
+        snapshot_margin = self.in_flight_asset_balances(self._in_flight_orders_snapshot).get(currency, Decimal("0"))
+        in_flight_margin = self.in_flight_asset_balances(self.in_flight_orders).get(currency, Decimal("0"))
+        fills_margin = self.order_filled_balances(self._in_flight_orders_snapshot_timestamp).get(currency, Decimal("0"))
+        return available_balance + snapshot_margin - in_flight_margin + fills_margin
 
     @staticmethod
     def backpack_order_type(order_type: OrderType) -> str:
@@ -593,6 +684,15 @@ class BackpackPerpetualDerivative(PerpetualDerivativePyBase):
         quote = CONSTANTS.CURRENCY
         self._account_balances[quote] = Decimal(account_info["netEquity"])
         self._account_available_balances[quote] = Decimal(account_info["netEquityAvailable"])
+        # Refresh the in-flight orders snapshot so that apply_balance_update_since_snapshot()
+        # and order_filled_balances(snapshot_timestamp) only consider orders/fills since the
+        # last REST poll. Without this, the snapshot timestamp stays at 0.0 for the bot's
+        # lifetime (perpetual_derivative_py_base bypasses _update_all_balances which normally
+        # refreshes it), causing cumulative double-counting of fills and a negative available
+        # balance -- root cause of the persistent "Not enough budget" after the first fill.
+        if not self.real_time_balance_update:
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Dict[str, Any]]):
         mapping = bidict()

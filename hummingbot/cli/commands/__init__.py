@@ -1,0 +1,1 @@
+"""hbot subcommands."""

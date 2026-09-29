@@ -380,7 +380,11 @@ class PacificaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Next funding timestamp = :00 of next hour
         """
         for price_entry in raw_message["data"]:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(price_entry["symbol"])
+            try:
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(price_entry["symbol"])
+            except KeyError:
+                # spot instruments are not in the perp symbol map
+                continue
             if trading_pair not in self._trading_pairs:
                 continue
 

@@ -228,3 +228,35 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             )
         )
         self.assertEqual(executor.trade_pnl_pct, Decimal("0.2"))
+
+    def test_force_stop_with_position_hold_holds_executed_orders(self):
+        """A forced stop hands over every tracked order that has executed anything."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        filled = self.in_flight_order_taker
+        filled.executed_amount_base = Decimal("0.4")
+        tracked_filled = TrackedOrder("OID-BUY-1")
+        tracked_filled.order = filled
+        executor._order_plan = {1: tracked_filled, 2: None}
+
+        refreshed = InFlightOrder(
+            client_order_id="OID-REFRESHED",
+            trading_pair=self.twap_config_long_taker.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("119"),
+            creation_timestamp=1,
+            initial_state=OrderState.OPEN
+        )
+        tracked_refreshed = TrackedOrder("OID-REFRESHED")
+        tracked_refreshed.order = refreshed
+        executor._refreshed_orders = [tracked_refreshed]
+
+        executor.force_stop_with_position_hold()
+
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        held_ids = {order["client_order_id"] for order in executor._held_position_orders}
+        self.assertEqual(held_ids, {"OID-BUY-1"})
