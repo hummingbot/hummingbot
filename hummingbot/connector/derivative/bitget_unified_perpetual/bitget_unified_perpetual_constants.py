@@ -69,10 +69,8 @@ PUBLIC_TICKER_ENDPOINT = "/api/v3/market/tickers"
 PUBLIC_CONTRACTS_ENDPOINT = "/api/v3/market/instruments"
 PUBLIC_ORDERBOOK_ENDPOINT = "/api/v3/market/orderbook"
 PUBLIC_FUNDING_RATE_ENDPOINT = "/api/v3/market/current-fund-rate"
-PUBLIC_OPEN_INTEREST_ENDPOINT = "/api/v3/market/open-interest"
 PUBLIC_SYMBOL_PRICE_ENDPOINT = "/api/v3/market/tickers"
 PUBLIC_TIME_ENDPOINT = "/api/v3/market/time"
-PUBLIC_FUNDING_TIME_ENDPOINT = "/api/v3/market/current-fund-rate"
 
 # Private (account/trade/position) V3 endpoints
 SET_LEVERAGE_ENDPOINT = "/api/v3/account/set-leverage"
@@ -125,9 +123,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_ORDERBOOK_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_TIME_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_FUNDING_RATE_ENDPOINT, limit=20, time_interval=1),
-    RateLimit(limit_id=PUBLIC_OPEN_INTEREST_ENDPOINT, limit=20, time_interval=1),
     RateLimit(limit_id=PUBLIC_SYMBOL_PRICE_ENDPOINT, limit=20, time_interval=1),
-    RateLimit(limit_id=PUBLIC_FUNDING_TIME_ENDPOINT, limit=20, time_interval=1),
 
     RateLimit(limit_id=SET_LEVERAGE_ENDPOINT, limit=5, time_interval=1),
     RateLimit(limit_id=ALL_POSITIONS_ENDPOINT, limit=5, time_interval=1),

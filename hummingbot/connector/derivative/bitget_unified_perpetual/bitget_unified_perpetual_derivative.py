@@ -640,12 +640,18 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
                 updated_order_data = updated_order_data[0]
             client_order_id = str(updated_order_data["clientOid"])
 
+            reported_status = updated_order_data.get("orderStatus", updated_order_data.get("state"))
+            new_state = self._order_state_for(reported_status)
+            if new_state is None:
+                raise ValueError(
+                    f"Can't parse order status data, unrecognised status {reported_status!r}. "
+                    f"Data: {updated_order_data}"
+                )
+
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.STATE_TYPES[
-                    updated_order_data.get("orderStatus", updated_order_data.get("state"))
-                ],
+                new_state=new_state,
                 client_order_id=client_order_id,
                 exchange_order_id=updated_order_data["orderId"],
             )
@@ -943,13 +949,37 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         for position_key in positions_to_remove:
             self._perpetual_trading.remove_position(position_key)
 
+    def _order_state_for(self, status: Optional[str]) -> Optional[OrderState]:
+        """
+        Maps a V3 order status onto an OrderState, or returns None when the exchange reports a
+        status this connector does not know about.
+
+        Callers decide whether to skip the update or raise. What must not happen is the bare
+        KeyError a direct lookup raises: on the user-stream path that is swallowed by the
+        listener's catch-all handler, so the order update disappears with nothing in the log
+        pointing at the status that caused it.
+
+        :param status: the orderStatus reported by the exchange
+        :return: the mapped OrderState, or None if the status is unknown
+        """
+        state = CONSTANTS.STATE_TYPES.get(status)
+        if state is None:
+            self.logger().warning(
+                f"Received an unrecognised order status from the exchange: {status!r}. The order "
+                f"update was ignored. This usually means a status was added to the API that the "
+                f"connector does not map yet."
+            )
+        return state
+
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
 
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
+        order_status = self._order_state_for(order_msg.get("orderStatus"))
+        if order_status is None:
+            return
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -968,7 +998,7 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         # This only adjusts the locally-cached available balance for opening limit orders; the REST
         # balance poll is the source of truth, so we bail out (rather than raise) when the event is
         # not applicable or the numeric fields are missing/empty (e.g. market orders carry no price).
-        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
+        order_status = self._order_state_for(order_msg.get("orderStatus"))
         symbol = order_msg.get("marginCoin")
         states_to_consider = [OrderState.OPEN, OrderState.CANCELED]
         is_opening = order_msg.get("tradeSide") in [

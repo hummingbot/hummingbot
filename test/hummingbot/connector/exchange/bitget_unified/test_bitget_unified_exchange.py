@@ -1165,3 +1165,37 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
         rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
 
         self.assertEqual(0, len(rules))
+
+    def test_unknown_order_status_is_logged_and_skipped(self) -> None:
+        """
+        An unmapped status must not raise a bare KeyError: on the user-stream path the listener's
+        catch-all swallows it and the update disappears with nothing naming the cause.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "9"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.exchange._process_order_event_message({
+            "orderStatus": "some_status_bitget_added_later",
+            "clientOid": order_id,
+            "orderId": self.expected_exchange_order_id,
+            "updatedTime": "1640780000000",
+        })
+
+        # The order is untouched and the reason is in the log.
+        self.assertEqual(order.current_state, self.exchange.in_flight_orders[order_id].current_state)
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            "Received an unrecognised order status from the exchange: "
+            "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
+            "status was added to the API that the connector does not map yet."
+        ))

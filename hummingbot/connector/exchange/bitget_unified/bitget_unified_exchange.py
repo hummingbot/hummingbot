@@ -18,7 +18,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -434,7 +434,13 @@ class BitgetUnifiedExchange(ExchangePyBase):
         # one-element list. Support both. Field renames: status->orderStatus, size->qty.
         updated_info = updated_order_data[0] if isinstance(updated_order_data, list) else updated_order_data
 
-        new_state = CONSTANTS.STATE_TYPES[updated_info.get("orderStatus", updated_info.get("status"))]
+        reported_status = updated_info.get("orderStatus", updated_info.get("status"))
+        new_state = self._order_state_for(reported_status)
+        if new_state is None:
+            raise ValueError(
+                f"Can't parse order status data, unrecognised status {reported_status!r}. "
+                f"Data: {updated_info}"
+            )
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
@@ -559,6 +565,28 @@ class BitgetUnifiedExchange(ExchangePyBase):
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
 
+    def _order_state_for(self, status: Optional[str]) -> Optional[OrderState]:
+        """
+        Maps a V3 order status onto an OrderState, or returns None when the exchange reports a
+        status this connector does not know about.
+
+        Callers decide whether to skip the update or raise. What must not happen is the bare
+        KeyError a direct lookup raises: on the user-stream path that is swallowed by the
+        listener's catch-all handler, so the order update disappears with nothing in the log
+        pointing at the status that caused it.
+
+        :param status: the orderStatus reported by the exchange
+        :return: the mapped OrderState, or None if the status is unknown
+        """
+        state = CONSTANTS.STATE_TYPES.get(status)
+        if state is None:
+            self.logger().warning(
+                f"Received an unrecognised order status from the exchange: {status!r}. The order "
+                f"update was ignored. This usually means a status was added to the API that the "
+                f"connector does not map yet."
+            )
+        return state
+
     def _process_order_event_message(self, order_msg: Dict[str, Any]) -> None:
         """
         Updates the in-flight order state from the V3 UTA "order" channel (BitgetUnifiedUaOrder).
@@ -568,7 +596,9 @@ class BitgetUnifiedExchange(ExchangePyBase):
         _process_fill_event_message.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.STATE_TYPES[order_msg["orderStatus"]]
+        order_status = self._order_state_for(order_msg.get("orderStatus"))
+        if order_status is None:
+            return
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 

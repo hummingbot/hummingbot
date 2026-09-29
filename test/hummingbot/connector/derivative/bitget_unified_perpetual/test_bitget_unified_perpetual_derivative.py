@@ -2317,3 +2317,37 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
 
         self.assertIn(pos_key, self.exchange.account_positions)
         self.assertEqual(Decimal("2"), self.exchange.account_positions[pos_key].amount)
+
+    def test_unknown_order_status_is_logged_and_skipped(self):
+        """
+        An unmapped status must not raise a bare KeyError: on the user-stream path the listener's
+        catch-all swallows it and the update disappears with nothing naming the cause.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, 2)
+        self.exchange.start_tracking_order(
+            order_id="OID-UNKNOWN",
+            exchange_order_id="EX-UNKNOWN",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            leverage=2,
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID-UNKNOWN"]
+
+        self.exchange._process_order_event_message({
+            "orderStatus": "some_status_bitget_added_later",
+            "clientOid": "OID-UNKNOWN",
+            "orderId": "EX-UNKNOWN",
+        })
+
+        self.assertEqual(order.current_state, self.exchange.in_flight_orders["OID-UNKNOWN"].current_state)
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            "Received an unrecognised order status from the exchange: "
+            "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
+            "status was added to the API that the connector does not map yet."
+        ))
