@@ -604,3 +604,55 @@ class BitgetUnifiedAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             "ERROR",
             "Unexpected error while listening to user stream. Retrying after 5 seconds..."
         ))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_refreshes_the_server_time_offset_first(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """
+        The login signature is rejected once its timestamp drifts more than 30 seconds from the
+        exchange clock (30014). TimeSynchronizer derives that timestamp from perf_counter, which
+        stalls while the host is suspended, so the offset has to be re-sampled before signing.
+        """
+        self.connector._update_time_synchronizer = AsyncMock()
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.connector._update_time_synchronizer.assert_called()
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_still_signs_when_the_time_resync_fails(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """A resync that fails must not block the login; the exchange can still accept it."""
+        self.connector._update_time_synchronizer = AsyncMock(side_effect=IOError("server time unavailable"))
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        # The login still went out despite the failed resync.
+        sent = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=mock_ws.return_value
+        )
+        self.assertEqual("login", sent[0]["op"])

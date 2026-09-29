@@ -42,8 +42,29 @@ class BitgetUnifiedPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _authenticate(self, websocket_assistant: WSAssistant) -> None:
         """
-        Authenticates user to websocket
+        Authenticates user to websocket.
+
+        The login signature carries a timestamp that the exchange rejects once it is more than 30
+        seconds from its own clock (error 30014, "Timestamp request expired"). Hummingbot's
+        TimeSynchronizer derives that timestamp from time.perf_counter(), which does not advance
+        while the host is suspended, so after a laptop sleep or a long network stall the offset is
+        stale and every login is refused until enough fresh samples have flushed the 5-sample
+        buffer. Re-sampling the server clock before signing is what Bitget's own documentation
+        recommends, and a reconnect is rare enough that the extra request costs nothing.
         """
+        try:
+            await self._connector._update_time_synchronizer()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # A failed resync is not itself fatal: sign with the offset we have and let the
+            # exchange decide.
+            self.logger().warning(
+                "Could not refresh the server time offset before authenticating the private "
+                "websocket. Signing with the existing offset.",
+                exc_info=True,
+            )
+
         await websocket_assistant.send(
             WSJSONRequest({
                 "op": "login",
