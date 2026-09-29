@@ -27,7 +27,12 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import (
+    AddedToCostTradeFee,
+    DeductedFromReturnsTradeFee,
+    TokenAmount,
+    TradeFeeBase,
+)
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
@@ -2683,31 +2688,34 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     def test_make_trading_rules_request(self, mock_api):
-        """Test _make_trading_rules_request to cover lines 173, 179-181"""
-        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL)
+        """Trading rules come from the paged instrument fetch, in the v3 {instruments, pagination} shape."""
+        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_CURRENCIES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         response = {
-            "result": [
-                {
-                    "instrument_type": "perp",
-                    "instrument_name": f"{self.base_asset}-PERP",
-                    "tick_size": "0.01",
-                    "minimum_amount": "0.1",
-                    "maximum_amount": "1000",
-                    "amount_step": "0.01",
-                    "base_currency": self.base_asset,
-                    "quote_currency": "USDC",
-                    "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",
-                    "base_asset_sub_id": "0",
-                }
-            ]
+            "result": {
+                "pagination": {"num_pages": 1, "count": 1},
+                "instruments": [
+                    {
+                        "instrument_type": "perp",
+                        "instrument_name": f"{self.base_asset}-PERP",
+                        "tick_size": "0.01",
+                        "minimum_amount": "0.1",
+                        "maximum_amount": "1000",
+                        "amount_step": "0.01",
+                        "base_currency": self.base_asset,
+                        "quote_currency": "USDC",
+                        "base_asset_address": "0xE201fCEfD4852f96810C069f66560dc25B2C7A55",  # noqa: mock
+                        "base_asset_sub_id": "0",
+                    }
+                ]
+            }
         }
 
         mock_api.post(regex_url, body=json.dumps(response))
         result = self.async_run_with_timeout(self.exchange._make_trading_rules_request())
 
-        self.assertEqual(response["result"], result)
+        self.assertEqual(response["result"]["instruments"], result)
 
     @aioresponses()
     def test_get_all_pairs_prices_with_empty_instrument_ticker(self, mock_api):
@@ -2811,3 +2819,106 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         price = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
 
         self.assertEqual(float(response["result"]["M"]), price)
+
+    @aioresponses()
+    async def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
+        """
+        Overrides the base test only to give the order a PositionAction.
+
+        Fills take their position action from the order rather than from the fill direction, and
+        the base helper starts tracking without one, leaving it PositionAction.NIL. A perpetual
+        order always carries OPEN or CLOSE in practice, so NIL would exercise a state the
+        connector never actually sees.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            await self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        order_event = self.order_event_for_full_fill_websocket_update(order=order)
+        trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
+
+        mock_queue = AsyncMock()
+        event_messages = []
+        if trade_event:
+            event_messages.append(trade_event)
+        if order_event:
+            event_messages.append(order_event)
+        event_messages.append(asyncio.CancelledError)
+        mock_queue.get.side_effect = event_messages
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        if self.is_order_fill_http_update_executed_during_websocket_order_event_processing:
+            self.configure_full_fill_trade_response(order=order, mock_api=mock_api)
+
+        try:
+            await self.exchange._user_stream_event_listener()
+        except asyncio.CancelledError:
+            pass
+        await order.wait_until_completely_filled()
+        await asyncio.sleep(0.1)
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+        self.assertEqual(order.client_order_id, fill_event.order_id)
+        self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
+
+        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+        self.assertTrue(order.is_filled)
+        self.assertTrue(order.is_failure)
+
+    def test_closing_fills_keep_the_orders_position_action(self):
+        """
+        The fill's direction always matches the order's trade type, so deriving the position
+        action from it is tautological: it classified everything CLOSE while the comparison was
+        against a string, and everything OPEN once that was fixed. A SELL that closes a long has
+        to stay CLOSE, and take DeductedFromReturns rather than opening-fee treatment.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID-CLOSE",
+            exchange_order_id="EX-CLOSE",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.CLOSE,
+        )
+        order = self.exchange.in_flight_orders["OID-CLOSE"]
+
+        fill = {
+            "order_id": "EX-CLOSE",
+            "instrument_name": f"{self.base_asset}-PERP",
+            "direction": "sell",
+            "trade_id": "TID-CLOSE",
+            "trade_price": "10000",
+            "trade_amount": "1",
+            "trade_fee": "0.1",
+            "timestamp": 1640780000000,
+        }
+
+        self.async_run_with_timeout(
+            self.exchange._process_trade_rs_event_message(
+                order_fill=fill,
+                all_fillable_order={"EX-CLOSE": order},
+            )
+        )
+
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(PositionAction.CLOSE.value, fill_event.position)
+        self.assertIsInstance(fill_event.trade_fee, DeductedFromReturnsTradeFee)

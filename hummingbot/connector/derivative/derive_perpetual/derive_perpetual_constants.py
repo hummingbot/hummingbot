@@ -83,6 +83,9 @@ WS_PING_REQUEST = "ping"
 # v3 has no positions websocket channel, so positions are polled.
 WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
+# Not subscribed to yet: _process_event_message only forwards the orders and trades
+# channels, and the balances payload shape has not been confirmed against a live private
+# stream. Subscribing without a handler would silently discard the notifications.
 WS_BALANCES_CHANNEL = "{subaccount_id}.balances"
 
 WS_HEARTBEAT_TIME_INTERVAL = 10

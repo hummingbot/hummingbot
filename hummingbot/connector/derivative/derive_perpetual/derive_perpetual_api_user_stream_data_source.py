@@ -100,7 +100,6 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "params": {"channels": [
                         CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
                         CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id),
-                        CONSTANTS.WS_BALANCES_CHANNEL.format(subaccount_id=subaccount_id),
                     ]}
                 }
             ]
@@ -110,7 +109,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 websocket_assistant.send(WSJSONRequest(payload))
                 for payload in subscription_payloads
             ])
-            self.logger().info("Subscribed to private orders, trades and balances channels...")
+            self.logger().info("Subscribed to private orders and trades channels...")
         except asyncio.CancelledError:
             raise
         except Exception:

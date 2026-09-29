@@ -216,7 +216,6 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
                 "channels": [
                     f"{self.subacct_id}.orders",
                     f"{self.subacct_id}.trades",
-                    f"{self.subacct_id}.balances",
                 ],
             }
         }

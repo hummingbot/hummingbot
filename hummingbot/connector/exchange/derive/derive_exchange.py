@@ -832,13 +832,17 @@ class DeriveExchange(ExchangePyBase):
         for balance_entry in balances:
             asset_name = balance_entry["asset_name"]
             total_balance = Decimal(str(balance_entry["amount"]))
-            # Reporting total as available, as this used to, lets the strategy size orders
-            # against funds already committed. The v3 Collateral schema has no available field,
-            # but it does carry open_orders_margin: the portion reserved by resting orders.
-            # Derive is cross-margined, so this is the per-collateral approximation rather than
-            # an account-level free-margin figure.
-            reserved = Decimal(str(balance_entry.get("open_orders_margin") or 0))
-            free_balance = max(total_balance - reserved, s_decimal_0)
+            # v3 exposes no per-asset available balance. Derive is cross-margined, so
+            # availability is a property of the whole subaccount: the Subaccount schema carries
+            # subaccount_value, initial_margin and open_orders_margin as account-level USD
+            # figures, and Collateral has no free-amount field at all.
+            #
+            # open_orders_margin is not that field. It is a USD margin figure, it is negative in
+            # practice, and subtracting it from a token amount both inverts the sign and mixes
+            # units - on the captured fixture it turns 15 tokens held into 102.88 "available".
+            # Reporting the full holding is the honest reading until an account-level free-margin
+            # figure can be verified against a funded subaccount.
+            free_balance = total_balance
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -1079,14 +1083,11 @@ class DeriveExchange(ExchangePyBase):
         return info
 
     async def _make_trading_rules_request(self) -> Any:
-        payload = {
-            "expired": True,
-            "instrument_type": "erc20",
-            "page": 1,
-            "page_size": 1000,
-        }
+        """
+        Trading rules come from the same instrument list as the trading pairs.
 
-        exchange_info = await self._api_post(path_url=self.trading_currencies_request_path, data=payload)
-        info = exchange_info["result"]["instruments"]
-        self._instrument_ticker = info
-        return info
+        This used to issue its own single-page request with page_size 1000, bypassing the paged
+        fetch. The rate source initializes through this path, so an uncapped page size failing
+        here would leave the oracle with no Derive prices at all.
+        """
+        return await self._make_trading_pairs_request()

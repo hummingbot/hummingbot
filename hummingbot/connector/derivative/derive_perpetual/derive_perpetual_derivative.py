@@ -192,15 +192,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return info
 
     async def _make_trading_rules_request(self) -> Any:
-        payload = {
-            "expired": False,
-            "instrument_type": "perp",
-            "page": 1,
-            "page_size": 1000,
-        }
-        exchange_info = await self._api_post(path_url=self.trading_pairs_request_path, data=(payload))
-        info: List[Dict[str, Any]] = exchange_info["result"]
-        return info
+        """
+        Trading rules come from the same instrument list as the trading pairs.
+
+        This used to issue its own single-page request with page_size 1000, bypassing the paged
+        fetch, and returned the whole {instruments, pagination} wrapper rather than the
+        instrument list, so anything iterating the result got the wrapper's keys.
+        """
+        return await self._make_trading_pairs_request()
 
     async def get_all_pairs_prices(self) -> Dict[str, Any]:
         res = []
@@ -639,11 +638,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
             fee_asset = fillable_order.quote_asset
-            position_side = PositionSide.LONG if order_fill["direction"] == 'buy' else PositionSide.SHORT
-            position_action = (PositionAction.OPEN
-                               if (fillable_order.trade_type is TradeType.BUY and position_side is PositionSide.LONG
-                                   or fillable_order.trade_type is TradeType.SELL and position_side is PositionSide.SHORT)
-                               else PositionAction.CLOSE)
+            # The fill's own direction always matches the order's trade type, so deriving the
+            # position action from it is tautological - it was always CLOSE while the comparison
+            # was against a string, and always OPEN once that was fixed. The order already
+            # carries the PositionAction it was placed with.
+            position_action = fillable_order.position
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
                 position_action=position_action,
@@ -790,11 +789,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         symbol = await self.trading_pair_associated_to_exchange_symbol(symbol=trade["instrument_name"])
         if symbol == trading_pair:
             fee_asset = tracked_order.quote_asset
-            position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
-            position_action = (PositionAction.OPEN
-                               if (tracked_order.trade_type is TradeType.BUY and position_side is PositionSide.LONG
-                                   or tracked_order.trade_type is TradeType.SELL and position_side is PositionSide.SHORT)
-                               else PositionAction.CLOSE)
+            # The fill's own direction always matches the order's trade type, so deriving the
+            # position action from it is tautological - it was always CLOSE while the comparison
+            # was against a string, and always OPEN once that was fixed. The order already
+            # carries the PositionAction it was placed with.
+            position_action = tracked_order.position
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
                 position_action=position_action,
@@ -939,11 +938,17 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         for balance_entry in balances:
             asset_name = balance_entry["asset_name"]
             total_balance = Decimal(str(balance_entry["amount"]))
-            # Reporting total as available lets the strategy size orders against funds already
-            # committed. open_orders_margin is the portion reserved by resting orders; Derive is
-            # cross-margined, so this is a per-collateral approximation.
-            reserved = Decimal(str(balance_entry.get("open_orders_margin") or 0))
-            free_balance = max(total_balance - reserved, s_decimal_0)
+            # v3 exposes no per-asset available balance. Derive is cross-margined, so
+            # availability is a property of the whole subaccount: the Subaccount schema carries
+            # subaccount_value, initial_margin and open_orders_margin as account-level USD
+            # figures, and Collateral has no free-amount field at all.
+            #
+            # open_orders_margin is not that field. It is a USD margin figure, it is negative in
+            # practice, and subtracting it from a token amount both inverts the sign and mixes
+            # units - on the captured fixture it turns 15 tokens held into 102.88 "available".
+            # Reporting the full holding is the honest reading until an account-level free-margin
+            # figure can be verified against a funded subaccount.
+            free_balance = total_balance
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -994,10 +999,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             for trade in all_fills_response["result"]["trades"]:
                 fee_asset = order.quote_asset
                 if str(trade["order_id"]) == exchange_order_id:
-                    position_side = PositionSide.LONG if trade["direction"] == 'buy' else PositionSide.SHORT
-                    position_action = (PositionAction.OPEN
-                                       if (order.trade_type is TradeType.BUY and position_side is PositionSide.LONG
-                                           or order.trade_type is TradeType.SELL and position_side is PositionSide.SHORT) else PositionAction.CLOSE)
+                    # The fill's own direction always matches the order's trade type, so deriving the
+                    # position action from it is tautological - it was always CLOSE while the comparison
+                    # was against a string, and always OPEN once that was fixed. The order already
+                    # carries the PositionAction it was placed with.
+                    position_action = order.position
                     fee = TradeFeeBase.new_perpetual_fee(
                         fee_schema=self.trade_fee_schema(),
                         position_action=position_action,
@@ -1138,7 +1144,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             f"Derive is cross-margined per subaccount, so leverage cannot be set per position and "
             f"the requested {leverage}x was not applied.{ceiling}"
         )
-        return True, msg
+        # Reporting success here would have _execute_set_leverage cache the requested leverage
+        # locally and log that it was set, leaving the strategy sizing against a number the
+        # exchange never applied.
+        return False, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
