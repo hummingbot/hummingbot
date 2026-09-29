@@ -50,12 +50,20 @@ class BitgetUnifiedAPIUserStreamDataSource(UserStreamTrackerDataSource):
         recommends, and a reconnect is rare enough that the extra request costs nothing.
         """
         try:
+            # Discard the existing samples before re-sampling. TimeSynchronizer keeps a
+            # five-sample deque and derives the offset from their median and weighted average, so
+            # appending one fresh sample to five stale ones barely moves it: after an hour-long
+            # suspend the offset is still ~49 minutes out, and it takes five fresh samples to
+            # recover. Clearing first means the single fresh sample is the offset. The precision
+            # lost is half the REST round trip, which is negligible against the exchange's
+            # 30-second window.
+            self._connector._time_synchronizer.clear_time_offset_ms_samples()
             await self._connector._update_time_synchronizer()
         except asyncio.CancelledError:
             raise
         except Exception:
-            # A failed resync is not itself fatal: sign with the offset we have and let the
-            # exchange decide.
+            # A failed resync is not itself fatal: sign with whatever offset is available and let
+            # the exchange decide.
             self.logger().warning(
                 "Could not refresh the server time offset before authenticating the private "
                 "websocket. Signing with the existing offset.",

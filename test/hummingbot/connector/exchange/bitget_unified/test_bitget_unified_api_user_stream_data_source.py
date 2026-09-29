@@ -656,3 +656,41 @@ class BitgetUnifiedAPIUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             websocket_mock=mock_ws.return_value
         )
         self.assertEqual("login", sent[0]["op"])
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_discards_stale_clock_samples_before_resampling(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """
+        TimeSynchronizer derives its offset from the median and weighted average of a five-sample
+        deque, so appending one fresh sample to five stale ones barely moves it: after an
+        hour-long suspend the offset is still around 49 minutes out, well outside the exchange's
+        30-second window, and five fresh samples are needed to recover. The stale samples have to
+        be discarded for the refresh to mean anything.
+        """
+        synchronizer = self.connector._time_synchronizer
+        for _ in range(5):
+            synchronizer.add_time_offset_ms_sample(-3_600_000.0)
+        self.assertEqual(-3_600_000.0, synchronizer.time_offset_ms)
+
+        # Stand in for the REST call, recording the offset the connector would then sample.
+        async def _resample():
+            synchronizer.add_time_offset_ms_sample(0.0)
+
+        self.connector._update_time_synchronizer = AsyncMock(side_effect=_resample)
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        # One fresh sample is now the whole offset, so the login timestamp is usable again.
+        self.assertEqual(0.0, synchronizer.time_offset_ms)
