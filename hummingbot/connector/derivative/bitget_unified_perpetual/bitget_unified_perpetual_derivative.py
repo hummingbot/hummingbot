@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -66,6 +67,20 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
+
+    @property
+    def account_group_id(self) -> Optional[str]:
+        """
+        Bitget's UTA is a single cross-margined wallet, and this connector is one of two views
+        onto it - bitget_unified reads the same account. Both report the wallet in full, so
+        without this they are summed twice.
+
+        Keyed on the API key rather than the venue, because two keys are two real accounts. The
+        key is hashed so it never reaches a data structure that might be logged or displayed.
+        """
+        if not self.bitget_unified_perpetual_api_key:
+            return None
+        return f"bitget_uta:{hashlib.sha256(self.bitget_unified_perpetual_api_key.encode()).hexdigest()[:16]}"
 
     @property
     def authenticator(self) -> BitgetUnifiedPerpetualAuth:
