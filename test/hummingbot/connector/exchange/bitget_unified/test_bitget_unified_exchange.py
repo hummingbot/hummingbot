@@ -1258,3 +1258,65 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
         self.assertNotIn(self.trading_pair, self.exchange._trading_fees)
+
+    def test_unknown_status_on_status_poll_keeps_the_order_alive(self) -> None:
+        """
+        An unmapped status must not read as a missing order. The active-order handler counts every
+        status-update exception towards the lost-order limit, so raising here would retire a live
+        order after a few polls.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "8"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        response = self._order_status_request_completely_filled_mock_response(order=order)
+        payload = response["data"]
+        payload = payload[0] if isinstance(payload, list) else payload
+        payload["orderStatus"] = "some_status_bitget_added_later"
+        payload.pop("status", None)
+
+        state_before = order.current_state
+        order_update = self.exchange._create_order_update(order=order, order_update_response=response)
+
+        # State is held, not invented, and nothing was raised.
+        self.assertEqual(state_before, order_update.new_state)
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            "Received an unrecognised order status from the exchange: "
+            "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
+            "status was added to the API that the connector does not map yet."
+        ))
+
+    def test_empty_status_payload_is_still_reported_as_order_not_found(self) -> None:
+        """
+        The genuinely empty response must keep raising ValueError: that is how this connector
+        reports an order the exchange does not know about.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "7"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        with self.assertRaises(ValueError):
+            self.exchange._create_order_update(
+                order=order, order_update_response={"code": "00000", "data": []}
+            )
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(ValueError()))

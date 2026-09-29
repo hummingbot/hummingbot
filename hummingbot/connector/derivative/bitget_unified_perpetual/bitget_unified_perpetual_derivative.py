@@ -654,10 +654,15 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
             reported_status = updated_order_data.get("orderStatus", updated_order_data.get("state"))
             new_state = self._order_state_for(reported_status)
             if new_state is None:
-                raise ValueError(
-                    f"Can't parse order status data, unrecognised status {reported_status!r}. "
-                    f"Data: {updated_order_data}"
-                )
+                # An unmapped status means the order exists but its state could not be read - it
+                # is emphatically not a missing order. Raising here would be classified as
+                # "order not found": the active-order handler counts every status-update
+                # exception towards the lost-order limit, and
+                # _is_order_not_found_during_status_update_error treats ValueError as proof of
+                # absence (that is how the genuinely empty response is reported). Hold the state
+                # we already have instead; _order_state_for has logged the unknown status and the
+                # next poll re-reads it. A same-state update fires no events.
+                new_state = tracked_order.current_state
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
