@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 from decimal import Decimal
@@ -45,6 +46,22 @@ class FoxbitUtilTestCases(unittest.TestCase):
     def test_ws_data_to_dict(self):
         _expectedValue = [{'Key': 'field0', 'Value': 'Google'}, {'Key': 'field2', 'Value': None}, {'Key': 'field3', 'Value': 'São Paulo'}, {'Key': 'field4', 'Value': False}, {'Key': 'field5', 'Value': 'SAO PAULO'}, {'Key': 'field6', 'Value': '00000001'}, {'Key': 'field7', 'Value': True}]
         _msg = '[{"Key":"field0","Value":"Google"},{"Key":"field2","Value":null},{"Key":"field3","Value":"São Paulo"},{"Key":"field4","Value":false},{"Key":"field5","Value":"SAO PAULO"},{"Key":"field6","Value":"00000001"},{"Key":"field7","Value":true}]'
+        _retValue = utils.ws_data_to_dict(_msg)
+        self.assertEqual(_expectedValue, _retValue)
+
+    def test_ws_data_to_dict_rejects_code_injection(self):
+        # This is the test that would have caught the eval() bug.
+        # The old eval()-based implementation would execute arbitrary Python expressions;
+        # json.loads() must reject anything that is not valid JSON.
+        _malicious_input = '[__import__("os")]'
+        with self.assertRaises((ValueError, json.JSONDecodeError)):
+            utils.ws_data_to_dict(_malicious_input)
+
+    def test_ws_data_to_dict_handles_json_native_types(self):
+        # json.loads() handles null/false/true natively — the old .replace() chain
+        # that converted them to Python literals before eval() is no longer needed.
+        _msg = '{"a": null, "b": false, "c": true}'
+        _expectedValue = {"a": None, "b": False, "c": True}
         _retValue = utils.ws_data_to_dict(_msg)
         self.assertEqual(_expectedValue, _retValue)
 
