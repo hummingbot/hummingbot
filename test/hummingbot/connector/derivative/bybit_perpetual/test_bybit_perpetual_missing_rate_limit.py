@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_web_utils as web_utils
@@ -223,3 +223,108 @@ class BybitPerpetualMissingRateLimitTests(unittest.IsolatedAsyncioTestCase):
         ids = [rate_limit.limit_id for rate_limit in connector._throttler._rate_limits]
         self.assertEqual(1, ids.count(position_id))
         self.assertEqual(2, len(self.calls))
+
+    def _builder_path(self) -> str:
+        return (
+            "hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative."
+            "web_utils._build_private_pair_specific_rate_limits"
+        )
+
+    def _drop_card(self, connector: BybitPerpetualDerivative, limit_id: str) -> None:
+        connector._throttler._id_to_limit_map.pop(limit_id, None)
+        connector._throttler._rate_limits = [
+            rate_limit for rate_limit in connector._throttler._rate_limits if rate_limit.limit_id != limit_id
+        ]
+        self.assertIsNone(connector._throttler.get_related_limits(limit_id)[0])
+
+    async def test_second_request_does_not_rebuild_a_complete_set(self):
+        connector = self._connector()
+        trading_pair = "NEO-USDT"
+        self._install_rest(connector)
+
+        with patch(self._builder_path(), wraps=web_utils._build_private_pair_specific_rate_limits) as builder:
+            await connector._api_get(
+                path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
+            await connector._api_get(
+                path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
+
+        position_id = self._limit_id(CONSTANTS.GET_POSITIONS_PATH_URL, trading_pair)
+        ids = [rate_limit.limit_id for rate_limit in connector._throttler._rate_limits]
+        self.assertEqual(1, builder.call_count)
+        self.assertEqual(2, len(self.calls))
+        self.assertEqual(1, ids.count(position_id))
+
+    async def test_position_card_alone_does_not_skip_the_order_card(self):
+        connector = self._connector()
+        trading_pair = "NEO-USDT"
+        position_id = self._limit_id(CONSTANTS.GET_POSITIONS_PATH_URL, trading_pair)
+        order_id = self._limit_id(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, trading_pair)
+        connector._throttler.add_rate_limits([RateLimit(limit_id=position_id, limit=120, time_interval=60)])
+        self.assertIsNone(connector._pair_rate_limit_ids.get(trading_pair))
+        self._install_rest(connector)
+
+        with patch(self._builder_path(), wraps=web_utils._build_private_pair_specific_rate_limits) as builder:
+            await connector._api_get(
+                path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
+
+        self.assertEqual(1, builder.call_count)
+        self.assertEqual(1, len(self.calls))
+        self.assertIsNotNone(connector._throttler.get_related_limits(position_id)[0])
+        self.assertIsNotNone(connector._throttler.get_related_limits(order_id)[0])
+
+    async def test_missing_order_card_rebuilds_after_a_remembered_set(self):
+        connector = self._connector()
+        trading_pair = "NEO-USDT"
+        order_id = self._limit_id(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, trading_pair)
+        self._install_rest(connector)
+        await connector._api_get(
+            path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+            is_auth_required=True,
+            trading_pair=trading_pair,
+        )
+        self._drop_card(connector, order_id)
+        calls_before = len(self.calls)
+
+        with patch(self._builder_path(), wraps=web_utils._build_private_pair_specific_rate_limits) as builder:
+            await connector._api_get(
+                path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
+
+        self.assertEqual(1, builder.call_count)
+        self.assertEqual(calls_before + 1, len(self.calls))
+        self.assertIsNotNone(connector._throttler.get_related_limits(order_id)[0])
+
+    async def test_skip_does_not_retry_a_failed_request(self):
+        connector = self._connector()
+        trading_pair = "NEO-USDT"
+        self._install_rest(connector)
+        await connector._api_get(
+            path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+            is_auth_required=True,
+            trading_pair=trading_pair,
+        )
+        self.calls.clear()
+        self._install_rest(connector, error=RuntimeError("exchange down"))
+
+        with patch(self._builder_path(), wraps=web_utils._build_private_pair_specific_rate_limits) as builder:
+            with self.assertRaises(RuntimeError):
+                await connector._api_post(
+                    path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+                    data={"category": "linear", "symbol": "NEOUSDT", "side": "Buy"},
+                    is_auth_required=True,
+                    trading_pair=trading_pair,
+                )
+
+        self.assertEqual(0, builder.call_count)
+        self.assertEqual(1, len(self.calls))

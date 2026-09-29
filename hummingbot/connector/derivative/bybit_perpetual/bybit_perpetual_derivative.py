@@ -56,6 +56,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._last_trade_history_timestamp = None
         self._real_time_balance_update = False  # Remove this once bybit enables available balance again through ws
+        self._pair_rate_limit_ids: Dict[str, List[str]] = {}
 
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -918,10 +919,22 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return resp
 
+    def _rate_limit_card_present(self, limit_id: str) -> bool:
+        return self._throttler.get_related_limits(limit_id)[0] is not None
+
     def _ensure_pair_rate_limits(self, trading_pair: str) -> None:
         """
         Register the full private rate-limit set for a pair added after connector start.
-        Does not place, cancel, or query orders. add_rate_limits skips ids that already exist.
+        Skips the rebuild only when every id from the last build is still present.
+        Does not place, cancel, or query orders.
         """
+        remembered = self._pair_rate_limit_ids.get(trading_pair)
+        if remembered and all(self._rate_limit_card_present(limit_id) for limit_id in remembered):
+            return
         pair_rate_limits = web_utils._build_private_pair_specific_rate_limits([trading_pair])
         self._throttler.add_rate_limits(pair_rate_limits)
+        limit_ids = [rate_limit.limit_id for rate_limit in pair_rate_limits]
+        if limit_ids and all(self._rate_limit_card_present(limit_id) for limit_id in limit_ids):
+            self._pair_rate_limit_ids[trading_pair] = limit_ids
+        else:
+            self._pair_rate_limit_ids.pop(trading_pair, None)
