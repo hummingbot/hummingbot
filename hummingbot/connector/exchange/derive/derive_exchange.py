@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import re
 from copy import deepcopy
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -12,18 +13,22 @@ from hummingbot.connector.exchange.derive.derive_api_order_book_data_source impo
 from hummingbot.connector.exchange.derive.derive_api_user_stream_data_source import DeriveAPIUserStreamDataSource
 from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.other.derive_common_utils import estimate_max_fee
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+s_decimal_0 = Decimal(0)
+s_decimal_max = Decimal("1e56")
 
 
 class DeriveExchange(ExchangePyBase):
@@ -127,26 +132,33 @@ class DeriveExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
-    async def get_all_pairs_prices(self) -> Dict[str, Any]:
-        res = []
-        tasks = []
+    async def get_all_pairs_prices(self) -> List[Dict[str, Any]]:
+        """
+        Fetches the best bid/ask for every tracked instrument.
+
+        v3 exposes public/get_tickers, which returns every instrument of a type in one response
+        keyed by instrument name, so this no longer issues one request per instrument. The slim
+        ticker carries the best bid as "b" and the best ask as "a", and does not repeat the
+        instrument name inside the payload.
+        """
         if len(self._instrument_ticker) == 0:
             await self._make_trading_rules_request()
-        for token in self._instrument_ticker:
-            payload = {"instrument_name": token["instrument_name"]}
-            tasks.append(self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
-        results = await safe_gather(*tasks, return_exceptions=True)
-        for result in results:
-            pair_price_data = result["result"]
 
-            data = {
+        response = await self._api_post(
+            path_url=CONSTANTS.BULK_TICKERS_PATH_URL,
+            data={"instrument_type": CONSTANTS.INSTRUMENT_TYPE},
+        )
+        tickers = (response.get("result") or {}).get("tickers") or {}
+
+        res = []
+        for instrument_name, ticker in tickers.items():
+            res.append({
                 "symbol": {
-                    "instrument_name": pair_price_data["instrument_name"],
-                    "best_bid": pair_price_data["best_bid_price"],
-                    "best_ask": pair_price_data["best_ask_price"],
+                    "instrument_name": instrument_name,
+                    "best_bid": ticker.get("b"),
+                    "best_ask": ticker.get("a"),
                 }
-            }
-            res.append(data)
+            })
         return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
@@ -176,18 +188,47 @@ class DeriveExchange(ExchangePyBase):
             domain=self.domain,
         )
 
+    @staticmethod
+    def _error_code(exception: Exception) -> Optional[int]:
+        """
+        Pulls the v3 JSON-RPC error code out of an exception raised from a response body.
+
+        v3 gives every failure a stable numeric code, so matching on those replaces both the
+        string matching and the Binance error codes this connector used to carry.
+        """
+        match = re.search(r"['\"]?code['\"]?\s*[:=]\s*(-?\d+)", str(exception))
+        return int(match.group(1)) if match else None
+
+    @staticmethod
+    def _session_key_hint(code: Optional[int]) -> Optional[str]:
+        """
+        Turns a v3 session-key error code into something actionable.
+
+        v3 session keys are scoped, so "unauthorized" usually means the key is registered but
+        lacks the trading scope rather than that the credentials are wrong.
+        """
+        if code in CONSTANTS.SESSION_KEY_ERROR_CODES:
+            return f"Derive session key error {code}: {CONSTANTS.SESSION_KEY_ERROR_HINTS[code]}"
+        return None
+
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        return self._error_code(status_update_exception) in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        return self._error_code(cancelation_exception) in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
         Applies trading rule to quantize order price.
+
+        Rounds to the instrument's tick size. Rounding to a fixed number of significant figures,
+        as this used to, produces prices the exchange rejects on instruments whose tick is coarser
+        than the rounded value, and needlessly loses precision on those whose tick is finer.
         """
-        d_price = Decimal(round(float(f"{price:.5g}"), 6))
-        return d_price
+        trading_rule = self._trading_rules.get(trading_pair)
+        if trading_rule is None or trading_rule.min_price_increment <= s_decimal_0:
+            return price
+        return (price // trading_rule.min_price_increment) * trading_rule.min_price_increment
 
     def _get_fee(self,
                  base_currency: str,
@@ -229,13 +270,36 @@ class DeriveExchange(ExchangePyBase):
 
     async def _update_trading_fees(self):
         """
-        Update fees information from the exchange
+        Loads the per-instrument maker/taker rates published with the instrument definitions.
+
+        Without this every order was costed at the connector's default schema, which was written
+        as 0.01/0.03 - percentages in a field that holds decimals, so 1% and 3% rather than the
+        0.01%/0.03% intended.
         """
-        pass
+        if len(self._instrument_ticker) == 0:
+            await self._make_trading_rules_request()
+
+        for instrument in self._instrument_ticker:
+            maker_fee = instrument.get("maker_fee_rate")
+            taker_fee = instrument.get("taker_fee_rate")
+            if maker_fee is None or taker_fee is None:
+                continue
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(
+                    symbol=instrument["instrument_name"]
+                )
+            except KeyError:
+                continue
+            self._trading_fees[trading_pair] = TradeFeeSchema(
+                maker_percent_fee_decimal=Decimal(str(maker_fee)),
+                taker_percent_fee_decimal=Decimal(str(taker_fee)),
+            )
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         oid = await tracked_order.get_exchange_order_id()
-        symbol = tracked_order.trading_pair
+        # This used to send the Hummingbot pair straight through; it has to be mapped to the
+        # exchange's instrument name.
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
             "instrument_name": symbol,
             "order_id": oid,
@@ -247,11 +311,12 @@ class DeriveExchange(ExchangePyBase):
             is_auth_required=True)
 
         if "error" in cancel_result:
-            if 'Does not exist' in cancel_result['error']['message']:
-                self.logger().debug(f"The order {order_id} does not exist on Derive s. "
+            error = cancel_result["error"]
+            if error.get("code") in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
+                self.logger().debug(f"The order {order_id} does not exist on Derive. "
                                     f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["error"]["message"]}')
+            raise IOError(f'code={error.get("code")} {error.get("message")}')
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
                 return True
@@ -356,22 +421,31 @@ class DeriveExchange(ExchangePyBase):
         if len(self._instrument_ticker) == 0:
             await self._make_trading_rules_request()
         instrument = [next((pair for pair in self._instrument_ticker if symbol == pair["instrument_name"]), None)]
-        param_order_type = "gtc"
+        param_order_type = CONSTANTS.TIME_IN_FORCE_GTC
         if order_type is OrderType.LIMIT_MAKER:
-            param_order_type = "gtc"
+            # A LIMIT_MAKER order has to be rejected rather than filled if it would cross. Sending
+            # it as plain gtc, as this used to, silently turned every post-only order into a
+            # normal limit order that could take.
+            param_order_type = CONSTANTS.TIME_IN_FORCE_POST_ONLY
         if order_type is OrderType.MARKET:
-            param_order_type = "ioc"
+            param_order_type = CONSTANTS.TIME_IN_FORCE_IOC
         type_str = DeriveExchange.derive_order_type(order_type)
 
         price_type = "limit" if type_str == "limit_maker" or type_str == "limit" else "market"
-        new_price = float(f"{price:.4g}")
+        # Round to the instrument tick rather than to 4 significant figures, and to the amount
+        # step, so the signed values are ones the exchange will accept.
+        quantized_price = self.quantize_order_price(trading_pair, Decimal(str(price)))
+        quantized_amount = self.quantize_order_amount(trading_pair, Decimal(str(amount)))
+        max_fee = self._estimate_order_max_fee(
+            instrument=instrument[0], trading_pair=trading_pair, limit_price=quantized_price
+        )
         api_params = {
             "asset_address": instrument[0]["base_asset_address"],
             "sub_id": instrument[0]["base_asset_sub_id"],
-            "limit_price": str(new_price),
+            "limit_price": str(quantized_price),
             "type": "order",
-            "max_fee": str(1000),
-            "amount": str(amount),
+            "max_fee": str(max_fee),
+            "amount": str(quantized_amount),
             "instrument_name": symbol,
             "label": order_id,
             "is_bid": True if trade_type is TradeType.BUY else False,
@@ -389,16 +463,57 @@ class DeriveExchange(ExchangePyBase):
             is_auth_required=True)
 
         if "error" in order_result:
-            if "Self-crossing disallowed" in order_result["error"]["message"]:
-                self.logger().warning(f"Error submitting order: {order_result['error']['message']}")
+            error = order_result["error"]
+            code = error.get("code")
+            message = f"code={code} {error.get('message')}"
+            if code == CONSTANTS.ERR_SELF_CROSSING:
+                self.logger().warning(f"Error submitting order: {message}")
+            elif code == CONSTANTS.ERR_POST_ONLY_WOULD_CROSS:
+                self.logger().warning(
+                    f"Post-only order {order_id} would have crossed the book and was rejected: {message}"
+                )
+                raise IOError(f"Error submitting order {order_id}: {message}")
+            elif code == CONSTANTS.ERR_MAX_FEE_TOO_LOW:
+                raise IOError(
+                    f"Error submitting order {order_id}: the signed max_fee was below the fee the "
+                    f"trade would incur ({message}). This usually means the index price moved "
+                    f"sharply between pricing and signing."
+                )
             else:
-                raise IOError(f"Error submitting order {order_id}: {order_result['error']['message']}")
+                hint = self._session_key_hint(code)
+                raise IOError(f"Error submitting order {order_id}: {hint or message}")
         else:
             o_order_result = order_result['result']
             o_data = o_order_result.get("order")
             o_id = str(o_data["order_id"])
             timestamp = o_data["creation_timestamp"] * 1e-3
             return (o_id, timestamp)
+
+    def _estimate_order_max_fee(
+        self, instrument: Dict[str, Any], trading_pair: str, limit_price: Decimal
+    ) -> Decimal:
+        """
+        Derives the max_fee to sign an order with.
+
+        The fee ceiling is part of the signed payload, so a flat value (this used to send 1000 for
+        every order regardless of size or instrument) is either wildly over-permissive or, on an
+        expensive instrument, too low - in which case the order is rejected with 11023 or
+        cancelled with signed_max_fee_too_low.
+
+        The reference price is the larger of the limit price and the local mid, standing in for
+        the index price so that pricing an order costs no extra API call.
+        """
+        try:
+            mid_price = self.get_mid_price(trading_pair)
+        except Exception:
+            mid_price = limit_price
+
+        return estimate_max_fee(
+            taker_fee_rate=Decimal(str(instrument.get("taker_fee_rate", "0"))),
+            base_fee=Decimal(str(instrument.get("base_fee", "0"))),
+            index_price=mid_price if mid_price and mid_price > s_decimal_0 else limit_price,
+            limit_price=limit_price,
+        )
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -420,7 +535,11 @@ class DeriveExchange(ExchangePyBase):
                     f"Failed to fetch trade updates. Error: {request_error}",
                     exc_info = request_error,
                 )
-            for trade_fill in all_fills_response["result"]["trades"]:
+                # Without this the failed request fell through to indexing the [] initialiser
+                # below as if it were the response dict.
+                return
+
+            for trade_fill in all_fills_response.get("result", {}).get("trades", []):
                 self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
     def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
@@ -477,14 +596,14 @@ class DeriveExchange(ExchangePyBase):
             limit_id = None
             rate_limits_copy = deepcopy(self._throttler._rate_limits)
 
+            # These two branches were the wrong way round: market makers were being throttled to
+            # the trader tier and traders were handed the market-maker tier.
+            limit_id = r_limit_id
+            interval = SECOND
             if self._account_type == CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE:
-                limit_id = r_limit_id
-                interval = SECOND
-                limit = CONSTANTS.TRADER_NON_MATCHING
-            else:
-                limit_id = r_limit_id
-                interval = SECOND
                 limit = CONSTANTS.MARKET_MAKER_NON_MATCHING
+            else:
+                limit = CONSTANTS.TRADER_NON_MATCHING
 
             if limit_id is not None and interval is not None:
                 for r_l in rate_limits_copy:
@@ -666,17 +785,22 @@ class DeriveExchange(ExchangePyBase):
         trading_pair_rules = exchange_info_dict
         retval = []
         for rule in filter(web_utils.is_exchange_information_valid, trading_pair_rules):
-            if rule["instrument_type"] != "erc20":
+            if rule["instrument_type"] != CONSTANTS.INSTRUMENT_TYPE:
+                continue
+            # A delisted or suspended instrument still appears in the response.
+            if not rule.get("is_active", True):
                 continue
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["instrument_name"])
                 min_order_size = rule["minimum_amount"]
                 step_size = rule["amount_step"]
                 tick_size = rule["tick_size"]
+                max_order_size = rule.get("maximum_amount")
                 retval.append(
                     TradingRule(
                         trading_pair,
                         min_order_size=Decimal(min_order_size),
+                        max_order_size=Decimal(str(max_order_size)) if max_order_size else s_decimal_max,
                         min_price_increment=Decimal(str(tick_size)),
                         min_base_amount_increment=Decimal(step_size),
                     )
@@ -709,22 +833,31 @@ class DeriveExchange(ExchangePyBase):
             data={"subaccount_id": self._subacct_id},
             is_auth_required=True)
         if "error" in account_info:
-            self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
-            raise
-        else:
-            balances = account_info["result"]["collaterals"]
-            for balance_entry in balances:
-                asset_name = balance_entry["asset_name"]
-                free_balance = Decimal(balance_entry["amount"])
-                total_balance = Decimal(balance_entry["amount"])
-                self._account_available_balances[asset_name] = free_balance
-                self._account_balances[asset_name] = total_balance
-                remote_asset_names.add(asset_name)
+            error = account_info["error"]
+            message = f"Error fetching account balances: code={error.get('code')} {error.get('message')}"
+            self.logger().error(self._session_key_hint(error.get("code")) or message)
+            # This used to be a bare `raise` outside any except block, which itself raises a
+            # RuntimeError and buries the API error.
+            raise IOError(message)
 
-            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-            for asset_name in asset_names_to_remove:
-                del self._account_available_balances[asset_name]
-                del self._account_balances[asset_name]
+        result = account_info["result"]
+        balances = result.get("collaterals") or []
+        for balance_entry in balances:
+            asset_name = balance_entry["asset_name"]
+            total_balance = Decimal(str(balance_entry["amount"]))
+            # Available is the portion not already committed to open orders or margin. Reporting
+            # total as available, as this used to, lets the strategy size orders against funds
+            # that are already spoken for.
+            available = balance_entry.get("available_balance")
+            free_balance = Decimal(str(available)) if available is not None else total_balance
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         oid = await tracked_order.get_exchange_order_id()
@@ -897,7 +1030,8 @@ class DeriveExchange(ExchangePyBase):
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload, is_auth_required=False,
                                         limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
 
-        return response["result"]["mark_price"]
+        # v3 slim ticker: mark price is "M".
+        return float(response["result"]["M"])
 
     async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
         if trading_pairs is None:
@@ -913,11 +1047,12 @@ class DeriveExchange(ExchangePyBase):
             for payload in payloads
         ])
         last_traded_prices = {}
-        for ticker in responses:
-            instrument_name = ticker["result"]["instrument_name"]
-            if instrument_name in symbol_map.keys():
-                mapped_name = await self.trading_pair_associated_to_exchange_symbol(instrument_name)
-                last_traded_prices[mapped_name] = Decimal(ticker["result"]["mark_price"])
+        # The slim ticker does not echo the instrument name back, so pair each response with the
+        # symbol it was requested for rather than reading it out of the payload.
+        for exchange_symbol, ticker in zip(exchange_symbols, responses):
+            if exchange_symbol in symbol_map.keys():
+                mapped_name = await self.trading_pair_associated_to_exchange_symbol(exchange_symbol)
+                last_traded_prices[mapped_name] = Decimal(str(ticker["result"]["M"]))
         return last_traded_prices
 
     async def _make_network_check_request(self):

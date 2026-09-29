@@ -1,14 +1,18 @@
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from eth_account.messages import encode_defunct
 from web3 import Web3
 
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
-from hummingbot.connector.exchange.derive.derive_web_utils import MAX_INT_32, get_action_nonce
-from hummingbot.connector.other.derive_common_utils import SignedAction, TradeModuleData
+from hummingbot.connector.other.derive_common_utils import (
+    SignedAction,
+    TradeModuleData,
+    get_action_nonce,
+    get_signature_expiry_sec,
+)
 from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
@@ -29,10 +33,18 @@ class DeriveAuth(AuthBase):
         if trading_required:
             self.session_key_wallet = Web3().eth.account.from_key(self._session_private_key)
 
+    @property
+    def _is_testnet(self) -> bool:
+        return "testnet" in self._domain
+
+    @property
+    def domain_separator(self) -> str:
+        return CONSTANTS.TESTNET_DOMAIN_SEPARATOR if self._is_testnet else CONSTANTS.DOMAIN_SEPARATOR
+
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
-        This method is intended to configure a websocket request to be authenticated. OKX does not use this
-        functionality
+        This method is intended to configure a websocket request to be authenticated. Derive
+        authenticates the connection once via public/login rather than per request.
         """
         return request  # pass-through
 
@@ -55,21 +67,23 @@ class DeriveAuth(AuthBase):
 
         return request
 
-    def get_ws_auth_payload(self) -> List[Dict[str, Any]]:
-        payload = {}
-        timestamp = str(self.utc_now_ms())
+    def get_ws_auth_payload(self) -> Dict[str, Any]:
+        """
+        Builds the params for the websocket ``public/login`` call.
+
+        v3 takes ``{wallet, timestamp, signature}`` with the timestamp as a JSON *number* of
+        milliseconds; the v2 shape sent it as a string alongside an ``accept`` field.
+        """
+        timestamp = self.utc_now_ms()
         signature = to_0x_hex(self._w3.eth.account.sign_message(
-            encode_defunct(text=timestamp), private_key=self._session_private_key
+            encode_defunct(text=str(timestamp)), private_key=self._session_private_key
         ).signature)
-        """
-        This method is intended to configure a websocket request to be authenticated. Dexalot does not use this
-        functionality
-        """
-        payload["accept"] = 'application/json'
-        payload["wallet"] = self._wallet_address
-        payload["timestamp"] = timestamp
-        payload["signature"] = signature
-        return payload
+
+        return {
+            "wallet": self._wallet_address,
+            "timestamp": timestamp,
+            "signature": signature,
+        }
 
     def add_auth_to_params_post(self, params: Dict[str, str], request):
         payload = {}
@@ -91,13 +105,14 @@ class DeriveAuth(AuthBase):
         return json.dumps(payload) if request.method == RESTMethod.POST else payload
 
     def sign(self, params):
-        domain_seperator = CONSTANTS.DOMAIN_SEPARATOR if "testnet" not in self._domain else CONSTANTS.TESTNET_DOMAIN_SEPARATOR
-        action_typehash = CONSTANTS.ACTION_TYPEHASH if "testnet" not in self._domain else CONSTANTS.TESTNET_ACTION_TYPEHASH
         action = SignedAction(
             subaccount_id=int(self._subacct_id),
             owner=self._wallet_address,
             signer=self.session_key_wallet.address,
-            signature_expiry_sec=MAX_INT_32,
+            # v3 rejects the v2 habit of sending 2**31-1 (error 11011): the expiry must be between
+            # 5 minutes and 120 days out, and no later than the session key's own expiry (14038).
+            signature_expiry_sec=get_signature_expiry_sec(CONSTANTS.SIGNATURE_VALIDITY_SEC),
+            # UTC nanoseconds, serialized as a string by SignedAction.to_json().
             nonce=get_action_nonce(),
             module_address=CONSTANTS.TRADE_MODULE_ADDRESS,
             module_data=TradeModuleData(
@@ -109,8 +124,8 @@ class DeriveAuth(AuthBase):
                 recipient_id=int(params["recipient_id"]),
                 is_bid=params["is_bid"],
             ),
-            DOMAIN_SEPARATOR=domain_seperator,  # from Protocol Constants table in docs.derive.xyz
-            ACTION_TYPEHASH=action_typehash,  # from Protocol Constants table in docs.derive.xyz
+            DOMAIN_SEPARATOR=self.domain_separator,
+            ACTION_TYPEHASH=CONSTANTS.ACTION_TYPEHASH,
         )
         try:
             action.sign(self.session_key_wallet.key)
@@ -124,13 +139,15 @@ class DeriveAuth(AuthBase):
         signature = to_0x_hex(self._w3.eth.account.sign_message(
             encode_defunct(text=timestamp), private_key=self._session_private_key
         ).signature)
-        payload = {}
 
-        payload["accept"] = 'application/json'
-        payload["X-LyraWallet"] = self._wallet_address
-        payload["X-LyraTimestamp"] = timestamp
-        payload["X-LyraSignature"] = signature
-        return payload
+        return {
+            "accept": "application/json",
+            # v3 renamed the X-Lyra* headers, and rejects any REST request with no User-Agent.
+            "User-Agent": CONSTANTS.USER_AGENT,
+            "X-DeriveWallet": self._wallet_address,
+            "X-DeriveTimestamp": timestamp,
+            "X-DeriveSignature": signature,
+        }
 
     @staticmethod
     def utc_now_ms() -> int:
