@@ -26,11 +26,28 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     symbol = bool(exchange_info.get("symbol"))
     dated_futures = bool(exchange_info.get("deliveryPeriod"))
+
+    return symbol and not dated_futures
+
+
+def is_instrument_tradable(exchange_info: Dict[str, Any]) -> bool:
+    """
+    Verifies if new orders may be placed on a trading pair based on its exchange information.
+
+    This is deliberately narrower than :func:`is_exchange_information_valid`, which stays
+    permissive so that the symbol map keeps covering every instrument. A contract that is
+    suspended while the account still holds a position on it must remain resolvable, or position
+    polling can no longer translate the symbol the exchange reports back to a trading pair.
+
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair accepts new orders, False otherwise
+    """
     # V3 instruments reports the listing state in "status"; only an online instrument accepts
-    # orders, so a suspended or delisted contract must not reach the symbol map or trading rules.
+    # orders. Withholding the trading rule is what stops orders being placed, since the connector
+    # refuses to create an order for a pair that has no rule.
     online = exchange_info.get("status") == CONSTANTS.INSTRUMENT_STATUS_ONLINE
 
-    return symbol and online and not dated_futures
+    return is_exchange_information_valid(exchange_info) and online
 
 
 class BitgetUnifiedPerpetualConfigMap(BaseConnectorConfigMap):

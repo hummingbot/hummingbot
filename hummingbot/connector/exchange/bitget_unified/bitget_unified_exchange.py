@@ -645,7 +645,7 @@ class BitgetUnifiedExchange(ExchangePyBase):
     ) -> List[TradingRule]:
         trading_rules = []
         for rule in exchange_info_dict["data"]:
-            if bitget_unified_utils.is_exchange_information_valid(exchange_info=rule):
+            if bitget_unified_utils.is_instrument_tradable(exchange_info=rule):
                 try:
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                         symbol=rule["symbol"]
@@ -657,13 +657,21 @@ class BitgetUnifiedExchange(ExchangePyBase):
                     # same as the quantity step: instruments with quantityPrecision 0 still accept
                     # 0.0001, so deriving the minimum from the precision would overstate it by
                     # orders of magnitude and make the executors reject valid orders.
-                    min_order_size = rule.get("minOrderQty", rule.get("minTradeAmount"))
+                    min_order_size = Decimal(str(rule.get("minOrderQty", rule.get("minTradeAmount"))))
+                    # quantityPrecision is not always consistent with minOrderQty: the tokenized
+                    # stock pairs report precision 0 while accepting 0.0001. Taking the finer of
+                    # the two keeps the step from rounding the exchange's own minimum down to
+                    # zero, which would reject every order those pairs actually accept.
+                    quantity_step = min(
+                        Decimal(f"1e-{rule['quantityPrecision']}"),
+                        min_order_size,
+                    )
                     trading_rules.append(
                         TradingRule(
                             trading_pair=trading_pair,
-                            min_order_size=Decimal(str(min_order_size)),
+                            min_order_size=min_order_size,
                             min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
-                            min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
+                            min_base_amount_increment=quantity_step,
                             min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),
                             min_notional_size=Decimal(str(min_notional)),
                         )

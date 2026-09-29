@@ -1029,19 +1029,44 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
 
         self.assertEqual(Decimal("1.25"), trade_update.fill_base_amount)
 
-    def test_is_exchange_information_valid_rejects_offline_instruments(self) -> None:
-        self.assertTrue(bitget_unified_utils.is_exchange_information_valid(
+    def test_only_online_instruments_are_tradable(self) -> None:
+        self.assertTrue(bitget_unified_utils.is_instrument_tradable(
             {"symbol": self.exchange_trading_pair, "status": "online"}
         ))
-        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
             {"symbol": self.exchange_trading_pair, "status": "offline"}
         ))
-        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
             {"symbol": self.exchange_trading_pair}
         ))
-        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
             {"status": "online"}
         ))
+
+    def test_suspended_instruments_stay_in_the_symbol_map(self) -> None:
+        """
+        A pair suspended while orders are still open on it must remain resolvable, or order and
+        fill updates referencing its symbol can no longer be translated to a trading pair.
+        """
+        self.assertTrue(bitget_unified_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair, "status": "offline"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_exchange_information_valid({}))
+
+        exchange_info = {"data": [{
+            "symbol": self.exchange_trading_pair,
+            "baseCoin": self.base_asset,
+            "quoteCoin": self.quote_asset,
+            "status": "offline",
+        }]}
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(exchange_info)
+
+        self.assertEqual(
+            self.trading_pair,
+            self.async_run_with_timeout(
+                self.exchange.trading_pair_associated_to_exchange_symbol(self.exchange_trading_pair)
+            ),
+        )
 
     def test_trading_rule_min_order_size_comes_from_min_order_qty(self) -> None:
         """
@@ -1075,8 +1100,21 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
 
         self.assertEqual(1, len(rules))
         self.assertEqual(Decimal("0.0001"), rules[0].min_order_size)
-        self.assertEqual(Decimal("1"), rules[0].min_base_amount_increment)
+        # The step must not be coarser than the minimum, or quantizing rounds the smallest
+        # accepted order down to zero.
+        self.assertEqual(Decimal("0.0001"), rules[0].min_base_amount_increment)
         self.assertEqual(Decimal("20"), rules[0].min_notional_size)
+
+        # The rule must also survive contact with order quantization.
+        self.exchange._trading_rules[self.trading_pair] = rules[0]
+        self.assertEqual(
+            Decimal("0.0001"),
+            self.exchange.quantize_order_amount(self.trading_pair, Decimal("0.0001")),
+        )
+        self.assertEqual(
+            Decimal("0.5"),
+            self.exchange.quantize_order_amount(self.trading_pair, Decimal("0.5")),
+        )
 
     def test_trading_rule_falls_back_to_legacy_field_names(self) -> None:
         self.exchange._set_trading_pair_symbol_map(

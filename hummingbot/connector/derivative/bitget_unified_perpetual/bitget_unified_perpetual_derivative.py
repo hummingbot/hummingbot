@@ -518,6 +518,10 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         # stale afterwards. Without this, a position closed while the private stream was down
         # would be reported as open forever and keep blocking position-mode/leverage changes.
         reported_position_keys: set[str] = set()
+        # Only positions already tracked when this poll started are candidates for removal. The
+        # private stream writes positions concurrently, so one opened after its category was
+        # queried would otherwise be missing from the reported set and wrongly pruned below.
+        stale_candidate_keys: set[str] = set(self._perpetual_trading.account_positions.keys())
 
         for product_type in product_types:
             all_positions_response: Dict[str, Any] = await self._api_get(
@@ -574,8 +578,9 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Only prune positions whose product type this poll actually covered, so positions on a
         # category that was not queried are left untouched.
-        for pos_key, tracked_position in list(self._perpetual_trading.account_positions.items()):
-            if pos_key in reported_position_keys:
+        for pos_key in stale_candidate_keys - reported_position_keys:
+            tracked_position = self._perpetual_trading.account_positions.get(pos_key)
+            if tracked_position is None:
                 continue
             tracked_product_type = await self.product_type_associated_to_trading_pair(
                 tracked_position.trading_pair
@@ -1136,7 +1141,7 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         """
         trading_rules = []
         for rule in exchange_info_dict:
-            if bitget_unified_perpetual_utils.is_exchange_information_valid(exchange_info=rule):
+            if bitget_unified_perpetual_utils.is_instrument_tradable(exchange_info=rule):
                 try:
                     trading_pair = await self.trading_pair_associated_to_exchange_symbol(
                         symbol=rule["symbol"]

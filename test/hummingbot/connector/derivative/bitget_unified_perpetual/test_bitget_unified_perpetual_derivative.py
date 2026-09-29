@@ -11,6 +11,7 @@ from bidict import bidict
 
 import hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_web_utils as web_utils
+from hummingbot.connector.derivative.bitget_unified_perpetual import bitget_unified_perpetual_utils
 from hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_derivative import (
     BitgetUnifiedPerpetualDerivative,
 )
@@ -2242,3 +2243,77 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
         rules = self.async_run_with_timeout(self.exchange._format_trading_rules([instrument]))
 
         self.assertEqual(0, len(rules))
+
+    def test_suspended_contracts_stay_in_the_symbol_map(self):
+        """
+        A contract suspended while the account still holds a position on it must remain
+        resolvable, or position polling cannot translate the symbol the exchange reports back to
+        a trading pair and the whole poll fails.
+        """
+        self.assertTrue(bitget_unified_perpetual_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair, "status": "offline", "deliveryPeriod": ""}
+        ))
+        self.assertFalse(bitget_unified_perpetual_utils.is_instrument_tradable(
+            {"symbol": self.exchange_trading_pair, "status": "offline", "deliveryPeriod": ""}
+        ))
+
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info([{
+            "symbol": self.exchange_trading_pair,
+            "baseCoin": self.base_asset,
+            "quoteCoin": self.quote_asset,
+            "status": "offline",
+            "deliveryPeriod": "",
+        }])
+
+        self.assertEqual(
+            self.trading_pair,
+            self.async_run_with_timeout(
+                self.exchange.trading_pair_associated_to_exchange_symbol(self.exchange_trading_pair)
+            ),
+        )
+
+    @aioresponses()
+    def test_update_positions_keeps_position_opened_while_the_poll_is_in_flight(self, mock_api):
+        """
+        The private stream writes positions concurrently with the REST poll. One that appears
+        after its category has been queried is absent from the polled response, and must not be
+        mistaken for a stale position and removed.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        pos_key = self.exchange._perpetual_trading.position_key(
+            self.trading_pair, PositionSide.LONG
+        )
+
+        def open_position_mid_poll(*args, **kwargs):
+            # Stands in for the private stream delivering a brand new position.
+            self.exchange._perpetual_trading.set_position(
+                pos_key,
+                Position(
+                    trading_pair=self.trading_pair,
+                    position_side=PositionSide.LONG,
+                    unrealized_pnl=Decimal("1"),
+                    entry_price=Decimal("29000"),
+                    amount=Decimal("2"),
+                    leverage=Decimal("10"),
+                ),
+            )
+
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps({
+                "code": "00000",
+                "msg": "success",
+                "requestTime": 1695807725658,
+                "data": {"list": None, "cursor": ""},
+            }),
+            callback=open_position_mid_poll,
+        )
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertIn(pos_key, self.exchange.account_positions)
+        self.assertEqual(Decimal("2"), self.exchange.account_positions[pos_key].amount)
