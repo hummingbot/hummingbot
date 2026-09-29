@@ -53,7 +53,10 @@ class BitgetUnifiedPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         response: WSResponse = await websocket_assistant.receive()
         message = response.data
 
-        if (message["event"] != "login" and message["code"] != "0"):
+        # The login is only successful when the exchange echoes the "login" event *and* reports a
+        # zero result code. Either one alone being wrong means the session was rejected, so the
+        # listener must fail here and reconnect instead of subscribing on a rejected session.
+        if message.get("event") != "login" or str(message.get("code")) != "0":
             self.logger().error(
                 f"Error authenticating the private websocket connection. Response message {message}"
             )
@@ -72,9 +75,11 @@ class BitgetUnifiedPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             if event_message["event"] == "error":
                 message = event_message.get("msg", "Unknown error")
                 error_code = event_message.get("code", "Unknown code")
-                self.logger().error(
-                    f"Failed to subscribe to private channels: {message} ({error_code})"
-                )
+                error = f"Failed to subscribe to private channels: {message} ({error_code})"
+                # A rejected subscription leaves the connection up but silent, so raise to let
+                # listen_for_user_stream tear the session down and resubscribe from scratch.
+                self.logger().error(error)
+                raise IOError(error)
 
             if event_message["event"] == "subscribe":
                 channel: str = event_message["arg"]["topic"]

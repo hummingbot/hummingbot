@@ -8,6 +8,7 @@ from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
 import hummingbot.connector.exchange.bitget_unified.bitget_unified_constants as CONSTANTS
+import hummingbot.connector.exchange.bitget_unified.bitget_unified_utils as bitget_unified_utils
 import hummingbot.connector.exchange.bitget_unified.bitget_unified_web_utils as web_utils
 from hummingbot.connector.exchange.bitget_unified.bitget_unified_exchange import BitgetUnifiedExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
@@ -944,3 +945,99 @@ class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnecto
             order_update_response=order_update_response
         )
         self.assertEqual(order_update.new_state, OrderState.FILLED)
+
+    def test_market_buy_fill_uses_reported_execution_quantity(self) -> None:
+        """
+        A market buy that fills away from the price quoted when the order was placed must report
+        the quantity the exchange executed, not one rebuilt from the stale placement price.
+        """
+        self._simulate_trading_rules_initialized()
+        order_id = self.client_order_id_prefix + "1"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
+
+        # Filled at 8000 rather than the 10000 quoted at placement: 10000 quote buys 1.25 base.
+        fill_msg = {
+            "execId": self.expected_fill_trade_id,
+            "orderId": self.expected_exchange_order_id,
+            "symbol": self.exchange_trading_pair,
+            "side": "buy",
+            "execPrice": "8000",
+            "execQty": "1.25",
+            "execValue": "10000",
+            "feeDetail": [{"feeCoin": self.quote_asset, "fee": "10"}],
+            "updatedTime": "1695797773326",
+        }
+
+        trade_update = self.exchange._parse_trade_update(
+            trade_msg=fill_msg,
+            tracked_order=order,
+            source_type="websocket",
+        )
+
+        self.assertEqual(Decimal("1.25"), trade_update.fill_base_amount)
+        self.assertEqual(Decimal("10000"), trade_update.fill_quote_amount)
+        self.assertEqual(Decimal("8000"), trade_update.fill_price)
+
+    def test_market_buy_fill_parsed_for_untracked_expected_amount(self) -> None:
+        """
+        A fill arriving before any order-status update - as happens for an order restored after a
+        restart - must still be parsed rather than lost.
+        """
+        self._simulate_trading_rules_initialized()
+        order_id = self.client_order_id_prefix + "2"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
+
+        # Legacy field names, with the filled size reported in quote currency.
+        fill_msg = {
+            "tradeId": self.expected_fill_trade_id,
+            "orderId": self.expected_exchange_order_id,
+            "symbol": self.exchange_trading_pair,
+            "side": "buy",
+            "priceAvg": "8000",
+            "size": "10000",
+            "amount": "10000",
+            "feeDetail": [{"feeCoin": self.quote_asset, "totalFee": "10"}],
+            "uTime": "1695797773326",
+        }
+
+        trade_update = self.exchange._parse_trade_update(
+            trade_msg=fill_msg,
+            tracked_order=order,
+            source_type="websocket",
+        )
+
+        self.assertEqual(Decimal("1.25"), trade_update.fill_base_amount)
+
+    def test_is_exchange_information_valid_rejects_offline_instruments(self) -> None:
+        self.assertTrue(bitget_unified_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair, "status": "online"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair, "status": "offline"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair}
+        ))
+        self.assertFalse(bitget_unified_utils.is_exchange_information_valid(
+            {"status": "online"}
+        ))

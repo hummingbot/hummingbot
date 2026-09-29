@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, patch
 from bidict import bidict
 
 import hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_constants as CONSTANTS
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_api_user_stream_data_source import (
     BitgetUnifiedPerpetualUserStreamDataSource,
 )
@@ -46,9 +44,7 @@ class BitgetUnifiedPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTest
             passphrase="test_passphrase",
             time_provider=TimeSynchronizer()
         )
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitgetUnifiedPerpetualDerivative(
-            client_config_map,
             bitget_unified_perpetual_api_key="test_api_key",
             bitget_unified_perpetual_secret_key="test_secret_key",
             bitget_unified_perpetual_passphrase="test_passphrase",
@@ -323,3 +319,87 @@ class BitgetUnifiedPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTest
 
         with self.assertRaises(asyncio.CancelledError):
             await self.data_source.listen_for_user_stream(messages)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_rejects_login_echo_with_error_code(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """
+        A response echoing the "login" event but carrying a non-zero code is a rejected session.
+        The listener must fail authentication rather than subscribe on it.
+
+        :param mock_ws: Mocked WebSocket connection.
+        """
+        failed_login: Dict[str, Any] = self.ws_login_event_mock_response()
+        failed_login["code"] = "30005"
+        failed_login["msg"] = "Login failed"
+
+        messages: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(failed_login)
+        )
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_user_stream(messages)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Error authenticating the private websocket connection. "
+                f"Response message {failed_login}"
+            )
+        )
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
+            )
+        )
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_restarts_when_subscription_is_rejected(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """
+        A rejected private subscription leaves the connection up but silent, so the listener must
+        tear the session down and reconnect instead of only logging.
+
+        :param mock_ws: Mocked WebSocket connection.
+        """
+        error_response: Dict[str, Any] = self.ws_error_event_mock_response()
+
+        messages: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(error_response)
+        )
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_user_stream(messages)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.assertEqual(0, messages.qsize())
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                f"Failed to subscribe to private channels: {error_response['msg']} ({error_response['code']})"
+            )
+        )
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."
+            )
+        )

@@ -2047,3 +2047,112 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
         }
 
         return self.exchange._trading_rules
+
+    @aioresponses()
+    def test_hedge_mode_close_targets_the_position_being_closed(self, mock_api):
+        # A SELL with PositionAction.CLOSE closes the LONG: the order side must stay "sell" and
+        # posSide must name the long position, otherwise the order opens/reduces the short and
+        # leaves the intended long untouched.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_position_mode(PositionMode.HEDGE)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        self.place_sell_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("sell", request_data["side"])
+        self.assertEqual("long", request_data["posSide"])
+        self.assertEqual("yes", request_data["reduceOnly"])
+
+    @aioresponses()
+    def test_hedge_mode_close_of_short_targets_short_position(self, mock_api):
+        # The mirror case: a BUY with PositionAction.CLOSE closes the SHORT.
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_position_mode(PositionMode.HEDGE)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        self.place_buy_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("buy", request_data["side"])
+        self.assertEqual("short", request_data["posSide"])
+        self.assertEqual("yes", request_data["reduceOnly"])
+
+    @aioresponses()
+    def test_hedge_mode_open_keeps_side_and_position_side_aligned(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_position_mode(PositionMode.HEDGE)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        self.place_buy_order(position_action=PositionAction.OPEN)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("buy", request_data["side"])
+        self.assertEqual("long", request_data["posSide"])
+        self.assertNotIn("reduceOnly", request_data)
+
+    @aioresponses()
+    def test_update_positions_removes_position_missing_from_the_response(self, mock_api):
+        # A closed position drops out of the V3 current-position list entirely instead of being
+        # returned with a zero size, so an empty poll must clear the stale position.
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        pos_key = self.exchange._perpetual_trading.position_key(
+            self.trading_pair, PositionSide.LONG
+        )
+        self.exchange._perpetual_trading.set_position(
+            pos_key,
+            Position(
+                trading_pair=self.trading_pair,
+                position_side=PositionSide.LONG,
+                unrealized_pnl=Decimal("1"),
+                entry_price=Decimal("29000"),
+                amount=Decimal("2"),
+                leverage=Decimal("10"),
+            ),
+        )
+        self.assertEqual(1, len(self.exchange.account_positions))
+
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(
+            regex_url,
+            body=json.dumps({
+                "code": "00000",
+                "msg": "success",
+                "requestTime": 1695807725658,
+                "data": {"list": None, "cursor": ""},
+            }),
+        )
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(0, len(self.exchange.account_positions))

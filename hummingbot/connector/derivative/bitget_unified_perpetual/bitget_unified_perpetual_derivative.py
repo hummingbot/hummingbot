@@ -326,11 +326,13 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
 
         if self.position_mode is PositionMode.HEDGE:
             # V3 hedge mode uses posSide (long/short) instead of the V2 tradeSide (open/close).
-            # A close flips the order side and targets the existing position side; reduceOnly is set.
+            # The order side is always the caller's side; posSide names the position the order
+            # acts on. Opening, a BUY builds the long and a SELL builds the short. Closing, the
+            # caller already sends the offsetting side (a SELL closes a long, a BUY closes a
+            # short), so posSide is the opposite of the order side and reduceOnly is set.
             if position_action is PositionAction.CLOSE:
-                data["side"] = "sell" if trade_type is TradeType.BUY else "buy"
                 data["reduceOnly"] = "yes"
-                data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
+                data["posSide"] = "long" if trade_type is TradeType.SELL else "short"
             else:
                 data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
 
@@ -511,6 +513,12 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
             "short": PositionSide.SHORT
         }
 
+        # A position that has been closed simply drops out of the V3 current-position list rather
+        # than being returned with a zero size, so track what the poll reported and drop anything
+        # stale afterwards. Without this, a position closed while the private stream was down
+        # would be reported as open forever and keep blocking position-mode/leverage changes.
+        reported_position_keys: set[str] = set()
+
         for product_type in product_types:
             all_positions_response: Dict[str, Any] = await self._api_get(
                 path_url=CONSTANTS.ALL_POSITIONS_ENDPOINT,
@@ -560,8 +568,20 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
                         leverage=leverage,
                     )
                     self._perpetual_trading.set_position(pos_key, position)
+                    reported_position_keys.add(pos_key)
                 else:
                     self._perpetual_trading.remove_position(pos_key)
+
+        # Only prune positions whose product type this poll actually covered, so positions on a
+        # category that was not queried are left untouched.
+        for pos_key, tracked_position in list(self._perpetual_trading.account_positions.items()):
+            if pos_key in reported_position_keys:
+                continue
+            tracked_product_type = await self.product_type_associated_to_trading_pair(
+                tracked_position.trading_pair
+            )
+            if tracked_product_type in product_types:
+                self._perpetual_trading.remove_position(pos_key)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []

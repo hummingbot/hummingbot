@@ -18,6 +18,9 @@ CATEGORY = "SPOT"
 INST_TYPE_PUBLIC = "spot"
 INST_TYPE_UTA = "UTA"
 
+# V3 instruments listing state; only an online instrument accepts orders.
+INSTRUMENT_STATUS_ONLINE = "online"
+
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
 

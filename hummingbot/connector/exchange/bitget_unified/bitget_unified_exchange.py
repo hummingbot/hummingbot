@@ -49,8 +49,6 @@ class BitgetUnifiedExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         self._classic_account_mode_logged = False
 
-        self._expected_market_amounts: Dict[str, Decimal] = {}
-
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -188,8 +186,6 @@ class BitgetUnifiedExchange(ExchangePyBase):
                 f"Can't cancel order {order_id}: {cancel_order_response}"
             ))
 
-        self._expected_market_amounts.pop(tracked_order.client_order_id, None)
-
         return True
 
     async def _place_order(
@@ -206,7 +202,6 @@ class BitgetUnifiedExchange(ExchangePyBase):
             current_price: Decimal = self.get_price(trading_pair, True)
             step_size = Decimal(self.trading_rules[trading_pair].min_base_amount_increment)
             amount = (amount * current_price).quantize(step_size, rounding=ROUND_UP)
-            self._expected_market_amounts[order_id] = amount
         # LIMIT_MAKER maps to a post-only limit order (orderType "limit" + timeInForce "post_only").
         time_in_force = (
             CONSTANTS.POST_ONLY_TIME_IN_FORCE
@@ -439,15 +434,6 @@ class BitgetUnifiedExchange(ExchangePyBase):
         # one-element list. Support both. Field renames: status->orderStatus, size->qty.
         updated_info = updated_order_data[0] if isinstance(updated_order_data, list) else updated_order_data
 
-        if (
-            order.trade_type is TradeType.BUY
-            and order.order_type is OrderType.MARKET
-            and order.client_order_id not in self._expected_market_amounts
-        ):
-            self._expected_market_amounts[order.client_order_id] = Decimal(
-                str(updated_info.get("qty", updated_info.get("size")))
-            )
-
         new_state = CONSTANTS.STATE_TYPES[updated_info.get("orderStatus", updated_info.get("status"))]
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
@@ -516,13 +502,17 @@ class BitgetUnifiedExchange(ExchangePyBase):
         quote_amount = Decimal(str(trade_msg.get("execValue", trade_msg.get("amount"))))
 
         if (
-            tracked_order.trade_type is TradeType.BUY
+            "execQty" not in trade_msg
+            and tracked_order.trade_type is TradeType.BUY
             and tracked_order.order_type is OrderType.MARKET
+            and fill_price > Decimal("0")
         ):
-            expected_price = (
-                self._expected_market_amounts[tracked_order.client_order_id] / tracked_order.amount
-            )
-            base_amount = (quote_amount / expected_price).quantize(
+            # Spot market buys are submitted sized in quote currency, and the legacy payload
+            # echoed that quote size back under "size". V3 reports the executed base quantity in
+            # execQty, so only the legacy shape needs converting - and it converts at the price
+            # the fill actually executed at, never at the price estimated when the order was
+            # placed, which would misstate the filled quantity whenever the two differ.
+            base_amount = (quote_amount / fill_price).quantize(
                 Decimal(self.trading_rules[trading_pair].min_base_amount_increment),
                 rounding=ROUND_UP
             )
@@ -583,14 +573,6 @@ class BitgetUnifiedExchange(ExchangePyBase):
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
-            if (
-                updatable_order.trade_type is TradeType.BUY
-                and updatable_order.order_type is OrderType.MARKET
-                and client_order_id not in self._expected_market_amounts
-            ):
-                # Spot market buys are sized in quote currency; "amount" is the order quote value.
-                self._expected_market_amounts[client_order_id] = Decimal(str(order_msg["amount"]))
-
             new_order_update: OrderUpdate = OrderUpdate(
                 trading_pair=updatable_order.trading_pair,
                 update_timestamp=int(order_msg["updatedTime"]) * 1e-3,

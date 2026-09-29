@@ -95,11 +95,17 @@ class BitgetUnifiedPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSour
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         funding_info_response = await self._request_complete_funding_info(trading_pair)
+        # V3 names the next settlement "nextFundingTime" (the ticker channel uses the same name);
+        # the legacy payload called it "nextUpdate". Accept either so the initial funding info is
+        # always loaded - a KeyError here leaves the connector permanently un-ready for the pair.
+        next_funding_time = funding_info_response.get(
+            "nextFundingTime", funding_info_response.get("nextUpdate")
+        )
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=Decimal(funding_info_response["indexPrice"]),
             mark_price=Decimal(funding_info_response["markPrice"]),
-            next_funding_utc_timestamp=int(int(funding_info_response["nextUpdate"]) * 1e-3),
+            next_funding_utc_timestamp=int(int(next_funding_time) * 1e-3),
             rate=Decimal(funding_info_response["fundingRate"]),
         )
 

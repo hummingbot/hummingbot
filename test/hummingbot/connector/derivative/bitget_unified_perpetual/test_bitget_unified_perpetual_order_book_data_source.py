@@ -10,8 +10,6 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bitget_unified_perpetual import bitget_unified_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bitget_unified_perpetual.bitget_unified_perpetual_api_order_book_data_source import (
     BitgetUnifiedPerpetualAPIOrderBookDataSource,
@@ -42,9 +40,7 @@ class BitgetUnifiedPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTe
         self.log_records: List[Any] = []
         self.listening_task: Optional[asyncio.Task] = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitgetUnifiedPerpetualDerivative(
-            client_config_map,
             bitget_unified_perpetual_api_key="test_api_key",
             bitget_unified_perpetual_secret_key="test_secret_key",
             bitget_unified_perpetual_passphrase="test_passphrase",
@@ -910,6 +906,29 @@ class BitgetUnifiedPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTe
             funding_info.next_funding_utc_timestamp
         )
         self.assertEqual(Decimal(str(msg_result["fundingRate"])), funding_info.rate)
+
+    @aioresponses()
+    async def test_get_funding_info_accepts_next_funding_time_field(self, mock_api) -> None:
+        """
+        V3 names the next settlement "nextFundingTime" (as the ticker channel does). Reading only
+        "nextUpdate" would raise a KeyError and leave the pair without initial funding info.
+        """
+        rate_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
+        rate_regex_url = re.compile(rate_url.replace(".", r"\.").replace("?", r"\?"))
+        mark_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT)
+        mark_regex_url = re.compile(mark_url.replace(".", r"\.").replace("?", r"\?"))
+
+        resp: Dict[str, Any] = self.expected_funding_info_data()
+        resp["data"][0]["nextFundingTime"] = resp["data"][0].pop("nextUpdate")
+        mock_api.get(rate_regex_url, body=json.dumps(resp))
+        mock_api.get(mark_regex_url, body=json.dumps(resp))
+
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
+
+        self.assertEqual(
+            int(resp["data"][0]["nextFundingTime"]) * 1e-3,
+            funding_info.next_funding_utc_timestamp
+        )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_events_enqueued_correctly_after_channel_detection(
