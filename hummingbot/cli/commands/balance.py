@@ -82,6 +82,10 @@ async def _fetch_all(ccm, timeout: float, with_prices: bool = True) -> Dict[str,
     result = {ex: dict(zip(("assets", "allocated_total", "usd_total"),
                            _exchange_assets(ex, total, all_avai.get(ex, {}), prices, quote)))
               for ex, total in all_total.items()}
+    # A unified-account venue reports one wallet through several connectors, each in full. Mark
+    # the repeats so the total counts each wallet once.
+    for ex, primary in ub.duplicate_account_sources(all_total.keys()).items():
+        result[ex]["duplicate_of"] = primary
     if with_prices:
         await _attach_positions(ub, result, timeout)
     return result
@@ -140,8 +144,13 @@ def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
             section += "\n\npositions:\n" + render_table(pos_rows)
             section += (f"\n\nnet value: {sym}{rnd(net)}  "
                         f"(balances {sym}{rnd(usd)} + uPnL {sym}{rnd(pnl)})")
+        duplicate_of = data.get("duplicate_of")
+        if duplicate_of is not None:
+            section += (f"\n\n_same exchange account as {duplicate_of}; "
+                        f"not added to the total again_")
+        else:
+            exchanges_total += net
         out.append(section)
-        exchanges_total += net
     if units_only:
         return "\n\n".join(out)
     out.append(f"connectors total (net): {sym}{exchanges_total:.2f}")
