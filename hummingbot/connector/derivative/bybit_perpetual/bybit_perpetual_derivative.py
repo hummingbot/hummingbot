@@ -899,6 +899,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pair=trading_pair,
             )
         url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, trading_pair=trading_pair, domain=self._domain)
+        throttler_limit_id = limit_id if limit_id else path_url
+        if trading_pair is not None:
+            self._ensure_pair_rate_limits(trading_pair)
+            if self._throttler.get_related_limits(throttler_limit_id)[0] is None:
+                raise ValueError(
+                    f"Rate limit {throttler_limit_id} is not registered for {trading_pair}."
+                )
 
         resp = await rest_assistant.execute_request(
             url=url,
@@ -907,6 +914,14 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
             method=method,
             is_auth_required=is_auth_required,
             return_err=return_err,
-            throttler_limit_id=limit_id if limit_id else path_url,
+            throttler_limit_id=throttler_limit_id,
         )
         return resp
+
+    def _ensure_pair_rate_limits(self, trading_pair: str) -> None:
+        """
+        Register the full private rate-limit set for a pair added after connector start.
+        Does not place, cancel, or query orders. add_rate_limits skips ids that already exist.
+        """
+        pair_rate_limits = web_utils._build_private_pair_specific_rate_limits([trading_pair])
+        self._throttler.add_rate_limits(pair_rate_limits)
