@@ -845,11 +845,13 @@ class DeriveExchange(ExchangePyBase):
         for balance_entry in balances:
             asset_name = balance_entry["asset_name"]
             total_balance = Decimal(str(balance_entry["amount"]))
-            # Available is the portion not already committed to open orders or margin. Reporting
-            # total as available, as this used to, lets the strategy size orders against funds
-            # that are already spoken for.
-            available = balance_entry.get("available_balance")
-            free_balance = Decimal(str(available)) if available is not None else total_balance
+            # Reporting total as available, as this used to, lets the strategy size orders
+            # against funds already committed. The v3 Collateral schema has no available field,
+            # but it does carry open_orders_margin: the portion reserved by resting orders.
+            # Derive is cross-margined, so this is the per-collateral approximation rather than
+            # an account-level free-margin figure.
+            reserved = Decimal(str(balance_entry.get("open_orders_margin") or 0))
+            free_balance = max(total_balance - reserved, s_decimal_0)
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
