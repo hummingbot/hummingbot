@@ -87,3 +87,47 @@ class UserBalancesAccountGroupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SharedAccountTotalsTests(unittest.TestCase):
+    """
+    Only the wallet is shared between connectors on one account. Positions belong to whichever
+    connector holds them, so their unrealized PnL must survive the deduplication.
+    """
+
+    @staticmethod
+    def _result():
+        from decimal import Decimal
+        asset = {"asset": "USDT", "total": Decimal("88.93"), "available": Decimal("88.93"),
+                 "value": Decimal("88.93"), "allocated": "0%"}
+        return {
+            "bitget_unified": {
+                "assets": [asset], "allocated_total": Decimal("0"), "usd_total": Decimal("93.35"),
+            },
+            "bitget_unified_perpetual": {
+                "assets": [asset], "allocated_total": Decimal("0"), "usd_total": Decimal("93.35"),
+                "pnl_total": Decimal("5"),
+                "positions": [{"trading_pair": "XRP-USDC", "side": "LONG", "amount": "10",
+                               "entry_price": "1.5", "notional": "15",
+                               "unrealized_pnl": "5", "leverage": "3"}],
+                "duplicate_of": "bitget_unified",
+            },
+        }
+
+    def test_rendered_total_keeps_the_duplicates_unrealized_pnl(self):
+        import hummingbot.cli.commands.balance as balance_cli
+
+        rendered = balance_cli._render(self._result(), "$")
+        total_line = next(ln for ln in rendered.splitlines() if "connectors total" in ln)
+
+        # $93.35 wallet counted once, plus the $5 PnL that only the perpetual connector holds.
+        self.assertIn("98.35", total_line)
+
+    def test_json_total_matches_the_rendered_total(self):
+        import hummingbot.cli.commands.balance as balance_cli
+
+        payload = balance_cli._json_payload(self._result(), "USDT", units_only=False)
+
+        # The JSON path used to sum every connector, inflating the total past the rendered one.
+        self.assertEqual(98.35, payload["net_value_total"])
+        self.assertEqual("bitget_unified", payload["connectors"]["bitget_unified_perpetual"]["duplicate_of"])

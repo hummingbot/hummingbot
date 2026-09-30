@@ -146,8 +146,12 @@ def _render(result: Dict[str, dict], sym: str, units_only: bool = False) -> str:
                         f"(balances {sym}{rnd(usd)} + uPnL {sym}{rnd(pnl)})")
         duplicate_of = data.get("duplicate_of")
         if duplicate_of is not None:
-            section += (f"\n\n_same exchange account as {duplicate_of}; "
-                        f"not added to the total again_")
+            # Only the wallet is a repeat of what the primary already counted. Positions belong
+            # to this connector alone - a spot connector holds none - so their unrealized PnL is
+            # not duplicated and still has to be added.
+            section += (f"\n\n_balances are the same exchange account as {duplicate_of}; "
+                        f"counted once_")
+            exchanges_total += pnl
         else:
             exchanges_total += net
         out.append(section)
@@ -173,7 +177,13 @@ def _json_payload(result: Dict[str, dict], quote: str, units_only: bool) -> dict
                 entry["positions"] = data["positions"]
                 entry["unrealized_pnl"] = float(pnl)
             entry["net_value"] = float(data["usd_total"] + pnl)
-            total += data["usd_total"] + pnl
+            duplicate_of = data.get("duplicate_of")
+            if duplicate_of is not None:
+                # Same reasoning as the rendered total: the wallet repeats, the positions do not.
+                entry["duplicate_of"] = duplicate_of
+                total += pnl
+            else:
+                total += data["usd_total"] + pnl
         payload["connectors"][ex] = entry
     if not units_only:
         payload["net_value_total"] = float(total)
