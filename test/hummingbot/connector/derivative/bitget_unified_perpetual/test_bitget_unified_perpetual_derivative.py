@@ -2370,3 +2370,160 @@ class BitgetUnifiedPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Per
             "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
             "status was added to the API that the connector does not map yet."
         ))
+
+    @aioresponses()
+    def test_one_way_close_sets_reduce_only(self, mock_api):
+        """
+        A close is sized against the position as it was when the order was built. Without
+        reduceOnly, a position that shrinks first leaves the remainder to trade through zero and
+        open a position the other way. That flag used to be set only in hedge mode.
+        """
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_position_mode(PositionMode.ONEWAY)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        self.place_sell_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("yes", request_data["reduceOnly"])
+        # One-way mode carries no posSide.
+        self.assertNotIn("posSide", request_data)
+
+    @aioresponses()
+    def test_one_way_open_does_not_set_reduce_only(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._perpetual_trading.set_position_mode(PositionMode.ONEWAY)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        self.place_buy_order(position_action=PositionAction.OPEN)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertNotIn("reduceOnly", request_data)
+
+    def test_partial_position_update_does_not_close_other_positions(self):
+        """
+        An "update" carries only what changed. Treating it as a full snapshot deletes unrelated
+        positions that are still open.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+        eth_key = self.exchange._perpetual_trading.position_key("ETH-USDT", PositionSide.LONG)
+        self.exchange._perpetual_trading.set_position(
+            eth_key,
+            Position(trading_pair="ETH-USDT", position_side=PositionSide.LONG,
+                     unrealized_pnl=Decimal("1"), entry_price=Decimal("3000"),
+                     amount=Decimal("2"), leverage=Decimal("10")),
+        )
+
+        # A delta naming only BTC must leave the ETH position alone.
+        btc_only = [{
+            "symbol": self.exchange_trading_pair, "posSide": "long", "size": "1",
+            "avgPrice": "29000", "leverage": "10", "unrealisedPnl": "5",
+        }]
+        self.async_run_with_timeout(
+            self.exchange._process_account_position_event(btc_only, is_snapshot=False)
+        )
+
+        self.assertIn(eth_key, self.exchange.account_positions)
+
+    def test_snapshot_position_event_still_closes_absent_positions(self):
+        """A snapshot lists every open position, so anything missing really has closed."""
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+        eth_key = self.exchange._perpetual_trading.position_key("ETH-USDT", PositionSide.LONG)
+        self.exchange._perpetual_trading.set_position(
+            eth_key,
+            Position(trading_pair="ETH-USDT", position_side=PositionSide.LONG,
+                     unrealized_pnl=Decimal("1"), entry_price=Decimal("3000"),
+                     amount=Decimal("2"), leverage=Decimal("10")),
+        )
+
+        btc_only = [{
+            "symbol": self.exchange_trading_pair, "posSide": "long", "size": "1",
+            "avgPrice": "29000", "leverage": "10", "unrealisedPnl": "5",
+        }]
+        self.async_run_with_timeout(
+            self.exchange._process_account_position_event(btc_only, is_snapshot=True)
+        )
+
+        self.assertNotIn(eth_key, self.exchange.account_positions)
+
+    @aioresponses()
+    def test_update_positions_reads_every_page_before_pruning(self, mock_api):
+        """
+        _update_positions removes positions the poll did not report, so a truncated read would
+        delete positions that are still open. A full page has to be followed by the next one.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, "ETHUSDT": "ETH-USDT"})
+        )
+
+        def _position(symbol):
+            return {"symbol": symbol, "posSide": "long", "unrealisedPnl": "1",
+                    "avgPrice": "100", "total": "2", "leverage": "10"}
+
+        # A full first page (ETH padded out to the page size) then a short second page with BTC.
+        first_page = [_position("ETHUSDT")] * CONSTANTS.PAGINATION_LIMIT
+        second_page = [_position(self.exchange_trading_pair)]
+
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000", "msg": "success",
+            "data": {"list": first_page, "cursor": "page2"},
+        }))
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000", "msg": "success",
+            "data": {"list": second_page, "cursor": ""},
+        }))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        # The BTC position lives on page two; reading only page one would have pruned it.
+        btc_key = self.exchange._perpetual_trading.position_key(self.trading_pair, PositionSide.LONG)
+        eth_key = self.exchange._perpetual_trading.position_key("ETH-USDT", PositionSide.LONG)
+        self.assertIn(btc_key, self.exchange.account_positions)
+        self.assertIn(eth_key, self.exchange.account_positions)
+
+    @aioresponses()
+    def test_update_positions_stops_after_a_short_page(self, mock_api):
+        """A page shorter than the limit is the last one, whatever cursor comes back with it."""
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        # Only one response is registered: a second request would fail the test outright.
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000", "msg": "success",
+            "data": {"list": [{"symbol": self.exchange_trading_pair, "posSide": "long",
+                               "unrealisedPnl": "1", "avgPrice": "100", "total": "2",
+                               "leverage": "10"}],
+                     "cursor": "1"},
+        }))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(1, len(self.exchange.account_positions))
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))

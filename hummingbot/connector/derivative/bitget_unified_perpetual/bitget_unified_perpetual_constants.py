@@ -26,6 +26,11 @@ INST_TYPE_UTA = "UTA"
 # V3 instruments listing state; only an online instrument accepts orders.
 INSTRUMENT_STATUS_ONLINE = "online"
 
+# Upper bound on cursor-paginated reads, so a cursor that never terminates cannot spin.
+MAX_PAGINATION_PAGES = 20
+# Rows requested per page; a shorter page means the last one.
+PAGINATION_LIMIT = 100
+
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""
 

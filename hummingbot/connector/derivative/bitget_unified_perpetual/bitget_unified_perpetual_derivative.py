@@ -324,14 +324,20 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         if order_type.is_limit_type():
             data["price"] = str(price)
 
+        if position_action is PositionAction.CLOSE:
+            # reduceOnly has to be set in one-way mode as well, not only in hedge mode. A close
+            # is sized against the position as it was when the order was built; if the position
+            # shrinks before the order fills, the remainder would otherwise trade through zero
+            # and open a position the other way.
+            data["reduceOnly"] = "yes"
+
         if self.position_mode is PositionMode.HEDGE:
             # V3 hedge mode uses posSide (long/short) instead of the V2 tradeSide (open/close).
             # The order side is always the caller's side; posSide names the position the order
             # acts on. Opening, a BUY builds the long and a SELL builds the short. Closing, the
             # caller already sends the offsetting side (a SELL closes a long, a BUY closes a
-            # short), so posSide is the opposite of the order side and reduceOnly is set.
+            # short), so posSide is the opposite of the order side.
             if position_action is PositionAction.CLOSE:
-                data["reduceOnly"] = "yes"
                 data["posSide"] = "long" if trade_type is TradeType.SELL else "short"
             else:
                 data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
@@ -511,6 +517,66 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
             self._account_available_balances[coin] = new_available
             self._account_balances[coin] = new_total
 
+    async def _paginated_rows(
+        self, path_url: str, params: Dict[str, Any], limit_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Reads every page of a cursor-paginated V3 response.
+
+        v3 wraps rows in data.list and returns data.cursor, which is echoed back to fetch the
+        next page. Reading only the first page silently truncates fills and funding records, and
+        for positions it is worse: _update_positions prunes anything it did not see, so live
+        positions on a later page would be deleted from local state.
+
+        Paging stops when a page comes back shorter than the requested limit. A non-empty cursor
+        does not by itself mean more rows exist - it is a position marker, and the API returns
+        one alongside a complete single page - so terminating on it would either loop or cost an
+        extra request every poll. If the endpoint ignores the limit and returns its own page
+        size, a short page ends the loop after one request, which is the behaviour this replaces.
+
+        :param path_url: the endpoint to read
+        :param params: query parameters, without a cursor
+        :param limit_id: the throttler limit id, when it differs from path_url
+        :return: the concatenated rows from every page
+        """
+        rows: List[Dict[str, Any]] = []
+        page_size = CONSTANTS.PAGINATION_LIMIT
+        cursor: Optional[str] = None
+
+        for _ in range(CONSTANTS.MAX_PAGINATION_PAGES):
+            page_params = dict(params)
+            page_params["limit"] = str(page_size)
+            if cursor:
+                page_params["cursor"] = cursor
+
+            response = await self._api_get(
+                path_url=path_url,
+                params=page_params,
+                is_auth_required=True,
+                limit_id=limit_id or path_url,
+            )
+
+            payload = response.get("data")
+            if isinstance(payload, dict):
+                page_rows = payload.get("list") or []
+                cursor = payload.get("cursor") or None
+            else:
+                # The legacy shape returned the rows directly under data and never paginated.
+                page_rows = payload or []
+                cursor = None
+
+            rows.extend(page_rows)
+
+            if len(page_rows) < page_size or not cursor:
+                break
+        else:
+            self.logger().warning(
+                f"Stopped paging {path_url} at {CONSTANTS.MAX_PAGINATION_PAGES} pages; the "
+                f"remaining rows were not read."
+            )
+
+        return rows
+
     async def _update_positions(self):
         """
         Retrieves all positions using the REST API.
@@ -535,21 +601,12 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         stale_candidate_keys: set[str] = set(self._perpetual_trading.account_positions.keys())
 
         for product_type in product_types:
-            all_positions_response: Dict[str, Any] = await self._api_get(
+            # Every page matters here: the reconciliation below removes positions this poll did
+            # not report, so a truncated read would delete positions that are still open.
+            all_positions_data = await self._paginated_rows(
                 path_url=CONSTANTS.ALL_POSITIONS_ENDPOINT,
-                params={
-                    "category": product_type
-                },
-                is_auth_required=True,
+                params={"category": product_type},
             )
-            # V3 current-position wraps the rows in a paginated object: data.list (the V2 API
-            # returned the list directly under data). When there are no open positions the API
-            # returns data.list = null (or data = null), so coalesce to an empty list.
-            all_positions_payload = all_positions_response.get("data")
-            if isinstance(all_positions_payload, dict):
-                all_positions_data = all_positions_payload.get("list") or []
-            else:
-                all_positions_data = all_positions_payload or []
 
             for position in all_positions_data:
                 # V3 current-position (CurrentPositionV3) fields.
@@ -604,14 +661,12 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
 
         if order.exchange_order_id is not None:
             try:
-                all_fills_response = await self._request_order_fills(order=order)
-                # V3 fills are paginated under data.list (the V2 API used the {"fillList": [...]}
-                # wrapper). Coalesce a null/missing list to an empty list.
-                fills_payload = all_fills_response.get("data")
-                if isinstance(fills_payload, dict):
-                    all_fills_data = fills_payload.get("list") or []
-                else:
-                    all_fills_data = fills_payload or []
+                # Reading only the first page would drop the earlier fills of a heavily
+                # partially-filled order.
+                all_fills_data = await self._paginated_rows(
+                    path_url=CONSTANTS.ORDER_FILLS_ENDPOINT,
+                    params={"orderId": order.exchange_order_id},
+                )
 
                 for fill_data in all_fills_data:
                     trade_update = self._parse_trade_update(
@@ -855,18 +910,12 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
         # isolated). The endpoint rejects the legacy lowercase single "type" filter with "40020
         # Parameter type error", so we fetch the records unfiltered and pick the latest funding
         # settlement for this symbol locally.
-        payment_response: Dict[str, Any] = await self._api_get(
+        # The records are unfiltered, so the settlement being looked for can sit beyond the
+        # first page.
+        payment_data = await self._paginated_rows(
             path_url=CONSTANTS.ACCOUNT_BILLS_ENDPOINT,
-            params={
-                "category": product_type,
-            },
-            is_auth_required=True,
+            params={"category": product_type},
         )
-        payment_payload = payment_response.get("data")
-        if isinstance(payment_payload, dict):
-            payment_data = payment_payload.get("list") or []
-        else:
-            payment_data = payment_payload or []
         funding_payments = [
             record for record in payment_data
             if record.get("symbol") == symbol and "SETTLE_FEE" in str(record.get("type", ""))
@@ -891,7 +940,10 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
                 data = event_message["data"]
 
                 if channel == CONSTANTS.WS_POSITIONS_ENDPOINT:
-                    await self._process_account_position_event(data)
+                    # The envelope's action distinguishes a full snapshot from a delta.
+                    await self._process_account_position_event(
+                        data, is_snapshot=event_message.get("action") == "snapshot"
+                    )
                 elif channel == CONSTANTS.WS_ORDERS_ENDPOINT:
                     for order_msg in data:
                         self._process_order_event_message(order_msg)
@@ -909,10 +961,16 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
 
-    async def _process_account_position_event(self, position_entries: List[Dict[str, Any]]):
+    async def _process_account_position_event(
+        self, position_entries: List[Dict[str, Any]], is_snapshot: bool = True
+    ):
         """
         Updates position
-        :param position_msg: The position event message payload
+
+        :param position_entries: The position event message payload
+        :param is_snapshot: True when the message lists every open position, so that positions
+            missing from it can be treated as closed. An "update" carries only what changed, and
+            pruning on one of those would delete unrelated positions that are still open.
         """
         all_position_keys = []
         position_sides = {
@@ -954,8 +1012,12 @@ class BitgetUnifiedPerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 self._perpetual_trading.remove_position(pos_key)
 
-        # BitgetUnified sends position events as snapshots.
-        # If a position is closed it is just not included in the snapshot
+        if not is_snapshot:
+            # A delta only carries the positions that changed; anything absent is untouched, not
+            # closed. Closures still arrive as an entry with size 0, handled above.
+            return
+
+        # On a snapshot, a position that is simply absent has been closed.
         position_keys = list(self.account_positions.keys())
         positions_to_remove = (
             position_key
