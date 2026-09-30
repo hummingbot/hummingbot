@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils as web_utils
@@ -2050,6 +2051,7 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             },
             [{"markPx": "0.00000453", "midPx": "0.00000453", "prevDayPx": "0.00000453"}],
         ]
+        self.exchange._set_trading_pair_symbol_map(bidict({"RIP/USDC": combine_to_hb_trading_pair("RIP", "USDC")}))
         rules = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
         self.assertEqual(1, len(rules))
         # 8 - szDecimals = 6, so the tick stops at 1e-6 even though markPx shows 8.
