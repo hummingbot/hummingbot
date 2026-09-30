@@ -199,7 +199,10 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock = ws_connect_mock.return_value)
 
-        self.assertEqual(4, len(sent_subscription_messages))
+        # Login, then one subscribe. v3 has no positions websocket channel, so the
+        # private/get_subaccount and private/get_positions RPC calls this used to make over the
+        # socket are gone; positions are polled instead.
+        self.assertEqual(2, len(sent_subscription_messages))
         auth_responce = self.get_ws_auth_payload()
         expected_login_subscription = {
             "method": "public/login",
@@ -207,23 +210,16 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "id": str(mock_utc_now.return_value),
         }
         self.assertEqual(expected_login_subscription, sent_subscription_messages[0])
-        expected_positions_subscription = {
-            "method": "private/get_subaccount",
-            "params": {"subaccount_id": int(self.subacct_id)}
-        }
-        self.assertEqual(expected_positions_subscription, sent_subscription_messages[1])
-        expected_positions_subscription = {
-            "method": "private/get_positions",
-            "params": {"subaccount_id": int(self.subacct_id)}
-        }
-        self.assertEqual(expected_positions_subscription, sent_subscription_messages[2])
         expected_trades_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.subacct_id}.orders", f"{self.subacct_id}.trades"],
+                "channels": [
+                    f"{self.subacct_id}.orders",
+                    f"{self.subacct_id}.trades",
+                ],
             }
         }
-        self.assertEqual(expected_trades_subscription, sent_subscription_messages[3])
+        self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")

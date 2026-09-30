@@ -183,37 +183,24 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         }
 
     def get_funding_info_rest_msg(self):
-        return {"result":
-                {
-                    'instrument_type': 'perp',
-                    'instrument_name': f'{self.base_asset}-PERP',
-                    'scheduled_activation': 1728508925,
-                    'scheduled_deactivation': 9223372036854775807,
-                    'is_active': True,
-                    'tick_size': '0.01',
-                    'minimum_amount': '0.1',
-                    'maximum_amount': '1000',
-                    'index_price': '36717.0',
-                    'mark_price': '36733.0',
-                    'amount_step': '0.01',
-                    'mark_price_fee_rate_cap': '0',
-                    'maker_fee_rate': '0.0015',
-                    'taker_fee_rate': '0.0015',
-                    'base_fee': '0.1',
-                    'base_currency': self.base_asset,
-                    'quote_currency': self.quote_asset,
-                    'option_details': None,
-                    "perp_details": {
-                        "index": "BTC-USDC",
-                        "max_rate_per_hour": "0.004",
-                        "min_rate_per_hour": "-0.004",
-                        "static_interest_rate": "0.0000125",
-                        "aggregate_funding": "738.587599416709606114",
-                        "funding_rate": "0.00001793"
-                    },
-                    'erc20_details': None,
-                    'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
-                }
+        # v3 slim ticker: index is "I", mark is "M" and the hourly funding rate is "f".
+        return {
+            "result": {
+                "t": 1737827796000,
+                "A": "2155.24", "a": "36734.0",
+                "B": "2155.43", "b": "36732.0",
+                "f": "0.00001793",
+                "option_pricing": None,
+                "I": "36717.0",
+                "M": "36733.0",
+                "stats": {
+                    "c": "308.41", "v": "514.6", "pr": "0", "n": 7,
+                    "oi": "323332.12302071627866623",
+                    "h": "36796.0", "l": "36605.0", "p": "-0.071477",
+                },
+                "minp": "36213.0", "maxp": "37199.0",
+            }
+        }
 
     def get_trading_rule_rest_msg(self):
         return [
@@ -477,7 +464,10 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_result = resp
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(msg_result["result"]["perp_details"]["funding_rate"])), funding_info.rate)
+        # v3 slim ticker: index "I", mark "M", hourly funding rate "f".
+        self.assertEqual(Decimal(str(msg_result["result"]["f"])), funding_info.rate)
+        self.assertEqual(Decimal(str(msg_result["result"]["I"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(msg_result["result"]["M"])), funding_info.mark_price)
 
     async def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()

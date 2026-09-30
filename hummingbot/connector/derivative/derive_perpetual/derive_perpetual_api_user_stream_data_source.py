@@ -91,19 +91,15 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             await self._authenticate(websocket_assistant)  # Authenticate once
 
-            # Define all subscription payloads
+            # v3 has no positions websocket channel, so positions are polled by the connector
+            # rather than requested over the socket. This used to issue private/get_subaccount
+            # and private/get_positions as websocket RPC calls alongside the subscriptions.
             subscription_payloads = [
-                {
-                    "method": channel,
-                    "params": {"subaccount_id": int(subaccount_id)}
-                }
-                for channel in [CONSTANTS.WS_ACCOUNT_CHANNEL, CONSTANTS.WS_POSITIONS_CHANNEL]
-            ] + [
                 {
                     "method": "subscribe",
                     "params": {"channels": [
                         CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
-                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id)
+                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id),
                     ]}
                 }
             ]
@@ -113,7 +109,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 websocket_assistant.send(WSJSONRequest(payload))
                 for payload in subscription_payloads
             ])
-            self.logger().info("Subscribed to private account, position and orders channels...")
+            self.logger().info("Subscribed to private orders and trades channels...")
         except asyncio.CancelledError:
             raise
         except Exception:

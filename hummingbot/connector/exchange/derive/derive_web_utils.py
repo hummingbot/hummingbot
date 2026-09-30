@@ -1,7 +1,4 @@
-# from dataclasses import dataclass
-import random
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
@@ -9,12 +6,9 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
-MAX_INT_256 = 2**255 - 1
-MIN_INT_256 = -(2**255)
-MAX_INT_32 = 2**31 - 1
 
 
 def private_rest_url(*args, **kwargs) -> str:
@@ -35,6 +29,21 @@ def wss_url(domain: str = "derive"):
     return base_ws_url
 
 
+class DeriveRESTPreProcessor(RESTPreProcessorBase):
+    """
+    Stamps every REST request with a User-Agent.
+
+    v3 rejects requests that arrive without one, and public calls do not pass through the auth
+    layer that would otherwise add it.
+    """
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        request.headers = request.headers or {}
+        request.headers.setdefault("User-Agent", CONSTANTS.USER_AGENT)
+        request.headers.setdefault("Content-Type", "application/json")
+        return request
+
+
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
@@ -51,6 +60,7 @@ def build_api_factory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
+            DeriveRESTPreProcessor(),
             TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
         ],
     )
@@ -58,7 +68,7 @@ def build_api_factory(
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
-    api_factory = WebAssistantsFactory(throttler=throttler)
+    api_factory = WebAssistantsFactory(throttler=throttler, rest_pre_processors=[DeriveRESTPreProcessor()])
     return api_factory
 
 
@@ -105,25 +115,11 @@ def order_to_call(order):
     }
 
 
-def decimal_to_big_int(value: Decimal) -> int:
-    result_value = int(value * Decimal(10**18))
-    if result_value < MIN_INT_256 or result_value > MAX_INT_256:
-        raise ValueError(f"resulting integer value must be between {MIN_INT_256} and {MAX_INT_256}")
-    return result_value
-
-
-def get_action_nonce(nonce_iter: int = 0) -> int:
-    """
-    Used to generate a unique nonce to prevent replay attacks on-chain.
-
-    Uses the current UTC timestamp in milliseconds and a random number up to 3 digits.
-
-    :param nonce_iter: allows to enter a specific number between 0 and 999 unless. If None is passed a random number is chosen
-    """
-    if nonce_iter is None:
-        nonce_iter = random.randint(0, 999)
-    return int(str(utc_now_ms()) + str(nonce_iter))
-
-
 def utc_now_ms() -> int:
+    """
+    Current UTC time in milliseconds.
+
+    Used for websocket request ids and the login timestamp. The signing helpers, including the
+    nanosecond action nonce, live in derive_common_utils.
+    """
     return int(datetime.now(timezone.utc).timestamp() * 1000)

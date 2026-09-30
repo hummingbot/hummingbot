@@ -61,12 +61,14 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         general_info = await self._request_complete_funding_info(trading_pair)
         data = general_info["result"]
+        # v3 slim ticker: index is "I", mark is "M" and the hourly funding rate is "f".
+        # perp_details is no longer part of the ticker payload.
         funding_info = FundingInfo(
             trading_pair=trading_pair,
-            index_price=Decimal(str(data["index_price"])),
-            mark_price=Decimal(str(data["mark_price"])),
+            index_price=Decimal(str(data["I"])),
+            mark_price=Decimal(str(data["M"])),
             next_funding_utc_timestamp=self._next_funding_time(),
-            rate=Decimal(str(data["perp_details"]["funding_rate"])),
+            rate=Decimal(str(data["f"])),
         )
         return funding_info
 
@@ -252,8 +254,9 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         message_queue.put_nowait(funding_info)
 
     async def _request_complete_funding_info(self, trading_pair: str):
-        # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
-        pair = trading_pair.replace("USDC", "PERP")
+        # This used to build the instrument name by string-replacing USDC with PERP, which
+        # silently produces the wrong symbol for any contract not quoted in USDC.
+        pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         payload = {
             "instrument_name": pair,
         }
@@ -264,7 +267,14 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return exchange_info
 
     def _next_funding_time(self) -> int:
-        return int(((time.time() // 3600) + 1) * 3600)
+        """
+        Start of the next funding interval, in seconds.
+
+        v3 documents the ticker's "f" as the current *hourly* funding rate and perp_details
+        carries hourly min/max bounds, so funding still settles hourly.
+        """
+        interval = CONSTANTS.FUNDING_INTERVAL_SECONDS
+        return int(((time.time() // interval) + 1) * interval)
 
     @classmethod
     def _get_next_subscribe_id(cls) -> int:
