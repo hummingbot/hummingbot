@@ -1921,3 +1921,62 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         #     "INFO",
         #     f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
         # ))
+
+    def test_session_key_not_registered_is_reported_clearly(self) -> None:
+        """
+        A bare 14026 doesn't say whether the key is unregistered, expired, or paired with a
+        different wallet. The public lookup answers that, so the cause can be named.
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(return_value={
+            "error": {"code": 14026, "message": "Session key not found"}
+        })
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertTrue(self.is_logged(
+            "ERROR",
+            "Derive session key error 14026: The session key is not registered against this "
+            "wallet. Register it at derive.xyz with a trading scope (trade:orderbook:spot, "
+            "trade:orderbook:perp or trade:orderbook:all) plus off-chain account_info."
+        ))
+
+    def test_session_key_registered_to_another_wallet_names_both(self) -> None:
+        """The commonest setup mistake: entering the session key's own address as the wallet."""
+        self.exchange._trading_required = True
+        self.exchange._wallet_address = "0xTHEWALLETTHEYENTERED"
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(return_value={
+            "result": {"wallets": ["0xTHEREALWALLET"]}
+        })
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        logged = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any("registered to 0xtherealwallet" in m for m in logged), logged)
+        self.assertTrue(any("0xTHEWALLETTHEYENTERED" in m for m in logged), logged)
+
+    def test_matching_session_key_is_silent(self) -> None:
+        self.exchange._trading_required = True
+        self.exchange._wallet_address = "0xTheWallet"
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(return_value={
+            "result": {"wallets": ["0xTHEWALLET"]}     # case differs; must still match
+        })
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_session_key_check_is_skipped_without_trading(self) -> None:
+        """The rate source builds a connector with no credentials; there is nothing to verify."""
+        self.exchange._trading_required = False
+        self.exchange._api_post = AsyncMock()
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.exchange._api_post.assert_not_called()

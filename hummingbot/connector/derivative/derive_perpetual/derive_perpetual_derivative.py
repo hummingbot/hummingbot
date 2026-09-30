@@ -274,7 +274,56 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def start_network(self):
         await super().start_network()
+        await self._verify_session_key()
         self._rate_limits_polling_task = safe_ensure_future(self._rate_limits_polling_loop())
+
+    async def _verify_session_key(self) -> None:
+        """
+        Checks the session key is registered against the configured wallet before trading.
+
+        Without this the first authenticated call fails with a bare 14026, which does not say
+        whether the key is unregistered, expired, or simply paired with a different wallet than
+        the one entered. public/get_wallets_from_session_key is a public lookup that answers
+        exactly that, so the mismatch can be named instead of guessed at.
+        """
+        if not self._trading_required:
+            return
+
+        try:
+            signer = self._auth.session_key_wallet.address
+        except Exception:
+            return
+
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.SESSION_KEY_WALLETS_PATH_URL,
+                data={"public_session_key": signer},
+            )
+        except Exception:
+            # A failed lookup is not itself a reason to refuse to start.
+            self.logger().debug("Could not verify the Derive session key.", exc_info=True)
+            return
+
+        if "error" in response:
+            code = response["error"].get("code")
+            self.logger().error(
+                self._session_key_hint(code)
+                or f"Derive rejected the session key {signer}: {response['error'].get('message')}"
+            )
+            return
+
+        wallets = [w.lower() for w in (response.get("result") or {}).get("wallets", [])]
+        if not wallets:
+            return
+
+        if self.derive_perpetual_wallet_address.lower() not in wallets:
+            self.logger().error(
+                f"The session key {signer} is registered, but to a different wallet. It is "
+                f"registered to {', '.join(wallets)}, while this connector is configured with "
+                f"{self.derive_perpetual_wallet_address}. Enter the Derive wallet the key belongs to, which is "
+                f"the account address shown at derive.xyz rather than the session key's own "
+                f"address."
+            )
 
     @staticmethod
     def _error_code(exception: Exception) -> Optional[int]:
