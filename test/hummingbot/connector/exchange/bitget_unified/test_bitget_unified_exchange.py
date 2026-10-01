@@ -1,0 +1,1322 @@
+import asyncio
+import json
+import re
+from decimal import Decimal
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from aioresponses import aioresponses
+from aioresponses.core import RequestCall
+from bidict import bidict
+
+import hummingbot.connector.exchange.bitget_unified.bitget_unified_constants as CONSTANTS
+import hummingbot.connector.exchange.bitget_unified.bitget_unified_utils as bitget_unified_utils
+import hummingbot.connector.exchange.bitget_unified.bitget_unified_web_utils as web_utils
+from hummingbot.connector.exchange.bitget_unified.bitget_unified_exchange import BitgetUnifiedExchange
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
+
+
+class BitgetUnifiedExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
+
+    def setUp(self) -> None:
+        super().setUp()
+        # The base connector test methods carry a single shared @aioresponses() instance (defined
+        # once on the base class and inherited by both the spot and perpetual BitgetUnified test classes).
+        # aioresponses resets its matchers between runs but NOT its captured `requests` history, and
+        # the V3 UTA spot and perpetual connectors share the same /api/v3/trade/* endpoints, so a
+        # request recorded during one connector's run would otherwise leak into the other's
+        # assertions. Clear the shared history before each test.
+        for name in dir(type(self)):
+            closure = getattr(getattr(type(self), name, None), "__closure__", None) or ()
+            for cell in closure:
+                try:
+                    value = cell.cell_contents
+                except ValueError:
+                    continue
+                if isinstance(value, aioresponses):
+                    value.requests.clear()
+
+    @property
+    def all_symbols_url(self):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOLS_ENDPOINT)
+        return f"{url}?category={CONSTANTS.CATEGORY}"
+
+    @property
+    def latest_prices_url(self):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT)
+        url = f"{url}?category={CONSTANTS.CATEGORY}&symbol={self.exchange_trading_pair}"
+        return url
+
+    @property
+    def network_status_url(self):
+        url = web_utils.public_rest_url(CONSTANTS.PUBLIC_TIME_ENDPOINT)
+        return url
+
+    @property
+    def trading_rules_url(self):
+        url = web_utils.public_rest_url(CONSTANTS.PUBLIC_SYMBOLS_ENDPOINT)
+        return f"{url}?category={CONSTANTS.CATEGORY}"
+
+    @property
+    def order_creation_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.PLACE_ORDER_ENDPOINT)
+        return url
+
+    @property
+    def balance_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.ASSETS_ENDPOINT)
+        return url
+
+    @property
+    def all_symbols_request_mock_response(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1744276707885,
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "baseCoin": self.base_asset,
+                    "quoteCoin": self.quote_asset,
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
+                    "takerFeeRate": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "makerFeeRate": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "pricePrecision": "2",
+                    "quantityPrecision": "6",
+                    "quotePrecision": "8",
+                    "status": "online",
+                    "minOrderAmount": "1",
+                    "buyLimitPriceRatio": "0.05",
+                    "sellLimitPriceRatio": "0.05",
+                    "areaSymbol": "no",
+                    "orderQuantity": "200",
+                    "openTime": "1532454360000",
+                    "offTime": ""
+                }
+            ]
+        }
+
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1744276707885,
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "baseCoin": self.base_asset,
+                    "quoteCoin": self.quote_asset,
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
+                    "takerFeeRate": "0.002",
+                    "makerFeeRate": "0.002",
+                    "pricePrecision": "2",
+                    "quantityPrecision": "6",
+                    "quotePrecision": "8",
+                    "status": "online",
+                    "minOrderAmount": "1",
+                    "buyLimitPriceRatio": "0.05",
+                    "sellLimitPriceRatio": "0.05",
+                    "areaSymbol": "no",
+                    "orderQuantity": "200",
+                    "openTime": "1532454360000",
+                    "offTime": ""
+                }
+            ]
+        }
+
+        return "INVALID-PAIR", response
+
+    @property
+    def latest_prices_request_mock_response(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "high24h": "37775.65",
+                    "open": "35134.2",
+                    "low24h": "34413.1",
+                    "lastPrice": str(self.expected_latest_price),
+                    "quoteVolume": "0",
+                    "baseVolume": "0",
+                    "usdtVolume": "0",
+                    "bidPr": "0",
+                    "askPr": "0",
+                    "bidSz": "0.0663",
+                    "askSz": "0.0119",
+                    "openUtc": "23856.72",
+                    "ts": "1625125755277",
+                    "changeUtc24h": "0.00301",
+                    "change24h": "0.00069"
+                }
+            ]
+        }
+
+    @property
+    def network_status_request_successful_mock_response(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1688008631614,
+            "data": {
+                "serverTime": "1688008631614"
+            }
+        }
+
+    @property
+    def trading_rules_request_mock_response(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1744276707885,
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "baseCoin": self.base_asset,
+                    "quoteCoin": self.quote_asset,
+                    "minOrderQty": "0.000001",
+                    "maxOrderQty": "0",
+                    "takerFeeRate": "0.002",
+                    "makerFeeRate": "0.002",
+                    "pricePrecision": "2",
+                    "quantityPrecision": "6",
+                    "quotePrecision": "8",
+                    "status": "online",
+                    "minOrderAmount": "1",
+                    "buyLimitPriceRatio": "0.05",
+                    "sellLimitPriceRatio": "0.05",
+                    "areaSymbol": "no",
+                    "orderQuantity": "200",
+                    "openTime": "1532454360000",
+                    "offTime": ""
+                }
+            ]
+        }
+
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        return {
+            "code": "00000",
+            "data": [
+                {
+                    "baseCoin": self.base_asset,
+                    "quoteCoin": self.quote_asset,
+                    "symbol": self.exchange_trading_pair,
+                }
+            ],
+            "msg": "success",
+            "requestTime": 1627114525850
+        }
+
+    @property
+    def order_creation_request_successful_mock_response(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": {
+                "orderId": self.expected_exchange_order_id,
+                "clientOid": "121211212122"
+            }
+        }
+
+    @property
+    def balance_request_mock_response_for_base_and_quote(self):
+        # V3 UTA assets response: data is an object with an "assets" list; held amount is "locked".
+        return {
+            "code": "00000",
+            "message": "success",
+            "requestTime": 1695808949356,
+            "data": {
+                "accountEquity": "2010",
+                "assets": [
+                    {
+                        "coin": self.base_asset,
+                        "available": "10",
+                        "locked": "5",
+                        "balance": "15",
+                        "equity": "15",
+                    },
+                    {
+                        "coin": self.quote_asset,
+                        "available": "2000",
+                        "locked": "0",
+                        "balance": "2000",
+                        "equity": "2000",
+                    }
+                ]
+            }
+        }
+
+    @property
+    def balance_request_mock_response_only_base(self):
+        return {
+            "code": "00000",
+            "message": "success",
+            "requestTime": 1695808949356,
+            "data": {
+                "accountEquity": "15",
+                "assets": [
+                    {
+                        "coin": self.base_asset,
+                        "available": "10",
+                        "locked": "5",
+                        "balance": "15",
+                        "equity": "15",
+                    }
+                ]
+            }
+        }
+
+    @property
+    def expected_fee_details(self) -> str:
+        """
+        Value for the feeDetails field in the order status update
+        """
+        details = {
+            "BGB": {
+                "deduction": True,
+                "feeCoinCode": "BGB",
+                "totalDeductionFee": -0.0041,
+                "totalFee": -0.0041
+            },
+            "newFees": {
+                "c": 0,
+                "d": 0,
+                "deduction": False,
+                "r": -0.112079256,
+                "t": -0.112079256,
+                "totalDeductionFee": 0
+            }
+        }
+        return json.dumps(details)
+
+    @property
+    def balance_event_websocket_update(self):
+        # V3 UTA account channel: each data entry is an account snapshot whose per-coin balances
+        # are nested in a "coin" array.
+        return {
+            "action": "snapshot",
+            "arg": {
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ACCOUNT_ENDPOINT
+            },
+            "data": [
+                {
+                    "accountEquity": "2015",
+                    "coin": [
+                        {
+                            "coin": self.base_asset,
+                            "available": "10",
+                            "locked": "5",
+                            "balance": "15",
+                            "equity": "15",
+                        },
+                        {
+                            "coin": self.quote_asset,
+                            "available": "2000",
+                            "locked": "0",
+                            "balance": "2000",
+                            "equity": "2000",
+                        }
+                    ]
+                }
+            ],
+            "ts": 1695713887792
+        }
+
+    @property
+    def expected_latest_price(self):
+        return 9999.9
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
+    @property
+    def expected_trading_rule(self):
+        rule = self.trading_rules_request_mock_response["data"][0]
+        return TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=Decimal(rule["minOrderQty"]),
+            min_price_increment=Decimal(f"1e-{rule['pricePrecision']}"),
+            min_base_amount_increment=Decimal(f"1e-{rule['quantityPrecision']}"),
+            min_quote_amount_increment=Decimal(f"1e-{rule['quotePrecision']}"),
+            min_notional_size=Decimal(rule["minOrderAmount"]),
+        )
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response["data"][0]
+        return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
+
+    @property
+    def expected_exchange_order_id(self):
+        return "1234567890"
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return False
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        return Decimal("10500.0")
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        return Decimal("0.5")
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        return AddedToCostTradeFee(
+            percent_token=None,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        return "12345678"
+
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return base_token + quote_token
+
+    def create_exchange_instance(self):
+        return BitgetUnifiedExchange(
+            bitget_unified_api_key="test_api_key",
+            bitget_unified_secret_key="test_secret_key",
+            bitget_unified_passphrase="test_passphrase",
+            trading_pairs=[self.trading_pair],
+        )
+
+    # validate functions (auth, order creation, order cancellation, order status, trades)
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        request_data = request_call.kwargs["headers"]
+
+        self.assertIn("ACCESS-TIMESTAMP", request_data)
+        self.assertIn("ACCESS-KEY", request_data)
+        self.assertIn("ACCESS-SIGN", request_data)
+        self.assertEqual("test_api_key", request_data["ACCESS-KEY"])
+
+    def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_data = json.loads(request_call.kwargs["data"])
+        self.assertEqual(
+            self.exchange_trading_pair,
+            request_data["symbol"]
+        )
+        self.assertEqual(
+            "limit" if order.order_type.is_limit_type() else "market",
+            request_data["orderType"]
+        )
+        self.assertEqual(order.trade_type.name.lower(), request_data["side"])
+        self.assertEqual(order.amount, Decimal(request_data["qty"]))
+        if order.order_type.is_limit_type():
+            self.assertEqual(order.price, Decimal(request_data["price"]))
+        self.assertEqual(order.client_order_id, request_data["clientOid"])
+        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(), request_data["timeInForce"])
+        self.assertEqual(CONSTANTS.CATEGORY, request_data["category"])
+
+    @aioresponses()
+    def test_create_limit_maker_order_sends_post_only(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        url = self.order_creation_url
+        mock_api.post(
+            url,
+            body=json.dumps(self.order_creation_request_successful_mock_response),
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+
+        order_id = self.place_buy_order(order_type=OrderType.LIMIT_MAKER)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
+        self.assertEqual("limit", request_data["orderType"])
+        self.assertEqual(CONSTANTS.POST_ONLY_TIME_IN_FORCE, request_data["timeInForce"])
+
+    def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
+        # V3 UTA cancel-order identifies the order by clientOid across the unified account.
+        request_data = json.loads(request_call.kwargs["data"])
+        self.assertEqual(order.client_order_id, request_data["clientOid"])
+
+    def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(order.client_order_id, request_params["clientOid"])
+
+    def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(str(order.exchange_order_id), request_params["orderId"])
+
+    def configure_successful_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args,
+            **kwargs: None
+    ) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_cancelation_request_successful_mock_response(order=order)
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.post(regex_url, status=400, callback=callback)
+        return url
+
+    def configure_one_successful_one_erroneous_cancel_all_response(
+        self,
+        successful_order: InFlightOrder,
+        erroneous_order: InFlightOrder,
+        mock_api: aioresponses
+    ) -> List[str]:
+        """
+        :return: a list of all configured URLs for the cancelations
+        """
+        all_urls = []
+        url = self.configure_successful_cancelation_response(
+            order=successful_order,
+            mock_api=mock_api
+        )
+        all_urls.append(url)
+        url = self.configure_erroneous_cancelation_response(
+            order=erroneous_order,
+            mock_api=mock_api
+        )
+        all_urls.append(url)
+        return all_urls
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "code": "25204",
+            "msg": "Order does not exist",
+            "requestTime": 1695808949356,
+            "data": None
+        }
+        mock_api.post(regex_url, body=json.dumps(response), status=400, callback=callback)
+        return url
+
+    def configure_completely_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_status_request_completely_filled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_canceled_order_status_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args,
+        **kwargs: None
+    ) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_status_request_canceled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_open_order_status_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_status_request_open_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_http_error_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, status=401, callback=callback)
+        return url
+
+    def configure_partially_filled_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_status_request_partially_filled_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_INFO_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": []
+        }
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def configure_partial_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.USER_FILLS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_fills_request_partial_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_erroneous_http_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.USER_FILLS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, status=400, callback=callback)
+        return url
+
+    def configure_full_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.USER_FILLS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        # V3 UTA "fill" channel (BitgetUnifiedUaUserTrade): execId/execPrice/execQty/execValue/feeDetail.fee.
+        return {
+            "action": "snapshot",
+            "arg": {
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_FILL_ENDPOINT,
+                "symbol": self.exchange_trading_pair
+            },
+            "data": [
+                {
+                    "execId": self.expected_fill_trade_id,
+                    "orderId": order.exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "symbol": self.exchange_trading_pair,
+                    "side": order.trade_type.name.lower(),
+                    "execPrice": str(order.price),
+                    "execQty": str(order.amount),
+                    "execValue": str(order.amount * order.price),
+                    "feeDetail": [
+                        {
+                            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                            "feeCoin": self.expected_fill_fee.flat_fees[0].token
+                        }
+                    ],
+                    "updatedTime": int(order.creation_timestamp * 1000)
+                }
+            ],
+            "ts": int(order.creation_timestamp * 1000)
+        }
+
+    def _order_event_websocket_update(self, order: InFlightOrder, order_status: str):
+        # V3 UTA "order" channel (BitgetUnifiedUaOrder): state only (orderStatus/qty/amount/cumExec*/avgPrice).
+        return {
+            "action": "snapshot",
+            "arg": {
+                "instType": CONSTANTS.INST_TYPE_UTA,
+                "topic": CONSTANTS.WS_ORDERS_ENDPOINT,
+                "symbol": self.exchange_trading_pair
+            },
+            "data": [
+                {
+                    "symbol": self.exchange_trading_pair,
+                    "orderId": order.exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "qty": str(order.amount),
+                    "amount": str(order.amount * order.price),
+                    "orderType": order.order_type.name.lower(),
+                    "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE.lower(),
+                    "side": order.trade_type.name.lower(),
+                    "cumExecQty": str(order.amount) if order_status == "filled" else "0",
+                    "cumExecValue": str(order.amount * order.price) if order_status == "filled" else "0",
+                    "avgPrice": str(order.price),
+                    "orderStatus": order_status,
+                    "createdTime": "1695797773257",
+                    "updatedTime": "1695797773326",
+                    "feeDetail": [
+                        {
+                            "feeCoin": "BTC",
+                            "fee": "-0.00000018"
+                        }
+                    ],
+                }
+            ],
+            "ts": 1695797773370
+        }
+
+    def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        return self._order_event_websocket_update(order, "live")
+
+    def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        return self._order_event_websocket_update(order, "cancelled")
+
+    def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return self._order_event_websocket_update(order, "filled")
+
+    @aioresponses()
+    async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        pass
+
+    @aioresponses()
+    async def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+        pass
+
+    def test_order_not_found_v3_code_recognized(self):
+        # V3 UTA returns 25204 "Order does not exist" when cancelling/querying an order that is
+        # unknown or already filled/cancelled; it must be recognised as order-not-found so the base
+        # connector handles it gracefully instead of logging a hard error.
+        exception = IOError(
+            "Error executing request POST https://api.bitget.com/api/v3/trade/cancel-order. "
+            'HTTP status is 400. Error: {"code":"25204","msg":"Order does not exist",'
+            '"requestTime":1783017943282,"data":null}'
+        )
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(exception))
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(exception))
+
+    @aioresponses()
+    async def test_update_trading_rules_ignores_rule_with_error(self, mock_api):
+        pass
+
+    def _order_cancelation_request_successful_mock_response(
+        self, order: InFlightOrder
+    ) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1234567891234,
+            "data": {
+                "orderId": exchange_order_id,
+                "clientOid": order.client_order_id
+            }
+        }
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": [
+                {
+                    "tradeId": self.expected_fill_trade_id,
+                    "orderId": exchange_order_id,
+                    "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "uTime": "1590462303000",
+                    "side": order.trade_type.name.lower(),
+                    "feeDetail": [
+                        {
+                            "totalFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                            "feeCoin": self.expected_fill_fee.flat_fees[0].token
+                        }
+                    ],
+                    "priceAvg": str(order.price),
+                    "size": str(order.amount),
+                    "amount": str(order.amount * order.price),
+                    "clientOid": order.client_order_id
+                },
+            ]
+        }
+
+    def _order_fills_request_partial_fill_mock_response(
+        self, order: InFlightOrder
+    ) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695808949356,
+            "data": [
+                {
+                    "tradeId": self.expected_fill_trade_id,
+                    "orderId": exchange_order_id,
+                    "symbol": self.exchange_trading_pair,
+                    "uTime": "1590462303000",
+                    "side": order.trade_type.name.lower(),
+                    "feeDetail": [
+                        {
+                            "totalFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                            "feeCoin": self.expected_fill_fee.flat_fees[0].token
+                        }
+                    ],
+                    "priceAvg": str(self.expected_partial_fill_price),
+                    "size": str(self.expected_partial_fill_amount),
+                    "amount": str(
+                        self.expected_partial_fill_amount * self.expected_partial_fill_price
+                    ),
+                    "clientOid": order.client_order_id
+                },
+            ]
+        }
+
+    def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695865476577,
+            "data": [
+                {
+                    "userId": "**********",
+                    "symbol": self.exchange_trading_pair,
+                    "orderId": exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "price": str(order.price),
+                    "size": str(order.amount),
+                    "orderType": order.order_type.name.lower(),
+                    "side": order.trade_type.name.lower(),
+                    "status": "cancelled",
+                    "priceAvg": "13000.0000000000000000",
+                    "baseVolume": "0.0007000000000000",
+                    "quoteVolume": "9.1000000000000000",
+                    "enterPointSource": "API",
+                    "feeDetail": self.expected_fee_details,
+                    "orderSource": "market",
+                    "cancelReason": "",
+                    "cTime": "1695865232127",
+                    "uTime": "1695865233051"
+                }
+            ]
+        }
+
+    def _order_status_request_completely_filled_mock_response(
+        self, order: InFlightOrder
+    ) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695865476577,
+            "data": [
+                {
+                    "userId": "**********",
+                    "symbol": self.exchange_trading_pair,
+                    "orderId": exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "price": str(order.price),
+                    "size": str(order.amount),
+                    "orderType": order.order_type.name.lower(),
+                    "side": order.trade_type.name.lower(),
+                    "status": "filled",
+                    "priceAvg": str(order.price),
+                    "baseVolume": str(order.amount),
+                    "quoteVolume": str(order.amount * order.price),
+                    "enterPointSource": "API",
+                    "feeDetail": self.expected_fee_details,
+                    "orderSource": "market",
+                    "cancelReason": "",
+                    "cTime": "1695865232127",
+                    "uTime": "1695865233051"
+                }
+            ]
+        }
+
+    def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695865476577,
+            "data": [
+                {
+                    "userId": "**********",
+                    "symbol": self.exchange_trading_pair,
+                    "orderId": exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "price": str(order.price),
+                    "size": str(order.amount),
+                    "orderType": order.order_type.name.lower(),
+                    "side": order.trade_type.name.lower(),
+                    "status": "live",
+                    "priceAvg": "0.00",
+                    "baseVolume": "0.00",
+                    "quoteVolume": "9.00",
+                    "enterPointSource": "API",
+                    "feeDetail": self.expected_fee_details,
+                    "orderSource": "market",
+                    "cancelReason": "",
+                    "cTime": "1695865232127",
+                    "uTime": "1695865233051"
+                }
+            ]
+        }
+
+    def _order_status_request_partially_filled_mock_response(
+        self, order: InFlightOrder
+    ) -> Dict[str, Any]:
+        exchange_order_id = order.exchange_order_id or self.expected_exchange_order_id
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1695865476577,
+            "data": [
+                {
+                    "userId": "**********",
+                    "symbol": self.exchange_trading_pair,
+                    "orderId": exchange_order_id,
+                    "clientOid": order.client_order_id,
+                    "price": str(order.price),
+                    "size": str(order.amount),
+                    "orderType": order.order_type.name.lower(),
+                    "side": order.trade_type.name.lower(),
+                    "status": "partially_filled",
+                    "priceAvg": str(self.expected_partial_fill_price),
+                    "baseVolume": str(self.expected_partial_fill_amount),
+                    "quoteVolume": str(
+                        self.expected_partial_fill_amount * self.expected_partial_fill_price
+                    ),
+                    "enterPointSource": "API",
+                    "feeDetail": self.expected_fee_details,
+                    "orderSource": "market",
+                    "cancelReason": "",
+                    "cTime": "1591096004000",
+                    "uTime": "1591096004000"
+                }
+            ]
+        }
+
+    def test_create_market_buy_order_update(self) -> None:
+        """
+        Check the order status update is correctly parsed
+        """
+        order_id = self.client_order_id_prefix + "1"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("1000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
+        order_update_response = self._order_status_request_completely_filled_mock_response(
+            order=order
+        )
+        order_update = self.exchange._create_order_update(
+            order=order,
+            order_update_response=order_update_response
+        )
+        self.assertEqual(order_update.new_state, OrderState.FILLED)
+
+    def test_market_buy_fill_uses_reported_execution_quantity(self) -> None:
+        """
+        A market buy that fills away from the price quoted when the order was placed must report
+        the quantity the exchange executed, not one rebuilt from the stale placement price.
+        """
+        self._simulate_trading_rules_initialized()
+        order_id = self.client_order_id_prefix + "1"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
+
+        # Filled at 8000 rather than the 10000 quoted at placement: 10000 quote buys 1.25 base.
+        fill_msg = {
+            "execId": self.expected_fill_trade_id,
+            "orderId": self.expected_exchange_order_id,
+            "symbol": self.exchange_trading_pair,
+            "side": "buy",
+            "execPrice": "8000",
+            "execQty": "1.25",
+            "execValue": "10000",
+            "feeDetail": [{"feeCoin": self.quote_asset, "fee": "10"}],
+            "updatedTime": "1695797773326",
+        }
+
+        trade_update = self.exchange._parse_trade_update(
+            trade_msg=fill_msg,
+            tracked_order=order,
+            source_type="websocket",
+        )
+
+        self.assertEqual(Decimal("1.25"), trade_update.fill_base_amount)
+        self.assertEqual(Decimal("10000"), trade_update.fill_quote_amount)
+        self.assertEqual(Decimal("8000"), trade_update.fill_price)
+
+    def test_market_buy_fill_parsed_for_untracked_expected_amount(self) -> None:
+        """
+        A fill arriving before any order-status update - as happens for an order restored after a
+        restart - must still be parsed rather than lost.
+        """
+        self._simulate_trading_rules_initialized()
+        order_id = self.client_order_id_prefix + "2"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[order_id]
+
+        # Legacy field names, with the filled size reported in quote currency.
+        fill_msg = {
+            "tradeId": self.expected_fill_trade_id,
+            "orderId": self.expected_exchange_order_id,
+            "symbol": self.exchange_trading_pair,
+            "side": "buy",
+            "priceAvg": "8000",
+            "size": "10000",
+            "amount": "10000",
+            "feeDetail": [{"feeCoin": self.quote_asset, "totalFee": "10"}],
+            "uTime": "1695797773326",
+        }
+
+        trade_update = self.exchange._parse_trade_update(
+            trade_msg=fill_msg,
+            tracked_order=order,
+            source_type="websocket",
+        )
+
+        self.assertEqual(Decimal("1.25"), trade_update.fill_base_amount)
+
+    def test_only_online_instruments_are_tradable(self) -> None:
+        self.assertTrue(bitget_unified_utils.is_instrument_tradable(
+            {"symbol": self.exchange_trading_pair, "status": "online"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
+            {"symbol": self.exchange_trading_pair, "status": "offline"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
+            {"symbol": self.exchange_trading_pair}
+        ))
+        self.assertFalse(bitget_unified_utils.is_instrument_tradable(
+            {"status": "online"}
+        ))
+
+    def test_suspended_instruments_stay_in_the_symbol_map(self) -> None:
+        """
+        A pair suspended while orders are still open on it must remain resolvable, or order and
+        fill updates referencing its symbol can no longer be translated to a trading pair.
+        """
+        self.assertTrue(bitget_unified_utils.is_exchange_information_valid(
+            {"symbol": self.exchange_trading_pair, "status": "offline"}
+        ))
+        self.assertFalse(bitget_unified_utils.is_exchange_information_valid({}))
+
+        exchange_info = {"data": [{
+            "symbol": self.exchange_trading_pair,
+            "baseCoin": self.base_asset,
+            "quoteCoin": self.quote_asset,
+            "status": "offline",
+        }]}
+        self.exchange._initialize_trading_pair_symbols_from_exchange_info(exchange_info)
+
+        self.assertEqual(
+            self.trading_pair,
+            self.async_run_with_timeout(
+                self.exchange.trading_pair_associated_to_exchange_symbol(self.exchange_trading_pair)
+            ),
+        )
+
+    def test_trading_rule_min_order_size_comes_from_min_order_qty(self) -> None:
+        """
+        Live V3 SPOT instruments carry a minOrderQty that is independent of quantityPrecision:
+        53 online pairs report quantityPrecision 0 while still accepting 0.0001. Deriving the
+        minimum from the precision reports it 10000x too large and makes the executors refuse
+        valid orders.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "category": "SPOT",
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minOrderQty": "0.0001",
+                "maxOrderQty": "0",
+                "pricePrecision": "2",
+                "quantityPrecision": "0",
+                "quotePrecision": "2",
+                "minOrderAmount": "20",
+                "status": "online",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(1, len(rules))
+        self.assertEqual(Decimal("0.0001"), rules[0].min_order_size)
+        # The step must not be coarser than the minimum, or quantizing rounds the smallest
+        # accepted order down to zero.
+        self.assertEqual(Decimal("0.0001"), rules[0].min_base_amount_increment)
+        self.assertEqual(Decimal("20"), rules[0].min_notional_size)
+
+        # The rule must also survive contact with order quantization.
+        self.exchange._trading_rules[self.trading_pair] = rules[0]
+        self.assertEqual(
+            Decimal("0.0001"),
+            self.exchange.quantize_order_amount(self.trading_pair, Decimal("0.0001")),
+        )
+        self.assertEqual(
+            Decimal("0.5"),
+            self.exchange.quantize_order_amount(self.trading_pair, Decimal("0.5")),
+        )
+
+    def test_trading_rule_falls_back_to_legacy_field_names(self) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minTradeAmount": "0.002",
+                "pricePrecision": "2",
+                "quantityPrecision": "6",
+                "quotePrecision": "8",
+                "minTradeUSDT": "5",
+                "status": "online",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(Decimal("0.002"), rules[0].min_order_size)
+        self.assertEqual(Decimal("5"), rules[0].min_notional_size)
+
+    def test_trading_rules_skip_instruments_that_are_not_online(self) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        response = {
+            "code": "00000",
+            "msg": "success",
+            "data": [{
+                "symbol": self.exchange_trading_pair,
+                "baseCoin": self.base_asset,
+                "quoteCoin": self.quote_asset,
+                "minOrderQty": "0.0001",
+                "pricePrecision": "2",
+                "quantityPrecision": "6",
+                "quotePrecision": "8",
+                "minOrderAmount": "1",
+                # Seen live on newly-listed pairs still in the call-auction phase.
+                "status": "limit_open",
+            }],
+        }
+
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(response))
+
+        self.assertEqual(0, len(rules))
+
+    def test_unknown_order_status_is_logged_and_skipped(self) -> None:
+        """
+        An unmapped status must not raise a bare KeyError: on the user-stream path the listener's
+        catch-all swallows it and the update disappears with nothing naming the cause.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "9"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.exchange._process_order_event_message({
+            "orderStatus": "some_status_bitget_added_later",
+            "clientOid": order_id,
+            "orderId": self.expected_exchange_order_id,
+            "updatedTime": "1640780000000",
+        })
+
+        # The order is untouched and the reason is in the log.
+        self.assertEqual(order.current_state, self.exchange.in_flight_orders[order_id].current_state)
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            "Received an unrecognised order status from the exchange: "
+            "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
+            "status was added to the API that the connector does not map yet."
+        ))
+
+    @aioresponses()
+    def test_update_trading_fees_uses_the_account_fee_rate(self, mock_api) -> None:
+        """
+        The V3 SPOT instruments response carries no fee fields at all, so fees have to come from
+        the private fee-rate endpoint or every order is costed at the hardcoded default instead
+        of the account's VIP tier or BGB discount.
+        """
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1751972326323,
+            "data": {"makerFeeRate": "0.0006", "takerFeeRate": "0.0008"},
+        }))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        request_params = self._all_executed_requests(mock_api, url)[0].kwargs["params"]
+        self.assertEqual(CONSTANTS.CATEGORY, request_params["category"])
+        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
+
+        self.assertEqual(
+            TradeFeeSchema(
+                maker_percent_fee_decimal=Decimal("0.0006"),
+                taker_percent_fee_decimal=Decimal("0.0008"),
+            ),
+            self.exchange._trading_fees[self.trading_pair],
+        )
+
+        # And the rate is what _get_fee actually charges.
+        fee = self.exchange._get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("1"),
+            price=Decimal("10000"),
+            is_maker=True,
+        )
+        self.assertEqual(Decimal("0.0006"), fee.percent)
+
+    @aioresponses()
+    def test_update_trading_fees_falls_back_when_the_endpoint_fails(self, mock_api) -> None:
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair})
+        )
+        url = web_utils.private_rest_url(CONSTANTS.FEE_RATE_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, status=500, body=json.dumps({"code": "40000", "msg": "boom"}))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        self.assertNotIn(self.trading_pair, self.exchange._trading_fees)
+
+    def test_unknown_status_on_status_poll_keeps_the_order_alive(self) -> None:
+        """
+        An unmapped status must not read as a missing order. The active-order handler counts every
+        status-update exception towards the lost-order limit, so raising here would retire a live
+        order after a few polls.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "8"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            initial_state=OrderState.OPEN,
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        response = self._order_status_request_completely_filled_mock_response(order=order)
+        payload = response["data"]
+        payload = payload[0] if isinstance(payload, list) else payload
+        payload["orderStatus"] = "some_status_bitget_added_later"
+        payload.pop("status", None)
+
+        state_before = order.current_state
+        order_update = self.exchange._create_order_update(order=order, order_update_response=response)
+
+        # State is held, not invented, and nothing was raised.
+        self.assertEqual(state_before, order_update.new_state)
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            "Received an unrecognised order status from the exchange: "
+            "'some_status_bitget_added_later'. The order update was ignored. This usually means a "
+            "status was added to the API that the connector does not map yet."
+        ))
+
+    def test_empty_status_payload_is_still_reported_as_order_not_found(self) -> None:
+        """
+        The genuinely empty response must keep raising ValueError: that is how this connector
+        reports an order the exchange does not know about.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "7"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[order_id]
+
+        with self.assertRaises(ValueError):
+            self.exchange._create_order_update(
+                order=order, order_update_response={"code": "00000", "data": []}
+            )
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(ValueError()))
