@@ -761,6 +761,15 @@ class AevoPerpetualDerivativeAsyncTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected message in user stream: {'channel': 'unknown', 'data': {}}."))
 
+    async def test_user_stream_event_listener_raises_cancelled_error_instance(self):
+        async def message_generator():
+            yield asyncio.CancelledError()
+
+        self.connector._iter_user_event_queue = message_generator
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.connector._user_stream_event_listener()
+
     async def test_get_last_traded_price_uses_mark_price(self):
         self.connector.exchange_symbol_associated_to_pair = AsyncMock(return_value=self.ex_trading_pair)
         self.connector._api_get = AsyncMock(return_value={"mark_price": "10", "index_price": "9"})
