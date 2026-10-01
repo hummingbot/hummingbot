@@ -2,10 +2,11 @@
 
 import asyncio
 import base64
+import io
 import logging
 import pickle
 import time
-from typing import AsyncIterable, Dict, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, Optional, Tuple
 
 import aiohttp
 import pandas as pd
@@ -17,6 +18,30 @@ from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrde
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.logger import HummingbotLogger
+
+
+class RestrictedOrderBookUnpickler(pickle.Unpickler):
+    _ALLOWED_GLOBALS = {
+        ("builtins", "slice"),
+        ("numpy", "dtype"),
+        ("numpy", "ndarray"),
+        ("numpy._core.multiarray", "_reconstruct"),
+        ("numpy.core.multiarray", "_reconstruct"),
+        ("pandas", "DataFrame"),
+        ("pandas", "Index"),
+        ("pandas", "RangeIndex"),
+        ("pandas", "StringDtype"),
+        ("pandas._libs.arrays", "__pyx_unpickle_NDArrayBacked"),
+        ("pandas._libs.internals", "_unpickle_block"),
+        ("pandas.arrays", "StringArray"),
+        ("pandas.core.indexes.base", "_new_Index"),
+        ("pandas.core.internals.managers", "BlockManager"),
+    }
+
+    def find_class(self, module: str, name: str) -> Any:
+        if (module, name) not in self._ALLOWED_GLOBALS:
+            raise pickle.UnpicklingError(f"Unsupported pickle global: {module}.{name}")
+        return super().find_class(module, name)
 
 
 class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -52,6 +77,27 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._client_session = aiohttp.ClientSession()
         return self._client_session
 
+    @classmethod
+    def _load_order_book_tracker_data(cls, binary_data: bytes) -> Dict[str, Tuple[pd.DataFrame, pd.DataFrame]]:
+        data: Any = RestrictedOrderBookUnpickler(io.BytesIO(binary_data)).load()
+        cls._validate_order_book_tracker_data(data)
+        return data
+
+    @staticmethod
+    def _validate_order_book_tracker_data(data: Any):
+        if not isinstance(data, dict):
+            raise ValueError("Remote order book snapshot must be a dictionary.")
+
+        for trading_pair, snapshot in data.items():
+            if not isinstance(trading_pair, str):
+                raise ValueError("Remote order book snapshot trading pairs must be strings.")
+            if not isinstance(snapshot, tuple) or len(snapshot) != 2:
+                raise ValueError("Remote order book snapshot entries must be bid/ask tuples.")
+
+            bids_df, asks_df = snapshot
+            if not isinstance(bids_df, pd.DataFrame) or not isinstance(asks_df, pd.DataFrame):
+                raise ValueError("Remote order book snapshot bids and asks must be pandas DataFrames.")
+
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         auth: aiohttp.BasicAuth = aiohttp.BasicAuth(login=conf.coinalpha_order_book_api_username,
                                                     password=conf.coinalpha_order_book_api_password)
@@ -62,7 +108,9 @@ class RemoteAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise EnvironmentError(f"Error fetching order book tracker snapshot from {self.SNAPSHOT_REST_URL}.")
 
         binary_data: bytes = await response.read()
-        order_book_tracker_data: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = pickle.loads(binary_data)
+        order_book_tracker_data: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = (
+            self._load_order_book_tracker_data(binary_data)
+        )
         retval: Dict[str, OrderBookTrackerEntry] = {}
 
         for trading_pair, (bids_df, asks_df) in order_book_tracker_data.items():
