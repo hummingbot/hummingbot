@@ -66,7 +66,7 @@ async def start_trade_monitor(trade_monitor):
                 if all(market.ready for market in hb.trading_core.markets.values()):
                     with hb.trading_core.trade_fill_db.get_new_session() as session:
                         trades: List[TradeFill] = hb._get_trades_from_session(
-                            int(hb.init_time * 1e3),
+                            int(hb.trading_core.start_time or hb.init_time * 1e3),
                             session=session,
                             config_file_path=hb.strategy_file_name)
                         if len(trades) > 0:
