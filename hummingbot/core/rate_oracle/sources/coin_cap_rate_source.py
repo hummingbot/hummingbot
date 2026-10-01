@@ -8,9 +8,20 @@ from hummingbot.logger import HummingbotLogger
 
 
 class CoinCapRateSource(RateSourceBase):
+    """
+    DEPRECATED: this rate source is backed by the CoinCap v2 API, whose host (api.coincap.io) no
+    longer resolves, so price requests fail. It is kept only so that existing configurations keep
+    loading. Please switch to another rate source, for example coin_gecko or coin_paprika.
+    """
+
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self, assets_map: Dict[str, str], api_key: str):
+        self.logger().warning(
+            "The coin_cap rate source is deprecated: the CoinCap v2 API host (api.coincap.io) is no"
+            " longer available, so this source cannot fetch prices. Please switch your rate oracle"
+            " source to another provider, for example coin_gecko or coin_paprika."
+        )
         self._coin_cap_data_feed = CoinCapDataFeed(assets_map=assets_map, api_key=api_key)
 
     @property
