@@ -2479,8 +2479,14 @@ class XrplExchange(ExchangePyBase):
         locked_amount = Decimal("0")
 
         for order in self._order_tracker.all_fillable_orders.values():
-            # Skip orders that don't have a price (e.g., market orders)
-            if order.price is None:
+            # Skip orders that don't have a usable price (e.g., market orders).
+            #
+            # A market order's price is Decimal("NaN"), not None, so checking for None alone lets
+            # it through. It then reaches `remaining_amount * order.price` in the BUY branch below,
+            # which makes locked_amount NaN, and the caller's
+            # `max(Decimal("0"), absolute_value - locked)` raises InvalidOperation on the ordered
+            # comparison -- aborting the balance update for every token, not just this one.
+            if order.price is None or not order.price.is_finite():
                 continue
 
             remaining_amount = order.amount - order.executed_amount_base
