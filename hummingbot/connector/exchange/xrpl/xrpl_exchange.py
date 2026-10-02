@@ -3170,7 +3170,14 @@ class XrplExchange(ExchangePyBase):
 
     def get_token_symbol_from_all_markets(self, code: str, issuer: str) -> Optional[str]:
         all_markets = self._make_xrpl_trading_pairs_request()
-        for market_name, market in all_markets.items():
+        # Markets declaring a trading_pair_symbol are consulted first. That alias is an
+        # explicit naming decision, so it keeps precedence over the code-derived fallback
+        # and every lookup that resolved before still resolves to the same symbol. sorted()
+        # is stable, so markets keep their relative order within each group.
+        ordered_markets = sorted(
+            all_markets.items(), key=lambda item: item[1].trading_pair_symbol is None
+        )
+        for market_name, market in ordered_markets:
             token_symbol = market.get_token_symbol(code, issuer)
 
             if token_symbol is not None:

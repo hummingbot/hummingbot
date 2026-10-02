@@ -30,11 +30,11 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
-        cls.api_key = "someKey"  # noqa: mock
-        cls.sub_id = 37799
+        cls.wallet_address = "someKey"  # noqa: mock
+        cls.subacct_id = 37799
         cls.domain = "derive_perpetual_testnet"
         cls.trading_required = False
-        cls.api_secret_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
+        cls.session_private_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
 
     def setUp(self) -> None:
         super().setUp()
@@ -50,9 +50,9 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             self.mock_time_provider = MagicMock()
             self.mock_time_provider.time.return_value = 1738096054575
             self.auth = DerivePerpetualAuth(
-                api_key=self.api_key,
-                api_secret=self.api_secret_key,
-                sub_id=self.sub_id,
+                wallet_address=self.wallet_address,
+                session_private_key=self.session_private_key,
+                subacct_id=self.subacct_id,
                 trading_required=self.trading_required,
                 domain=self.domain
             )
@@ -61,9 +61,9 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
 
             # Initialize connector and data source
             self.connector = DerivePerpetualDerivative(
-                derive_perpetual_api_key=self.api_key,
-                derive_perpetual_api_secret=self.api_secret_key,
-                sub_id=self.sub_id,
+                derive_perpetual_wallet_address=self.wallet_address,
+                session_private_key=self.session_private_key,
+                subacct_id=self.subacct_id,
                 trading_pairs=[]
             )
             self.connector._web_assistants_factory._auth = self.auth
@@ -96,7 +96,7 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
     def get_ws_auth_payload(self):
         return {
             "accept": "application/json",
-            "wallet": self.api_key,
+            "wallet": self.wallet_address,
             "timestamp": "1738096054575",
             "signature": "0x67e1aa8bde8ce8eadeb055587525274b00961d113bdaad226cf17ba43c7ae3556b79ef36506f2429be165874558237044108d2b6b00086b4a5e366c8a0e257371c"  # noqa: mock
         }
@@ -209,18 +209,18 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(expected_login_subscription, sent_subscription_messages[0])
         expected_positions_subscription = {
             "method": "private/get_subaccount",
-            "params": {"subaccount_id": int(self.sub_id)}
+            "params": {"subaccount_id": int(self.subacct_id)}
         }
         self.assertEqual(expected_positions_subscription, sent_subscription_messages[1])
         expected_positions_subscription = {
             "method": "private/get_positions",
-            "params": {"subaccount_id": int(self.sub_id)}
+            "params": {"subaccount_id": int(self.subacct_id)}
         }
         self.assertEqual(expected_positions_subscription, sent_subscription_messages[2])
         expected_trades_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.sub_id}.orders", f"{self.sub_id}.trades"],
+                "channels": [f"{self.subacct_id}.orders", f"{self.subacct_id}.trades"],
             }
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[3])
