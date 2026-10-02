@@ -21,7 +21,7 @@ BROKER_ID = "HBOT"
 
 class DeriveConfigMap(BaseConnectorConfigMap):
     connector: str = "derive"
-    derive_api_key: SecretStr = Field(
+    derive_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Derive Wallet address",
@@ -30,16 +30,16 @@ class DeriveConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
-    derive_api_secret: SecretStr = Field(
+    session_private_key: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your wallet private key",
+            "prompt": "Enter your session private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    sub_id: SecretStr = Field(
+    subacct_id: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Subaccount Id",
@@ -69,7 +69,7 @@ OTHER_DOMAINS_DEFAULT_FEES = {"derive_testnet": [0, 0.025]}
 
 class DeriveTestnetConfigMap(BaseConnectorConfigMap):
     connector: str = "derive_testnet"
-    derive_testnet_api_key: SecretStr = Field(
+    derive_testnet_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Derive Wallet address",
@@ -78,16 +78,16 @@ class DeriveTestnetConfigMap(BaseConnectorConfigMap):
             "prompt_on_new": True,
         }
     )
-    derive_testnet_api_secret: SecretStr = Field(
+    session_private_key: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your wallet private key",
+            "prompt": "Enter your session private key",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
         }
     )
-    sub_id: SecretStr = Field(
+    subacct_id: SecretStr = Field(
         default=...,
         json_schema_extra={
             "prompt": "Enter your Subaccount Id",

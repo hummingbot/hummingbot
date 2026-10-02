@@ -42,11 +42,7 @@ class PositionExecutor(ExecutorBase):
         :param update_interval: The interval at which the PositionExecutor should be updated, defaults to 1.0.
         :param max_retries: The maximum number of retries for the PositionExecutor, defaults to 5.
         """
-        if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
-                config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
-            error = "Only market orders are supported for time_limit and stop_loss"
-            self.logger().error(error)
-            raise ValueError(error)
+        # The config validates itself on construction, see PositionExecutorConfig.
         super().__init__(strategy=strategy, config=config, connectors=[config.connector_name],
                          update_interval=update_interval, max_retries=max_retries)
         if not config.entry_price:

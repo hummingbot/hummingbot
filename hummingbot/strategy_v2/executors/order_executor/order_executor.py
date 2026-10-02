@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_v2_base import StrategyV2Base
 from hummingbot.strategy_v2.executors.executor_base import ExecutorBase
+from hummingbot.strategy_v2.executors.gateway_utils import is_slippage_failure, next_slippage_pct
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy, OrderExecutorConfig
 from hummingbot.strategy_v2.models.base import RunnableStatus
 from hummingbot.strategy_v2.models.executors import CloseType, TrackedOrder
@@ -52,6 +53,16 @@ class OrderExecutor(ExecutorBase):
         self._failed_orders: list[TrackedOrder] = []
         self._canceled_orders: list[TrackedOrder] = []
         self._partial_filled_orders: list[TrackedOrder] = []
+        self._shutdown_ticks: int = 0
+        # The tolerance the next Gateway swap will carry. Gateway connectors only — a CEX
+        # order has a price and a book and nothing to be tolerant about. Widens only on a
+        # failure Gateway attributed to slippage, never past max_slippage_pct.
+        self._slippage_pct: Decimal = config.slippage_pct
+
+    # Shutdown ticks (5s apart) tolerated for an order stuck in a state that is
+    # neither open nor filled (e.g. the created event never arrived) before the
+    # executor force-stops with whatever exposure it knows about.
+    MAX_SHUTDOWN_TICKS = 12
 
     @property
     def current_market_price(self) -> Decimal:
@@ -131,6 +142,10 @@ class OrderExecutor(ExecutorBase):
         """
         if not self._order or not self._order.order or not self._order.order.is_open:
             return
+        if self._order.order.is_pending_cancel_confirmation:
+            # A renewal is already in flight: wait for the cancel to resolve
+            # (the replacement is placed by control_order once _order clears).
+            return
 
         current_price = self.current_market_price
         threshold = self.config.chaser_config.refresh_threshold
@@ -146,8 +161,17 @@ class OrderExecutor(ExecutorBase):
         """
         This method allows strategy to stop the executor early.
 
+        keep_position=False is NOT supported here: an order executor cannot unwind
+        fills (that is a position executor's job), so any filled quantity is always
+        terminated as a POSITION_HOLD rather than silently dropped from the store.
+
         :return: None
         """
+        if not keep_position:
+            self.logger().warning(
+                f"Executor {self.config.id}: keep_position=False is not supported by "
+                "OrderExecutor — filled quantity (if any) will be held, not unwound."
+            )
         self._status = RunnableStatus.SHUTTING_DOWN
 
     def _cancel_outstanding_orders(self):
@@ -182,6 +206,20 @@ class OrderExecutor(ExecutorBase):
                 self._held_position_orders.append(self._order.order.to_json())
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
                 self.stop()
+            else:
+                # Neither open nor filled — usually the created event never arrived
+                # (e.g. a stuck placement). Bounded wait, then force-stop with the
+                # exposure we know about instead of looping in SHUTTING_DOWN forever.
+                self._shutdown_ticks += 1
+                if self._shutdown_ticks >= self.MAX_SHUTDOWN_TICKS:
+                    self.logger().error(
+                        f"Executor {self.config.id}: order {self._order.order_id} stuck in an "
+                        "indeterminate state at shutdown; force-stopping with known fills."
+                    )
+                    self._held_position_orders.extend(
+                        [order.order.to_json() for order in self._partial_filled_orders])
+                    self.close_type = CloseType.POSITION_HOLD if self._held_position_orders else CloseType.FAILED
+                    self.stop()
         else:
             if self._partial_filled_orders:
                 self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
@@ -206,15 +244,29 @@ class OrderExecutor(ExecutorBase):
             self.close_type = CloseType.POSITION_HOLD
             self.stop()
             return
-        order_id = self.place_order(
-            connector_name=self.config.connector_name,
-            trading_pair=self.config.trading_pair,
-            order_type=self.get_order_type(),
-            amount=remaining,
-            price=self.get_order_price(),
-            side=self.config.side,
-            position_action=self.config.position_action,
-        )
+        connector = self.connectors[self.config.connector_name]
+        if isinstance(connector, GatewayBase):
+            # Straight to the connector, because the strategy's buy/sell carries no
+            # place for a slippage tolerance and a Gateway order is a swap against a
+            # pool. Same call the LP executor's close-out swap makes.
+            order_id = connector.place_order(
+                is_buy=self.config.side == TradeType.BUY,
+                trading_pair=self.config.trading_pair,
+                amount=remaining,
+                price=self.get_order_price(),
+                slippage_pct=float(self._slippage_pct),
+                max_retries=self._max_retries,
+            )
+        else:
+            order_id = self.place_order(
+                connector_name=self.config.connector_name,
+                trading_pair=self.config.trading_pair,
+                order_type=self.get_order_type(),
+                amount=remaining,
+                price=self.get_order_price(),
+                side=self.config.side,
+                position_action=self.config.position_action,
+            )
         self._order = TrackedOrder(order_id=order_id)
         self.logger().debug(
             f"Executor ID: {self.config.id} - Placing order {order_id} "
@@ -268,13 +320,17 @@ class OrderExecutor(ExecutorBase):
 
     def renew_order(self):
         """
-        Renew the order with a new price.
+        Renew the order: request cancellation of the current order and let
+        control_order place the replacement once the cancel RESOLVES (the canceled
+        event moves the order to the partial/canceled lists and clears self._order).
 
-        :param new_price: The new price for the order.
+        Placing the replacement immediately used to reassign self._order before the
+        cancel resolved: every subsequent event for the old id failed the identity
+        check, so fills-during-cancel vanished from executed_amount_base and the
+        replacement was sized without them — re-ordering quantity already bought.
         """
         self.cancel_order()
-        self.place_open_order()
-        self.logger().debug("Renewing order")
+        self.logger().debug("Renewing order: cancel requested; replacement placed once the cancel resolves")
 
     def cancel_order(self):
         """
@@ -316,7 +372,10 @@ class OrderExecutor(ExecutorBase):
         """
         self.update_tracked_order_with_order_id(event.order_id)
         if self._order and self._order.order_id == event.order_id:
+            # Hold the completed order AND every earlier partial fill from renewals —
+            # the position store must see the executor's full exposure.
             self._held_position_orders.append(self._order.order.to_json())
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
             self.close_type = CloseType.POSITION_HOLD
             self.stop()
 
@@ -336,10 +395,66 @@ class OrderExecutor(ExecutorBase):
         Process the order failed event.
         """
         if self._order and event.order_id == self._order.order_id:
-            self._failed_orders.append(self._order)
+            # An order that failed AFTER partially filling carries real exposure:
+            # keep those fills in the partial list so they count toward
+            # executed_amount_base (sizing) and the terminal hold.
+            if self._order.executed_amount_base > Decimal("0"):
+                self._partial_filled_orders.append(self._order)
+            else:
+                self._failed_orders.append(self._order)
             self._order = None
+            self._widen_slippage_if_that_was_it(event.order_id)
             self.logger().error(f"Order failed {event.order_id}. Retrying {self._current_retries}/{self._max_retries}")
             self._current_retries += 1
+
+    def _widen_slippage_if_that_was_it(self, order_id: str):
+        """Widen the tolerance for the next attempt when slippage is what failed.
+
+        The order tracker records FAILED and no reason, so the reason comes from the
+        connector, which keeps what Gateway said. Retrying at a tolerance that has
+        already been refused is the behaviour this replaces: ten identical attempts, each
+        paying gas if it reached the chain.
+
+        Nothing here applies to a CEX order — a non-Gateway connector remembers no
+        reason, so the ramp never moves.
+        """
+        connector = self.connectors.get(self.config.connector_name)
+        reason = getattr(connector, "order_failure_reason", lambda _: None)(order_id)
+        if not reason or not is_slippage_failure(Exception(reason)):
+            return
+
+        widened = next_slippage_pct(
+            self._slippage_pct, self.config.slippage_multiplier, self.config.max_slippage_pct
+        )
+        if widened is None:
+            self.logger().warning(
+                f"Slippage failure at {self._slippage_pct}%, which is max_slippage_pct "
+                f"({self.config.max_slippage_pct}%). Not widening further."
+            )
+            return
+
+        self.logger().info(
+            f"Slippage failure at {self._slippage_pct}%; retrying at {widened}% "
+            f"(x{self.config.slippage_multiplier}, ceiling {self.config.max_slippage_pct}%)."
+        )
+        self._slippage_pct = widened
+
+    def evaluate_max_retries(self):
+        """
+        Stop after the retry budget, but never discard real exposure: retry
+        exhaustion with partial fills terminates POSITION_HOLD carrying them —
+        the base FAILED-and-stop would report "nothing left behind" while filled
+        quantity sits in the account.
+        """
+        if self._current_retries > self._max_retries:
+            if self._order and self._order.is_filled:
+                self._held_position_orders.append(self._order.order.to_json())
+            self._held_position_orders.extend([order.order.to_json() for order in self._partial_filled_orders])
+            if self._held_position_orders:
+                self.close_type = CloseType.POSITION_HOLD
+            else:
+                self.close_type = CloseType.FAILED
+            self.stop()
 
     def get_custom_info(self) -> Dict:
         """
@@ -347,6 +462,7 @@ class OrderExecutor(ExecutorBase):
 
         :return: A dictionary containing custom information.
         """
+        connector = self.connectors.get(self.config.connector_name)
         return {
             "side": self.config.side,
             "level_id": self.config.level_id,
@@ -357,6 +473,27 @@ class OrderExecutor(ExecutorBase):
             "held_position_orders": self._held_position_orders,
             "executed_amount_base": self.executed_amount_base,
             "average_executed_price": self.average_executed_price,
+            # The LIVE tolerance, not the configured one. A value above
+            # config.slippage_pct is the only evidence that attempts already failed and
+            # this one is paying to get through — lp_executor reports it for exactly that
+            # reason, and without it a widening leaves no trace after the fact.
+            "slippage_pct": self._slippage_pct,
+            "max_slippage_pct": self.config.max_slippage_pct,
+            # On a Gateway swap the connector sets exchange_order_id to the transaction
+            # hash. order_id is internal (buy-SOL-USDC-1787271213996599) and appears
+            # nowhere on chain, so without this there is no path from an executor record
+            # to what it actually did — confirming a swap meant querying the wallet's
+            # recent signatures and matching by timestamp.
+            "transaction_hash": (
+                self._order.order.exchange_order_id
+                if self._order and self._order.order else None
+            ),
+            # Who actually executed it, and from which wallet. connector_name names the
+            # NETWORK (solana-mainnet-beta); the DEX comes from that network's configured
+            # swapProvider and is resolved inside the connector, so this is the only place
+            # it can be observed. Both are None off Gateway, where neither applies.
+            "swap_provider": getattr(connector, "swap_provider", None),
+            "wallet_address": getattr(connector, "address", None),
         }
 
     def to_format_status(self, scale=1.0):

@@ -45,17 +45,17 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             self,
             balance_asset_limit: Optional[Dict[str, Dict[str, Decimal]]] = None,
             rate_limits_share_pct: Decimal = Decimal("100"),
-            derive_perpetual_api_secret: str = None,
-            sub_id: int = None,
+            session_private_key: str = None,
+            subacct_id: int = None,
             account_type: str = None,
-            derive_perpetual_api_key: str = None,
+            derive_perpetual_wallet_address: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
-        self.derive_perpetual_api_key = derive_perpetual_api_key
-        self.derive_perpetual_secret_key = derive_perpetual_api_secret
-        self._sub_id = sub_id
+        self.derive_perpetual_wallet_address = derive_perpetual_wallet_address
+        self.session_private_key = session_private_key
+        self._subacct_id = subacct_id
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -79,9 +79,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def authenticator(self) -> DerivePerpetualAuth:
         return DerivePerpetualAuth(
-            self.derive_perpetual_api_key,
-            self.derive_perpetual_secret_key,
-            self._sub_id,
+            self.derive_perpetual_wallet_address,
+            self.session_private_key,
+            self._subacct_id,
             self._trading_required,
             self._domain)
 
@@ -360,7 +360,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         api_params = {
             "instrument_name": symbol,
             "order_id": oid,
-            "subaccount_id": int(self._sub_id)
+            "subaccount_id": int(self._subacct_id)
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
@@ -502,7 +502,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             "referral_code": CONSTANTS.REFERRAL_CODE,
             "mmp": False,
             "time_in_force": param_order_type,
-            "recipient_id": self._sub_id,
+            "recipient_id": self._subacct_id,
         }
 
         order_result = await self._api_post(
@@ -528,7 +528,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 all_fills_response = await self._api_get(
                     path_url=CONSTANTS.MY_TRADES_PATH_URL,
                     params={
-                        "subaccount_id": self._sub_id
+                        "subaccount_id": self._subacct_id
                     },
                     is_auth_required=True,
                     limit_id=CONSTANTS.MY_TRADES_PATH_URL)
@@ -593,8 +593,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         Traders, Orders, and Balance updates from the WS.
         """
         user_channels = [
-            f"{self._sub_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
-            f"{self._sub_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
+            f"{self._subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
+            f"{self._subacct_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
             "positions",
             "collaterals",
         ]
@@ -829,7 +829,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
         account_info = await self._api_post(
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            data={"subaccount_id": self._sub_id},
+            data={"subaccount_id": self._subacct_id},
             is_auth_required=True)
         if "error" in account_info:
             self.logger().error(f"Error fetching account balances: {account_info['error']['message']}")
@@ -855,7 +855,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         order_update = await self._api_post(
             path_url=CONSTANTS.ORDER_STATUS_PAATH_URL,
             data={
-                "subaccount_id": self._sub_id,
+                "subaccount_id": self._subacct_id,
                 "order_id": oid
             },
             is_auth_required=True)
@@ -881,7 +881,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 params={
                     "instrument_name": trading_pair,
                     "order_id": exchange_order_id,
-                    "subaccount_id": self._sub_id
+                    "subaccount_id": self._subacct_id
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)
@@ -943,7 +943,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_positions(self):
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                                         data={"subaccount_id": self._sub_id},
+                                         data={"subaccount_id": self._subacct_id},
                                          is_auth_required=True,
                                          limit_id=CONSTANTS.POSITION_INFORMATION_URL)
         if "result" in positions:
@@ -1003,7 +1003,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 "page_size": 100,
                 "start_timestamp": self._last_funding_time(),
                 "instrument_name": symbol,
-                "subaccount_id": self._sub_id
+                "subaccount_id": self._subacct_id
             },
             is_auth_required=True,
             limit_id=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
