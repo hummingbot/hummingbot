@@ -69,6 +69,7 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
         strategy.sell.side_effect = ["OID-SELL-1", "OID-SELL-2", "OID-SELL-3"]
         strategy.cancel.return_value = None
+        strategy.order_tracker.has_in_flight_cancel.return_value = False
         binance_connector = MagicMock(spec=ExchangePyBase)
         binance_connector.supported_order_types = MagicMock(return_value=[OrderType.LIMIT, OrderType.MARKET])
         kucoin_connector = MagicMock(spec=ExchangePyBase)
@@ -196,6 +197,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await self.executor.control_task()
         self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
+        self.strategy.order_tracker.has_in_flight_cancel.return_value = True
+        await self.executor.control_task()
+        self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
+        self.assertFalse(self.executor.maker_order.order.is_pending_cancel_confirmation)
+        self.strategy.order_tracker.has_in_flight_cancel.return_value = False
+        await self.executor.control_task()
+        self.assertEqual(self.strategy.cancel.call_count, 2)
         # The order is kept until the cancellation is confirmed by the exchange
         self.assertIsNotNone(self.executor.maker_order)
         cancel_event = OrderCancelledEvent(timestamp=1234, order_id="OID-BUY-1")
@@ -225,6 +233,13 @@ class TestXEMMExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.executor._status, RunnableStatus.RUNNING)
         self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
         self.assertIsNotNone(self.executor.maker_order)
+        self.strategy.order_tracker.has_in_flight_cancel.return_value = True
+        await self.executor.control_task()
+        self.strategy.cancel.assert_called_once_with("binance", "ETH-USDT", "OID-BUY-1")
+        self.assertFalse(self.executor.maker_order.order.is_pending_cancel_confirmation)
+        self.strategy.order_tracker.has_in_flight_cancel.return_value = False
+        await self.executor.control_task()
+        self.assertEqual(self.strategy.cancel.call_count, 2)
         cancel_event = OrderCancelledEvent(timestamp=1234, order_id="OID-BUY-1")
         self.executor.process_order_canceled_event(1, MagicMock(), cancel_event)
         self.assertEqual(self.executor.maker_order, None)

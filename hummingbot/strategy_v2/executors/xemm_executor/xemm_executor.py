@@ -217,6 +217,8 @@ class XEMMExecutor(ExecutorBase):
             return
         if self.maker_order.order is None or not self.maker_order.order.is_open or self.maker_order.order.is_pending_cancel_confirmation:
             return
+        if self._strategy.order_tracker.has_in_flight_cancel(self.maker_order.order_id):
+            return
         if self._current_trade_profitability - self._tx_cost_pct < self.config.min_profitability:
             self.logger().info(f"Order {self.maker_order.order_id} profitability {self._current_trade_profitability - self._tx_cost_pct} is below minimum profitability {self.config.min_profitability}. Cancelling order.")
             self._strategy.cancel(self.maker_connector, self.maker_trading_pair, self.maker_order.order_id)
