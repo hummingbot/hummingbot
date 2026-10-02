@@ -28,7 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -58,6 +58,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
+        self._balance_refresh_task: Optional[asyncio.Task] = None
+        self._balance_refresh_requested = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -438,6 +440,10 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(order_update)
 
+                # Binance does not push availableBalance changes caused by margin reserved/released by orders
+                if order_message["X"] in ("NEW", "CANCELED", "EXPIRED"):
+                    self._schedule_balance_refresh()
+
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
             # update balances
@@ -498,6 +504,16 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                   "liquidation. Close your positions or add additional margin to your wallet.")
             self.logger().info(f"Margin Required: {total_maint_margin_required}. "
                                f"Negative PnL assets: {negative_pnls_msg}.")
+
+    def _schedule_balance_refresh(self):
+        self._balance_refresh_requested = True
+        if self._balance_refresh_task is None or self._balance_refresh_task.done():
+            self._balance_refresh_task = safe_ensure_future(self._refresh_balances_after_order_updates())
+
+    async def _refresh_balances_after_order_updates(self):
+        while self._balance_refresh_requested:
+            self._balance_refresh_requested = False
+            await self._update_balances()
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
