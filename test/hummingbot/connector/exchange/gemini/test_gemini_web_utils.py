@@ -1,5 +1,6 @@
 import asyncio
 from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
 from aioresponses import aioresponses
 
@@ -61,6 +62,28 @@ class GeminiWebUtilsTests(TestCase):
 
         # 2015-10-21T07:28:00Z in epoch ms
         self.assertEqual(1445412480000.0, server_time)
+
+    @patch("hummingbot.core.web_assistant.rest_assistant.RESTAssistant.execute_request_and_get_response")
+    def test_get_current_server_time_does_not_wait_for_the_body(self, mock_execute):
+        response = MagicMock()
+        response.headers = {"Date": "Wed, 21 Oct 2015 07:28:00 GMT"}
+        mock_execute.return_value = response
+
+        self.async_run_with_timeout(get_current_server_time(throttler=create_throttler()))
+
+        self.assertFalse(mock_execute.call_args.kwargs["read_body"])
+        response.release.assert_called_once()
+
+    @patch("hummingbot.core.web_assistant.rest_assistant.RESTAssistant.execute_request_and_get_response")
+    def test_get_current_server_time_releases_the_response_when_the_date_is_missing(self, mock_execute):
+        response = MagicMock()
+        response.headers = {}
+        mock_execute.return_value = response
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(get_current_server_time(throttler=create_throttler()))
+
+        response.release.assert_called_once()
 
     @aioresponses()
     def test_get_current_server_time_raises_when_date_header_missing(self, mock_api):

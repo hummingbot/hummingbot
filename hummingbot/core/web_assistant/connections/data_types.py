@@ -133,6 +133,16 @@ class RESTResponse:
         text_ = await self._aiohttp_response.text()
         return text_
 
+    async def read(self) -> bytes:
+        # aiohttp keeps the body once read, so later json() and text() calls reuse it.
+        body_ = await self._aiohttp_response.read()
+        return body_
+
+    def release(self):
+        # Free the connection now, for a response whose body won't be read. Otherwise it stays
+        # open until the response is garbage collected.
+        self._aiohttp_response.release()
+
 
 class WSRequest(ABC):
     @abstractmethod
