@@ -412,17 +412,18 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         unified_wallet_balance = [d for d in unified_wallet_response["result"]["list"][0]["coin"] if
                                   Decimal(d["equity"]) > 0]
 
-        self._account_available_balances.clear()
+        total_balances = {asset["coin"]: Decimal(asset["equity"]) for asset in unified_wallet_balance}
+
+        available_balances = {}
+        for coin in total_balances:
+            available_balances[coin] = await self._fetch_available_balance(coin)
+
+        # Swap in the new balances only once all requests have completed, so that concurrent
+        # readers (e.g. budget checks) never see a partially populated balance map
         self._account_balances.clear()
-
-        for asset in unified_wallet_balance:
-            self._account_balances[asset["coin"]] = Decimal(asset["equity"])
-
-        available_coins = self._account_balances.keys()
-
-        for coin in available_coins:
-            available_balance = await self._fetch_available_balance(coin)
-            self._account_available_balances[coin] = available_balance
+        self._account_balances.update(total_balances)
+        self._account_available_balances.clear()
+        self._account_available_balances.update(available_balances)
 
     async def _fetch_available_balance(self, coin: str):
         available_balance_resp = await self._api_get(path_url=CONSTANTS.GET_TRANSFERABLE_AMOUNT_PATH_URL,
