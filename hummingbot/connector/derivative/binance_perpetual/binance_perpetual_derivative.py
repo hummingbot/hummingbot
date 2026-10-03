@@ -60,6 +60,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self._balance_refresh_task: Optional[asyncio.Task] = None
         self._balance_refresh_requested = False
+        self._balance_update_lock = asyncio.Lock()
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -513,7 +514,23 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     async def _refresh_balances_after_order_updates(self):
         while self._balance_refresh_requested:
             self._balance_refresh_requested = False
-            await self._update_balances()
+            try:
+                await self._update_balances()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    "Unexpected error refreshing balances after an order update.",
+                    exc_info=True,
+                    app_warning_msg="Could not refresh Binance Perpetual balances after an order update.",
+                )
+
+    async def stop_network(self):
+        if self._balance_refresh_task is not None:
+            self._balance_refresh_task.cancel()
+            self._balance_refresh_task = None
+        self._balance_refresh_requested = False
+        await super().stop_network()
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -601,24 +618,25 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls the REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
+        async with self._balance_update_lock:
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
 
-        account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
-                                           is_auth_required=True)
-        assets = account_info.get("assets")
-        for asset in assets:
-            asset_name = asset.get("asset")
-            available_balance = Decimal(asset.get("availableBalance"))
-            wallet_balance = Decimal(asset.get("walletBalance"))
-            self._account_available_balances[asset_name] = available_balance
-            self._account_balances[asset_name] = wallet_balance
-            remote_asset_names.add(asset_name)
+            account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                                               is_auth_required=True)
+            assets = account_info.get("assets")
+            for asset in assets:
+                asset_name = asset.get("asset")
+                available_balance = Decimal(asset.get("availableBalance"))
+                wallet_balance = Decimal(asset.get("walletBalance"))
+                self._account_available_balances[asset_name] = available_balance
+                self._account_balances[asset_name] = wallet_balance
+                remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     async def _update_positions(self):
         positions = await self._api_get(path_url=CONSTANTS.POSITION_INFORMATION_URL,

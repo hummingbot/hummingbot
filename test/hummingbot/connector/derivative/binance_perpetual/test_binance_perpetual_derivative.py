@@ -1360,6 +1360,72 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(2, self.exchange._update_balances.await_count)
 
+    async def test_failed_balance_refresh_still_runs_refresh_requested_meanwhile(self):
+        self._simulate_trading_rules_initialized()
+        refresh_started = asyncio.Event()
+        release_refresh = asyncio.Event()
+        calls = []
+
+        async def failing_then_ok():
+            calls.append(1)
+            if len(calls) == 1:
+                refresh_started.set()
+                await release_refresh.wait()
+                raise IOError("account request failed")
+
+        self.exchange._update_balances = AsyncMock(side_effect=failing_then_ok)
+        for order_id in ("OID1", "OID2"):
+            self._start_tracking_order(order_id)
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        refresh_task = self.exchange._balance_refresh_task
+        await refresh_started.wait()
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID2", "CANCELED"))
+
+        release_refresh.set()
+        await refresh_task
+
+        self.assertEqual(2, self.exchange._update_balances.await_count)
+
+    @aioresponses()
+    async def test_concurrent_balance_updates_are_serialized(self, mock_api):
+        in_flight = 0
+        max_in_flight = 0
+
+        async def slow_api_get(*args, **kwargs):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.01)
+            in_flight -= 1
+            return {"assets": [{"asset": "USDT", "walletBalance": "100", "availableBalance": "90"}]}
+
+        self.exchange._api_get = AsyncMock(side_effect=slow_api_get)
+
+        await asyncio.gather(self.exchange._update_balances(), self.exchange._update_balances())
+
+        self.assertEqual(1, max_in_flight)
+
+    async def test_stop_network_cancels_pending_balance_refresh(self):
+        self._simulate_trading_rules_initialized()
+        refresh_started = asyncio.Event()
+
+        async def never_finishes():
+            refresh_started.set()
+            await asyncio.Event().wait()
+
+        self.exchange._update_balances = AsyncMock(side_effect=never_finishes)
+        self._start_tracking_order("OID1")
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        refresh_task = self.exchange._balance_refresh_task
+        await refresh_started.wait()
+
+        await self.exchange.stop_network()
+        await asyncio.sleep(0)
+
+        self.assertTrue(refresh_task.cancelled())
+        self.assertIsNone(self.exchange._balance_refresh_task)
+
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
            "BinancePerpetualDerivative.current_timestamp")
