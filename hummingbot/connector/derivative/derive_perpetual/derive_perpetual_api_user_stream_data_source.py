@@ -6,6 +6,7 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_web_utils as web_utils,
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth import DerivePerpetualAuth
+from hummingbot.connector.other.derive_common_utils import describe_error
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -78,7 +79,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 # to another wallet.
                 error = message.get("error") or {}
                 code = error.get("code")
-                reason = self._connector._session_key_hint(code) or f"code={code} {error.get('message')}"
+                reason = self._connector._session_key_hint(code) or describe_error(error)
                 self.logger().error(f"Private websocket login was refused: {reason}")
                 raise IOError(f"Private websocket connection authentication failed: {reason}")
 
@@ -125,7 +126,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
-            err_msg = event_message["error"]["message"]
+            err_msg = describe_error(event_message["error"])
             raise IOError({
                 "label": "WSS_ERROR",
                 "message": f"Error received via websocket - {err_msg}."

@@ -154,6 +154,7 @@ ERR_SESSION_KEY_EXPIRED = 14030
 ERR_SESSION_KEY_UNAUTHORIZED_SCOPE = 14031
 ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY = 14038
 ERR_RATE_LIMIT = -32000
+ERR_INVALID_PARAMS = -32602
 ERR_ORDER_CONFIRMATION_TIMEOUT = 9000
 ERR_ENGINE_CONFIRMATION_TIMEOUT = 9001
 ERR_BACKEND_UNAVAILABLE = 9002
@@ -192,6 +193,15 @@ SESSION_KEY_ERROR_HINTS = {
 # The exchange answers 14000 rather than a session-key error when the wallet's own key signs, so
 # this is what a first connection attempt with the wrong address, or before any deposit, comes
 # back with.
+# What -32602 "Invalid params" means when its detail speaks of risk universes: every subaccount is
+# created under one (PRIME holds BTC and ETH, for instance; public/get_risk_universes lists
+# them) and can trade no instrument outside it.
+RISK_UNIVERSE_HINT = (
+    "A Derive subaccount trades only the instruments of the risk universe it was created under. "
+    "Use a pair from this subaccount's universe, or deposit into a new subaccount created under "
+    "this instrument's."
+)
+
 ACCOUNT_ERROR_HINTS = {
     ERR_ACCOUNT_NOT_FOUND: (
         "No Derive account exists for this wallet on the network this connector uses. Mainnet and "

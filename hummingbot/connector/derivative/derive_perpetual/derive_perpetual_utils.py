@@ -25,6 +25,12 @@ v3 settles on Ethereum L1 (mainnet) and Sepolia (testnet) rather than the old De
    limit left on the book after its position has been closed another way would open a position
    in the opposite direction. Market closes are sent reduce-only.
 
+6. A subaccount trades only the instruments of its risk universe. Each subaccount is created
+   under one - PRIME holds BTC and ETH, for instance; ``public/get_risk_universes`` lists them -
+   and an order for an instrument outside it is refused with -32602, the reason given in the
+   error's detail. To trade another universe's pairs, deposit into a new subaccount created
+   under it.
+
 Errors 14026 (key not registered), 14030 (expired) and 14031 (scope does not permit the action)
 are reported with that guidance attached.
 

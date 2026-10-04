@@ -2512,3 +2512,56 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         with self.assertRaises(IOError):
             self.async_run_with_timeout(self.exchange._update_balances())
         self.assertEqual(1, self.exchange._api_post.call_count)
+
+    def test_order_refused_for_its_risk_universe_says_so(self):
+        """
+        A subaccount trades only the instruments of the risk universe it was created under, and
+        an order outside it is refused as -32602 "Invalid params". The reason is in the error's
+        ``data``, which the connector used to drop, leaving "Invalid params" and nothing else.
+        """
+        self._simulate_trading_rules_initialized()
+        detail = "subaccount 37799 is in risk universe 1 but instrument BTC-PERP is in risk universe 3"
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": -32602, "message": "Invalid params", "data": detail}})
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn(f"code=-32602 Invalid params ({detail}). {CONSTANTS.RISK_UNIVERSE_HINT}", str(context.exception))
+
+        # Any other invalid parameter is reported with its detail, and without that advice.
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": -32602, "message": "Invalid params", "data": "invalid type: string, expected i64"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+        self.assertIn("code=-32602 Invalid params (invalid type: string, expected i64)", str(context.exception))
+        self.assertNotIn("risk universe", str(context.exception))
+
+    def test_exchange_detail_is_kept_without_hiding_the_code(self):
+        self._simulate_trading_rules_initialized()
+        # The balance check is what `connect` shows.
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": -32000, "message": "Rate limit exceeded", "data": "retry in 1200 ms"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=-32000 Rate limit exceeded (retry in 1200 ms)", str(context.exception))
+
+        # The base class recognises a missing order by the code, wherever the detail mentions others.
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": 11006, "message": "Does not exist", "data": "no order with that id; code=9999 is unrelated"}})
+        self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])

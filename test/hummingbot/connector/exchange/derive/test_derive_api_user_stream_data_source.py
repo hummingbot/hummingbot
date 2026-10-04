@@ -225,6 +225,8 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
                 ({"code": 14026, "message": "Session key not found"}, "Derive session key error 14026"),
                 ({"code": 14000, "message": "Account not found"}, "Derive account error 14000"),
                 ({"code": -32603, "message": "Internal error"}, "code=-32603 Internal error"),
+                ({"code": -32603, "message": "Internal error", "data": "upstream timed out"},
+                 "code=-32603 Internal error (upstream timed out)"),
             ):
                 ws.receive.return_value = MagicMock(data={"id": "1700000000000", "error": error})
 

@@ -6,7 +6,12 @@ from eth_account import Account
 from hexbytes import HexBytes
 from web3 import Web3
 
-from hummingbot.connector.other.derive_common_utils import SignedAction, TradeModuleData, decimal_to_big_int
+from hummingbot.connector.other.derive_common_utils import (
+    SignedAction,
+    TradeModuleData,
+    decimal_to_big_int,
+    describe_error,
+)
 
 
 @pytest.fixture
@@ -137,3 +142,28 @@ def test_signed_action_sign_and_validate(signed_action):
 
     # Run validate_signature() to ensure it works
     signed_action.validate_signature()
+
+
+def test_describe_error_carries_the_exchanges_own_detail():
+    """
+    v3 puts what was actually wrong in ``data``. An order for an instrument outside the
+    subaccount's risk universe is refused as -32602 "Invalid params"; the reason is only there.
+    """
+    refused = {
+        "code": -32602,
+        "message": "Invalid params",
+        "data": "subaccount 37799 is in risk universe 1 but instrument XRP-PERP is in risk universe 3",
+    }
+    assert describe_error(refused) == (
+        "code=-32602 Invalid params (subaccount 37799 is in risk universe 1 but instrument XRP-PERP is in risk universe 3)"
+    )
+
+
+def test_describe_error_without_usable_detail_is_code_and_message():
+    for empty in ({}, {"data": None}, {"data": ""}, {"data": []}, {"data": {}}):
+        assert describe_error({"code": 11006, "message": "Does not exist", **empty}) == "code=11006 Does not exist"
+    # A structured detail is rendered rather than dropped, and a very long one is cut short.
+    assert describe_error({"code": 1, "message": "m", "data": {"field": "amount"}}) == 'code=1 m ({"field": "amount"})'
+    assert describe_error({"code": 1, "message": "m", "data": "x" * 1000}) == f"code=1 m ({'x' * 300})"
+    # Whatever arrives in place of an error object is still put into words.
+    assert describe_error("gateway timeout") == "gateway timeout"

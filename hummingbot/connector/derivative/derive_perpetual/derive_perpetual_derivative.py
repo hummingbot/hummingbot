@@ -21,7 +21,7 @@ from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_user_
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth import DerivePerpetualAuth
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.other.derive_common_utils import estimate_max_fee, parse_subaccount_id
+from hummingbot.connector.other.derive_common_utils import describe_error, estimate_max_fee, parse_subaccount_id
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
@@ -320,7 +320,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             code = response["error"].get("code")
             self.logger().error(
                 self._session_key_hint(code)
-                or f"Derive rejected the session key {signer}: {response['error'].get('message')}"
+                or f"Derive rejected the session key {signer}: {describe_error(response['error'])}"
             )
             return
 
@@ -356,7 +356,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 is_auth_required=True,
             )
             if "error" in response:
-                reason = f"code={response['error'].get('code')} {response['error'].get('message')}"
+                reason = describe_error(response["error"])
             else:
                 session_keys = (response.get("result") or {}).get("public_session_keys") or []
                 expiry = next(
@@ -636,7 +636,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # The base class recognises the "does not exist" code in this error and counts the
             # order as not found. Counting it here as well would write the order off in half
             # the attempts the tracker allows.
-            raise IOError(f'code={error.get("code")} {error.get("message")}')
+            raise IOError(describe_error(error))
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
                 return True
@@ -813,7 +813,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in order_result:
             error = order_result["error"]
             code = error.get("code")
-            message = f"code={code} {error.get('message')}"
+            message = describe_error(error)
             if code == CONSTANTS.ERR_SELF_CROSSING:
                 self.logger().warning(f"Order {order_id} would have crossed one of this account's own orders: {message}")
             elif code == CONSTANTS.ERR_POST_ONLY_WOULD_CROSS:
@@ -825,6 +825,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     f"the signed max_fee was below the fee the trade would incur ({message}). This "
                     f"usually means the index price moved sharply between pricing and signing."
                 )
+            elif code == CONSTANTS.ERR_INVALID_PARAMS and "risk universe" in str(error.get("data") or "").lower():
+                message = f"{message}. {CONSTANTS.RISK_UNIVERSE_HINT}"
             else:
                 message = self._session_key_hint(code) or message
             raise IOError(f"Error submitting order {order_id}: {message}")
@@ -1150,7 +1152,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True)
         if "error" in account_info:
             error = account_info["error"]
-            message = f"Error fetching account balances: code={error.get('code')} {error.get('message')}"
+            message = f"Error fetching account balances: {describe_error(error)}"
             # The hint travels with the exception as well as the log: this is the call `connect`
             # validates credentials with, and its error text is all the user is shown.
             hint = self._session_key_hint(error.get("code"))
@@ -1200,7 +1202,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in order_update:
             error = order_update["error"]
             code = error.get("code")
-            message = f"code={code} {error.get('message')}"
+            message = describe_error(error)
             if code in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
                 # Raising is how the base class learns the order is gone. It counts every error
                 # raised from here that way, and retires the order after a few, so nothing else
@@ -1360,9 +1362,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # with nothing in the log to say the poll had failed.
             error = positions["error"]
             code = error.get("code")
-            raise IOError(
-                f"Error fetching positions: {self._session_key_hint(code) or f'code={code}'} {error.get('message')}"
-            )
+            hint = self._session_key_hint(code)
+            raise IOError(f"Error fetching positions: {describe_error(error)}" + (f". {hint}" if hint else ""))
         if "result" in positions:
             data: List[dict] = positions["result"]["positions"]
             reported = set()
@@ -1483,7 +1484,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             data=payload)
         if "error" in payment_response:
             error = payment_response["error"]
-            raise IOError(f"Error fetching funding history: code={error.get('code')} {error.get('message')}")
+            raise IOError(f"Error fetching funding history: {describe_error(error)}")
         events = payment_response["result"]["events"]
         if len(events) < 1:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")

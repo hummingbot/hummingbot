@@ -14,6 +14,7 @@ The hashing scheme is pinned by the ``derive-ts`` golden vectors, which the unit
     typedDataHash = keccak256(0x1901 || DOMAIN_SEPARATOR || actionHash)
     signature     = ECDSA(signing_key, typedDataHash)   # r || s || v
 """
+import json
 import threading
 import time
 from dataclasses import dataclass
@@ -148,6 +149,25 @@ def get_action_nonce() -> int:
         nonce = max(time.time_ns(), _last_nonce + 1)
         _last_nonce = nonce
     return nonce
+
+
+def describe_error(error: Any) -> str:
+    """
+    Renders a v3 JSON-RPC error as ``code=<code> <message>``, followed by the exchange's own
+    detail when it sends one.
+
+    ``data`` is where v3 says what was actually wrong. An order for an instrument outside the
+    subaccount's risk universe, for one, comes back as -32602 "Invalid params", and only ``data``
+    names the universes involved.
+    """
+    if not isinstance(error, dict):
+        return str(error)
+    text = f"code={error.get('code')} {error.get('message')}"
+    detail = error.get("data")
+    if detail not in (None, "", [], {}):
+        detail = detail if isinstance(detail, str) else json.dumps(detail, default=str)
+        text = f"{text} ({detail[:300]})"
+    return text
 
 
 def parse_subaccount_id(value: Any) -> Optional[int]:
