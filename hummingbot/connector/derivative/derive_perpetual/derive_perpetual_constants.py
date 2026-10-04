@@ -90,12 +90,22 @@ WS_PING_REQUEST = "ping"
 # Positions are polled: the only channel carrying them is {subaccount_id}.balances, below.
 WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
-# Not subscribed to yet: _process_event_message only forwards the orders and trades
-# channels, and the balances payload shape has not been confirmed against a live private
-# stream. Subscribing without a handler would silently discard the notifications.
+# Not subscribed to: _process_event_message only forwards the orders and trades channels, and
+# subscribing without a handler would silently discard the notifications. The payload has been
+# confirmed against a live private stream - {name, new_balance, previous_balance, update_type},
+# a perpetual being reported under its instrument name in the same moment as the fill that moved
+# it - so it is the route to positions that do not wait on the REST refresh described below.
 WS_BALANCES_CHANNEL = "{subaccount_id}.balances"
 
 WS_HEARTBEAT_TIME_INTERVAL = 10
+
+# private/get_positions is served from state the exchange refreshes every few seconds, not as each
+# fill is matched. Measured on testnet (2026-10-04) against the trades channel: a fill reached the
+# REST position between 0.3 and 6 seconds after it was announced, the refresh coming round about
+# every 5.5 seconds. (private/get_trade_history trails further, by 7 to 16 seconds.) After a fill
+# the positions are therefore polled this many times, this many seconds apart.
+POSITIONS_CATCH_UP_INTERVAL = 2.0
+POSITIONS_CATCH_UP_POLLS = 6
 
 WS_CONNECTIONS_RATE_LIMIT = "WS_CONNECTIONS"
 

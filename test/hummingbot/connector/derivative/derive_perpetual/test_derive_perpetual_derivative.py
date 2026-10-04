@@ -62,6 +62,13 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
         cls.client_order_id_prefix = "0x48424f5442454855443630616330301"  # noqa: mock
 
+    def tearDown(self) -> None:
+        # A fill starts a background catch-up of the positions; it must not outlive its test.
+        catch_up = self.exchange._positions_catch_up_task
+        if catch_up is not None:
+            catch_up.cancel()
+        super().tearDown()
+
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
@@ -3679,6 +3686,114 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(2, len(requests))
         self.assertEqual(1, len(self.exchange.account_positions))
+
+    def _fill_message(self) -> Dict[str, Any]:
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        return self.trade_event_for_full_fill_websocket_update(order=self.exchange.in_flight_orders["OID1"])["data"][0]
+
+    def test_positions_keep_being_polled_after_a_fill_until_rest_has_caught_up(self):
+        """
+        private/get_positions is served from state the exchange refreshes every few seconds: on
+        testnet a fill reached it up to 6 seconds after the trades channel announced it. The one
+        poll made as the fill arrived showed the position as it was before, and the connector went
+        on reporting no position until a status poll, which can be two minutes away.
+        """
+        self._simulate_trading_rules_initialized()
+        trade = self._fill_message()
+        not_yet = {"result": {"positions": []}}
+        answers = [not_yet, not_yet, self._get_position_risk_api_endpoint_single_position_list()]
+        polls = []
+
+        async def positions(*args, **kwargs):
+            polls.append(kwargs["path_url"])
+            return answers[min(len(polls), len(answers)) - 1]
+
+        self.exchange._api_post = AsyncMock(side_effect=positions)
+        self.exchange._sleep = AsyncMock()
+
+        async def fill_then_catch_up():
+            await self.exchange._process_trade_message(trade)
+            # The exchange has not had time to take the fill in, so nothing is polled yet.
+            self.assertEqual([], polls)
+            await self.exchange._positions_catch_up_task
+
+        self.async_run_with_timeout(fill_then_catch_up())
+
+        self.assertEqual([CONSTANTS.POSITION_INFORMATION_URL] * CONSTANTS.POSITIONS_CATCH_UP_POLLS, polls)
+        self.exchange._sleep.assert_awaited_with(CONSTANTS.POSITIONS_CATCH_UP_INTERVAL)
+        self.assertEqual(CONSTANTS.POSITIONS_CATCH_UP_POLLS, self.exchange._sleep.await_count)
+        self.assertEqual(1, len(self.exchange.account_positions))
+        # The measured lag was up to 6 seconds; the catch-up has to reach well past it.
+        self.assertGreaterEqual(CONSTANTS.POSITIONS_CATCH_UP_INTERVAL * CONSTANTS.POSITIONS_CATCH_UP_POLLS, 12)
+
+    def test_fill_during_the_catch_up_extends_it_rather_than_starting_another(self):
+        self.exchange._update_positions = AsyncMock()
+        release = asyncio.Event()
+
+        async def held(_):
+            await release.wait()
+
+        self.exchange._sleep = held
+
+        async def two_fills():
+            self.exchange._schedule_positions_catch_up()
+            first = self.exchange._positions_catch_up_task
+            await asyncio.sleep(0)                                      # it is now waiting to poll
+            self.exchange._positions_catch_up_polls_left = 1            # ...and has nearly run out
+            self.exchange._schedule_positions_catch_up()
+            self.assertIs(first, self.exchange._positions_catch_up_task)
+            release.set()
+            await first
+
+        self.async_run_with_timeout(two_fills())
+
+        # The poll that was already waiting, then a full run counted from the second fill.
+        self.assertEqual(1 + CONSTANTS.POSITIONS_CATCH_UP_POLLS, self.exchange._update_positions.await_count)
+
+    def test_catch_up_survives_a_failed_poll_and_ends_with_the_network(self):
+        self.exchange._sleep = AsyncMock()
+        self.exchange._update_positions = AsyncMock(side_effect=[IOError("positions unavailable")] + [None] * 20)
+
+        async def catch_up():
+            self.exchange._schedule_positions_catch_up()
+            await self.exchange._positions_catch_up_task
+
+        self.async_run_with_timeout(catch_up())
+        self.assertEqual(CONSTANTS.POSITIONS_CATCH_UP_POLLS, self.exchange._update_positions.await_count)
+
+        # Being cancelled in the middle of a poll is not a failed poll to carry on from.
+        self.exchange._update_positions = AsyncMock(side_effect=asyncio.CancelledError)
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(catch_up())
+        self.assertEqual(1, self.exchange._update_positions.await_count)
+
+        hold = asyncio.Event()
+
+        async def held(_):
+            await hold.wait()
+
+        self.exchange._sleep = held
+
+        async def start_then_stop():
+            self.exchange._schedule_positions_catch_up()
+            task = self.exchange._positions_catch_up_task
+            await asyncio.sleep(0)
+            await self.exchange.stop_network()
+            await asyncio.sleep(0)
+            return task
+
+        task = self.async_run_with_timeout(start_then_stop())
+        self.assertTrue(task.cancelled())
+        self.assertIsNone(self.exchange._positions_catch_up_task)
 
     def test_resting_close_warns_once_that_it_cannot_be_reduce_only(self):
         """

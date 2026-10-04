@@ -1050,6 +1050,11 @@ class DeriveExchange(ExchangePyBase):
                 # Raising is how the base class learns the order is gone. It counts every error
                 # raised from here that way, and retires the order after a few, so nothing else
                 # is raised: a rate limit or a backend hiccup must not write off a live order.
+                #
+                # It is also what a poll gets for an order that has only just finished: on
+                # testnet private/get_order did not know a filled or cancelled order for 4 to 6
+                # seconds, and then reported it. The base class writes an order off on the
+                # fourth miss and polls no faster than every 5 seconds, so that passes.
                 raise IOError(f"Error fetching the status of order {client_order_id}: {message}")
             self.logger().warning(
                 f"Error fetching the status of order {client_order_id}: {self._session_key_hint(code) or message}"

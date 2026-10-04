@@ -72,6 +72,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._instrument_ticker = []
         self._resting_close_warning_logged = False
         self._positions_poll_lock = asyncio.Lock()
+        self._positions_catch_up_task: Optional[asyncio.Task] = None
+        self._positions_catch_up_polls_left = 0
         self.real_time_balance_update = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -1032,7 +1034,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 fee=fee,
             )
             self._order_tracker.process_trade_update(trade_update)
-            await self._update_positions()
+            self._schedule_positions_catch_up()
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -1203,6 +1205,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 # Raising is how the base class learns the order is gone. It counts every error
                 # raised from here that way, and retires the order after a few, so nothing else
                 # is raised: a rate limit or a backend hiccup must not write off a live order.
+                #
+                # It is also what a poll gets for an order that has only just finished: on
+                # testnet private/get_order did not know a filled or cancelled order for 4 to 6
+                # seconds, and then reported it. The base class writes an order off on the
+                # fourth miss and polls no faster than every 5 seconds, so that passes.
                 raise IOError(f"Error fetching the status of order {client_order_id}: {message}")
             self.logger().warning(
                 f"Error fetching the status of order {client_order_id}: {self._session_key_hint(code) or message}"
@@ -1302,6 +1309,36 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 mapped_name = await self.trading_pair_associated_to_exchange_symbol(exchange_symbol)
                 last_traded_prices[mapped_name] = Decimal(str(ticker["result"]["M"]))
         return last_traded_prices
+
+    def _schedule_positions_catch_up(self):
+        """
+        Polls positions for a while after a fill.
+
+        The REST view of a position trails the fill that changed it by up to several seconds (see
+        POSITIONS_CATCH_UP_INTERVAL), so a single poll made as the fill arrives reports the
+        position as it was before - and the next status poll can be two minutes away while the
+        user stream is healthy. A fill that arrives during the catch-up extends it.
+        """
+        self._positions_catch_up_polls_left = CONSTANTS.POSITIONS_CATCH_UP_POLLS
+        if self._positions_catch_up_task is None or self._positions_catch_up_task.done():
+            self._positions_catch_up_task = safe_ensure_future(self._catch_up_positions())
+
+    async def _catch_up_positions(self):
+        while self._positions_catch_up_polls_left > 0:
+            self._positions_catch_up_polls_left -= 1
+            await self._sleep(CONSTANTS.POSITIONS_CATCH_UP_INTERVAL)
+            try:
+                await self._update_positions()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().debug("Could not refresh the positions after a fill.", exc_info=True)
+
+    async def stop_network(self):
+        if self._positions_catch_up_task is not None:
+            self._positions_catch_up_task.cancel()
+            self._positions_catch_up_task = None
+        await super().stop_network()
 
     async def _update_positions(self):
         # The status poll and the user stream both land here, so two polls can be in flight at
