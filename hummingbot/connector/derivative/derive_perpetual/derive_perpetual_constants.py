@@ -224,9 +224,9 @@ SESSION_KEY_ERROR_HINTS = {
         "or admin."
     ),
     ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY: (
-        "The order was signed to outlive the session key. The key's expiry is read at startup to "
-        "prevent this, so it has probably been shortened since: restart the connector, or "
-        "register a longer-lived session key at derive.xyz."
+        "The order was signed to outlive the session key, and reading the key's expiry again did "
+        "not correct that. If the connector warned that it could not read the expiry, that "
+        "warning gives the reason; otherwise register a longer-lived session key at derive.xyz."
     ),
 }
 

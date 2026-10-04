@@ -312,31 +312,58 @@ class DeriveExchange(ExchangePyBase):
         its signature does. An action that outlives its key is refused with 14038, so that window
         has to be held inside the key's own lifetime.
         """
+        expiry = None
         try:
             response = await self._api_post(
                 path_url=CONSTANTS.SESSION_KEYS_PATH_URL,
                 data={"wallet": self.derive_wallet_address},
                 is_auth_required=True,
             )
-            session_keys = (response.get("result") or {}).get("public_session_keys") or []
-            expiry = next(
-                (
-                    int(session_key["expiry_sec"])
-                    for session_key in session_keys
-                    if str(session_key.get("public_session_key", "")).lower() == signer.lower()
-                ),
-                None,
-            )
+            if "error" in response:
+                reason = f"code={response['error'].get('code')} {response['error'].get('message')}"
+            else:
+                session_keys = (response.get("result") or {}).get("public_session_keys") or []
+                expiry = next(
+                    (
+                        int(session_key["expiry_sec"])
+                        for session_key in session_keys
+                        if str(session_key.get("public_session_key", "")).lower() == signer.lower()
+                    ),
+                    None,
+                )
+                reason = "private/session_keys did not list this key"
         except asyncio.CancelledError:
             raise
-        except Exception:
-            # Not knowing the expiry is no reason to refuse to start. Orders are then signed
-            # without the cap, and a key too short-lived for them is reported as 14038.
-            self.logger().debug("Could not read the Derive session key expiry.", exc_info=True)
+        except Exception as error:
+            reason = str(error) or type(error).__name__
+
+        if expiry is None:
+            # Not knowing the expiry is no reason to refuse to start, but it has to be visible:
+            # resting orders are then signed past the lifetime of any key shorter-lived than the
+            # API's ceiling. The first one refused for that makes _place_order read it again.
+            self.logger().warning(
+                f"Could not read the expiry of the Derive session key ({reason}). Until it is known, "
+                f"resting orders are signed for the longest the exchange allows; if the key expires "
+                f"sooner the exchange refuses them with 14038, and the expiry is read again then."
+            )
             return
 
-        if expiry is not None:
-            self._auth.session_key_expiry_sec = expiry
+        self._auth.session_key_expiry_sec = expiry
+
+    async def _session_key_expiry_was_stale(self, order_result: Dict[str, Any]) -> bool:
+        """
+        True when an order was refused for outliving its session key and the key's expiry, read
+        again, differs from the one the order was signed against - so signing it again succeeds.
+
+        The expiry is otherwise read once, at startup. If that lookup failed, or the key has been
+        given a nearer expiry since, every resting order would be refused with 14038 until the
+        connector was restarted.
+        """
+        if (order_result.get("error") or {}).get("code") != CONSTANTS.ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY:
+            return False
+        signed_against = self._auth.session_key_expiry_sec
+        await self._update_session_key_expiry(self._auth.session_key_wallet.address)
+        return self._auth.session_key_expiry_sec not in (None, signed_against)
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
@@ -395,10 +422,9 @@ class DeriveExchange(ExchangePyBase):
 
         if "error" in cancel_result:
             error = cancel_result["error"]
-            if error.get("code") in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
-                self.logger().debug(f"The order {order_id} does not exist on Derive. "
-                                    f"No cancelation needed.")
-                await self._order_tracker.process_order_not_found(order_id)
+            # The base class recognises the "does not exist" code in this error and counts the
+            # order as not found. Counting it here as well would write the order off in half
+            # the attempts the tracker allows.
             raise IOError(f'code={error.get("code")} {error.get("message")}')
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
@@ -548,6 +574,14 @@ class DeriveExchange(ExchangePyBase):
             path_url = CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
             is_auth_required=True)
+
+        if await self._session_key_expiry_was_stale(order_result):
+            # The order is signed as the request goes out, so sending it again signs it against
+            # the expiry that has just been read.
+            order_result = await self._api_post(
+                path_url = CONSTANTS.CREATE_ORDER_URL,
+                data=api_params,
+                is_auth_required=True)
 
         if "error" in order_result:
             error = order_result["error"]

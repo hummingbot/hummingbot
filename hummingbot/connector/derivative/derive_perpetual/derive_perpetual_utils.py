@@ -19,6 +19,10 @@ v3 settles on Ethereum L1 (mainnet) and Sepolia (testnet) rather than the old De
    whatever its time in force, and an action may not outlive the key that signed it (14038). The
    connector reads the key's expiry at startup and signs each resting order for as long as the
    API allows - about 119 days - or until just before the key expires, whichever comes first.
+5. A resting close is not reduce-only. v3 accepts ``reduce_only`` only on orders that cannot rest
+   (market, IOC, FOK) and refuses it on a limit or post-only order with 11024, so a take-profit
+   limit left on the book after its position has been closed another way would open a position
+   in the opposite direction. Market closes are sent reduce-only.
 
 Errors 14026 (key not registered), 14030 (expired) and 14031 (scope does not permit the action)
 are reported with that guidance attached.

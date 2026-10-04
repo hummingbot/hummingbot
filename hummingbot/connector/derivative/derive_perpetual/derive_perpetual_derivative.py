@@ -70,6 +70,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
+        self._resting_close_warning_logged = False
         self.real_time_balance_update = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -344,31 +345,58 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         its signature does. An action that outlives its key is refused with 14038, so that window
         has to be held inside the key's own lifetime.
         """
+        expiry = None
         try:
             response = await self._api_post(
                 path_url=CONSTANTS.SESSION_KEYS_PATH_URL,
                 data={"wallet": self.derive_perpetual_wallet_address},
                 is_auth_required=True,
             )
-            session_keys = (response.get("result") or {}).get("public_session_keys") or []
-            expiry = next(
-                (
-                    int(session_key["expiry_sec"])
-                    for session_key in session_keys
-                    if str(session_key.get("public_session_key", "")).lower() == signer.lower()
-                ),
-                None,
-            )
+            if "error" in response:
+                reason = f"code={response['error'].get('code')} {response['error'].get('message')}"
+            else:
+                session_keys = (response.get("result") or {}).get("public_session_keys") or []
+                expiry = next(
+                    (
+                        int(session_key["expiry_sec"])
+                        for session_key in session_keys
+                        if str(session_key.get("public_session_key", "")).lower() == signer.lower()
+                    ),
+                    None,
+                )
+                reason = "private/session_keys did not list this key"
         except asyncio.CancelledError:
             raise
-        except Exception:
-            # Not knowing the expiry is no reason to refuse to start. Orders are then signed
-            # without the cap, and a key too short-lived for them is reported as 14038.
-            self.logger().debug("Could not read the Derive session key expiry.", exc_info=True)
+        except Exception as error:
+            reason = str(error) or type(error).__name__
+
+        if expiry is None:
+            # Not knowing the expiry is no reason to refuse to start, but it has to be visible:
+            # resting orders are then signed past the lifetime of any key shorter-lived than the
+            # API's ceiling. The first one refused for that makes _place_order read it again.
+            self.logger().warning(
+                f"Could not read the expiry of the Derive session key ({reason}). Until it is known, "
+                f"resting orders are signed for the longest the exchange allows; if the key expires "
+                f"sooner the exchange refuses them with 14038, and the expiry is read again then."
+            )
             return
 
-        if expiry is not None:
-            self._auth.session_key_expiry_sec = expiry
+        self._auth.session_key_expiry_sec = expiry
+
+    async def _session_key_expiry_was_stale(self, order_result: Dict[str, Any]) -> bool:
+        """
+        True when an order was refused for outliving its session key and the key's expiry, read
+        again, differs from the one the order was signed against - so signing it again succeeds.
+
+        The expiry is otherwise read once, at startup. If that lookup failed, or the key has been
+        given a nearer expiry since, every resting order would be refused with 14038 until the
+        connector was restarted.
+        """
+        if (order_result.get("error") or {}).get("code") != CONSTANTS.ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY:
+            return False
+        signed_against = self._auth.session_key_expiry_sec
+        await self._update_session_key_expiry(self._auth.session_key_wallet.address)
+        return self._auth.session_key_expiry_sec not in (None, signed_against)
 
     @staticmethod
     def _error_code(exception: Exception) -> Optional[int]:
@@ -571,10 +599,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
         if "error" in cancel_result:
             error = cancel_result["error"]
-            if error.get("code") in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
-                self.logger().debug(f"The order {order_id} does not exist on Derive. "
-                                    f"No cancelation needed.")
-                await self._order_tracker.process_order_not_found(order_id)
+            # The base class recognises the "does not exist" code in this error and counts the
+            # order as not found. Counting it here as well would write the order off in half
+            # the attempts the tracker allows.
             raise IOError(f'code={error.get("code")} {error.get("message")}')
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
@@ -707,6 +734,16 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         reduce_only = position_action == PositionAction.CLOSE and (
             price_type == "market" or param_order_type in CONSTANTS.REDUCE_ONLY_TIME_IN_FORCE
         )
+        if position_action == PositionAction.CLOSE and not reduce_only and not self._resting_close_warning_logged:
+            # Nothing the connector can send protects a resting close, so the exposure is stated
+            # once rather than left to be discovered.
+            self._resting_close_warning_logged = True
+            self.logger().warning(
+                "Derive only accepts reduce_only on orders that cannot rest (market, IOC, FOK), so a "
+                "limit or post-only close is not reduce-only. If the position is closed some other "
+                "way first, cancel the resting close: left on the book it would open a position in "
+                "the opposite direction."
+            )
         api_params = {
             "asset_address": instrument["base_asset_address"],
             "sub_id": instrument["base_asset_sub_id"],
@@ -730,6 +767,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             path_url = CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
             is_auth_required=True)
+
+        if await self._session_key_expiry_was_stale(order_result):
+            # The order is signed as the request goes out, so sending it again signs it against
+            # the expiry that has just been read.
+            order_result = await self._api_post(
+                path_url = CONSTANTS.CREATE_ORDER_URL,
+                data=api_params,
+                is_auth_required=True)
 
         if "error" in order_result:
             error = order_result["error"]
@@ -1225,6 +1270,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return last_traded_prices
 
     async def _update_positions(self):
+        # Taken before the request, so that a position opened while it is in flight is not
+        # mistaken below for one that has gone.
+        previously_tracked = set(self._perpetual_trading.account_positions.keys())
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
                                          data={"subaccount_id": self._subacct_id},
                                          is_auth_required=True,
@@ -1239,8 +1287,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             )
         if "result" in positions:
             data: List[dict] = positions["result"]["positions"]
-            if len(data) == 0:
-                return
+            reported = set()
             for position in data:
                 trading_pair = position.get("instrument_name")
                 try:
@@ -1275,8 +1322,15 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     # Keyed by the Hummingbot pair, not the exchange instrument name.
                     self._perpetual_trading.set_leverage(hb_trading_pair, leverage)
                     self._perpetual_trading.set_position(pos_key, _position)
+                    reported.add(pos_key)
                 else:
                     self._perpetual_trading.remove_position(pos_key)
+
+            # v3 lists active positions only: one that has been closed stops appearing rather than
+            # coming back with a zero amount. Waiting for that zero left a closed position in the
+            # connector until it was restarted.
+            for pos_key in previously_tracked - reported:
+                self._perpetual_trading.remove_position(pos_key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # NOTE: This is default to ONEWAY as there is nothing available on current version of Vega

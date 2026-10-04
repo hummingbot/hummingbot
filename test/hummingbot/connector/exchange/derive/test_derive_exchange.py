@@ -16,7 +16,7 @@ from aioresponses.core import RequestCall
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
 import hummingbot.connector.exchange.derive.derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
-from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC
+from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC, SESSION_KEY_EXPIRY_MARGIN_SEC
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -2345,3 +2345,107 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.exchange._api_post = AsyncMock(side_effect=asyncio.CancelledError)
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.exchange._update_session_key_expiry("0xSESSIONKEY"))
+
+    def test_cancel_of_a_missing_order_is_counted_as_not_found_once(self):
+        """
+        The base class counts the order as not found when it recognises the code in the error.
+        _place_cancel used to count it as well, so every such cancel counted twice and the order
+        was written off after two attempts instead of the four the tracker allows.
+        """
+        self._simulate_trading_rules_initialized()
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+        limit = self.exchange._order_tracker.lost_order_count_limit
+
+        self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+        for _ in range(limit - 1):
+            self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(limit, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+
+    @aioresponses()
+    def test_order_refused_for_outliving_the_session_key_is_signed_again(self, mock_api):
+        """
+        The key's expiry is read once at startup. If that lookup failed, resting orders are signed
+        for the longest the API allows and a shorter-lived key has every one of them refused with
+        14038. The refusal now makes the connector read the expiry and sign the order again.
+        """
+        self._simulate_trading_rules_initialized()
+        self.assertIsNone(self.exchange._auth.session_key_expiry_sec)        # as after a failed lookup
+        key_expiry = int(time.time()) + 30 * 24 * 60 * 60
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL), body=json.dumps({"result": {"public_session_keys": [
+            {"public_session_key": self.exchange._auth.session_key_wallet.address, "expiry_sec": key_expiry},
+        ]}}))
+        mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+
+        exchange_order_id, _ = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="0xabc",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("10000"),
+        ))
+
+        first, second = self._sent_body(mock_api, url, 0), self._sent_body(mock_api, url, 1)
+        self.assertAlmostEqual(RESTING_ORDER_VALIDITY_SEC, first["signature_expiry_sec"] - time.time(), delta=30)
+        self.assertEqual(key_expiry - SESSION_KEY_EXPIRY_MARGIN_SEC, second["signature_expiry_sec"])
+        self.assertNotEqual(first["nonce"], second["nonce"])
+        self.assertNotEqual(first["signature"], second["signature"])
+        self.assertEqual(str(self.expected_exchange_order_id), exchange_order_id)
+        self.assertEqual(key_expiry, self.exchange._auth.session_key_expiry_sec)
+
+    @aioresponses()
+    def test_order_outliving_the_session_key_is_reported_when_the_expiry_cannot_be_read(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL),
+                      body=json.dumps({"error": {"code": 14031, "message": "Unauthorized Key Scope"}}))
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn("Derive session key error 14038", str(context.exception))
+        # Sending the same order again would only be refused again, so it is not sent twice.
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
+        warnings = [r.getMessage() for r in self.log_records if r.levelname == "WARNING"]
+        self.assertTrue(any(
+            "Could not read the expiry of the Derive session key (code=14031 Unauthorized Key Scope)" in m for m in warnings
+        ), warnings)
+
+    @aioresponses()
+    def test_order_outliving_the_session_key_is_not_resent_when_the_expiry_is_unchanged(self, mock_api):
+        """Reading the expiry again only helps if it changed; otherwise the refusal would repeat."""
+        self._simulate_trading_rules_initialized()
+        key_expiry = int(time.time()) + 30 * 24 * 60 * 60
+        self.exchange._auth.session_key_expiry_sec = key_expiry
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL), body=json.dumps({"result": {"public_session_keys": [
+            {"public_session_key": self.exchange._auth.session_key_wallet.address, "expiry_sec": key_expiry},
+        ]}}))
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn("Derive session key error 14038", str(context.exception))
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
