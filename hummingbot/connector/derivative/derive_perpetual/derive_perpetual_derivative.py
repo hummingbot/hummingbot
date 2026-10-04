@@ -1398,8 +1398,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                         amount=amount,
                         leverage=leverage
                     )
-                    # Keyed by the Hummingbot pair, not the exchange instrument name.
-                    self._perpetual_trading.set_leverage(hb_trading_pair, leverage)
+                    # The exchange's figure stays on the position. It is a measurement - the
+                    # position's size against the subaccount's margin, 0.0069 for instance - not
+                    # a setting. Stored as the pair's leverage it reached every later order,
+                    # where Hummingbot budgets against it and records it in an integer column.
                     self._perpetual_trading.set_position(pos_key, _position)
                     reported.add(pos_key)
                 else:

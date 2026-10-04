@@ -3075,12 +3075,45 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.assertEqual(Decimal("7"), position.leverage, variant)
             self.assertEqual(7, self.exchange._perpetual_trading.get_leverage(self.trading_pair), variant)
 
-        # A figure the exchange does report still takes precedence.
+        # A figure the exchange does report is shown on the position.
         req_mock.post(url, body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
         self.async_run_with_timeout(self.exchange._update_positions())
         position = list(self.exchange.account_positions.values())[0]
         self.assertEqual(Decimal("25"), position.leverage)
-        self.assertEqual(25, self.exchange._perpetual_trading.get_leverage(self.trading_pair))
+
+    @aioresponses()
+    def test_position_leverage_figure_does_not_become_the_pairs_leverage(self, req_mock):
+        """
+        v3 reports a position's leverage as a measurement - its size against the subaccount's
+        margin, such as 0.006903419047 - not as a setting. The poll stored it as the pair's
+        leverage, from where it reached every later order: Hummingbot's trade database refused
+        the order ("type 'decimal.Decimal' is not supported" for its integer column) and the
+        budget checker sized against 0.0069x.
+        """
+        self._simulate_trading_rules_initialized()
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        positions["result"]["positions"][0]["leverage"] = "0.006903419047"
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL), body=json.dumps(positions))
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        position = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(Decimal("0.006903419047"), position.leverage)
+        self.assertEqual(1, self.exchange.get_leverage(self.trading_pair))
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.CLOSE,
+        )
+        leverage = self.exchange.in_flight_orders["OID1"].leverage
+        self.assertEqual(1, leverage)
+        self.assertIsInstance(leverage, int)
 
     @aioresponses()
     def test_last_fee_payment_takes_the_latest_event_and_sends_only_v3_parameters(self, req_mock):

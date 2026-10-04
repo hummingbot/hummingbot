@@ -88,6 +88,10 @@ ORDER_HISTORY_PATH_URL = "/private/get_order_history"
 WS_PING_REQUEST = "ping"
 
 # Positions are polled: the only channel carrying them is {subaccount_id}.balances, below.
+# orderbook.{instrument}.{group}.{depth}. Group 1 is the book as quoted: a larger group rounds
+# bids down and asks up to that many ticks, which makes the top of the book a price nobody is
+# quoting. 100 is the number of levels on each side.
+WS_ORDER_BOOK_CHANNEL = "orderbook.{instrument_name}.1.100"
 WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
 # Not subscribed to: _process_event_message only forwards the orders and trades channels, and

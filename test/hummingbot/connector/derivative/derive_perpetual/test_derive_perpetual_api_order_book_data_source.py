@@ -255,7 +255,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         expected_subscription_payload = {
             "channels": [
                 f"trades.{self.ex_trading_pair.upper()}",
-                f"orderbook.{self.ex_trading_pair.upper()}.10.10",
+                f"orderbook.{self.ex_trading_pair.upper()}.1.100",
                 f"ticker_slim.{self.ex_trading_pair.upper()}.1000"
             ]
         }

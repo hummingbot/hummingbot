@@ -150,7 +150,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 # NB: DONT want exchange_symbol_associated_with_trading_pair, to avoid too much request
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 params.append(f"trades.{symbol.upper()}")
-                params.append(f"orderbook.{symbol.upper()}.10.10")
+                params.append(CONSTANTS.WS_ORDER_BOOK_CHANNEL.format(instrument_name=symbol.upper()))
                 params.append(f"ticker_slim.{symbol.upper()}.1000")
 
             trades_payload = {
@@ -300,7 +300,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             params = [
                 f"trades.{symbol.upper()}",
-                f"orderbook.{symbol.upper()}.10.10",
+                CONSTANTS.WS_ORDER_BOOK_CHANNEL.format(instrument_name=symbol.upper()),
                 f"ticker_slim.{symbol.upper()}.1000",
             ]
 
@@ -346,7 +346,7 @@ class DerivePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             params = [
                 f"trades.{symbol.upper()}",
-                f"orderbook.{symbol.upper()}.10.10",
+                CONSTANTS.WS_ORDER_BOOK_CHANNEL.format(instrument_name=symbol.upper()),
                 f"ticker_slim.{symbol.upper()}.1000",
             ]
 
