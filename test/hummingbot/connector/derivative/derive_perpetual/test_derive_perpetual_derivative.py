@@ -3642,6 +3642,44 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(["ETH-USDC"], list(self.exchange.account_positions))
 
+    def test_overlapping_position_polls_are_applied_in_the_order_they_were_made(self):
+        """
+        The status poll and the user stream both poll positions, so two polls can be in flight at
+        once. Applied as they arrived, an older answer that came back late - here one taken while
+        the position was closed - removed a position the newer answer had just restored.
+        """
+        self._simulate_trading_rules_initialized()
+        listed = self._get_position_risk_api_endpoint_single_position_list()
+        self.exchange._api_post = AsyncMock(return_value=listed)
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(1, len(self.exchange.account_positions))
+
+        older_answer_released = asyncio.Event()
+        requests = []
+
+        async def answer(*args, **kwargs):
+            requests.append(len(requests))
+            if len(requests) == 1:
+                # The older poll: taken while the position was closed, and answered late.
+                await older_answer_released.wait()
+                return {"result": {"positions": []}}
+            return listed       # the newer poll: the position is open again
+
+        async def overlap():
+            self.exchange._api_post = AsyncMock(side_effect=answer)
+            older = asyncio.ensure_future(self.exchange._update_positions())
+            await asyncio.sleep(0)
+            newer = asyncio.ensure_future(self.exchange._update_positions())
+            for _ in range(5):
+                await asyncio.sleep(0)      # the newer poll would finish here if nothing held it
+            older_answer_released.set()
+            await asyncio.gather(older, newer)
+
+        self.async_run_with_timeout(overlap())
+
+        self.assertEqual(2, len(requests))
+        self.assertEqual(1, len(self.exchange.account_positions))
+
     def test_resting_close_warns_once_that_it_cannot_be_reduce_only(self):
         """
         reduce_only is refused on an order that can rest, so nothing the connector sends protects a
@@ -3669,3 +3707,65 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         close(OrderType.LIMIT)
         close(OrderType.LIMIT_MAKER)
         self.assertEqual(1, len(warnings()))
+
+    def test_account_not_found_names_the_wallet_when_the_session_key_address_was_entered(self):
+        """
+        A session key has an address of its own, and it is easily entered as the wallet address.
+        The key then signs as the owner of an account it does not have, so the exchange answers
+        14000 and says nothing about session keys. Which wallet the key belongs to is one public
+        lookup away, so the error names it.
+        """
+        # Built as `connect` builds it: trading is not required, so there is no session_key_wallet.
+        exchange = DerivePerpetualDerivative(
+            session_private_key=self.session_private_key,  # noqa: mock
+            derive_perpetual_wallet_address=self.wallet_address,  # noqa: mock
+            subacct_id=self.subacct_id,
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+        )
+        exchange.derive_perpetual_wallet_address = exchange._auth.signer_address
+        owner = "0x52908400098527886E0F7030069857D2E4169EE7"  # noqa: mock
+        exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            {"result": {"wallets": [owner]}},
+        ])
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(exchange._update_balances())
+
+        self.assertIn("code=14000 Account not found. Derive account error 14000", str(context.exception))
+        self.assertIn(f"{exchange._auth.signer_address}, is the address of the session key itself", str(context.exception))
+        self.assertIn(f"registered to {owner}: enter that as the wallet address", str(context.exception))
+        lookup = exchange._api_post.call_args_list[1].kwargs
+        self.assertEqual(CONSTANTS.SESSION_KEY_WALLETS_PATH_URL, lookup["path_url"])
+        self.assertEqual({"public_session_key": exchange._auth.signer_address}, lookup["data"])
+        self.assertNotIn("is_auth_required", lookup)
+
+    def test_account_not_found_keeps_the_general_hint_when_no_wallet_can_be_named(self):
+        # The owner's own key, signing for a wallet that has not deposited yet: the address is not
+        # a session key, so the general explanation stands.
+        self.exchange.derive_perpetual_wallet_address = self.exchange._auth.signer_address
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            {"error": {"code": 14026, "message": "Session key not found"}},
+        ])
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("first deposit", str(context.exception))
+        self.assertNotIn("session key itself", str(context.exception))
+
+        # The lookup failing is no reason to lose the error it was meant to explain.
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            IOError("connection reset"),
+        ])
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14000 Account not found", str(context.exception))
+
+        # A wallet address that is not the signer's is not this mistake, so nothing is looked up.
+        self.exchange.derive_perpetual_wallet_address = self.wallet_address
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14000, "message": "Account not found"}})
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertEqual(1, self.exchange._api_post.call_count)

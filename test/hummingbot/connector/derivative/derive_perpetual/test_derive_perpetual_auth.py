@@ -68,6 +68,18 @@ class DerivePerpetualAuthTests(TestCase):
             self._auth_for("main-account")
         self.assertIn("must be a whole number", str(context.exception))
 
+    def test_signer_address_does_not_depend_on_trading_being_required(self):
+        # `connect` builds the connector with trading not required, and the connector still has to
+        # be able to say whose key is signing.
+        expected = Web3().eth.account.from_key(self.session_private_key).address
+        self.assertEqual(expected, self.auth.signer_address)
+        self.assertEqual(expected, self._auth_for(self.subacct_id, trading_required=False).signer_address)
+
+    def test_signer_address_is_none_without_a_usable_key(self):
+        for unusable in ("", "not-a-key"):
+            auth = DerivePerpetualAuth(self.wallet_address, unusable, None, False, self.domain)
+            self.assertIsNone(auth.signer_address)
+
     def _signed_order(self, **order):
         params = {
             "asset_address": "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock

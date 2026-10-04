@@ -197,7 +197,8 @@ ACCOUNT_ERROR_HINTS = {
         "No Derive account exists for this wallet on the network this connector uses. Mainnet and "
         "testnet accounts are separate, an account only comes into being when its first deposit is "
         "credited (a couple of minutes after the deposit), and on v3 the wallet is your own EOA or "
-        "multisig - the address you connect with at derive.xyz - not the v2 Derive Wallet address."
+        "multisig - the address you connect with at derive.xyz - not the v2 Derive Wallet address and "
+        "not the session key's own address."
     ),
     ERR_SUBACCOUNT_NOT_FOUND: (
         "The subaccount id is not one of this wallet's subaccounts. Use the id shown at derive.xyz "

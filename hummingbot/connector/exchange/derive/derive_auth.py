@@ -40,6 +40,18 @@ class DeriveAuth(AuthBase):
             self.session_key_wallet = Web3().eth.account.from_key(self._session_private_key)
 
     @property
+    def signer_address(self) -> Optional[str]:
+        """
+        The address of the key that signs every request, or None when no usable key is configured.
+        Unlike session_key_wallet it does not depend on trading being required, which `connect`
+        leaves off.
+        """
+        try:
+            return Web3().eth.account.from_key(self._session_private_key).address
+        except Exception:
+            return None
+
+    @property
     def _is_testnet(self) -> bool:
         return "testnet" in self._domain
 

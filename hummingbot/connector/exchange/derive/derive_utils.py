@@ -9,7 +9,8 @@ v3 settles on Ethereum L1 (mainnet) and Sepolia (testnet) rather than the old De
    no API call that creates one; the deposit does it.
 2. The wallet address is your own EOA or multisig. v3 has no intermediate "Derive Wallet": every
    wallet/owner field is the owner's own address, and existing Derive Wallets are transferred to
-   it during the v2 to v3 state migration. Enter that address, not the old Derive Wallet one.
+   it during the v2 to v3 state migration. Enter that address: not the old Derive Wallet one,
+   and not the address of the session key, which has one of its own.
 3. Register a **scoped** session key at derive.xyz. v3 session keys carry scopes, an expiry and
    optionally a subaccount allow-list and an IP allow-list. Scopes form a tree in which a grant
    covers everything beneath it, so spot trading needs ``trade:orderbook:spot`` or any grant above
@@ -54,7 +55,7 @@ class DeriveConfigMap(BaseConnectorConfigMap):
     derive_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your Derive Wallet address",
+            "prompt": "Enter the address of the wallet that owns your Derive account (not the session key's address)",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,
@@ -102,7 +103,7 @@ class DeriveTestnetConfigMap(BaseConnectorConfigMap):
     derive_testnet_wallet_address: SecretStr = Field(
         default=...,
         json_schema_extra={
-            "prompt": "Enter your Derive Wallet address",
+            "prompt": "Enter the address of the wallet that owns your Derive account (not the session key's address)",
             "is_secure": True,
             "is_connect_key": True,
             "prompt_on_new": True,

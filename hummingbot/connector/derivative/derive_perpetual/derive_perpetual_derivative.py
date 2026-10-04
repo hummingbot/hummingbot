@@ -71,6 +71,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
         self._resting_close_warning_logged = False
+        self._positions_poll_lock = asyncio.Lock()
         self.real_time_balance_update = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -408,6 +409,37 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         match = re.search(r"['\"]?code['\"]?\s*[:=]\s*(-?\d+)", str(exception))
         return int(match.group(1)) if match else None
+
+    async def _session_key_entered_as_wallet_hint(self) -> Optional[str]:
+        """
+        Explains the likeliest cause of "Account not found" on a first connection. A session key
+        has an address of its own, and it is easily entered where the wallet address belongs. The
+        key then signs as the owner of an account it does not have, so the exchange answers 14000
+        and says nothing about session keys.
+
+        public/get_wallets_from_session_key tells which wallet the key belongs to, so the address
+        to enter instead can be named. None when the address entered is not a registered key.
+        """
+        signer = self._auth.signer_address
+        if signer is None or signer.lower() != (self.derive_perpetual_wallet_address or "").lower():
+            return None
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.SESSION_KEY_WALLETS_PATH_URL,
+                data={"public_session_key": signer},
+            )
+            wallets = (response.get("result") or {}).get("wallets") or []
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return None
+        if not wallets:
+            return None
+        return (
+            f"Derive account error {CONSTANTS.ERR_ACCOUNT_NOT_FOUND}: the wallet address entered, {signer}, is the "
+            f"address of the session key itself. Derive has that key registered to {', '.join(wallets)}: enter "
+            f"that as the wallet address, and keep the session key as it is."
+        )
 
     @staticmethod
     def _session_key_hint(code: Optional[int]) -> Optional[str]:
@@ -1120,6 +1152,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # The hint travels with the exception as well as the log: this is the call `connect`
             # validates credentials with, and its error text is all the user is shown.
             hint = self._session_key_hint(error.get("code"))
+            if error.get("code") == CONSTANTS.ERR_ACCOUNT_NOT_FOUND:
+                hint = await self._session_key_entered_as_wallet_hint() or hint
             if hint:
                 message = f"{message}. {hint}"
             self.logger().error(message)
@@ -1270,6 +1304,13 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return last_traded_prices
 
     async def _update_positions(self):
+        # The status poll and the user stream both land here, so two polls can be in flight at
+        # once. They are taken one at a time: an older answer arriving after a newer one would
+        # otherwise be applied over it, removing a position that has since been reopened.
+        async with self._positions_poll_lock:
+            await self._poll_positions()
+
+    async def _poll_positions(self):
         # Taken before the request, so that a position opened while it is in flight is not
         # mistaken below for one that has gone.
         previously_tracked = set(self._perpetual_trading.account_positions.keys())
