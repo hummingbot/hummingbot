@@ -17,8 +17,8 @@ The hashing scheme is pinned by the ``derive-ts`` golden vectors, which the unit
 import threading
 import time
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import Any, Dict
+from decimal import ROUND_UP, Decimal
+from typing import Any, Dict, Optional
 
 from eth_abi.abi import encode
 from hexbytes import HexBytes
@@ -39,9 +39,19 @@ MAX_SIGNED_PRECISION = Decimal("1e-12")
 MAX_INT_128 = 2 ** 127 - 1
 MIN_INT_128 = -(2 ** 127)
 
-# signature_expiry_sec bounds enforced by the API: error 11011 outside this window.
+# signature_expiry_sec bounds: error 11011 outside this window. The API's own floor for an order is
+# 10 seconds (docs.derive.xyz/authentication/action-signing); 5 minutes is the more conservative
+# floor the official SDKs sign with, and the 120 day ceiling is the API's.
 MIN_SIGNATURE_EXPIRY_SEC = 300
 MAX_SIGNATURE_EXPIRY_SEC = 120 * 24 * 60 * 60
+
+# "Orders always expire at signature_expiry_sec regardless of time-in-force", so the signature
+# window of a resting order is that order's lifetime. It is signed for the longest the API allows,
+# less a day so that clock drift between here and the exchange cannot push it past the ceiling.
+RESTING_ORDER_VALIDITY_SEC = MAX_SIGNATURE_EXPIRY_SEC - 24 * 60 * 60
+
+# Kept clear of the session key's own expiry: an action that outlives its key is refused (14038).
+SESSION_KEY_EXPIRY_MARGIN_SEC = 60
 
 # Guards the nonce counter so concurrently signed orders cannot draw the same value.
 _nonce_lock = threading.Lock()
@@ -140,13 +150,37 @@ def get_action_nonce() -> int:
     return nonce
 
 
+def parse_subaccount_id(value: Any) -> Optional[int]:
+    """
+    Normalises a configured subaccount id to the integer the API requires.
+
+    Connector credentials reach the constructor as strings, while v3 declares the field an
+    integer and most routes hold to that: public/get_trade_history and
+    public/get_liquidation_history refuse ``{"subaccount_id": "30769"}`` with ``-32602 invalid
+    type: string "30769"``, though a few (public/margin_watch) still coerce it. An
+    integer is accepted by all of them, so converting once here keeps every request body valid
+    instead of depending on which routes happen to be lenient.
+
+    :param value: the subaccount id as configured, or None when no account is configured
+    :return: the subaccount id as an int, or None when none was given
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text == "":
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        raise ValueError(f"The Derive subaccount id must be a whole number, got {value!r}.")
+
+
 def get_signature_expiry_sec(valid_for_sec: int) -> int:
     """
     Builds a bounded signature expiry timestamp.
 
-    v3 requires the expiry to be between 5 minutes and 120 days out (error 11011) and no later
-    than the session key's own expiry (error 14038), so the v2 habit of sending 2**31-1 is
-    rejected outright.
+    v3 refuses an expiry outside its validity window (error 11011), so the v2 habit of sending
+    2**31-1 is rejected outright. See MIN_SIGNATURE_EXPIRY_SEC for where the bounds come from.
 
     :param valid_for_sec: how long the signature should remain valid
     :return: the absolute expiry timestamp in seconds
@@ -160,28 +194,77 @@ def get_signature_expiry_sec(valid_for_sec: int) -> int:
     return int(time.time()) + int(valid_for_sec)
 
 
+def get_order_signature_expiry_sec(valid_for_sec: int, session_key_expiry_sec: Optional[int] = None) -> int:
+    """
+    Builds the signature expiry for an order, held inside the session key's own lifetime.
+
+    An action may not outlive the key that signed it (error 14038), so a window that would run
+    past the key's expiry is shortened to end just before it. Without that a long-lived resting
+    order signed by a short-lived key would be refused outright.
+
+    :param valid_for_sec: how long the order should be able to live
+    :param session_key_expiry_sec: the session key's expiry, when it is known. None for a key
+        whose expiry could not be read, and for the owner wallet, which has none.
+    :return: the absolute expiry timestamp in seconds
+    """
+    expiry = get_signature_expiry_sec(valid_for_sec)
+    if session_key_expiry_sec is None:
+        return expiry
+
+    latest = int(session_key_expiry_sec) - SESSION_KEY_EXPIRY_MARGIN_SEC
+    seconds_left = int(session_key_expiry_sec) - int(time.time())
+    if latest - int(time.time()) < MIN_SIGNATURE_EXPIRY_SEC:
+        state = "has expired" if seconds_left <= 0 else f"expires in {seconds_left} seconds"
+        raise ValueError(
+            f"The Derive session key {state}, which leaves no room to sign an order. Register a "
+            f"new session key at derive.xyz."
+        )
+    return min(expiry, latest)
+
+
 def estimate_max_fee(
     taker_fee_rate: Decimal,
     base_fee: Decimal,
     index_price: Decimal,
     limit_price: Decimal,
+    maker_fee_rate: Decimal = Decimal("0"),
+    amount: Optional[Decimal] = None,
 ) -> Decimal:
     """
-    Estimates the ``max_fee`` to sign an order with.
+    Estimates the ``max_fee`` to sign an order with: a cap per unit, in the quote currency.
 
-    Mirrors derive-ts: ``3 * (2 * taker_fee_rate * max(index_price, limit_price) + base_fee)``.
-    The headroom matters because the fee is signed: if the fee actually charged exceeds the signed
-    ceiling the order is rejected with error 11023, or cancelled with ``signed_max_fee_too_low``.
+    The matching engine requires (docs.derive.xyz/integrators/trading/trading-fees)::
+
+        resting order:   max_fee > 2 * max(taker_fee, maker_fee) * max(limit_price, index_price)
+        crossing order:  the above + base_fee / fill_amount
+
+    The base fee is a flat charge per order, so its share of each unit grows as the order
+    shrinks. Adding it undivided, as this used to, leaves the headroom depending on the order's
+    size: generous above one unit, and thinner the smaller the order, down to none at all below
+    roughly 8 USDC of notional on a high-priced instrument. Minimum order sizes currently keep
+    orders above that, but dividing by the amount is what the rule actually says.
+
+    Whether an order rests or crosses is only known once it reaches the book, so the crossing
+    bound is used for both, times the 3x headroom derive-ts signs with for the index moving
+    between signing and matching. The headroom matters because the fee is signed: below the
+    bound the order is rejected with error 11023, or cancelled with ``signed_max_fee_too_low``.
 
     :param taker_fee_rate: the instrument's taker fee rate
-    :param base_fee: the instrument's flat base fee
+    :param base_fee: the instrument's flat base fee, charged once per taker order
     :param index_price: the current index price
     :param limit_price: the order's limit price
-    :return: the max fee, quantized to the precision the API accepts
+    :param maker_fee_rate: the instrument's maker fee rate
+    :param amount: the order amount. When omitted the base fee is taken per unit, as before.
+    :return: the max fee, rounded up to the precision the API accepts
     """
     reference_price = max(Decimal(index_price), Decimal(limit_price))
-    max_fee = 3 * (2 * Decimal(taker_fee_rate) * reference_price + Decimal(base_fee))
-    return max_fee.quantize(MAX_SIGNED_PRECISION)
+    fee_rate = max(Decimal(taker_fee_rate), Decimal(maker_fee_rate))
+    base_fee_per_unit = Decimal(base_fee)
+    if amount is not None and Decimal(amount) > 0:
+        base_fee_per_unit = base_fee_per_unit / Decimal(amount)
+    max_fee = 3 * (2 * fee_rate * reference_price + base_fee_per_unit)
+    # Rounded up so that quantizing can never take the cap back under the bound.
+    return max_fee.quantize(MAX_SIGNED_PRECISION, rounding=ROUND_UP)
 
 
 @dataclass
@@ -239,8 +322,8 @@ class SignedAction:
     :param subaccount_id: The subaccount id of the user.
     :param owner: The wallet that owns the account (not the session key).
     :param signer: The signer of the action - the owner or a session key.
-    :param signature_expiry_sec: Absolute expiry timestamp in seconds. v3 requires 5 minutes to
-        120 days from now, and no later than the session key's expiry.
+    :param signature_expiry_sec: Absolute expiry timestamp in seconds, at most 120 days from now
+        and no later than the session key's expiry. An order expires when its signature does.
     :param nonce: UTC nanoseconds. Serialized as a JSON string; v3 rejects ms/us nonces.
     :param module_address: The contract address of the module.
     :param module_data: Data defined by the specific protocol module.

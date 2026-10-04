@@ -15,18 +15,24 @@ REFERRAL_CODE = "0x27F53feC538e477CE3eA1a456027adeCAC919DfD"  # noqa: mock
 CHAIN_ID = 1
 TESTNET_CHAIN_ID = 11155111
 
-# The Matching contract and the trade module are the same address on every network in v3.
+# The EIP-712 verifying contract is the v2 mainnet Matching address on every v3 network, and the
+# module addresses are likewise fixed across deployments. Neither is one of the v3 settlement
+# contracts (docs.derive.xyz/authentication/action-signing).
 MATCHING_CONTRACT_ADDRESS = "0xeB8d770ec18DB98Db922E9D83260A585b9F0DeAD"  # noqa: mock
 TRADE_MODULE_ADDRESS = "0xB8D20c2B7a1Ad2EE33Bc50eF10876eD3035b5e7b"  # noqa: mock
 ACTION_TYPEHASH = "0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17"  # noqa: mock
 
 # Derived rather than hardcoded. The v2 separator went stale precisely because it was a literal,
-# and the test suite pins these against the values published in docs.derive.xyz.
+# and the test suite pins these against the values published at
+# docs.derive.xyz/authentication/action-signing, which the official SDKs also hardcode.
 DOMAIN_SEPARATOR = compute_domain_separator(CHAIN_ID, MATCHING_CONTRACT_ADDRESS)
 TESTNET_DOMAIN_SEPARATOR = compute_domain_separator(TESTNET_CHAIN_ID, MATCHING_CONTRACT_ADDRESS)
 
-# How long a signed action stays valid. v3 requires 5 minutes to 120 days (error 11011) and no
-# later than the session key's own expiry (error 14038).
+# How long an order that cannot rest (market, IOC, FOK) stays signed for: it only has to outlive
+# the request. An order that can rest is signed for RESTING_ORDER_VALIDITY_SEC instead, because v3
+# expires every order at its signature expiry whatever its time in force - signing a GTC order
+# for an hour would silently pull it from the book an hour later. Both are held inside the
+# session key's own expiry (error 14038).
 SIGNATURE_VALIDITY_SEC = 60 * 60
 
 MARKET_ORDER_SLIPPAGE = 0.05
@@ -59,6 +65,7 @@ SNAPSHOT_PATH_URL = "/public/get_ticker"
 SERVER_TIME_PATH_URL = "/public/get_time"
 RATE_LIMITS_PATH_URL = "/public/getRateLimits"
 SESSION_KEY_WALLETS_PATH_URL = "/public/get_wallets_from_session_key"
+SESSION_KEYS_PATH_URL = "/private/session_keys"
 
 # Private API endpoints
 ACCOUNTS_PATH_URL = "/private/get_subaccount"
@@ -88,6 +95,10 @@ TIME_IN_FORCE_GTC = "gtc"  # Good till cancelled
 TIME_IN_FORCE_IOC = "ioc"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "fok"  # Fill or kill
 TIME_IN_FORCE_POST_ONLY = "post_only"  # Maker only; rejected if it would cross
+
+# Limit orders with these can sit in the book; "market, ioc, and fok orders never leave a resting
+# order" (docs.derive.xyz/trading/order-types).
+RESTING_TIME_IN_FORCE = {TIME_IN_FORCE_GTC, TIME_IN_FORCE_POST_ONLY}
 
 # Rate Limit Type
 ORDERS_IP = "market_maker_non_matching"
@@ -130,21 +141,26 @@ ERR_ORDER_DOES_NOT_EXIST = 11006
 ERR_SELF_CROSSING = 11007
 ERR_POST_ONLY_WOULD_CROSS = 11008
 ERR_INSUFFICIENT_FUNDS = 11000
-ERR_INVALID_NONCE = 11017
-ERR_NONCE_ALREADY_USED = 11018
+ERR_NON_UNIQUE_NONCE = 11017
+ERR_INVALID_NONCE_DATE = 11018
 ERR_MAX_FEE_TOO_LOW = 11023
-ERR_REDUCE_ONLY_WRONG_DIRECTION = 11024
-ERR_REDUCE_ONLY_WOULD_INCREASE = 11025
+ERR_REDUCE_ONLY_NOT_SUPPORTED = 11024  # reduce_only on an order that can rest
+ERR_REDUCE_ONLY_REJECT = 11025  # the order would have increased the position
 ERR_SIGNATURE_EXPIRY_OUT_OF_BOUNDS = 11011
 ERR_SESSION_KEY_NOT_FOUND = 14026
 ERR_SESSION_KEY_EXPIRED = 14030
 ERR_SESSION_KEY_UNAUTHORIZED_SCOPE = 14031
 ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY = 14038
 ERR_RATE_LIMIT = -32000
+ERR_ORDER_CONFIRMATION_TIMEOUT = 9000
+ERR_ENGINE_CONFIRMATION_TIMEOUT = 9001
+ERR_BACKEND_UNAVAILABLE = 9002
 
 ORDER_NOT_EXIST_ERROR_CODES = {ERR_ORDER_DOES_NOT_EXIST}
-# 9000-9002 are transient engine errors that are safe to retry.
-RETRYABLE_ERROR_CODES = {9000, 9001, 9002, ERR_RATE_LIMIT}
+# Only these mean the request never took effect. 9000 and 9001 do not belong here: the order was
+# accepted and only its confirmation timed out, so resubmitting would place it a second time -
+# the order's state has to be queried instead.
+RETRYABLE_ERROR_CODES = {ERR_BACKEND_UNAVAILABLE, ERR_RATE_LIMIT}
 SESSION_KEY_ERROR_CODES = {
     ERR_SESSION_KEY_NOT_FOUND,
     ERR_SESSION_KEY_EXPIRED,
@@ -154,17 +170,20 @@ SESSION_KEY_ERROR_CODES = {
 SESSION_KEY_ERROR_HINTS = {
     ERR_SESSION_KEY_NOT_FOUND: (
         "The session key is not registered against this wallet. Register it at derive.xyz with a "
-        "trading scope (trade:orderbook:spot, trade:orderbook:perp or trade:orderbook:all) plus "
-        "off-chain account_info."
+        "scope that covers spot orders (trade:orderbook:spot, or a broader grant such as "
+        "trade:orderbook:all, trade:all or admin). On v3 the wallet is your own EOA or multisig, "
+        "not the v2 Derive Wallet address."
     ),
     ERR_SESSION_KEY_EXPIRED: "The session key has expired. Register a new one at derive.xyz.",
     ERR_SESSION_KEY_UNAUTHORIZED_SCOPE: (
         "The session key does not carry a scope that permits this action. Spot trading needs "
-        "trade:orderbook:spot (4) or trade:orderbook:all (3)."
+        "trade:orderbook:spot, or a broader grant that covers it: trade:orderbook:all, trade:all "
+        "or admin."
     ),
     ERR_SIGNATURE_EXPIRY_AFTER_SESSION_KEY: (
-        "The signature expiry is later than the session key's own expiry. Register a longer-lived "
-        "session key or lower SIGNATURE_VALIDITY_SEC."
+        "The order was signed to outlive the session key. The key's expiry is read at startup to "
+        "prevent this, so it has probably been shortened since: restart the connector, or "
+        "register a longer-lived session key at derive.xyz."
     ),
 }
 
@@ -264,6 +283,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=SESSION_KEY_WALLETS_PATH_URL,
+        limit=TRADER_NON_MATCHING,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]
+    ),
+    RateLimit(
+        limit_id=SESSION_KEYS_PATH_URL,
         limit=TRADER_NON_MATCHING,
         time_interval=SECOND,
         linked_limits=[LinkedLimitWeightPair(TRADER_ACCOUNTS_TYPE)]

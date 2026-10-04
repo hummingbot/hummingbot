@@ -13,7 +13,7 @@ from hummingbot.connector.exchange.derive.derive_api_order_book_data_source impo
 from hummingbot.connector.exchange.derive.derive_api_user_stream_data_source import DeriveAPIUserStreamDataSource
 from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.other.derive_common_utils import estimate_max_fee
+from hummingbot.connector.other.derive_common_utils import estimate_max_fee, parse_subaccount_id
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -53,7 +53,9 @@ class DeriveExchange(ExchangePyBase):
     ):
         self.derive_wallet_address = derive_wallet_address
         self.session_private_key = session_private_key
-        self._subacct_id = subacct_id
+        # Credentials arrive as strings, and most v3 routes refuse one where an integer is
+        # declared. The id is normalised once here rather than at each request body carrying it.
+        self._subacct_id = parse_subaccount_id(subacct_id)
         self._account_type = account_type
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -245,7 +247,8 @@ class DeriveExchange(ExchangePyBase):
 
     async def _verify_session_key(self) -> None:
         """
-        Checks the session key is registered against the configured wallet before trading.
+        Checks the session key is registered against the configured wallet before trading, and
+        reads how long it has left.
 
         Without this the first authenticated call fails with a bare 14026, which does not say
         whether the key is unregistered, expired, or simply paired with a different wallet than
@@ -258,6 +261,11 @@ class DeriveExchange(ExchangePyBase):
         try:
             signer = self._auth.session_key_wallet.address
         except Exception:
+            return
+
+        if signer.lower() == (self.derive_wallet_address or "").lower():
+            # The owner wallet is signing for itself. That is a valid setup with no session key
+            # behind it, and the lookup below would report the wallet as an unknown key.
             return
 
         try:
@@ -282,14 +290,51 @@ class DeriveExchange(ExchangePyBase):
         if not wallets:
             return
 
-        if self._wallet_address.lower() not in wallets:
+        if self.derive_wallet_address.lower() not in wallets:
             self.logger().error(
                 f"The session key {signer} is registered, but to a different wallet. It is "
                 f"registered to {', '.join(wallets)}, while this connector is configured with "
-                f"{self._wallet_address}. Enter the Derive wallet the key belongs to, which is "
+                f"{self.derive_wallet_address}. Enter the Derive wallet the key belongs to, which is "
                 f"the account address shown at derive.xyz rather than the session key's own "
                 f"address."
             )
+            return
+
+        await self._update_session_key_expiry(signer)
+
+    async def _update_session_key_expiry(self, signer: str) -> None:
+        """
+        Reads the session key's expiry so that no order is signed to outlive it.
+
+        A resting order is signed for as long as the API allows, because v3 expires an order when
+        its signature does. An action that outlives its key is refused with 14038, so that window
+        has to be held inside the key's own lifetime.
+        """
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.SESSION_KEYS_PATH_URL,
+                data={"wallet": self.derive_wallet_address},
+                is_auth_required=True,
+            )
+            session_keys = (response.get("result") or {}).get("public_session_keys") or []
+            expiry = next(
+                (
+                    int(session_key["expiry_sec"])
+                    for session_key in session_keys
+                    if str(session_key.get("public_session_key", "")).lower() == signer.lower()
+                ),
+                None,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Not knowing the expiry is no reason to refuse to start. Orders are then signed
+            # without the cap, and a key too short-lived for them is reported as 14038.
+            self.logger().debug("Could not read the Derive session key expiry.", exc_info=True)
+            return
+
+        if expiry is not None:
+            self._auth.session_key_expiry_sec = expiry
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
@@ -473,7 +518,10 @@ class DeriveExchange(ExchangePyBase):
         quantized_price = self.quantize_order_price(trading_pair, Decimal(str(price)))
         quantized_amount = self.quantize_order_amount(trading_pair, Decimal(str(amount)))
         max_fee = self._estimate_order_max_fee(
-            instrument=instrument[0], trading_pair=trading_pair, limit_price=quantized_price
+            instrument=instrument[0],
+            trading_pair=trading_pair,
+            limit_price=quantized_price,
+            amount=quantized_amount,
         )
         api_params = {
             "asset_address": instrument[0]["base_asset_address"],
@@ -526,7 +574,11 @@ class DeriveExchange(ExchangePyBase):
             return (o_id, timestamp)
 
     def _estimate_order_max_fee(
-        self, instrument: Dict[str, Any], trading_pair: str, limit_price: Decimal
+        self,
+        instrument: Dict[str, Any],
+        trading_pair: str,
+        limit_price: Decimal,
+        amount: Optional[Decimal] = None,
     ) -> Decimal:
         """
         Derives the max_fee to sign an order with.
@@ -546,9 +598,11 @@ class DeriveExchange(ExchangePyBase):
 
         return estimate_max_fee(
             taker_fee_rate=Decimal(str(instrument.get("taker_fee_rate", "0"))),
+            maker_fee_rate=Decimal(str(instrument.get("maker_fee_rate", "0"))),
             base_fee=Decimal(str(instrument.get("base_fee", "0"))),
             index_price=mid_price if mid_price and mid_price > s_decimal_0 else limit_price,
             limit_price=limit_price,
+            amount=amount,
         )
 
     async def _update_trade_history(self):

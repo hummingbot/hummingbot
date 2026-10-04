@@ -1,17 +1,19 @@
 import json
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from eth_account.messages import encode_defunct
 from web3 import Web3
 
 from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS, derive_web_utils as web_utils
 from hummingbot.connector.other.derive_common_utils import (
+    RESTING_ORDER_VALIDITY_SEC,
     SignedAction,
     TradeModuleData,
     get_action_nonce,
-    get_signature_expiry_sec,
+    get_order_signature_expiry_sec,
+    parse_subaccount_id,
 )
 from hummingbot.connector.utils import to_0x_hex
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -26,10 +28,14 @@ class DeriveAuth(AuthBase):
     def __init__(self, wallet_address: str, session_private_key: str, subacct_id: int, trading_required: bool, domain: str):
         self._wallet_address: str = wallet_address
         self._session_private_key: str = session_private_key
-        self._subacct_id: int = subacct_id
+        # Credentials arrive as strings, and most v3 routes refuse one where an integer is declared.
+        self._subacct_id: Optional[int] = parse_subaccount_id(subacct_id)
         self._trading_required: bool = trading_required
         self._w3 = Web3()
         self._domain = domain
+        # The session key's own expiry, set by the connector once it has looked the key up. None
+        # until then, and for an owner wallet signing directly, which has no expiry.
+        self.session_key_expiry_sec: Optional[int] = None
         if trading_required:
             self.session_key_wallet = Web3().eth.account.from_key(self._session_private_key)
 
@@ -105,13 +111,23 @@ class DeriveAuth(AuthBase):
         return json.dumps(payload) if request.method == RESTMethod.POST else payload
 
     def sign(self, params):
+        # v3 expires an order when its signature does, whatever its time in force. An order that
+        # can rest is therefore signed for as long as the API allows, so that it lives until it is
+        # filled or cancelled; one that cannot rest only has to outlive the request.
+        can_rest = (
+            params.get("order_type") == "limit"
+            and params.get("time_in_force") in CONSTANTS.RESTING_TIME_IN_FORCE
+        )
         action = SignedAction(
-            subaccount_id=int(self._subacct_id),
+            subaccount_id=self._subacct_id,
             owner=self._wallet_address,
             signer=self.session_key_wallet.address,
-            # v3 rejects the v2 habit of sending 2**31-1 (error 11011): the expiry must be between
-            # 5 minutes and 120 days out, and no later than the session key's own expiry (14038).
-            signature_expiry_sec=get_signature_expiry_sec(CONSTANTS.SIGNATURE_VALIDITY_SEC),
+            # v3 rejects the v2 habit of sending 2**31-1 (error 11011), and an action may not
+            # outlive the session key that signed it (14038).
+            signature_expiry_sec=get_order_signature_expiry_sec(
+                RESTING_ORDER_VALIDITY_SEC if can_rest else CONSTANTS.SIGNATURE_VALIDITY_SEC,
+                self.session_key_expiry_sec,
+            ),
             # UTC nanoseconds, serialized as a string by SignedAction.to_json().
             nonce=get_action_nonce(),
             module_address=CONSTANTS.TRADE_MODULE_ADDRESS,

@@ -7,18 +7,25 @@ v3 settles on Ethereum L1 (mainnet) and Sepolia (testnet) rather than the old De
 
 1. Create the account by depositing on L1. v3 removed ``private/create_subaccount``, so there is
    no API call that creates one; the deposit does it.
-2. Register a **scoped** session key at derive.xyz. v3 session keys carry a scope, an expiry and
-   optionally a subaccount allow-list and an IP allow-list. Perpetual trading needs
-   ``trade:orderbook:perp`` (5) or ``trade:orderbook:all`` (3), plus the off-chain
-   ``account_info`` scope so balances and orders can be read.
-3. The key's expiry has to outlast the signatures the connector produces. Signatures are valid
-   for SIGNATURE_VALIDITY_SEC (one hour by default); a shorter-lived key is rejected with 14038.
+2. The wallet address is your own EOA or multisig. v3 has no intermediate "Derive Wallet": every
+   wallet/owner field is the owner's own address, and existing Derive Wallets are transferred to
+   it during the v2 to v3 state migration. Enter that address, not the old Derive Wallet one.
+3. Register a **scoped** session key at derive.xyz. v3 session keys carry scopes, an expiry and
+   optionally a subaccount allow-list and an IP allow-list. Scopes form a tree in which a grant
+   covers everything beneath it, so perpetual trading needs ``trade:orderbook:perp`` or any grant above
+   it: ``trade:orderbook:all``, ``trade:all`` or ``admin``. Reading balances and orders needs no
+   scope of its own. The owner wallet's own key can be used in place of a session key.
+4. Orders live only as long as the session key. v3 expires an order when its signature does,
+   whatever its time in force, and an action may not outlive the key that signed it (14038). The
+   connector reads the key's expiry at startup and signs each resting order for as long as the
+   API allows - about 119 days - or until just before the key expires, whichever comes first.
 
 Errors 14026 (key not registered), 14030 (expired) and 14031 (scope does not permit the action)
 are reported with that guidance attached.
 
-Existing v2 users are migrating, not upgrading: funds move to L1, and a new session key is
-needed because the v2 key is not valid against the v3 domain separator.
+Existing v2 users are migrating, not upgrading: funds move to L1 under the owner's own address.
+Whether a v2 session key carries over is not documented, so the connector checks at startup that
+the key is registered to the configured wallet and says so when it is not.
 """
 
 from decimal import Decimal

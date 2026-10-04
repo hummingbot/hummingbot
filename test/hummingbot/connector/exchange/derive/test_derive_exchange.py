@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 
 # from copy import deepcopy
 from decimal import Decimal
@@ -15,6 +16,7 @@ from aioresponses.core import RequestCall
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
 import hummingbot.connector.exchange.derive.derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
+from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -1939,14 +1941,20 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertTrue(self.is_logged(
             "ERROR",
             "Derive session key error 14026: The session key is not registered against this "
-            "wallet. Register it at derive.xyz with a trading scope (trade:orderbook:spot, "
-            "trade:orderbook:perp or trade:orderbook:all) plus off-chain account_info."
+            "wallet. Register it at derive.xyz with a scope that covers spot orders "
+            "(trade:orderbook:spot, or a broader grant such as trade:orderbook:all, trade:all or "
+            "admin). On v3 the wallet is your own EOA or multisig, not the v2 Derive Wallet address."
         ))
 
     def test_session_key_registered_to_another_wallet_names_both(self) -> None:
-        """The commonest setup mistake: entering the session key's own address as the wallet."""
+        """
+        The commonest setup mistake: entering the session key's own address as the wallet.
+
+        The wallet is deliberately left as the connector was built with it. These tests used to
+        assign exchange._wallet_address themselves, which hid that the connector has no such
+        attribute - it stores derive_wallet_address - and raised AttributeError on this path.
+        """
         self.exchange._trading_required = True
-        self.exchange._wallet_address = "0xTHEWALLETTHEYENTERED"
         self.exchange._auth.session_key_wallet = MagicMock()
         self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
         self.exchange._api_post = AsyncMock(return_value={
@@ -1957,19 +1965,82 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         logged = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
         self.assertTrue(any("registered to 0xtherealwallet" in m for m in logged), logged)
-        self.assertTrue(any("0xTHEWALLETTHEYENTERED" in m for m in logged), logged)
+        self.assertTrue(any(self.wallet_address in m for m in logged), logged)
+        # The expiry of a key that does not belong to this wallet is not asked for.
+        self.assertEqual(1, self.exchange._api_post.call_count)
 
     def test_matching_session_key_is_silent(self) -> None:
         self.exchange._trading_required = True
-        self.exchange._wallet_address = "0xTheWallet"
         self.exchange._auth.session_key_wallet = MagicMock()
         self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
-        self.exchange._api_post = AsyncMock(return_value={
-            "result": {"wallets": ["0xTHEWALLET"]}     # case differs; must still match
-        })
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"wallets": [self.wallet_address.upper()]}},     # case differs; must still match
+            {"result": {"public_session_keys": []}},
+        ])
 
         self.async_run_with_timeout(self.exchange._verify_session_key())
 
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_session_key_expiry_is_read_so_orders_cannot_outlive_the_key(self) -> None:
+        """
+        Resting orders are signed for as long as the API allows, and an action that outlives its
+        key is refused with 14038 - so the key's own expiry has to be known before signing.
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"wallets": [self.wallet_address]}},
+            {"result": {"public_session_keys": [
+                {"public_session_key": "0xANOTHERKEY", "expiry_sec": 1},
+                {"public_session_key": "0xsessionkey", "expiry_sec": 1893456000},  # case differs
+            ]}},
+        ])
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertEqual(1893456000, self.exchange._auth.session_key_expiry_sec)
+        lookup = self.exchange._api_post.call_args_list[1].kwargs
+        self.assertEqual(CONSTANTS.SESSION_KEYS_PATH_URL, lookup["path_url"])
+        self.assertEqual({"wallet": self.wallet_address}, lookup["data"])
+        self.assertTrue(lookup["is_auth_required"])
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_unreadable_session_key_expiry_does_not_stop_the_connector(self) -> None:
+        unreadable = [
+            IOError("connection reset"),
+            {"error": {"code": 14031, "message": "Unauthorized Key Scope"}},
+            {"result": {"public_session_keys": []}},
+            {"result": {"public_session_keys": [{"public_session_key": "0xSESSIONKEY"}]}},
+        ]
+        for response in unreadable:
+            self.exchange._trading_required = True
+            self.exchange._auth.session_key_wallet = MagicMock()
+            self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+            self.exchange._api_post = AsyncMock(side_effect=[
+                {"result": {"wallets": [self.wallet_address]}},
+                response,
+            ])
+
+            self.async_run_with_timeout(self.exchange._verify_session_key())
+
+            self.assertIsNone(self.exchange._auth.session_key_expiry_sec, response)
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_owner_wallet_signing_for_itself_is_not_looked_up_as_a_session_key(self) -> None:
+        """
+        Signing with the owner wallet is valid and involves no session key. Looking the wallet up
+        as one reported a correctly configured account as "session key not found".
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = self.wallet_address.upper().replace("0X", "0x")
+        self.exchange._api_post = AsyncMock()
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.exchange._api_post.assert_not_called()
         self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
 
     def test_session_key_check_is_skipped_without_trading(self) -> None:
@@ -1980,3 +2051,82 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.async_run_with_timeout(self.exchange._verify_session_key())
 
         self.exchange._api_post.assert_not_called()
+
+    def _private_url(self, path_url: str) -> re.Pattern:
+        return re.compile("^" + re.escape(web_utils.private_rest_url(path_url, domain=self.exchange._domain)))
+
+    def _sent_body(self, mock_api: aioresponses, url, index: int = 0) -> Dict[str, Any]:
+        return json.loads(self._all_executed_requests(mock_api, url)[index].kwargs["data"])
+
+    @aioresponses()
+    def test_request_bodies_carry_the_subaccount_id_as_an_integer(self, mock_api):
+        """
+        Credentials reach the connector as strings. v3 declares the subaccount id an integer and
+        most routes hold to it - public/get_trade_history answers the string with -32602 "invalid
+        type: string, expected i64" - so every private request body has to carry the integer, the
+        balance poll first among them.
+        """
+        self.exchange = DeriveExchange(
+            session_private_key=self.session_private_key,
+            subacct_id=str(self.subacct_id),     # as the config supplies it
+            account_type=self.account_type,
+            derive_wallet_address=self.wallet_address,
+            trading_pairs=[self.trading_pair],
+        )
+        self._simulate_trading_rules_initialized()
+        self.exchange.start_tracking_order(
+            order_id="OID-TYPE",
+            exchange_order_id="EX-TYPE",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID-TYPE"]
+
+        urls = {
+            "balances": self._private_url(CONSTANTS.ACCOUNTS_PATH_URL),
+            "order status": self._private_url(CONSTANTS.ORDER_STATUS_PATH_URL),
+        }
+        mock_api.post(urls["balances"], body=json.dumps(self.balance_request_mock_response_for_base_and_quote))
+        mock_api.post(urls["order status"], body=json.dumps(self._order_status_request_open_mock_response(order)))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+        self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        for name, url in urls.items():
+            sent = self._sent_body(mock_api, url)["subaccount_id"]
+            self.assertEqual(45686, sent, name)
+            self.assertIs(int, type(sent), name)
+
+    @aioresponses()
+    def test_resting_orders_are_signed_to_live_until_filled_or_cancelled(self, mock_api):
+        """
+        "Orders always expire at signature_expiry_sec regardless of time-in-force." Signing every
+        order for an hour pulled each resting order from the book an hour after it was placed.
+        """
+        self._simulate_trading_rules_initialized()
+        cases = [
+            (OrderType.LIMIT, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.LIMIT_MAKER, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.MARKET, CONSTANTS.SIGNATURE_VALIDITY_SEC),
+        ]
+        url = self.order_creation_url
+        placed_at = time.time()
+        for index, (order_type, _) in enumerate(cases):
+            mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id=f"0x{index:032x}",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=order_type,
+                price=Decimal("10000"),
+            ))
+
+        for index, (order_type, expected_validity) in enumerate(cases):
+            sent = self._sent_body(mock_api, url, index)
+            self.assertAlmostEqual(
+                expected_validity, sent["signature_expiry_sec"] - placed_at, delta=30, msg=order_type.name
+            )

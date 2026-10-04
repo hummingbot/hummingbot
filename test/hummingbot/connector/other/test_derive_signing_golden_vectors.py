@@ -2,8 +2,12 @@ import json
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from hummingbot.connector.other.derive_common_utils import (
+    MAX_SIGNATURE_EXPIRY_SEC,
+    RESTING_ORDER_VALIDITY_SEC,
+    SESSION_KEY_EXPIRY_MARGIN_SEC,
     ModuleData,
     SignedAction,
     TradeModuleData,
@@ -12,14 +16,20 @@ from hummingbot.connector.other.derive_common_utils import (
     decimal_to_big_int,
     estimate_max_fee,
     get_action_nonce,
+    get_order_signature_expiry_sec,
     get_signature_expiry_sec,
+    parse_subaccount_id,
 )
 
 GOLDEN_VECTORS = Path(__file__).parent / "fixtures" / "derive_golden_vectors.json"
 
-# Published v3 domain separators, from docs.derive.xyz. The point of the tests below is that we
-# never hardcode these in the connector: they are derived, and these values only pin the
-# derivation.
+# The v3 domain separators as published in the "Domain separator" table at
+# docs.derive.xyz/authentication/action-signing, which also gives the chain ids and the verifying
+# contract. derive-py hardcodes the same two values (derive_py/config/contracts.py), and derive-ts
+# derives them from the same chain ids and contract (src/config/networks.ts, src/signing/eip712.ts).
+#
+# The connector never hardcodes these: it derives them, and the values here pin the derivation
+# against what Derive publishes.
 MAINNET_CHAIN_ID = 1
 TESTNET_CHAIN_ID = 11155111
 MATCHING_CONTRACT = "0xeB8d770ec18DB98Db922E9D83260A585b9F0DeAD"  # noqa: mock
@@ -187,7 +197,7 @@ class DeriveEncodingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_signature_expiry_sec(2 ** 31 - 1)  # the v2 value
 
-    def test_max_fee_matches_the_derive_ts_formula(self):
+    def test_max_fee_without_an_amount_takes_the_base_fee_per_unit(self):
         # 3 * (2 * 0.0003 * max(2700, 2695) + 0.01) == 3 * (1.62 + 0.01) == 4.89
         self.assertEqual(
             Decimal("4.89"),
@@ -198,6 +208,94 @@ class DeriveEncodingTests(unittest.TestCase):
                 limit_price=Decimal("2700"),
             ),
         )
+
+    def test_max_fee_keeps_the_same_headroom_over_the_engines_bound_at_every_size(self):
+        """
+        docs.derive.xyz/integrators/trading/trading-fees: a crossing order needs
+        max_fee > 2 * max(taker, maker) * max(limit, index) + base_fee / fill_amount.
+
+        The base fee is flat per order, so its per-unit share grows as the order shrinks. With
+        the amount the cap is three times the bound whatever the size.
+        """
+        taker, base_fee, index = Decimal("0.0003"), Decimal("0.01"), Decimal("121.185")
+
+        for amount in (Decimal("400"), Decimal("1"), Decimal("0.1"), Decimal("0.0001")):
+            required = 2 * taker * index + base_fee / amount
+            max_fee = estimate_max_fee(
+                taker_fee_rate=taker, base_fee=base_fee, index_price=index, limit_price=index, amount=amount
+            )
+            self.assertEqual(3 * required, max_fee, amount)
+
+        # Taken undivided, the headroom depended on the size instead: about 1.4x for a 0.1 unit
+        # order at this price, and under the bound altogether for a small enough one.
+        undivided = estimate_max_fee(taker_fee_rate=taker, base_fee=base_fee, index_price=index, limit_price=index)
+        self.assertLess(undivided, 2 * (2 * taker * index + base_fee / Decimal("0.1")))
+        self.assertLess(undivided, 2 * taker * index + base_fee / Decimal("0.01"))
+
+    def test_max_fee_uses_the_larger_fee_rate_and_the_larger_price(self):
+        max_fee = estimate_max_fee(
+            taker_fee_rate=Decimal("0.0003"),
+            maker_fee_rate=Decimal("0.0005"),
+            base_fee=Decimal("0"),
+            index_price=Decimal("100"),
+            limit_price=Decimal("90"),
+            amount=Decimal("1"),
+        )
+        self.assertEqual(Decimal("0.3"), max_fee)    # 3 * 2 * 0.0005 * 100
+
+    def test_max_fee_is_rounded_up_to_signable_precision(self):
+        max_fee = estimate_max_fee(
+            taker_fee_rate=Decimal("0.0003"),
+            base_fee=Decimal("0.01"),
+            index_price=Decimal("2.5"),
+            limit_price=Decimal("2.5"),
+            amount=Decimal("3"),            # 0.01 / 3 does not terminate
+        )
+        self.assertGreaterEqual(max_fee, 3 * (2 * Decimal("0.0003") * Decimal("2.5") + Decimal("0.01") / 3))
+        decimal_to_big_int(max_fee)         # would raise if finer than 1e-12
+
+    def test_subaccount_id_is_normalised_to_an_integer(self):
+        for configured in ("45686", 45686, " 45686 "):
+            parsed = parse_subaccount_id(configured)
+            self.assertEqual(45686, parsed)
+            self.assertIs(int, type(parsed))
+
+        # No account configured, as when a connector is built only to list trading pairs.
+        self.assertIsNone(parse_subaccount_id(None))
+        self.assertIsNone(parse_subaccount_id(""))
+
+        with self.assertRaises(ValueError) as context:
+            parse_subaccount_id("main-account")
+        self.assertIn("must be a whole number", str(context.exception))
+
+    def test_resting_order_validity_sits_just_inside_the_api_ceiling(self):
+        self.assertLess(RESTING_ORDER_VALIDITY_SEC, MAX_SIGNATURE_EXPIRY_SEC)
+        self.assertEqual(24 * 60 * 60, MAX_SIGNATURE_EXPIRY_SEC - RESTING_ORDER_VALIDITY_SEC)
+
+    def test_order_signature_expiry_is_held_inside_the_session_key_lifetime(self):
+        now = 1_700_000_000
+        with patch("hummingbot.connector.other.derive_common_utils.time.time", return_value=now):
+            # No key expiry known: the requested window stands.
+            self.assertEqual(now + 3600, get_order_signature_expiry_sec(3600))
+            self.assertEqual(now + 3600, get_order_signature_expiry_sec(3600, None))
+
+            # The key outlives the window: unchanged.
+            self.assertEqual(now + 3600, get_order_signature_expiry_sec(3600, now + 86400))
+
+            # The window would outlive the key: shortened to end just before it (14038 otherwise).
+            key_expiry = now + 86400
+            self.assertEqual(
+                key_expiry - SESSION_KEY_EXPIRY_MARGIN_SEC,
+                get_order_signature_expiry_sec(RESTING_ORDER_VALIDITY_SEC, key_expiry),
+            )
+
+            # Too little of the key left to sign anything with.
+            with self.assertRaises(ValueError) as context:
+                get_order_signature_expiry_sec(3600, now + 200)
+            self.assertIn("expires in 200 seconds", str(context.exception))
+            with self.assertRaises(ValueError) as context:
+                get_order_signature_expiry_sec(3600, now - 1)
+            self.assertIn("has expired", str(context.exception))
 
 
 if __name__ == "__main__":

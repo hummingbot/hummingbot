@@ -91,9 +91,10 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             await self._authenticate(websocket_assistant)  # Authenticate once
 
-            # v3 has no positions websocket channel, so positions are polled by the connector
-            # rather than requested over the socket. This used to issue private/get_subaccount
-            # and private/get_positions as websocket RPC calls alongside the subscriptions.
+            # Positions are polled by the connector rather than read from the socket: the only
+            # channel carrying them is {subaccount_id}.balances, which this source does not
+            # consume. This used to issue private/get_subaccount and private/get_positions as
+            # websocket RPC calls alongside the subscriptions.
             subscription_payloads = [
                 {
                     "method": "subscribe",

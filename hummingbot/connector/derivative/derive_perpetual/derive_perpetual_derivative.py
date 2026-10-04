@@ -21,7 +21,7 @@ from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_user_
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth import DerivePerpetualAuth
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.other.derive_common_utils import estimate_max_fee
+from hummingbot.connector.other.derive_common_utils import estimate_max_fee, parse_subaccount_id
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
@@ -59,7 +59,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     ):
         self.derive_perpetual_wallet_address = derive_perpetual_wallet_address
         self.session_private_key = session_private_key
-        self._subacct_id = subacct_id
+        # Credentials arrive as strings, and most v3 routes refuse one where an integer is
+        # declared. The id is normalised once here rather than at each request body carrying it.
+        self._subacct_id = parse_subaccount_id(subacct_id)
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
@@ -279,7 +281,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _verify_session_key(self) -> None:
         """
-        Checks the session key is registered against the configured wallet before trading.
+        Checks the session key is registered against the configured wallet before trading, and
+        reads how long it has left.
 
         Without this the first authenticated call fails with a bare 14026, which does not say
         whether the key is unregistered, expired, or simply paired with a different wallet than
@@ -292,6 +295,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         try:
             signer = self._auth.session_key_wallet.address
         except Exception:
+            return
+
+        if signer.lower() == (self.derive_perpetual_wallet_address or "").lower():
+            # The owner wallet is signing for itself. That is a valid setup with no session key
+            # behind it, and the lookup below would report the wallet as an unknown key.
             return
 
         try:
@@ -324,6 +332,43 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 f"the account address shown at derive.xyz rather than the session key's own "
                 f"address."
             )
+            return
+
+        await self._update_session_key_expiry(signer)
+
+    async def _update_session_key_expiry(self, signer: str) -> None:
+        """
+        Reads the session key's expiry so that no order is signed to outlive it.
+
+        A resting order is signed for as long as the API allows, because v3 expires an order when
+        its signature does. An action that outlives its key is refused with 14038, so that window
+        has to be held inside the key's own lifetime.
+        """
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.SESSION_KEYS_PATH_URL,
+                data={"wallet": self.derive_perpetual_wallet_address},
+                is_auth_required=True,
+            )
+            session_keys = (response.get("result") or {}).get("public_session_keys") or []
+            expiry = next(
+                (
+                    int(session_key["expiry_sec"])
+                    for session_key in session_keys
+                    if str(session_key.get("public_session_key", "")).lower() == signer.lower()
+                ),
+                None,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Not knowing the expiry is no reason to refuse to start. Orders are then signed
+            # without the cap, and a key too short-lived for them is reported as 14038.
+            self.logger().debug("Could not read the Derive session key expiry.", exc_info=True)
+            return
+
+        if expiry is not None:
+            self._auth.session_key_expiry_sec = expiry
 
     @staticmethod
     def _error_code(exception: Exception) -> Optional[int]:
@@ -355,7 +400,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         return self._error_code(cancelation_exception) in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES
 
     def _estimate_order_max_fee(
-        self, instrument: Dict[str, Any], trading_pair: str, limit_price: Decimal
+        self,
+        instrument: Dict[str, Any],
+        trading_pair: str,
+        limit_price: Decimal,
+        amount: Optional[Decimal] = None,
     ) -> Decimal:
         """
         Derives the max_fee to sign an order with.
@@ -363,18 +412,37 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         The fee ceiling is part of the signed payload, so a flat value (this used to send 1000 for
         every order) is either wildly over-permissive or, on an expensive instrument, too low - in
         which case the order is rejected with 11023 or cancelled with signed_max_fee_too_low.
+
+        The engine costs the fee off max(limit price, index price). The index comes from the
+        funding info, which the ticker stream keeps current. The local mid only stands in until
+        that has arrived: it is not the index, and on a book with no orders there is no mid at
+        all, which would leave a bid well below the market costed off its own limit price.
         """
         try:
-            mid_price = self.get_mid_price(trading_pair)
-        except Exception:
-            mid_price = limit_price
+            index_price = self._perpetual_trading.get_funding_info(trading_pair).index_price
+        except KeyError:
+            index_price = None
+        if not self._is_usable_price(index_price):
+            try:
+                index_price = self.get_mid_price(trading_pair)
+            except Exception:
+                index_price = None
 
         return estimate_max_fee(
             taker_fee_rate=Decimal(str(instrument.get("taker_fee_rate", "0"))),
+            maker_fee_rate=Decimal(str(instrument.get("maker_fee_rate", "0"))),
             base_fee=Decimal(str(instrument.get("base_fee", "0"))),
-            index_price=mid_price if mid_price and mid_price > s_decimal_0 else limit_price,
+            index_price=index_price if self._is_usable_price(index_price) else limit_price,
             limit_price=limit_price,
+            amount=amount,
         )
+
+    @staticmethod
+    def _is_usable_price(price: Optional[Decimal]) -> bool:
+        try:
+            return price is not None and not Decimal(price).is_nan() and Decimal(price) > s_decimal_0
+        except Exception:
+            return False
 
     def _get_fee(self,
                  base_currency: str,
@@ -622,7 +690,17 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         quantized_price = self.quantize_order_price(trading_pair, Decimal(str(price)))
         quantized_amount = self.quantize_order_amount(trading_pair, Decimal(str(amount)))
         max_fee = self._estimate_order_max_fee(
-            instrument=instrument, trading_pair=trading_pair, limit_price=quantized_price
+            instrument=instrument,
+            trading_pair=trading_pair,
+            limit_price=quantized_price,
+            amount=quantized_amount,
+        )
+        # reduce_only is what stops a close from running through zero into the opposite position,
+        # but v3 only accepts it on an order that cannot rest: market, IOC or FOK. On a resting
+        # close it is refused with 11024, so a GTC or post-only close goes out without it, as it
+        # did under v2.
+        reduce_only = position_action == PositionAction.CLOSE and (
+            price_type == "market" or param_order_type in CONSTANTS.REDUCE_ONLY_TIME_IN_FORCE
         )
         api_params = {
             "asset_address": instrument["base_asset_address"],
@@ -636,9 +714,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             "is_bid": True if trade_type is TradeType.BUY else False,
             "direction": "buy" if trade_type is TradeType.BUY else "sell",
             "order_type": price_type,
-            # Always sending False meant a close could grow the opposite position instead of
-            # reducing the one being closed.
-            "reduce_only": position_action == PositionAction.CLOSE,
+            "reduce_only": reduce_only,
             "referral_code": CONSTANTS.REFERRAL_CODE,
             "mmp": False,
             "time_in_force": param_order_type,
@@ -1129,7 +1205,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 # index and drifts with the market.
                 entry_price = Decimal(str(position.get("average_price")))
                 amount = Decimal(str(position.get("amount", 0)))
-                leverage = position.get("leverage", 0)
+                # leverage is nullable and optional in the v3 schema. Derive is cross-margined, so
+                # a position does not always have a figure of its own; when it has none, keep the
+                # value already held rather than fail the whole poll on Decimal(None).
+                reported_leverage = position.get("leverage")
+                if reported_leverage in (None, ""):
+                    leverage = Decimal(str(self._perpetual_trading.get_leverage(hb_trading_pair)))
+                else:
+                    leverage = Decimal(str(reported_leverage))
                 pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
                 if amount != 0:
                     _position = Position(
@@ -1138,10 +1221,10 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                         unrealized_pnl=unrealized_pnl,
                         entry_price=entry_price,
                         amount=amount,
-                        leverage=Decimal(leverage)
+                        leverage=leverage
                     )
                     # Keyed by the Hummingbot pair, not the exchange instrument name.
-                    self._perpetual_trading.set_leverage(hb_trading_pair, Decimal(str(leverage)))
+                    self._perpetual_trading.set_leverage(hb_trading_pair, leverage)
                     self._perpetual_trading.set_position(pos_key, _position)
                 else:
                     self._perpetual_trading.remove_position(pos_key)
@@ -1203,7 +1286,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         payment_response = await self._api_post(
             path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
             data={
-                "period": 3600,
                 "page": 1,
                 "page_size": 100,
                 "start_timestamp": self._last_funding_time(),
@@ -1218,11 +1300,12 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         funding_info_response = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
             data=payload)
-        sorted_payment_response = payment_response["result"]["events"]
-        if len(sorted_payment_response) < 1:
+        events = payment_response["result"]["events"]
+        if len(events) < 1:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
             return timestamp, funding_rate, payment
-        funding_payment = sorted_payment_response[0]
+        # The order the events come back in is not specified, so take the latest explicitly.
+        funding_payment = max(events, key=lambda event: event["timestamp"])
         _payment = Decimal(funding_payment["funding"])
         # v3 slim ticker: "f" is the current hourly funding rate. perp_details is not part of
         # the slim payload any more.

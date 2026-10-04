@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,6 +21,7 @@ from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_order
     DerivePerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative import DerivePerpetualDerivative
+from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -711,7 +713,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["data"]
         data = json.loads(request_params)
-        self.assertEqual(self.subacct_id, data["subaccount_id"])
+        self.assertEqual(int(self.subacct_id), data["subaccount_id"])
 
     def _configure_balance_response(
             self,
@@ -2644,7 +2646,7 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.subacct_id, request_params["subaccount_id"])
+        self.assertEqual(int(self.subacct_id), request_params["subaccount_id"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -2922,3 +2924,288 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(PositionAction.CLOSE.value, fill_event.position)
         self.assertIsInstance(fill_event.trade_fee, DeductedFromReturnsTradeFee)
+
+    def _private_url(self, path_url: str) -> re.Pattern:
+        return re.compile("^" + re.escape(web_utils.private_rest_url(path_url, domain=self.exchange._domain)))
+
+    def _sent_body(self, mock_api: aioresponses, url, index: int = 0) -> Dict[str, Any]:
+        return json.loads(self._all_executed_requests(mock_api, url)[index].kwargs["data"])
+
+    @aioresponses()
+    def test_request_bodies_carry_the_subaccount_id_as_an_integer(self, mock_api):
+        """
+        Credentials reach the connector as strings, which is how this fixture builds it. v3
+        declares the subaccount id an integer and most routes hold to it - public/get_trade_history
+        answers the string with -32602 "invalid type: string, expected i64" - so every private
+        request body has to carry the integer, the balance poll first among them.
+        """
+        self.assertIsInstance(self.subacct_id, str)
+        self._simulate_trading_rules_initialized()
+        self.exchange.start_tracking_order(
+            order_id="OID-TYPE",
+            exchange_order_id="EX-TYPE",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID-TYPE"]
+
+        urls = {
+            "balances": self._private_url(CONSTANTS.ACCOUNTS_PATH_URL),
+            "positions": self._private_url(CONSTANTS.POSITION_INFORMATION_URL),
+            "order status": self._private_url(CONSTANTS.ORDER_STATUS_PATH_URL),
+            "funding history": self._private_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL),
+        }
+        mock_api.post(urls["balances"], body=json.dumps(self.balance_request_mock_response_for_base_and_quote))
+        mock_api.post(urls["positions"], body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
+        mock_api.post(urls["order status"], body=json.dumps(self._order_status_request_open_mock_response(order)))
+        mock_api.post(urls["funding history"], body=json.dumps(self._get_income_history_dict()))
+        mock_api.post(self.funding_info_url, body=json.dumps(self._get_funding_info_dict()))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.async_run_with_timeout(self.exchange._request_order_status(order))
+        self.async_run_with_timeout(self.exchange._fetch_last_fee_payment(self.trading_pair))
+
+        for name, url in urls.items():
+            sent = self._sent_body(mock_api, url)["subaccount_id"]
+            self.assertEqual(45686, sent, name)
+            self.assertIs(int, type(sent), name)
+
+    @aioresponses()
+    def test_reduce_only_is_sent_only_where_v3_accepts_it(self, mock_api):
+        """
+        reduce_only is "supported only for market orders and non-resting limit orders (ioc or
+        fok)". On an order that can rest it is refused with 11024, so setting it on every close
+        would have rejected every GTC and post-only close - a take-profit limit, for one.
+        """
+        self._simulate_trading_rules_initialized()
+        cases = [
+            (OrderType.MARKET, PositionAction.CLOSE, True),
+            (OrderType.LIMIT, PositionAction.CLOSE, False),
+            (OrderType.LIMIT_MAKER, PositionAction.CLOSE, False),
+            (OrderType.MARKET, PositionAction.OPEN, False),
+            (OrderType.LIMIT, PositionAction.OPEN, False),
+        ]
+        url = self.order_creation_url
+        for index, (order_type, position_action, _) in enumerate(cases):
+            mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id=f"0x{index:032x}",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.SELL,
+                order_type=order_type,
+                price=Decimal("10000"),
+                position_action=position_action,
+            ))
+
+        self.assertEqual(len(cases), len(self._all_executed_requests(mock_api, url)))
+        for index, (order_type, position_action, expected) in enumerate(cases):
+            sent = self._sent_body(mock_api, url, index)
+            self.assertIs(expected, sent["reduce_only"], f"{order_type.name} {position_action.name}")
+            # Never alongside a time in force that lets the order rest.
+            if sent["reduce_only"]:
+                self.assertNotIn(sent["time_in_force"], CONSTANTS.RESTING_TIME_IN_FORCE)
+
+    @aioresponses()
+    def test_resting_orders_are_signed_to_live_until_filled_or_cancelled(self, mock_api):
+        """
+        "Orders always expire at signature_expiry_sec regardless of time-in-force." Signing every
+        order for an hour pulled each resting order from the book an hour after it was placed.
+        """
+        self._simulate_trading_rules_initialized()
+        cases = [
+            (OrderType.LIMIT, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.LIMIT_MAKER, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.MARKET, CONSTANTS.SIGNATURE_VALIDITY_SEC),
+        ]
+        url = self.order_creation_url
+        placed_at = time.time()
+        for index, (order_type, _) in enumerate(cases):
+            mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id=f"0x{index:032x}",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=order_type,
+                price=Decimal("10000"),
+                position_action=PositionAction.OPEN,
+            ))
+
+        for index, (order_type, expected_validity) in enumerate(cases):
+            sent = self._sent_body(mock_api, url, index)
+            self.assertAlmostEqual(
+                expected_validity, sent["signature_expiry_sec"] - placed_at, delta=30, msg=order_type.name
+            )
+
+    @aioresponses()
+    def test_position_without_a_leverage_figure_does_not_break_the_poll(self, req_mock):
+        """
+        leverage is nullable and optional in the v3 Position schema. A null used to reach
+        Decimal(None) and take the whole positions poll down with a TypeError.
+        """
+        self._simulate_trading_rules_initialized()
+        url = self._private_url(CONSTANTS.POSITION_INFORMATION_URL)
+
+        for variant in ("null", "absent"):
+            positions = self._get_position_risk_api_endpoint_single_position_list()
+            if variant == "null":
+                positions["result"]["positions"][0]["leverage"] = None
+            else:
+                del positions["result"]["positions"][0]["leverage"]
+            req_mock.post(url, body=json.dumps(positions))
+            self.exchange._perpetual_trading.set_leverage(self.trading_pair, 7)
+
+            self.async_run_with_timeout(self.exchange._update_positions())
+
+            position = list(self.exchange.account_positions.values())[0]
+            # The figure already held is kept rather than replaced with a meaningless zero.
+            self.assertEqual(Decimal("7"), position.leverage, variant)
+            self.assertEqual(7, self.exchange._perpetual_trading.get_leverage(self.trading_pair), variant)
+
+        # A figure the exchange does report still takes precedence.
+        req_mock.post(url, body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        position = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(Decimal("25"), position.leverage)
+        self.assertEqual(25, self.exchange._perpetual_trading.get_leverage(self.trading_pair))
+
+    @aioresponses()
+    def test_last_fee_payment_takes_the_latest_event_and_sends_only_v3_parameters(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        income_history = self._get_income_history_dict()
+        latest = income_history["result"]["events"][0]
+        older = dict(latest, timestamp=latest["timestamp"] - 3_600_000, funding="0.5")
+        # Oldest first: the order is not specified, so the first entry cannot be assumed latest.
+        income_history["result"]["events"] = [older, latest]
+        url = self._private_url(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL)
+        req_mock.post(url, body=json.dumps(income_history))
+        req_mock.post(self.funding_info_url, body=json.dumps(self._get_funding_info_dict()))
+
+        timestamp, _, payment = self.async_run_with_timeout(
+            self.exchange._fetch_last_fee_payment(self.trading_pair)
+        )
+
+        self.assertEqual(Decimal(latest["funding"]), payment)
+        self.assertEqual(latest["timestamp"] * 1e-3, timestamp)
+        # "period" was a v2 parameter; v3's private/get_funding_history does not define it.
+        self.assertEqual(
+            {"page", "page_size", "start_timestamp", "instrument_name", "subaccount_id"},
+            set(self._sent_body(req_mock, url)),
+        )
+
+    def _use_session_key(self, address: str = "0xSESSIONKEY") -> None:
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = address
+
+    def test_session_key_expiry_is_read_so_orders_cannot_outlive_the_key(self) -> None:
+        """
+        Resting orders are signed for as long as the API allows, and an action that outlives its
+        key is refused with 14038 - so the key's own expiry has to be known before signing.
+        """
+        self._use_session_key()
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"wallets": [self.wallet_address]}},
+            {"result": {"public_session_keys": [
+                {"public_session_key": "0xANOTHERKEY", "expiry_sec": 1},
+                {"public_session_key": "0xsessionkey", "expiry_sec": 1893456000},  # case differs
+            ]}},
+        ])
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertEqual(1893456000, self.exchange._auth.session_key_expiry_sec)
+        lookup = self.exchange._api_post.call_args_list[1].kwargs
+        self.assertEqual(CONSTANTS.SESSION_KEYS_PATH_URL, lookup["path_url"])
+        self.assertEqual({"wallet": self.wallet_address}, lookup["data"])
+        self.assertTrue(lookup["is_auth_required"])
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_unreadable_session_key_expiry_does_not_stop_the_connector(self) -> None:
+        unreadable = [
+            IOError("connection reset"),
+            {"error": {"code": 14031, "message": "Unauthorized Key Scope"}},
+            {"result": {"public_session_keys": []}},
+            {"result": {"public_session_keys": [{"public_session_key": "0xSESSIONKEY"}]}},
+        ]
+        for response in unreadable:
+            self._use_session_key()
+            self.exchange._api_post = AsyncMock(side_effect=[
+                {"result": {"wallets": [self.wallet_address]}},
+                response,
+            ])
+
+            self.async_run_with_timeout(self.exchange._verify_session_key())
+
+            self.assertIsNone(self.exchange._auth.session_key_expiry_sec, response)
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_owner_wallet_signing_for_itself_is_not_looked_up_as_a_session_key(self) -> None:
+        """
+        Signing with the owner wallet is valid and involves no session key. Looking the wallet up
+        as one reported a correctly configured account as "session key not found".
+        """
+        self._use_session_key(self.wallet_address.upper().replace("0X", "0x"))
+        self.exchange._api_post = AsyncMock()
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.exchange._api_post.assert_not_called()
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_session_key_registered_to_another_wallet_names_both(self) -> None:
+        """The commonest setup mistake: entering the session key's own address as the wallet."""
+        self._use_session_key()
+        self.exchange._api_post = AsyncMock(return_value={"result": {"wallets": ["0xTHEREALWALLET"]}})
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        logged = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any("registered to 0xtherealwallet" in m for m in logged), logged)
+        self.assertTrue(any(self.wallet_address in m for m in logged), logged)
+        # The expiry of a key that does not belong to this wallet is not asked for.
+        self.assertEqual(1, self.exchange._api_post.call_count)
+
+    def test_max_fee_is_costed_off_the_index_price(self):
+        """
+        The engine costs the fee off max(limit price, index price). The connector used the local
+        order book mid in place of the index, which on a book with no orders does not exist - so
+        a bid below the market was costed off its own limit price and signed under the intended
+        headroom.
+        """
+        self._simulate_trading_rules_initialized()
+        instrument = {"taker_fee_rate": "0.0003", "maker_fee_rate": "0.0001", "base_fee": "0.01"}
+        limit_price, amount = Decimal("50"), Decimal("1")
+
+        def max_fee():
+            return self.exchange._estimate_order_max_fee(
+                instrument=instrument, trading_pair=self.trading_pair, limit_price=limit_price, amount=amount
+            )
+
+        def expected(reference_price):
+            return 3 * (2 * Decimal("0.0003") * Decimal(reference_price) + Decimal("0.01"))
+
+        # No funding info and no order book: only the limit price is left to go on.
+        self.assertEqual(expected(50), max_fee())
+
+        # A local mid, but still no funding info: the mid stands in.
+        with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal("90")):
+            self.assertEqual(expected(90), max_fee())
+
+            # Once the index is known it is what the fee is costed off, not the mid.
+            self.exchange._perpetual_trading._funding_info[self.trading_pair] = MagicMock(index_price=Decimal("100"))
+            self.assertEqual(expected(100), max_fee())
+
+        # The index alone is enough: an empty book no longer drops the cap to the limit price.
+        self.assertEqual(expected(100), max_fee())
+
+        # An index that has not been populated yet is not trusted.
+        for unusable in (Decimal("0"), Decimal("NaN"), None):
+            self.exchange._perpetual_trading._funding_info[self.trading_pair] = MagicMock(index_price=unusable)
+            self.assertEqual(expected(50), max_fee(), unusable)

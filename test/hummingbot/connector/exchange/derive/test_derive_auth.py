@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 import eth_utils
 from web3 import Web3
 
+from hummingbot.connector.exchange.derive import derive_constants as CONSTANTS
 from hummingbot.connector.exchange.derive.derive_auth import DeriveAuth
+from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC, SESSION_KEY_EXPIRY_MARGIN_SEC
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
@@ -25,9 +27,106 @@ class DeriveAuthTests(TestCase):
     def test_initialization(self):
         self.assertEqual(self.auth._wallet_address, self.wallet_address)
         self.assertEqual(self.auth._session_private_key, self.session_private_key)
-        self.assertEqual(self.auth._subacct_id, self.subacct_id)
+        self.assertEqual(self.auth._subacct_id, int(self.subacct_id))
         self.assertTrue(self.auth._trading_required)
         self.assertIsInstance(self.auth._w3, Web3)
+
+    def _auth_for(self, subacct_id, trading_required: bool = True) -> DeriveAuth:
+        return DeriveAuth(
+            wallet_address=self.wallet_address,
+            session_private_key=self.session_private_key,
+            subacct_id=subacct_id,
+            trading_required=trading_required,
+            domain=self.domain,
+        )
+
+    def test_subaccount_id_is_an_integer_however_it_was_configured(self):
+        """
+        Credentials reach the connector as strings, while v3 declares the subaccount id an integer
+        and most routes hold to it: public/get_trade_history answers {"subaccount_id": "45686"}
+        with -32602 "invalid type: string, expected i64". The id is normalised once so that no
+        request body can carry the string.
+        """
+        self.assertEqual(45686, self.auth._subacct_id)
+        self.assertIsInstance(self.auth._subacct_id, int)
+
+        for configured in (45686, " 45686 "):
+            self.assertEqual(45686, self._auth_for(configured)._subacct_id)
+
+    def test_missing_subaccount_id_is_tolerated_and_a_malformed_one_is_named(self):
+        # The trading-pair fetcher builds a connector with empty placeholder credentials.
+        for placeholder in (None, ""):
+            self.assertIsNone(self._auth_for(placeholder, trading_required=False)._subacct_id)
+
+        with self.assertRaises(ValueError) as context:
+            self._auth_for("main-account")
+        self.assertIn("must be a whole number", str(context.exception))
+
+    def _signed_order(self, **order):
+        params = {
+            "asset_address": "0x1234567890abcdef1234567890abcdef12345678",  # noqa: mock
+            "sub_id": 0,
+            "limit_price": "100",
+            "amount": "10",
+            "max_fee": "1",
+            "recipient_id": 45686,
+            "is_bid": True,
+        }
+        params.update(order)
+        return self.auth.sign(params)
+
+    def test_resting_order_is_signed_for_as_long_as_the_api_allows(self):
+        """
+        v3 expires an order when its signature does, whatever its time in force. Signing a GTC
+        order for an hour pulled it from the book an hour later, where v2's far-future expiry
+        left it until it was filled or cancelled.
+        """
+        now = 1_700_000_000
+        with patch("hummingbot.connector.other.derive_common_utils.time.time", return_value=now):
+            for time_in_force in ("gtc", "post_only"):
+                signed = self._signed_order(order_type="limit", time_in_force=time_in_force)
+                self.assertEqual(now + RESTING_ORDER_VALIDITY_SEC, signed["signature_expiry_sec"], time_in_force)
+
+        # 119 days: the API's 120 day ceiling, less a day of headroom for clock drift.
+        self.assertEqual(119 * 24 * 60 * 60, RESTING_ORDER_VALIDITY_SEC)
+
+    def test_order_that_cannot_rest_is_signed_for_a_short_window(self):
+        now = 1_700_000_000
+        with patch("hummingbot.connector.other.derive_common_utils.time.time", return_value=now):
+            for order_type, time_in_force in (("market", "ioc"), ("limit", "ioc"), ("limit", "fok")):
+                signed = self._signed_order(order_type=order_type, time_in_force=time_in_force)
+                self.assertEqual(
+                    now + CONSTANTS.SIGNATURE_VALIDITY_SEC,
+                    signed["signature_expiry_sec"],
+                    f"{order_type}/{time_in_force}",
+                )
+
+    def test_signature_never_outlives_the_session_key(self):
+        """An action that outlives the key that signed it is refused with 14038."""
+        now = 1_700_000_000
+        self.auth.session_key_expiry_sec = now + 7 * 24 * 60 * 60
+        with patch("hummingbot.connector.other.derive_common_utils.time.time", return_value=now):
+            resting = self._signed_order(order_type="limit", time_in_force="gtc")
+            immediate = self._signed_order(order_type="market", time_in_force="ioc")
+
+        self.assertEqual(
+            self.auth.session_key_expiry_sec - SESSION_KEY_EXPIRY_MARGIN_SEC, resting["signature_expiry_sec"]
+        )
+        # Already inside the key's lifetime, so left alone.
+        self.assertEqual(now + CONSTANTS.SIGNATURE_VALIDITY_SEC, immediate["signature_expiry_sec"])
+
+    def test_order_is_refused_once_the_session_key_is_about_to_expire(self):
+        now = 1_700_000_000
+        with patch("hummingbot.connector.other.derive_common_utils.time.time", return_value=now):
+            self.auth.session_key_expiry_sec = now + 120
+            with self.assertRaises(ValueError) as context:
+                self._signed_order(order_type="limit", time_in_force="gtc")
+            self.assertIn("expires in 120 seconds", str(context.exception))
+
+            self.auth.session_key_expiry_sec = now - 5
+            with self.assertRaises(ValueError) as context:
+                self._signed_order(order_type="market", time_in_force="ioc")
+            self.assertIn("has expired", str(context.exception))
 
     @patch("hummingbot.connector.exchange.derive.derive_auth.DeriveAuth.utc_now_ms")
     def test_header_for_authentication(self, mock_utc_now):
