@@ -3081,6 +3081,20 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         position = list(self.exchange.account_positions.values())[0]
         self.assertEqual(Decimal("25"), position.leverage)
 
+        # ...and the position keeps it when a later poll leaves it out. The pair's own setting,
+        # which is what an order carries, is a different number and must not take its place.
+        for variant in ("null", "absent"):
+            positions = self._get_position_risk_api_endpoint_single_position_list()
+            if variant == "null":
+                positions["result"]["positions"][0]["leverage"] = None
+            else:
+                del positions["result"]["positions"][0]["leverage"]
+            req_mock.post(url, body=json.dumps(positions))
+            self.async_run_with_timeout(self.exchange._update_positions())
+            position = list(self.exchange.account_positions.values())[0]
+            self.assertEqual(Decimal("25"), position.leverage, variant)
+        self.assertEqual(7, self.exchange._perpetual_trading.get_leverage(self.trading_pair))
+
     @aioresponses()
     def test_position_leverage_figure_does_not_become_the_pairs_leverage(self, req_mock):
         """

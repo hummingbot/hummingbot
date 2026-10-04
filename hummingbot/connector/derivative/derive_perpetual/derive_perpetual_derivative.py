@@ -1381,11 +1381,16 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 entry_price = Decimal(str(position.get("average_price")))
                 amount = Decimal(str(position.get("amount", 0)))
                 # leverage is nullable and optional in the v3 schema. Derive is cross-margined, so
-                # a position does not always have a figure of its own; when it has none, keep the
-                # value already held rather than fail the whole poll on Decimal(None).
+                # a position does not always have a figure of its own; when it has none, the
+                # position keeps the figure it last had rather than fail the whole poll on
+                # Decimal(None). Only a position first seen without one takes the pair's setting.
                 reported_leverage = position.get("leverage")
                 if reported_leverage in (None, ""):
-                    leverage = Decimal(str(self._perpetual_trading.get_leverage(hb_trading_pair)))
+                    held = self._perpetual_trading.get_position(hb_trading_pair, position_side)
+                    leverage = (
+                        held.leverage if held is not None
+                        else Decimal(str(self._perpetual_trading.get_leverage(hb_trading_pair)))
+                    )
                 else:
                     leverage = Decimal(str(reported_leverage))
                 pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
