@@ -228,41 +228,44 @@ def estimate_max_fee(
     index_price: Decimal,
     limit_price: Decimal,
     maker_fee_rate: Decimal = Decimal("0"),
-    amount: Optional[Decimal] = None,
+    amount_step: Optional[Decimal] = None,
+    can_take: bool = True,
 ) -> Decimal:
     """
     Estimates the ``max_fee`` to sign an order with: a cap per unit, in the quote currency.
 
-    The matching engine requires (docs.derive.xyz/integrators/trading/trading-fees)::
+    The exchange reports the cap it would sign itself as ``suggested_max_fee`` on order_quote.
+    Measured on testnet across instruments, sizes and order types, it is::
 
-        resting order:   max_fee > 2 * max(taker_fee, maker_fee) * max(limit_price, index_price)
-        crossing order:  the above + base_fee / fill_amount
+        1.1 * 2 * max(taker_fee, maker_fee) * max(limit_price, index_price)
+        + base_fee / amount_step                      # unless the order is post-only
 
-    The base fee is a flat charge per order, so its share of each unit grows as the order
-    shrinks. Adding it undivided, as this used to, leaves the headroom depending on the order's
-    size: generous above one unit, and thinner the smaller the order, down to none at all below
-    roughly 8 USDC of notional on a high-priced instrument. Minimum order sizes currently keep
-    orders above that, but dividing by the amount is what the rule actually says.
+    The second term is the flat per-order base fee spread over the smallest fill an order can
+    receive, a single amount step. The cap is compared with the fee per unit of each fill, so it
+    is that smallest fill which matters and not the order's own size: a taker order whose first
+    fill is small would otherwise be cancelled with ``signed_max_fee_too_low``. A post-only order
+    never takes, and so never pays the base fee.
 
-    Whether an order rests or crosses is only known once it reaches the book, so the crossing
-    bound is used for both, times the 3x headroom derive-ts signs with for the index moving
-    between signing and matching. The headroom matters because the fee is signed: below the
-    bound the order is rejected with error 11023, or cancelled with ``signed_max_fee_too_low``.
+    This keeps that structure, with 3x rather than 1.1x on the rate term - the headroom derive-ts
+    signs with, for the index moving between signing and matching. The headroom matters because
+    the fee is signed: under the bound the order is rejected with error 11023 or cancelled.
 
     :param taker_fee_rate: the instrument's taker fee rate
     :param base_fee: the instrument's flat base fee, charged once per taker order
     :param index_price: the current index price
     :param limit_price: the order's limit price
     :param maker_fee_rate: the instrument's maker fee rate
-    :param amount: the order amount. When omitted the base fee is taken per unit, as before.
+    :param amount_step: the instrument's amount step, the smallest fill possible. When it is not
+        known the base fee is taken per whole unit.
+    :param can_take: False for a post-only order, which cannot incur the base fee
     :return: the max fee, rounded up to the precision the API accepts
     """
     reference_price = max(Decimal(index_price), Decimal(limit_price))
     fee_rate = max(Decimal(taker_fee_rate), Decimal(maker_fee_rate))
-    base_fee_per_unit = Decimal(base_fee)
-    if amount is not None and Decimal(amount) > 0:
-        base_fee_per_unit = base_fee_per_unit / Decimal(amount)
-    max_fee = 3 * (2 * fee_rate * reference_price + base_fee_per_unit)
+    max_fee = 3 * 2 * fee_rate * reference_price
+    if can_take:
+        smallest_fill = Decimal(amount_step) if amount_step is not None and Decimal(amount_step) > 0 else Decimal("1")
+        max_fee += Decimal(base_fee) / smallest_fill
     # Rounded up so that quantizing can never take the cap back under the bound.
     return max_fee.quantize(MAX_SIGNED_PRECISION, rounding=ROUND_UP)
 

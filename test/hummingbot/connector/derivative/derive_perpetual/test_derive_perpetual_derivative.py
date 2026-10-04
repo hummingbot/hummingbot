@@ -3180,16 +3180,17 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         headroom.
         """
         self._simulate_trading_rules_initialized()
-        instrument = {"taker_fee_rate": "0.0003", "maker_fee_rate": "0.0001", "base_fee": "0.01"}
-        limit_price, amount = Decimal("50"), Decimal("1")
+        instrument = {"taker_fee_rate": "0.0003", "maker_fee_rate": "0.0001", "base_fee": "0.01", "amount_step": "0.1"}
+        limit_price = Decimal("50")
 
         def max_fee():
             return self.exchange._estimate_order_max_fee(
-                instrument=instrument, trading_pair=self.trading_pair, limit_price=limit_price, amount=amount
+                instrument=instrument, trading_pair=self.trading_pair, limit_price=limit_price
             )
 
         def expected(reference_price):
-            return 3 * (2 * Decimal("0.0003") * Decimal(reference_price) + Decimal("0.01"))
+            # The rate term off the reference price, plus the base fee over one amount step.
+            return 3 * 2 * Decimal("0.0003") * Decimal(reference_price) + Decimal("0.01") / Decimal("0.1")
 
         # No funding info and no order book: only the limit price is left to go on.
         self.assertEqual(expected(50), max_fee())
@@ -3206,6 +3207,302 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(expected(100), max_fee())
 
         # An index that has not been populated yet is not trusted.
-        for unusable in (Decimal("0"), Decimal("NaN"), None):
+        for unusable in (Decimal("0"), Decimal("NaN"), None, "not a number"):
             self.exchange._perpetual_trading._funding_info[self.trading_pair] = MagicMock(index_price=unusable)
             self.assertEqual(expected(50), max_fee(), unusable)
+
+    @aioresponses()
+    def test_post_only_orders_are_signed_without_the_base_fee_term(self, mock_api):
+        """
+        The exchange's own suggested cap adds base_fee / amount_step to any order that can take
+        and nothing to a post-only one, which never pays the base fee.
+        """
+        self._simulate_trading_rules_initialized()
+        instrument = self.exchange._instrument_ticker[0]
+        url = self.order_creation_url
+        for index, order_type in enumerate((OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET)):
+            mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id=f"0x{index:032x}",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=order_type,
+                price=Decimal("10000"),
+                position_action=PositionAction.OPEN,
+            ))
+        limit, post_only, market = (Decimal(self._sent_body(mock_api, url, i)["max_fee"]) for i in range(3))
+
+        base_fee_over_one_step = Decimal(instrument["base_fee"]) / Decimal(instrument["amount_step"])
+        self.assertEqual(base_fee_over_one_step, limit - post_only)
+        self.assertEqual(limit, market)
+        self.assertEqual(
+            3 * 2 * Decimal(instrument["taker_fee_rate"]) * Decimal("10000"), post_only
+        )
+
+    def _track_order(self, order_id: str = "OID-ERR", exchange_order_id: str = "EX-ERR") -> InFlightOrder:
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        return self.exchange.in_flight_orders[order_id]
+
+    def test_order_status_error_other_than_not_found_keeps_the_order(self):
+        """
+        The base class counts every error raised from the status poll as "order not found" and
+        retires the order after a few. A rate limit or a backend hiccup must not do that, so
+        the order is reported in the state it is already tracked in.
+        """
+        order = self._track_order()
+        for error in (
+            {"code": -32000, "message": "Rate limit exceeded"},
+            {"code": 9002, "message": "Backend temporarily unavailable, retry"},
+        ):
+            self.exchange._api_post = AsyncMock(return_value={"error": error})
+
+            update = self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+            self.assertEqual(order.current_state, update.new_state, error)
+            self.assertEqual(order.client_order_id, update.client_order_id)
+            self.assertEqual(order.exchange_order_id, update.exchange_order_id)
+        warnings = [r.getMessage() for r in self.log_records if r.levelname == "WARNING"]
+        self.assertTrue(any("code=-32000 Rate limit exceeded" in m for m in warnings), warnings)
+
+    def test_order_status_not_found_is_raised_with_its_code(self):
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(context.exception))
+
+    def test_order_status_the_connector_does_not_map_keeps_the_order(self):
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"result": {
+            "order_status": "a_status_added_later",
+            "last_update_timestamp": 1640780000000,
+            "order_id": "EX-ERR",
+            "label": "",
+        }})
+
+        update = self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        self.assertEqual(order.current_state, update.new_state)
+        # An empty label falls back to the id the order is tracked under.
+        self.assertEqual(order.client_order_id, update.client_order_id)
+
+    def test_order_rejections_are_reported_by_code(self):
+        """
+        Rejections used to be recognised by matching the message text and reading error["data"],
+        which is optional: an error without it surfaced as a KeyError instead of the rejection.
+        """
+        self._simulate_trading_rules_initialized()
+        cases = [
+            ({"code": 11007, "message": "Self-crossing disallowed"}, "would have crossed one of this account's own orders"),
+            ({"code": 11008, "message": "Post only order cannot cross the market"}, "would have crossed the book"),
+            ({"code": 11023, "message": "Max fee order param is too low"}, "the signed max_fee was below the fee"),
+            ({"code": 14031, "message": "Unauthorized Key Scope"}, "Derive session key error 14031"),
+            ({"code": 11000, "message": "Insufficient funds"}, "code=11000 Insufficient funds"),
+        ]
+        for error, expected in cases:
+            self.log_records.clear()
+            self.exchange._api_post = AsyncMock(return_value={"error": error})
+
+            with self.assertRaises(IOError) as context:
+                self.async_run_with_timeout(self.exchange._place_order(
+                    order_id="0xabc",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("1"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("10000"),
+                    position_action=PositionAction.OPEN,
+                ))
+
+            reported = str(context.exception) + " " + " ".join(r.getMessage() for r in self.log_records)
+            self.assertIn(expected, reported, error)
+            self.assertIn("Error submitting order 0xabc", str(context.exception))
+
+    def test_cancel_errors_carry_the_code_and_only_not_found_counts_as_gone(self):
+        self._simulate_trading_rules_initialized()
+        order = self._track_order()
+
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(context.exception))
+
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": -32000, "message": "Rate limit exceeded"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+        self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(context.exception))
+        self.assertEqual("code=-32000 Rate limit exceeded", str(context.exception))
+
+    def test_positions_and_funding_report_the_exchange_error(self):
+        """
+        The positions poll used to return quietly on an API error, leaving the connector
+        reporting whatever it last saw; the funding lookup died with a bare KeyError.
+        """
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14030, "message": "Session key expired"}})
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertIn("Derive session key error 14030", str(context.exception))
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._fetch_last_fee_payment(self.trading_pair))
+        self.assertIn("code=14030 Session key expired", str(context.exception))
+
+    def test_balance_error_names_the_cause_and_assets_no_longer_held_are_dropped(self):
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14026, "message": "Session key not found"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14026", str(context.exception))
+        errors = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any("Derive session key error 14026" in m for m in errors), errors)
+
+        # The owner wallet's own key skips the session-key lookup, so a wallet with no account on
+        # this network comes back as 14000. `connect` shows only the exception text, so the
+        # explanation has to be in it.
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14000, "message": "Account not found"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14000 Account not found. Derive account error 14000", str(context.exception))
+        self.assertIn("Mainnet and testnet accounts are separate", str(context.exception))
+        self.assertIn("first deposit", str(context.exception))
+
+        self.exchange._account_balances["OLD"] = Decimal("1")
+        self.exchange._account_available_balances["OLD"] = Decimal("1")
+        self.exchange._api_post = AsyncMock(return_value={"result": {"collaterals": [{"asset_name": "USDC", "amount": "15"}]}})
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertNotIn("OLD", self.exchange._account_balances)
+        self.assertNotIn("OLD", self.exchange._account_available_balances)
+        self.assertEqual(Decimal("15"), self.exchange._account_balances["USDC"])
+
+    def test_trading_fees_come_from_the_instrument_definitions(self):
+        self._simulate_trading_rules_initialized()
+        instrument = self.exchange._instrument_ticker[0]
+        # An instrument with no rates published, and one this connector has no pair for.
+        self.exchange._instrument_ticker = [
+            instrument,
+            dict(instrument, instrument_name="NORATES-PERP", maker_fee_rate=None),
+            dict(instrument, instrument_name="UNMAPPED-PERP"),
+        ]
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        fees = self.exchange._trading_fees[self.trading_pair]
+        self.assertEqual(Decimal(instrument["maker_fee_rate"]), fees.maker_percent_fee_decimal)
+        self.assertEqual(Decimal(instrument["taker_fee_rate"]), fees.taker_percent_fee_decimal)
+        self.assertEqual([self.trading_pair], list(self.exchange._trading_fees))
+
+    def test_leverage_cannot_be_set_and_the_instrument_ceiling_is_reported(self):
+        self._simulate_trading_rules_initialized()
+        self.assertIsNone(self.exchange.get_max_leverage(self.trading_pair))      # not published for this fixture
+        self.assertIsNone(self.exchange.get_max_leverage("NOT-LISTED"))
+        self.assertIsNone(self.exchange.get_max_leverage("malformed"))
+
+        self.exchange._instrument_ticker[0]["perp_details"]["srm_perp_margin_requirements"] = {
+            "im_perp_req": "0.066", "mm_perp_req": "0.05", "max_leverage": "15.15",
+        }
+        self.assertEqual(Decimal("15.15"), self.exchange.get_max_leverage(self.trading_pair))
+
+        success, message = self.async_run_with_timeout(self.exchange._set_trading_pair_leverage(self.trading_pair, 20))
+
+        # Reporting success would have the base class cache 20x as if the exchange had applied it.
+        self.assertFalse(success)
+        self.assertIn("the requested 20x was not applied", message)
+        self.assertIn(f"The maximum for {self.trading_pair} is 15.15x", message)
+
+    def test_market_orders_are_priced_through_the_mid(self):
+        """
+        Priced at the bare mid, an IOC market order cannot cross the spread: it is refused with
+        11009 "no liquidity within the limit price". A limit beyond the exchange's price band is
+        accepted and simply fills at the book, so the buffer does not need to stay inside it.
+        """
+        self._simulate_trading_rules_initialized()
+        with patch.object(DerivePerpetualDerivative, "get_mid_price", return_value=Decimal("10000")), \
+                patch.object(DerivePerpetualDerivative, "_create_order", new_callable=AsyncMock) as create_order:
+            self.exchange.buy(self.trading_pair, Decimal("1"), OrderType.MARKET)
+            self.exchange.sell(self.trading_pair, Decimal("1"), OrderType.MARKET)
+            self.async_run_with_timeout(asyncio.sleep(0.01))
+
+        buy, sell = (call.kwargs for call in create_order.call_args_list)
+        self.assertEqual(Decimal("10500"), buy["price"])
+        self.assertEqual(Decimal("9500"), sell["price"])
+        self.assertEqual(TradeType.BUY, buy["trade_type"])
+        self.assertEqual(TradeType.SELL, sell["trade_type"])
+
+    def test_instruments_are_fetched_across_every_page(self):
+        first, second = {"instrument_name": "A-PERP"}, {"instrument_name": "B-PERP"}
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"instruments": [first], "pagination": {"num_pages": 2, "count": 2}}},
+            {"result": {"instruments": [second], "pagination": {"num_pages": 2, "count": 2}}},
+        ])
+
+        instruments = self.async_run_with_timeout(self.exchange._make_trading_pairs_request())
+
+        self.assertEqual([first, second], instruments)
+        self.assertEqual([1, 2], [call.kwargs["data"]["page"] for call in self.exchange._api_post.call_args_list])
+
+    def test_session_key_not_registered_is_reported_clearly(self) -> None:
+        self._use_session_key()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14026, "message": "Session key not found"}})
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        errors = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any(m.startswith("Derive session key error 14026: The session key is not registered") for m in errors), errors)
+        self.assertTrue(any("your own EOA or multisig" in m for m in errors), errors)
+        self.assertIsNone(self.exchange._auth.session_key_expiry_sec)
+
+    def test_session_key_check_does_not_stop_the_connector_when_it_cannot_run(self) -> None:
+        # Not trading: nothing to verify.
+        self.exchange._trading_required = False
+        self.exchange._api_post = AsyncMock()
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+        self.exchange._api_post.assert_not_called()
+
+        # The lookup itself failing, an error with no hint for its code, and an empty answer.
+        for response in (IOError("connection reset"), {"error": {"code": -32603, "message": "Internal error"}}, {"result": {"wallets": []}}):
+            self._use_session_key()
+            self.exchange._api_post = AsyncMock(side_effect=[response])
+            self.async_run_with_timeout(self.exchange._verify_session_key())
+            self.assertEqual(1, self.exchange._api_post.call_count)
+        errors = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertEqual(1, len(errors), errors)
+        self.assertIn("Derive rejected the session key", errors[0])
+
+    def test_session_key_expiry_lookup_can_be_cancelled(self) -> None:
+        self.exchange._api_post = AsyncMock(side_effect=asyncio.CancelledError)
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.exchange._update_session_key_expiry("0xSESSIONKEY"))
+
+    @aioresponses()
+    def test_position_changes_from_the_user_stream_update_the_tracked_position(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL),
+                      body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        position = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(Decimal("5"), position.amount)
+
+        update = {"instrument_name": self.exchange_trading_pair, "amount": "2", "average_price": "100", "unrealized_pnl": "1.5"}
+        self.async_run_with_timeout(self.exchange._process_update_positions({"positions": [update]}))
+
+        self.assertEqual(Decimal("2"), position.amount)
+        self.assertEqual(Decimal("100"), position.entry_price)       # the average price, not the index
+        self.assertEqual(Decimal("1.5"), position.unrealized_pnl)
+
+        self.async_run_with_timeout(self.exchange._process_update_positions({"positions": [dict(update, amount="0")]}))
+        self.assertEqual(0, len(self.exchange.account_positions))

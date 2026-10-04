@@ -70,8 +70,14 @@ class DeriveAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         if message["id"] == id:
             if "result" not in message:
-                self.logger().error("Error authenticating the private websocket connection")
-                raise IOError("Private websocket connection authentication failed")
+                # Without the exchange's own reason this is "authentication failed" repeated on
+                # every reconnect, with nothing to say the key is unregistered, expired or scoped
+                # to another wallet.
+                error = message.get("error") or {}
+                code = error.get("code")
+                reason = self._connector._session_key_hint(code) or f"code={code} {error.get('message')}"
+                self.logger().error(f"Private websocket login was refused: {reason}")
+                raise IOError(f"Private websocket connection authentication failed: {reason}")
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """

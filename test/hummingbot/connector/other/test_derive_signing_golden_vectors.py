@@ -197,10 +197,77 @@ class DeriveEncodingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_signature_expiry_sec(2 ** 31 - 1)  # the v2 value
 
-    def test_max_fee_without_an_amount_takes_the_base_fee_per_unit(self):
-        # 3 * (2 * 0.0003 * max(2700, 2695) + 0.01) == 3 * (1.62 + 0.01) == 4.89
+    def test_max_fee_is_never_below_what_the_exchange_suggests(self):
+        """
+        order_quote returns the cap the exchange would sign itself, suggested_max_fee. These are
+        the values the testnet returned on 2026-10-04 for minimum-size orders, with the index at
+        the time. Every perp charges taker 0.0003, maker 0.0001 and a 0.01 base fee.
+
+        They fit 1.1 * 2 * max(taker, maker) * max(limit, index), plus base_fee / amount_step for
+        any order that can take: the flat base fee spread over the smallest possible fill, which
+        is why the extra term is 10 on ETH, 100 on BTC and 0.1 on XRP whatever the order's size.
+        """
+        observed = [
+            # label,                  index,      limit,     amount step, can take, suggested_max_fee
+            ("ETH-PERP post_only buy", "2701.89", "1350.9", "0.001", False, "1.783249"),
+            ("ETH-PERP gtc buy", "2701.89", "1350.9", "0.001", True, "11.783225"),
+            ("ETH-PERP gtc sell", "2701.89", "4052.8", "0.001", True, "12.674874"),
+            ("ETH-PERP market buy", "2701.89", "2755.9", "0.001", True, "11.783250"),
+            ("BTC-PERP post_only buy", "85288.2", "42644.1", "0.0001", False, "56.283942"),
+            ("BTC-PERP gtc buy", "85288.2", "42644.1", "0.0001", True, "156.284853"),
+            ("BTC-PERP gtc sell", "85288.2", "127932.3", "0.0001", True, "184.435318"),
+            ("XRP-PERP post_only buy", "1.50026", "0.7501", "0.1", False, "0.000991"),
+            ("XRP-PERP gtc buy", "1.50026", "0.7501", "0.1", True, "0.100991"),
+            ("XRP-PERP gtc sell", "1.50026", "2.2504", "0.1", True, "0.101485"),
+        ]
+        for label, index, limit, amount_step, can_take, suggested in observed:
+            max_fee = estimate_max_fee(
+                taker_fee_rate=Decimal("0.0003"),
+                maker_fee_rate=Decimal("0.0001"),
+                base_fee=Decimal("0.01"),
+                index_price=Decimal(index),
+                limit_price=Decimal(limit),
+                amount_step=Decimal(amount_step),
+                can_take=can_take,
+            )
+            self.assertGreaterEqual(max_fee, Decimal(suggested), label)
+
+            reference_price = max(Decimal(index), Decimal(limit))
+            expected = 3 * 2 * Decimal("0.0003") * reference_price
+            if can_take:
+                expected += Decimal("0.01") / Decimal(amount_step)
+            self.assertEqual(expected, max_fee, label)
+
+    def test_max_fee_does_not_depend_on_the_orders_own_size(self):
+        """
+        The cap is compared with the fee per unit of each fill, and a taker order's first fill can
+        be as small as one amount step. Spreading the base fee over the order's own amount instead
+        signed 0.44x of the exchange's suggestion on a minimum-size ETH order and 0.06x on XRP.
+        """
+        taker, base_fee, index = Decimal("0.0003"), Decimal("0.01"), Decimal("1.50026")
+        max_fee = estimate_max_fee(
+            taker_fee_rate=taker, base_fee=base_fee, index_price=index, limit_price=index, amount_step=Decimal("0.1")
+        )
+        over_the_orders_amount = 3 * (2 * taker * index + base_fee / Decimal("10"))    # a 10 XRP order
+
+        self.assertEqual(3 * 2 * taker * index + Decimal("0.1"), max_fee)
+        self.assertLess(over_the_orders_amount, Decimal("0.100991"))                   # under the suggestion
+        self.assertGreater(max_fee, Decimal("0.100991"))
+
+    def test_post_only_order_is_not_charged_the_base_fee_term(self):
+        common = dict(
+            taker_fee_rate=Decimal("0.0003"),
+            base_fee=Decimal("0.01"),
+            index_price=Decimal("2700"),
+            limit_price=Decimal("2700"),
+            amount_step=Decimal("0.001"),
+        )
+        self.assertEqual(Decimal("10"), estimate_max_fee(**common) - estimate_max_fee(can_take=False, **common))
+
+    def test_max_fee_without_an_amount_step_takes_the_base_fee_per_whole_unit(self):
+        # 3 * 2 * 0.0003 * max(2700, 2695) + 0.01 == 4.86 + 0.01
         self.assertEqual(
-            Decimal("4.89"),
+            Decimal("4.87"),
             estimate_max_fee(
                 taker_fee_rate=Decimal("0.0003"),
                 base_fee=Decimal("0.01"),
@@ -209,29 +276,6 @@ class DeriveEncodingTests(unittest.TestCase):
             ),
         )
 
-    def test_max_fee_keeps_the_same_headroom_over_the_engines_bound_at_every_size(self):
-        """
-        docs.derive.xyz/integrators/trading/trading-fees: a crossing order needs
-        max_fee > 2 * max(taker, maker) * max(limit, index) + base_fee / fill_amount.
-
-        The base fee is flat per order, so its per-unit share grows as the order shrinks. With
-        the amount the cap is three times the bound whatever the size.
-        """
-        taker, base_fee, index = Decimal("0.0003"), Decimal("0.01"), Decimal("121.185")
-
-        for amount in (Decimal("400"), Decimal("1"), Decimal("0.1"), Decimal("0.0001")):
-            required = 2 * taker * index + base_fee / amount
-            max_fee = estimate_max_fee(
-                taker_fee_rate=taker, base_fee=base_fee, index_price=index, limit_price=index, amount=amount
-            )
-            self.assertEqual(3 * required, max_fee, amount)
-
-        # Taken undivided, the headroom depended on the size instead: about 1.4x for a 0.1 unit
-        # order at this price, and under the bound altogether for a small enough one.
-        undivided = estimate_max_fee(taker_fee_rate=taker, base_fee=base_fee, index_price=index, limit_price=index)
-        self.assertLess(undivided, 2 * (2 * taker * index + base_fee / Decimal("0.1")))
-        self.assertLess(undivided, 2 * taker * index + base_fee / Decimal("0.01"))
-
     def test_max_fee_uses_the_larger_fee_rate_and_the_larger_price(self):
         max_fee = estimate_max_fee(
             taker_fee_rate=Decimal("0.0003"),
@@ -239,7 +283,6 @@ class DeriveEncodingTests(unittest.TestCase):
             base_fee=Decimal("0"),
             index_price=Decimal("100"),
             limit_price=Decimal("90"),
-            amount=Decimal("1"),
         )
         self.assertEqual(Decimal("0.3"), max_fee)    # 3 * 2 * 0.0005 * 100
 
@@ -249,10 +292,10 @@ class DeriveEncodingTests(unittest.TestCase):
             base_fee=Decimal("0.01"),
             index_price=Decimal("2.5"),
             limit_price=Decimal("2.5"),
-            amount=Decimal("3"),            # 0.01 / 3 does not terminate
+            amount_step=Decimal("3"),            # 0.01 / 3 does not terminate
         )
-        self.assertGreaterEqual(max_fee, 3 * (2 * Decimal("0.0003") * Decimal("2.5") + Decimal("0.01") / 3))
-        decimal_to_big_int(max_fee)         # would raise if finer than 1e-12
+        self.assertGreaterEqual(max_fee, 3 * 2 * Decimal("0.0003") * Decimal("2.5") + Decimal("0.01") / 3)
+        decimal_to_big_int(max_fee)              # would raise if finer than 1e-12
 
     def test_subaccount_id_is_normalised_to_an_integer(self):
         for configured in ("45686", 45686, " 45686 "):

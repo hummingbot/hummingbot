@@ -384,13 +384,15 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
     @staticmethod
     def _session_key_hint(code: Optional[int]) -> Optional[str]:
         """
-        Turns a v3 session-key error code into something actionable.
+        Turns a v3 session-key or account error code into something actionable.
 
         v3 session keys are scoped, so "unauthorized" usually means the key is registered but
         lacks the trading scope rather than that the credentials are wrong.
         """
         if code in CONSTANTS.SESSION_KEY_ERROR_CODES:
             return f"Derive session key error {code}: {CONSTANTS.SESSION_KEY_ERROR_HINTS[code]}"
+        if code in CONSTANTS.ACCOUNT_ERROR_HINTS:
+            return f"Derive account error {code}: {CONSTANTS.ACCOUNT_ERROR_HINTS[code]}"
         return None
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -404,7 +406,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         instrument: Dict[str, Any],
         trading_pair: str,
         limit_price: Decimal,
-        amount: Optional[Decimal] = None,
+        can_take: bool = True,
     ) -> Decimal:
         """
         Derives the max_fee to sign an order with.
@@ -434,7 +436,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             base_fee=Decimal(str(instrument.get("base_fee", "0"))),
             index_price=index_price if self._is_usable_price(index_price) else limit_price,
             limit_price=limit_price,
-            amount=amount,
+            amount_step=instrument.get("amount_step"),
+            can_take=can_take,
         )
 
     @staticmethod
@@ -567,11 +570,12 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True)
 
         if "error" in cancel_result:
-            if 'Does not exist' in cancel_result['error']['message']:
-                self.logger().debug(f"The order {order_id} does not exist on DerivePerpetual s. "
+            error = cancel_result["error"]
+            if error.get("code") in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
+                self.logger().debug(f"The order {order_id} does not exist on Derive. "
                                     f"No cancelation needed.")
                 await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(f'{cancel_result["error"]["message"]}')
+            raise IOError(f'code={error.get("code")} {error.get("message")}')
         if "result" in cancel_result:
             if cancel_result["result"]["order_status"] == "cancelled":
                 return True
@@ -608,7 +612,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # Priced at the bare mid, an IOC market buy cannot cross the spread and simply does
             # not fill. Cross by the same slippage buffer the spot connector uses.
             mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * Decimal(1 + CONSTANTS.MARKET_ORDER_SLIPPAGE)
+            market_price = mid_price * (Decimal("1") + Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
             price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
@@ -646,7 +650,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         hex_order_id = f"0x{md5.hexdigest()}"
         if order_type is OrderType.MARKET:
             mid_price = self.get_mid_price(trading_pair)
-            market_price = mid_price * Decimal(1 - CONSTANTS.MARKET_ORDER_SLIPPAGE)
+            market_price = mid_price * (Decimal("1") - Decimal(str(CONSTANTS.MARKET_ORDER_SLIPPAGE)))
             price = self.quantize_order_price(trading_pair, market_price)
 
         safe_ensure_future(self._create_order(
@@ -693,7 +697,8 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             instrument=instrument,
             trading_pair=trading_pair,
             limit_price=quantized_price,
-            amount=quantized_amount,
+            # A post-only order never takes, so it never incurs the per-order base fee.
+            can_take=param_order_type != CONSTANTS.TIME_IN_FORCE_POST_ONLY,
         )
         # reduce_only is what stops a close from running through zero into the opposite position,
         # but v3 only accepts it on an order that cannot rest: market, IOC or FOK. On a resting
@@ -727,13 +732,26 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True)
 
         if "error" in order_result:
-            if "Self-crossing disallowed" in order_result["error"]["message"]:
-                self.logger().warning(f"Error submitting order: {order_result['error']['data']}")
+            error = order_result["error"]
+            code = error.get("code")
+            message = f"code={code} {error.get('message')}"
+            if code == CONSTANTS.ERR_SELF_CROSSING:
+                self.logger().warning(f"Order {order_id} would have crossed one of this account's own orders: {message}")
+            elif code == CONSTANTS.ERR_POST_ONLY_WOULD_CROSS:
+                self.logger().warning(
+                    f"Post-only order {order_id} would have crossed the book and was rejected: {message}"
+                )
+            elif code == CONSTANTS.ERR_MAX_FEE_TOO_LOW:
+                message = (
+                    f"the signed max_fee was below the fee the trade would incur ({message}). This "
+                    f"usually means the index price moved sharply between pricing and signing."
+                )
             else:
-                raise IOError(f"Error submitting order {order_id}: {order_result['error']['data']}")
-        else:
-            o_data = order_result['result'].get("order")
-            return (str(o_data["order_id"]), o_data["creation_timestamp"] * 1e-3)
+                message = self._session_key_hint(code) or message
+            raise IOError(f"Error submitting order {order_id}: {message}")
+
+        o_data = order_result['result'].get("order")
+        return (str(o_data["order_id"]), o_data["creation_timestamp"] * 1e-3)
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
@@ -1054,7 +1072,12 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in account_info:
             error = account_info["error"]
             message = f"Error fetching account balances: code={error.get('code')} {error.get('message')}"
-            self.logger().error(self._session_key_hint(error.get("code")) or message)
+            # The hint travels with the exception as well as the log: this is the call `connect`
+            # validates credentials with, and its error text is all the user is shown.
+            hint = self._session_key_hint(error.get("code"))
+            if hint:
+                message = f"{message}. {hint}"
+            self.logger().error(message)
             # This used to be a bare `raise` outside any except block, which itself raises a
             # RuntimeError and buries the API error.
             raise IOError(message)
@@ -1094,17 +1117,35 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             },
             is_auth_required=True)
         if "error" in order_update:
-            self.logger().debug(f"Error fetching order status for {client_order_id}: {order_update['error']['message']}")
-        if "result" in order_update:
-            current_state = order_update["result"]["order_status"]
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=order_update["result"]["last_update_timestamp"] * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[current_state],
-                client_order_id=order_update["result"]["label"] or client_order_id,
-                exchange_order_id=str(order_update["result"]["order_id"]),
+            error = order_update["error"]
+            code = error.get("code")
+            message = f"code={code} {error.get('message')}"
+            if code in CONSTANTS.ORDER_NOT_EXIST_ERROR_CODES:
+                # Raising is how the base class learns the order is gone. It counts every error
+                # raised from here that way, and retires the order after a few, so nothing else
+                # is raised: a rate limit or a backend hiccup must not write off a live order.
+                raise IOError(f"Error fetching the status of order {client_order_id}: {message}")
+            self.logger().warning(
+                f"Error fetching the status of order {client_order_id}: {self._session_key_hint(code) or message}"
             )
-            return _order_update
+            return OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=tracked_order.current_state,
+                client_order_id=client_order_id,
+                exchange_order_id=oid,
+            )
+
+        result = order_update["result"]
+        return OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=result["last_update_timestamp"] * 1e-3,
+            # A status this connector does not map leaves the order as it is tracked, for the same
+            # reason: failing here would count towards retiring it.
+            new_state=CONSTANTS.ORDER_STATE.get(result["order_status"], tracked_order.current_state),
+            client_order_id=result.get("label") or client_order_id,
+            exchange_order_id=str(result["order_id"]),
+        )
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates: List[TradeUpdate] = []
@@ -1188,6 +1229,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                                          data={"subaccount_id": self._subacct_id},
                                          is_auth_required=True,
                                          limit_id=CONSTANTS.POSITION_INFORMATION_URL)
+        if isinstance(positions, dict) and "error" in positions:
+            # Returning quietly here left the connector reporting whatever positions it last saw,
+            # with nothing in the log to say the poll had failed.
+            error = positions["error"]
+            code = error.get("code")
+            raise IOError(
+                f"Error fetching positions: {self._session_key_hint(code) or f'code={code}'} {error.get('message')}"
+            )
         if "result" in positions:
             data: List[dict] = positions["result"]["positions"]
             if len(data) == 0:
@@ -1300,6 +1349,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         funding_info_response = await self._api_post(
             path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
             data=payload)
+        if "error" in payment_response:
+            error = payment_response["error"]
+            raise IOError(f"Error fetching funding history: code={error.get('code')} {error.get('message')}")
         events = payment_response["result"]["events"]
         if len(events) < 1:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")

@@ -188,6 +188,8 @@ ERR_MAX_FEE_TOO_LOW = 11023
 ERR_REDUCE_ONLY_NOT_SUPPORTED = 11024  # reduce_only on an order that can rest
 ERR_REDUCE_ONLY_REJECT = 11025  # the order would have increased the position
 ERR_SIGNATURE_EXPIRY_OUT_OF_BOUNDS = 11011
+ERR_ACCOUNT_NOT_FOUND = 14000
+ERR_SUBACCOUNT_NOT_FOUND = 14001
 ERR_SESSION_KEY_NOT_FOUND = 14026
 ERR_SESSION_KEY_EXPIRED = 14030
 ERR_SESSION_KEY_UNAUTHORIZED_SCOPE = 14031
@@ -225,6 +227,22 @@ SESSION_KEY_ERROR_HINTS = {
         "The order was signed to outlive the session key. The key's expiry is read at startup to "
         "prevent this, so it has probably been shortened since: restart the connector, or "
         "register a longer-lived session key at derive.xyz."
+    ),
+}
+
+# The exchange answers 14000 rather than a session-key error when the wallet's own key signs, so
+# this is what a first connection attempt with the wrong address, or before any deposit, comes
+# back with.
+ACCOUNT_ERROR_HINTS = {
+    ERR_ACCOUNT_NOT_FOUND: (
+        "No Derive account exists for this wallet on the network this connector uses. Mainnet and "
+        "testnet accounts are separate, an account only comes into being when its first deposit is "
+        "credited (a couple of minutes after the deposit), and on v3 the wallet is your own EOA or "
+        "multisig - the address you connect with at derive.xyz - not the v2 Derive Wallet address."
+    ),
+    ERR_SUBACCOUNT_NOT_FOUND: (
+        "The subaccount id is not one of this wallet's subaccounts. Use the id shown at derive.xyz "
+        "for the wallet entered here."
     ),
 }
 
