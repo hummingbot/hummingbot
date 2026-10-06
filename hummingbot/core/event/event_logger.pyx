@@ -10,14 +10,23 @@ from typing import (
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.core.event.events import OrderFilledEvent
 
+ORDER_FILLED_EVENT_LOG_MAXLEN = 200
+
+
 cdef class EventLogger(EventListener):
-    def __init__(self, event_source: Optional[str] = None):
+    def __init__(
+        self,
+        event_source: Optional[str] = None,
+        order_filled_event_maxlen: int = ORDER_FILLED_EVENT_LOG_MAXLEN,
+    ):
         super().__init__()
+        if order_filled_event_maxlen <= 0:
+            raise ValueError("order_filled_event_maxlen must be greater than zero")
         self._event_source = event_source
-        # We limit the amount of events we keep reference to the most recent ones
-        # But we keep all references to order fill events, because they are required for PnL calculation
+        # Event history is also persisted by MarketsRecorder. Keeping a bounded in-memory
+        # window prevents high-frequency bots from retaining every fill for their lifetime.
         self._generic_logged_events = deque(maxlen=50)
-        self._order_filled_logged_events = deque()
+        self._order_filled_logged_events = deque(maxlen=order_filled_event_maxlen)
         self._logged_events = {OrderFilledEvent: self._order_filled_logged_events}
         self._waiting = {}
         self._wait_returns = {}
