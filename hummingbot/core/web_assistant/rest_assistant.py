@@ -70,7 +70,14 @@ class RESTAssistant:
             return_err: bool = False,
             timeout: Optional[float] = None,
             headers: Optional[Dict[str, Any]] = None,
+            read_body: bool = True,
     ) -> RESTResponse:
+        """Send the request and return the response.
+
+        :param read_body: read the whole body before the rate limit slot is freed. Set it to False
+            only when the caller needs just the status and headers, so it doesn't wait for a body
+            it won't use. Error bodies are still read, for the error message.
+        """
 
         headers = headers or {}
 
@@ -93,6 +100,10 @@ class RESTAssistant:
 
         async with self._throttler.execute_task(limit_id=throttler_limit_id):
             response = await self.call(request=request, timeout=timeout)
+            # Read the body before leaving the throttler context so the rate limit slot
+            # is held until the whole response has arrived, not just the headers.
+            if read_body:
+                await response.read()
 
             if 400 <= response.status:
                 if not return_err:
