@@ -137,6 +137,10 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         return self._trading_required
 
     @property
+    def allow_reduce_only_orders_below_min_notional(self) -> bool:
+        return True
+
+    @property
     def funding_fee_poll_interval(self) -> int:
         return 120
 
