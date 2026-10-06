@@ -571,6 +571,16 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
         self.assertEqual(Decimal("15"), total_balances[self.base_asset])
 
+    @aioresponses()
+    def test_update_balances_raises_io_error_on_error_response(self, mock_api):
+        response = {"error": {"code": -32000, "message": "Internal error"}}
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertIn("Internal error", str(context.exception))
+
     def configure_erroneous_cancelation_response(
             self,
             order: InFlightOrder,
