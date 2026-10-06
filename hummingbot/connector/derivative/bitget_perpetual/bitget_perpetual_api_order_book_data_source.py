@@ -247,11 +247,14 @@ class BitgetPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         return funding_info
 
+    def _ws_url(self) -> str:
+        return web_utils.public_ws_url(domain=self._connector.domain)
+
     async def _connected_websocket_assistant(self) -> WSAssistant:
         websocket_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
 
         await websocket_assistant.connect(
-            ws_url=web_utils.public_ws_url(),
+            ws_url=self._ws_url(),
             message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE,
         )
 
