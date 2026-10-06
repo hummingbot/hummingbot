@@ -2,6 +2,7 @@ import asyncio
 import copy
 import logging
 import math
+import time
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple
@@ -16,6 +17,7 @@ from hummingbot.logger import HummingbotLogger
 s_decimal_0 = Decimal("0")
 
 GET_EX_ORDER_ID_TIMEOUT = 10  # seconds
+FEE_CONVERSION_LOG_INTERVAL = 30.0
 
 
 class OrderState(Enum):
@@ -119,6 +121,7 @@ class InFlightOrder:
         self.last_update_timestamp: float = creation_timestamp
 
         self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
+        self._fee_conversion_last_log_at: Dict[str, float] = {}
 
         self.exchange_order_id_update_event = asyncio.Event()
         if self.exchange_order_id:
@@ -250,11 +253,31 @@ class InFlightOrder:
 
         return order
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(
+        self,
+        rate_source=None,
+        require_complete_fee: bool = False,
+    ) -> Optional[Dict[str, Any]]:
         """
         Returns this InFlightOrder as a JSON object.
         :return: JSON object
         """
+        cumulative_fee_paid_base = self.cumulative_fee_paid(
+            self.base_asset,
+            rate_source=rate_source,
+            require_complete=require_complete_fee,
+        )
+        if require_complete_fee and cumulative_fee_paid_base is None:
+            return None
+
+        cumulative_fee_paid_quote = self.cumulative_fee_paid(
+            self.quote_asset,
+            rate_source=rate_source,
+            require_complete=require_complete_fee,
+        )
+        if require_complete_fee and cumulative_fee_paid_quote is None:
+            return None
+
         return {
             "client_order_id": self.client_order_id,
             "exchange_order_id": self.exchange_order_id,
@@ -271,8 +294,8 @@ class InFlightOrder:
             "creation_timestamp": self.creation_timestamp,
             "last_update_timestamp": self.last_update_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
-            "cumulative_fee_paid_base": float(self.cumulative_fee_paid(self.base_asset)),
-            "cumulative_fee_paid_quote": float(self.cumulative_fee_paid(self.quote_asset)),
+            "cumulative_fee_paid_base": float(cumulative_fee_paid_base),
+            "cumulative_fee_paid_quote": float(cumulative_fee_paid_quote),
         }
 
     def to_limit_order(self) -> LimitOrder:
@@ -302,15 +325,24 @@ class InFlightOrder:
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 
-    def cumulative_fee_paid(self, token: str) -> Decimal:
+    def cumulative_fee_paid(
+        self,
+        token: str,
+        rate_source=None,
+        require_complete: bool = False,
+    ) -> Optional[Decimal]:
         """
         Returns the total amount of fee paid for each trade update, expressed in the specified token.
-        Rate conversions are resolved through :class:`RateOracle`, which transparently falls back to
-        live order books of registered connectors when the configured rate source lacks a pair.
+        Rate conversions use the provided rate source when supplied. Otherwise they are resolved
+        through :class:`RateOracle`, which may fall back to registered connector order books.
 
         :param token: The token all partial fills' fees should be transformed to before summing them
-        :return: the cumulative fee paid for all partial fills in the specified token
+        :param rate_source: Optional provider exposing get_pair_rate; defaults to RateOracle when omitted
+        :param require_complete: Return None instead of a partial total if any fee conversion fails
+        :return: the cumulative fee paid for all partial fills, or None when completeness is required and unavailable
         """
+        source_key = f"{token}:{id(rate_source) if rate_source is not None else 0}"
+
         total_fee_in_token = Decimal("0")
         try:
             for trade_update in self.order_fills.values():
@@ -319,9 +351,19 @@ class InFlightOrder:
                     price=trade_update.fill_price,
                     order_amount=trade_update.fill_base_amount,
                     token=token,
+                    rate_source=rate_source,
                 )
         except Exception:
-            self.logger().exception(f"Error calculating fee paid in {token}.")
+            now = time.monotonic()
+            last_log_at = self._fee_conversion_last_log_at.get(source_key)
+            if last_log_at is None or now - last_log_at >= FEE_CONVERSION_LOG_INTERVAL:
+                self.logger().exception(f"Error calculating fee paid in {token}.")
+                self._fee_conversion_last_log_at[source_key] = now
+            if require_complete:
+                return None
+        else:
+            self._fee_conversion_last_log_at.pop(source_key, None)
+
         return total_fee_in_token
 
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:
@@ -361,6 +403,7 @@ class InFlightOrder:
             return False
 
         self.order_fills[trade_id] = trade_update
+        self._fee_conversion_last_log_at.clear()
 
         self.executed_amount_base += trade_update.fill_base_amount
         self.executed_amount_quote += trade_update.fill_quote_amount
