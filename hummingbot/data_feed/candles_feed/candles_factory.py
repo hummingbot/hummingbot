@@ -64,6 +64,8 @@ class CandlesFactory:
         "binance": BinanceSpotCandles,
         "bitget": BitgetSpotCandles,
         "bitget_perpetual": BitgetPerpetualCandles,
+        "bitget_unified": BitgetSpotCandles,
+        "bitget_unified_perpetual": BitgetPerpetualCandles,
         "gate_io": GateioSpotCandles,
         "gate_io_perpetual": GateioPerpetualCandles,
         "grvt_perpetual": GrvtPerpetualCandles,

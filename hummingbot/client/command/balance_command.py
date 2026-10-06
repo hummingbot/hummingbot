@@ -88,6 +88,9 @@ class BalanceCommand:
             self.notify("\nA network error prevented the balances to update. See logs for more details.")
             raise
         all_ex_avai_bals = UserBalances.instance().all_available_balances_all_exchanges()
+        # A unified-account venue reports one wallet through several connectors, each in full.
+        # Show every connector, but add each wallet to the total once.
+        duplicate_sources = UserBalances.instance().duplicate_account_sources(all_ex_bals.keys())
 
         exchanges_total = 0
 
@@ -107,7 +110,11 @@ class BalanceCommand:
                 if df[sum_not_for_show_name].sum() != Decimal("0"):
                     allocated_percentage = allocated_total / df[sum_not_for_show_name].sum()
                 self.notify(f"Allocated: {allocated_percentage:.2%}")
-                exchanges_total += df[total_col_name].sum()
+                if exchange in duplicate_sources:
+                    self.notify(f"This is the same exchange account as {duplicate_sources[exchange]}, "
+                                f"so it is not added to the total again.")
+                else:
+                    exchanges_total += df[total_col_name].sum()
 
         self.notify(f"\n\nExchanges Total: {global_token_symbol} {exchanges_total:.0f}    ")
 
