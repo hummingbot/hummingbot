@@ -625,6 +625,36 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
         return order_detail_response
 
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
+        # One request per product type instead of one per pair: the bulk tickers endpoint
+        # returns every contract of a product type in the same row shape as the single ticker.
+        trading_pairs = trading_pairs or []
+        if len(trading_pairs) <= 1:
+            return await super().get_last_traded_prices(trading_pairs=trading_pairs)
+
+        pairs_by_product_type: Dict[str, List[str]] = {}
+        for trading_pair in trading_pairs:
+            product_type = await self.product_type_associated_to_trading_pair(trading_pair)
+            pairs_by_product_type.setdefault(product_type, []).append(trading_pair)
+
+        last_prices: Dict[str, float] = {}
+        for product_type, pairs in pairs_by_product_type.items():
+            tickers_response = await self._api_get(
+                path_url=CONSTANTS.PUBLIC_TICKERS_ENDPOINT,
+                params={"productType": product_type},
+            )
+            last_price_by_symbol = {
+                ticker["symbol"]: ticker["lastPr"]
+                for ticker in tickers_response["data"]
+                if ticker.get("lastPr")
+            }
+            for trading_pair in pairs:
+                symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+                if symbol in last_price_by_symbol:
+                    last_prices[trading_pair] = float(last_price_by_symbol[symbol])
+
+        return last_prices
+
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
         product_type = await self.product_type_associated_to_trading_pair(trading_pair)
