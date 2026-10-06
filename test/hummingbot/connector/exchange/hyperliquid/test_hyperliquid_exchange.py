@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_constants as CONSTANTS
 import hummingbot.connector.exchange.hyperliquid.hyperliquid_web_utils as web_utils
@@ -421,8 +422,10 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         coin_info = self.trading_rules_request_mock_response[0]['tokens'][1]
         price_info = self.trading_rules_request_mock_response[1][0]
 
-        step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
-        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
+        sz_decimals = coin_info.get("szDecimals")
+        step_size = Decimal(str(10 ** -sz_decimals))
+        mark_decimals = len(price_info.get("markPx").split('.')[1])
+        price_size = Decimal(str(10 ** -min(mark_decimals, max(8 - sz_decimals, 0))))
 
         return TradingRule(self.trading_pair,
                            min_base_amount_increment=step_size,
@@ -2016,6 +2019,109 @@ class HyperliquidExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertTrue(
             self.exchange._is_order_not_found_during_cancelation_error(exception_context.exception)
         )
+
+    def test_quantize_order_price_keeps_spot_decimals_beyond_six(self):
+        pair = combine_to_hb_trading_pair("CHEAP", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.00000001"),
+            min_order_size=Decimal("1"),
+            min_notional_size=Decimal("10"),
+        )
+        # Spot allows 8 decimals where perpetuals allow 6. Rounding to a fixed 6
+        # turned this price into 0, and an order priced at 0 is rejected.
+        self.assertEqual(
+            Decimal("0.00000033"),
+            self.exchange.quantize_order_price(pair, Decimal("0.0000003315")),
+        )
+
+    def test_format_trading_rules_caps_tick_at_the_price_decimal_limit(self):
+        # markPx is a mark price, not an order price, so it can be finer than a
+        # limitPx may be. 25 of the 330 live spot pairs are: RIP has szDecimals 2
+        # (6 decimals allowed) and markPx 0.0000053, which is 7.
+        exchange_info = [
+            {
+                "tokens": [
+                    {"name": "USDC", "szDecimals": 8, "weiDecimals": 8, "index": 0},
+                    {"name": "RIP", "szDecimals": 2, "weiDecimals": 5, "index": 1},
+                ],
+                "universe": [
+                    {"name": "RIP/USDC", "tokens": [1, 0], "index": 0, "isCanonical": True},
+                ],
+            },
+            [{"markPx": "0.00000453", "midPx": "0.00000453", "prevDayPx": "0.00000453"}],
+        ]
+        self.exchange._set_trading_pair_symbol_map(bidict({"RIP/USDC": combine_to_hb_trading_pair("RIP", "USDC")}))
+        rules = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
+        self.assertEqual(1, len(rules))
+        # 8 - szDecimals = 6, so the tick stops at 1e-6 even though markPx shows 8.
+        self.assertEqual(Decimal("0.000001"), rules[0].min_price_increment)
+
+    def test_quantize_order_price_never_exceeds_the_price_decimal_limit(self):
+        pair = combine_to_hb_trading_pair("RIP", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.000001"),
+            min_order_size=Decimal("0.01"),
+            min_notional_size=Decimal("10"),
+        )
+        quantized = self.exchange.quantize_order_price(pair, Decimal("0.00000453"))
+        self.assertEqual(Decimal("0.000005"), quantized)
+        self.assertLessEqual(-quantized.as_tuple().exponent, 6)
+
+    def test_quantize_order_price_aligns_to_min_price_increment(self):
+        pair = combine_to_hb_trading_pair("PURR", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.00001"),
+            min_order_size=Decimal("1"),
+            min_notional_size=Decimal("10"),
+        )
+        self.assertEqual(
+            Decimal("0.08803"),
+            self.exchange.quantize_order_price(pair, Decimal("0.088027")),
+        )
+
+    def test_quantize_order_price_respects_five_significant_figures(self):
+        pair = combine_to_hb_trading_pair("UBTC", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.1"),
+            min_order_size=Decimal("0.00001"),
+            min_notional_size=Decimal("10"),
+        )
+        # The 0.1 tick alone would allow 68013.8, six significant figures. The
+        # 5-sig-fig pass runs first so tick rounding cannot reintroduce a sixth.
+        self.assertEqual(
+            Decimal("68014"),
+            self.exchange.quantize_order_price(pair, Decimal("68013.75")),
+        )
+
+    def test_quantize_order_price_does_not_pad_the_scale(self):
+        pair = combine_to_hb_trading_pair("UETH", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.0001"),
+            min_order_size=Decimal("0.0001"),
+            min_notional_size=Decimal("10"),
+        )
+        quantized = self.exchange.quantize_order_price(pair, Decimal("10000"))
+        self.assertEqual(Decimal("10000"), quantized)
+        self.assertEqual("10000", str(quantized))
+
+    def test_quantize_order_price_does_not_leak_binary_float_artifacts(self):
+        pair = combine_to_hb_trading_pair("HYPE", "USDC")
+        self.exchange._trading_rules[pair] = TradingRule(
+            pair,
+            min_price_increment=Decimal("0.001"),
+            min_order_size=Decimal("0.01"),
+            min_notional_size=Decimal("10"),
+        )
+        # Decimal(float) captures the binary expansion, so the old path returned
+        # 0.05000000000000000277... for this price.
+        quantized = self.exchange.quantize_order_price(pair, Decimal("0.05"))
+        self.assertEqual(Decimal("0.05"), quantized)
+        self.assertEqual("0.05", str(quantized))
 
 
 class HyperliquidBuilderCodeTests(TestCase):
