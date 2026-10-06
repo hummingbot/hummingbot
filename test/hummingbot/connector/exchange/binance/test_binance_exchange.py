@@ -678,6 +678,31 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return None
 
+    @aioresponses()
+    def test_limit_maker_order_rejected_for_crossing_the_book_is_a_warning_not_a_network_error(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        mock_api.post(self.order_creation_url, status=400,
+                      body='{"code":-2010,"msg":"Order would immediately match and take."}')
+
+        self.async_run_with_timeout(self.exchange._create_order(
+            trade_type=TradeType.BUY, order_id="OID1", trading_pair=self.trading_pair,
+            amount=Decimal("100"), order_type=OrderType.LIMIT_MAKER, price=Decimal("10000")))
+
+        # the strategy still gets the failure event it relies on
+        self.assertNotIn("OID1", self.exchange.in_flight_orders)
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual("OID1", failure_event.order_id)
+        self.assertEqual(OrderType.LIMIT_MAKER, failure_event.order_type)
+        # ...and the log names the real cause instead of a network error with an API-key hint
+        self.assertTrue(self.is_logged(
+            "WARNING",
+            f"{self.exchange.name_cap} rejected the BUY LIMIT_MAKER order for 100.000000 {self.trading_pair} at "
+            f"10000.0000 because it would have executed immediately. The exchange's maker-only protection worked "
+            f"as intended and no order was placed; adjust the price so the order rests on the book."))
+        self.assertFalse(any(record.levelname == "NETWORK" for record in self.log_records))
+        self.assertFalse(any("Check API key" in record.getMessage() for record in self.log_records))
+
     def test_throttler_property_exposes_internal_throttler(self):
         # The public throttler property returns the same instance the connector uses internally,
         # so other REST consumers (e.g. a candles feed) can share its rate-limit budget.
