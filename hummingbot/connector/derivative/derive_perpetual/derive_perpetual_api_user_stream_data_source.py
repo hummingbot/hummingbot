@@ -6,6 +6,7 @@ from hummingbot.connector.derivative.derive_perpetual import (
     derive_perpetual_web_utils as web_utils,
 )
 from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth import DerivePerpetualAuth
+from hummingbot.connector.other.derive_common_utils import describe_error
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -73,8 +74,14 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         if message["id"] == id:
             if "result" not in message:
-                self.logger().error("Error authenticating the private websocket connection")
-                raise IOError("Private websocket connection authentication failed")
+                # Without the exchange's own reason this is "authentication failed" repeated on
+                # every reconnect, with nothing to say the key is unregistered, expired or scoped
+                # to another wallet.
+                error = message.get("error") or {}
+                code = error.get("code")
+                reason = self._connector._session_key_hint(code) or describe_error(error)
+                self.logger().error(f"Private websocket login was refused: {reason}")
+                raise IOError(f"Private websocket connection authentication failed: {reason}")
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         """
@@ -91,19 +98,16 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             await self._authenticate(websocket_assistant)  # Authenticate once
 
-            # Define all subscription payloads
+            # Positions are polled by the connector rather than read from the socket: the only
+            # channel carrying them is {subaccount_id}.balances, which this source does not
+            # consume. This used to issue private/get_subaccount and private/get_positions as
+            # websocket RPC calls alongside the subscriptions.
             subscription_payloads = [
-                {
-                    "method": channel,
-                    "params": {"subaccount_id": int(subaccount_id)}
-                }
-                for channel in [CONSTANTS.WS_ACCOUNT_CHANNEL, CONSTANTS.WS_POSITIONS_CHANNEL]
-            ] + [
                 {
                     "method": "subscribe",
                     "params": {"channels": [
                         CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
-                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id)
+                        CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id),
                     ]}
                 }
             ]
@@ -113,7 +117,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 websocket_assistant.send(WSJSONRequest(payload))
                 for payload in subscription_payloads
             ])
-            self.logger().info("Subscribed to private account, position and orders channels...")
+            self.logger().info("Subscribed to private orders and trades channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -122,7 +126,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
-            err_msg = event_message["error"]["message"]
+            err_msg = describe_error(event_message["error"])
             raise IOError({
                 "label": "WSS_ERROR",
                 "message": f"Error received via websocket - {err_msg}."

@@ -199,7 +199,10 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock = ws_connect_mock.return_value)
 
-        self.assertEqual(4, len(sent_subscription_messages))
+        # Login, then one subscribe. v3 has no positions websocket channel, so the
+        # private/get_subaccount and private/get_positions RPC calls this used to make over the
+        # socket are gone; positions are polled instead.
+        self.assertEqual(2, len(sent_subscription_messages))
         auth_responce = self.get_ws_auth_payload()
         expected_login_subscription = {
             "method": "public/login",
@@ -207,23 +210,16 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             "id": str(mock_utc_now.return_value),
         }
         self.assertEqual(expected_login_subscription, sent_subscription_messages[0])
-        expected_positions_subscription = {
-            "method": "private/get_subaccount",
-            "params": {"subaccount_id": int(self.subacct_id)}
-        }
-        self.assertEqual(expected_positions_subscription, sent_subscription_messages[1])
-        expected_positions_subscription = {
-            "method": "private/get_positions",
-            "params": {"subaccount_id": int(self.subacct_id)}
-        }
-        self.assertEqual(expected_positions_subscription, sent_subscription_messages[2])
         expected_trades_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.subacct_id}.orders", f"{self.subacct_id}.trades"],
+                "channels": [
+                    f"{self.subacct_id}.orders",
+                    f"{self.subacct_id}.trades",
+                ],
             }
         }
-        self.assertEqual(expected_trades_subscription, sent_subscription_messages[3])
+        self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
@@ -259,3 +255,38 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    async def test_refused_login_reports_the_exchanges_reason(self):
+        """
+        A refused login was logged as "Error authenticating the private websocket connection" on
+        every reconnect, with nothing to say whether the key was unregistered, expired or paired
+        with another wallet.
+        """
+        ws = AsyncMock()
+        self.data_source._auth = MagicMock()
+        self.data_source._auth.get_ws_auth_payload.return_value = {"wallet": "0xW", "timestamp": 1, "signature": "0xS"}
+        with patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_user_stream_data_source.web_utils.utc_now_ms", return_value=1700000000000):
+            for error, expected in (
+                ({"code": 14026, "message": "Session key not found"}, "Derive session key error 14026"),
+                ({"code": 14000, "message": "Account not found"}, "Derive account error 14000"),
+                ({"code": -32603, "message": "Internal error"}, "code=-32603 Internal error"),
+                ({"code": -32603, "message": "Internal error", "data": "upstream timed out"},
+                 "code=-32603 Internal error (upstream timed out)"),
+            ):
+                ws.receive.return_value = MagicMock(data={"id": "1700000000000", "error": error})
+
+                with self.assertRaises(IOError) as context:
+                    await self.data_source._authenticate(ws)
+
+                self.assertIn(expected, str(context.exception))
+                self.assertTrue(any(
+                    record.levelname == "ERROR" and expected in record.getMessage() for record in self.log_records
+                ))
+
+            # An accepted login is silent.
+            ws.receive.return_value = MagicMock(data={"id": "1700000000000", "result": [1]})
+            await self.data_source._authenticate(ws)
+
+        sent = ws.send.call_args.args[0].payload
+        self.assertEqual("public/login", sent["method"])
+        self.assertEqual("1700000000000", sent["id"])

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 
 # from copy import deepcopy
 from decimal import Decimal
@@ -15,6 +16,7 @@ from aioresponses.core import RequestCall
 import hummingbot.connector.exchange.derive.derive_constants as CONSTANTS
 import hummingbot.connector.exchange.derive.derive_web_utils as web_utils
 from hummingbot.connector.exchange.derive.derive_exchange import DeriveExchange
+from hummingbot.connector.other.derive_common_utils import RESTING_ORDER_VALIDITY_SEC, SESSION_KEY_EXPIRY_MARGIN_SEC
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -53,7 +55,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
     def test_get_related_limits(self):
-        self.assertEqual(19, len(self.throttler._rate_limits))
+        self.assertEqual(len(CONSTANTS.RATE_LIMITS), len(self.throttler._rate_limits))
 
         rate_limit, related_limits = self.throttler.get_related_limits(CONSTANTS.ENDPOINTS["limits"]["non_matching"][4])
         self.assertIsNotNone(rate_limit, "Rate limit for TEST_POOL_ID is None.")  # Ensure rate_limit is not None
@@ -99,7 +101,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     async def test_initialize_rate_limits_updates_throttler(self):
         throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
             account_type=CONSTANTS.MARKET_MAKER_ACCOUNTS_TYPE,
-            expected_limit=CONSTANTS.TRADER_NON_MATCHING
+            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
         )
 
         throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
@@ -110,7 +112,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     async def test_initialize_rate_limits_non_market_maker(self):
         throttler_mock, expected_limit = await self._run_initialize_rate_limits_with_mocked_throttler(
             account_type="trader",
-            expected_limit=CONSTANTS.MARKET_MAKER_NON_MATCHING
+            expected_limit=CONSTANTS.TRADER_NON_MATCHING
         )
 
         throttler_mock.set_rate_limits.assert_called()  # Adjusted to check if it was called, not just once
@@ -221,41 +223,24 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def latest_prices_request_mock_response(self):
+        # v3 slim ticker, as returned by public/get_ticker: best bid/ask as b/B and a/A, index
+        # as I, mark as M, hourly funding as f. It no longer echoes instrument_name.
         mock_response = {
             "result": {
-                'instrument_type': 'erc20',  # noqa: mock
-                'instrument_name': 'BTC-USDC',
-                'scheduled_activation': 1734464971,
-                'scheduled_deactivation': 9223372036854775807,
-                'is_active': True,
-                'tick_size': '0.0001',
-                'minimum_amount': '0.1',
-                'maximum_amount': '100000',
-                'amount_step': '0.01',
-                'mark_price_fee_rate_cap': '0',
-                'maker_fee_rate': '0.0015',
-                'taker_fee_rate': '0.0015',
-                'base_fee': '0.1',
-                'base_currency': 'BTC',
-                'quote_currency': 'USDC',
-                'option_details': None,
-                'perp_details': None,
-                'erc20_details':
-                    {
-                        'decimals': 18,
-                        'underlying_erc20_address': '0x30f85847F9F17f219A9a21B93396a3B2eAEa500F',  # noqa: mock
-                        'borrow_index': '1', 'supply_index': '1'
-                    },
-                    'base_asset_address': '0xDaffF9B244327d09dde1dDFcf9981ef0Df2D1568',  # noqa: mock
-                    'base_asset_sub_id': '0', 'pro_rata_fraction': '0',
-                    'fifo_min_allocation': '0', 'pro_rata_amount_step': '1', 'best_ask_amount': '2155.24', 'best_ask_price': '1.6712',
-                    'best_bid_amount': '2155.43', 'best_bid_price': '1.6692', 'five_percent_bid_depth': '5036.42',
-                    'five_percent_ask_depth': '5029.23', 'option_pricing': None,
-                    'index_price': '1.6698', 'mark_price': self.expected_latest_price,
-                    'stats': {'contract_volume': '308.41',
-                              'num_trades': '7', 'open_interest': '323332.12302071627866623',
-                              'high': '1.6796', 'low': '1.6605', 'percent_change': '-0.071477', 'usd_change': '-0.1285'},
-                    'timestamp': 1737827796000, 'min_price': '1.6213', 'max_price': '1.7199'}
+                't': 1737827796000,
+                'A': '2155.24', 'a': '1.6712',
+                'B': '2155.43', 'b': '1.6692',
+                'f': None,
+                'option_pricing': None,
+                'I': '1.6698',
+                'M': str(self.expected_latest_price),
+                'stats': {
+                    'c': '308.41', 'v': '514.6', 'pr': '0', 'n': 7,
+                    'oi': '323332.12302071627866623',
+                    'h': '1.6796', 'l': '1.6605', 'p': '-0.071477',
+                },
+                'minp': '1.6213', 'maxp': '1.7199',
+            }
         }
 
         return mock_response
@@ -442,9 +427,11 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         step_size = Decimal(str(rule.get("amount_step")))
         price_size = Decimal(str(rule.get("tick_size")))
         min_amount = Decimal(str(rule.get("minimum_amount")))
+        max_amount = Decimal(str(rule.get("maximum_amount")))
 
         return TradingRule(self.trading_pair,
                            min_order_size=min_amount,
+                           max_order_size=max_amount,
                            min_price_increment=price_size,
                            min_base_amount_increment=step_size,
                            )
@@ -617,7 +604,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -634,7 +621,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -651,7 +638,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     ):
 
         url_order_status = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
 
         regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -668,7 +655,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -683,7 +670,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -697,7 +684,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.public_rest_url(
-            CONSTANTS.ORDER_STATUS_PAATH_URL
+            CONSTANTS.ORDER_STATUS_PATH_URL
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
@@ -1221,7 +1208,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
 
         self.assertEqual(1, len(latest_prices))
-        self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
+        self.assertEqual(Decimal(str(self.expected_latest_price)), latest_prices[self.trading_pair])
 
     def configure_trading_rules_response(
             self,
@@ -1656,7 +1643,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000.00')}."
             )
         )
 
@@ -1695,7 +1682,7 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000')}."
+                f"{Decimal('100.00')} {self.trading_pair} at {Decimal('10000.00')}."
             )
         )
 
@@ -1936,3 +1923,645 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         #     "INFO",
         #     f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
         # ))
+
+    def test_session_key_not_registered_is_reported_clearly(self) -> None:
+        """
+        A bare 14026 doesn't say whether the key is unregistered, expired, or paired with a
+        different wallet. The public lookup answers that, so the cause can be named.
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(return_value={
+            "error": {"code": 14026, "message": "Session key not found"}
+        })
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertTrue(self.is_logged(
+            "ERROR",
+            "Derive session key error 14026: The session key is not registered against this "
+            "wallet. Register it at derive.xyz with a scope that covers spot orders "
+            "(trade:orderbook:spot, or a broader grant such as trade:orderbook:all, trade:all or "
+            "admin). On v3 the wallet is your own EOA or multisig, not the v2 Derive Wallet address."
+        ))
+
+    def test_session_key_registered_to_another_wallet_names_both(self) -> None:
+        """
+        The commonest setup mistake: entering the session key's own address as the wallet.
+
+        The wallet is deliberately left as the connector was built with it. These tests used to
+        assign exchange._wallet_address themselves, which hid that the connector has no such
+        attribute - it stores derive_wallet_address - and raised AttributeError on this path.
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(return_value={
+            "result": {"wallets": ["0xTHEREALWALLET"]}
+        })
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        logged = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any("registered to 0xtherealwallet" in m for m in logged), logged)
+        self.assertTrue(any(self.wallet_address in m for m in logged), logged)
+        # The expiry of a key that does not belong to this wallet is not asked for.
+        self.assertEqual(1, self.exchange._api_post.call_count)
+
+    def test_matching_session_key_is_silent(self) -> None:
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"wallets": [self.wallet_address.upper()]}},     # case differs; must still match
+            {"result": {"public_session_keys": []}},
+        ])
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_session_key_expiry_is_read_so_orders_cannot_outlive_the_key(self) -> None:
+        """
+        Resting orders are signed for as long as the API allows, and an action that outlives its
+        key is refused with 14038 - so the key's own expiry has to be known before signing.
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"wallets": [self.wallet_address]}},
+            {"result": {"public_session_keys": [
+                {"public_session_key": "0xANOTHERKEY", "expiry_sec": 1},
+                {"public_session_key": "0xsessionkey", "expiry_sec": 1893456000},  # case differs
+            ]}},
+        ])
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.assertEqual(1893456000, self.exchange._auth.session_key_expiry_sec)
+        lookup = self.exchange._api_post.call_args_list[1].kwargs
+        self.assertEqual(CONSTANTS.SESSION_KEYS_PATH_URL, lookup["path_url"])
+        self.assertEqual({"wallet": self.wallet_address}, lookup["data"])
+        self.assertTrue(lookup["is_auth_required"])
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_unreadable_session_key_expiry_does_not_stop_the_connector(self) -> None:
+        unreadable = [
+            IOError("connection reset"),
+            {"error": {"code": 14031, "message": "Unauthorized Key Scope"}},
+            {"result": {"public_session_keys": []}},
+            {"result": {"public_session_keys": [{"public_session_key": "0xSESSIONKEY"}]}},
+        ]
+        for response in unreadable:
+            self.exchange._trading_required = True
+            self.exchange._auth.session_key_wallet = MagicMock()
+            self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+            self.exchange._api_post = AsyncMock(side_effect=[
+                {"result": {"wallets": [self.wallet_address]}},
+                response,
+            ])
+
+            self.async_run_with_timeout(self.exchange._verify_session_key())
+
+            self.assertIsNone(self.exchange._auth.session_key_expiry_sec, response)
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_owner_wallet_signing_for_itself_is_not_looked_up_as_a_session_key(self) -> None:
+        """
+        Signing with the owner wallet is valid and involves no session key. Looking the wallet up
+        as one reported a correctly configured account as "session key not found".
+        """
+        self.exchange._trading_required = True
+        self.exchange._auth.session_key_wallet = MagicMock()
+        self.exchange._auth.session_key_wallet.address = self.wallet_address.upper().replace("0X", "0x")
+        self.exchange._api_post = AsyncMock()
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.exchange._api_post.assert_not_called()
+        self.assertEqual([], [r for r in self.log_records if r.levelname == "ERROR"])
+
+    def test_session_key_check_is_skipped_without_trading(self) -> None:
+        """The rate source builds a connector with no credentials; there is nothing to verify."""
+        self.exchange._trading_required = False
+        self.exchange._api_post = AsyncMock()
+
+        self.async_run_with_timeout(self.exchange._verify_session_key())
+
+        self.exchange._api_post.assert_not_called()
+
+    def _private_url(self, path_url: str) -> re.Pattern:
+        return re.compile("^" + re.escape(web_utils.private_rest_url(path_url, domain=self.exchange._domain)))
+
+    def _sent_body(self, mock_api: aioresponses, url, index: int = 0) -> Dict[str, Any]:
+        return json.loads(self._all_executed_requests(mock_api, url)[index].kwargs["data"])
+
+    @aioresponses()
+    def test_request_bodies_carry_the_subaccount_id_as_an_integer(self, mock_api):
+        """
+        Credentials reach the connector as strings. v3 declares the subaccount id an integer and
+        most routes hold to it - public/get_trade_history answers the string with -32602 "invalid
+        type: string, expected i64" - so every private request body has to carry the integer, the
+        balance poll first among them.
+        """
+        self.exchange = DeriveExchange(
+            session_private_key=self.session_private_key,
+            subacct_id=str(self.subacct_id),     # as the config supplies it
+            account_type=self.account_type,
+            derive_wallet_address=self.wallet_address,
+            trading_pairs=[self.trading_pair],
+        )
+        self._simulate_trading_rules_initialized()
+        self.exchange.start_tracking_order(
+            order_id="OID-TYPE",
+            exchange_order_id="EX-TYPE",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID-TYPE"]
+
+        urls = {
+            "balances": self._private_url(CONSTANTS.ACCOUNTS_PATH_URL),
+            "order status": self._private_url(CONSTANTS.ORDER_STATUS_PATH_URL),
+        }
+        mock_api.post(urls["balances"], body=json.dumps(self.balance_request_mock_response_for_base_and_quote))
+        mock_api.post(urls["order status"], body=json.dumps(self._order_status_request_open_mock_response(order)))
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+        self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        for name, url in urls.items():
+            sent = self._sent_body(mock_api, url)["subaccount_id"]
+            self.assertEqual(45686, sent, name)
+            self.assertIs(int, type(sent), name)
+
+    @aioresponses()
+    def test_resting_orders_are_signed_to_live_until_filled_or_cancelled(self, mock_api):
+        """
+        "Orders always expire at signature_expiry_sec regardless of time-in-force." Signing every
+        order for an hour pulled each resting order from the book an hour after it was placed.
+        """
+        self._simulate_trading_rules_initialized()
+        cases = [
+            (OrderType.LIMIT, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.LIMIT_MAKER, RESTING_ORDER_VALIDITY_SEC),
+            (OrderType.MARKET, CONSTANTS.SIGNATURE_VALIDITY_SEC),
+        ]
+        url = self.order_creation_url
+        placed_at = time.time()
+        for index, (order_type, _) in enumerate(cases):
+            mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id=f"0x{index:032x}",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=order_type,
+                price=Decimal("10000"),
+            ))
+
+        for index, (order_type, expected_validity) in enumerate(cases):
+            sent = self._sent_body(mock_api, url, index)
+            self.assertAlmostEqual(
+                expected_validity, sent["signature_expiry_sec"] - placed_at, delta=30, msg=order_type.name
+            )
+
+    def _track_order(self, order_id: str = "OID-ERR", exchange_order_id: str = "EX-ERR") -> InFlightOrder:
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        return self.exchange.in_flight_orders[order_id]
+
+    def test_order_status_error_other_than_not_found_keeps_the_order(self):
+        """
+        The base class counts every error raised from the status poll as "order not found" and
+        retires the order after a few. A rate limit or a backend hiccup must not do that, so
+        the order is reported in the state it is already tracked in.
+        """
+        order = self._track_order()
+        for error in (
+            {"code": -32000, "message": "Rate limit exceeded"},
+            {"code": 9002, "message": "Backend temporarily unavailable, retry"},
+        ):
+            self.exchange._api_post = AsyncMock(return_value={"error": error})
+
+            update = self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+            self.assertEqual(order.current_state, update.new_state, error)
+            self.assertEqual(order.client_order_id, update.client_order_id)
+            self.assertEqual(order.exchange_order_id, update.exchange_order_id)
+        warnings = [r.getMessage() for r in self.log_records if r.levelname == "WARNING"]
+        self.assertTrue(any("code=-32000 Rate limit exceeded" in m for m in warnings), warnings)
+
+    def test_order_status_not_found_is_raised_with_its_code(self):
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(context.exception))
+
+    def test_order_status_the_connector_does_not_map_keeps_the_order(self):
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"result": {
+            "order_status": "a_status_added_later",
+            "last_update_timestamp": 1640780000000,
+            "order_id": "EX-ERR",
+            "label": "",
+        }})
+
+        update = self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        self.assertEqual(order.current_state, update.new_state)
+        # An empty label falls back to the id the order is tracked under.
+        self.assertEqual(order.client_order_id, update.client_order_id)
+
+    def test_order_rejections_are_reported_by_code(self):
+        self._simulate_trading_rules_initialized()
+        cases = [
+            ({"code": 11007, "message": "Self-crossing disallowed"}, "would have crossed one of this account's own orders"),
+            ({"code": 11008, "message": "Post only order cannot cross the market"}, "would have crossed the book"),
+            ({"code": 11023, "message": "Max fee order param is too low"}, "the signed max_fee was below the fee"),
+            ({"code": 14031, "message": "Unauthorized Key Scope"}, "Derive session key error 14031"),
+            ({"code": 11000, "message": "Insufficient funds"}, "code=11000 Insufficient funds"),
+        ]
+        for error, expected in cases:
+            self.log_records.clear()
+            self.exchange._api_post = AsyncMock(return_value={"error": error})
+
+            # A self-crossing rejection used to log a warning and return nothing, which the base
+            # class then failed to unpack. Every rejection is now raised as the failure it is.
+            with self.assertRaises(IOError) as context:
+                self.async_run_with_timeout(self.exchange._place_order(
+                    order_id="0xabc",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("1"),
+                    trade_type=TradeType.BUY,
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("10000"),
+                ))
+
+            reported = str(context.exception) + " " + " ".join(r.getMessage() for r in self.log_records)
+            self.assertIn(expected, reported, error)
+            self.assertIn("Error submitting order 0xabc", str(context.exception))
+
+    def test_cancel_errors_carry_the_code_and_only_not_found_counts_as_gone(self):
+        self._simulate_trading_rules_initialized()
+        order = self._track_order()
+
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+        self.assertTrue(self.exchange._is_order_not_found_during_cancelation_error(context.exception))
+
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": -32000, "message": "Rate limit exceeded"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_cancel(order.client_order_id, order))
+        self.assertFalse(self.exchange._is_order_not_found_during_cancelation_error(context.exception))
+        self.assertEqual("code=-32000 Rate limit exceeded", str(context.exception))
+
+    def test_balance_error_names_the_cause_and_assets_no_longer_held_are_dropped(self):
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14026, "message": "Session key not found"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14026", str(context.exception))
+        errors = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertTrue(any("Derive session key error 14026" in m for m in errors), errors)
+
+        # The owner wallet's own key skips the session-key lookup, so a wallet with no account on
+        # this network comes back as 14000. `connect` shows only the exception text, so the
+        # explanation has to be in it.
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14000, "message": "Account not found"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14000 Account not found. Derive account error 14000", str(context.exception))
+        self.assertIn("Mainnet and testnet accounts are separate", str(context.exception))
+        self.assertIn("first deposit", str(context.exception))
+
+        self.exchange._account_balances["OLD"] = Decimal("1")
+        self.exchange._account_available_balances["OLD"] = Decimal("1")
+        self.exchange._api_post = AsyncMock(return_value={"result": {"collaterals": [{"asset_name": "USDC", "amount": "15"}]}})
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        self.assertNotIn("OLD", self.exchange._account_balances)
+        self.assertNotIn("OLD", self.exchange._account_available_balances)
+        self.assertEqual(Decimal("15"), self.exchange._account_balances["USDC"])
+
+    def test_trading_fees_come_from_the_instrument_definitions(self):
+        self._simulate_trading_rules_initialized()
+        instrument = self.exchange._instrument_ticker[0]
+        # An instrument with no rates published, and one this connector has no pair for.
+        self.exchange._instrument_ticker = [
+            instrument,
+            dict(instrument, instrument_name="NORATES-USDC", maker_fee_rate=None),
+            dict(instrument, instrument_name="UNMAPPED-USDC"),
+        ]
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        fees = self.exchange._trading_fees[self.trading_pair]
+        self.assertEqual(Decimal(str(instrument["maker_fee_rate"])), fees.maker_percent_fee_decimal)
+        self.assertEqual(Decimal(str(instrument["taker_fee_rate"])), fees.taker_percent_fee_decimal)
+        self.assertEqual([self.trading_pair], list(self.exchange._trading_fees))
+
+    def test_all_pairs_prices_come_from_one_bulk_ticker_request(self):
+        """The slim ticker is keyed by instrument name and does not repeat it inside the payload."""
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock(return_value={"result": {"tickers": {
+            "BTC-USDC": {"b": "9999", "a": "10001", "M": "10000"},
+            "ETH-USDC": {"b": "1999", "a": "2001", "M": "2000"},
+        }}})
+
+        prices = self.async_run_with_timeout(self.exchange.get_all_pairs_prices())
+
+        self.assertEqual(1, self.exchange._api_post.call_count)
+        self.assertEqual(CONSTANTS.BULK_TICKERS_PATH_URL, self.exchange._api_post.call_args.kwargs["path_url"])
+        self.assertEqual(
+            [{"symbol": {"instrument_name": "BTC-USDC", "best_bid": "9999", "best_ask": "10001"}},
+             {"symbol": {"instrument_name": "ETH-USDC", "best_bid": "1999", "best_ask": "2001"}}],
+            prices,
+        )
+
+    def test_last_traded_price_is_the_slim_tickers_mark_price(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._api_post = AsyncMock(return_value={"result": {"M": "10000.5", "I": "10001"}})
+
+        price = self.async_run_with_timeout(self.exchange._get_last_traded_price(self.trading_pair))
+
+        self.assertEqual(10000.5, price)
+
+    def test_trade_history_poll_survives_a_failed_request(self):
+        self._simulate_trading_rules_initialized()
+        self._track_order()
+
+        self.exchange._api_get = AsyncMock(side_effect=IOError("connection reset"))
+        self.async_run_with_timeout(self.exchange._update_trade_history())
+        warnings = [r.getMessage() for r in self.log_records if r.levelname == "WARNING"]
+        self.assertTrue(any("Failed to fetch trade updates" in m for m in warnings), warnings)
+
+        self.exchange._api_get = AsyncMock(return_value={"result": {"trades": []}})
+        self.async_run_with_timeout(self.exchange._update_trade_history())
+        self.assertEqual(int(self.subacct_id), self.exchange._api_get.call_args.kwargs["params"]["subaccount_id"])
+
+    def test_instruments_are_fetched_across_every_page(self):
+        first, second = {"instrument_name": "A-USDC"}, {"instrument_name": "B-USDC"}
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"result": {"instruments": [first], "pagination": {"num_pages": 2, "count": 2}}},
+            {"result": {"instruments": [second], "pagination": {"num_pages": 2, "count": 2}}},
+        ])
+
+        instruments = self.async_run_with_timeout(self.exchange._make_trading_pairs_request())
+
+        self.assertEqual([first, second], instruments)
+        self.assertEqual([1, 2], [call.kwargs["data"]["page"] for call in self.exchange._api_post.call_args_list])
+
+    def test_session_key_check_does_not_stop_the_connector_when_it_cannot_run(self) -> None:
+        # The lookup itself failing, an error with no hint for its code, and an empty answer.
+        for response in (IOError("connection reset"), {"error": {"code": -32603, "message": "Internal error"}}, {"result": {"wallets": []}}):
+            self.exchange._trading_required = True
+            self.exchange._auth.session_key_wallet = MagicMock()
+            self.exchange._auth.session_key_wallet.address = "0xSESSIONKEY"
+            self.exchange._api_post = AsyncMock(side_effect=[response])
+            self.async_run_with_timeout(self.exchange._verify_session_key())
+            self.assertEqual(1, self.exchange._api_post.call_count)
+        errors = [r.getMessage() for r in self.log_records if r.levelname == "ERROR"]
+        self.assertEqual(1, len(errors), errors)
+        self.assertIn("Derive rejected the session key", errors[0])
+
+    def test_session_key_expiry_lookup_can_be_cancelled(self) -> None:
+        self.exchange._api_post = AsyncMock(side_effect=asyncio.CancelledError)
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.exchange._update_session_key_expiry("0xSESSIONKEY"))
+
+    def test_cancel_of_a_missing_order_is_counted_as_not_found_once(self):
+        """
+        The base class counts the order as not found when it recognises the code in the error.
+        _place_cancel used to count it as well, so every such cancel counted twice and the order
+        was written off after two attempts instead of the four the tracker allows.
+        """
+        self._simulate_trading_rules_initialized()
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 11006, "message": "Does not exist"}})
+        limit = self.exchange._order_tracker.lost_order_count_limit
+
+        self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+        for _ in range(limit - 1):
+            self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(limit, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+
+    @aioresponses()
+    def test_order_refused_for_outliving_the_session_key_is_signed_again(self, mock_api):
+        """
+        The key's expiry is read once at startup. If that lookup failed, resting orders are signed
+        for the longest the API allows and a shorter-lived key has every one of them refused with
+        14038. The refusal now makes the connector read the expiry and sign the order again.
+        """
+        self._simulate_trading_rules_initialized()
+        self.assertIsNone(self.exchange._auth.session_key_expiry_sec)        # as after a failed lookup
+        key_expiry = int(time.time()) + 30 * 24 * 60 * 60
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL), body=json.dumps({"result": {"public_session_keys": [
+            {"public_session_key": self.exchange._auth.session_key_wallet.address, "expiry_sec": key_expiry},
+        ]}}))
+        mock_api.post(url, body=json.dumps(self.order_creation_request_successful_mock_response))
+
+        exchange_order_id, _ = self.async_run_with_timeout(self.exchange._place_order(
+            order_id="0xabc",
+            trading_pair=self.trading_pair,
+            amount=Decimal("1"),
+            trade_type=TradeType.BUY,
+            order_type=OrderType.LIMIT,
+            price=Decimal("10000"),
+        ))
+
+        first, second = self._sent_body(mock_api, url, 0), self._sent_body(mock_api, url, 1)
+        self.assertAlmostEqual(RESTING_ORDER_VALIDITY_SEC, first["signature_expiry_sec"] - time.time(), delta=30)
+        self.assertEqual(key_expiry - SESSION_KEY_EXPIRY_MARGIN_SEC, second["signature_expiry_sec"])
+        self.assertNotEqual(first["nonce"], second["nonce"])
+        self.assertNotEqual(first["signature"], second["signature"])
+        self.assertEqual(str(self.expected_exchange_order_id), exchange_order_id)
+        self.assertEqual(key_expiry, self.exchange._auth.session_key_expiry_sec)
+
+    @aioresponses()
+    def test_order_outliving_the_session_key_is_reported_when_the_expiry_cannot_be_read(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL),
+                      body=json.dumps({"error": {"code": 14031, "message": "Unauthorized Key Scope"}}))
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn("Derive session key error 14038", str(context.exception))
+        # Sending the same order again would only be refused again, so it is not sent twice.
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
+        warnings = [r.getMessage() for r in self.log_records if r.levelname == "WARNING"]
+        self.assertTrue(any(
+            "Could not read the expiry of the Derive session key (code=14031 Unauthorized Key Scope)" in m for m in warnings
+        ), warnings)
+
+    @aioresponses()
+    def test_order_outliving_the_session_key_is_not_resent_when_the_expiry_is_unchanged(self, mock_api):
+        """Reading the expiry again only helps if it changed; otherwise the refusal would repeat."""
+        self._simulate_trading_rules_initialized()
+        key_expiry = int(time.time()) + 30 * 24 * 60 * 60
+        self.exchange._auth.session_key_expiry_sec = key_expiry
+        url = self.order_creation_url
+        mock_api.post(url, body=json.dumps({"error": {"code": 14038, "message": "Action expiry exceeds session key expiry"}}))
+        mock_api.post(self._private_url(CONSTANTS.SESSION_KEYS_PATH_URL), body=json.dumps({"result": {"public_session_keys": [
+            {"public_session_key": self.exchange._auth.session_key_wallet.address, "expiry_sec": key_expiry},
+        ]}}))
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn("Derive session key error 14038", str(context.exception))
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
+
+    def test_account_not_found_names_the_wallet_when_the_session_key_address_was_entered(self):
+        """
+        A session key has an address of its own, and it is easily entered as the wallet address.
+        The key then signs as the owner of an account it does not have, so the exchange answers
+        14000 and says nothing about session keys. Which wallet the key belongs to is one public
+        lookup away, so the error names it.
+        """
+        # Built as `connect` builds it: trading is not required, so there is no session_key_wallet.
+        exchange = DeriveExchange(
+            session_private_key=self.session_private_key,  # noqa: mock
+            derive_wallet_address=self.wallet_address,  # noqa: mock
+            subacct_id=self.subacct_id,
+            account_type=self.account_type,
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+        )
+        exchange.derive_wallet_address = exchange._auth.signer_address
+        owner = "0x52908400098527886E0F7030069857D2E4169EE7"  # noqa: mock
+        exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            {"result": {"wallets": [owner]}},
+        ])
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(exchange._update_balances())
+
+        self.assertIn("code=14000 Account not found. Derive account error 14000", str(context.exception))
+        self.assertIn(f"{exchange._auth.signer_address}, is the address of the session key itself", str(context.exception))
+        self.assertIn(f"registered to {owner}: enter that as the wallet address", str(context.exception))
+        lookup = exchange._api_post.call_args_list[1].kwargs
+        self.assertEqual(CONSTANTS.SESSION_KEY_WALLETS_PATH_URL, lookup["path_url"])
+        self.assertEqual({"public_session_key": exchange._auth.signer_address}, lookup["data"])
+        self.assertNotIn("is_auth_required", lookup)
+
+    def test_account_not_found_keeps_the_general_hint_when_no_wallet_can_be_named(self):
+        # The owner's own key, signing for a wallet that has not deposited yet: the address is not
+        # a session key, so the general explanation stands.
+        self.exchange.derive_wallet_address = self.exchange._auth.signer_address
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            {"error": {"code": 14026, "message": "Session key not found"}},
+        ])
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("first deposit", str(context.exception))
+        self.assertNotIn("session key itself", str(context.exception))
+
+        # The lookup failing is no reason to lose the error it was meant to explain.
+        self.exchange._api_post = AsyncMock(side_effect=[
+            {"error": {"code": 14000, "message": "Account not found"}},
+            IOError("connection reset"),
+        ])
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=14000 Account not found", str(context.exception))
+
+        # A wallet address that is not the signer's is not this mistake, so nothing is looked up.
+        self.exchange.derive_wallet_address = self.wallet_address
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": 14000, "message": "Account not found"}})
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertEqual(1, self.exchange._api_post.call_count)
+
+    def test_order_refused_for_its_risk_universe_says_so(self):
+        """
+        A subaccount trades only the instruments of the risk universe it was created under, and
+        an order outside it is refused as -32602 "Invalid params". The reason is in the error's
+        ``data``, which the connector used to drop, leaving "Invalid params" and nothing else.
+        """
+        self._simulate_trading_rules_initialized()
+        detail = "subaccount 37799 is in risk universe 1 but instrument BTC-PERP is in risk universe 3"
+        self.exchange._api_post = AsyncMock(return_value={"error": {"code": -32602, "message": "Invalid params", "data": detail}})
+
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+
+        self.assertIn(f"code=-32602 Invalid params ({detail}). {CONSTANTS.RISK_UNIVERSE_HINT}", str(context.exception))
+
+        # Any other invalid parameter is reported with its detail, and without that advice.
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": -32602, "message": "Invalid params", "data": "invalid type: string, expected i64"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.BUY,
+                order_type=OrderType.LIMIT,
+                price=Decimal("10000"),
+            ))
+        self.assertIn("code=-32602 Invalid params (invalid type: string, expected i64)", str(context.exception))
+        self.assertNotIn("risk universe", str(context.exception))
+
+    def test_exchange_detail_is_kept_without_hiding_the_code(self):
+        self._simulate_trading_rules_initialized()
+        # The balance check is what `connect` shows.
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": -32000, "message": "Rate limit exceeded", "data": "retry in 1200 ms"}})
+        with self.assertRaises(IOError) as context:
+            self.async_run_with_timeout(self.exchange._update_balances())
+        self.assertIn("code=-32000 Rate limit exceeded (retry in 1200 ms)", str(context.exception))
+
+        # The base class recognises a missing order by the code, wherever the detail mentions others.
+        order = self._track_order()
+        self.exchange._api_post = AsyncMock(return_value={"error": {
+            "code": 11006, "message": "Does not exist", "data": "no order with that id; code=9999 is unrelated"}})
+        self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])

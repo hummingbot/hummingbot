@@ -183,37 +183,24 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         }
 
     def get_funding_info_rest_msg(self):
-        return {"result":
-                {
-                    'instrument_type': 'perp',
-                    'instrument_name': f'{self.base_asset}-PERP',
-                    'scheduled_activation': 1728508925,
-                    'scheduled_deactivation': 9223372036854775807,
-                    'is_active': True,
-                    'tick_size': '0.01',
-                    'minimum_amount': '0.1',
-                    'maximum_amount': '1000',
-                    'index_price': '36717.0',
-                    'mark_price': '36733.0',
-                    'amount_step': '0.01',
-                    'mark_price_fee_rate_cap': '0',
-                    'maker_fee_rate': '0.0015',
-                    'taker_fee_rate': '0.0015',
-                    'base_fee': '0.1',
-                    'base_currency': self.base_asset,
-                    'quote_currency': self.quote_asset,
-                    'option_details': None,
-                    "perp_details": {
-                        "index": "BTC-USDC",
-                        "max_rate_per_hour": "0.004",
-                        "min_rate_per_hour": "-0.004",
-                        "static_interest_rate": "0.0000125",
-                        "aggregate_funding": "738.587599416709606114",
-                        "funding_rate": "0.00001793"
-                    },
-                    'erc20_details': None,
-                    'base_asset_address': '0xE201fCEfD4852f96810C069f66560dc25B2C7A55', 'base_asset_sub_id': '0', 'pro_rata_fraction': '0', 'fifo_min_allocation': '0', 'pro_rata_amount_step': '1'}
-                }
+        # v3 slim ticker: index is "I", mark is "M" and the hourly funding rate is "f".
+        return {
+            "result": {
+                "t": 1737827796000,
+                "A": "2155.24", "a": "36734.0",
+                "B": "2155.43", "b": "36732.0",
+                "f": "0.00001793",
+                "option_pricing": None,
+                "I": "36717.0",
+                "M": "36733.0",
+                "stats": {
+                    "c": "308.41", "v": "514.6", "pr": "0", "n": 7,
+                    "oi": "323332.12302071627866623",
+                    "h": "36796.0", "l": "36605.0", "p": "-0.071477",
+                },
+                "minp": "36213.0", "maxp": "37199.0",
+            }
+        }
 
     def get_trading_rule_rest_msg(self):
         return [
@@ -268,7 +255,7 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         expected_subscription_payload = {
             "channels": [
                 f"trades.{self.ex_trading_pair.upper()}",
-                f"orderbook.{self.ex_trading_pair.upper()}.10.10",
+                f"orderbook.{self.ex_trading_pair.upper()}.1.100",
                 f"ticker_slim.{self.ex_trading_pair.upper()}.1000"
             ]
         }
@@ -335,6 +322,8 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @aioresponses()
     async def test_listen_for_subscriptions_successful(self, mock_ws, mock_api):
+        # The snapshot listener has to read its queue here, which the fixture's -1 would skip.
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
         # Mock REST API for funding info polling
         endpoint = CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
         url = web_utils.public_rest_url(endpoint)
@@ -477,7 +466,10 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg_result = resp
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(msg_result["result"]["perp_details"]["funding_rate"])), funding_info.rate)
+        # v3 slim ticker: index "I", mark "M", hourly funding rate "f".
+        self.assertEqual(Decimal(str(msg_result["result"]["f"])), funding_info.rate)
+        self.assertEqual(Decimal(str(msg_result["result"]["I"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(msg_result["result"]["M"])), funding_info.mark_price)
 
     async def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
@@ -569,18 +561,79 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source._request_order_book_snapshot(self.trading_pair)
         self.assertEqual(99999, result["params"]["data"]["publish_id"])
 
-    async def test_request_snapshot_filters_wrong_instrument(self):
-        """Lines 136,139,141: Filter wrong instrument and put back"""
+    async def test_first_snapshot_request_is_answered_by_the_snapshot_listener(self):
+        """
+        The first book for a pair comes from the listener, the only reader of the snapshot queue.
+        The request used to read that queue as well, giving up its place in line every second, and
+        on a channel that publishes once a second the listener took every message: the request
+        failed after 100 attempts while the book it was waiting for sat in the cache.
+        """
         await self._simulate_trading_rules_initialized()
-        message_queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
-        wrong_snapshot = {"params": {"data": {"instrument_name": "ETH-PERP", "publish_id": 88888, "bids": [["2000", "1"]], "asks": [["2001", "1"]], "timestamp": 1737885894000}}}
-        message_queue.put_nowait(wrong_snapshot)
-        correct_snapshot = {"params": {"data": {"instrument_name": f"{self.base_asset}-PERP", "publish_id": 77777, "bids": [["200.0", "2.5"]], "asks": [["201.0", "2.5"]], "timestamp": 1737885895000}}}
-        message_queue.put_nowait(correct_snapshot)
-        result = await self.data_source._request_order_book_snapshot(self.trading_pair)
-        self.assertEqual(77777, result["params"]["data"]["publish_id"])
-        # Verify wrong snapshot was put back
-        self.assertEqual(1, message_queue.qsize())
+        # The fixture's -1 sends the listener straight to its silent-channel branch; this is about
+        # the ordinary one, where it reads the queue.
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
+        queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        forwarded = asyncio.Queue()
+        request = asyncio.create_task(self.data_source._request_order_book_snapshot(self.trading_pair))
+        listener = asyncio.create_task(
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), forwarded)
+        )
+        await asyncio.sleep(0)
+        frame = self.get_ws_snapshot_msg()
+        queue.put_nowait(frame)
+
+        try:
+            result = await asyncio.wait_for(request, timeout=1)
+        finally:
+            listener.cancel()
+
+        self.assertEqual(frame["params"]["data"]["publish_id"], result["params"]["data"]["publish_id"])
+        # The listener read the frame, so the order book tracker was given it too.
+        self.assertEqual(1, forwarded.qsize())
+        self.assertEqual(0, queue.qsize())
+
+    async def test_first_snapshot_request_leaves_the_queue_to_the_listener(self):
+        await self._simulate_trading_rules_initialized()
+        queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        queue.put_nowait(self.get_ws_snapshot_msg())
+        self.data_source.INITIAL_SNAPSHOT_TIMEOUT = 0.05
+
+        # No listener is running, and the frame is not the request's to take.
+        with self.assertRaises(RuntimeError) as context:
+            await self.data_source._request_order_book_snapshot(self.trading_pair)
+
+        self.assertIn(f"Failed to receive orderbook snapshot for {self.trading_pair} within", str(context.exception))
+        self.assertEqual(1, queue.qsize())
+
+    async def test_snapshot_for_another_pair_does_not_answer_the_request(self):
+        await self._simulate_trading_rules_initialized()
+        request = asyncio.create_task(self.data_source._request_order_book_snapshot(self.trading_pair))
+        await asyncio.sleep(0)
+        self.data_source._snapshot_received_event("OTHER-PAIR").set()
+        await asyncio.sleep(0)
+        self.assertFalse(request.done())
+
+        frame = self.get_ws_snapshot_msg()
+        await self.data_source._parse_order_book_snapshot_message(frame, asyncio.Queue())
+        result = await asyncio.wait_for(request, timeout=1)
+        self.assertEqual(frame["params"]["data"]["publish_id"], result["params"]["data"]["publish_id"])
+
+    async def test_silent_channel_refresh_passes_on_cached_books_without_waiting(self):
+        """
+        After an hour without a message the listener calls this itself. It must not wait for a book
+        there: the listener is what receives them, so it would be waiting on itself.
+        """
+        await self._simulate_trading_rules_initialized()
+        output = asyncio.Queue()
+
+        await asyncio.wait_for(self.data_source._request_order_book_snapshots(output), timeout=1)
+        self.assertEqual(0, output.qsize())             # no pair has had a book: nothing to pass on
+
+        frame = self.get_ws_snapshot_msg()
+        await self.data_source._parse_order_book_snapshot_message(frame, asyncio.Queue())
+        await asyncio.wait_for(self.data_source._request_order_book_snapshots(output), timeout=1)
+        self.assertEqual(1, output.qsize())
+        self.assertEqual(frame["params"]["data"]["publish_id"], output.get_nowait().update_id)
 
     async def test_parse_funding_info_message(self):
         """Lines 242,245-246,248-250: Test _parse_funding_info_message"""

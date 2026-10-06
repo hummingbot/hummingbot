@@ -210,3 +210,38 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    async def test_refused_login_reports_the_exchanges_reason(self):
+        """
+        A refused login was logged as "Error authenticating the private websocket connection" on
+        every reconnect, with nothing to say whether the key was unregistered, expired or paired
+        with another wallet.
+        """
+        ws = AsyncMock()
+        self.data_source._auth = MagicMock()
+        self.data_source._auth.get_ws_auth_payload.return_value = {"wallet": "0xW", "timestamp": 1, "signature": "0xS"}
+        with patch("hummingbot.connector.exchange.derive.derive_api_user_stream_data_source.web_utils.utc_now_ms", return_value=1700000000000):
+            for error, expected in (
+                ({"code": 14026, "message": "Session key not found"}, "Derive session key error 14026"),
+                ({"code": 14000, "message": "Account not found"}, "Derive account error 14000"),
+                ({"code": -32603, "message": "Internal error"}, "code=-32603 Internal error"),
+                ({"code": -32603, "message": "Internal error", "data": "upstream timed out"},
+                 "code=-32603 Internal error (upstream timed out)"),
+            ):
+                ws.receive.return_value = MagicMock(data={"id": "1700000000000", "error": error})
+
+                with self.assertRaises(IOError) as context:
+                    await self.data_source._authenticate(ws)
+
+                self.assertIn(expected, str(context.exception))
+                self.assertTrue(any(
+                    record.levelname == "ERROR" and expected in record.getMessage() for record in self.log_records
+                ))
+
+            # An accepted login is silent.
+            ws.receive.return_value = MagicMock(data={"id": "1700000000000", "result": [1]})
+            await self.data_source._authenticate(ws)
+
+        sent = ws.send.call_args.args[0].payload
+        self.assertEqual("public/login", sent["method"])
+        self.assertEqual("1700000000000", sent["id"])
