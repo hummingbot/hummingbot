@@ -99,8 +99,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.gateway._reconnect_interval = 0.0
         self.test_market: MockPaperExchange = MockPaperExchange()
         self.hbapp.trading_core.connector_manager.connectors["test_market_paper_trade"] = self.test_market
-        # No strategy loaded by default (the app no longer initializes this attribute).
-        self.hbapp.strategy = None
+        # No strategy loaded by default.
+        self.hbapp.trading_core.strategy = None
         self.resume_test_event = asyncio.Event()
         self.hbapp.logger().setLevel(1)
         self.hbapp.logger().addHandler(self)
@@ -478,7 +478,7 @@ class RemoteIfaceMQTTTests(TestCase):
             strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
-        self.hbapp.strategy = {}
+        self.hbapp.trading_core.strategy = {}
         self.start_mqtt()
         self.fake_mqtt_broker.publish_to_subscription(
             self.get_topic_for(self.STATUS_URI),
@@ -488,7 +488,7 @@ class RemoteIfaceMQTTTests(TestCase):
         msg = {'status': 200, 'msg': '', 'data': ''}
         self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
-        self.hbapp.strategy = None
+        self.hbapp.trading_core.strategy = None
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_sync(
@@ -496,7 +496,7 @@ class RemoteIfaceMQTTTests(TestCase):
             strategy_status_mock: AsyncMock
     ):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
-        self.hbapp.strategy = {}
+        self.hbapp.trading_core.strategy = {}
         self.start_mqtt()
         self.fake_mqtt_broker.publish_to_subscription(
             self.get_topic_for(self.STATUS_URI),
@@ -506,7 +506,7 @@ class RemoteIfaceMQTTTests(TestCase):
         msg = {'status': 400, 'msg': 'Some error', 'data': ''}
         self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
-        self.hbapp.strategy = None
+        self.hbapp.trading_core.strategy = None
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_failure(
