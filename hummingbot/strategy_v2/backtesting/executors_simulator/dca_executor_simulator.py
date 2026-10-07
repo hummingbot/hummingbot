@@ -122,14 +122,15 @@ class DCAExecutorSimulator(ExecutorSimulatorBase):
         close_type = None
 
         for i, dca_stage in enumerate(potential_dca_stages):
-            if dca_stage['close_type'] is None:
-                df_filtered.loc[entry_timestamp:, f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, 'current_position_average_price'] = dca_stage['break_even_price']
-            else:
-                df_filtered.loc[entry_timestamp:, f'filled_amount_quote_{i}'] = dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, f'net_pnl_quote_{i}'] = dca_stage['cumulative_returns'] * dca_stage['amount']
-                df_filtered.loc[entry_timestamp:, 'current_position_average_price'] = dca_stage['break_even_price']
+            stage_entry_timestamp = dca_stage['entry_timestamp']
+            stage_index = df_filtered.loc[stage_entry_timestamp:].index
+            stage_returns = dca_stage['cumulative_returns'].to_numpy()
+
+            df_filtered.loc[stage_index, f'filled_amount_quote_{i}'] = dca_stage['amount']
+            df_filtered.loc[stage_index, f'net_pnl_quote_{i}'] = stage_returns * dca_stage['amount']
+            df_filtered.loc[stage_index, 'current_position_average_price'] = dca_stage['break_even_price']
+
+            if dca_stage['close_type'] is not None:
                 close_type = dca_stage['close_type']
                 last_timestamp = dca_stage['close_timestamp']
                 break
