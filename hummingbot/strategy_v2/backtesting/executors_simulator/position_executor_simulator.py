@@ -61,7 +61,7 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             sl = float(config.triple_barrier_config.stop_loss)
             sl_price = entry_price * (1 - sl * side_multiplier)
             sl_condition = df_filtered['low'] <= sl_price if config.side == TradeType.BUY else df_filtered['high'] >= sl_price
-            first_sl_timestamp = df_filtered[sl_condition]['timestamp'].min()
+            first_sl_timestamp = df_filtered[sl_condition & (df_filtered['timestamp'] >= start_timestamp)]['timestamp'].min()
         first_trailing_sl_timestamp = df_filtered[(~df_filtered['ts'].isna()) & (df_filtered['net_pnl_pct'] < df_filtered['ts'])]['timestamp'].min() if trailing_sl_delta_pct and trailing_sl_trigger_pct else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
 
