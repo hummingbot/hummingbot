@@ -456,6 +456,18 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
+    def test_mqtt_command_start_strategy_running(self):
+        self.hbapp.trading_core.strategy = {}
+        self.start_mqtt()
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'script': 'simple_pmm.py'}
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/start"
+        msg = {'status': 400, 'msg': 'The bot is already running - please run "stop" first'}
+        self.async_run_with_timeout(self.wait_for_rcv(topic, msg, msg_key='data'), timeout=10)
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_no_strategy_running(
             self,
