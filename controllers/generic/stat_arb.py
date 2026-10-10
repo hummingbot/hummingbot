@@ -2,7 +2,6 @@ from decimal import Decimal
 from typing import List
 
 import numpy as np
-from sklearn.linear_model import LinearRegression
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.data_feed.candles_feed.data_types import CandlesConfig
@@ -74,16 +73,36 @@ class StatArb(ControllerBase):
 
         # Initialize processed data dictionary
         self.processed_data = {
-            "dominant_price": None,
-            "hedge_price": None,
-            "spread": None,
-            "z_score": None,
-            "hedge_ratio": None,
+            "dominant_price": Decimal("0"),
+            "hedge_price": Decimal("0"),
+            "spread": Decimal("0"),
+            "z_score": Decimal("0"),
+            "alpha": Decimal("0"),
+            "beta": Decimal("0"),
+            "hedge_ratio": Decimal("0"),
             "position_dominant": Decimal("0"),
             "position_hedge": Decimal("0"),
+            "position_dominant_quote": Decimal("0"),
+            "position_hedge_quote": Decimal("0"),
+            "active_amount_dominant": Decimal("0"),
+            "active_amount_hedge": Decimal("0"),
             "active_orders_dominant": [],
             "active_orders_hedge": [],
+            "executors_dominant_filled": [],
+            "executors_hedge_filled": [],
+            "executors_dominant_placed": [],
+            "executors_hedge_placed": [],
             "pair_pnl": Decimal("0"),
+            "pair_pnl_pct": Decimal("0"),
+            "dominant_gap": Decimal("0"),
+            "hedge_gap": Decimal("0"),
+            "imbalance": Decimal("0"),
+            "imbalance_scaled_pct": Decimal("0"),
+            "filter_connector_pair": None,
+            "min_price_dominant": Decimal("0"),
+            "max_price_dominant": Decimal("0"),
+            "min_price_hedge": Decimal("0"),
+            "max_price_hedge": Decimal("0"),
             "signal": 0  # 0: no signal, 1: long dominant/short hedge, -1: short dominant/long hedge
         }
 
@@ -244,7 +263,11 @@ class StatArb(ControllerBase):
         needed for the statistical arbitrage strategy.
         """
         # Stat arb analysis
-        spread, z_score = self.get_spread_and_z_score()
+        spread_and_z_score = self.get_spread_and_z_score()
+        if spread_and_z_score is None:
+            self.processed_data["signal"] = 0
+            return
+        spread, z_score = spread_and_z_score
 
         # Generate trading signal based on z-score
         entry_threshold = float(self.config.entry_threshold)
@@ -377,11 +400,8 @@ class StatArb(ControllerBase):
         dominant_cum_returns = dominant_cum_returns / dominant_cum_returns[0] if len(dominant_cum_returns) > 0 else np.array([1.0])
         hedge_cum_returns = hedge_cum_returns / hedge_cum_returns[0] if len(hedge_cum_returns) > 0 else np.array([1.0])
 
-        # Perform linear regression
-        dominant_cum_returns_reshaped = dominant_cum_returns.reshape(-1, 1)
-        reg = LinearRegression().fit(dominant_cum_returns_reshaped, hedge_cum_returns)
-        alpha = reg.intercept_
-        beta = reg.coef_[0]
+        # Fit a simple linear model without pulling in an extra runtime dependency.
+        beta, alpha = np.polyfit(dominant_cum_returns, hedge_cum_returns, 1)
         self.processed_data.update({
             "alpha": alpha,
             "beta": beta,
@@ -439,6 +459,21 @@ class StatArb(ControllerBase):
         """
         Format the status of the controller for display.
         """
+        position_dominant_quote = self.processed_data.get("position_dominant_quote", Decimal("0"))
+        position_hedge_quote = self.processed_data.get("position_hedge_quote", Decimal("0"))
+        imbalance = self.processed_data.get("imbalance", Decimal("0"))
+        imbalance_scaled_pct = self.processed_data.get("imbalance_scaled_pct", Decimal("0"))
+        executors_dominant_placed = self.processed_data.get("executors_dominant_placed", [])
+        executors_hedge_placed = self.processed_data.get("executors_hedge_placed", [])
+        executors_dominant_filled = self.processed_data.get("executors_dominant_filled", [])
+        executors_hedge_filled = self.processed_data.get("executors_hedge_filled", [])
+        signal = self.processed_data.get("signal", Decimal("0"))
+        z_score = self.processed_data.get("z_score", Decimal("0"))
+        spread = self.processed_data.get("spread", Decimal("0"))
+        alpha = self.processed_data.get("alpha", Decimal("0"))
+        beta = self.processed_data.get("beta", Decimal("0"))
+        pair_pnl_pct = self.processed_data.get("pair_pnl_pct", Decimal("0"))
+
         status_lines = []
         status_lines.append(f"""
 Dominant Pair: {self.config.connector_pair_dominant} | Hedge Pair: {self.config.connector_pair_hedge} |
@@ -446,15 +481,15 @@ Timeframe: {self.config.interval} | Lookback Period: {self.config.lookback_perio
 
 Positions targets:
 Theoretical Dominant         : {self.theoretical_dominant_quote} | Theoretical Hedge: {self.theoretical_hedge_quote} | Position Hedge Ratio: {self.config.pos_hedge_ratio}
-Position Dominant            : {self.processed_data['position_dominant_quote']:.2f} | Position Hedge: {self.processed_data['position_hedge_quote']:.2f} | Imbalance: {self.processed_data['imbalance']:.2f} | Imbalance Scaled: {self.processed_data['imbalance_scaled_pct']:.2f} %
+Position Dominant            : {position_dominant_quote:.2f} | Position Hedge: {position_hedge_quote:.2f} | Imbalance: {imbalance:.2f} | Imbalance Scaled: {imbalance_scaled_pct:.2f} %
 
 Current Executors:
-Active Orders Dominant       : {len(self.processed_data['executors_dominant_placed'])} | Active Orders Hedge       : {len(self.processed_data['executors_hedge_placed'])} |
-Active Orders Dominant Filled: {len(self.processed_data['executors_dominant_filled'])} | Active Orders Hedge Filled: {len(self.processed_data['executors_hedge_filled'])}
+Active Orders Dominant       : {len(executors_dominant_placed)} | Active Orders Hedge       : {len(executors_hedge_placed)} |
+Active Orders Dominant Filled: {len(executors_dominant_filled)} | Active Orders Hedge Filled: {len(executors_hedge_filled)}
 
-Signal: {self.processed_data['signal']:.2f} | Z-Score: {self.processed_data['z_score']:.2f} | Spread: {self.processed_data['spread']:.2f}
-Alpha : {self.processed_data['alpha']:.2f} | Beta: {self.processed_data['beta']:.2f}
-Pair PnL PCT: {self.processed_data['pair_pnl_pct'] * 100:.2f} %
+Signal: {signal:.2f} | Z-Score: {z_score:.2f} | Spread: {spread:.2f}
+Alpha : {alpha:.2f} | Beta: {beta:.2f}
+Pair PnL PCT: {pair_pnl_pct * 100:.2f} %
 """)
         return status_lines
 
