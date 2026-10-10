@@ -1858,3 +1858,12 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 message=f"Error setting leverage {target_leverage} for {self.trading_pair}: Max leverage for {self.trading_pair} is {max_leverage}.",
             )
         )
+
+    def test_get_value_of_contracts_fallback_is_exact_decimal(self):
+        # Regression: the no-trading-rules fallback used Decimal(number * 0.001),
+        # capturing the binary float error of 0.001 into an inexact Decimal that
+        # then flowed into fill_base_amount / fill_quote_amount accounting.
+        self.exchange._trading_rules = {}
+        contract_value = self.exchange.get_value_of_contracts(self.trading_pair, 7)
+        self.assertEqual(contract_value, Decimal("0.007"))
+        self.assertEqual(str(contract_value), "0.007")
