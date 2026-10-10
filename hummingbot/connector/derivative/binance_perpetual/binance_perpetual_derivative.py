@@ -40,6 +40,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
+    BALANCE_REFRESH_MAX_RETRIES = 3
+    BALANCE_REFRESH_RETRY_DELAY = 1.0
 
     def __init__(
             self,
@@ -512,18 +514,24 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             self._balance_refresh_task = safe_ensure_future(self._refresh_balances_after_order_updates())
 
     async def _refresh_balances_after_order_updates(self):
+        failures = 0
         while self._balance_refresh_requested:
             self._balance_refresh_requested = False
             try:
                 await self._update_balances()
+                failures = 0
             except asyncio.CancelledError:
                 raise
             except Exception:
+                failures += 1
                 self.logger().network(
                     "Unexpected error refreshing balances after an order update.",
                     exc_info=True,
                     app_warning_msg="Could not refresh Binance Perpetual balances after an order update.",
                 )
+                if failures <= self.BALANCE_REFRESH_MAX_RETRIES:
+                    self._balance_refresh_requested = True
+                    await self._sleep(self.BALANCE_REFRESH_RETRY_DELAY * failures)
 
     async def stop_network(self):
         if self._balance_refresh_task is not None:

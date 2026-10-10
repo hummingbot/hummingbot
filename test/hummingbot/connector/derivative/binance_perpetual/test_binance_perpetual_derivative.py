@@ -5,7 +5,7 @@ import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -1374,6 +1374,7 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
                 raise IOError("account request failed")
 
         self.exchange._update_balances = AsyncMock(side_effect=failing_then_ok)
+        self.exchange._sleep = AsyncMock()
         for order_id in ("OID1", "OID2"):
             self._start_tracking_order(order_id)
 
@@ -1386,6 +1387,33 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         await refresh_task
 
         self.assertEqual(2, self.exchange._update_balances.await_count)
+
+    async def test_failed_balance_refresh_is_retried_with_backoff(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock(side_effect=[IOError("down"), IOError("down"), None])
+        self.exchange._sleep = AsyncMock()
+        self._start_tracking_order("OID1")
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(3, self.exchange._update_balances.await_count)
+        self.assertEqual(
+            [call(self.exchange.BALANCE_REFRESH_RETRY_DELAY), call(2 * self.exchange.BALANCE_REFRESH_RETRY_DELAY)],
+            self.exchange._sleep.await_args_list,
+        )
+
+    async def test_failed_balance_refresh_retries_are_bounded(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock(side_effect=IOError("down"))
+        self.exchange._sleep = AsyncMock()
+        self._start_tracking_order("OID1")
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(self.exchange.BALANCE_REFRESH_MAX_RETRIES + 1, self.exchange._update_balances.await_count)
+        self.assertEqual(self.exchange.BALANCE_REFRESH_MAX_RETRIES, self.exchange._sleep.await_count)
 
     @aioresponses()
     async def test_concurrent_balance_updates_are_serialized(self, mock_api):
