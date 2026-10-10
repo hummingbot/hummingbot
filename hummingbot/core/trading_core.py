@@ -98,6 +98,7 @@ class TradingCore:
         self.strategy_config_map: Optional[BaseStrategyConfigMap] = None
         self.strategy_task: Optional[asyncio.Task] = None
         self._strategy_file_name: Optional[str] = None
+        self._clock_task: Optional[asyncio.Task] = None
 
         # Supporting components
         self.notifiers: List[NotifierBase] = []
@@ -188,6 +189,7 @@ class TradingCore:
 
             # Start the clock
             self._clock_task = asyncio.create_task(self._run_clock())
+            self._clock_task.add_done_callback(self._on_clock_task_done)
             self._is_running = True
             self.start_time = time.time() * 1e3
 
@@ -213,6 +215,7 @@ class TradingCore:
                     pass
 
             self.clock = None
+            self._clock_task = None
             self._is_running = False
 
             self.logger().info("Clock stopped successfully")
@@ -555,9 +558,39 @@ class TradingCore:
             raise
 
     async def _run_clock(self):
-        """Run the clock system."""
-        with self.clock as clock:
-            await clock.run()
+        """Run the clock system.
+
+        Logs any unhandled exception before re-raising so that clock task
+        failures are visible in logs instead of being stored silently on
+        the Task (which can make the bot appear to hang with no output).
+        """
+        try:
+            with self.clock as clock:
+                await clock.run()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Clock coroutine died with an unhandled exception. "
+                "The bot will appear to hang — no further ticks will fire.",
+                exc_info=True,
+            )
+            raise
+
+    def _on_clock_task_done(self, task: asyncio.Task):
+        """Callback when the clock task finishes.
+
+        Logs any exception stored on the task so that clock failures are
+        visible in logs even if the task is never awaited.
+        """
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self.logger().error(
+                f"Clock task terminated with {type(exc).__name__}: {exc}",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
 
     async def _wait_till_ready(self, func: Callable, *args, **kwargs):
         """Wait until all markets are ready before executing function."""
