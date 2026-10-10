@@ -28,7 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -40,6 +40,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
+    BALANCE_REFRESH_MAX_RETRIES = 3
+    BALANCE_REFRESH_RETRY_DELAY = 1.0
 
     def __init__(
             self,
@@ -58,6 +60,9 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
+        self._balance_refresh_task: Optional[asyncio.Task] = None
+        self._balance_refresh_requested = False
+        self._balance_update_lock = asyncio.Lock()
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
     @property
@@ -438,6 +443,10 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
                 self._order_tracker.process_order_update(order_update)
 
+                # Binance does not push availableBalance changes caused by margin reserved/released by orders
+                if order_message["X"] in ("NEW", "CANCELED", "EXPIRED"):
+                    self._schedule_balance_refresh()
+
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
             # update balances
@@ -498,6 +507,38 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                   "liquidation. Close your positions or add additional margin to your wallet.")
             self.logger().info(f"Margin Required: {total_maint_margin_required}. "
                                f"Negative PnL assets: {negative_pnls_msg}.")
+
+    def _schedule_balance_refresh(self):
+        self._balance_refresh_requested = True
+        if self._balance_refresh_task is None or self._balance_refresh_task.done():
+            self._balance_refresh_task = safe_ensure_future(self._refresh_balances_after_order_updates())
+
+    async def _refresh_balances_after_order_updates(self):
+        failures = 0
+        while self._balance_refresh_requested:
+            self._balance_refresh_requested = False
+            try:
+                await self._update_balances()
+                failures = 0
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                failures += 1
+                self.logger().network(
+                    "Unexpected error refreshing balances after an order update.",
+                    exc_info=True,
+                    app_warning_msg="Could not refresh Binance Perpetual balances after an order update.",
+                )
+                if failures <= self.BALANCE_REFRESH_MAX_RETRIES:
+                    self._balance_refresh_requested = True
+                    await self._sleep(self.BALANCE_REFRESH_RETRY_DELAY * failures)
+
+    async def stop_network(self):
+        if self._balance_refresh_task is not None:
+            self._balance_refresh_task.cancel()
+            self._balance_refresh_task = None
+        self._balance_refresh_requested = False
+        await super().stop_network()
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -585,24 +626,25 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls the REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
+        async with self._balance_update_lock:
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
 
-        account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
-                                           is_auth_required=True)
-        assets = account_info.get("assets")
-        for asset in assets:
-            asset_name = asset.get("asset")
-            available_balance = Decimal(asset.get("availableBalance"))
-            wallet_balance = Decimal(asset.get("walletBalance"))
-            self._account_available_balances[asset_name] = available_balance
-            self._account_balances[asset_name] = wallet_balance
-            remote_asset_names.add(asset_name)
+            account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                                               is_auth_required=True)
+            assets = account_info.get("assets")
+            for asset in assets:
+                asset_name = asset.get("asset")
+                available_balance = Decimal(asset.get("availableBalance"))
+                wallet_balance = Decimal(asset.get("walletBalance"))
+                self._account_available_balances[asset_name] = available_balance
+                self._account_balances[asset_name] = wallet_balance
+                remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
 
     async def _update_positions(self):
         positions = await self._api_get(path_url=CONSTANTS.POSITION_INFORMATION_URL,
