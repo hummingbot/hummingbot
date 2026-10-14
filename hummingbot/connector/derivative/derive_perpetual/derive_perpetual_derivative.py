@@ -70,7 +70,6 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self._last_trades_poll_timestamp = 1.0
         self._instrument_ticker = []
-        self._resting_close_warning_logged = False
         self._positions_poll_lock = asyncio.Lock()
         self._position_balance_updates: Dict[str, Decimal] = {}
         self._positions_catch_up_task: Optional[asyncio.Task] = None
@@ -751,6 +750,14 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         Creates an order on the derivative exchange using the specified parameters.
         """
+        if position_action == PositionAction.CLOSE and order_type in (OrderType.LIMIT, OrderType.LIMIT_MAKER):
+            order_kind = "post-only" if order_type is OrderType.LIMIT_MAKER else "GTC limit"
+            raise ValueError(
+                f"Derive cannot safely place a resting {order_kind} close: the venue rejects reduce_only on orders "
+                "that can rest, and the order could open an opposite position if the current position closes first. "
+                "Use a market close instead."
+            )
+
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if len(self._instrument_ticker) == 0:
             await self._make_trading_pairs_request()
@@ -774,23 +781,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # A post-only order never takes, so it never incurs the per-order base fee.
             can_take=param_order_type != CONSTANTS.TIME_IN_FORCE_POST_ONLY,
         )
-        # reduce_only is what stops a close from running through zero into the opposite position,
-        # but v3 only accepts it on an order that cannot rest: market, IOC or FOK. On a resting
-        # close it is refused with 11024, so a GTC or post-only close goes out without it, as it
-        # did under v2.
-        reduce_only = position_action == PositionAction.CLOSE and (
-            price_type == "market" or param_order_type in CONSTANTS.REDUCE_ONLY_TIME_IN_FORCE
-        )
-        if position_action == PositionAction.CLOSE and not reduce_only and not self._resting_close_warning_logged:
-            # Nothing the connector can send protects a resting close, so the exposure is stated
-            # once rather than left to be discovered.
-            self._resting_close_warning_logged = True
-            self.logger().warning(
-                "Derive only accepts reduce_only on orders that cannot rest (market, IOC, FOK), so a "
-                "limit or post-only close is not reduce-only. If the position is closed some other "
-                "way first, cancel the resting close: left on the book it would open a position in "
-                "the opposite direction."
-            )
+        # Resting close orders are rejected above because the venue cannot make them reduce-only.
+        # Every close order that reaches the API is therefore guaranteed not to rest.
+        reduce_only = position_action == PositionAction.CLOSE
         api_params = {
             "asset_address": instrument["base_asset_address"],
             "sub_id": instrument["base_asset_sub_id"],
