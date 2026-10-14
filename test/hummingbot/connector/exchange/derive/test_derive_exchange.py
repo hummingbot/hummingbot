@@ -23,7 +23,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
     MarketOrderFailureEvent,
@@ -2565,3 +2565,27 @@ class DeriveExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "code": 11006, "message": "Does not exist", "data": "no order with that id; code=9999 is unrelated"}})
         self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    def test_fee_estimate_uses_the_instrument_rates(self):
+        """
+        The instrument's own maker/taker rates are what Derive charges; the budget checker used
+        to cost every order at the connector's configured default instead.
+        """
+        self.exchange._trading_fees[self.trading_pair] = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.0002"),
+            taker_percent_fee_decimal=Decimal("0.0007"),
+        )
+
+        def fee(order_type):
+            return self.exchange.get_fee(
+                base_currency=self.base_asset, quote_currency=self.quote_asset, order_type=order_type,
+                order_side=TradeType.BUY, amount=Decimal("1"), price=Decimal("10000"),
+            )
+
+        self.assertEqual(Decimal("0.0002"), fee(OrderType.LIMIT_MAKER).percent)
+        self.assertEqual(Decimal("0.0007"), fee(OrderType.LIMIT).percent)
+        self.assertEqual(Decimal("0.0007"), fee(OrderType.MARKET).percent)
+
+        # A pair with no published rates falls back to the configured schema.
+        del self.exchange._trading_fees[self.trading_pair]
+        self.assertNotEqual(Decimal("0.0007"), fee(OrderType.LIMIT).percent)

@@ -34,6 +34,7 @@ from hummingbot.core.data_type.trade_fee import (
     DeductedFromReturnsTradeFee,
     TokenAmount,
     TradeFeeBase,
+    TradeFeeSchema,
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -2401,27 +2402,96 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             )
         )
 
-    def test_create_order_to_close_long_position(self):
+    @aioresponses()
+    def test_create_order_to_close_long_position(self, mock_api):
         self._simulate_trading_rules_initialized()
-        self.exchange._api_post = AsyncMock()
-        order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(asyncio.sleep(0.01))
-        self.exchange._api_post.assert_not_awaited()
-        self.assertEqual(0, len(self.sell_order_created_logger.event_log))
-        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(order_id, failure_event.order_id)
-        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
 
-    def test_create_order_to_close_short_position(self):
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 5
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        order_id = self.place_sell_order(position_action=PositionAction.CLOSE)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.CLOSE.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
+                f"{Decimal('100.00')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.00')}."
+            )
+        )
+
+    @aioresponses()
+    def test_create_order_to_close_short_position(self, mock_api):
         self._simulate_trading_rules_initialized()
-        self.exchange._api_post = AsyncMock()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+        leverage = 4
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         order_id = self.place_buy_order(position_action=PositionAction.CLOSE)
-        self.async_run_with_timeout(asyncio.sleep(0.01))
-        self.exchange._api_post.assert_not_awaited()
-        self.assertEqual(0, len(self.buy_order_created_logger.event_log))
-        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(order_id, failure_event.order_id)
-        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp,
+                         create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id),
+                         create_event.exchange_order_id)
+        self.assertEqual(leverage, create_event.leverage)
+        self.assertEqual(PositionAction.CLOSE.value, create_event.position)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.00')} to {PositionAction.CLOSE.name} a {self.trading_pair} position "
+                f"at {Decimal('10000.00')}."
+            )
+        )
 
     @aioresponses()
     async def test_update_order_fills_from_trades_successful(self, req_mock):
@@ -2919,12 +2989,15 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @aioresponses()
     def test_reduce_only_is_sent_only_where_v3_accepts_it(self, mock_api):
         """
-        Derive accepts reduce_only on market and non-resting limit orders. Resting closes are
-        rejected locally in order to prevent an opposite position from being opened later.
+        reduce_only is "supported only for market orders and non-resting limit orders (ioc or
+        fok)". On an order that can rest it is refused with 11024, so setting it on every close
+        would have rejected every GTC and post-only close - a take-profit limit, for one.
         """
         self._simulate_trading_rules_initialized()
         cases = [
             (OrderType.MARKET, PositionAction.CLOSE, True),
+            (OrderType.LIMIT, PositionAction.CLOSE, False),
+            (OrderType.LIMIT_MAKER, PositionAction.CLOSE, False),
             (OrderType.MARKET, PositionAction.OPEN, False),
             (OrderType.LIMIT, PositionAction.OPEN, False),
         ]
@@ -3862,29 +3935,33 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertTrue(task.cancelled())
         self.assertIsNone(self.exchange._positions_catch_up_task)
 
-    def test_resting_close_orders_are_rejected_before_the_api_call(self):
+    def test_resting_close_warns_once_that_it_cannot_be_reduce_only(self):
         """
-        Derive refuses reduce_only on orders that can rest. Sending an unprotected close could
-        open an opposite position if the position closes first, so reject it locally.
+        reduce_only is refused on an order that can rest, so nothing the connector sends protects a
+        limit close from filling after its position has gone. The exposure is stated once.
         """
         self._simulate_trading_rules_initialized()
-        self.exchange._api_post = AsyncMock()
+        self.exchange._api_post = AsyncMock(return_value=self.order_creation_request_successful_mock_response)
 
         def close(order_type):
-            with self.assertRaisesRegex(ValueError, "cannot safely place a resting"):
-                self.async_run_with_timeout(self.exchange._place_order(
-                    order_id="0xabc",
-                    trading_pair=self.trading_pair,
-                    amount=Decimal("1"),
-                    trade_type=TradeType.SELL,
-                    order_type=order_type,
-                    price=Decimal("10000"),
-                    position_action=PositionAction.CLOSE,
-                ))
+            self.async_run_with_timeout(self.exchange._place_order(
+                order_id="0xabc",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                trade_type=TradeType.SELL,
+                order_type=order_type,
+                price=Decimal("10000"),
+                position_action=PositionAction.CLOSE,
+            ))
 
+        def warnings():
+            return [r.getMessage() for r in self.log_records if r.levelname == "WARNING" and "is not reduce-only" in r.getMessage()]
+
+        close(OrderType.MARKET)             # reduce-only, so nothing to warn about
+        self.assertEqual(0, len(warnings()))
         close(OrderType.LIMIT)
         close(OrderType.LIMIT_MAKER)
-        self.exchange._api_post.assert_not_awaited()
+        self.assertEqual(1, len(warnings()))
 
     def test_account_not_found_names_the_wallet_when_the_session_key_address_was_entered(self):
         """
@@ -4002,3 +4079,50 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "code": 11006, "message": "Does not exist", "data": "no order with that id; code=9999 is unrelated"}})
         self.async_run_with_timeout(self.exchange._execute_order_cancel(order))
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
+
+    def test_balances_channel_records_collateral_but_not_other_instruments(self):
+        """
+        The balances channel reports every holding of the subaccount, positions included. A
+        position on a perp this connector does not trade, or an option, was stored as an asset
+        balance named after the instrument - a negative "BTC-PERP" balance for a short.
+        """
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_trading_pair_symbol_map(bidict({
+            self.exchange_trading_pair: self.trading_pair,
+            "OTHER-PERP": "OTHER-USDC",
+        }))
+
+        for name, new_balance in (("USDC", "950.5"), ("OTHER-PERP", "-0.25"), ("ETH-20261231-3000-C", "2")):
+            self.async_run_with_timeout(self.exchange._process_balance_notification({
+                "name": name, "new_balance": new_balance, "previous_balance": "0", "update_type": "trade",
+            }))
+
+        self.assertEqual({"USDC": Decimal("950.5")}, dict(self.exchange._account_balances))
+        self.assertEqual({"USDC": Decimal("950.5")}, dict(self.exchange._account_available_balances))
+        self.assertEqual({}, self.exchange._position_balance_updates)
+
+    def test_fee_estimate_uses_the_instrument_rates(self):
+        """
+        The instrument's own maker/taker rates are what Derive charges; the budget checker used
+        to cost every order at the connector's configured default instead.
+        """
+        self.exchange._trading_fees[self.trading_pair] = TradeFeeSchema(
+            maker_percent_fee_decimal=Decimal("0.0002"),
+            taker_percent_fee_decimal=Decimal("0.0007"),
+        )
+
+        def fee(order_type, position_action=PositionAction.OPEN):
+            return self.exchange.get_fee(
+                base_currency=self.base_asset, quote_currency=self.quote_asset, order_type=order_type,
+                order_side=TradeType.BUY, position_action=position_action, amount=Decimal("1"), price=Decimal("10000"),
+            )
+
+        self.assertEqual(Decimal("0.0002"), fee(OrderType.LIMIT_MAKER).percent)
+        self.assertEqual(Decimal("0.0007"), fee(OrderType.LIMIT).percent)
+        self.assertEqual(Decimal("0.0007"), fee(OrderType.MARKET).percent)
+        self.assertIsInstance(fee(OrderType.MARKET), AddedToCostTradeFee)
+        self.assertIsInstance(fee(OrderType.MARKET, PositionAction.CLOSE), DeductedFromReturnsTradeFee)
+
+        # A pair with no published rates falls back to the configured schema.
+        del self.exchange._trading_fees[self.trading_pair]
+        self.assertNotEqual(Decimal("0.0007"), fee(OrderType.LIMIT).percent)
