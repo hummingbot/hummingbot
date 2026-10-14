@@ -161,3 +161,9 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.TimeoutError:
                 ping_request = WSJSONRequest(payload={"method": "ping"})
                 await websocket_assistant.send(ping_request)
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        # Position balance notifications are newer than REST only while this stream is live.
+        # Once it drops, let the next REST poll reconcile the connector's position state.
+        self._connector._clear_position_balance_updates()
+        await super()._on_user_stream_interruption(websocket_assistant)

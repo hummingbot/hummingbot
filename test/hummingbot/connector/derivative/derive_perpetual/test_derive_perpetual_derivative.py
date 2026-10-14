@@ -3522,6 +3522,24 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.async_run_with_timeout(self.exchange._update_positions())
         self.assertNotIn(self.trading_pair, self.exchange._position_balance_updates)
 
+    @aioresponses()
+    def test_expired_position_balance_update_does_not_override_rest(self, req_mock):
+        self._simulate_trading_rules_initialized()
+        stale_position = self._get_position_risk_api_endpoint_single_position_list()
+        stale_position["result"]["positions"][0]["amount"] = "3"
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL), body=json.dumps(stale_position))
+
+        self.exchange._position_balance_updates[self.trading_pair] = Decimal("2")
+        # The update is older than the REST catch-up window.
+        self.exchange._position_balance_update_times[self.trading_pair] = 0
+
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        position = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(Decimal("3"), position.amount)
+        self.assertNotIn(self.trading_pair, self.exchange._position_balance_updates)
+        self.assertNotIn(self.trading_pair, self.exchange._position_balance_update_times)
+
     def test_cancel_of_a_missing_order_is_counted_as_not_found_once(self):
         """
         The base class counts the order as not found when it recognises the code in the error.

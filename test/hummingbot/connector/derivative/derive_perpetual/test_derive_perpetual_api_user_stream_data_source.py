@@ -93,6 +93,15 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
+    async def test_stream_interruption_clears_position_balance_overrides(self):
+        self.connector._position_balance_updates[self.trading_pair] = 2
+        self.connector._position_balance_update_times[self.trading_pair] = 1.0
+
+        await self.data_source._on_user_stream_interruption(None)
+
+        self.assertEqual({}, self.connector._position_balance_updates)
+        self.assertEqual({}, self.connector._position_balance_update_times)
+
     def get_ws_auth_payload(self):
         return {
             "accept": "application/json",

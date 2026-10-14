@@ -72,6 +72,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._instrument_ticker = []
         self._positions_poll_lock = asyncio.Lock()
         self._position_balance_updates: Dict[str, Decimal] = {}
+        self._position_balance_update_times: Dict[str, float] = {}
         self._positions_catch_up_task: Optional[asyncio.Task] = None
         self._positions_catch_up_polls_left = 0
         self.real_time_balance_update = False
@@ -1018,6 +1019,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if trading_pair in self.trading_pairs:
             amount = Decimal(str(new_balance))
             self._position_balance_updates[trading_pair] = amount
+            self._position_balance_update_times[trading_pair] = time.monotonic()
             if amount == Decimal("0"):
                 for side in (PositionSide.LONG, PositionSide.SHORT):
                     self._perpetual_trading.remove_position(
@@ -1402,6 +1404,28 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         async with self._positions_poll_lock:
             await self._poll_positions()
 
+    def _clear_position_balance_updates(self):
+        """Drop websocket position sizes when their stream is interrupted."""
+        self._position_balance_updates.clear()
+        self._position_balance_update_times.clear()
+
+    def _get_position_balance_update(self, trading_pair: str) -> Optional[Decimal]:
+        """Return a recent websocket size, expiring it after REST's catch-up window."""
+        amount = self._position_balance_updates.get(trading_pair)
+        updated_at = self._position_balance_update_times.get(trading_pair)
+        expiry = CONSTANTS.POSITIONS_CATCH_UP_INTERVAL * CONSTANTS.POSITIONS_CATCH_UP_POLLS
+        if amount is None:
+            self._position_balance_update_times.pop(trading_pair, None)
+            return None
+        if updated_at is None:
+            self._position_balance_updates.pop(trading_pair, None)
+            return None
+        if time.monotonic() - updated_at >= expiry:
+            self._position_balance_updates.pop(trading_pair, None)
+            self._position_balance_update_times.pop(trading_pair, None)
+            return None
+        return amount
+
     async def _poll_positions(self):
         # Taken before the request, so that a position opened while it is in flight is not
         # mistaken below for one that has gone.
@@ -1435,10 +1459,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 # index and drifts with the market.
                 entry_price = Decimal(str(position.get("average_price")))
                 amount = Decimal(str(position.get("amount", 0)))
-                balance_update = self._position_balance_updates.get(hb_trading_pair)
+                balance_update = self._get_position_balance_update(hb_trading_pair)
                 if balance_update is not None:
                     if amount == balance_update:
                         self._position_balance_updates.pop(hb_trading_pair, None)
+                        self._position_balance_update_times.pop(hb_trading_pair, None)
                     else:
                         # REST can trail the balances channel. Preserve the newer size while
                         # using REST for the entry price, PnL and leverage metadata.
@@ -1480,9 +1505,13 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # coming back with a zero amount. Waiting for that zero left a closed position in the
             # connector until it was restarted.
             for trading_pair, balance_update in list(self._position_balance_updates.items()):
+                balance_update = self._get_position_balance_update(trading_pair)
+                if balance_update is None:
+                    continue
                 if balance_update == Decimal("0") and trading_pair not in response_pairs:
                     # The REST snapshot has caught up with the close.
                     self._position_balance_updates.pop(trading_pair, None)
+                    self._position_balance_update_times.pop(trading_pair, None)
                 elif trading_pair not in response_pairs and balance_update != Decimal("0"):
                     position_side = PositionSide.LONG if balance_update > 0 else PositionSide.SHORT
                     existing = self._perpetual_trading.get_position(trading_pair, position_side)
