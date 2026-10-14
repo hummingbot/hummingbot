@@ -87,18 +87,15 @@ ORDER_HISTORY_PATH_URL = "/private/get_order_history"
 
 WS_PING_REQUEST = "ping"
 
-# Positions are polled: the only channel carrying them is {subaccount_id}.balances, below.
 # orderbook.{instrument}.{group}.{depth}. Group 1 is the book as quoted: a larger group rounds
 # bids down and asks up to that many ticks, which makes the top of the book a price nobody is
 # quoting. 100 is the number of levels on each side.
 WS_ORDER_BOOK_CHANNEL = "orderbook.{instrument_name}.1.100"
 WS_ORDERS_CHANNEL = "{subaccount_id}.orders"
 WS_TRADES_CHANNEL = "{subaccount_id}.trades"
-# Not subscribed to: _process_event_message only forwards the orders and trades channels, and
-# subscribing without a handler would silently discard the notifications. The payload has been
-# confirmed against a live private stream - {name, new_balance, previous_balance, update_type},
-# a perpetual being reported under its instrument name in the same moment as the fill that moved
-# it - so it is the route to positions that do not wait on the REST refresh described below.
+# The balances channel reports collateral and position changes as
+# {name, new_balance, previous_balance, update_type}; perpetual positions use their instrument
+# name and are announced with the fill that moved them.
 WS_BALANCES_CHANNEL = "{subaccount_id}.balances"
 
 WS_HEARTBEAT_TIME_INTERVAL = 10
@@ -106,8 +103,9 @@ WS_HEARTBEAT_TIME_INTERVAL = 10
 # private/get_positions is served from state the exchange refreshes every few seconds, not as each
 # fill is matched. Measured on testnet (2026-10-04) against the trades channel: a fill reached the
 # REST position between 0.3 and 6 seconds after it was announced, the refresh coming round about
-# every 5.5 seconds. (private/get_trade_history trails further, by 7 to 16 seconds.) After a fill
-# the positions are therefore polled this many times, this many seconds apart.
+# every 5.5 seconds. (private/get_trade_history trails further, by 7 to 16 seconds.) The balances
+# channel updates sizes for positions already tracked; after a fill the connector still polls to
+# obtain complete metadata for a newly opened position.
 POSITIONS_CATCH_UP_INTERVAL = 2.0
 POSITIONS_CATCH_UP_POLLS = 6
 

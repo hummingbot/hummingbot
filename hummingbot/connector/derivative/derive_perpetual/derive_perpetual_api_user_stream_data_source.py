@@ -98,16 +98,13 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             await self._authenticate(websocket_assistant)  # Authenticate once
 
-            # Positions are polled by the connector rather than read from the socket: the only
-            # channel carrying them is {subaccount_id}.balances, which this source does not
-            # consume. This used to issue private/get_subaccount and private/get_positions as
-            # websocket RPC calls alongside the subscriptions.
             subscription_payloads = [
                 {
                     "method": "subscribe",
                     "params": {"channels": [
                         CONSTANTS.WS_ORDERS_CHANNEL.format(subaccount_id=subaccount_id),
                         CONSTANTS.WS_TRADES_CHANNEL.format(subaccount_id=subaccount_id),
+                        CONSTANTS.WS_BALANCES_CHANNEL.format(subaccount_id=subaccount_id),
                     ]}
                 }
             ]
@@ -117,7 +114,7 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 websocket_assistant.send(WSJSONRequest(payload))
                 for payload in subscription_payloads
             ])
-            self.logger().info("Subscribed to private orders and trades channels...")
+            self.logger().info("Subscribed to private orders, trades and balances channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -140,7 +137,9 @@ class DerivePerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 queue.put_nowait(event_message)
             elif "params" in event_message and "channel" in event_message["params"]:
                 if CONSTANTS.USER_ORDERS_ENDPOINT_NAME in event_message["params"]["channel"] or \
-                        CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"]:
+                        CONSTANTS.USEREVENT_ENDPOINT_NAME in event_message["params"]["channel"] or \
+                        event_message["params"]["channel"] == CONSTANTS.WS_BALANCES_CHANNEL.format(
+                            subaccount_id=self._connector._subacct_id):
                     queue.put_nowait(event_message["params"])
 
     async def _ping_thread(self, websocket_assistant: WSAssistant,):

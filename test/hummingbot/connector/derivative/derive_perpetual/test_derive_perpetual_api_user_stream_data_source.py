@@ -108,7 +108,7 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
     @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_auth.DerivePerpetualAuth.get_ws_auth_payload")
     @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_api_user_stream_data_source.DerivePerpetualAPIUserStreamDataSource._time")
     @patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils.utc_now_ms")
-    async def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, mock_utc_now, mock_timestamp, mock_auth, ws_connect_mock):
+    async def test_listen_for_user_stream_subscribes_to_orders_trades_and_balances(self, mock_utc_now, mock_timestamp, mock_auth, ws_connect_mock):
         mock_timestamp.return_value = 1738096054575
         mock_utc_now.return_value = 1738096054576
         mock_auth.return_value = self.get_ws_auth_payload()
@@ -199,9 +199,7 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock = ws_connect_mock.return_value)
 
-        # Login, then one subscribe. v3 has no positions websocket channel, so the
-        # private/get_subaccount and private/get_positions RPC calls this used to make over the
-        # socket are gone; positions are polled instead.
+        # Login, then subscribe to the private order, trade, and balance channels.
         self.assertEqual(2, len(sent_subscription_messages))
         auth_responce = self.get_ws_auth_payload()
         expected_login_subscription = {
@@ -216,10 +214,24 @@ class TestDerivePerpetualAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase)
                 "channels": [
                     f"{self.subacct_id}.orders",
                     f"{self.subacct_id}.trades",
+                    f"{self.subacct_id}.balances",
                 ],
             }
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[1])
+
+    async def test_balance_channel_notifications_are_forwarded(self):
+        queue = asyncio.Queue()
+        notification = {
+            "params": {
+                "channel": f"{self.subacct_id}.balances",
+                "data": {"name": self.ex_trading_pair, "new_balance": "2", "previous_balance": "1"},
+            }
+        }
+
+        await self.data_source._process_event_message(notification, queue)
+
+        self.assertEqual(notification["params"], queue.get_nowait())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")

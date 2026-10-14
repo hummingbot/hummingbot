@@ -3561,8 +3561,38 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("100"), position.entry_price)       # the average price, not the index
         self.assertEqual(Decimal("1.5"), position.unrealized_pnl)
 
-        self.async_run_with_timeout(self.exchange._process_update_positions({"positions": [dict(update, amount="0")]}))
+        self.async_run_with_timeout(self.exchange._process_balance_notification({
+            "name": self.exchange_trading_pair,
+            "new_balance": "1.5",
+            "previous_balance": "2",
+            "update_type": "trade",
+        }))
+        self.assertEqual(Decimal("1.5"), list(self.exchange.account_positions.values())[0].amount)
+
+        # A stale REST snapshot must not put the old size back over the websocket update.
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL),
+                      body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(Decimal("1.5"), list(self.exchange.account_positions.values())[0].amount)
+
+        self.async_run_with_timeout(self.exchange._process_balance_notification({
+            "name": self.exchange_trading_pair,
+            "new_balance": "0",
+            "previous_balance": "1.5",
+            "update_type": "trade",
+        }))
         self.assertEqual(0, len(self.exchange.account_positions))
+
+        # A stale REST snapshot must not reopen a position after a websocket close.
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL),
+                      body=json.dumps(self._get_position_risk_api_endpoint_single_position_list()))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(0, len(self.exchange.account_positions))
+
+        req_mock.post(self._private_url(CONSTANTS.POSITION_INFORMATION_URL),
+                      body=json.dumps({"result": {"positions": []}}))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertNotIn(self.trading_pair, self.exchange._position_balance_updates)
 
     def test_cancel_of_a_missing_order_is_counted_as_not_found_once(self):
         """

@@ -72,6 +72,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._instrument_ticker = []
         self._resting_close_warning_logged = False
         self._positions_poll_lock = asyncio.Lock()
+        self._position_balance_updates: Dict[str, Decimal] = {}
         self._positions_catch_up_task: Optional[asyncio.Task] = None
         self._positions_catch_up_polls_left = 0
         self.real_time_balance_update = False
@@ -922,6 +923,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         user_channels = [
             f"{self._subacct_id}.{CONSTANTS.USER_ORDERS_ENDPOINT_NAME}",
             f"{self._subacct_id}.{CONSTANTS.USEREVENT_ENDPOINT_NAME}",
+            CONSTANTS.WS_BALANCES_CHANNEL.format(subaccount_id=self._subacct_id),
             "positions",
             "collaterals",
         ]
@@ -956,8 +958,12 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                     for trade_msg in results:
                         await self._process_trade_message(trade_msg)
                 elif channel == user_channels[2] and results is not None:
-                    await self._process_update_positions(results)
+                    balance_updates = results if isinstance(results, list) else [results]
+                    for balance_update in balance_updates:
+                        await self._process_balance_notification(balance_update)
                 elif channel == user_channels[3] and results is not None:
+                    await self._process_update_positions(results)
+                elif channel == user_channels[4] and results is not None:
                     for balance_msg in results["collaterals"]:
                         self._process_update_balances(balance_msg)
             except asyncio.CancelledError:
@@ -1002,6 +1008,48 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         asset_name = balance_msg["asset_name"]
         self._account_balances[asset_name] = Decimal(balance_msg["amount"])
         self._account_available_balances[asset_name] = Decimal(balance_msg["amount"])
+
+    async def _process_balance_notification(self, balance_update: Dict[str, Any]):
+        """Apply a v3 balances-channel update to tracked position size or collateral."""
+        instrument_name = balance_update.get("name") or balance_update.get("instrument_name")
+        asset_name = balance_update.get("asset_name") or instrument_name
+        new_balance = balance_update.get("new_balance", balance_update.get("amount"))
+        if asset_name is None or new_balance is None:
+            return
+
+        try:
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(instrument_name or asset_name)
+        except KeyError:
+            trading_pair = None
+
+        if trading_pair in self.trading_pairs:
+            amount = Decimal(str(new_balance))
+            self._position_balance_updates[trading_pair] = amount
+            if amount == Decimal("0"):
+                for side in (PositionSide.LONG, PositionSide.SHORT):
+                    self._perpetual_trading.remove_position(
+                        self._perpetual_trading.position_key(trading_pair, side)
+                    )
+                return
+
+            position_side = PositionSide.LONG if amount > 0 else PositionSide.SHORT
+            position = self._perpetual_trading.get_position(trading_pair, position_side)
+            if position is None:
+                # The balance notification has no entry price or PnL. REST supplies that
+                # metadata; the existing post-fill catch-up poll will reconcile a newly opened
+                # position as soon as Derive's position endpoint exposes it.
+                return
+            position.update_position(
+                position_side=position_side,
+                unrealized_pnl=position.unrealized_pnl,
+                entry_price=position.entry_price,
+                amount=amount,
+            )
+            return
+
+        amount = Decimal(str(new_balance))
+        self._account_balances[asset_name] = amount
+        self._account_available_balances[asset_name] = amount
 
     async def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
         """
@@ -1379,6 +1427,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if "result" in positions:
             data: List[dict] = positions["result"]["positions"]
             reported = set()
+            response_pairs = set()
             for position in data:
                 trading_pair = position.get("instrument_name")
                 try:
@@ -1386,12 +1435,22 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 except KeyError:
                     # Ignore results for which their symbols is not tracked by the connector
                     continue
+                response_pairs.add(hb_trading_pair)
                 position_side = PositionSide.LONG if Decimal(position.get("amount")) > 0 else PositionSide.SHORT
                 unrealized_pnl = Decimal(position.get("unrealized_pnl"))
                 # average_price is where the position was opened; index_price is the current
                 # index and drifts with the market.
                 entry_price = Decimal(str(position.get("average_price")))
                 amount = Decimal(str(position.get("amount", 0)))
+                balance_update = self._position_balance_updates.get(hb_trading_pair)
+                if balance_update is not None:
+                    if amount == balance_update:
+                        self._position_balance_updates.pop(hb_trading_pair, None)
+                    else:
+                        # REST can trail the balances channel. Preserve the newer size while
+                        # using REST for the entry price, PnL and leverage metadata.
+                        amount = balance_update
+                        position_side = PositionSide.LONG if amount > 0 else PositionSide.SHORT
                 # leverage is nullable and optional in the v3 schema. Derive is cross-margined, so
                 # a position does not always have a figure of its own; when it has none, the
                 # position keeps the figure it last had rather than fail the whole poll on
@@ -1427,6 +1486,16 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # v3 lists active positions only: one that has been closed stops appearing rather than
             # coming back with a zero amount. Waiting for that zero left a closed position in the
             # connector until it was restarted.
+            for trading_pair, balance_update in list(self._position_balance_updates.items()):
+                if balance_update == Decimal("0") and trading_pair not in response_pairs:
+                    # The REST snapshot has caught up with the close.
+                    self._position_balance_updates.pop(trading_pair, None)
+                elif trading_pair not in response_pairs and balance_update != Decimal("0"):
+                    position_side = PositionSide.LONG if balance_update > 0 else PositionSide.SHORT
+                    existing = self._perpetual_trading.get_position(trading_pair, position_side)
+                    if existing is not None:
+                        existing.update_position(amount=balance_update)
+                        reported.add(self._perpetual_trading.position_key(trading_pair, position_side))
             for pos_key in previously_tracked - reported:
                 self._perpetual_trading.remove_position(pos_key)
 
