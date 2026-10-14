@@ -32,6 +32,15 @@ class HyperliquidPerpetualAuthTests(TestCase):
     def _get_timestamp(self):
         return 1678974447.926
 
+    def test_repeated_and_regressing_clock_values_produce_unique_nonces(self):
+        params = json.dumps({"type": "updateLeverage", "asset": 0, "isCross": True, "leverage": 1})
+        with patch.object(self.auth, "_get_timestamp", side_effect=[1678974447.926, 1678974447.926, 1678974447.925]):
+            nonces = [
+                json.loads(self.auth.add_auth_to_params_post(params, "https://api.hyperliquid.xyz/exchange"))["nonce"]
+                for _ in range(3)
+            ]
+        self.assertEqual([1678974447926, 1678974447927, 1678974447928], nonces)
+
     @patch(
         "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_auth.HyperliquidPerpetualAuth._get_timestamp")
     def test_sign_order_params_post_request(self, ts_mock: MagicMock):
