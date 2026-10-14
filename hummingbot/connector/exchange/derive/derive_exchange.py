@@ -261,17 +261,28 @@ class DeriveExchange(ExchangePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        trade_base_fee = build_trade_fee(
-            exchange=self.name,
-            is_maker=is_maker,
-            order_side=order_side,
-            order_type=order_type,
-            amount=amount,
-            price=price,
-            base_currency=base_currency.upper(),
-            quote_currency=quote_currency.upper()
+        trading_pair = combine_to_hb_trading_pair(base_currency, quote_currency)
+        fee_schema = self._trading_fees.get(trading_pair)
+        if fee_schema is None:
+            return build_trade_fee(
+                exchange=self.name,
+                is_maker=is_maker,
+                order_side=order_side,
+                order_type=order_type,
+                amount=amount,
+                price=price,
+                base_currency=base_currency.upper(),
+                quote_currency=quote_currency.upper()
+            )
+        percent = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
+        fixed_fees = fee_schema.maker_fixed_fees if is_maker else fee_schema.taker_fixed_fees
+        return TradeFeeBase.new_spot_fee(
+            fee_schema=fee_schema,
+            trade_type=order_side,
+            percent=percent,
+            percent_token=fee_schema.percent_fee_token,
+            flat_fees=fixed_fees.copy(),
         )
-        return trade_base_fee
 
     async def start_network(self):
         await super().start_network()

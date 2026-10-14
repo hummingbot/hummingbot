@@ -2747,15 +2747,16 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         }
         mock_api.post(pairs_regex, body=json.dumps(pairs_response))
 
-        # Mock ticker price requests
-        ticker_url = web_utils.private_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
+        # Mock the v3 bulk ticker response. Tickers are keyed by instrument name and use
+        # compact best-bid/best-ask fields.
+        ticker_url = web_utils.public_rest_url(CONSTANTS.BULK_TICKERS_PATH_URL)
         ticker_regex = re.compile(f"^{ticker_url}".replace(".", r"\.").replace("?", r"\?"))
 
         ticker_response = {
             "result": {
-                "instrument_name": f"{self.base_asset}-PERP",
-                "best_bid_price": "10000",
-                "best_ask_price": "10001",
+                "tickers": {
+                    f"{self.base_asset}-PERP": {"b": "10000", "a": "10001"}
+                }
             }
         }
         mock_api.post(ticker_regex, body=json.dumps(ticker_response))
@@ -2764,6 +2765,8 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
         self.assertEqual(1, len(result))
         self.assertEqual(f"{self.base_asset}-PERP", result[0]["symbol"]["instrument_name"])
+        self.assertEqual("10000", result[0]["symbol"]["best_bid"])
+        self.assertEqual("10001", result[0]["symbol"]["best_ask"])
 
     @aioresponses()
     def test_place_order_with_empty_instrument_ticker(self, mock_api):

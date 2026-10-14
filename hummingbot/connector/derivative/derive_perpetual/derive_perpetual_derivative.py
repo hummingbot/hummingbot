@@ -32,7 +32,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 s_decimal_0 = Decimal(0)
@@ -207,27 +207,26 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         """
         return await self._make_trading_pairs_request()
 
-    async def get_all_pairs_prices(self) -> Dict[str, Any]:
-        res = []
-        tasks = []
+    async def get_all_pairs_prices(self) -> List[Dict[str, Any]]:
+        """Fetch the best bid/ask for every perpetual instrument in one v3 request."""
         if len(self._instrument_ticker) == 0:
             await self._make_trading_pairs_request()
-        for token in self._instrument_ticker:
-            payload = {"instrument_name": token["instrument_name"]}
-            tasks.append(self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, data=payload))
-        results = await safe_gather(*tasks, return_exceptions=True)
-        for result in results:
-            pair_price_data = result["result"]
+        response = await self._api_post(
+            path_url=CONSTANTS.BULK_TICKERS_PATH_URL,
+            data={"instrument_type": CONSTANTS.INSTRUMENT_TYPE},
+        )
+        tickers = (response.get("result") or {}).get("tickers") or {}
 
-            data = {
+        return [
+            {
                 "symbol": {
-                    "instrument_name": pair_price_data["instrument_name"],
-                    "best_bid": pair_price_data["best_bid_price"],
-                    "best_ask": pair_price_data["best_ask_price"],
+                    "instrument_name": instrument_name,
+                    "best_bid": ticker.get("b"),
+                    "best_ask": ticker.get("a"),
                 }
             }
-            res.append(data)
-        return res
+            for instrument_name, ticker in tickers.items()
+        ]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
@@ -514,21 +513,34 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                  quote_currency: str,
                  order_type: OrderType,
                  order_side: TradeType,
+                 position_action: PositionAction,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
-        trade_base_fee = build_trade_fee(
-            exchange=self.name,
-            is_maker=is_maker,
-            order_side=order_side,
-            order_type=order_type,
-            amount=amount,
-            price=price,
-            base_currency=base_currency.upper(),
-            quote_currency=quote_currency.upper()
+        trading_pair = combine_to_hb_trading_pair(base_currency, quote_currency)
+        fee_schema = self._trading_fees.get(trading_pair)
+        if fee_schema is None:
+            return build_perpetual_trade_fee(
+                exchange=self.name,
+                is_maker=is_maker,
+                position_action=position_action,
+                order_side=order_side,
+                order_type=order_type,
+                amount=amount,
+                price=price,
+                base_currency=base_currency.upper(),
+                quote_currency=quote_currency.upper()
+            )
+        percent = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
+        fixed_fees = fee_schema.maker_fixed_fees if is_maker else fee_schema.taker_fixed_fees
+        return TradeFeeBase.new_perpetual_fee(
+            fee_schema=fee_schema,
+            position_action=position_action,
+            percent=percent,
+            percent_token=fee_schema.percent_fee_token,
+            flat_fees=fixed_fees.copy(),
         )
-        return trade_base_fee
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
