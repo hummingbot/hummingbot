@@ -1409,8 +1409,9 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         self._position_balance_updates.clear()
         self._position_balance_update_times.clear()
 
-    def _get_position_balance_update(self, trading_pair: str) -> Optional[Decimal]:
-        """Return a recent websocket size, expiring it after REST's catch-up window."""
+    def _get_position_balance_update(
+            self, trading_pair: str, request_started_at: Optional[float] = None) -> Optional[Decimal]:
+        """Return a recent update, or one newer than the REST request being reconciled."""
         amount = self._position_balance_updates.get(trading_pair)
         updated_at = self._position_balance_update_times.get(trading_pair)
         expiry = CONSTANTS.POSITIONS_CATCH_UP_INTERVAL * CONSTANTS.POSITIONS_CATCH_UP_POLLS
@@ -1420,7 +1421,11 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         if updated_at is None:
             self._position_balance_updates.pop(trading_pair, None)
             return None
-        if time.monotonic() - updated_at >= expiry:
+        # A REST response belongs to the state when its request began. If the websocket changed
+        # the position during that request, that update wins even if the response took longer
+        # than the normal expiry window to arrive. A later poll will expire it normally.
+        newer_than_request = request_started_at is not None and updated_at > request_started_at
+        if time.monotonic() - updated_at >= expiry and not newer_than_request:
             self._position_balance_updates.pop(trading_pair, None)
             self._position_balance_update_times.pop(trading_pair, None)
             return None
@@ -1430,6 +1435,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
         # Taken before the request, so that a position opened while it is in flight is not
         # mistaken below for one that has gone.
         previously_tracked = set(self._perpetual_trading.account_positions.keys())
+        request_started_at = time.monotonic()
         positions = await self._api_post(path_url=CONSTANTS.POSITION_INFORMATION_URL,
                                          data={"subaccount_id": self._subacct_id},
                                          is_auth_required=True,
@@ -1459,7 +1465,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
                 # index and drifts with the market.
                 entry_price = Decimal(str(position.get("average_price")))
                 amount = Decimal(str(position.get("amount", 0)))
-                balance_update = self._get_position_balance_update(hb_trading_pair)
+                balance_update = self._get_position_balance_update(hb_trading_pair, request_started_at)
                 if balance_update is not None:
                     if amount == balance_update:
                         self._position_balance_updates.pop(hb_trading_pair, None)
@@ -1505,7 +1511,7 @@ class DerivePerpetualDerivative(PerpetualDerivativePyBase):
             # coming back with a zero amount. Waiting for that zero left a closed position in the
             # connector until it was restarted.
             for trading_pair, balance_update in list(self._position_balance_updates.items()):
-                balance_update = self._get_position_balance_update(trading_pair)
+                balance_update = self._get_position_balance_update(trading_pair, request_started_at)
                 if balance_update is None:
                     continue
                 if balance_update == Decimal("0") and trading_pair not in response_pairs:

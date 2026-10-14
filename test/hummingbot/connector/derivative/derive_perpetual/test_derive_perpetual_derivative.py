@@ -3540,6 +3540,47 @@ class DerivePerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertNotIn(self.trading_pair, self.exchange._position_balance_updates)
         self.assertNotIn(self.trading_pair, self.exchange._position_balance_update_times)
 
+    def test_delayed_rest_response_does_not_reopen_position_closed_during_request(self):
+        self._simulate_trading_rules_initialized()
+        stale_position = self._get_position_risk_api_endpoint_single_position_list()
+        self.exchange._api_post = AsyncMock(return_value=stale_position)
+        self.async_run_with_timeout(self.exchange._update_positions())
+        self.assertEqual(Decimal("5"), list(self.exchange.account_positions.values())[0].amount)
+
+        class FakeClock:
+            now = 100.0
+
+            def monotonic(self):
+                return self.now
+
+        clock = FakeClock()
+
+        async def delayed_stale_response(**kwargs):
+            clock.now = 101.0
+            await self.exchange._process_balance_notification({
+                "name": self.exchange_trading_pair,
+                "new_balance": "0",
+                "previous_balance": "5",
+                "update_type": "trade",
+            })
+            clock.now = 114.0  # The response arrives after the 12-second override expiry.
+            return stale_position
+
+        self.exchange._api_post = AsyncMock(side_effect=delayed_stale_response)
+        with patch("hummingbot.connector.derivative.derive_perpetual.derive_perpetual_derivative.time", clock):
+            self.async_run_with_timeout(self.exchange._update_positions())
+
+            # This response was requested before the close, so it must not put the old position back.
+            self.assertEqual(0, len(self.exchange.account_positions))
+            self.assertEqual(Decimal("0"), self.exchange._position_balance_updates[self.trading_pair])
+
+            # A newer REST poll can expire the update normally once the close is reconciled.
+            self.exchange._api_post = AsyncMock(return_value={"result": {"positions": []}})
+            self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertEqual(0, len(self.exchange.account_positions))
+        self.assertNotIn(self.trading_pair, self.exchange._position_balance_updates)
+
     def test_cancel_of_a_missing_order_is_counted_as_not_found_once(self):
         """
         The base class counts the order as not found when it recognises the code in the error.
