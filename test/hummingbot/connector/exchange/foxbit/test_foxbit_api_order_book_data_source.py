@@ -406,6 +406,30 @@ class FoxbitAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(194, msg.trade_id)
 
+    async def test_parse_trade_message_does_not_evaluate_python_expressions(self):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        malicious_event = {'m': 3, 'i': 10, 'n': 'TradeDataUpdateEvent', 'o': '[__import__("os").getcwd()]'}
+
+        with self.assertRaises(ValueError):
+            await self.data_source._parse_trade_message(malicious_event, msg_queue)
+        self.assertTrue(msg_queue.empty())
+
+    async def test_parse_trade_message_ignores_other_events(self):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        other_event = {'m': 3, 'i': 10, 'n': 'Level2UpdateEvent', 'o': '[[187,0,1661952966257,1,8432,0,8432,1,7.6,1]]'}
+
+        await self.data_source._parse_trade_message(other_event, msg_queue)
+
+        self.assertTrue(msg_queue.empty())
+
+    async def test_parse_order_book_diff_message_does_not_evaluate_python_expressions(self):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        malicious_event = {'m': 3, 'i': 8, 'n': 'Level2UpdateEvent', 'o': '[__import__("os").getcwd()]'}
+
+        with self.assertRaises(ValueError):
+            await self.data_source._parse_order_book_diff_message(malicious_event, msg_queue)
+        self.assertTrue(msg_queue.empty())
+
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
