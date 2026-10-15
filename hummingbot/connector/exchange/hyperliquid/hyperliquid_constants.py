@@ -2,6 +2,10 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "hyperliquid"
+
+# limitPx accepts at most MAX_DECIMALS - szDecimals decimal places, and MAX_DECIMALS is 8
+# on spot (6 on perpetuals). See the tick and lot size section of the Hyperliquid docs.
+SPOT_MAX_PRICE_DECIMALS = 8
 BROKER_ID = "HBOT"
 MAX_ORDER_ID_LEN = None
 
