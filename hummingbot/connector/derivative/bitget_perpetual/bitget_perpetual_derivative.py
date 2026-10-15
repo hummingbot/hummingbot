@@ -47,8 +47,10 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         bitget_perpetual_passphrase: str = None,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ) -> None:
 
+        self._domain = domain
         self.bitget_perpetual_api_key = bitget_perpetual_api_key
         self.bitget_perpetual_secret_key = bitget_perpetual_secret_key
         self.bitget_perpetual_passphrase = bitget_perpetual_passphrase
@@ -62,6 +64,8 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def name(self) -> str:
+        if self._domain == CONSTANTS.DEMO_DOMAIN:
+            return CONSTANTS.DEMO_DOMAIN
         return CONSTANTS.EXCHANGE_NAME
 
     @property
@@ -79,7 +83,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def domain(self) -> str:
-        return CONSTANTS.DEFAULT_DOMAIN
+        return self._domain
 
     @property
     def client_order_id_max_length(self) -> int:
@@ -398,6 +402,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
             auth=self._auth,
+            domain=self._domain,
         )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
