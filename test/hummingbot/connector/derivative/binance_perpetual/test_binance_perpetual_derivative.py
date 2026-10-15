@@ -5,7 +5,7 @@ import re
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -1199,6 +1199,260 @@ class BinancePerpetualDerivativeUnitTest(IsolatedAsyncioWrapperTestCase):
         # Available balance must NOT be overwritten with the cross wallet balance ("cw"), which would
         # overstate it; it stays as the REST-provided value.
         self.assertEqual(Decimal("23.72469206"), self.exchange._account_available_balances["USDT"])
+
+    def _get_order_trade_update_event(self, client_order_id: str, status: str) -> Dict[str, Any]:
+        return {
+            "e": "ORDER_TRADE_UPDATE",
+            "E": 1568879465651,
+            "T": 1568879465650,
+            "o": {
+                "s": self.symbol,
+                "c": client_order_id,
+                "S": "BUY",
+                "o": "LIMIT",
+                "f": "GTC",
+                "q": "1",
+                "p": "10000",
+                "ap": "0",
+                "sp": "0",
+                "x": status,
+                "X": status,
+                "i": 8886774,
+                "l": "0",
+                "z": "0",
+                "L": "0",
+                "N": self.quote_asset,
+                "n": "0",
+                "T": 1568879465651,
+                "t": 0,
+                "b": "0",
+                "a": "0",
+                "m": False,
+                "R": False,
+                "wt": "CONTRACT_PRICE",
+                "ot": "LIMIT",
+                "ps": "LONG",
+                "cp": False,
+                "rp": "0",
+            },
+        }
+
+    def _start_tracking_order(self, order_id: str):
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position_action=PositionAction.OPEN,
+        )
+
+    def _configure_account_info_response(self, mock_api, available_balance: str):
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_INFO_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {
+            "assets": [
+                {
+                    "asset": "USDT",
+                    "walletBalance": "100",
+                    "availableBalance": available_balance,
+                }
+            ],
+        }
+        mock_api.get(regex_url, body=json.dumps(response), repeat=True)
+
+    def _account_info_requests_count(self, mock_api) -> int:
+        return sum(
+            len(calls) for (method, url), calls in mock_api.requests.items()
+            if method == "GET" and url.path.endswith(CONSTANTS.ACCOUNT_INFO_URL)
+        )
+
+    async def _test_order_update_triggers_balance_refresh(self, mock_api, status: str):
+        self._simulate_trading_rules_initialized()
+        self.exchange._account_available_balances["USDT"] = Decimal("40")
+        self.exchange._account_balances["USDT"] = Decimal("100")
+        self._configure_account_info_response(mock_api, available_balance="90")
+        self._start_tracking_order("OID1")
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", status))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(1, self._account_info_requests_count(mock_api))
+        self.assertEqual(Decimal("90"), self.exchange.available_balances["USDT"])
+
+    @aioresponses()
+    async def test_new_order_update_triggers_balance_refresh(self, mock_api):
+        await self._test_order_update_triggers_balance_refresh(mock_api, "NEW")
+
+    @aioresponses()
+    async def test_canceled_order_update_triggers_balance_refresh(self, mock_api):
+        await self._test_order_update_triggers_balance_refresh(mock_api, "CANCELED")
+
+    @aioresponses()
+    async def test_expired_order_update_triggers_balance_refresh(self, mock_api):
+        await self._test_order_update_triggers_balance_refresh(mock_api, "EXPIRED")
+
+    async def test_order_update_for_untracked_order_does_not_trigger_balance_refresh(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock()
+
+        for status in ("NEW", "CANCELED", "EXPIRED"):
+            await self.exchange._process_user_stream_event(self._get_order_trade_update_event("UNKNOWN", status))
+        await asyncio.sleep(0)
+
+        self.assertIsNone(self.exchange._balance_refresh_task)
+        self.exchange._update_balances.assert_not_called()
+
+    async def test_order_update_with_other_status_does_not_trigger_balance_refresh(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock()
+
+        for status in ("PARTIALLY_FILLED", "FILLED", "REJECTED", "EXPIRED_IN_MATCH"):
+            order_id = f"OID-{status}"
+            self._start_tracking_order(order_id)
+            await self.exchange._process_user_stream_event(self._get_order_trade_update_event(order_id, status))
+        await asyncio.sleep(0)
+
+        self.assertIsNone(self.exchange._balance_refresh_task)
+        self.exchange._update_balances.assert_not_called()
+
+    @aioresponses()
+    async def test_burst_of_order_updates_triggers_single_balance_refresh(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self._configure_account_info_response(mock_api, available_balance="90")
+
+        for order_id in ("OID1", "OID2", "OID3"):
+            self._start_tracking_order(order_id)
+            await self.exchange._process_user_stream_event(self._get_order_trade_update_event(order_id, "NEW"))
+        for order_id in ("OID1", "OID2", "OID3"):
+            await self.exchange._process_user_stream_event(self._get_order_trade_update_event(order_id, "CANCELED"))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(1, self._account_info_requests_count(mock_api))
+        self.assertEqual(Decimal("90"), self.exchange.available_balances["USDT"])
+
+    async def test_order_updates_during_balance_refresh_trigger_one_more_refresh(self):
+        self._simulate_trading_rules_initialized()
+        refresh_started = asyncio.Event()
+        release_refresh = asyncio.Event()
+
+        async def slow_update_balances():
+            refresh_started.set()
+            await release_refresh.wait()
+
+        self.exchange._update_balances = AsyncMock(side_effect=slow_update_balances)
+        for order_id in ("OID1", "OID2", "OID3"):
+            self._start_tracking_order(order_id)
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        refresh_task = self.exchange._balance_refresh_task
+        await refresh_started.wait()
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID2", "CANCELED"))
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID3", "CANCELED"))
+        self.assertIs(refresh_task, self.exchange._balance_refresh_task)
+
+        release_refresh.set()
+        await refresh_task
+
+        self.assertEqual(2, self.exchange._update_balances.await_count)
+
+    async def test_failed_balance_refresh_still_runs_refresh_requested_meanwhile(self):
+        self._simulate_trading_rules_initialized()
+        refresh_started = asyncio.Event()
+        release_refresh = asyncio.Event()
+        calls = []
+
+        async def failing_then_ok():
+            calls.append(1)
+            if len(calls) == 1:
+                refresh_started.set()
+                await release_refresh.wait()
+                raise IOError("account request failed")
+
+        self.exchange._update_balances = AsyncMock(side_effect=failing_then_ok)
+        self.exchange._sleep = AsyncMock()
+        for order_id in ("OID1", "OID2"):
+            self._start_tracking_order(order_id)
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        refresh_task = self.exchange._balance_refresh_task
+        await refresh_started.wait()
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID2", "CANCELED"))
+
+        release_refresh.set()
+        await refresh_task
+
+        self.assertEqual(2, self.exchange._update_balances.await_count)
+
+    async def test_failed_balance_refresh_is_retried_with_backoff(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock(side_effect=[IOError("down"), IOError("down"), None])
+        self.exchange._sleep = AsyncMock()
+        self._start_tracking_order("OID1")
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(3, self.exchange._update_balances.await_count)
+        self.assertEqual(
+            [call(self.exchange.BALANCE_REFRESH_RETRY_DELAY), call(2 * self.exchange.BALANCE_REFRESH_RETRY_DELAY)],
+            self.exchange._sleep.await_args_list,
+        )
+
+    async def test_failed_balance_refresh_retries_are_bounded(self):
+        self._simulate_trading_rules_initialized()
+        self.exchange._update_balances = AsyncMock(side_effect=IOError("down"))
+        self.exchange._sleep = AsyncMock()
+        self._start_tracking_order("OID1")
+
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        await self.exchange._balance_refresh_task
+
+        self.assertEqual(self.exchange.BALANCE_REFRESH_MAX_RETRIES + 1, self.exchange._update_balances.await_count)
+        self.assertEqual(self.exchange.BALANCE_REFRESH_MAX_RETRIES, self.exchange._sleep.await_count)
+
+    @aioresponses()
+    async def test_concurrent_balance_updates_are_serialized(self, mock_api):
+        in_flight = 0
+        max_in_flight = 0
+
+        async def slow_api_get(*args, **kwargs):
+            nonlocal in_flight, max_in_flight
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            await asyncio.sleep(0.01)
+            in_flight -= 1
+            return {"assets": [{"asset": "USDT", "walletBalance": "100", "availableBalance": "90"}]}
+
+        self.exchange._api_get = AsyncMock(side_effect=slow_api_get)
+
+        await asyncio.gather(self.exchange._update_balances(), self.exchange._update_balances())
+
+        self.assertEqual(1, max_in_flight)
+
+    async def test_stop_network_cancels_pending_balance_refresh(self):
+        self._simulate_trading_rules_initialized()
+        refresh_started = asyncio.Event()
+
+        async def never_finishes():
+            refresh_started.set()
+            await asyncio.Event().wait()
+
+        self.exchange._update_balances = AsyncMock(side_effect=never_finishes)
+        self._start_tracking_order("OID1")
+        await self.exchange._process_user_stream_event(self._get_order_trade_update_event("OID1", "CANCELED"))
+        refresh_task = self.exchange._balance_refresh_task
+        await refresh_started.wait()
+
+        await self.exchange.stop_network()
+        await asyncio.sleep(0)
+
+        self.assertTrue(refresh_task.cancelled())
+        self.assertIsNone(self.exchange._balance_refresh_task)
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative."
