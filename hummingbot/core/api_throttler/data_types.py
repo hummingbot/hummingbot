@@ -51,3 +51,6 @@ class TaskLog:
     timestamp: float
     rate_limit: RateLimit
     weight: int
+    # False until the request finishes. Defaults to True so task logs created
+    # elsewhere work the same as before.
+    completed: bool = True
