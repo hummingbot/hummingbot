@@ -10,6 +10,8 @@ API_KEY_HEADER = "X-AgentFeed-Key"
 API_KEY_ENV_VAR = "AGENTFEED_API_KEY"
 
 BUCKET_SECONDS = 5
+SETTLE_SECONDS = 10  # the route serves a bucket only once it is this old, so late prints still land in it
+RETENTION_SLACK_SECONDS = 5
 MAX_SYMBOLS = 20  # the route takes at most 20 symbols per call
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"]  # what the route serves when asked for none
 

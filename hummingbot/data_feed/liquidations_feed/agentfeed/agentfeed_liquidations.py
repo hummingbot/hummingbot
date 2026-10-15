@@ -80,6 +80,13 @@ class AgentFeedLiquidations(LiquidationsBase):
         self._api_key = (api_key or os.environ.get(CONSTANTS.API_KEY_ENV_VAR, "")).strip()
         self._poll_interval = max(CONSTANTS.MIN_POLL_INTERVAL_SECONDS,
                                   float(poll_interval_seconds or CONSTANTS.DEFAULT_POLL_INTERVAL_SECONDS))
+        # A bucket reaches us at least BUCKET + SETTLE seconds after its start, and up to one poll later. The base class
+        # drops rows older than the retention measured from the bucket start, so a shorter window would delete every
+        # row within a second of storing it.
+        self._max_retention_seconds = max(
+            max_retention_seconds,
+            CONSTANTS.BUCKET_SECONDS + CONSTANTS.SETTLE_SECONDS + self._poll_interval + CONSTANTS.RETENTION_SLACK_SECONDS,
+        )
         # the key rides on every request through a pre-processor, the way the CoinCap data feed sends its key
         self._api_factory = WebAssistantsFactory(
             throttler=AsyncThrottler(rate_limits=self.rate_limits),

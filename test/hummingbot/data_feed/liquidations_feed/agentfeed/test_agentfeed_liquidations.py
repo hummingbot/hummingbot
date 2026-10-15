@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, patch
 
@@ -55,6 +56,26 @@ class TestAgentFeedLiquidations(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(CONSTANTS.MIN_POLL_INTERVAL_SECONDS, feed._poll_interval)
         feed = AgentFeedLiquidations(trading_pairs=set(), max_retention_seconds=60, api_key=TEST_KEY)
         self.assertEqual(CONSTANTS.DEFAULT_POLL_INTERVAL_SECONDS, feed._poll_interval)
+
+    def test_retention_is_raised_to_cover_the_serving_delay_and_the_poll(self):
+        feed = AgentFeedLiquidations(trading_pairs=set(), max_retention_seconds=10, api_key=TEST_KEY)
+        self.assertEqual(50.0, feed._max_retention_seconds)  # 5 s bucket + 10 s settle + 30 s poll + 5 s slack
+        feed = AgentFeedLiquidations(trading_pairs=set(), max_retention_seconds=10, api_key=TEST_KEY, poll_interval_seconds=60)
+        self.assertEqual(80.0, feed._max_retention_seconds)
+        feed = AgentFeedLiquidations(trading_pairs=set(), max_retention_seconds=3600, api_key=TEST_KEY)
+        self.assertEqual(3600, feed._max_retention_seconds)  # a longer window is left alone
+
+    async def test_a_row_served_at_the_slowest_point_survives_cleanup_with_the_default_window(self):
+        # the controller default is 10 s; a bucket polled 44 s after its start must still be there after a cleanup pass
+        feed = AgentFeedLiquidations(trading_pairs={"BTC-USDT"}, max_retention_seconds=10, api_key=TEST_KEY)
+        start = (int(time.time() * 1000) - 44_000) // 5000 * 5000
+        feed._store_buckets([self.bucket(start, "BTCUSDT", longs={"usd": 1200, "qty": 0.02, "vwap": 60000})])
+        feed._cleanup_old_liquidations()
+        self.assertEqual(1, len(feed.liquidations_df("BTC-USDT")))
+        # control: the same row under the old, unraised window is gone
+        feed._max_retention_seconds = 10
+        feed._cleanup_old_liquidations()
+        self.assertEqual(0, len(feed.liquidations_df("BTC-USDT")))
 
     def test_too_many_pairs_is_refused_up_front(self):
         pairs = {f"A{i}-USDT" for i in range(21)}
