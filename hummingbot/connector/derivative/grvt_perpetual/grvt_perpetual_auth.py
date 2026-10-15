@@ -37,6 +37,27 @@ class GrvtPerpetualAuth(AuthBase):
             {"name": "isBuyingContract", "type": "bool"},
         ],
     }
+
+    _EIP712_ORDER_WITH_BUILDER_FEE_MESSAGE_TYPE = {
+        "OrderWithBuilderFee": [
+            {"name": "subAccountID", "type": "uint64"},
+            {"name": "isMarket", "type": "bool"},
+            {"name": "timeInForce", "type": "uint8"},
+            {"name": "postOnly", "type": "bool"},
+            {"name": "reduceOnly", "type": "bool"},
+            {"name": "legs", "type": "OrderLeg[]"},
+            {"name": "builder", "type": "address"},
+            {"name": "builderFee", "type": "uint32"},
+            {"name": "nonce", "type": "uint32"},
+            {"name": "expiration", "type": "int64"},
+        ],
+        "OrderLeg": [
+            {"name": "assetID", "type": "uint256"},
+            {"name": "contractSize", "type": "uint64"},
+            {"name": "limitPrice", "type": "uint64"},
+            {"name": "isBuyingContract", "type": "bool"},
+        ],
+    }
     _SIGN_TIME_IN_FORCE = {
         CONSTANTS.TIME_IN_FORCE_GOOD_TILL_TIME: 1,
         "ALL_OR_NONE": 2,
@@ -133,6 +154,8 @@ class GrvtPerpetualAuth(AuthBase):
         order_type: OrderType,
         reduce_only: bool,
         expiration_seconds: int = CONSTANTS.ORDER_SIGNATURE_EXPIRATION_SECS,
+        builder: Optional[str] = None,
+        builder_fee_pct: Optional[Decimal] = None,
     ) -> Dict[str, Any]:
         time_in_force = self._time_in_force_for_order_type(order_type=order_type)
         is_market = order_type == OrderType.MARKET
@@ -151,10 +174,12 @@ class GrvtPerpetualAuth(AuthBase):
             post_only=order_type == OrderType.LIMIT_MAKER,
             nonce=nonce,
             expiration=expiration,
+            builder=builder,
+            builder_fee_pct=builder_fee_pct,
         )
         signed = Account.sign_message(message, self._private_key)
 
-        return {
+        payload = {
             "order": {
                 "sub_account_id": str(self._trading_account_id),
                 "is_market": is_market,
@@ -183,6 +208,10 @@ class GrvtPerpetualAuth(AuthBase):
                 },
             }
         }
+        if builder is not None:
+            payload["order"]["builder"] = builder.lower()
+            payload["order"]["builder_fee"] = str(builder_fee_pct)
+        return payload
 
     def _signable_message(
         self,
@@ -196,6 +225,8 @@ class GrvtPerpetualAuth(AuthBase):
         post_only: bool,
         nonce: int,
         expiration: str,
+        builder: Optional[str] = None,
+        builder_fee_pct: Optional[Decimal] = None,
     ):
         size_multiplier = 10 ** int(instrument["base_decimals"])
         message_data = {
@@ -215,12 +246,17 @@ class GrvtPerpetualAuth(AuthBase):
             "nonce": nonce,
             "expiration": int(expiration),
         }
+        message_type = self._EIP712_ORDER_MESSAGE_TYPE
+        if builder is not None:
+            message_type = self._EIP712_ORDER_WITH_BUILDER_FEE_MESSAGE_TYPE
+            message_data["builder"] = builder.lower()
+            message_data["builderFee"] = int(builder_fee_pct * CONSTANTS.BUILDER_FEE_SIGNATURE_MULTIPLIER)
         domain_data = {
             "name": "GRVT Exchange",
             "version": "0",
             "chainId": self._CHAIN_IDS[self._domain],
         }
-        return encode_typed_data(domain_data, self._EIP712_ORDER_MESSAGE_TYPE, message_data)
+        return encode_typed_data(domain_data, message_type, message_data)
 
     @staticmethod
     def _time_in_force_for_order_type(order_type: OrderType) -> str:
