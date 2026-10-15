@@ -122,9 +122,17 @@ WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME = "wallet"
 ORDER_STATE = {
     "Created": OrderState.OPEN,
     "New": OrderState.OPEN,
+    # A conditional order (stop-loss, take-profit) sits Untriggered until its trigger price
+    # prints, is Triggered for the moment it becomes an active order, and is Deactivated when
+    # cancelled before triggering. Active is the same for a conditional order on the book.
+    "Untriggered": OrderState.OPEN,
+    "Triggered": OrderState.OPEN,
+    "Active": OrderState.OPEN,
     "Filled": OrderState.FILLED,
     "PartiallyFilled": OrderState.PARTIALLY_FILLED,
     "Cancelled": OrderState.CANCELED,
+    "PartiallyFilledCanceled": OrderState.CANCELED,
+    "Deactivated": OrderState.CANCELED,
     "PendingCancel": OrderState.PENDING_CANCEL,
     "Rejected": OrderState.FAILED,
 }
