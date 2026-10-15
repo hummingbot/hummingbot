@@ -647,6 +647,41 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.wait_for_connected(), timeout=10)
         self.assertTrue(self.gateway.health)
 
+    def test_mqtt_reconnect_warning_throttled(self):
+        # A dead broker must not spam WARNING logs on every reconnect attempt.
+        # Only the first of a streak of consecutive failures is a warning;
+        # repeats are demoted to DEBUG until a connection succeeds again.
+        import aiomqtt
+
+        class _FailingClient:
+            async def __aenter__(self):
+                raise aiomqtt.MqttError("Simulated persistent broker outage")
+
+            async def __aexit__(self, *args):
+                return False
+
+        with patch('hummingbot.remote_iface.mqtt.MQTTGateway._create_client',
+                   lambda gw: _FailingClient()):
+            self.gateway._reconnect_interval = 0.05
+            self.start_mqtt()
+            warning_message = ("MQTT bridge disconnected: "
+                               "Simulated persistent broker outage. "
+                               "Reconnecting in 0.05s.")
+            # The first failure still logs at WARNING ...
+            self.async_run_with_timeout(
+                self.wait_for_logged("WARNING", warning_message), timeout=10)
+            # ... but consecutive failures are demoted to DEBUG.
+            debug_message = ("MQTT bridge still disconnected: "
+                             "Simulated persistent broker outage. "
+                             "Reconnecting in 0.05s.")
+            self.async_run_with_timeout(
+                self.wait_for_logged("DEBUG", debug_message), timeout=10)
+            warnings = [record for record in self.log_records
+                        if record.levelname == "WARNING"
+                        and record.getMessage() == warning_message]
+            self.assertEqual(1, len(warnings))
+            self.gateway.stop()
+
     def test_mqtt_publish_from_non_main_thread(self):
         self.start_mqtt()
         self.async_run_with_timeout(self.wait_for_connected(), timeout=10)
