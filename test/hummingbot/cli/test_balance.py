@@ -90,6 +90,9 @@ class BalanceCommandTest(unittest.TestCase):
             _markets={"binance_perpetual": self.market},
             update_exchange_balance=AsyncMock(return_value=None),
             all_balances=Mock(return_value={"USDT": Decimal("100")}),
+            # Connectors that are several views onto one exchange account report it once; a
+            # single connector has nothing to deduplicate.
+            duplicate_account_sources=Mock(return_value={}),
         )
         ub_cls = patch("hummingbot.user.user_balances.UserBalances").start()
         ub_cls.instance.return_value = self.ub

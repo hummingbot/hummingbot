@@ -1,7 +1,7 @@
 import logging
 from decimal import Decimal
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import get_connector_class
@@ -94,6 +94,42 @@ class UserBalances:
             if err_msg is None:
                 self._markets[exchange] = market
             return err_msg
+
+    def account_group_id(self, exchange: str) -> Optional[str]:
+        """
+        Returns the shared-account id of a connector, or None if its balance stands on its own.
+
+        :param exchange: the connector name
+        :return: the account group id, or None
+        """
+        market = self._markets.get(exchange)
+        return getattr(market, "account_group_id", None) if market is not None else None
+
+    def duplicate_account_sources(self, exchanges: Iterable[str]) -> Dict[str, str]:
+        """
+        Finds connectors that read an account another connector has already reported.
+
+        A unified-account venue exposes one wallet through several connectors, each of which
+        reports it in full, so summing across them counts the same funds repeatedly. This maps
+        every such connector to the first one holding the same account; connectors absent from
+        the result own their balance and should be counted.
+
+        :param exchanges: connector names, in the order they will be displayed
+        :return: {duplicate connector name: name of the connector it duplicates}
+        """
+        primary_by_group: Dict[str, str] = {}
+        duplicates: Dict[str, str] = {}
+
+        for exchange in exchanges:
+            group_id = self.account_group_id(exchange)
+            if group_id is None:
+                continue
+            if group_id in primary_by_group:
+                duplicates[exchange] = primary_by_group[group_id]
+            else:
+                primary_by_group[group_id] = exchange
+
+        return duplicates
 
     def all_balances(self, exchange) -> Dict[str, Decimal]:
         if exchange not in self._markets:
