@@ -9,10 +9,11 @@ Covers:
 from decimal import Decimal
 from test.hummingbot.connector.exchange.xrpl.test_xrpl_exchange_base import XRPLExchangeTestBase
 from unittest.async_case import IsolatedAsyncioTestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from xrpl.models.requests.request import RequestMethod
 
+from hummingbot.connector.exchange.xrpl import xrpl_constants as CONSTANTS
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 
@@ -284,3 +285,172 @@ class TestXRPLExchangeBalances(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
 
         locked = self.connector._calculate_locked_balance_for_token("SOLO")
         self.assertEqual(locked, Decimal("0"))
+
+
+class TestXRPLBalanceSnapshotIsOneMoment(XRPLExchangeTestBase, IsolatedAsyncioTestCase):
+    """XRP and the token balances must describe the SAME ledger, or the portfolio is fiction.
+
+    XRPL settles atomically, so no real trade can move one currency without moving another — yet
+    a balance refresh built from three independent queries can straddle a ledger close and read
+    the account at two moments, printing a gain or loss that never happened and undoing it on the
+    next tick. Ledgers close every ~4s and the connector spreads these requests across a pool of
+    nodes at differing validation heights, so straddling a close is routine, not exotic.
+
+    The failure is silent by construction: every individual response is correct and validated.
+    Only their combination is wrong, so nothing errors and the number merely lies.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.connector._balances_ledger_index = None
+
+    def _resp(self, ledger_index, xrp_drops="30000000", token="20"):
+        r = MagicMock()
+        r.result = {"ledger_index": ledger_index, "validated": True,
+                    "account_data": {"Balance": xrp_drops},
+                    "account_objects": [],
+                    "lines": [{"currency": "USD", "account": "r_issuer", "balance": token}]}
+        return r
+
+    async def test_agreeing_ledgers_are_read_once(self):
+        """The common case must not pay for the rare one."""
+        calls = []
+
+        async def q(req, **kw):
+            calls.append(getattr(req, "ledger_index", None))
+            return self._resp(900)
+
+        self.connector._query_xrpl = q
+        await self.connector._update_balances()
+        self.assertEqual(3, len(calls), "one agreeing snapshot needs no re-read")
+
+    async def test_a_straddled_close_is_detected_and_re_read(self):
+        """Two responses at ledger N and one at N+1 — the exact shape of a phantom loss."""
+        seq = []
+
+        async def q(req, **kw):
+            idx = getattr(req, "ledger_index", None)
+            seq.append(idx)
+            if idx == "validated":
+                # first round straddles a close
+                return self._resp(900 if len(seq) < 3 else 901)
+            return self._resp(idx)
+
+        self.connector._query_xrpl = q
+        await self.connector._update_balances()
+        self.assertEqual(6, len(seq), "a straddle must trigger exactly one pinned re-read")
+        self.assertEqual([901, 901, 901], seq[3:], "the re-read must pin an explicit integer")
+
+    async def test_the_re_read_pins_the_newest_ledger(self):
+        """Behind one balancer hostname sit many backends; the oldest seen may be a laggard's
+        hour-old view, so following it would follow the laggard rather than the chain."""
+        seq = []
+
+        async def q(req, **kw):
+            idx = getattr(req, "ledger_index", None)
+            seq.append(idx)
+            if idx == "validated":
+                return self._resp(905 if len(seq) == 1 else 904)
+            return self._resp(idx)
+
+        self.connector._query_xrpl = q
+        await self.connector._update_balances()
+        self.assertEqual(905, seq[3], "pin the newest seen, not the oldest")
+
+    async def test_an_incomplete_re_read_keeps_the_data_and_warns(self):
+        """Losing the snapshot entirely would be worse than a skewed one — but not silently."""
+        seq = []
+
+        async def q(req, **kw):
+            idx = getattr(req, "ledger_index", None)
+            seq.append(idx)
+            if idx != "validated":
+                return None            # pinned re-read fails
+            return self._resp(900 if len(seq) < 3 else 901)
+
+        self.connector._query_xrpl = q
+        with self.assertLogs(level="WARNING") as cm:
+            await self.connector._update_balances()
+        self.assertTrue(any("skewed snapshot" in m for m in cm.output),
+                        "a fallback to skewed data has to announce itself")
+        self.assertIn("XRP", self.connector._account_balances)
+
+    async def test_a_response_without_a_ledger_index_does_not_trigger_a_re_read(self):
+        """Missing metadata is ignorance, not disagreement; re-reading on it would loop forever."""
+        seq = []
+
+        async def q(req, **kw):
+            seq.append(getattr(req, "ledger_index", None))
+            r = self._resp(900)
+            if len(seq) == 2:
+                r.result.pop("ledger_index")
+            return r
+
+        self.connector._query_xrpl = q
+        await self.connector._update_balances()
+        self.assertEqual(3, len(seq))
+
+    def test_index_parsing_survives_junk(self):
+        r = MagicMock()
+        r.result = {"ledger_index": "not-a-number"}
+        ok = MagicMock()
+        ok.result = {"ledger_index": 12}
+        self.assertEqual([12], self.connector._snapshot_ledger_indexes([r, ok, None]))
+
+    async def test_an_incomplete_snapshot_writes_nothing(self):
+        """A node that cannot serve the ledger answers with an error RESPONSE, not None.
+
+        A None-check waves it through, and the balance built from it is zero — indistinguishable,
+        to every strategy reading it, from an account that is actually empty.
+        """
+        async def q(req, **kw):
+            r = MagicMock()
+            r.result = {"error": "lgrNotFound", "ledger_index": 900}
+            return r
+
+        self.connector._query_xrpl = q
+        with self.assertLogs(level="WARNING") as cm:
+            await self.connector._update_balances()
+        self.assertTrue(any("Incomplete account snapshot" in m for m in cm.output))
+        self.assertNotIn("XRP", self.connector._account_balances,
+                         "a failed read must not masquerade as a zero balance")
+
+    async def test_a_snapshot_from_a_laggard_ledger_is_skipped(self):
+        """Balances only move forward in time; an hour-old read can only undo a correct value."""
+        async def q(req, **kw):
+            return self._resp(900)
+
+        self.connector._query_xrpl = q
+        self.connector._balances_ledger_index = 900 + CONSTANTS.SNAPSHOT_MAX_LAG_LEDGERS + 1
+        with self.assertLogs(level="WARNING") as cm:
+            await self.connector._update_balances()
+        self.assertTrue(any("Skipping balance snapshot" in m for m in cm.output))
+        self.assertNotIn("XRP", self.connector._account_balances)
+
+    async def test_ordinary_skew_within_the_tolerance_is_accepted(self):
+        """The pool's nodes legitimately sit a few ledgers apart; only the outlier is refused."""
+        async def q(req, **kw):
+            return self._resp(900)
+
+        self.connector._query_xrpl = q
+        self.connector._balances_ledger_index = 900 + CONSTANTS.SNAPSHOT_MAX_LAG_LEDGERS
+        await self.connector._update_balances()
+        self.assertIn("XRP", self.connector._account_balances)
+        self.assertEqual(900 + CONSTANTS.SNAPSHOT_MAX_LAG_LEDGERS,
+                         self.connector._balances_ledger_index,
+                         "the held index must never move backwards")
+
+    async def test_a_malformed_trustline_currency_does_not_freeze_every_balance(self):
+        """bytes.fromhex raises plain ValueError; only UnicodeDecodeError was caught.
+
+        The uncaught kind escaped and aborted the whole update — silently, because the previous
+        numbers stay in place and nothing distinguishes them from fresh ones.
+        """
+        async def q(req, **kw):
+            r = self._resp(900)
+            r.result["lines"] = [{"currency": "NOTHEXAT", "account": "r_issuer", "balance": "5"}]
+            return r
+
+        self.connector._query_xrpl = q
+        await self.connector._update_balances()   # must not raise
+        self.assertIn("XRP", self.connector._account_balances)
