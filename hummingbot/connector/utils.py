@@ -4,7 +4,7 @@ import os
 import platform
 from collections import namedtuple
 from hashlib import md5
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from hexbytes import HexBytes
 
@@ -124,7 +124,7 @@ class GZipCompressionWSPostProcessor(WSPostProcessorBase):
         return WSResponse(data=msg)
 
 
-def to_0x_hex(signature: HexBytes | bytes) -> str:
+def to_0x_hex(signature: Union[HexBytes, bytes]) -> str:
     """
     Convert a string to a 0x-prefixed hex string.
     """
