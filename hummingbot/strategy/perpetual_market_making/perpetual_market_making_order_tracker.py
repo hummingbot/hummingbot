@@ -18,7 +18,13 @@ class PerpetualMarketMakingOrderTracker(OrderTracker):
 
     @property
     def active_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
-        return self.tracked_limit_orders
+        limit_orders = []
+        for market_pair, orders_map in self.tracked_limit_orders_map.items():
+            for limit_order in orders_map.values():
+                if self.has_in_flight_cancel(limit_order.client_order_id):
+                    continue
+                limit_orders.append((market_pair.market, limit_order))
+        return limit_orders
 
     @property
     def shadow_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
@@ -32,5 +38,10 @@ class PerpetualMarketMakingOrderTracker(OrderTracker):
     def market_pair_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         market_pair_to_orders = {}
         for market_pair, orders_map in self.tracked_limit_orders_map.items():
-            market_pair_to_orders[market_pair] = list(self.tracked_limit_orders_map[market_pair].values())
+            limit_orders = []
+            for limit_order in orders_map.values():
+                if self.has_in_flight_cancel(limit_order.client_order_id):
+                    continue
+                limit_orders.append(limit_order)
+            market_pair_to_orders[market_pair] = limit_orders
         return market_pair_to_orders
