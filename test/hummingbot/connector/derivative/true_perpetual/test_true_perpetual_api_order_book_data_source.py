@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -402,7 +403,8 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._message_queue["mark"] = mock_queue
         msg_queue: asyncio.Queue = asyncio.Queue()
 
-        self.connector.market_info = AsyncMock(return_value={"symbol": self.ex_trading_pair, "fundingRate8h": "0.00025"})
+        self.connector._markets_cache = {self.ex_trading_pair: {"symbol": self.ex_trading_pair, "fundingRate8h": "0.00025"}}
+        self.connector._markets_cache_at = time.time()
 
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
         update: FundingInfoUpdate = await msg_queue.get()
@@ -413,13 +415,45 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(Decimal("0.00025"), update.rate)
         self.assertEqual(Decimal("82050.5"), self.data_source._last_mark_prices[self.trading_pair])
 
-    async def test_listen_for_funding_info_without_market_list(self):
-        self.connector.market_info = AsyncMock(side_effect=IOError("markets down"))
+    async def test_mark_updates_never_wait_for_the_market_list(self):
+        never = asyncio.Event()
+
+        async def slow_markets():
+            await never.wait()
+
+        self.connector.markets = slow_markets
         msg_queue: asyncio.Queue = asyncio.Queue()
-        await self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue)
+        await asyncio.wait_for(self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue), timeout=0.5)
         update: FundingInfoUpdate = msg_queue.get_nowait()
         self.assertEqual(Decimal("82050.5"), update.mark_price)
         self.assertIsNone(update.rate)
+        self.assertIsNotNone(self.data_source._markets_refresh_task)
+        self.assertFalse(self.data_source._markets_refresh_task.done())
+        # a second mark while the refresh runs does not start another one
+        first_task = self.data_source._markets_refresh_task
+        await self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue)
+        self.assertIs(first_task, self.data_source._markets_refresh_task)
+        never.set()
+        await first_task
+
+    async def test_failed_market_refresh_backs_off(self):
+        self.connector.markets = AsyncMock(side_effect=IOError("markets down"))
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        await self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue)
+        await self.data_source._markets_refresh_task
+        self.assertEqual(1, self.connector.markets.call_count)
+        self.assertGreater(self.data_source._markets_refresh_not_before, time.time())
+        await self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue)
+        self.assertEqual(1, self.connector.markets.call_count)
+        self.assertEqual(2, msg_queue.qsize())
+
+    async def test_fresh_market_cache_is_not_refreshed(self):
+        self.connector._markets_cache = {self.ex_trading_pair: {"fundingRate8h": "0.0001"}}
+        self.connector._markets_cache_at = time.time()
+        self.connector.markets = AsyncMock()
+        await self.data_source._parse_funding_info_message(self._ws_mark_event(), asyncio.Queue())
+        self.assertIsNone(self.data_source._markets_refresh_task)
+        self.connector.markets.assert_not_called()
 
     async def test_listen_for_funding_info_ignores_other_pairs(self):
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair, "ETHUSDC": "ETH-USDC"}))

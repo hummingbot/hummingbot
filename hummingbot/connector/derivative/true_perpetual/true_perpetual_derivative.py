@@ -197,6 +197,13 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
             self._markets_cache_at = now
         return self._markets_cache
 
+    def cached_market_info(self, symbol: str) -> Dict[str, Any]:
+        """The market row from the last GET /markets without touching the network (empty when never read)."""
+        return self._markets_cache.get(symbol, {})
+
+    def markets_cache_is_fresh(self) -> bool:
+        return bool(self._markets_cache) and time.time() - self._markets_cache_at <= self.MARKETS_CACHE_SECONDS
+
     async def market_info(self, symbol: str) -> Dict[str, Any]:
         markets = await self.markets()
         if symbol not in markets:
@@ -420,13 +427,14 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     FILLS_PAGE_SIZE = 200
-    FILLS_MAX_PAGES = 10
+    FILLS_MAX_PAGES = 50
 
     async def _fills_for_market(self, symbol: str, limit: int = FILLS_PAGE_SIZE,
                                 since_ms: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         GET /fills for one market, newest first, following page.next until the page is older than
-        since_ms (the oldest tracked order for that market) or FILLS_MAX_PAGES pages were read.
+        since_ms (the oldest tracked order for that market). FILLS_MAX_PAGES (10,000 fills) is only a
+        guard against a runaway cursor; the since bound is what ends the walk in practice.
         """
         fills: List[Dict[str, Any]] = []
         cursor: Optional[str] = None

@@ -50,6 +50,8 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._trade_messages_queue_key = "trades"
         self._funding_info_messages_queue_key = "mark"
         self._last_mark_prices: Dict[str, Decimal] = {}
+        self._markets_refresh_task: Optional[asyncio.Task] = None
+        self._markets_refresh_not_before: float = 0.0
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -201,6 +203,27 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         elif op == "error":
             self.logger().warning(f"TRUE websocket error: {event_message}")
 
+    MARKETS_REFRESH_BACKOFF_SECONDS = 30.0
+
+    def _schedule_markets_refresh(self):
+        """Refresh the connector's market list off the reader, at most once per cache period, backing off on failure."""
+        if self._connector.markets_cache_is_fresh():
+            return
+        if self._markets_refresh_task is not None and not self._markets_refresh_task.done():
+            return
+        if time.time() < self._markets_refresh_not_before:
+            return
+        self._markets_refresh_task = asyncio.ensure_future(self._refresh_markets())
+
+    async def _refresh_markets(self):
+        try:
+            await self._connector.markets()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._markets_refresh_not_before = time.time() + self.MARKETS_REFRESH_BACKOFF_SECONDS
+            self.logger().debug("Could not refresh the TRUE market list for funding rates", exc_info=True)
+
     @staticmethod
     def _symbol_of(topic: str) -> str:
         return topic.split(":", 1)[1] if ":" in topic else topic
@@ -258,16 +281,13 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return
         mark_price = Decimal(str(mark))
         self._last_mark_prices[trading_pair] = mark_price
-        # The 8h rate lives on the market list (cached for a minute by the connector), so every
-        # mark update re-reads it and a rate change at the venue reaches the strategy within a minute.
+        # The mark goes out at once with whatever 8h rate the cached market list holds; the list is
+        # refreshed in the background (never on this reader) so a slow /markets cannot hold marks back.
         rate: Optional[Decimal] = None
-        try:
-            market = await self._connector.market_info(symbol)
-            raw_rate = market.get("fundingRate8h")
-            if raw_rate is not None:
-                rate = Decimal(str(raw_rate))
-        except Exception:
-            self.logger().debug(f"Could not refresh the funding rate for {trading_pair}", exc_info=True)
+        raw_rate = self._connector.cached_market_info(symbol).get("fundingRate8h")
+        if raw_rate is not None:
+            rate = Decimal(str(raw_rate))
+        self._schedule_markets_refresh()
         message_queue.put_nowait(FundingInfoUpdate(
             trading_pair=trading_pair,
             index_price=mark_price,
