@@ -642,7 +642,7 @@ class TruePerpetualDerivativeTests(IsolatedAsyncioWrapperTestCase):
                 await self.exchange._user_stream_event_listener()
             except asyncio.CancelledError:
                 pass
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error in the TRUE account stream listener."))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error in user stream listener loop."))
 
     async def test_iter_user_event_queue_retries_on_error(self):
         mock_queue = AsyncMock()

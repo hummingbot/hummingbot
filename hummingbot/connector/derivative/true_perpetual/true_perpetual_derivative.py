@@ -462,9 +462,12 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
     def _trade_update_from_fill(self, fill: Dict[str, Any], order: InFlightOrder) -> TradeUpdate:
         fee_amount = Decimal(str(fill.get("fee") or "0"))
         fee_token = str(fill.get("fee_currency") or QUOTE_ASSET)
+        # A fill fee on TRUE is always taken from the USDC collateral, so it is a cost whichever way the
+        # position moves; an order tracked without a position action is treated as opening one.
+        position_action = order.position if order.position in (PositionAction.OPEN, PositionAction.CLOSE) else PositionAction.OPEN
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
-            position_action=order.position,
+            position_action=position_action,
             percent_token=fee_token,
             flat_fees=[] if fee_amount == 0 else [TokenAmount(amount=fee_amount, token=fee_token)],
         )
@@ -618,7 +621,7 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in the TRUE account stream listener.")
+                self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(1.0)
 
     # ── request helpers ─────────────────────────────────────────────────────
