@@ -379,8 +379,8 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
         detail = response.get("detail")
         detail_text = str(detail) if detail is not None else ""
         if self._is_order_not_found_during_cancelation_error(IOError(f"{error} {detail_text}")):
+            # The base class counts the not found answer when this error is raised; nothing to count here.
             self.logger().debug(f"Order {order_id} ({exchange_order_id}) is no longer open on TRUE.")
-            await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f"{CONSTANTS.ORDER_NOT_FOUND_ERROR}: {error} {detail_text}".strip())
         raise IOError(f"Cancel refused by TRUE: {error} {detail_text}".strip())
 
@@ -419,14 +419,37 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=str(exchange_order_id),
         )
 
-    async def _fills_for_market(self, symbol: str, limit: int = 200) -> List[Dict[str, Any]]:
-        response = await self._api_get(
-            path_url=CONSTANTS.FILLS_PATH_URL,
-            params={"market": symbol, "limit": limit},
-            is_auth_required=True,
-        )
-        page = response.get("page") or response
-        return list(page.get("results") or [])
+    FILLS_PAGE_SIZE = 200
+    FILLS_MAX_PAGES = 10
+
+    async def _fills_for_market(self, symbol: str, limit: int = FILLS_PAGE_SIZE,
+                                since_ms: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        GET /fills for one market, newest first, following page.next until the page is older than
+        since_ms (the oldest tracked order for that market) or FILLS_MAX_PAGES pages were read.
+        """
+        fills: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
+        for _ in range(self.FILLS_MAX_PAGES):
+            params: Dict[str, Any] = {"market": symbol, "limit": limit}
+            if cursor:
+                params["cursor"] = cursor
+            response = await self._api_get(
+                path_url=CONSTANTS.FILLS_PATH_URL,
+                params=params,
+                is_auth_required=True,
+            )
+            page = response.get("page") or response
+            rows = list(page.get("results") or [])
+            fills.extend(rows)
+            cursor = page.get("next")
+            if not rows or not cursor or len(rows) < limit:
+                break
+            if since_ms is not None:
+                oldest = min((int(r.get("created_at") or 0) for r in rows), default=0)
+                if oldest and oldest < since_ms:
+                    break
+        return fills
 
     def _trade_update_from_fill(self, fill: Dict[str, Any], order: InFlightOrder) -> TradeUpdate:
         fee_amount = Decimal(str(fill.get("fee") or "0"))
@@ -462,16 +485,18 @@ class TruePerpetualDerivative(PerpetualDerivativePyBase):
         return [self._trade_update_from_fill(f, order) for f in fills if str(f.get("order_id")) == wanted]
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
-        """One GET /fills per market per poll instead of one per order."""
+        """One paged GET /fills per market per poll instead of one per order."""
         self._fills_cache = {}
         try:
-            symbols = set()
+            oldest_by_symbol: Dict[str, int] = {}
             for order in orders:
                 if order.exchange_order_id is not None:
-                    symbols.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
-            for symbol in symbols:
+                    symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+                    created_ms = int(order.creation_timestamp * 1e3)
+                    oldest_by_symbol[symbol] = min(oldest_by_symbol.get(symbol, created_ms), created_ms)
+            for symbol, since_ms in oldest_by_symbol.items():
                 try:
-                    self._fills_cache[symbol] = await self._fills_for_market(symbol)
+                    self._fills_cache[symbol] = await self._fills_for_market(symbol, since_ms=since_ms)
                 except asyncio.CancelledError:
                     raise
                 except Exception as err:

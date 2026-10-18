@@ -98,12 +98,20 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot = await self._request_order_book_snapshot(trading_pair)
         timestamp = time.time()
+        # Update ids are server milliseconds everywhere (REST snapshot, websocket snapshot and delta),
+        # so a REST reset and the stream that follows it stay comparable for the order book tracker.
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
-            "update_id": int(timestamp * 1e3),
+            "update_id": self._update_id(snapshot, timestamp),
             "bids": self._levels(snapshot.get("bids"), descending=True),
             "asks": self._levels(snapshot.get("asks")),
         }, timestamp=timestamp)
+
+    @staticmethod
+    def _update_id(data: Dict[str, Any], timestamp: float) -> int:
+        """Server milliseconds of the message; the venue's own `ts` when present, the local clock otherwise."""
+        ts = data.get("ts")
+        return int(ts) if ts else int(timestamp * 1e3)
 
     @staticmethod
     def _levels(raw: Any, descending: bool = False) -> List[List[str]]:
@@ -202,7 +210,7 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         symbol = data.get("market") or self._symbol_of(str(raw_message.get("topic", "")))
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         timestamp = float(raw_message.get("ts") or time.time() * 1e3) / 1e3
-        update_id = int(data.get("u") or int(timestamp * 1e3))
+        update_id = self._update_id(raw_message, timestamp)
         message_queue.put_nowait(OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": trading_pair,
             "update_id": update_id,
@@ -215,7 +223,7 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         symbol = data.get("market") or self._symbol_of(str(raw_message.get("topic", "")))
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
         timestamp = float(raw_message.get("ts") or time.time() * 1e3) / 1e3
-        update_id = int(data.get("u") or int(timestamp * 1e3))
+        update_id = self._update_id(raw_message, timestamp)
         message_queue.put_nowait(OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": trading_pair,
             "update_id": update_id,
@@ -250,10 +258,20 @@ class TruePerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             return
         mark_price = Decimal(str(mark))
         self._last_mark_prices[trading_pair] = mark_price
+        # The 8h rate lives on the market list (cached for a minute by the connector), so every
+        # mark update re-reads it and a rate change at the venue reaches the strategy within a minute.
+        rate: Optional[Decimal] = None
+        try:
+            market = await self._connector.market_info(symbol)
+            raw_rate = market.get("fundingRate8h")
+            if raw_rate is not None:
+                rate = Decimal(str(raw_rate))
+        except Exception:
+            self.logger().debug(f"Could not refresh the funding rate for {trading_pair}", exc_info=True)
         message_queue.put_nowait(FundingInfoUpdate(
             trading_pair=trading_pair,
             index_price=mark_price,
             mark_price=mark_price,
             next_funding_utc_timestamp=self._next_funding_timestamp(),
-            rate=None,
+            rate=rate,
         ))

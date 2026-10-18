@@ -367,13 +367,25 @@ class TruePerpetualDerivativeTests(IsolatedAsyncioWrapperTestCase):
         self.assertIn(f"market={self.symbol}", str(request.kwargs.get("url") or next(iter(mock_api.requests.keys()))[1]))
 
     @aioresponses()
-    async def test_cancel_order_not_found_marks_order(self, mock_api):
+    async def test_cancel_order_not_found_raises_without_counting(self, mock_api):
         order = self._tracked_order()
         mock_api.delete(self._regex(self._url("/orders/42599337")), status=404,
                         body=json.dumps({"ok": False, "error": "order_not_found"}))
         with self.assertRaises(IOError) as context:
             await self.exchange._place_cancel(order.client_order_id, order)
         self.assertIn(CONSTANTS.ORDER_NOT_FOUND_ERROR, str(context.exception))
+        # the base class counts not found answers when the error is raised; the connector must not count on its own
+        self.assertEqual(0, self.exchange._order_tracker._order_not_found_records.get(order.client_order_id, 0))
+
+    @aioresponses()
+    async def test_execute_cancel_not_found_counts_once(self, mock_api):
+        order = self._tracked_order()
+        mock_api.delete(self._regex(self._url("/orders/42599337")), status=404,
+                        body=json.dumps({"ok": False, "error": "order_not_found"}), repeat=True)
+        await self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        await self._drain()
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records.get(order.client_order_id, 0))
+        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
     async def test_cancel_order_refused(self, mock_api):
@@ -462,6 +474,53 @@ class TruePerpetualDerivativeTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertEqual({}, self.exchange._fills_cache)
+
+    @aioresponses()
+    async def test_fills_follow_pagination_until_older_than_tracked_orders(self, mock_api):
+        self._tracked_order()
+        url = self._regex(self._url(CONSTANTS.FILLS_PATH_URL))
+        first_page = [{"id": f"1-{i}", "order_id": 999, "price": "81000", "size": "0.001", "fee": "0", "side": "buy",
+                       "created_at": 1700000002000, "market": self.symbol} for i in range(200)]
+        second_page = [{"id": "2-0", "order_id": 42599337, "price": "81000", "size": "0.002", "fee": "0.0324", "fee_currency": "USDC",
+                        "liquidity": "maker", "side": "buy", "created_at": 1700000001000, "market": self.symbol}]
+        mock_api.get(url, body=json.dumps({"ok": True, "page": {"next": "cursor-2", "results": first_page}}))
+        mock_api.get(url, body=json.dumps({"ok": True, "page": {"next": "cursor-3", "results": second_page}}))
+        mock_api.get(self._regex(self._url("/orders/42599337")), body=json.dumps({
+            "ok": True, "order": {"id": 42599337, "status": "open", "timestamp": 1700000003000}}), repeat=True)
+
+        self.exchange._set_current_timestamp(1700000000)
+        await self.exchange._update_order_status()
+        await self._drain()
+
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        self.assertEqual(Decimal("0.002"), self.order_filled_logger.event_log[0].amount)
+
+    async def test_fills_pagination_stops_at_short_page(self):
+        calls = []
+
+        async def fake_get(path_url, params=None, **kwargs):
+            calls.append(dict(params))
+            if params.get("cursor") is None:
+                return {"ok": True, "page": {"next": "c2", "results": [{"id": "a", "created_at": 1700000005000}] * 200}}
+            return {"ok": True, "page": {"next": "c3", "results": [{"id": "b", "created_at": 1700000004000}]}}
+
+        with patch.object(self.exchange, "_api_get", fake_get):
+            fills = await self.exchange._fills_for_market(self.symbol, since_ms=1600000000000)
+        self.assertEqual(201, len(fills))
+        self.assertEqual(2, len(calls))
+        self.assertEqual("c2", calls[1]["cursor"])
+
+    async def test_fills_pagination_stops_once_older_than_since(self):
+        calls = []
+
+        async def fake_get(path_url, params=None, **kwargs):
+            calls.append(dict(params))
+            return {"ok": True, "page": {"next": "more", "results": [{"id": "a", "created_at": 1500000000000}] * 200}}
+
+        with patch.object(self.exchange, "_api_get", fake_get):
+            fills = await self.exchange._fills_for_market(self.symbol, since_ms=1600000000000)
+        self.assertEqual(200, len(fills))
+        self.assertEqual(1, len(calls))
 
     @aioresponses()
     async def test_update_orders_fills_survives_fills_error(self, mock_api):

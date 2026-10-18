@@ -135,6 +135,24 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.assertEqual([], TruePerpetualAPIOrderBookDataSource._levels(None))
         self.assertEqual([["1", "2"], ["3", "4"]], TruePerpetualAPIOrderBookDataSource._levels([[3, 4], [1, 2]]))
 
+    def test_update_ids_are_server_milliseconds_everywhere(self):
+        self.assertEqual(1700000000000, TruePerpetualAPIOrderBookDataSource._update_id({"ts": 1700000000000}, 1.5))
+        self.assertEqual(1500, TruePerpetualAPIOrderBookDataSource._update_id({}, 1.5))
+        self.assertEqual(1500, TruePerpetualAPIOrderBookDataSource._update_id({"ts": None, "u": 77}, 1.5))
+
+    @aioresponses()
+    async def test_rest_snapshot_and_stream_diff_ids_are_comparable(self, mock_api):
+        url = web_utils.public_rest_url(CONSTANTS.ORDERBOOK_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(self._snapshot_rest_response()))
+        snapshot = await self.data_source._order_book_snapshot(self.trading_pair)
+        diff_queue: asyncio.Queue = asyncio.Queue()
+        later = self._ws_diff_event()
+        later["ts"] = int(snapshot.update_id) + 1
+        await self.data_source._parse_order_book_diff_message(later, diff_queue)
+        diff = diff_queue.get_nowait()
+        self.assertGreater(diff.update_id, snapshot.update_id)
+
     def test_next_funding_timestamp_is_next_8h_boundary(self):
         self.assertEqual(8 * 3600, TruePerpetualAPIOrderBookDataSource._next_funding_timestamp(now=1))
         self.assertEqual(16 * 3600, TruePerpetualAPIOrderBookDataSource._next_funding_timestamp(now=8 * 3600))
@@ -309,7 +327,7 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        self.assertEqual(77, msg.update_id)
+        self.assertEqual(1700000000000, msg.update_id)
         self.assertEqual(1700000000.0, msg.timestamp)
         self.assertEqual(81500, msg.bids[0].price)
         self.assertEqual(82000, msg.asks[0].price)
@@ -325,7 +343,7 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
-        self.assertEqual(78, msg.update_id)
+        self.assertEqual(1700000001000, msg.update_id)
         self.assertEqual(81200, msg.bids[0].price)
         self.assertEqual(0.4, msg.bids[0].amount)
         self.assertEqual(82100, msg.asks[0].price)
@@ -384,14 +402,24 @@ class TruePerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         self.data_source._message_queue["mark"] = mock_queue
         msg_queue: asyncio.Queue = asyncio.Queue()
 
+        self.connector.market_info = AsyncMock(return_value={"symbol": self.ex_trading_pair, "fundingRate8h": "0.00025"})
+
         self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
         update: FundingInfoUpdate = await msg_queue.get()
 
         self.assertEqual(self.trading_pair, update.trading_pair)
         self.assertEqual(Decimal("82050.5"), update.mark_price)
         self.assertEqual(Decimal("82050.5"), update.index_price)
-        self.assertIsNone(update.rate)
+        self.assertEqual(Decimal("0.00025"), update.rate)
         self.assertEqual(Decimal("82050.5"), self.data_source._last_mark_prices[self.trading_pair])
+
+    async def test_listen_for_funding_info_without_market_list(self):
+        self.connector.market_info = AsyncMock(side_effect=IOError("markets down"))
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        await self.data_source._parse_funding_info_message(self._ws_mark_event(), msg_queue)
+        update: FundingInfoUpdate = msg_queue.get_nowait()
+        self.assertEqual(Decimal("82050.5"), update.mark_price)
+        self.assertIsNone(update.rate)
 
     async def test_listen_for_funding_info_ignores_other_pairs(self):
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair, "ETHUSDC": "ETH-USDC"}))
