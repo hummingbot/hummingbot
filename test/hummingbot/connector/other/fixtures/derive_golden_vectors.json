@@ -1,0 +1,127 @@
+{
+  "domainSeparator": "0x87359b672801fef20dd7ce3e82c082a14efa1246a4ab1d344d213e54a61cc72b",
+  "actionTypehash": "0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17",
+  "signerPrivateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "signerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "hashingScheme": "actionHash = keccak256(abi.encode([bytes32,uint256,uint256,address,bytes32,uint256,address,address], [ACTION_TYPEHASH, subaccount_id, nonce, module, keccak256(data), expiry, owner, signer])); typedDataHash = keccak256(0x1901 || DOMAIN_SEPARATOR || actionHash); signature = ECDSA(signingKey, typedDataHash).serialized (r||s||v)",
+  "cases": [
+    {
+      "name": "envelope-minimal",
+      "description": "Raw envelope hashing/signing over an arbitrary 4-byte data blob; no module-specific encoding.",
+      "inputs": {
+        "subaccount_id": 1,
+        "nonce": "1720000000000000001",
+        "signature_expiry_sec": 1900000000,
+        "module": "0xB8D20c2B7a1Ad2EE33Bc50eF10876eD3035b5e7b",
+        "data": "0xdeadbeef",
+        "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      },
+      "dataHex": "0xdeadbeef",
+      "actionHash": "0xc8ad78753078431628a58714684c0369bd8ec321d525f5b42631f44d6aee765e",
+      "typedDataHash": "0x14e35b3cf89bd381ab7983caac4317ee186fbecbece0154398af4b00f3c7ca95",
+      "signature": "0x12c6c2b5f01254e3bb71b810adf8c6e1ac54358c79bc0cbd6be9da0e47a33a9517c583e67c4f5fef63027766278c94ef5defd5b08eefa547cff2607d701567881b"
+    },
+    {
+      "name": "envelope-large",
+      "description": "Raw envelope over 64 bytes of 0x11 with large subaccount id and nonce.",
+      "inputs": {
+        "subaccount_id": 999999,
+        "nonce": "1720000000123456789",
+        "signature_expiry_sec": 2000000000,
+        "module": "0xB8D20c2B7a1Ad2EE33Bc50eF10876eD3035b5e7b",
+        "data": "0x11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+        "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      },
+      "dataHex": "0x11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "actionHash": "0x58da760f9b8d9920a8225eb05277a9fd867b116d3065ec7a9940a16c04f86414",
+      "typedDataHash": "0x978073493a8ffc3cd0a3f7c5fa0b0a0a191ac387edae49145c55d0430ba302a6",
+      "signature": "0x851efcc1546234e4494d65f8f0fe7e76cc1a0b56a406257dcf74e56ad5723c2d65572e16cd7caabd5c3ec397495f2f1dfd9fa2a8a395d4656fa58567b566b2581c"
+    },
+    {
+      "name": "trade",
+      "description": "Trade data ABI encoding: abi.encode([address,uint,int,int,uint,uint,bool], [asset, subId, limitE18, amountE18, maxFeeE18, recipientId, isBid]).",
+      "inputs": {
+        "asset_address": "0x0000000000000000000000000000000000000C0D",
+        "sub_id": "42",
+        "limit_price": "1500.5",
+        "amount": "2.5",
+        "max_fee": "100",
+        "recipient_subaccount_id": 1,
+        "is_bid": true,
+        "abi": ["address", "uint", "int", "int", "uint", "uint", "bool"],
+        "e18_conversions": {
+          "limit_price": "ethers.parseUnits(limit_price, 18) = 1500500000000000000000",
+          "amount": "ethers.parseUnits(amount, 18) = 2500000000000000000",
+          "max_fee": "ethers.parseUnits(max_fee, 18) = 100000000000000000000"
+        },
+        "subaccount_id": 1,
+        "nonce": "1720000000000000002",
+        "signature_expiry_sec": 1900000000,
+        "module": "0xB8D20c2B7a1Ad2EE33Bc50eF10876eD3035b5e7b",
+        "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      },
+      "dataHex": "0x0000000000000000000000000000000000000000000000000000000000000c0d000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000051579ee002a1a2000000000000000000000000000000000000000000000000000022b1c8c1227a00000000000000000000000000000000000000000000000000056bc75e2d6310000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",
+      "actionHash": "0x25d3db7cc2792b21b64bf96b2752572ecbca8fedc5a9abe6b2918732e08df3bb",
+      "typedDataHash": "0x5ecb84fbc9b38c8bad9421c80c6c6e14fb9b325c9496a2ddbd827745e17b4c7f",
+      "signature": "0x863450f1b1981715a13d01cf090fb08a58067d0014b4a98d6df0feb919ba699657706cd4d588fb9c7d41d989cf238e77168aa133bb625e0a2c31591969151bc21b"
+    },
+    {
+      "name": "transfer",
+      "description": "Transfer data ABI encoding: abi.encode([uint256 x2, address, uint256 x3], [toSubaccountId, newManager, asset, subId, amountE18, maxFeeUsdE18]).",
+      "inputs": {
+        "from_subaccount_id": 1,
+        "to_subaccount_id": 2,
+        "new_subaccount_manager": 0,
+        "asset_address": "0x0000000000000000000000000000000000000C0D",
+        "asset_sub_id": 0,
+        "amount": "10.5",
+        "max_fee_usd": "1000",
+        "abi": ["uint256", "uint256", "address", "uint256", "uint256", "uint256"],
+        "e18_conversions": {
+          "amount": "ethers.parseUnits(amount, 18) = 10500000000000000000",
+          "max_fee_usd": "ethers.parseUnits(max_fee_usd, 18) = 1000000000000000000000"
+        },
+        "subaccount_id": 1,
+        "nonce": "1720000000000000003",
+        "signature_expiry_sec": 1900000000,
+        "module": "0x01259207A40925b794C8ac320456F7F6c8FE2636",
+        "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      },
+      "dataHex": "0x000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000091b77e5e5d9a000000000000000000000000000000000000000000000000003635c9adc5dea00000",
+      "actionHash": "0xc37e717b0cf835cd4329648c5daa3a0116ffb65ceb854427314d953b9deb4670",
+      "typedDataHash": "0x7771cb0abf9433abf94726c6da935a0ea86a6aa3021c50e9adc49fc67d590655",
+      "signature": "0xeaf5a64d506082916552224b88a64fa46b737008ab251fd1aa616dd305362d0b64bb0e122a73307565d07eda91ed46bd0785ad5880e7f488c99a969870bedef61b"
+    },
+    {
+      "name": "withdrawal",
+      "description": "Withdrawal data ABI encoding: abi.encode([address,uint256,address,uint256,bool], [asset, maxFeeUsdE18, recipient, amountInNativeDecimals, forceBatch=false]).",
+      "inputs": {
+        "asset_address": "0x0000000000000000000000000000000000000C0D",
+        "asset_decimals": 6,
+        "amount": "123.456789",
+        "max_fee_usd": "2.5",
+        "recipient": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "force_batch": false,
+        "abi": ["address", "uint256", "address", "uint256", "bool"],
+        "decimal_conversions": {
+          "max_fee_usd": "ethers.parseUnits(max_fee_usd, 18) = 2500000000000000000 (fee is always e18)",
+          "amount": "ethers.parseUnits(amount, asset_decimals=6) = 123456789 (amount uses native ERC-20 decimals, NOT e18)"
+        },
+        "subaccount_id": 1,
+        "nonce": "1720000000000000004",
+        "signature_expiry_sec": 1900000000,
+        "module": "0x9d0E8f5b25384C7310CB8C6aE32C8fbeb645d083",
+        "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      },
+      "dataHex": "0x0000000000000000000000000000000000000000000000000000000000000c0d00000000000000000000000000000000000000000000000022b1c8c1227a0000000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000075bcd150000000000000000000000000000000000000000000000000000000000000000",
+      "actionHash": "0x51473b8c9756233140b753031d37814588bcfb5980ae2522ba7037838206d30d",
+      "typedDataHash": "0xe0ae1e52c27062e698680a18050d79a19364eb077031c6eefc568f6bf3911de0",
+      "signature": "0x9a11e75d68a91e32bcc0d559e2f5a13379cbb19fa19a7ebab3c8bc4e90b1fdde77f4c0224b7e70ed165cacfdb5f8bf2c0ac17137021663047e6ed2b702807e631b"
+    }
+  ]
+}
