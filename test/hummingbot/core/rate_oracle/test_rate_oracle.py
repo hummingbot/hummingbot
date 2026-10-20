@@ -5,12 +5,13 @@ from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import hummingbot.core.rate_oracle.utils as rate_oracle_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.client_config_map import RATE_SOURCE_MODES, ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
+from hummingbot.core.rate_oracle.sources.fxmacrodata_rate_source import FXMacroDataRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.rate_oracle.utils import find_rate
 
@@ -136,6 +137,31 @@ class RateOracleTest(IsolatedAsyncioWrapperTestCase):
         rate_oracle = RateOracle.get_instance()
         config_map.rate_oracle_source = "coin_gecko"
         self.assertEqual(type(rate_oracle.source), CoinGeckoRateSource)
+
+    def test_fxmacrodata_is_an_accepted_rate_oracle_source_configuration(self):
+        # Registering a source in RATE_ORACLE_SOURCES is not enough on its own:
+        # the rate_oracle_source setting is validated against RATE_SOURCE_MODES,
+        # so the documented "rate_oracle_source: fxmacrodata" must pass there.
+        self.assertIn("fxmacrodata", RATE_SOURCE_MODES)
+
+        config_map = ClientConfigMap(rate_oracle_source="fxmacrodata")
+
+        self.assertEqual("fxmacrodata", config_map.rate_oracle_source.name)
+        self.assertIsInstance(config_map.rate_oracle_source.build_rate_source(), FXMacroDataRateSource)
+
+    def test_fxmacrodata_configuration_reloaded_from_yaml_builds_the_source(self):
+        # Saved configs come back as a dict rather than a bare name.
+        config_map = ClientConfigMap(rate_oracle_source={"name": "fxmacrodata"})
+
+        self.assertIsInstance(config_map.rate_oracle_source.build_rate_source(), FXMacroDataRateSource)
+
+    def test_rate_oracle_single_instance_uses_fxmacrodata_after_configuration_change(self):
+        config_map = ClientConfigAdapter(ClientConfigMap())
+        rate_oracle = RateOracle.get_instance()
+
+        config_map.rate_oracle_source = "fxmacrodata"
+
+        self.assertEqual(type(rate_oracle.source), FXMacroDataRateSource)
 
     def test_rate_oracle_single_instance_prices_reset_after_global_token_change(self):
         config_map = ClientConfigAdapter(ClientConfigMap())

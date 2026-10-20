@@ -37,6 +37,7 @@ class RESTRequest:
     headers: Optional[Mapping[str, str]] = None
     is_auth_required: bool = False
     throttler_limit_id: Optional[str] = None
+    allow_redirects: Optional[bool] = None
 
 
 @dataclass
