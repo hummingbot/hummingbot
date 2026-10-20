@@ -1008,13 +1008,29 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @aioresponses()
     async def test_set_position_mode_success(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+        # Regression test for https://github.com/hummingbot/hummingbot/issues/8482
+        # dydx_v4 only supports the ONEWAY position mode and performs no exchange request to set it
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.ONEWAY, self.trading_pair)
+
+        self.assertEqual((True, ""), (success, msg))
 
     @aioresponses()
     async def test_set_position_mode_failure(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+        # Regression test for https://github.com/hummingbot/hummingbot/issues/8482
+        success, msg = await self.exchange._trading_pair_position_mode_set(PositionMode.HEDGE, self.trading_pair)
+
+        self.assertEqual((False, "dydx_v4 only supports the ONEWAY position mode."), (success, msg))
+
+    @aioresponses()
+    async def test_execute_set_position_mode_does_not_reschedule_itself(self, mock_api):
+        # Regression test for https://github.com/hummingbot/hummingbot/issues/8482
+        # setting the position mode must not schedule _execute_set_position_mode again, which flooded
+        # the logs with "cannot unpack non-iterable NoneType object" errors
+        with patch("hummingbot.connector.perpetual_derivative_py_base.safe_ensure_future") as safe_ensure_future_mock:
+            await self.exchange._execute_set_position_mode(PositionMode.ONEWAY)
+
+        safe_ensure_future_mock.assert_not_called()
+        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
     @aioresponses()
     async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
