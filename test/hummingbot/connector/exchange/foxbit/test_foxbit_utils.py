@@ -48,6 +48,11 @@ class FoxbitUtilTestCases(unittest.TestCase):
         _retValue = utils.ws_data_to_dict(_msg)
         self.assertEqual(_expectedValue, _retValue)
 
+    def test_ws_data_to_dict_does_not_evaluate_python_expressions(self):
+        _msg = '[__import__("os").getcwd()]'
+        with self.assertRaises(ValueError):
+            utils.ws_data_to_dict(_msg)
+
     def test_datetime_val_or_now(self):
         self.assertIsNone(utils.datetime_val_or_now('NotValidDate', '', False))
         self.assertLessEqual(datetime.now(), utils.datetime_val_or_now('NotValidDate', '', True))
