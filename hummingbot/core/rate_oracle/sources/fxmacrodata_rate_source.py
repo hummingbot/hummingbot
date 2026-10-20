@@ -63,7 +63,10 @@ class FXMacroDataRateSource(RateSourceBase):
 
     @staticmethod
     def _api_key() -> Optional[str]:
-        return os.getenv("FXMACRODATA_API_KEY") or None
+        key = (os.getenv("FXMACRODATA_API_KEY") or "").strip()
+        if key and any(char.isspace() or not char.isprintable() for char in key):
+            raise ValueError("FXMACRODATA_API_KEY contains invalid characters.")
+        return key or None
 
     @classmethod
     def _headers(cls) -> Dict[str, str]:
@@ -78,16 +81,28 @@ class FXMacroDataRateSource(RateSourceBase):
     async def _get_json(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         rest_assistant = await self._get_api_factory().get_rest_assistant()
         url = f"{self._base_url}/{endpoint.lstrip('/')}"
-        # execute_request_and_get_response raises IOError on any 4xx or 5xx.
-        response = await rest_assistant.execute_request_and_get_response(
-            url=url,
-            params=params,
-            method=RESTMethod.GET,
-            headers=self._headers(),
-            throttler_limit_id=RATE_LIMIT_ID,
-            timeout=REQUEST_TIMEOUT,
-        )
-        return await response.json()
+        # Do not forward the custom API-key header to a redirect target.
+        # Native assistant errors may include an upstream body that echoes a
+        # credential, so expose only a fixed diagnostic at this boundary.
+        headers = self._headers()
+        try:
+            response = await rest_assistant.execute_request_and_get_response(
+                url=url,
+                params=params,
+                method=RESTMethod.GET,
+                headers=headers,
+                throttler_limit_id=RATE_LIMIT_ID,
+                timeout=REQUEST_TIMEOUT,
+                allow_redirects=False,
+            )
+            if 300 <= response.status < 400:
+                raise IOError("FXMacroData redirected the request.")
+            payload = await response.json()
+        except Exception:
+            raise IOError("FXMacroData request failed.") from None
+        if not isinstance(payload, dict) or not any(isinstance(payload.get(field), list) for field in ("data", "sources")):
+            raise IOError("FXMacroData returned an invalid response.")
+        return payload
 
     async def _covered_currencies(self) -> List[str]:
         """Ask the API which currencies it covers.

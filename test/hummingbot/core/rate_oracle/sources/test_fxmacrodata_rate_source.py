@@ -21,6 +21,34 @@ def forex_payload(value):
 
 
 class FXMacroDataRateSourceTest(IsolatedAsyncioWrapperTestCase):
+    @aioresponses()
+    async def test_redirect_is_not_followed_with_api_key(self, mock_api):
+        target = "https://example.invalid/credential-target"
+        mock_api.get(SOURCES_URL, status=302, headers={"Location": target})
+        mock_api.get(target, body=json.dumps(sources_payload("EUR/USD")))
+
+        with self.assertRaisesRegex(IOError, "FXMacroData request failed"):
+            await self.source._get_json("fx/sources")
+
+        self.assertEqual(1, len(mock_api.requests))
+        self.assertTrue(all(str(url) == SOURCES_URL for _, url in mock_api.requests))
+
+    @aioresponses()
+    async def test_error_response_does_not_expose_api_key(self, mock_api):
+        mock_api.get(SOURCES_URL, status=401, body="invalid credential: test-key")
+        with self.assertRaises(IOError) as raised:
+            await self.source._get_json("fx/sources")
+        self.assertNotIn("test-key", str(raised.exception))
+        self.assertTrue(raised.exception.__suppress_context__)
+
+    def test_key_is_trimmed_or_rejected_without_echo(self):
+        with patch.dict("os.environ", {"FXMACRODATA_API_KEY": " test-key\n"}):
+            self.assertEqual("test-key", self.source._headers()["X-API-Key"])
+        with patch.dict("os.environ", {"FXMACRODATA_API_KEY": "invalid key"}):
+            with self.assertRaises(ValueError) as raised:
+                self.source._headers()
+            self.assertNotIn("invalid key", str(raised.exception))
+
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         # The source borrows the process-wide ConnectionsFactory session, so
