@@ -6,7 +6,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
-from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketOrderFailureEvent, OrderCancelledEvent
 from hummingbot.logger import HummingbotLogger
@@ -592,6 +592,81 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await executor.validate_sufficient_balance()
         self.assertEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+
+    @patch.object(PositionExecutor, 'get_balance')
+    @patch.object(PositionExecutor, 'get_available_balance')
+    @patch.object(PositionExecutor, 'get_trading_rules')
+    @patch.object(PositionExecutor, 'adjust_order_candidates')
+    async def test_validate_sufficient_balance_perpetual_with_leverage(
+            self, mock_adjust_order_candidates, mock_get_trading_rules,
+            mock_get_available_balance, mock_get_balance):
+        """
+        Regression test for GitHub issue #8168.
+
+        On Backpack perpetual (and similar cross-margin exchanges), the REST balance API
+        reports `available` as near-zero after a position is opened because it deducts
+        the full position notional rather than just the initial margin. The fix adds
+        `from_total_balances=True` to PerpetualOrderCandidate so the BudgetChecker uses
+        `get_balance()` (total equity) with the leverage-based collateral computation,
+        which is the correct metric for cross-margin perpetual accounts.
+        """
+        trading_rules = TradingRule(trading_pair="SOL-USDC", min_order_size=Decimal("0.1"),
+                                    min_price_increment=Decimal("0.01"), min_base_amount_increment=Decimal("0.1"))
+        mock_get_trading_rules.return_value = trading_rules
+
+        # Build a perpetual config with leverage=5 (as in the issue report)
+        perpetual_config = PositionExecutorConfig(
+            id="test-perp",
+            timestamp=1234567890,
+            trading_pair="SOL-USDC",
+            connector_name="backpack_perpetual",
+            side=TradeType.BUY,
+            entry_price=Decimal("160"),
+            amount=Decimal("0.125"),   # notional = 0.125 * 160 = $20, margin = $20/5 = $4
+            leverage=5,
+            triple_barrier_config=TripleBarrierConfig(
+                stop_loss=Decimal("0.03"),
+                take_profit=Decimal("0.02"),
+                time_limit=60 * 45,
+                take_profit_order_type=OrderType.MARKET,
+                stop_loss_order_type=OrderType.MARKET,
+            )
+        )
+
+        # Simulate the Backpack scenario: total equity = $20 but available ≈ $0
+        # (exchange deducts full notional from available, not just margin)
+        mock_get_balance.return_value = Decimal("20")      # total equity
+        mock_get_available_balance.return_value = Decimal("0")   # post-notional-lock available
+
+        self.strategy.connectors["backpack_perpetual"] = MagicMock()
+        executor = PositionExecutor(self.strategy, perpetual_config)
+
+        # Simulate BudgetChecker returning full amount (budget check passes via total balance)
+        order_candidate = PerpetualOrderCandidate(
+            trading_pair="SOL-USDC",
+            is_maker=False,
+            order_type=OrderType.MARKET,
+            order_side=TradeType.BUY,
+            amount=Decimal("0.125"),
+            price=Decimal("160"),
+            leverage=Decimal("5"),
+            from_total_balances=True,
+        )
+        mock_adjust_order_candidates.return_value = [order_candidate]
+        await executor.validate_sufficient_balance()
+        # Should NOT have been stopped — total equity is sufficient
+        self.assertNotEqual(executor.close_type, CloseType.INSUFFICIENT_BALANCE)
+
+        # Now simulate truly insufficient total balance (total equity $1, notional $20 at 5x → margin $4 > $1)
+        mock_get_balance.return_value = Decimal("1")
+        mock_get_available_balance.return_value = Decimal("0")
+        order_candidate.amount = Decimal("0")   # BudgetChecker zeroes the order
+        mock_adjust_order_candidates.return_value = [order_candidate]
+
+        executor2 = PositionExecutor(self.strategy, perpetual_config)
+        await executor2.validate_sufficient_balance()
+        self.assertEqual(executor2.close_type, CloseType.INSUFFICIENT_BALANCE)
+        self.assertEqual(executor2.status, RunnableStatus.TERMINATED)
 
     def test_get_custom_info(self):
         position_config = self.get_position_config_market_long()
