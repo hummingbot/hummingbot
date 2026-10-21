@@ -82,8 +82,10 @@ class ExecutorSimulation(BaseModel):
     def get_custom_info(self, last_entry: pd.Series) -> dict:
         current_position_average_price = last_entry['current_position_average_price'] if "current_position_average_price" in last_entry else None
         is_trading = last_entry['filled_amount_quote'] > 0
+        # A simulated stop fill differs from the bar's close; report the price the position actually exited at.
+        close_price = last_entry['exit_price'] if not pd.isna(last_entry.get('exit_price')) else last_entry['close']
         return {
-            "close_price": last_entry['close'],
+            "close_price": close_price,
             "level_id": self.config.level_id,
             "side": self.config.side,
             "current_position_average_price": current_position_average_price,
