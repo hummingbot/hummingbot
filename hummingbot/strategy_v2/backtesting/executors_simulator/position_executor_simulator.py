@@ -75,6 +75,17 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
         else:
             close_type = CloseType.TIME_LIMIT
 
+        # The stop loss is triggered by the bar's low (high for shorts), so it fills at the stop price,
+        # or at the open when a later bar opens beyond it, not at that bar's close.
+        if close_type == CloseType.STOP_LOSS and close_timestamp >= start_timestamp:
+            exit_price = sl_price
+            if close_timestamp > start_timestamp and 'open' in df_filtered.columns:
+                bar_open = df_filtered.loc[close_timestamp, 'open']
+                exit_price = min(exit_price, bar_open) if config.side == TradeType.BUY else max(exit_price, bar_open)
+            sl_pnl_pct = (exit_price / entry_price - 1) * side_multiplier - 2 * trade_cost
+            df_filtered.loc[close_timestamp, 'net_pnl_pct'] = sl_pnl_pct
+            df_filtered.loc[close_timestamp, 'net_pnl_quote'] = sl_pnl_pct * df_filtered.loc[close_timestamp, 'filled_amount_quote']
+
         # Set the final state of the DataFrame
         df_filtered = df_filtered[:close_timestamp]
         df_filtered.loc[df_filtered.index[-1], "filled_amount_quote"] = df_filtered["filled_amount_quote"].iloc[-1] * 2
