@@ -296,6 +296,7 @@ class PerformanceMetrics:
         """
 
         base, quote = split_hb_trading_pair(trading_pair)
+        is_derivatives = self._are_derivatives(trades)
         buys, sells = self._preprocess_trades_and_group_by_type(trades)
 
         self.num_buys = len(buys)
@@ -322,5 +323,5 @@ class PerformanceMetrics:
 
         await self._calculate_fees(quote, trades)
 
-        self.total_pnl = self.trade_pnl - self.fee_in_quote
+        self.total_pnl = self.trade_pnl - self.fee_in_quote if is_derivatives else self.trade_pnl
         self.return_pct = self.divide(self.total_pnl, self.hold_value)
