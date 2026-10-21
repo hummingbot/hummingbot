@@ -196,6 +196,24 @@ class ExchangePyBase(ExchangeBase, ABC):
         return self.name.capitalize()
 
     @property
+    def account_group_id(self) -> Optional[str]:
+        """
+        Identifies the exchange-side account this connector reads, for connectors that are one of
+        several views onto the same account.
+
+        Unified-account venues expose one wallet through more than one connector - Bitget's UTA
+        is read by both bitget_unified and bitget_unified_perpetual, and Bybit and OKX have the
+        same shape. Each connector reports that single wallet in full, so anything summing across
+        connectors counts the same funds once per connector.
+
+        Connectors backed by the same account return the same id, and it must be derived from the
+        credentials rather than the connector name: two different API keys are two real accounts
+        and must never be folded together. Returning None, the default, means this connector's
+        balance stands on its own and nothing changes.
+        """
+        return None
+
+    @property
     def tracking_states(self) -> Dict[str, any]:
         """
         Returns a dictionary associating current active orders client id to their JSON representation
