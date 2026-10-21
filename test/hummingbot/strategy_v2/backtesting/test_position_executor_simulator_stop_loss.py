@@ -76,3 +76,30 @@ def test_exit_without_stop_loss_is_still_priced_at_the_close():
 
     assert simulation.close_type == CloseType.TIME_LIMIT
     assert _final(simulation).net_pnl_pct == pytest.approx(Decimal(102.0 / 100.0 - 1 - 2 * TRADE_COST))
+
+
+def test_entry_bar_low_does_not_trigger_the_stop():
+    # entry fills at the first bar's close (100); its dip to 90 happened before the entry
+    simulation = _simulate(TradeType.BUY, open_=[100.0, 100.0, 100.0, 100.0], high=[101.0, 101.0, 101.0, 102.0],
+                           low=[90.0, 99.0, 99.5, 100.0], close=[100.0, 100.5, 101.0, 101.5])
+
+    assert simulation.close_type == CloseType.TIME_LIMIT
+    assert _final(simulation).net_pnl_pct == pytest.approx(Decimal(101.5 / 100.0 - 1 - 2 * TRADE_COST))
+
+
+@pytest.mark.parametrize("side, high, low, close", [
+    (TradeType.BUY, [100.0, 100.5, 101.5, 102.0], [100.0, 99.5, 90.0, 100.5], [100.0, 100.0, 101.0, 101.5]),
+    (TradeType.SELL, [100.0, 100.5, 110.0, 99.5], [100.0, 99.5, 98.5, 98.0], [100.0, 100.0, 99.0, 98.5]),
+])
+def test_stop_loss_reports_the_stop_price_as_the_close_price(side, high, low, close):
+    simulation = _simulate(side, open_=[100.0, 100.0, 100.0, 100.0], high=high, low=low, close=close)
+
+    expected_exit = 95.0 if side == TradeType.BUY else 105.0
+    assert _final(simulation).custom_info["close_price"] == pytest.approx(expected_exit)
+
+
+def test_close_price_is_the_bar_close_without_a_stop_loss():
+    simulation = _simulate(TradeType.BUY, open_=[100.0, 100.0, 100.0, 100.0], high=[100.0, 101.0, 102.0, 103.0],
+                           low=[100.0, 99.0, 98.0, 97.0], close=[100.0, 100.5, 101.0, 102.0])
+
+    assert _final(simulation).custom_info["close_price"] == pytest.approx(102.0)

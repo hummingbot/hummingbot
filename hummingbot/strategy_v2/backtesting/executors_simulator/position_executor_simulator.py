@@ -61,6 +61,8 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             sl = float(config.triple_barrier_config.stop_loss)
             sl_price = entry_price * (1 - sl * side_multiplier)
             sl_condition = df_filtered['low'] <= sl_price if config.side == TradeType.BUY else df_filtered['high'] >= sl_price
+            # The entry fills at the entry bar's close, so that bar's low/high (and earlier bars) happened before entry.
+            sl_condition &= df_filtered['timestamp'] > start_timestamp
             first_sl_timestamp = df_filtered[sl_condition]['timestamp'].min()
         first_trailing_sl_timestamp = df_filtered[(~df_filtered['ts'].isna()) & (df_filtered['net_pnl_pct'] < df_filtered['ts'])]['timestamp'].min() if trailing_sl_delta_pct and trailing_sl_trigger_pct else None
         close_timestamp = min([timestamp for timestamp in [first_tp_timestamp, first_sl_timestamp, tl_timestamp, first_trailing_sl_timestamp] if not pd.isna(timestamp)])
@@ -76,12 +78,14 @@ class PositionExecutorSimulator(ExecutorSimulatorBase):
             close_type = CloseType.TIME_LIMIT
 
         # The stop loss is triggered by the bar's low (high for shorts), so it fills at the stop price,
-        # or at the open when a later bar opens beyond it, not at that bar's close.
-        if close_type == CloseType.STOP_LOSS and close_timestamp >= start_timestamp:
+        # or at the open when the bar opens beyond it, not at that bar's close.
+        if close_type == CloseType.STOP_LOSS:
             exit_price = sl_price
-            if close_timestamp > start_timestamp and 'open' in df_filtered.columns:
+            if 'open' in df_filtered.columns:
                 bar_open = df_filtered.loc[close_timestamp, 'open']
                 exit_price = min(exit_price, bar_open) if config.side == TradeType.BUY else max(exit_price, bar_open)
+            df_filtered['exit_price'] = float('nan')
+            df_filtered.loc[close_timestamp, 'exit_price'] = exit_price
             sl_pnl_pct = (exit_price / entry_price - 1) * side_multiplier - 2 * trade_cost
             df_filtered.loc[close_timestamp, 'net_pnl_pct'] = sl_pnl_pct
             df_filtered.loc[close_timestamp, 'net_pnl_quote'] = sl_pnl_pct * df_filtered.loc[close_timestamp, 'filled_amount_quote']
