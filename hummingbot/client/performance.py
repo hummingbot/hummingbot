@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
@@ -102,14 +103,24 @@ class PerformanceMetrics:
 
         aggregated_orders = []
         for group in grouped_orders.values():
-            aggregated_prices = 0
+            if len(group) == 1:
+                aggregated_orders.append(group[0])
+                continue
+            aggregated_notional = 0
             aggregated_amounts = 0
             for order in group:
-                aggregated_prices += order.price
+                aggregated_notional += order.price * order.amount
                 aggregated_amounts += order.amount
-            aggregated = group[0]
-            aggregated.price = aggregated_prices / len(group)
-            aggregated.amount = aggregated_amounts
+            # Build a separate record: the fills are often TradeFill rows that are still used afterwards
+            # (e.g. to compute fees), so they must not be modified.
+            first = group[0]
+            aggregated = SimpleNamespace(
+                order_id=first.order_id,
+                trade_type=first.trade_type,
+                position=first.position,
+                price=aggregated_notional / aggregated_amounts if aggregated_amounts else first.price,
+                amount=aggregated_amounts,
+            )
             aggregated_orders.append(aggregated)
 
         return aggregated_orders
