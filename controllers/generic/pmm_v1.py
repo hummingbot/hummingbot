@@ -182,7 +182,7 @@ class PMMV1(ControllerBase):
         filled_levels = set()
 
         for executor in self.executors_info:
-            level_id = executor.custom_info.get("level_id", "")
+            level_id = executor.custom_info.get("level_id") or ""
 
             if executor.is_active:
                 current_active_by_level[level_id] = True
@@ -470,7 +470,7 @@ class PMMV1(ControllerBase):
             executors=self.executors_info,
             filter_func=lambda x: x.is_active
         )
-        active_level_ids = [executor.custom_info.get("level_id", "") for executor in active_levels]
+        active_level_ids = [executor.custom_info.get("level_id") or "" for executor in active_levels]
 
         # Get missing levels
         missing_levels = self._get_not_active_levels_ids(active_level_ids)
@@ -573,7 +573,7 @@ class PMMV1(ControllerBase):
         current_buy_prices = []
         current_sell_prices = []
         for executor in executors_past_refresh:
-            level_id = executor.custom_info.get("level_id", "")
+            level_id = executor.custom_info.get("level_id") or ""
             order_price = getattr(executor.config, 'price', None)
             if order_price is None:
                 continue
@@ -664,10 +664,12 @@ class PMMV1(ControllerBase):
 
     def get_trade_type_from_level_id(self, level_id: str) -> TradeType:
         """Get trade type from level ID."""
+        level_id = level_id or ""
         return TradeType.BUY if level_id.startswith("buy") else TradeType.SELL
 
     def get_level_from_level_id(self, level_id: str) -> int:
         """Get level number from level ID."""
+        level_id = level_id or ""
         if "_" not in level_id:
             return 0
         return int(level_id.split('_')[1])
@@ -688,9 +690,9 @@ class PMMV1(ControllerBase):
         floor = self.processed_data.get('price_floor')
 
         active_buy = sum(1 for e in self.executors_info
-                         if e.is_active and e.custom_info.get("level_id", "").startswith("buy"))
+                         if e.is_active and (e.custom_info.get("level_id") or "").startswith("buy"))
         active_sell = sum(1 for e in self.executors_info
-                          if e.is_active and e.custom_info.get("level_id", "").startswith("sell"))
+                          if e.is_active and (e.custom_info.get("level_id") or "").startswith("sell"))
 
         # Layout
         w = 89  # total width including outer pipes
