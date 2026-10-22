@@ -171,3 +171,20 @@ class TestGateioPerpetualCandles(TestCandlesBase):
         mock_api.get(url=regex_url, body=json.dumps({"quanto_multiplier": "0.0005"}))
         await self.data_feed.initialize_exchange_data()
         self.assertEqual(self.data_feed.quanto_multiplier, 0.0005)
+
+    @aioresponses()
+    async def test_fetch_candles_initializes_quanto_multiplier_before_parsing(self, mock_api):
+        self.data_feed.quanto_multiplier = None
+        self.data_feed._exchange_data_initialized = False
+        contract_info_url = re.compile(
+            f"^{CONSTANTS.REST_URL}{CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)}"
+        )
+        candles_url = re.compile(f"^{self.data_feed.candles_url}")
+        mock_api.get(contract_info_url, body=json.dumps({"quanto_multiplier": "0.0001"}))
+        mock_api.get(candles_url, body=json.dumps(self.get_candles_rest_data_mock()))
+
+        candles = await self.data_feed.fetch_candles(end_time=int(self.end_time), limit=1)
+
+        self.assertTrue(self.data_feed._exchange_data_initialized)
+        self.assertEqual(self.data_feed.quanto_multiplier, 0.0001)
+        self.assertEqual(candles[0][5], 9.7151)
