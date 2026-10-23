@@ -6,7 +6,7 @@ import re
 import time
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
 
 from hummingbot.client.config.client_config_map import GatewayConfigMap
 from hummingbot.connector.budget_checker import BudgetChecker
@@ -1074,13 +1074,18 @@ class GatewayBase(ConnectorBase):
         if len(tracked_orders) < 1:
             return
 
-        tx_hash_list: List[str] = [
-            tx_hash for tx_hash in await safe_gather(
-                *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders],
-                return_exceptions=True
-            )
+        tx_hashes = await safe_gather(
+            *[tracked_order.get_exchange_order_id() for tracked_order in tracked_orders],
+            return_exceptions=True
+        )
+        # Keep each order with its own hash: an order whose hash lookup failed is skipped this
+        # round, so it must not shift the results of the orders after it.
+        orders_with_hash: List[Tuple[GatewayInFlightOrder, str]] = [
+            (tracked_order, tx_hash)
+            for tracked_order, tx_hash in zip(tracked_orders, tx_hashes)
             if not isinstance(tx_hash, Exception)
         ]
+        tx_hash_list: List[str] = [tx_hash for _, tx_hash in orders_with_hash]
 
         self.logger().info(
             "Polling for order status updates of %d orders. Transaction hashes: %s",
@@ -1097,7 +1102,7 @@ class GatewayBase(ConnectorBase):
             for tx_hash in tx_hash_list
         ], return_exceptions=True)
 
-        for tracked_order, tx_details in zip(tracked_orders, update_results):
+        for (tracked_order, _), tx_details in zip(orders_with_hash, update_results):
             if isinstance(tx_details, Exception):
                 self.logger().error(f"An error occurred fetching transaction status of {tracked_order.client_order_id}")
                 continue
