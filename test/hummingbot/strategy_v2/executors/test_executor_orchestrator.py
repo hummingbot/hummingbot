@@ -18,6 +18,8 @@ from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecut
 from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHold
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
+from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig
+from hummingbot.strategy_v2.executors.lp_executor.lp_executor import LPExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -803,6 +805,111 @@ class TestExecutorOrchestrator(unittest.TestCase):
             trading_pair=trading_pair,
         )
         return executor
+
+    def _build_lp_volume_executor(self):
+        config = LPExecutorConfig(
+            id="lp_volume", timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+            lp_provider="orca/clmm", pool_address="test_pool", side=TradeType.RANGE,
+            lower_price=Decimal("90"), upper_price=Decimal("110"),
+            base_amount=Decimal("0.01"), quote_amount=Decimal("1"), keep_position=True,
+        )
+        executor = MagicMock(spec=LPExecutor)
+        executor.config = config
+        executor.is_active = False
+        executor.executor_info = ExecutorInfo(
+            id=config.id, timestamp=1234, type="lp_executor", config=config,
+            status=RunnableStatus.TERMINATED, close_type=CloseType.POSITION_HOLD, controller_id="test",
+            filled_amount_quote=Decimal("65"), net_pnl_quote=Decimal("7"), net_pnl_pct=Decimal("1"),
+            cum_fees_quote=Decimal("0.01"), is_active=False, is_trading=False,
+            custom_info={"held_position_orders": [{
+                "client_order_id": "lp_net_conversion", "trade_type": "BUY",
+                "executed_amount_base": Decimal("0.01"), "executed_amount_quote": Decimal("1"),
+                "cumulative_fee_paid_quote": Decimal("0.01"), "lp_source": True, "lp_net_trade": True,
+            }]},
+        )
+        return executor
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_lp_volume_survives_position_hold_archival_and_reload(self, recorder_mock):
+        recorder = recorder_mock.return_value
+        lp = self._build_lp_volume_executor()
+        swap = self._build_position_hold_executor(
+            "preparation", "binance", "ETH-USDT", TradeType.BUY, "BUY", Decimal("0.02"), Decimal("2"))
+        swap.config = swap.executor_info.config
+        swap.is_active = False
+        self.mock_strategy.controllers = {"test": MagicMock()}
+        self.mock_strategy.current_timestamp = 1234
+        self.orchestrator.active_executors = {"test": [lp, swap]}
+        self.orchestrator.positions_held = {"test": []}
+        self.orchestrator.cached_performance = {"test": PerformanceReport()}
+
+        lp.executor_info.status = RunnableStatus.RUNNING
+        self.assertEqual(self.orchestrator.get_all_reports()["test"]["performance"].volume_traded, Decimal("67"))
+        lp.executor_info.status = RunnableStatus.TERMINATED
+        for _ in range(2):
+            report = self.orchestrator.get_all_reports()["test"]["performance"]
+            self.assertEqual(report.volume_traded, Decimal("67"))
+            self.assertEqual(report.realized_pnl_quote, Decimal("0"))
+
+        held = self.orchestrator.positions_held["test"][0]
+        self.assertEqual(held.net_amount_base, Decimal("0.03"))
+        self.assertEqual(held.buy_amount_quote, Decimal("3"))
+        self.assertEqual(held.cum_fees_quote, Decimal("0.01"))
+        self.assertEqual(held.volume_traded_quote, Decimal("2"))
+
+        for executor in (lp, swap):
+            self.orchestrator.store_executor(StoreExecutorAction(controller_id="test", executor_id=executor.config.id))
+            self.assertEqual(self.orchestrator.get_all_reports()["test"]["performance"].volume_traded, Decimal("67"))
+        self.orchestrator.store_all_positions()
+        saved_position = recorder.update_or_store_position.call_args.args[0]
+        recorder.get_all_executors.return_value = [lp.executor_info, swap.executor_info]
+        recorder.get_all_positions.return_value = [saved_position]
+
+        restored = ExecutorOrchestrator(self.mock_strategy)
+        for _ in range(2):
+            report = restored.get_all_reports()["test"]["performance"]
+            self.assertEqual(report.volume_traded, Decimal("67"))
+            self.assertEqual(report.realized_pnl_quote, Decimal("0"))
+        self.assertEqual(restored.positions_held["test"][0].net_amount_base, Decimal("0.03"))
+
+    def test_lp_synthetic_net_trade_keeps_inventory_and_real_swap_volume(self):
+        lp = self._build_lp_volume_executor()
+        lp.executor_info.custom_info["held_position_orders"].append({
+            "client_order_id": "real_swap", "trade_type": "BUY", "executed_amount_base": Decimal("0.02"),
+            "executed_amount_quote": Decimal("2"), "cumulative_fee_paid_quote": Decimal("0.02"),
+            "lp_source": True,
+        })
+        hold = PositionHold("binance", "ETH-USDT")
+        for _ in range(2):
+            hold.add_orders_from_executor(lp.executor_info)
+        self.assertEqual(hold.volume_traded_quote, Decimal("2"))
+        self.assertEqual(hold.net_amount_base, Decimal("0.03"))
+        self.assertEqual(hold.avg_entry_price, Decimal("100"))
+        self.assertEqual(hold.cum_fees_quote, Decimal("0.03"))
+
+    def test_lp_volume_without_net_inventory_conversion(self):
+        lp = self._build_lp_volume_executor()
+        order = lp.executor_info.custom_info["held_position_orders"][0]
+        order["executed_amount_base"] = Decimal("0")
+        order["executed_amount_quote"] = Decimal("0")
+        self.orchestrator.active_executors = {"test": [lp]}
+        self.orchestrator.positions_held = {"test": []}
+        report = self.orchestrator.get_all_reports()["test"]["performance"]
+        self.assertEqual(report.volume_traded, Decimal("65"))
+        self.assertEqual(self.orchestrator.positions_held["test"][0].net_amount_base, Decimal("0"))
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_lp_non_hold_volume_and_pnl_survive_archival(self, recorder_mock):
+        lp = self._build_lp_volume_executor()
+        lp.executor_info.close_type = CloseType.COMPLETED
+        self.orchestrator.active_executors = {"test": [lp]}
+        for stage in ("completed", "archived"):
+            with self.subTest(stage=stage):
+                report = self.orchestrator.get_all_reports()["test"]["performance"]
+                self.assertEqual(report.volume_traded, Decimal("65"))
+                self.assertEqual(report.realized_pnl_quote, Decimal("7"))
+            if stage == "completed":
+                self.orchestrator.store_executor(StoreExecutorAction(controller_id="test", executor_id=lp.config.id))
 
     def test_oneway_perpetual_only_one_position_per_pair(self):
         """In ONEWAY mode, opposite-side executors must merge into a single net position."""

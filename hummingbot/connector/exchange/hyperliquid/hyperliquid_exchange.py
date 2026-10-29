@@ -69,9 +69,12 @@ class HyperliquidExchange(ExchangePyBase):
         self._last_trades_poll_timestamp = 1.0
         self.coin_to_asset: Dict[str, int] = {}
         self.name_to_coin: Dict[str, str] = {}
-        # Builder code (HGP-87). Fee starts at 0 and is resolved at startup (_initialize_builder_fee).
+        # Builder code (HGP-87). Fee starts at 0 and is resolved once per session
+        # (_ensure_builder_fee_resolved), at start_network or on the first order.
         self._builder_address: str = CONSTANTS.FOUNDATION_BUILDER_ADDRESS.lower()
         self._builder_fee_tenths_bps: int = 0
+        self._builder_fee_resolved: bool = False
+        self._builder_fee_lock: asyncio.Lock = asyncio.Lock()
         self._key_authority_verified: bool = False
         super().__init__(balance_asset_limit, rate_limits_share_pct)
 
@@ -137,7 +140,12 @@ class HyperliquidExchange(ExchangePyBase):
     async def start_network(self):
         await super().start_network()
         if self._trading_required:
-            await self._initialize_builder_fee()
+            await self._ensure_builder_fee_resolved()
+
+    async def stop_network(self):
+        await super().stop_network()
+        # Re-resolve the builder fee on the next session so mid-session approval changes are picked up.
+        self._builder_fee_resolved = False
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -413,7 +421,9 @@ class HyperliquidExchange(ExchangePyBase):
                 "cloid": order_id,
             }
         }
-        # Builder code (HGP-87): part of the signed action dict.
+        # Builder code (HGP-87): part of the signed action dict. Resolve the fee here too —
+        # embedders like hummingbot-api start connector tasks without calling start_network().
+        await self._ensure_builder_fee_resolved()
         builder_field = self._build_builder_field()
         if builder_field is not None:
             api_params["builder"] = builder_field
@@ -453,12 +463,24 @@ class HyperliquidExchange(ExchangePyBase):
             return None
         return {"b": self._builder_address.lower(), "f": self._builder_fee_tenths_bps}
 
-    async def _initialize_builder_fee(self) -> None:
-        """Resolve the per-order builder fee once at startup as min(on-chain approved, hardcoded fee):
-        the hardcoded fee if the user has approved this builder in Condor, 0 if not (or if the lookup
-        fails)."""
-        if not self._should_inject_builder():
+    async def _ensure_builder_fee_resolved(self) -> None:
+        """Resolve the builder fee once per network session, whichever path gets there first:
+        start_network on normal client startup, or the first _place_order for embedders that
+        start connector tasks without calling start_network. A failed lookup does not latch the
+        flag, so the next order retries; stop_network clears it, so a reconnect re-resolves."""
+        if self._builder_fee_resolved:
             return
+        async with self._builder_fee_lock:
+            if self._builder_fee_resolved:
+                return
+            self._builder_fee_resolved = await self._initialize_builder_fee()
+
+    async def _initialize_builder_fee(self) -> bool:
+        """Resolve the per-order builder fee as min(on-chain approved, hardcoded fee):
+        the hardcoded fee if the user has approved this builder in Condor, 0 if not.
+        Returns False when the lookup failed (fee left at 0 until the next attempt)."""
+        if not self._should_inject_builder():
+            return True
         try:
             approved_max_tenths_bps = int(await self._api_post(
                 path_url=CONSTANTS.EXCHANGE_INFO_URL,
@@ -470,11 +492,12 @@ class HyperliquidExchange(ExchangePyBase):
             ))
         except Exception:
             self.logger().exception(
-                "Could not query the approved Hyperliquid builder fee; charging 0 bps this session."
+                "Could not query the approved Hyperliquid builder fee; charging 0 bps until it can be resolved."
             )
             self._builder_fee_tenths_bps = 0
-            return
+            return False
         self._builder_fee_tenths_bps = min(approved_max_tenths_bps, CONSTANTS.FOUNDATION_BUILDER_FEE_TENTHS_BPS)
+        return True
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())

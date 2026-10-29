@@ -3959,6 +3959,7 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
                                           (self._build_connector(use_vault=True), False),
                                           (self._build_connector(domain=CONSTANTS.TESTNET_DOMAIN), False)):
             connector._builder_fee_tenths_bps = 10  # as if the user approved 1 bps
+            connector._builder_fee_resolved = True  # skip the lazy fee lookup in _place_order
             connector.coin_to_asset = {"BTC": 0}
             with patch.object(connector, "exchange_symbol_associated_to_pair",
                               new_callable=AsyncMock, return_value="BTC"):
@@ -3971,6 +3972,66 @@ class HyperliquidPerpetualBuilderCodeTests(TestCase):
             self.assertEqual(expect_builder, "builder" in sent)
             if expect_builder:
                 self.assertEqual({"b": connector._builder_address, "f": 10}, sent["builder"])
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_place_order_resolves_builder_fee_without_start_network(self, api_post_mock):
+        # Embedders like hummingbot-api start connector tasks without calling start_network,
+        # so the first order must resolve the approved fee itself instead of charging 0 bps —
+        # and only the first: the maxBuilderFee lookup runs once, not per order.
+        order_result = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        api_post_mock.side_effect = [10, order_result, order_result]
+        connector = self._build_connector()
+        connector.coin_to_asset = {"BTC": 0}
+        with patch.object(connector, "exchange_symbol_associated_to_pair",
+                          new_callable=AsyncMock, return_value="BTC"):
+            for _ in range(2):
+                self.async_run_with_timeout(connector._place_order(
+                    order_id="0xabc", trading_pair="BTC-USD", amount=Decimal("1"),
+                    trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                    position_action=PositionAction.OPEN,
+                ))
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        self.assertEqual(
+            {"b": connector._builder_address, "f": 10},
+            api_post_mock.call_args.kwargs["data"]["builder"],
+        )
+        self.assertEqual(3, api_post_mock.call_count)
+
+    @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
+    def test_failed_fee_lookup_does_not_latch_and_next_order_retries(self, api_post_mock):
+        # A transient maxBuilderFee lookup failure must not freeze the fee at 0 for the whole
+        # session: the failing order goes out at 0 bps, and the next order retries the lookup.
+        order_result = {"status": "ok", "response": {"data": {"statuses": [{"resting": {"oid": 7}}]}}}
+        api_post_mock.side_effect = [Exception("info endpoint down"), order_result, 10, order_result]
+        connector = self._build_connector()
+        connector.coin_to_asset = {"BTC": 0}
+        with patch.object(connector, "exchange_symbol_associated_to_pair",
+                          new_callable=AsyncMock, return_value="BTC"):
+            self.async_run_with_timeout(connector._place_order(
+                order_id="0xabc", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                position_action=PositionAction.OPEN,
+            ))
+            self.assertFalse(connector._builder_fee_resolved)
+            self.assertEqual(0, connector._builder_fee_tenths_bps)
+            self.async_run_with_timeout(connector._place_order(
+                order_id="0xdef", trading_pair="BTC-USD", amount=Decimal("1"),
+                trade_type=TradeType.BUY, order_type=OrderType.LIMIT, price=Decimal("100"),
+                position_action=PositionAction.OPEN,
+            ))
+        self.assertTrue(connector._builder_fee_resolved)
+        self.assertEqual(10, connector._builder_fee_tenths_bps)
+        self.assertEqual(
+            {"b": connector._builder_address, "f": 10},
+            api_post_mock.call_args.kwargs["data"]["builder"],
+        )
+
+    def test_stop_network_resets_builder_fee_resolution(self):
+        # A reconnect must re-query the approval so mid-session approvals/revocations are picked up.
+        connector = self._build_connector()
+        connector._builder_fee_resolved = True
+        self.async_run_with_timeout(connector.stop_network())
+        self.assertFalse(connector._builder_fee_resolved)
 
     @patch.object(HyperliquidPerpetualDerivative, "_api_post", new_callable=AsyncMock)
     def test_initialize_builder_fee_applies_approved(self, api_post_mock):

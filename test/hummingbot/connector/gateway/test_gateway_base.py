@@ -2,8 +2,9 @@ import asyncio
 import unittest
 from decimal import Decimal
 from typing import List
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.gateway.gateway_base import GatewayBase
+from hummingbot.connector.gateway.gateway_base import TX_DATA_UNAVAILABLE, GatewayBase, RetryAction
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
@@ -392,6 +393,316 @@ class GatewayBaseConnectorSettingsRegistrationTest(unittest.TestCase):
             "test_connector", False, "SOL", "USDC", OrderType.MARKET, TradeType.SELL, Decimal("1"), Decimal("1"),
         )
         self.assertEqual(Decimal("0"), fee.percent)
+
+
+class GatewayBaseRetryClassificationTest(unittest.TestCase):
+    """The connector retries transport timeouts only; operation errors propagate.
+
+    What a failure means for an operation is the caller's decision — the LP
+    executor's CLOSING loop owns close retries (and passes max_retries=0 for a
+    single connector attempt per re-entry), so the classifier must never retry
+    slippage/simulation-class errors itself.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+
+    def test_slippage_is_fail_immediate(self):
+        error = Exception("Gateway error: slippage [code: SLIPPAGE_EXCEEDED]")
+        action = self.connector._classify_error(error, "close position", 0, 10)
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
+
+    def test_tx_not_confirmed_is_fail_immediate(self):
+        error = Exception("Transaction sig not confirmed on-chain [code: TX_NOT_CONFIRMED]")
+        action = self.connector._classify_error(error, "close position", 0, 10)
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
+
+    def test_timeout_is_retryable(self):
+        error = Exception("Gateway error: pending [code: TRANSACTION_TIMEOUT]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.RETRY, action)
+
+    def test_timeout_stops_at_zero_budget(self):
+        # max_retries=0 (the close path) means one attempt: even a timeout stops.
+        error = Exception("Gateway error: pending [code: TRANSACTION_TIMEOUT]")
+        action = self.connector._classify_error(error, "close position", 0, 0)
+        self.assertEqual(RetryAction.STOP, action)
+
+    def test_unknown_error_is_fail_immediate(self):
+        error = Exception("connection reset by peer")
+        action = self.connector._classify_error(error, "close position", 0, 10)
+        self.assertEqual(RetryAction.FAIL_IMMEDIATE, action)
+
+
+class GatewayBaseResubmitReconciliationTest(unittest.TestCase):
+    """A broadcast-but-unconfirmed transaction must be POLLED to a terminal state,
+    never re-submitted while it can still land — re-invoking the operation posts a
+    brand-new transaction while every previous pending one remains landable."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+        self.connector._chain = "solana"
+        self.connector._network = "mainnet-beta"
+        self.connector.SIGNATURE_POLL_INTERVAL = 0.001
+        # Real value is 120s (it has to outlast a blockhash); the verdict logic is
+        # identical at any deadline, so shrink it to keep the suite fast.
+        self.connector.SIGNATURE_POLL_TIMEOUT = 0.05
+        self.submissions = 0
+
+    def _patch_poll(self, results):
+        """Patch the gateway poll to return the given txStatus values in order.
+
+        The last value repeats once the list runs out: a cluster keeps answering, and
+        the terminal verdict is now read at the deadline rather than on a streak, so a
+        sequence that simply stopped would be testing exhaustion instead of status.
+        """
+        seq = iter(results)
+        last = {"value": None}
+
+        async def fake_poll(chain, network, tx_hash, fail_silently=False):
+            try:
+                last["value"] = next(seq)
+            except StopIteration:
+                pass
+            return {"txStatus": last["value"]}
+
+        gateway = MagicMock()
+        gateway.get_transaction_status = fake_poll
+        self.connector._get_gateway_instance = MagicMock(return_value=gateway)
+
+    async def _pending_operation(self):
+        self.submissions += 1
+        return {"signature": f"sig-{self.submissions}", "status": 0}
+
+    def test_pending_polls_to_confirmed_without_resubmitting(self):
+        self._patch_poll([0, 1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "test swap", max_retries=10))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("sig-1", result["signature"])
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
+    def test_pending_dropped_resubmits_once(self):
+        # First submission's signature is still unknown to the cluster at the deadline,
+        # by which point its blockhash has expired and it can never land; the second
+        # submission confirms inline.
+        self._patch_poll([-2])
+        original_op = self._pending_operation
+
+        async def operation():
+            if self.submissions == 0:
+                return await original_op()
+            self.submissions += 1
+            return {"signature": f"sig-{self.submissions}", "status": 1}
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual(2, self.submissions)
+
+    def test_not_found_streak_before_the_deadline_is_not_dropped(self):
+        # The regression this deadline exists for: NOT_FOUND early means "the cluster
+        # has not seen it YET", and the transaction is still landable until its
+        # blockhash expires. Ruling on a streak alone re-submitted a live transaction.
+        self._patch_poll([-2, -2, -2, -2, 1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("sig-1", result["signature"])
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
+    def test_still_pending_at_the_deadline_is_unresolved_not_dropped(self):
+        # Seen by the cluster but unconfirmed: it may still land, so this must never
+        # become a re-submission. TX_UNRESOLVED classifies non-retryable.
+        self._patch_poll([0])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
+
+    def test_a_streak_that_ends_in_pending_is_unresolved_not_dropped(self):
+        """The EVM shape: not-found for a while, then seen in the mempool.
+
+        This path is shared with non-Solana chains, where the 120s deadline is not tied
+        to anything like a blockhash window and a transaction can stay landable well
+        past it. It is safe anyway, for a reason that lives on the Gateway side: EVM's
+        eth_getTransactionByHash returns MEMPOOL transactions, so a still-landable
+        transaction polls PENDING, not NOT_FOUND (chains/ethereum/routes/poll.ts says
+        so in as many words). Any non-NOT_FOUND status resets the streak, and a zero
+        streak at the deadline is TX_UNRESOLVED -- which classifies non-retryable.
+
+        So the DROPPED verdict is unreachable for a transaction the node can still see,
+        on any chain, whatever the deadline is worth there.
+        """
+        self._patch_poll([-2, -2, -2, 0])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)  # never re-submitted
+
+    def test_unreadable_polls_are_unresolved_not_dropped(self):
+        # An RPC that never answers says nothing about the transaction. Absence of a
+        # NOT_FOUND streak is what keeps this off the re-submission path.
+        gateway = MagicMock()
+
+        async def failing_poll(chain, network, tx_hash, fail_silently=False):
+            raise Exception("RPC unavailable")
+
+        gateway.get_transaction_status = failing_poll
+        self.connector._get_gateway_instance = MagicMock(return_value=gateway)
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertIn("TX_UNRESOLVED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
+
+    def test_pending_landed_but_failed_raises_typed(self):
+        self._patch_poll([-1])
+        with self.assertRaises(Exception) as ctx:
+            asyncio.run(self.connector._execute_with_retry(
+                self._pending_operation, "test swap", max_retries=10))
+        self.assertIn("TX_NOT_CONFIRMED", str(ctx.exception))
+        self.assertEqual(1, self.submissions)
+
+    def test_timeout_exception_reconciles_signature_before_resubmit(self):
+        # Gateway's 504 embeds the signature; if the tx then confirms, the client
+        # must NOT re-submit.
+        self._patch_poll([1])
+
+        async def operation():
+            self.submissions += 1
+            raise Exception(
+                "Transaction timeout-sig was not confirmed before its blockhash expired. "
+                "It most likely did not land [code: TRANSACTION_TIMEOUT]")
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "test swap", max_retries=10, retry_delay=0.0))
+        self.assertEqual(1, result["status"])
+        self.assertEqual("timeout-sig", result["signature"])
+        self.assertEqual(1, self.submissions)
+
+    def test_rate_limited_is_retryable(self):
+        error = Exception("Gateway error: too many requests [code: RATE_LIMITED]")
+        action = self.connector._classify_error(error, "execute swap", 0, 10)
+        self.assertEqual(RetryAction.RETRY, action)
+
+    def test_pending_reconciled_to_confirmed_flags_missing_data(self):
+        # The PENDING reply carries no `data` and poll only returns raw chain txData, so
+        # the reconciled response must SAY the data is missing instead of passing for a
+        # normal confirmation whose amounts merely happen to be absent — callers read
+        # those keys with .get(key, 0) and would book real fees/amounts as zero.
+        self._patch_poll([1])
+        result = asyncio.run(self.connector._execute_with_retry(
+            self._pending_operation, "close position", max_retries=10))
+        self.assertEqual(1, result["status"])
+        self.assertTrue(result[TX_DATA_UNAVAILABLE])
+        self.assertNotIn("data", result)
+
+    def test_timeout_reconciled_to_confirmed_flags_missing_data(self):
+        self._patch_poll([1])
+
+        async def operation():
+            self.submissions += 1
+            raise Exception(
+                "Transaction timeout-sig was not confirmed before its blockhash expired. "
+                "It most likely did not land [code: TRANSACTION_TIMEOUT]")
+
+        result = asyncio.run(self.connector._execute_with_retry(
+            operation, "close position", max_retries=10, retry_delay=0.0))
+        self.assertTrue(result[TX_DATA_UNAVAILABLE])
+        self.assertNotIn("data", result)
+
+    def test_directly_confirmed_response_keeps_its_data_and_is_not_flagged(self):
+        async def operation():
+            return {"signature": "sig-direct", "status": 1, "data": {"positionAddress": "pos-1"}}
+
+        result = asyncio.run(self.connector._execute_with_retry(operation, "open position"))
+        self.assertNotIn(TX_DATA_UNAVAILABLE, result)
+        self.assertEqual("pos-1", result["data"]["positionAddress"])
+
+
+class GatewayBaseNotFoundPollingTest(unittest.TestCase):
+    """The status poller must not wait forever on a transaction the chain does not know.
+
+    Gateway reports txStatus NOT_FOUND (-2) for a signature the cluster has never
+    seen. Right after submission that is transient, but once the order is older than
+    TX_NOT_FOUND_DEADLINE the transaction can no longer land (Solana blockhash
+    expiry), so each further miss must feed the tracker's lost-order machinery
+    instead of polling as pending forever.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.connector = MockGatewayConnector()
+        self.start_timestamp = 1640000000.0
+        self.connector._set_current_timestamp(self.start_timestamp)
+        self.order_id = "test-not-found-order"
+        self.tx_hash = "5" * 88
+        self.connector.start_tracking_order(
+            order_id=self.order_id,
+            exchange_order_id=self.tx_hash,
+            trading_pair="SOL-USDC",
+            trade_type=TradeType.BUY,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+        )
+
+    def async_run_with_timeout(self, coroutine, timeout: float = 1):
+        return self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+
+    def _poll_with_status(self, tx_status: int):
+        gateway_mock = MagicMock()
+        gateway_mock.get_transaction_status = AsyncMock(return_value={
+            "signature": self.tx_hash,
+            "txStatus": tx_status,
+            "fee": 0,
+        })
+        order = self.connector._order_tracker.fetch_tracked_order(self.order_id)
+        with patch.object(MockGatewayConnector, "_get_gateway_instance", return_value=gateway_mock):
+            self.async_run_with_timeout(self.connector.update_order_status([order]))
+
+    def test_not_found_before_deadline_is_ignored(self):
+        self.connector._set_current_timestamp(self.start_timestamp + 10.0)
+        self._poll_with_status(-2)
+        self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_not_found_after_deadline_counts_toward_lost_order_limit(self):
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        )
+        self._poll_with_status(-2)
+        self.assertEqual(1, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
+
+    def test_not_found_past_limit_marks_order_lost(self):
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1.0
+        )
+        for _ in range(self.connector._order_tracker.lost_order_count_limit + 1):
+            self._poll_with_status(-2)
+        self.assertNotIn(self.order_id, self.connector._order_tracker.active_orders)
+        self.assertIn(self.order_id, self.connector._order_tracker.lost_orders)
+
+    def test_pending_after_deadline_keeps_waiting(self):
+        # PENDING means the chain has seen the transaction - it can still confirm,
+        # so age alone must not fail it.
+        self.connector._set_current_timestamp(
+            self.start_timestamp + self.connector.TX_NOT_FOUND_DEADLINE + 1000.0
+        )
+        self._poll_with_status(0)
+        self.assertEqual(0, self.connector._order_tracker._order_not_found_records[self.order_id])
+        self.assertIn(self.order_id, self.connector._order_tracker.active_orders)
 
 
 if __name__ == "__main__":

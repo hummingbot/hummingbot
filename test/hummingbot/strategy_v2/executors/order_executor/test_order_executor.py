@@ -775,19 +775,33 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Update price to trigger refresh threshold (price moved up by 2.5%)
         mock_current_market_price.return_value = Decimal("123")  # 120 * 1.025
 
-        # Second control task call - should refresh as price moved beyond threshold
+        # Second control task call - requests the cancel; the replacement is NOT
+        # placed until the cancel resolves (immediate replacement used to lose the
+        # old order's fills-during-cancel and re-order quantity already bought)
         await executor.control_task()
         mock_cancel_order.assert_called_once()
-        mock_place_open_order.assert_called_once()
+        mock_place_open_order.assert_not_called()
 
         # Verify the new order price calculation
         new_price = executor.get_order_price()
         expected_price = Decimal("123") * (Decimal("1") - Decimal("0.01"))  # 121.77
         self.assertEqual(new_price, expected_price)
 
-        # Reset mocks for next test
+        # Simulate the cancel resolving: the canceled event clears the tracked
+        # order, and the next tick places the replacement
+        from hummingbot.core.event.events import OrderCancelledEvent
+        executor.process_order_canceled_event(
+            "102", MagicMock(), OrderCancelledEvent(timestamp=1234, order_id="OID-CHASER"))
+        self.assertIsNone(executor._order)
+        await executor.control_task()
+        mock_place_open_order.assert_called_once()
+
+        # Reset mocks for next test; restore an open tracked order for the
+        # below-threshold assertion
         mock_cancel_order.reset_mock()
         mock_place_open_order.reset_mock()
+        executor._order = TrackedOrder("OID-CHASER")
+        executor._order.order = order
 
         # Update price to not trigger refresh threshold (price moved up by 1.5%)
         mock_current_market_price.return_value = Decimal("120")  # 120 * 1.015

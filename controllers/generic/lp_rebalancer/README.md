@@ -145,6 +145,7 @@ total_amount_quote: '50'               # Total value in quote currency
 side: 1                                # Initial side: 1=BUY, 2=SELL, 3=RANGE
 position_width_pct: '0.5'              # Position width as percentage (0.5 = 0.5%)
 position_offset_pct: '0.1'             # Offset from price (positive=out-of-range, negative=in-range)
+position_refresh_interval: 10           # Seconds between on-chain reads for the active LP position
 
 # Auto-close threshold (replaces rebalance_seconds)
 rebalance_threshold_pct: '1'           # % beyond bounds that triggers auto-close (1 = 1%)
@@ -175,6 +176,7 @@ strategy_type: 0                       # Connector-specific (Meteora strategy ty
 | `side` | TradeType | BUY | Initial side: BUY, SELL, or RANGE (50/50 split) |
 | `position_width_pct` | decimal | 0.5 | Position width as percentage |
 | `position_offset_pct` | decimal | 0.01 | Offset from price. Positive=out-of-range. Negative=in-range |
+| `position_refresh_interval` | float | 1.0 | Minimum seconds between on-chain reads for each active LP position. Higher values reduce Gateway/RPC load but delay position and limit-price updates. Captured when an executor is created and not live-updatable. |
 | `rebalance_threshold_pct` | decimal | 1 | Price % beyond position bounds that triggers auto-close |
 | `sell_price_max` | decimal | null | Upper limit for SELL zone |
 | `sell_price_min` | decimal | null | Lower limit for SELL zone (anchor point) |
@@ -459,6 +461,7 @@ LPExecutorConfig(
     base_amount=Decimal("0"),               # 0 for BUY side
     quote_amount=Decimal("50"),             # All in quote for BUY
     side=TradeType.BUY,
+    position_refresh_interval=10,            # Throttle on-chain position reads
     # Auto-close when price exceeds these limits
     upper_limit_price=Decimal("106.05"),    # upper × (1 + threshold)
     lower_limit_price=Decimal("94.05"),     # lower × (1 - threshold)

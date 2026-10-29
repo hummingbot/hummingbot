@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260729"
+    version = "20260922"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -87,7 +87,7 @@ def main():
         "web3",
         "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
-        "lighter-sdk==1.0.8"
+        "lighter-sdk==1.1.2"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
