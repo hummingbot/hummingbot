@@ -26,6 +26,31 @@ from hummingbot.connector.derivative.dydx_v4_perpetual.data_sources.tx import Si
 
 class DydxPerpetualV4Client:
 
+    # Valid BIP-39 mnemonic lengths (in words).
+    _VALID_MNEMONIC_WORD_COUNTS = (12, 15, 18, 21, 24)
+
+    @classmethod
+    def _validate_secret_phrase(cls, secret_phrase: str) -> str:
+        """Fail fast with an actionable message when the configured secret phrase is
+        missing or not a plausible BIP-39 mnemonic.
+
+        Without this the connector passes an empty/garbled string straight to
+        ``PrivateKey.from_mnemonic`` and dies with the opaque
+        ``ValueError: Mnemonic words count is not valid (0)`` from bip_utils, which gives
+        the user no hint that their ``dydx_v4_perpetual_secret_phrase`` is at fault
+        (see issue #7409).
+        """
+        phrase = (secret_phrase or "").strip()
+        word_count = len(phrase.split())
+        if word_count not in cls._VALID_MNEMONIC_WORD_COUNTS:
+            raise ValueError(
+                "Invalid dYdX v4 secret phrase: expected a BIP-39 mnemonic of "
+                f"{', '.join(map(str, cls._VALID_MNEMONIC_WORD_COUNTS))} words but got "
+                f"{word_count}. Re-enter your 24-word dYdX v4 secret phrase with "
+                "`connect dydx_v4_perpetual`."
+            )
+        return phrase
+
     def __init__(
             self,
             secret_phrase: str,
@@ -33,7 +58,7 @@ class DydxPerpetualV4Client:
             connector,
             subaccount_num=0,
     ):
-        self._private_key = PrivateKey.from_mnemonic(secret_phrase)
+        self._private_key = PrivateKey.from_mnemonic(self._validate_secret_phrase(secret_phrase))
         self._dydx_v4_chain_address = dydx_v4_chain_address
         self._connector = connector
         self._subaccount_num = subaccount_num
