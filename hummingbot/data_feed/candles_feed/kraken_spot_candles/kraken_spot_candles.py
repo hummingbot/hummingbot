@@ -107,7 +107,7 @@ class KrakenSpotCandles(CandlesBase):
         candles_ago = (int(time.time()) - start_time) // self.interval_in_seconds
         if candles_ago > CONSTANTS.MAX_CANDLES_AGO:
             raise ValueError("Kraken REST API does not support fetching more than 720 candles ago.")
-        return {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval],
+        return {"pair": self._ex_trading_pair, "interval": int(CONSTANTS.INTERVALS[self.interval]),
                 "since": start_time}
 
     def _parse_rest_candles(self, data: dict, end_time: Optional[int] = None) -> List[List[float]]:
