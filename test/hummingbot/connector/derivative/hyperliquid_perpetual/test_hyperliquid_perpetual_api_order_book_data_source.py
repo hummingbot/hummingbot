@@ -553,7 +553,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
                 "ctx": {
                     "oraclePx": "36717.0",
                     "markPx": "36733.0",
-                    "openInterest": "0.00001793",  # This is used as the rate
+                    "openInterest": "34.37756",
                     "funding": "0.00001793"
                 }
             }
@@ -578,6 +578,24 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTest
         self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
         expected_rate = Decimal('0.00001793')
         self.assertEqual(expected_rate, msg.rate)
+
+    async def test_parse_funding_info_message_uses_funding_instead_of_open_interest(self):
+        for nested_ctx in (True, False):
+            for funding in ("0.000017931234567890123456789", "-0.00001793", "0", None):
+                with self.subTest(nested_ctx=nested_ctx, funding=funding):
+                    ctx = {"openInterest": "34.37756", "oraclePx": "36717.0", "markPx": "36733.0"}
+                    if funding is not None:
+                        ctx["funding"] = funding
+                    data = {"coin": self.base_asset, "ctx": ctx} if nested_ctx else {"coin": self.base_asset, **ctx}
+                    message_queue = asyncio.Queue()
+
+                    await self.data_source._parse_funding_info_message(
+                        {"channel": "activeAssetCtx", "data": data}, message_queue)
+
+                    self.assertEqual(1, message_queue.qsize())
+                    funding_info = message_queue.get_nowait()
+                    self.assertIsInstance(funding_info, FundingInfoUpdate)
+                    self.assertEqual(Decimal(funding if funding is not None else "0"), funding_info.rate)
 
     @aioresponses()
     @patch("hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
