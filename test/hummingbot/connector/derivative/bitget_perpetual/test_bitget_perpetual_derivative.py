@@ -2224,7 +2224,8 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
         self.assertEqual("sell", request_data["side"])
         self.assertEqual("long", request_data["posSide"])
-        self.assertEqual("yes", request_data["reduceOnly"])
+        # Bitget rejects posSide and reduceOnly together (25238); posSide alone makes it a close.
+        self.assertNotIn("reduceOnly", request_data)
 
     @aioresponses()
     def test_hedge_mode_close_of_short_targets_short_position(self, mock_api):
@@ -2247,7 +2248,7 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         request_data = json.loads(self._all_executed_requests(mock_api, url)[0].kwargs["data"])
         self.assertEqual("buy", request_data["side"])
         self.assertEqual("short", request_data["posSide"])
-        self.assertEqual("yes", request_data["reduceOnly"])
+        self.assertNotIn("reduceOnly", request_data)
 
     @aioresponses()
     def test_hedge_mode_open_keeps_side_and_position_side_aligned(self, mock_api):

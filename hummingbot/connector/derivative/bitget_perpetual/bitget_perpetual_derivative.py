@@ -407,11 +407,12 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
         if order_type.is_limit_type():
             data["price"] = str(price)
 
-        if position_action is PositionAction.CLOSE:
-            # reduceOnly has to be set in one-way mode as well, not only in hedge mode. A close
-            # is sized against the position as it was when the order was built; if the position
-            # shrinks before the order fills, the remainder would otherwise trade through zero
-            # and open a position the other way.
+        if position_action is PositionAction.CLOSE and self.position_mode is not PositionMode.HEDGE:
+            # A one-way close needs reduceOnly. It is sized against the position as it was when the
+            # order was built; if the position shrinks before the order fills, the remainder would
+            # otherwise trade through zero and open a position the other way. A hedge-mode close
+            # must not send it: posSide already limits the order to that position, and Bitget
+            # rejects posSide and reduceOnly together (25238).
             data["reduceOnly"] = "yes"
 
         if self.position_mode is PositionMode.HEDGE:
