@@ -726,9 +726,12 @@ class BitgetExchange(BitgetClassicAccountMixin, ExchangePyBase):
         try:
             order_id = str(fill_msg.get("orderId", ""))
             trade_id = str(fill_msg.get("tradeId", ""))
-            fillable_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                order_id
-            )
+            # Match on clientOid first: a market order can fill before its place-order response
+            # arrives, and until then the tracked order has no exchange order id to match on.
+            client_order_id = fill_msg.get("clientOid")
+            fillable_order = (
+                self._order_tracker.all_fillable_orders.get(str(client_order_id)) if client_order_id else None
+            ) or self._order_tracker.all_fillable_orders_by_exchange_order_id.get(order_id)
 
             if not fillable_order:
                 self.logger().debug(

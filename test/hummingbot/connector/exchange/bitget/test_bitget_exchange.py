@@ -3,6 +3,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -1394,3 +1395,35 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 order=order, order_update_response={"code": "00000", "data": []}
             )
         self.assertTrue(self.exchange._is_order_not_found_during_status_update_error(ValueError()))
+
+    async def test_fill_arriving_before_the_place_order_response_is_recorded(self) -> None:
+        """
+        A market order can fill before Bitget's place-order response arrives. The tracked order then has no
+        exchange order id yet, so the fill push has to be matched on its clientOid or the trade is lost.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        order_id = self.client_order_id_prefix + "8"
+        self.exchange.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[order_id]
+        fill_event = self.trade_event_for_full_fill_websocket_update(order=order)
+        fill_event["data"][0]["orderId"] = "1501538196939358208"
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [fill_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            await self.exchange._user_stream_event_listener()
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
