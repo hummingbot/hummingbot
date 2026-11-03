@@ -2,6 +2,7 @@ from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandles
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.data_feed.candles_feed.okx_spot_candles import OKXSpotCandles
+from hummingbot.data_feed.candles_feed.okx_spot_candles import constants as CONSTANTS
 
 
 class TestOKXSpotCandles(TestCandlesBase):
@@ -123,3 +124,6 @@ class TestOKXSpotCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+    def test_ws_url_uses_the_default_tls_port(self):
+        self.assertEqual("wss://ws.okx.com:443/ws/v5/business", CONSTANTS.WSS_URL)
