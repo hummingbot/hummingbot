@@ -6,8 +6,26 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+
+class BitgetDemoTradingRESTPreProcessor(RESTPreProcessorBase):
+    """
+    Marks every REST request as demo trading so Bitget routes it to the demo account.
+
+    ``/api/v2/public/time`` is the one exception: Bitget answers 404 to it when the
+    header is present, and it is the connector's network check and time source.
+    """
+
+    async def pre_process(self, request: RESTRequest) -> RESTRequest:
+        if request.url.endswith(CONSTANTS.PUBLIC_TIME_ENDPOINT):
+            return request
+        if request.headers is None:
+            request.headers = {}
+        request.headers[CONSTANTS.DEMO_TRADING_HEADER] = "1"
+        return request
 
 
 def public_ws_url(domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -54,7 +72,7 @@ def _create_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return urljoin(f"https://{CONSTANTS.REST_SUBDOMAIN}.{domain}", path_url)
+    return urljoin(f"https://{CONSTANTS.REST_HOSTS[domain]}", path_url)
 
 
 def _create_ws_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -65,7 +83,7 @@ def _create_ws_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str
     :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return urljoin(f"wss://{CONSTANTS.WSS_SUBDOMAIN}.{domain}", path_url)
+    return urljoin(f"wss://{CONSTANTS.WSS_HOSTS[domain]}", path_url)
 
 
 def build_api_factory(
@@ -73,19 +91,23 @@ def build_api_factory(
         time_synchronizer: Optional[TimeSynchronizer] = None,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
+    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler, domain=domain))
+    rest_pre_processors = [
+        TimeSynchronizerRESTPreProcessor(
+            synchronizer=time_synchronizer,
+            time_provider=time_provider
+        ),
+    ]
+    if domain == CONSTANTS.DEMO_DOMAIN:
+        rest_pre_processors.append(BitgetDemoTradingRESTPreProcessor())
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
-        rest_pre_processors=[
-            TimeSynchronizerRESTPreProcessor(
-                synchronizer=time_synchronizer,
-                time_provider=time_provider
-            ),
-        ],
+        rest_pre_processors=rest_pre_processors,
     )
 
     return api_factory

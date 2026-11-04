@@ -4,6 +4,7 @@ from typing import Any, Dict
 from pydantic import ConfigDict, Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
+from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 # Bitget fees: https://www.bitget.com/en/rate?tab=1
@@ -62,3 +63,43 @@ class BitgetPerpetualConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = BitgetPerpetualConfigMap.model_construct()
+
+OTHER_DOMAINS = [CONSTANTS.DEMO_DOMAIN]
+OTHER_DOMAINS_PARAMETER = {CONSTANTS.DEMO_DOMAIN: CONSTANTS.DEMO_DOMAIN}
+OTHER_DOMAINS_EXAMPLE_PAIR = {CONSTANTS.DEMO_DOMAIN: EXAMPLE_PAIR}
+OTHER_DOMAINS_DEFAULT_FEES = {CONSTANTS.DEMO_DOMAIN: DEFAULT_FEES}
+
+
+class BitgetPerpetualTestnetConfigMap(BaseConnectorConfigMap):
+    connector: str = "bitget_perpetual_testnet"
+    bitget_perpetual_testnet_api_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual demo-trading API key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
+    )
+    bitget_perpetual_testnet_secret_key: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual demo-trading secret key",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
+    )
+    bitget_perpetual_testnet_passphrase: SecretStr = Field(
+        default=...,
+        json_schema_extra={
+            "prompt": "Enter your Bitget Perpetual demo-trading passphrase",
+            "is_secure": True,
+            "is_connect_key": True,
+            "prompt_on_new": True
+        }
+    )
+    model_config = ConfigDict(title="bitget_perpetual_testnet")
+
+
+OTHER_DOMAINS_KEYS = {CONSTANTS.DEMO_DOMAIN: BitgetPerpetualTestnetConfigMap.model_construct()}

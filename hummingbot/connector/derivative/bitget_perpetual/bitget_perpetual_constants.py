@@ -14,6 +14,20 @@ EXCHANGE_NAME = "bitget_perpetual"
 DEFAULT_DOMAIN = "bitget.com"
 REST_SUBDOMAIN = "api"
 WSS_SUBDOMAIN = "ws"
+
+# Bitget demo trading ("paper trading" in Bitget's own UI) is served from the SAME
+# REST host as mainnet and is selected by a `paptrading: 1` request header. Only the
+# websocket host differs. There is no demo subdomain and no separate product type.
+DEMO_DOMAIN = "bitget_perpetual_testnet"
+DEMO_TRADING_HEADER = "paptrading"
+REST_HOSTS = {
+    DEFAULT_DOMAIN: f"{REST_SUBDOMAIN}.{DEFAULT_DOMAIN}",
+    DEMO_DOMAIN: f"{REST_SUBDOMAIN}.{DEFAULT_DOMAIN}",
+}
+WSS_HOSTS = {
+    DEFAULT_DOMAIN: f"{WSS_SUBDOMAIN}.{DEFAULT_DOMAIN}",
+    DEMO_DOMAIN: f"wspap.{DEFAULT_DOMAIN}",
+}
 DEFAULT_TIME_IN_FORCE = "gtc"
 # Post-only (maker-only) "force" value, used for LIMIT_MAKER orders.
 POST_ONLY_TIME_IN_FORCE = "post_only"
