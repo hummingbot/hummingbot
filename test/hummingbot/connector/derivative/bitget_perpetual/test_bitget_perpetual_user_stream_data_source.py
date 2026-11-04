@@ -2,7 +2,7 @@ import asyncio
 import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 
@@ -319,7 +319,7 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         :param sleep_mock: Mocked retry sleep, which ends the listener.
         :param mock_ws: Mocked WebSocket connection.
         """
-        self.connector._update_time_synchronizer = AsyncMock()
+        self.data_source._refresh_server_time_offset = AsyncMock()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
@@ -347,7 +347,7 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_sends_one_ping_after_subscribing(self, mock_ws: AsyncMock) -> None:
-        self.connector._update_time_synchronizer = AsyncMock()
+        self.data_source._refresh_server_time_offset = AsyncMock()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
@@ -488,8 +488,107 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_refreshes_the_server_time_offset_first(
+        self,
+        mock_ws: AsyncMock
+    ) -> None:
+        """
+        The login signature is rejected once its timestamp drifts more than 30 seconds from the
+        exchange clock (30014). TimeSynchronizer derives that timestamp from perf_counter, which
+        stalls while the host is suspended, so the offset has to be re-sampled before signing.
+        """
+        self.data_source._refresh_server_time_offset = AsyncMock()
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        self.data_source._refresh_server_time_offset.assert_called()
+
+    @patch("hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_web_utils.get_current_server_time", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_keeps_the_existing_offset_when_the_time_resync_fails(
+        self,
+        mock_ws: AsyncMock,
+        server_time_mock: AsyncMock
+    ) -> None:
+        """
+        A failed resync must not block the login, and must not cost the offset the connector
+        already has: with no samples left the synchronizer signs with the local clock, which the
+        exchange refuses (30014) whenever that clock is more than 30 seconds out.
+        """
+        synchronizer = self.connector._time_synchronizer
+        for _ in range(5):
+            synchronizer.add_time_offset_ms_sample(-60_000.0)
+        server_time_mock.side_effect = IOError("server time unavailable")
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        sent = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=mock_ws.return_value
+        )
+        self.assertEqual("login", sent[0]["op"])
+        server_time_mock.assert_awaited()
+        self.assertEqual(-60_000.0, synchronizer.time_offset_ms)
+
+    @patch("hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_web_utils.get_current_server_time", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_authenticate_discards_stale_clock_samples_before_resampling(
+        self,
+        mock_ws: AsyncMock,
+        server_time_mock: AsyncMock
+    ) -> None:
+        """
+        TimeSynchronizer derives its offset from the median and weighted average of a five-sample
+        deque, so appending one fresh sample to five stale ones barely moves it: after an
+        hour-long suspend the offset is still around 49 minutes out, well outside the exchange's
+        30-second window, and five fresh samples are needed to recover. The stale samples have to
+        be discarded for the refresh to mean anything.
+        """
+        synchronizer = self.connector._time_synchronizer
+        for _ in range(5):
+            synchronizer.add_time_offset_ms_sample(-3_600_000.0)
+        self.assertEqual(-3_600_000.0, synchronizer.time_offset_ms)
+        # Freeze the local counter so the fresh sample is exactly the server time minus it.
+        synchronizer._current_seconds_counter = MagicMock(return_value=1_000.0)
+        server_time_mock.return_value = 1_000_000.0
+
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(self.ws_login_event_mock_response())
+        )
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source.listen_for_user_stream(output=output_queue)
+        )
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+
+        # One fresh sample is now the whole offset, so the login timestamp is usable again.
+        self.assertEqual(0.0, synchronizer.time_offset_ms)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_unified_account_connects_to_the_v3_private_websocket(self, mock_ws: AsyncMock) -> None:
-        self.connector._update_time_synchronizer = AsyncMock()
+        self.data_source._refresh_server_time_offset = AsyncMock()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,

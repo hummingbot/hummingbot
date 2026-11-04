@@ -46,26 +46,7 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
         buffer. Re-sampling the server clock before signing is what Bitget's own documentation
         recommends, and a reconnect is rare enough that the extra request costs nothing.
         """
-        try:
-            # Discard the existing samples before re-sampling. TimeSynchronizer keeps a
-            # five-sample deque and derives the offset from their median and weighted average, so
-            # appending one fresh sample to five stale ones barely moves it: after an hour-long
-            # suspend the offset is still ~49 minutes out, and it takes five fresh samples to
-            # recover. Clearing first means the single fresh sample is the offset. The precision
-            # lost is half the REST round trip, which is negligible against the exchange's
-            # 30-second window.
-            self._connector._time_synchronizer.clear_time_offset_ms_samples()
-            await self._connector._update_time_synchronizer()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            # A failed resync is not itself fatal: sign with whatever offset is available and let
-            # the exchange decide.
-            self.logger().warning(
-                "Could not refresh the server time offset before authenticating the private "
-                "websocket. Signing with the existing offset.",
-                exc_info=True,
-            )
+        await self._refresh_server_time_offset()
 
         await websocket_assistant.send(
             WSJSONRequest({
@@ -84,6 +65,34 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 f"Error authenticating the private websocket connection. Response message {message}"
             )
             raise IOError("Private websocket connection authentication failed")
+
+    async def _refresh_server_time_offset(self) -> None:
+        """
+        Re-samples the server clock and makes the fresh sample the whole offset.
+
+        TimeSynchronizer keeps a five-sample deque and derives the offset from their median and
+        weighted average, so appending one fresh sample to five stale ones barely moves it: after
+        an hour-long suspend the offset is still ~49 minutes out, and it takes five fresh samples
+        to recover. The stale samples are therefore discarded, but only once Bitget has answered.
+        Discarding them before the request would leave none if it fails, and the synchronizer
+        would then sign with the local clock, which is exactly what the offset corrects. A failed
+        request is logged by the synchronizer and the existing offset stays in place.
+        """
+        synchronizer = self._connector._time_synchronizer
+
+        async def server_time_replacing_stale_samples() -> float:
+            server_time = await web_utils.get_current_server_time(
+                throttler=self._connector._throttler,
+                domain=self._connector.domain,
+            )
+            # The synchronizer records the fresh sample right after this returns, with nothing
+            # awaited in between, so no request is ever signed with an empty buffer.
+            synchronizer.clear_time_offset_ms_samples()
+            return server_time
+
+        await synchronizer.update_server_time_offset_with_time_provider(
+            time_provider=server_time_replacing_stale_samples()
+        )
 
     async def _parse_pong_message(self) -> None:
         self.logger().debug("PING-PONG message for user stream completed")

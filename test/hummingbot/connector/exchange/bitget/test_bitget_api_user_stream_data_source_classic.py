@@ -56,7 +56,6 @@ class BitgetClassicAccountUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCa
             trading_pairs=[self.trading_pair]
         )
         self.connector._unified_account = False
-        self.connector._update_time_synchronizer = AsyncMock()
         self.connector._web_assistants_factory._auth = self.auth
         self.data_source = BitgetAPIUserStreamDataSource(
             auth=self.auth,
@@ -64,6 +63,7 @@ class BitgetClassicAccountUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCa
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory
         )
+        self.data_source._refresh_server_time_offset = AsyncMock()
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
