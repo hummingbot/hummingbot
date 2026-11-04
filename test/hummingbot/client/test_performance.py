@@ -171,6 +171,57 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("799"), metrics.trade_pnl)
         print(metrics)
 
+    def test_spot_total_pnl_does_not_double_count_fees(self):
+        rate_oracle = RateOracle()
+        rate_oracle._prices[trading_pair] = Decimal("120")
+        RateOracle._shared_instance = rate_oracle
+
+        sell_fee = DeductedFromReturnsTradeFee(percent=Decimal("0.1"))
+        trades = [
+            TradeFill(
+                config_file_path="some-strategy.yml",
+                strategy="pure_market_making",
+                market="binance",
+                symbol=trading_pair,
+                base_asset=base,
+                quote_asset=quote,
+                timestamp=int(time.time()),
+                order_id="buy-order",
+                trade_type="BUY",
+                order_type="LIMIT",
+                price=100,
+                amount=10,
+                trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(quote, Decimal("0"))]).to_json(),
+                exchange_trade_id="buy-fill",
+                position=PositionAction.NIL.value,
+            ),
+            TradeFill(
+                config_file_path="some-strategy.yml",
+                strategy="pure_market_making",
+                market="binance",
+                symbol=trading_pair,
+                base_asset=base,
+                quote_asset=quote,
+                timestamp=int(time.time()),
+                order_id="sell-order",
+                trade_type="SELL",
+                order_type="LIMIT",
+                price=120,
+                amount=10,
+                trade_fee=sell_fee.to_json(),
+                exchange_trade_id="sell-fill",
+                position=PositionAction.NIL.value,
+            ),
+        ]
+
+        cur_bals = {base: Decimal("0"), quote: Decimal("1080")}
+        metrics = self.async_run_with_timeout(PerformanceMetrics.create(trading_pair, trades, cur_bals))
+
+        self.assertEqual(Decimal("120"), metrics.fee_in_quote)
+        self.assertEqual(Decimal("80"), metrics.trade_pnl)
+        self.assertEqual(Decimal("80"), metrics.total_pnl)
+        self.assertEqual(Decimal("0.08"), metrics.return_pct)
+
     @patch('hummingbot.client.performance.PerformanceMetrics._is_trade_fill')
     def test_performance_metrics_for_derivatives(self, is_trade_fill_mock):
         rate_oracle = RateOracle()
