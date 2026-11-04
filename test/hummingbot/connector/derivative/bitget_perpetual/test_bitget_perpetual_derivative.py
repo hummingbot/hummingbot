@@ -2711,6 +2711,32 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
 
     @aioresponses()
+    def test_update_positions_keeps_positions_when_the_read_fails(self, mock_api):
+        """
+        Bitget can report an error with HTTP 200 and no data. That has to fail the poll rather than read as
+        an empty page, or every tracked position would be pruned while it is still open.
+        """
+        self.exchange._set_trading_pair_symbol_map(bidict({self.exchange_trading_pair: self.trading_pair}))
+        btc_key = self.exchange._perpetual_trading.position_key(self.trading_pair, PositionSide.LONG)
+        self.exchange._perpetual_trading.set_position(
+            btc_key,
+            Position(trading_pair=self.trading_pair, position_side=PositionSide.LONG,
+                     unrealized_pnl=Decimal("1"), entry_price=Decimal("100"),
+                     amount=Decimal("2"), leverage=Decimal("10")),
+        )
+
+        url = web_utils.private_rest_url(CONSTANTS.ALL_POSITIONS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "40010", "msg": "Request timed out", "requestTime": 1695808949356, "data": None,
+        }))
+
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.exchange._update_positions())
+
+        self.assertIn(btc_key, self.exchange.account_positions)
+
+    @aioresponses()
     def test_update_positions_skips_instruments_outside_the_symbol_map(self, mock_api):
         """A dated futures position must not stop the poll from updating and pruning perpetual positions."""
         self.exchange._set_trading_pair_symbol_map(

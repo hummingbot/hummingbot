@@ -666,6 +666,11 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
                 limit_id=limit_id or path_url,
             )
 
+            # A Bitget error can come back with HTTP 200 and no data, which would otherwise read as an
+            # empty page: positions the read did not return are pruned, and fills would go missing.
+            if response.get("code") != CONSTANTS.RET_CODE_OK:
+                raise IOError(self._formatted_error(response.get("code"), f"Error reading {path_url}: {response}"))
+
             payload = response.get("data")
             if isinstance(payload, dict):
                 page_rows = payload.get("list") or []

@@ -474,6 +474,11 @@ class BitgetExchange(BitgetClassicAccountMixin, ExchangePyBase):
 
             response = await self._api_get(path_url=path_url, params=page_params, is_auth_required=True)
 
+            # A Bitget error can come back with HTTP 200 and no data, which would otherwise read as an
+            # empty page and silently drop the order's fills.
+            if response.get("code") != CONSTANTS.RET_CODE_OK:
+                raise IOError(self._formatted_error(response.get("code"), f"Error reading {path_url}: {response}"))
+
             payload = response.get("data")
             if isinstance(payload, dict):
                 page_rows = payload.get("list") or []

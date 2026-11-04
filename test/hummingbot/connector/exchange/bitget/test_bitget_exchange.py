@@ -759,6 +759,32 @@ class BitgetExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertNotIn("cursor", requests[0].kwargs["params"])
         self.assertEqual("page2", requests[1].kwargs["params"]["cursor"])
 
+    @aioresponses()
+    async def test_all_trade_updates_for_order_raises_when_the_fills_read_fails(self, mock_api):
+        """
+        Bitget can report an error with HTTP 200 and no data. That has to fail the read rather than come back
+        as an order with no fills.
+        """
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.USER_FILLS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, body=json.dumps({
+            "code": "40010", "msg": "Request timed out", "requestTime": 1695808949356, "data": None,
+        }))
+
+        with self.assertRaises(IOError):
+            await self.exchange._all_trade_updates_for_order(order)
+
     def _order_cancelation_request_successful_mock_response(
         self, order: InFlightOrder
     ) -> Dict[str, Any]:
