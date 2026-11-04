@@ -290,10 +290,16 @@ class BitgetPerpetualClassicAccountMixin:
             if len(updated_order_data) == 0:
                 raise ValueError(f"Can't parse order status data. Data: {updated_order_data}")
 
+            new_state = self._order_state_for(updated_order_data.get("state"))
+            if new_state is None:
+                # As on a Unified Trading Account: an unmapped status is not a missing order, so
+                # hold the state already known rather than raise; _order_state_for has logged it.
+                new_state = tracked_order.current_state
+
             return OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.STATE_TYPES[updated_order_data["state"]],
+                new_state=new_state,
                 client_order_id=str(updated_order_data["clientOid"]),
                 exchange_order_id=updated_order_data["orderId"],
             )
@@ -446,7 +452,9 @@ class BitgetPerpetualClassicAccountMixin:
                 self._perpetual_trading.remove_position(position_key)
 
     def _classic_process_order_event_message(self, order_msg: Dict[str, Any]) -> None:
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
+        order_status = self._order_state_for(order_msg.get("status"))
+        if order_status is None:
+            return
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -460,20 +468,32 @@ class BitgetPerpetualClassicAccountMixin:
             ))
 
     def _classic_process_balance_update_from_order_event(self, order_msg: Dict[str, Any]) -> None:
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
-        symbol = order_msg["marginCoin"]
-        order_amount = Decimal(order_msg["size"])
-        order_price = Decimal(order_msg["price"])
-        margin_amount = (order_amount * order_price) / Decimal(order_msg["leverage"])
-        is_opening = order_msg["tradeSide"] in ["open", "buy_single", "sell_single"]
+        # As on a Unified Trading Account, this only adjusts the cached available balance for
+        # opening orders; the REST balance poll is the source of truth, so bail out rather than
+        # raise when the event does not apply or a numeric field is missing or empty.
+        order_status = self._order_state_for(order_msg.get("status"))
+        symbol = order_msg.get("marginCoin")
+        is_opening = order_msg.get("tradeSide") in ["open", "buy_single", "sell_single"]
 
-        if (
+        if not (
             symbol in self._account_available_balances
             and order_status in [OrderState.OPEN, OrderState.CANCELED]
             and is_opening
         ):
-            multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
-            self._account_available_balances[symbol] += margin_amount * multiplier
+            return
+
+        try:
+            order_amount = Decimal(str(order_msg["size"]))
+            order_price = Decimal(str(order_msg["price"]))
+            leverage = Decimal(str(order_msg["leverage"]))
+        except (KeyError, TypeError, ArithmeticError):
+            return
+        if leverage == Decimal(0):
+            return
+
+        margin_amount = (order_amount * order_price) / leverage
+        multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
+        self._account_available_balances[symbol] += margin_amount * multiplier
 
     def _classic_process_trade_event_message(self, trade_msg: Dict[str, Any]) -> None:
         fillable_order = self._order_tracker.all_fillable_orders.get(str(trade_msg["clientOid"]))

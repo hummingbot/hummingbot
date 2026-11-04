@@ -1178,8 +1178,8 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
 
     def _order_state_for(self, status: Optional[str]) -> Optional[OrderState]:
         """
-        Maps a V3 order status onto an OrderState, or returns None when the exchange reports a
-        status this connector does not know about.
+        Maps an order status (V3, or V2 on a Classic account) onto an OrderState, or returns None
+        when the exchange reports a status this connector does not know about.
 
         Callers decide whether to skip the update or raise. What must not happen is the bare
         KeyError a direct lookup raises: on the user-stream path that is swallowed by the

@@ -419,12 +419,8 @@ class BitgetExchange(BitgetClassicAccountMixin, ExchangePyBase):
                 f"Error while balance update: {wallet_balance_response}"
             ))
 
-        # V3 UTA assets response wraps the per-coin list in data["assets"] (AccountAssetsV3),
-        # whereas the V2 classic endpoint returned data as a flat list of coin balances.
-        balance_payload = wallet_balance_response["data"]
-        asset_entries = balance_payload.get("assets", balance_payload) if isinstance(balance_payload, dict) else balance_payload
-
-        for balance_data in asset_entries:
+        # The V3 assets response wraps the per-coin list in data["assets"] (AccountAssetsV3).
+        for balance_data in wallet_balance_response["data"]["assets"]:
             self._set_account_balances(balance_data)
             remote_asset_names.add(balance_data["coin"])
 
@@ -677,8 +673,8 @@ class BitgetExchange(BitgetClassicAccountMixin, ExchangePyBase):
 
     def _order_state_for(self, status: Optional[str]) -> Optional[OrderState]:
         """
-        Maps a V3 order status onto an OrderState, or returns None when the exchange reports a
-        status this connector does not know about.
+        Maps an order status (V3, or V2 on a Classic account) onto an OrderState, or returns None
+        when the exchange reports a status this connector does not know about.
 
         Callers decide whether to skip the update or raise. What must not happen is the bare
         KeyError a direct lookup raises: on the user-stream path that is swallowed by the

@@ -194,7 +194,11 @@ class BitgetClassicAccountMixin:
         ):
             self._expected_market_amounts[order.client_order_id] = Decimal(updated_info["size"])
 
-        new_state = CONSTANTS.STATE_TYPES[updated_info["status"]]
+        new_state = self._order_state_for(updated_info.get("status"))
+        if new_state is None:
+            # As on a Unified Trading Account: an unmapped status is not a missing order, so hold
+            # the state already known rather than raise; _order_state_for has logged it.
+            new_state = order.current_state
         order_update = OrderUpdate(
             trading_pair=order.trading_pair,
             update_timestamp=self.current_timestamp,
@@ -284,7 +288,9 @@ class BitgetClassicAccountMixin:
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.STATE_TYPES[order_msg["status"]]
+        order_status = self._order_state_for(order_msg.get("status"))
+        if order_status is None:
+            return
         client_order_id = str(order_msg["clientOid"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
@@ -347,9 +353,13 @@ class BitgetClassicAccountMixin:
         try:
             order_id = str(fill_msg.get("orderId", ""))
             trade_id = str(fill_msg.get("tradeId", ""))
-            fillable_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                order_id
-            )
+            # Match on clientOid first, as on a Unified Trading Account: a market order can fill
+            # before its place-order response arrives, and until then the tracked order has no
+            # exchange order id to match on.
+            client_order_id = fill_msg.get("clientOid")
+            fillable_order = (
+                self._order_tracker.all_fillable_orders.get(str(client_order_id)) if client_order_id else None
+            ) or self._order_tracker.all_fillable_orders_by_exchange_order_id.get(order_id)
 
             if not fillable_order:
                 self.logger().debug(

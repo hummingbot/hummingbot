@@ -103,7 +103,15 @@ class UserBalances:
         :return: the account group id, or None
         """
         market = self._markets.get(exchange)
-        return getattr(market, "account_group_id", None) if market is not None else None
+        if market is None:
+            return None
+        try:
+            return getattr(market, "account_group_id", None)
+        except Exception:
+            # One connector failing to name its account must not break the balance report for
+            # every connector; its balance is then counted on its own.
+            self.logger().warning(f"Could not read the account group of {exchange}.", exc_info=True)
+            return None
 
     def duplicate_account_sources(self, exchanges: Iterable[str]) -> Dict[str, str]:
         """

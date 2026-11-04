@@ -2025,3 +2025,98 @@ class BitgetClassicAccountPerpetualDerivativeTests(AbstractPerpetualDerivativeTe
         }
 
         return self.exchange._trading_rules
+
+    def _classic_order(self, client_order_id: str, order_type: OrderType, state: OrderState) -> InFlightOrder:
+        return InFlightOrder(
+            exchange_order_id=client_order_id + "0",
+            client_order_id=client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=order_type,
+            trade_type=TradeType.BUY,
+            price=Decimal("1000"),
+            amount=Decimal("1"),
+            position=PositionAction.OPEN,
+            creation_timestamp=1664807277548,
+            initial_state=state,
+        )
+
+    def _run_classic_listener_on(self, event: Dict[str, Any]) -> None:
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+    def test_a_market_order_push_without_price_or_leverage_does_not_stop_the_rest_of_the_push(self):
+        """
+        A market order push may carry no usable price or leverage. The cached-balance adjustment then steps
+        aside instead of raising: the listener's catch-all would swallow the error, and every later message in
+        the same push would be lost with it.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._account_balances[self.quote_asset] = Decimal("10000")
+        self.exchange._account_available_balances[self.quote_asset] = Decimal("9000")
+
+        event = self.order_event_for_new_order_websocket_update(
+            self._classic_order("11111", OrderType.MARKET, OrderState.OPEN))
+        event["data"][0]["price"] = ""
+        del event["data"][0]["leverage"]
+        canceled = self.order_event_for_new_order_websocket_update(
+            self._classic_order("22222", OrderType.LIMIT, OrderState.CANCELED))["data"][0]
+        canceled["leverage"] = "1"
+        event["data"].append(canceled)
+
+        self._run_classic_listener_on(event)
+
+        # The market order left the cached balance alone; the cancellation behind it still released its margin.
+        self.assertEqual(Decimal("10000"), self.exchange.available_balances[self.quote_asset])
+        self.assertFalse(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
+
+    def test_an_unknown_order_status_in_a_push_does_not_stop_the_rest_of_the_push(self):
+        """An unmapped status is skipped with a warning instead of raising out of the push."""
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._account_balances[self.quote_asset] = Decimal("10000")
+        self.exchange._account_available_balances[self.quote_asset] = Decimal("9000")
+
+        event = self.order_event_for_new_order_websocket_update(
+            self._classic_order("11111", OrderType.LIMIT, OrderState.OPEN))
+        event["data"][0]["status"] = "not_a_status"
+        canceled = self.order_event_for_new_order_websocket_update(
+            self._classic_order("22222", OrderType.LIMIT, OrderState.CANCELED))["data"][0]
+        canceled["leverage"] = "1"
+        event["data"].append(canceled)
+
+        self._run_classic_listener_on(event)
+
+        self.assertEqual(Decimal("10000"), self.exchange.available_balances[self.quote_asset])
+        self.assertTrue(self.is_logged("WARNING", (
+            "Received an unrecognised order status from the exchange: 'not_a_status'. The order update "
+            "was ignored. This usually means a status was added to the API that the connector does not "
+            "map yet."
+        )))
+
+    @aioresponses()
+    def test_an_unknown_order_status_from_rest_keeps_the_current_state(self, mock_api):
+        """An unmapped status is not a missing order: the poll holds the state already known instead of raising."""
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            position_action=PositionAction.OPEN,
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+        url = web_utils.private_rest_url(path_url=CONSTANTS.CLASSIC_ORDER_DETAIL_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        response = self._order_status_request_open_mock_response(order=order)
+        response["data"]["state"] = "not_a_status"
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        order_update = self.async_run_with_timeout(self.exchange._request_order_status(order))
+
+        self.assertEqual(order.current_state, order_update.new_state)

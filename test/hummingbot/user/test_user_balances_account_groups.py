@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 from hummingbot.user.user_balances import UserBalances
 
@@ -84,9 +84,20 @@ class UserBalancesAccountGroupTests(unittest.TestCase):
 
         self.assertEqual({"bitget": "bitget_perpetual"}, reversed_order)
 
+    def test_a_connector_failing_to_name_its_account_is_counted_on_its_own(self):
+        """One connector's account_group_id raising must not break the balance report for the others."""
+        failing = MagicMock()
+        type(failing).account_group_id = PropertyMock(side_effect=RuntimeError("account id unavailable"))
+        self.user_balances._markets = {
+            "bitget": failing,
+            "bitget_perpetual": self._connector("bitget_uta:abc123"),
+        }
 
-if __name__ == "__main__":
-    unittest.main()
+        self.assertIsNone(self.user_balances.account_group_id("bitget"))
+        self.assertEqual(
+            {},
+            self.user_balances.duplicate_account_sources(["bitget", "bitget_perpetual"]),
+        )
 
 
 class SharedAccountTotalsTests(unittest.TestCase):
@@ -131,3 +142,7 @@ class SharedAccountTotalsTests(unittest.TestCase):
         # The JSON path used to sum every connector, inflating the total past the rendered one.
         self.assertEqual(98.35, payload["net_value_total"])
         self.assertEqual("bitget", payload["connectors"]["bitget_perpetual"]["duplicate_of"])
+
+
+if __name__ == "__main__":
+    unittest.main()
