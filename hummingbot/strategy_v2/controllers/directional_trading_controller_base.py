@@ -13,7 +13,7 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import (
     TrailingStop,
     TripleBarrierConfig,
 )
-from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.utils.common import parse_enum_value
 
 
@@ -75,6 +75,12 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             "prompt": "Enter the time limit in seconds (e.g., 2700 for 45 minutes): ",
             "prompt_on_new": True, "is_updatable": True}
     )
+    open_order_type: OrderType = Field(
+        default=OrderType.MARKET,
+        json_schema_extra={
+            "prompt": "Enter the order type for opening position (LIMIT/LIMIT_MAKER/MARKET): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     take_profit_order_type: OrderType = Field(
         default=OrderType.LIMIT,
         json_schema_extra={
@@ -107,14 +113,14 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    @field_validator('take_profit_order_type', mode="before")
+    @field_validator('open_order_type', 'take_profit_order_type', mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if v is None:
             return OrderType.MARKET
         if isinstance(v, str):
             v = v.replace("OrderType.", "")
-        return parse_enum_value(OrderType, v, "take_profit_order_type")
+        return parse_enum_value(OrderType, v, "order_type")
 
     @field_validator('position_mode', mode="before")
     @classmethod
@@ -128,7 +134,7 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             take_profit=self.take_profit,
             time_limit=self.time_limit,
             trailing_stop=self.trailing_stop,
-            open_order_type=OrderType.MARKET,  # Defaulting to MARKET as is a Taker Controller
+            open_order_type=self.open_order_type,
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
@@ -186,6 +192,12 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         Check if an executor can be created based on the signal, the quantity of active executors and the cooldown time.
         """
+        if self.config.position_mode == PositionMode.ONEWAY:
+            live_executors = self.filter_executors(
+                executors=self.executors_info,
+                filter_func=lambda x: x.is_active or not x.is_done)
+            if len(live_executors) > 0:
+                return False
         active_executors_by_signal_side = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
@@ -199,6 +211,16 @@ class DirectionalTradingControllerBase(ControllerBase):
         Stop actions based on the provided executor handler report.
         """
         stop_actions = []
+        signal = self.processed_data.get("signal", 0)
+        if self.config.position_mode == PositionMode.ONEWAY and signal != 0:
+            opposing_side = TradeType.SELL if signal > 0 else TradeType.BUY
+            opposing_active_executors = self.filter_executors(
+                executors=self.executors_info,
+                filter_func=lambda x: x.is_active and (x.side or getattr(x.config, "side", None)) == opposing_side)
+            stop_actions.extend([
+                StopExecutorAction(controller_id=self.config.id, executor_id=executor.id)
+                for executor in opposing_active_executors
+            ])
         return stop_actions
 
     def get_executor_config(self, trade_type: TradeType, price: Decimal, amount: Decimal):

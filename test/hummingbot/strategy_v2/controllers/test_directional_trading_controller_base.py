@@ -10,7 +10,9 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
     DirectionalTradingControllerConfigBase,
 )
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
-from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
+from hummingbot.strategy_v2.models.base import RunnableStatus
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
+from hummingbot.strategy_v2.models.executors_info import ExecutorInfo
 
 
 class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
@@ -88,6 +90,67 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(config.take_profit, Decimal("0.02"))
         self.assertEqual(config.time_limit, 2700)
         self.assertEqual(config.trailing_stop, None)
+        self.assertEqual(config.open_order_type, OrderType.MARKET)
+
+        custom_config = DirectionalTradingControllerConfigBase(
+            id="test_custom",
+            controller_name="directional_trading_test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            open_order_type=OrderType.LIMIT_MAKER,
+        )
+        self.assertEqual(custom_config.triple_barrier_config.open_order_type, OrderType.LIMIT_MAKER)
+
+    def test_oneway_mode_blocks_opposing_executor_and_emits_stop_action(self):
+        self.mock_controller_config.position_mode = PositionMode.ONEWAY
+        active_sell_executor = ExecutorInfo(
+            id="exec-sell-1",
+            timestamp=1000,
+            type="position_executor",
+            status=RunnableStatus.RUNNING,
+            config=PositionExecutorConfig(
+                timestamp=1000,
+                trading_pair="ETH-USDT",
+                connector_name="binance_perpetual",
+                side=TradeType.SELL,
+                entry_price=Decimal("2500"),
+                amount=Decimal("1"),
+            ),
+            net_pnl_pct=Decimal("0"),
+            net_pnl_quote=Decimal("0"),
+            cum_fees_quote=Decimal("0"),
+            filled_amount_quote=Decimal("2500"),
+            is_active=True,
+            is_trading=True,
+            custom_info={"side": TradeType.SELL},
+        )
+        self.controller.executors_info = [active_sell_executor]
+        self.controller.processed_data = {"signal": 1}
+        self.controller.market_data_provider.time = MagicMock(return_value=2000)
+
+        self.assertFalse(self.controller.can_create_executor(signal=1))
+        stop_actions = self.controller.stop_actions_proposal()
+        self.assertEqual(len(stop_actions), 1)
+        self.assertIsInstance(stop_actions[0], StopExecutorAction)
+        self.assertEqual(stop_actions[0].executor_id, "exec-sell-1")
+
+        shutting_down_executor = ExecutorInfo(
+            id="exec-sell-1",
+            timestamp=1000,
+            type="position_executor",
+            status=RunnableStatus.SHUTTING_DOWN,
+            config=active_sell_executor.config,
+            net_pnl_pct=Decimal("0"),
+            net_pnl_quote=Decimal("0"),
+            cum_fees_quote=Decimal("0"),
+            filled_amount_quote=Decimal("2500"),
+            is_active=False,
+            is_trading=False,
+            custom_info={"side": TradeType.SELL},
+        )
+        self.controller.executors_info = [shutting_down_executor]
+        self.assertFalse(self.controller.can_create_executor(signal=1))
+        self.assertEqual(len(self.controller.stop_actions_proposal()), 0)
 
     def test_update_markets_new_connector(self):
         markets = MarketDict()
