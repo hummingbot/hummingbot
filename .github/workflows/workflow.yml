@@ -35,7 +35,8 @@ jobs:
     name: Hummingbot build + stable tests
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
-    runs-on: ubuntu-latest
+    # Uses the runner's preinstalled Miniconda ($CONDA), which ubuntu-26.04 does not ship
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v6
