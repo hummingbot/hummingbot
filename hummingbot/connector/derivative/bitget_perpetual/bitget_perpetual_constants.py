@@ -30,6 +30,8 @@ INSTRUMENT_STATUS_ONLINE = "online"
 MAX_PAGINATION_PAGES = 20
 # Rows requested per page; a shorter page means the last one.
 PAGINATION_LIMIT = 100
+# How far back the funding-payment lookup reads the financial records when no settlement turns up sooner.
+FUNDING_PAYMENT_LOOKBACK_SECONDS = 24 * 60 * 60
 
 ORDER_ID_MAX_LEN = None
 HBOT_ORDER_ID_PREFIX = ""

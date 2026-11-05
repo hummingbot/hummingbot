@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from bidict import bidict
 
@@ -628,7 +628,11 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
             self._account_balances[coin] = new_total
 
     async def _paginated_rows(
-        self, path_url: str, params: Dict[str, Any], limit_id: Optional[str] = None
+        self,
+        path_url: str,
+        params: Dict[str, Any],
+        limit_id: Optional[str] = None,
+        stop_after: Optional[Callable[[List[Dict[str, Any]]], bool]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Reads every page of a cursor-paginated V3 response.
@@ -647,6 +651,7 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
         :param path_url: the endpoint to read
         :param params: query parameters, without a cursor
         :param limit_id: the throttler limit id, when it differs from path_url
+        :param stop_after: called with each page's rows; returning True ends the read after that page
         :return: the concatenated rows from every page
         """
         rows: List[Dict[str, Any]] = []
@@ -682,7 +687,7 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
 
             rows.extend(page_rows)
 
-            if len(page_rows) < page_size or not cursor:
+            if len(page_rows) < page_size or not cursor or (stop_after is not None and stop_after(page_rows)):
                 break
         else:
             self.logger().warning(
@@ -1043,16 +1048,25 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
         # isolated). The endpoint rejects the legacy lowercase single "type" filter with "40020
         # Parameter type error", so we fetch the records unfiltered and pick the latest funding
         # settlement for this symbol locally.
-        # The records are unfiltered, so the settlement being looked for can sit beyond the
-        # first page.
+
+        def is_settlement(record: Dict[str, Any]) -> bool:
+            return record.get("symbol") == symbol and "SETTLE_FEE" in str(record.get("type", ""))
+
+        # The records are unfiltered, so the settlement can sit beyond the first page, but this runs
+        # for every pair at every funding poll. The rows come newest first, so the read stops at the
+        # first settlement, which is the latest, or once rows predate the lookback: an older settlement
+        # is not a payment the poll still has to report.
+        cutoff_ms = (self._time() - CONSTANTS.FUNDING_PAYMENT_LOOKBACK_SECONDS) * 1e3
+
+        def read_enough(page: List[Dict[str, Any]]) -> bool:
+            return any(is_settlement(record) for record in page) or int(page[-1].get("ts") or 0) < cutoff_ms
+
         payment_data = await self._paginated_rows(
             path_url=CONSTANTS.ACCOUNT_BILLS_ENDPOINT,
             params={"category": product_type},
+            stop_after=read_enough,
         )
-        funding_payments = [
-            record for record in payment_data
-            if record.get("symbol") == symbol and "SETTLE_FEE" in str(record.get("type", ""))
-        ]
+        funding_payments = [record for record in payment_data if is_settlement(record)]
 
         if funding_payments:
             last_data = funding_payments[0]

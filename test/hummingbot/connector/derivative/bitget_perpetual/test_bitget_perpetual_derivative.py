@@ -3,7 +3,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -2735,6 +2735,75 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             self.async_run_with_timeout(self.exchange._update_positions())
 
         self.assertIn(btc_key, self.exchange.account_positions)
+
+    def _financial_record(self, record_type: str, ts_ms: int, amount: str = "0.1") -> Dict[str, Any]:
+        return {"id": "1", "category": CONSTANTS.USDT_PRODUCT_TYPE, "symbol": self.exchange_trading_pair,
+                "amount": amount, "fee": "0", "type": record_type, "coin": self.quote_asset, "balance": "100",
+                "ts": str(ts_ms)}
+
+    def _register_financial_record_pages(self, mock_api, *pages) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.ACCOUNT_BILLS_ENDPOINT)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        for rows, cursor in pages:
+            mock_api.get(regex_url, body=json.dumps({
+                "code": "00000", "msg": "success", "data": {"list": rows, "cursor": cursor},
+            }))
+        return url
+
+    @aioresponses()
+    def test_funding_payment_lookup_stops_at_the_latest_settlement(self, mock_api):
+        """
+        The lookup runs for every pair at every funding poll. The records come newest first, so the first
+        settlement for the symbol is the latest one and nothing past its page needs reading.
+        """
+        now = 1_800_000_000
+        self.exchange._time = MagicMock(return_value=now)
+        recent_ms = (now - 3600) * 1000
+        first_page = [self._financial_record("CONTRACT_MAIN_TRADE_FEE", recent_ms)] * (CONSTANTS.PAGINATION_LIMIT - 1)
+        first_page.append(self._financial_record("CONTRACT_MAIN_SETTLE_FEE_USER_OUT", recent_ms, amount="-0.5"))
+        # A second page is registered but must not be read.
+        url = self._register_financial_record_pages(mock_api, (first_page, "page2"), ([], ""))
+
+        timestamp, _, payment = self.async_run_with_timeout(self.exchange._fetch_last_fee_payment(self.trading_pair))
+
+        self.assertEqual(Decimal("-0.5"), payment)
+        self.assertAlmostEqual(now - 3600, timestamp, places=3)
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
+
+    @aioresponses()
+    def test_funding_payment_lookup_reads_past_a_page_without_a_settlement(self, mock_api):
+        """A busy account can push the latest settlement past the first page; it still has to be found."""
+        now = 1_800_000_000
+        self.exchange._time = MagicMock(return_value=now)
+        recent_ms = (now - 3600) * 1000
+        first_page = [self._financial_record("CONTRACT_MAIN_TRADE_FEE", recent_ms)] * CONSTANTS.PAGINATION_LIMIT
+        second_page = [self._financial_record("CONTRACT_MAIN_SETTLE_FEE_USER_IN", recent_ms - 60_000, amount="0.25")]
+        url = self._register_financial_record_pages(mock_api, (first_page, "page2"), (second_page, ""))
+
+        timestamp, _, payment = self.async_run_with_timeout(self.exchange._fetch_last_fee_payment(self.trading_pair))
+
+        self.assertEqual(Decimal("0.25"), payment)
+        self.assertAlmostEqual(now - 3660, timestamp, places=3)
+        self.assertEqual(2, len(self._all_executed_requests(mock_api, url)))
+
+    @aioresponses()
+    def test_funding_payment_lookup_stops_once_records_predate_the_lookback(self, mock_api):
+        """
+        A pair without a recent settlement must not page through the whole history at every poll: a
+        settlement older than the lookback is not a payment the poll still has to report.
+        """
+        now = 1_800_000_000
+        self.exchange._time = MagicMock(return_value=now)
+        old_ms = (now - CONSTANTS.FUNDING_PAYMENT_LOOKBACK_SECONDS - 3600) * 1000
+        first_page = [self._financial_record("CONTRACT_MAIN_TRADE_FEE", old_ms)] * CONSTANTS.PAGINATION_LIMIT
+        older_settlement = [self._financial_record("CONTRACT_MAIN_SETTLE_FEE_USER_OUT", old_ms - 60_000)]
+        url = self._register_financial_record_pages(mock_api, (first_page, "page2"), (older_settlement, ""))
+
+        timestamp, _, payment = self.async_run_with_timeout(self.exchange._fetch_last_fee_payment(self.trading_pair))
+
+        self.assertEqual(0, timestamp)
+        self.assertEqual(Decimal("-1"), payment)
+        self.assertEqual(1, len(self._all_executed_requests(mock_api, url)))
 
     @aioresponses()
     def test_update_positions_skips_instruments_outside_the_symbol_map(self, mock_api):
