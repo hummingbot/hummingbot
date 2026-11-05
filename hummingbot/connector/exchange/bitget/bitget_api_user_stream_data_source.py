@@ -109,8 +109,11 @@ class BitgetAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 error_code = event_message.get("code", "Unknown code")
                 error = f"Failed to subscribe to private channels: {message} ({error_code})"
                 # A rejected subscription leaves the connection up but silent, so raise to let
-                # listen_for_user_stream tear the session down and resubscribe from scratch.
+                # listen_for_user_stream tear the session down and resubscribe from scratch. Pause
+                # first: the listener reconnects a second after the raise, so a rejection that never
+                # clears would otherwise repeat connect, login and subscribe about once a second.
                 self.logger().error(error)
+                await self._sleep(CONSTANTS.WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS)
                 raise IOError(error)
 
             if event_message["event"] == "subscribe":

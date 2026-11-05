@@ -451,7 +451,8 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
     ) -> None:
         """
         A rejected private subscription leaves the connection up but silent, so the listener must
-        tear the session down and reconnect instead of only logging.
+        tear the session down and reconnect instead of only logging. It pauses first, so a
+        rejection that never clears does not reconnect about once a second.
 
         :param mock_ws: Mocked WebSocket connection.
         """
@@ -468,6 +469,14 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             message=json.dumps(error_response)
         )
 
+        async def _sleep(delay: float) -> None:
+            # Return at once from the rejection pause, and park the listener's own retry wait so it
+            # does not reconnect while the test checks what happened.
+            if delay != CONSTANTS.WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS:
+                await asyncio.Event().wait()
+
+        self.data_source._sleep = AsyncMock(side_effect=_sleep)
+        self.data_source._refresh_server_time_offset = AsyncMock()
         self.listening_task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_user_stream(messages)
         )
@@ -486,6 +495,7 @@ class BitgetPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."
             )
         )
+        self.data_source._sleep.assert_any_await(CONSTANTS.WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_authenticate_refreshes_the_server_time_offset_first(

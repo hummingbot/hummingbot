@@ -137,6 +137,8 @@ RET_CODE_API_KEY_INVALID = "40006"
 RET_CODE_CLASSIC_ACCOUNT = "40084"
 # Pause between account mode reads while the user stream listener waits for the first one to succeed.
 ACCOUNT_MODE_RETRY_INTERVAL_SECONDS = 5.0
+# Pause before restarting the private websocket after Bitget rejects a subscription.
+WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS = 10.0
 RET_CODE_AUTH_TIMESTAMP_ERROR = "40005"
 
 # No bare HTTP 404 here: Bitget answers an unknown path with 404/40404, which says nothing about the order

@@ -105,6 +105,8 @@ RET_CODE_OK = "00000"
 RET_CODE_CLASSIC_ACCOUNT = "40084"
 # Pause between account mode reads while the user stream listener waits for the first one to succeed.
 ACCOUNT_MODE_RETRY_INTERVAL_SECONDS = 5.0
+# Pause before restarting the private websocket after Bitget rejects a subscription.
+WS_SUBSCRIPTION_RETRY_INTERVAL_SECONDS = 10.0
 RET_CODE_CHANNEL_NOT_EXIST = "30001"
 RET_CODE_ILLEGAL_REQUEST = "30002"
 RET_CODE_INVALID_OP = "30003"
