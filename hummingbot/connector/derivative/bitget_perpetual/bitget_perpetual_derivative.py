@@ -1271,7 +1271,12 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
 
         margin_amount = (order_amount * order_price) / leverage
         multiplier = Decimal(-1) if order_status == OrderState.OPEN else Decimal(1)
-        self._account_available_balances[symbol] += margin_amount * multiplier
+        # The UTA margin pool is mirrored under every pooled collateral token (see
+        # _set_unified_margin_balances), so an order moves all of them, not only its own margin coin.
+        tokens = self._pooled_margin_tokens if symbol in self._pooled_margin_tokens else {symbol}
+        for token in tokens:
+            if token in self._account_available_balances:
+                self._account_available_balances[token] += margin_amount * multiplier
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """

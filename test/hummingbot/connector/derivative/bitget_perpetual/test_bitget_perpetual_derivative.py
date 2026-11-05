@@ -1743,6 +1743,47 @@ class BitgetPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(Decimal("9000"), self.exchange.available_balances[self.quote_asset])
         self.assertEqual(Decimal("10000"), self.exchange.get_balance(self.quote_asset))
 
+    def test_an_order_event_moves_every_pooled_margin_token(self):
+        """
+        With USDT and USDC pairs traded, the UTA margin pool is reported in full under both tokens, so an
+        order opened against it has to lower both. Otherwise the budget checker approves USDC orders
+        against margin a USDT order already holds, until the next balance poll.
+        """
+        self.exchange._set_current_timestamp(1640780000)
+        pooled_tokens = {self.quote_asset, "USDC"}
+        self.exchange._pooled_margin_tokens = pooled_tokens
+        for token in pooled_tokens:
+            self.exchange._account_balances[token] = Decimal("10000")
+            self.exchange._account_available_balances[token] = Decimal("10000")
+
+        order = InFlightOrder(
+            exchange_order_id="12345",
+            client_order_id="67890",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("1000"),
+            amount=Decimal("1"),
+            position=PositionAction.OPEN,
+            creation_timestamp=1664807277548,
+            initial_state=OrderState.OPEN
+        )
+        mock_response = self.order_event_for_new_order_websocket_update(order)
+        mock_response["data"][0]["leverage"] = "1"
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [mock_response, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        for token in pooled_tokens:
+            self.assertEqual(Decimal("9000"), self.exchange.available_balances[token])
+            self.assertEqual(Decimal("10000"), self.exchange.get_balance(token))
+
     def test_collateral_token_balance_updated_when_processing_order_cancelation_update(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._account_balances[self.quote_asset] = Decimal("10000")
