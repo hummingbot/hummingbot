@@ -1,7 +1,11 @@
 import json
+import math
+import time
 from asyncio import wait_for
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from datetime import timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -9,6 +13,84 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
+
+# Headers exchanges use to say how long to wait before sending again. Retry-After is the
+# standard one (RFC 9110). The others are common but less strictly defined, so they are
+# checked after it.
+_STANDARD_RETRY_AFTER_HEADER = "Retry-After"
+_RETRY_AFTER_HEADERS = (_STANDARD_RETRY_AFTER_HEADER, "RateLimit-Reset", "X-RateLimit-Reset")
+
+# Retry-After is always in seconds, so we wait as long as it says. The other headers are in
+# seconds on some exchanges and milliseconds on others, so if we read the unit wrong a
+# 30s wait could turn into 8 hours. A wait read from them is capped at this. If the real
+# wait is longer, the next request gets another 429 and we pause again.
+_NON_STANDARD_HEADER_MAX_SECONDS = 300.0
+
+# A value this large is a timestamp, not a number of seconds to wait. Some exchanges send
+# the time the limit resets instead of how long to wait, even in headers meant for a delay.
+_EPOCH_THRESHOLD_SECONDS = 1_000_000_000.0
+
+# HTTP statuses that mean we are sending too many requests.
+RATE_LIMITED_STATUSES = (418, 429)
+
+
+def retry_after_from_headers(headers: Mapping[str, Any], now: Optional[float] = None) -> Optional[float]:
+    """Seconds to wait before sending again, read from a 429 response's headers.
+
+    Returns None if there is no such header or its value can't be read. The throttler then
+    waits for the limit's own time window instead.
+    """
+    # When the exchange gives a time rather than a delay, measure it against the exchange's
+    # own clock (the response's Date header) if we have it, so a difference between our
+    # clock and theirs doesn't change how long we wait.
+    server_now = _http_date_to_timestamp(headers.get("Date"))
+    now = server_now if server_now is not None else (time.time() if now is None else now)
+    for name in _RETRY_AFTER_HEADERS:
+        wait = _wait_from_header_value(headers.get(name), now)
+        if wait is None:
+            continue
+        if name != _STANDARD_RETRY_AFTER_HEADER:
+            wait = min(wait, _NON_STANDARD_HEADER_MAX_SECONDS)
+        return wait
+    return None
+
+
+def _wait_from_header_value(raw: Any, now: float) -> Optional[float]:
+    """Seconds to wait for one header value, or None if it can't be read."""
+    if raw is None:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        # Retry-After can also be a date, like "Wed, 21 Oct 2015 07:28:00 GMT".
+        retry_at = _http_date_to_timestamp(raw)
+        return None if retry_at is None else retry_at - now
+    if not math.isfinite(value):
+        # "inf" and "nan" parse as numbers but aren't a real wait.
+        return None
+    if value > _EPOCH_THRESHOLD_SECONDS:
+        # A timestamp. If it's even larger, it's in milliseconds.
+        if value > _EPOCH_THRESHOLD_SECONDS * 1000:
+            value /= 1000.0
+        return value - now
+    return value
+
+
+def _http_date_to_timestamp(raw: Any) -> Optional[float]:
+    """Unix time for an HTTP date header value, or None if it isn't one."""
+    if not isinstance(raw, str):
+        return None
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if parsed is None:
+        # Older Python versions return None instead of raising for an empty or bad value.
+        return None
+    if parsed.tzinfo is None:
+        # HTTP dates are always in GMT.
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
 
 
 class RESTAssistant:
@@ -95,6 +177,13 @@ class RESTAssistant:
             response = await self.call(request=request, timeout=timeout)
 
             if 400 <= response.status:
+                # 429 means too many requests. Binance and some others send 418 once an IP has been
+                # banned for ignoring 429s, also with a Retry-After header.
+                if response.status in RATE_LIMITED_STATUSES:
+                    await self._throttler.pause_after_too_many_requests(
+                        limit_id=throttler_limit_id,
+                        retry_after=retry_after_from_headers(response.headers or {}),
+                    )
                 if not return_err:
                     error_response = await response.text()
                     error_text = "N/A" if "<html" in error_response else error_response
