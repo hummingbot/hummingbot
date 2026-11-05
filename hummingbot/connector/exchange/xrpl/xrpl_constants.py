@@ -127,6 +127,20 @@ CANCEL_MAX_RETRY = 5
 CANCEL_RETRY_INTERVAL = 5  # Seconds between retries
 
 # =============================================================================
+# Orphan Offer Cleanup
+# =============================================================================
+# An offer resting on the ledger that no tracked order owns has no cancel path at all:
+# _place_cancel needs tracked_order.exchange_order_id, so once the tracker loses an order
+# (e.g. across a websocket reconnect) its offer rests indefinitely, holding balance.
+#
+# Seconds an unowned offer must persist, across separate ledger reads, before it is cancelled.
+# The grace matters: a just-placed offer is legitimately unowned for the moment between landing
+# on the ledger and being linked to its tracked order. Set to 0 to disable the sweep entirely.
+ORPHAN_CANCEL_SECONDS = 180
+# Cancel at most this many offers per sweep, so one bad ledger read cannot become a cancel storm.
+ORPHAN_CANCEL_MAX_PER_SWEEP = 3
+
+# =============================================================================
 # Transaction Verification Retry Configuration
 # =============================================================================
 VERIFY_TRANSACTION_MAX_RETRY = 5

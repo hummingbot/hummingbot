@@ -143,6 +143,11 @@ class XrplExchange(ExchangePyBase):
         self._order_status_locks: Dict[str, asyncio.Lock] = {}
         self._order_status_lock_manager_lock = asyncio.Lock()
 
+        # Offer sequences seen on the ledger in the latest balance snapshot, and the first time
+        # each unowned one was noticed — see _cancel_orphan_offers.
+        self._ledger_offer_sequences: Optional[set] = None
+        self._orphan_first_seen: Dict[int, float] = {}
+
         # Worker pools (lazy initialization after start_network)
         self._tx_pool: Optional[XRPLTransactionWorkerPool] = None
         self._query_pool: Optional[XRPLQueryWorkerPool] = None
@@ -409,6 +414,74 @@ class XrplExchange(ExchangePyBase):
         if self._query_pool is None:
             self._query_pool = self._worker_manager.get_query_pool()
         return self._query_pool
+
+    def _tracked_offer_sequences(self) -> set:
+        """Ledger offer sequences that some tracked order claims. Anything else on the book is unowned."""
+        known = set()
+        for order in list(self._order_tracker.all_fillable_orders.values()):
+            eid = order.exchange_order_id
+            if not eid:
+                continue
+            try:
+                known.add(int(str(eid).split("-")[0]))
+            except (TypeError, ValueError):
+                continue
+        return known
+
+    async def _cancel_orphan_offers(self):
+        """Cancel offers resting on the ledger that no tracked order owns.
+
+        _place_cancel needs tracked_order.exchange_order_id, so an order the tracker lost (for
+        example across a websocket reconnect) has no cancel path — not a slow one, none. Its offer
+        rests on the ledger until someone takes it, holding balance the whole time; each such
+        offer shrinks the available balance the strategy can quote with, so the leak compounds.
+
+        Two things keep this from being reckless. An offer must be unowned for
+        ORPHAN_CANCEL_SECONDS across separate ledger reads before it is touched, because an offer
+        is legitimately unowned for the moment between landing and being linked to its tracked
+        order. And the per-sweep cap means one bad ledger read cannot become a cancel storm.
+
+        Note what is NOT claimed: this does not identify orphans as this bot's own. On an account
+        shared by several processes it would cancel the other process's offers — which is why the
+        grace is generous and ORPHAN_CANCEL_SECONDS = 0 switches the sweep off entirely.
+        """
+        grace = CONSTANTS.ORPHAN_CANCEL_SECONDS
+        if grace <= 0:
+            return
+        ledger = getattr(self, "_ledger_offer_sequences", None)
+        if not ledger:
+            return
+
+        unowned = set(ledger) - self._tracked_offer_sequences()
+        seen = self._orphan_first_seen
+        now = time.time()
+        for seq in unowned:
+            seen.setdefault(seq, now)
+        # An offer that became owned, or left the book, starts over if it ever comes back.
+        for seq in [s for s in seen if s not in unowned]:
+            del seen[seq]
+
+        ripe = sorted(s for s, first in seen.items() if now - first >= grace)
+        for seq in ripe[:CONSTANTS.ORPHAN_CANCEL_MAX_PER_SWEEP]:
+            try:
+                await self.tx_pool.submit_transaction(
+                    transaction=OfferCancel(account=self._xrpl_auth.get_account(),
+                                            offer_sequence=int(seq)),
+                    wallet=self._xrpl_auth.get_wallet(),
+                )
+                self.logger().info(
+                    f"Cancelled unowned offer {seq}; it had been on the ledger with no "
+                    f"tracked order for {now - seen[seq]:.0f}s and was holding balance")
+                seen.pop(seq, None)
+            except Exception as e:
+                # Leave it in `seen` so the next sweep retries; do not lose the record of it.
+                self.logger().warning(f"Could not cancel unowned offer {seq}: {e}")
+
+    async def _status_polling_loop_fetch_updates(self):
+        await super()._status_polling_loop_fetch_updates()
+        # Straight after the balance refresh, because _update_balances is what makes
+        # _ledger_offer_sequences current — the comparison is worthless against a stale set.
+        await self._cancel_orphan_offers()
 
     @property
     def verification_pool(self) -> XRPLVerificationWorkerPool:
@@ -2520,6 +2593,10 @@ class XrplExchange(ExchangePyBase):
         )
 
         open_offers = [x for x in objects.result.get("account_objects", []) if x.get("LedgerEntryType") == "Offer"]
+        # Record which offer sequences are actually live on the ledger. _cancel_orphan_offers
+        # compares this set against the order tracker to find offers no tracked order owns.
+        self._ledger_offer_sequences = {o.get("Sequence") for o in open_offers
+                                        if o.get("Sequence") is not None}
 
         if account_lines is not None:
             balances = account_lines.result.get("lines", [])
