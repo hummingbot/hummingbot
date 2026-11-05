@@ -1,6 +1,7 @@
 from hummingbot.core.api_throttler.data_types import RateLimit
 
 EXCHANGE_NAME = "bitmart_perpetual"
+
 BROKER_ID = "hummingbotfound"
 MAX_ORDER_ID_LEN = 32
 
