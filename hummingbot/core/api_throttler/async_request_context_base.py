@@ -2,7 +2,6 @@ import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
-from decimal import Decimal
 from typing import List, Tuple
 
 from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
@@ -19,6 +18,11 @@ class AsyncRequestContextBase(ABC):
     """
 
     _last_max_cap_warning_ts: float = 0.0
+
+    # Max seconds a request that hasn't finished can keep its slot. Stops a task that
+    # never gets marked complete from blocking the limit forever. Kept above aiohttp's
+    # default total timeout (300s) so a REST call that is still open keeps its slot.
+    IN_FLIGHT_HOLD_LIMIT: float = 330.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -49,17 +53,33 @@ class AsyncRequestContextBase(ABC):
         self._lock: asyncio.Lock = lock
         self._safety_margin_pct: float = safety_margin_pct
         self._retry_interval: float = retry_interval
+        # Task logs added by this request, so we can mark them complete when it finishes.
+        self._own_tasks: List[TaskLog] = []
 
     def flush(self):
         """
-        Remove task logs that have passed rate limit periods
-        :return:
+        Remove task logs whose rate limit window has passed.
+
+        A request that hasn't finished yet keeps its slot even after the window passes.
+        Otherwise, when responses are slow, more and more requests pile up at the
+        exchange at the same time.
+
+        Unfinished tasks are still removed after IN_FLIGHT_HOLD_LIMIT seconds, in case
+        one is never marked complete.
         """
-        now: Decimal = Decimal(str(time.time()))
-        self._task_logs[:] = [
-            task for task in self._task_logs
-            if now - Decimal(str(task.timestamp)) <= Decimal(str(task.rate_limit.time_interval * (1 + self._safety_margin_pct)))
-        ]
+        now: float = time.time()
+        retained = []
+        for task in self._task_logs:
+            age = now - task.timestamp
+            window = task.rate_limit.time_interval * (1 + self._safety_margin_pct)
+            if age <= window or (not task.completed and age <= self.IN_FLIGHT_HOLD_LIMIT):
+                retained.append(task)
+            elif not task.completed:
+                self.logger().warning(
+                    f"Freeing a rate limit slot for {task.rate_limit.limit_id} held for {age:.0f}s "
+                    f"by a request that never finished."
+                )
+        self._task_logs[:] = retained
 
     @abstractmethod
     def within_capacity(self) -> bool:
@@ -82,16 +102,22 @@ class AsyncRequestContextBase(ABC):
 
         # Log the acquired rate limit into the tasks log
         new_logs = [
-            TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight)
+            TaskLog(timestamp=now, rate_limit=self._rate_limit, weight=self._rate_limit.weight,
+                    completed=False)
         ] + [
             # Log its related limits into the tasks log as individual tasks
-            TaskLog(timestamp=now, rate_limit=limit, weight=weight)
+            TaskLog(timestamp=now, rate_limit=limit, weight=weight, completed=False)
             for limit, weight in self._related_limits
         ]
         self._task_logs.extend(new_logs)
+        self._own_tasks = new_logs
 
     async def __aenter__(self):
         await self.acquire()
 
     async def __aexit__(self, exc_type, exc, tb):
-        pass
+        # The request is done (or failed or was cancelled), so free its slots.
+        # No lock needed: setting a flag can't be interrupted. Waiting for the lock here
+        # could get cancelled and leave the slot held until IN_FLIGHT_HOLD_LIMIT.
+        for task in self._own_tasks:
+            task.completed = True
