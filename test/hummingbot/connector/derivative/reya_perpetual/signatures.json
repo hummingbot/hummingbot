@@ -1,0 +1,13 @@
+{
+  "PRIVATE_KEY": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "CHAIN_ID": 89346162,
+  "ORDERS_GATEWAY": "0x7Ec89E555c771D2B5939aBE5C4E4291852633D4D",
+  "EXPECTED_SIGNATURES": {
+    "order": "0x8b7d36f622ad44815d66a6f75678f40c99cdb965088bcc857b53db5f8a7b272d0204574e11bb9c8109c132490b7f36ff4dc6ee1e93c277a616cf60c2db26cce61c",
+    "order_sell": "0xf2d69b90a93c361c28a44483d26e6667721f63fb8c8ec1a12106773c663a43972c42d4b2ea68531b9b63d25e3a90cf093892db8983525424a6b0044d4c6d28bf1b",
+    "order_post_only": "0x752574d6c57c9b9736966f7ec318c9a5ee9dc0f1e7ea631b5056061c0241d0bf1cd0cc3b3bd3bbee542c7a95f2bc1ebd85afb25152f4b648f57989063745af9c1c",
+    "order_cancel": "0x90ddba6ff879dee4773c214c927a470720f42378574281866edce100ea8c59d775fb29e4ab6108a9ea84bfe12fffcdbbd6dfff98ea6ae034bbd87f4c21254f941b",
+    "mass_cancel": "0x86d4f060ffbba16698cf8f89fdeabb0397a814be6f54075f908ccbd73894a4227c33b0b77ac8c2e495eca0848e56e60711cd5fa60b657a4ba675fd6bd13be9201b"
+  },
+  "source": "https://github.com/Reya-Labs/reya-python-sdk/blob/9a697b9/tests/parity/test_signature_parity.py"
+}
