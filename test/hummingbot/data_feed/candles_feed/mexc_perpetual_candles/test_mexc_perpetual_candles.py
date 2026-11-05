@@ -1,7 +1,11 @@
 import asyncio
+import re
 from test.hummingbot.data_feed.candles_feed.test_candles_base import TestCandlesBase
 
+from aioresponses import CallbackResult, aioresponses
+
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.data_feed.candles_feed.data_types import HistoricalCandlesConfig
 from hummingbot.data_feed.candles_feed.mexc_perpetual_candles import MexcPerpetualCandles
 
 
@@ -159,3 +163,38 @@ class TestMexcPerpetualCandles(TestCandlesBase):
     @staticmethod
     def _success_subscription_mock():
         return {}
+
+    def test_get_rest_candles_params_sends_start_and_end_in_seconds(self):
+        params = self.data_feed._get_rest_candles_params(start_time=1717632000, end_time=1717642800)
+
+        self.assertEqual({"interval": "Min60", "start": 1717632000, "end": 1717642800}, params)
+
+    @aioresponses()
+    async def test_get_historical_candles_returns_a_window_older_than_the_latest_page(self, mock_api):
+        # Like the venue: the window comes from start/end (seconds), newest 2000 if longer; without them, the latest 2000
+        step = 3600
+        latest = 1792627200
+
+        def kline(first, count):
+            times = [first + i * step for i in range(count)]
+            return {"success": True, "code": 0, "data": {
+                "time": times, "open": [100.0] * count, "close": [100.5] * count, "high": [101.0] * count,
+                "low": [99.0] * count, "vol": [20.0] * count, "amount": [2010.0] * count}}
+
+        def callback(url, **kwargs):
+            query = url.query
+            if "start" in query and "end" in query:
+                first, last = int(query["start"]), int(query["end"])
+                count = min((last - first) // step + 1, 2000)
+                return CallbackResult(payload=kline(last - (count - 1) * step, count))
+            return CallbackResult(payload=kline(latest - 1999 * step, 2000))
+
+        mock_api.get(re.compile(f"^{re.escape(self.data_feed.candles_url)}"), callback=callback, repeat=True)
+
+        start_time = latest - 5000 * step
+        end_time = start_time + 47 * step
+        candles = await self.data_feed.get_historical_candles(HistoricalCandlesConfig(
+            connector_name="mexc_perpetual", trading_pair=self.trading_pair, interval=self.interval,
+            start_time=start_time, end_time=end_time))
+
+        self.assertEqual([start_time + i * step for i in range(48)], candles["timestamp"].astype(int).tolist())
