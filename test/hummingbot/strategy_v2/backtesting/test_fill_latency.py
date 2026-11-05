@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,6 +40,19 @@ class TestFillLatency(unittest.TestCase):
         text = main(sample)
         self.assertEqual("count=4\np50=20\np99=40", text)
         self.assertEqual(text, format_summary(summarize([10, 20, 30, 40])))
+
+    def test_script_process_prints_summary(self):
+        repo = Path(__file__).resolve().parents[4]
+        script = repo / "scripts" / "fill_latency_bench.py"
+        completed = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual("count=4\np50=20\np99=40\n", completed.stdout)
 
     def test_read_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
