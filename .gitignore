@@ -111,3 +111,8 @@ coverage.xml
 
 # GRVT
 /grvt
+
+# Local MCP server registration. It points at whatever harness/agent tooling a
+# developer has checked out, which is not this repo's business — and it is how a
+# `hagent` server pointing at a `harness/` directory ended up committed here.
+.mcp.json

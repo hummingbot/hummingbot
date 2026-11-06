@@ -88,6 +88,40 @@ class PubSubTest(unittest.TestCase):
         listeners = self.pubsub.get_listeners(self.event_tag_zero)
         self.assertEqual(0, len(listeners))
 
+    def _run_pubsub_cycle(self) -> None:
+        pubsub = PubSub()
+        listeners = [EventLogger() for _ in range(4)]
+        for listener in listeners:
+            pubsub.add_listener(self.event_tag_zero, listener)
+        for _ in range(20):
+            pubsub.trigger_event(self.event_tag_zero, self.event)
+        for listener in listeners:
+            pubsub.remove_listener(self.event_tag_zero, listener)
+        del pubsub
+        del listeners
+
+    def test_trigger_event_does_not_pin_listener_weakrefs(self):
+        # Regression test: PyRef::operator= used to skip releasing the previous
+        # reference before rebinding, so each iteration of the listener loop in
+        # c_trigger_event() and c_get_listeners() leaked one reference on the
+        # weakref objects stored in the C++ listener set. Once the listeners
+        # were removed, their weakrefs stayed pinned by the leaked references
+        # and accumulated for the whole life of long-running bots.
+        def count_tracked_weakrefs() -> int:
+            gc.collect()
+            return sum(1 for obj in gc.get_objects() if type(obj) is weakref.ref)
+
+        for _ in range(3):  # warm up lazily created references
+            self._run_pubsub_cycle()
+
+        tracked_weakrefs_before = count_tracked_weakrefs()
+
+        for _ in range(3):
+            self._run_pubsub_cycle()
+
+        tracked_weakrefs_after = count_tracked_weakrefs()
+        self.assertEqual(tracked_weakrefs_before, tracked_weakrefs_after)
+
 
 if __name__ == "__main__":
     unittest.main()

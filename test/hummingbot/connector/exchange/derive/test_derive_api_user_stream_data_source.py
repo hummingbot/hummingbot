@@ -28,12 +28,12 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         cls.quote_asset = "USDC"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.api_key = "someKey"  # noqa: mock
-        cls.sub_id = 45686
+        cls.wallet_address = "someKey"  # noqa: mock
+        cls.subacct_id = 45686
         cls.domain = "derive_testnet"
         cls.account_type = "market_maker"
         cls.trading_required = False
-        cls.api_secret_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
+        cls.session_private_key = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"  # noqa: mock
 
     def setUp(self) -> None:
         super().setUp()
@@ -49,9 +49,9 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             self.mock_time_provider = MagicMock()
             self.mock_time_provider.time.return_value = 1738096054575
             self.auth = DeriveAuth(
-                api_key=self.api_key,
-                api_secret=self.api_secret_key,
-                sub_id=self.sub_id,
+                wallet_address=self.wallet_address,
+                session_private_key=self.session_private_key,
+                subacct_id=self.subacct_id,
                 trading_required=self.trading_required,
                 domain=self.domain
             )
@@ -60,9 +60,9 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
             # Initialize connector and data source
             self.connector = DeriveExchange(
-                derive_api_key=self.api_key,
-                derive_api_secret=self.api_secret_key,
-                sub_id=self.sub_id,
+                derive_wallet_address=self.wallet_address,
+                session_private_key=self.session_private_key,
+                subacct_id=self.subacct_id,
                 account_type=self.account_type,
                 trading_required=self.trading_required,
                 domain=self.domain,
@@ -98,7 +98,7 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
     def get_ws_auth_payload(self):
         return {
             "accept": "application/json",
-            "wallet": self.api_key,
+            "wallet": self.wallet_address,
             "timestamp": "1738096054575",
             "signature": "0x67e1aa8bde8ce8eadeb055587525274b00961d113bdaad226cf17ba43c7ae3556b79ef36506f2429be165874558237044108d2b6b00086b4a5e366c8a0e257371c"  # noqa: mock
         }
@@ -160,14 +160,14 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
         expected_orders_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.sub_id}.orders"],
+                "channels": [f"{self.subacct_id}.orders"],
             }
         }
         self.assertEqual(expected_orders_subscription, sent_subscription_messages[1])
         expected_trades_subscription = {
             "method": "subscribe",
             "params": {
-                "channels": [f"{self.sub_id}.trades"],
+                "channels": [f"{self.subacct_id}.trades"],
             }
         }
         self.assertEqual(expected_trades_subscription, sent_subscription_messages[2])
@@ -210,3 +210,38 @@ class TestDeriveAPIUserStreamDataSource(IsolatedAsyncioWrapperTestCase):
             self._is_logged(
                 "ERROR",
                 "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+
+    async def test_refused_login_reports_the_exchanges_reason(self):
+        """
+        A refused login was logged as "Error authenticating the private websocket connection" on
+        every reconnect, with nothing to say whether the key was unregistered, expired or paired
+        with another wallet.
+        """
+        ws = AsyncMock()
+        self.data_source._auth = MagicMock()
+        self.data_source._auth.get_ws_auth_payload.return_value = {"wallet": "0xW", "timestamp": 1, "signature": "0xS"}
+        with patch("hummingbot.connector.exchange.derive.derive_api_user_stream_data_source.web_utils.utc_now_ms", return_value=1700000000000):
+            for error, expected in (
+                ({"code": 14026, "message": "Session key not found"}, "Derive session key error 14026"),
+                ({"code": 14000, "message": "Account not found"}, "Derive account error 14000"),
+                ({"code": -32603, "message": "Internal error"}, "code=-32603 Internal error"),
+                ({"code": -32603, "message": "Internal error", "data": "upstream timed out"},
+                 "code=-32603 Internal error (upstream timed out)"),
+            ):
+                ws.receive.return_value = MagicMock(data={"id": "1700000000000", "error": error})
+
+                with self.assertRaises(IOError) as context:
+                    await self.data_source._authenticate(ws)
+
+                self.assertIn(expected, str(context.exception))
+                self.assertTrue(any(
+                    record.levelname == "ERROR" and expected in record.getMessage() for record in self.log_records
+                ))
+
+            # An accepted login is silent.
+            ws.receive.return_value = MagicMock(data={"id": "1700000000000", "result": [1]})
+            await self.data_source._authenticate(ws)
+
+        sent = ws.send.call_args.args[0].payload
+        self.assertEqual("public/login", sent["method"])
+        self.assertEqual("1700000000000", sent["id"])

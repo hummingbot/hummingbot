@@ -87,7 +87,7 @@ class Security:
         file_path = get_connector_config_yml_path(connector_name)
         file_path.unlink(missing_ok=True)
         reset_connector_hb_config(connector_name)
-        cls._secure_configs.pop(connector_name)
+        cls._secure_configs.pop(connector_name, None)
 
     @classmethod
     def is_decryption_done(cls):

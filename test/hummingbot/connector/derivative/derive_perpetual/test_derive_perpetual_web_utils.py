@@ -11,11 +11,11 @@ class DerivePeretualpWebUtilsTest(unittest.TestCase):
 
     def test_public_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
-        self.assertEqual("https://api.lyra.finance/public/get_ticker", url)
+        self.assertEqual("https://api.derive.xyz/v3/public/get_ticker", url)
 
     def test_private_rest_url(self):
         url = web_utils.public_rest_url(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL)
-        self.assertEqual("https://api.lyra.finance/public/get_ticker", url)
+        self.assertEqual("https://api.derive.xyz/v3/public/get_ticker", url)
 
     def test_build_api_factory(self):
         api_factory = web_utils.build_api_factory()

@@ -18,7 +18,7 @@ class HyperliquidExchangeInvalidUniverseEntryTests(unittest.TestCase):
         self.exchange = HyperliquidExchange(
             hyperliquid_secret_key="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",  # noqa: mock
             hyperliquid_mode="arb_wallet",
-            hyperliquid_address="test-address",
+            hyperliquid_address="0x836eE2b55d173245832995082a8600709c38D099",
             use_vault=False,
             trading_pairs=[self.trading_pair],
         )
