@@ -18,6 +18,8 @@ from hummingbot.strategy_v2.executors.dca_executor.dca_executor import DCAExecut
 from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator, PositionHold
 from hummingbot.strategy_v2.executors.grid_executor.data_types import GridExecutorConfig
 from hummingbot.strategy_v2.executors.grid_executor.grid_executor import GridExecutor
+from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig
+from hummingbot.strategy_v2.executors.lp_executor.lp_executor import LPExecutor
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConfig
 from hummingbot.strategy_v2.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy_v2.executors.twap_executor.data_types import TWAPExecutorConfig
@@ -399,6 +401,119 @@ class TestExecutorOrchestrator(unittest.TestCase):
 
         asyncio.run(test_async())
 
+    @staticmethod
+    def _make_unfinished_executor(executor_id: str = "unfinished", status: RunnableStatus = RunnableStatus.RUNNING):
+        executor = MagicMock()
+        executor.is_closed = False
+        executor.status = status
+        executor.close_type = None
+        executor.early_stop = MagicMock(return_value=None)
+        executor.force_stop_with_position_hold = MagicMock(return_value=None)
+        executor.executor_info = MagicMock()
+        executor.executor_info.is_done = False
+        executor.executor_info.custom_info = {}
+        executor.config = MagicMock()
+        executor.config.id = executor_id
+        return executor
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_does_not_re_early_stop_shutting_down_executors(self, store_all_executors, store_all_positions):
+        """An executor already SHUTTING_DOWN keeps the close_type its controller chose.
+
+        Re-calling early_stop would overwrite it with the type's default keep_position —
+        e.g. flipping an LP mid-unwind from EARLY_STOP to POSITION_HOLD, which silently
+        skips its close-out swap.
+        """
+        async def test_async():
+            executor = self._make_unfinished_executor("mid-unwind", RunnableStatus.SHUTTING_DOWN)
+            self.orchestrator.active_executors["test"] = [executor]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            executor.early_stop.assert_not_called()
+            executor.force_stop_with_position_hold.assert_called_once()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_force_stops_unfinished_executors_with_position_hold(self, store_all_executors, store_all_positions):
+        async def test_async():
+            executor = self._make_unfinished_executor()
+            self.orchestrator.active_executors["test"] = [executor]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            executor.early_stop.assert_called_once()
+            executor.force_stop_with_position_hold.assert_called_once()
+            store_all_positions.assert_called_once()
+            store_all_executors.assert_called_once()
+            self.assertEqual({}, self.orchestrator.active_executors)
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_extends_wait_while_executor_makes_progress(self, store_all_executors, store_all_positions):
+        """The stall budget resets on observable progress, so a multi-tick unwind that
+        outlives the base budget still finishes without being force-stopped."""
+        async def test_async():
+            executor = self._make_unfinished_executor("slow-unwind", RunnableStatus.SHUTTING_DOWN)
+            # Advance through one custom_info state per poll — more polls than the
+            # stall budget (one attempt = 2 polls) would allow without progress.
+            states = iter(["CLOSING", "CLOSING_CONFIRMING", "SWAPPING", "SWAPPING_CONFIRMING", "COMPLETE"])
+
+            async def advance(_delay):
+                state = next(states, "COMPLETE")
+                executor.executor_info.custom_info = {"state": state}
+                if state == "COMPLETE":
+                    executor.executor_info.is_done = True
+
+            self.orchestrator.active_executors["test"] = [executor]
+            with patch("hummingbot.strategy_v2.executors.executor_orchestrator.asyncio.sleep", side_effect=advance):
+                await self.orchestrator.stop(max_executors_close_attempts=1)
+
+            executor.force_stop_with_position_hold.assert_not_called()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_gives_up_on_stalled_executor(self, store_all_executors, store_all_positions):
+        """No observable progress exhausts the stall budget and triggers the forced stop."""
+        async def test_async():
+            executor = self._make_unfinished_executor("hung", RunnableStatus.SHUTTING_DOWN)
+
+            async def no_progress(_delay):
+                pass
+
+            self.orchestrator.active_executors["test"] = [executor]
+            with patch("hummingbot.strategy_v2.executors.executor_orchestrator.asyncio.sleep", side_effect=no_progress):
+                await self.orchestrator.stop(max_executors_close_attempts=1)
+
+            executor.force_stop_with_position_hold.assert_called_once()
+
+        asyncio.run(test_async())
+
+    @patch.object(ExecutorOrchestrator, "store_all_positions")
+    @patch.object(ExecutorOrchestrator, "store_all_executors")
+    def test_stop_logs_and_continues_when_force_stop_raises(self, store_all_executors, store_all_positions):
+        """One executor failing to force-stop must not prevent the others from being forced."""
+        async def test_async():
+            broken = self._make_unfinished_executor("broken", RunnableStatus.SHUTTING_DOWN)
+            broken.force_stop_with_position_hold.side_effect = RuntimeError("connector already gone")
+            healthy = self._make_unfinished_executor("healthy", RunnableStatus.SHUTTING_DOWN)
+            self.orchestrator.active_executors["test"] = [broken, healthy]
+
+            await self.orchestrator.stop(max_executors_close_attempts=0)
+
+            broken.force_stop_with_position_hold.assert_called_once()
+            healthy.force_stop_with_position_hold.assert_called_once()
+            store_all_executors.assert_called_once()
+
+        asyncio.run(test_async())
+
     def test_stop_executor(self):
         position_executor = MagicMock(spec=PositionExecutor)
         position_executor.is_closed = False
@@ -690,6 +805,111 @@ class TestExecutorOrchestrator(unittest.TestCase):
             trading_pair=trading_pair,
         )
         return executor
+
+    def _build_lp_volume_executor(self):
+        config = LPExecutorConfig(
+            id="lp_volume", timestamp=1234, connector_name="binance", trading_pair="ETH-USDT",
+            lp_provider="orca/clmm", pool_address="test_pool", side=TradeType.RANGE,
+            lower_price=Decimal("90"), upper_price=Decimal("110"),
+            base_amount=Decimal("0.01"), quote_amount=Decimal("1"), keep_position=True,
+        )
+        executor = MagicMock(spec=LPExecutor)
+        executor.config = config
+        executor.is_active = False
+        executor.executor_info = ExecutorInfo(
+            id=config.id, timestamp=1234, type="lp_executor", config=config,
+            status=RunnableStatus.TERMINATED, close_type=CloseType.POSITION_HOLD, controller_id="test",
+            filled_amount_quote=Decimal("65"), net_pnl_quote=Decimal("7"), net_pnl_pct=Decimal("1"),
+            cum_fees_quote=Decimal("0.01"), is_active=False, is_trading=False,
+            custom_info={"held_position_orders": [{
+                "client_order_id": "lp_net_conversion", "trade_type": "BUY",
+                "executed_amount_base": Decimal("0.01"), "executed_amount_quote": Decimal("1"),
+                "cumulative_fee_paid_quote": Decimal("0.01"), "lp_source": True, "lp_net_trade": True,
+            }]},
+        )
+        return executor
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_lp_volume_survives_position_hold_archival_and_reload(self, recorder_mock):
+        recorder = recorder_mock.return_value
+        lp = self._build_lp_volume_executor()
+        swap = self._build_position_hold_executor(
+            "preparation", "binance", "ETH-USDT", TradeType.BUY, "BUY", Decimal("0.02"), Decimal("2"))
+        swap.config = swap.executor_info.config
+        swap.is_active = False
+        self.mock_strategy.controllers = {"test": MagicMock()}
+        self.mock_strategy.current_timestamp = 1234
+        self.orchestrator.active_executors = {"test": [lp, swap]}
+        self.orchestrator.positions_held = {"test": []}
+        self.orchestrator.cached_performance = {"test": PerformanceReport()}
+
+        lp.executor_info.status = RunnableStatus.RUNNING
+        self.assertEqual(self.orchestrator.get_all_reports()["test"]["performance"].volume_traded, Decimal("67"))
+        lp.executor_info.status = RunnableStatus.TERMINATED
+        for _ in range(2):
+            report = self.orchestrator.get_all_reports()["test"]["performance"]
+            self.assertEqual(report.volume_traded, Decimal("67"))
+            self.assertEqual(report.realized_pnl_quote, Decimal("0"))
+
+        held = self.orchestrator.positions_held["test"][0]
+        self.assertEqual(held.net_amount_base, Decimal("0.03"))
+        self.assertEqual(held.buy_amount_quote, Decimal("3"))
+        self.assertEqual(held.cum_fees_quote, Decimal("0.01"))
+        self.assertEqual(held.volume_traded_quote, Decimal("2"))
+
+        for executor in (lp, swap):
+            self.orchestrator.store_executor(StoreExecutorAction(controller_id="test", executor_id=executor.config.id))
+            self.assertEqual(self.orchestrator.get_all_reports()["test"]["performance"].volume_traded, Decimal("67"))
+        self.orchestrator.store_all_positions()
+        saved_position = recorder.update_or_store_position.call_args.args[0]
+        recorder.get_all_executors.return_value = [lp.executor_info, swap.executor_info]
+        recorder.get_all_positions.return_value = [saved_position]
+
+        restored = ExecutorOrchestrator(self.mock_strategy)
+        for _ in range(2):
+            report = restored.get_all_reports()["test"]["performance"]
+            self.assertEqual(report.volume_traded, Decimal("67"))
+            self.assertEqual(report.realized_pnl_quote, Decimal("0"))
+        self.assertEqual(restored.positions_held["test"][0].net_amount_base, Decimal("0.03"))
+
+    def test_lp_synthetic_net_trade_keeps_inventory_and_real_swap_volume(self):
+        lp = self._build_lp_volume_executor()
+        lp.executor_info.custom_info["held_position_orders"].append({
+            "client_order_id": "real_swap", "trade_type": "BUY", "executed_amount_base": Decimal("0.02"),
+            "executed_amount_quote": Decimal("2"), "cumulative_fee_paid_quote": Decimal("0.02"),
+            "lp_source": True,
+        })
+        hold = PositionHold("binance", "ETH-USDT")
+        for _ in range(2):
+            hold.add_orders_from_executor(lp.executor_info)
+        self.assertEqual(hold.volume_traded_quote, Decimal("2"))
+        self.assertEqual(hold.net_amount_base, Decimal("0.03"))
+        self.assertEqual(hold.avg_entry_price, Decimal("100"))
+        self.assertEqual(hold.cum_fees_quote, Decimal("0.03"))
+
+    def test_lp_volume_without_net_inventory_conversion(self):
+        lp = self._build_lp_volume_executor()
+        order = lp.executor_info.custom_info["held_position_orders"][0]
+        order["executed_amount_base"] = Decimal("0")
+        order["executed_amount_quote"] = Decimal("0")
+        self.orchestrator.active_executors = {"test": [lp]}
+        self.orchestrator.positions_held = {"test": []}
+        report = self.orchestrator.get_all_reports()["test"]["performance"]
+        self.assertEqual(report.volume_traded, Decimal("65"))
+        self.assertEqual(self.orchestrator.positions_held["test"][0].net_amount_base, Decimal("0"))
+
+    @patch.object(MarketsRecorder, "get_instance")
+    def test_lp_non_hold_volume_and_pnl_survive_archival(self, recorder_mock):
+        lp = self._build_lp_volume_executor()
+        lp.executor_info.close_type = CloseType.COMPLETED
+        self.orchestrator.active_executors = {"test": [lp]}
+        for stage in ("completed", "archived"):
+            with self.subTest(stage=stage):
+                report = self.orchestrator.get_all_reports()["test"]["performance"]
+                self.assertEqual(report.volume_traded, Decimal("65"))
+                self.assertEqual(report.realized_pnl_quote, Decimal("7"))
+            if stage == "completed":
+                self.orchestrator.store_executor(StoreExecutorAction(controller_id="test", executor_id=lp.config.id))
 
     def test_oneway_perpetual_only_one_position_per_pair(self):
         """In ONEWAY mode, opposite-side executors must merge into a single net position."""

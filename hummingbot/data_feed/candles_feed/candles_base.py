@@ -255,6 +255,7 @@ class CandlesBase(NetworkBase):
                 if len(candles) <= 1 or missing_records == 0:
                     fetched_candles_df = pd.DataFrame(candles, columns=self.columns)
                     candles_df = pd.concat([fetched_candles_df, candles_df])
+                    candles_df.drop_duplicates(subset=["timestamp"], inplace=True)
                     break
                 candles = candles[candles[:, 0] <= current_end_time]
                 current_end_time = self.ensure_timestamp_in_seconds(candles[0][0])
@@ -320,7 +321,9 @@ class CandlesBase(NetworkBase):
         if limit is None:
             limit = self.candles_max_result_per_rest_request
 
-        candles_to_fetch = min(self.candles_max_result_per_rest_request, limit)
+        # Request at least one candle: a zero limit collapses the request window to
+        # start == end, an invalid range for exchanges like Lighter.
+        candles_to_fetch = min(self.candles_max_result_per_rest_request, max(limit, 1))
 
         if end_time is None:
             fixed_start_time = self._calculate_start_time(start_time)

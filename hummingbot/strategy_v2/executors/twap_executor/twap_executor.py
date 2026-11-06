@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import PositionAction, PriceType, TradeType
@@ -218,6 +218,22 @@ class TWAPExecutor(ExecutorBase):
         self._status = RunnableStatus.SHUTTING_DOWN
         self.logger().info("Executor stopped early.")
 
+    def _collect_held_position_orders(self) -> List[Dict]:
+        """Snapshot residual exposure for a forced stop at the shutdown deadline.
+
+        Every tracked order with an executed amount — planned, refreshed, or failed —
+        still represents exposure on the exchange.
+        """
+        held = list(self._held_position_orders)
+        seen = {order.get("client_order_id") for order in held}
+        candidates = list(self._order_plan.values()) + self._refreshed_orders + self._failed_orders
+        for tracked in candidates:
+            if (tracked and tracked.order and tracked.executed_amount_base > Decimal("0")
+                    and tracked.order.client_order_id not in seen):
+                seen.add(tracked.order.client_order_id)
+                held.append(tracked.order.to_json())
+        return held
+
     @property
     def filled_amount_quote(self) -> Decimal:
         return self.get_total_executed_amount_quote()
@@ -295,4 +311,5 @@ class TWAPExecutor(ExecutorBase):
             "current_retries": self._current_retries,
             "max_retries": self._max_retries,
             "order_ids": [order.order_id for order in self._order_plan.values() if order],
+            "held_position_orders": self._held_position_orders,
         }

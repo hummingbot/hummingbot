@@ -190,6 +190,21 @@ class TestStrategyV2Base(IsolatedAsyncioWrapperTestCase):
         for controller in self.strategy.controllers.values():
             controller.stop.assert_called_once()
 
+    async def test_on_stop_restores_missing_market_before_stopping_executors(self):
+        self.strategy.remove_markets([self.connector])
+        self.assertNotIn(self.connector, self.strategy.active_markets)
+
+        async def assert_market_is_registered(*_):
+            self.assertIn(self.connector, self.strategy.active_markets)
+
+        self.strategy.executor_orchestrator.stop = AsyncMock(side_effect=assert_market_is_registered)
+
+        await self.strategy.on_stop()
+
+        self.strategy.executor_orchestrator.stop.assert_awaited_once_with(
+            self.strategy.max_executors_close_attempts)
+        self.assertIn(self.connector, self.strategy.active_markets)
+
     def test_parse_markets_str_valid(self):
         test_input = "binance.JASMY-USDT,RLC-USDT:kucoin.BTC-USDT"
         expected_output = {

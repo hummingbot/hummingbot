@@ -16,97 +16,103 @@ The Hummingbot codebase is free and publicly available under the Apache 2.0 open
 * [Installation](https://hummingbot.org/installation/): Install Hummingbot on various platforms
 * [Discord](https://discord.gg/hummingbot): The main gathering spot for the global Hummingbot community
 * [YouTube](https://www.youtube.com/c/hummingbot): Videos that teach you how to get the most out of Hummingbot
-* [Spotify Podcast - The Bot Pod](https://open.spotify.com/show/1muzSO0SZqYBVQu2DXzGB1?si=ae9a9c0674c64b45): Weekly livestream and podcast by Hummingbot maintainers
 * [Twitter](https://twitter.com/_hummingbot): Get the latest announcements about Hummingbot
 * [Reported Volumes](https://reporting.hummingbot.org/): Reported trading volumes across all Hummingbot instances
 * [Newsletter](https://hummingbot.substack.com): Get our newsletter whenever we ship a new release
 
 ## Getting Started
 
-The easiest way to get started with Hummingbot is using Docker:
+### Condor (AI harness)
 
-* To install the Telegram Bot [Condor](https://github.com/hummingbot/condor), follow the instructions in the [Condor docs](https://hummingbot.org/condor/) site.
+**[Condor](https://github.com/hummingbot/condor)** is the AI harness for building and running agentic strategies and bot instances. It connects LLM-powered decision-making to deterministic trade execution via the Hummingbot API, controlled through Telegram or its web dashboard. See **[condor.hummingbot.org](https://condor.hummingbot.org/)** to get started.
 
-* To install the CLI-based Hummingbot client, follow the instructions below.
+### `hbot` CLI
 
-Alternatively, if you are building new connectors/strategies or adding custom code, see the [Install from Source](https://hummingbot.org/client/installation/#source-installation) section in the documentation.
+The recommended way to run the Hummingbot client directly is the **`hbot` command-line interface**, installed from
+source. `hbot` runs, controls, and monitors a trading bot non-interactively: start/stop a bot, author
+and tune configs, and read trades, PnL, logs, and status — all scriptable, as compact Markdown with
+stable exit codes. See the **[hbot CLI guide](hummingbot/cli/README.md)** for the full reference.
 
-### Install Hummingbot with Docker
-
-Install [Docker Compose website](https://docs.docker.com/compose/install/).
-
-Clone the repo and use the provided `docker-compose.yml` file:
-
-```bash
-# Clone the repository
-git clone https://github.com/hummingbot/hummingbot.git
-cd hummingbot
-
-# Run Setup & Deploy
-make setup
-make deploy
-
-# Attach to the running instance
-docker attach hummingbot
-```
-
-### Install Hummingbot from Source
-
-Clone the repo, install dependencies, and run Hummingbot directly from source:
+Requires [Anaconda or Miniconda](https://www.anaconda.com/download).
 
 ```bash
 # Clone the repository
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
 
-# Install from source
+# Create the conda environment, build extensions, and expose the `hbot` CLI
 make install
 
-# Run Hummingbot
-make run
+# Activate the environment
+conda activate hummingbot
+hbot --help
 ```
 
-### Install Hummingbot + Gateway DEX Middleware
+To use `hbot` outside the conda environment, run `make link-cli` to add it to your host PATH.
 
-Gateway provides standardized connectors for interacting with automatic market maker (AMM) decentralized exchanges (DEXs) across different blockchain networks.
+On first use, `hbot` prompts for a keystore password that encrypts your exchange API keys — set `HBOT_PASSWORD` or pass `--password-stdin` to run non-interactively (e.g. in scripts or agent workflows).
 
-To run Hummingbot with Gateway, clone the repo and answer `y` when prompted after running `make setup`
+Then create a config and run the `simple_pmm` **paper trading script** — it simulates trading against live Binance market data, so no API keys are required:
 
-```yaml
-# Clone the repository
+```bash
+hbot create simple_pmm --name conf_paper_bot.yml \
+     --set exchange=binance_paper_trade --set trading_pair=BTC-USDT
+hbot start conf_paper_bot.yml                          # run it (one bot per install)
+hbot status                                            # check on it
+hbot stop                                              # stop gracefully
+```
+
+To trade **live**, connect your exchange API keys and run a **strategy controller** like `pmm_mister` — a reusable V2 strategy whose settings can be tuned live while the bot runs:
+
+```bash
+hbot connect binance                                   # store API keys (encrypted)
+hbot create pmm_mister --name conf_my_bot.yml \
+     --set connector_name=binance --set trading_pair=BTC-USDT --set total_amount_quote=100
+hbot start conf_my_bot.yml                             # run it (one bot per install)
+```
+
+Full command reference and ontology: **[hbot CLI guide](hummingbot/cli/README.md)**.
+
+### Docker
+
+Prefer containers? `hbot` works the same way — install [Docker Compose](https://docs.docker.com/compose/install/), then:
+
+```bash
 git clone https://github.com/hummingbot/hummingbot.git
 cd hummingbot
-```
-```bash
-make setup
+make setup            # answer `y` to "Include Gateway?" to add the DEX middleware
+make deploy           # start the container (interactive client by default)
+make link-cli         # put the `hbot` command on your host PATH (dispatches into the container)
 
-# Answer `y` when prompted
-Include Gateway? [y/N]
-```
-
-Then run:
-```bash
-make deploy
-
-# Attach to the running instance
-docker attach hummingbot
+hbot --help           # same commands as the source install above
 ```
 
-By default, Gateway will start in development mode with unencrypted HTTP endpoints. To run in production mode with encrypted HTTPS, use the `DEV=false` flag and run `gateway generate-certs` in Hummingbot to generate the certificates needed. See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes) for more information.
+`make link-cli` installs a small wrapper that runs `hbot` inside the container, so every command
+above is identical whether you installed from source or Docker. (Or skip it and use
+`docker exec -it hummingbot hbot <command>`.) To dedicate the container to `hbot` instead of the
+interactive client, uncomment `command: tail -f /dev/null` in `docker-compose.yml` before
+`make deploy` — see [Running in Docker](hummingbot/cli/README.md#running-in-docker).
+
+### Interactive Client (TUI)
+
+The classic full-screen client is the Docker default:
+`make deploy`, then `docker attach hummingbot` — or run it from source with
+`make install && make run`. With Gateway included it starts in development mode
+(unencrypted HTTP); for production HTTPS use the `DEV=false` flag and run `gateway generate-certs`.
+See [Development vs Production Modes](https://hummingbot.org/gateway/installation/#development-vs-production-modes).
 
 ---
 
 For comprehensive installation instructions and troubleshooting, visit our [Installation](https://hummingbot.org/installation/) documentation.
 
-## Getting Help
+## Strategies
 
-If you encounter issues or have questions, here's how you can get assistance:
+Hummingbot offers several frameworks for building and running algorithmic trading strategies — see the [Strategies docs](https://hummingbot.org/strategies/) for a full overview:
 
-* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
-* To report bugs or suggest features, submit a [GitHub issue](https://github.com/hummingbot/hummingbot/issues)
-* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
-
-We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
+* **[Scripts](./scripts)**: Single-file Python strategies — the easiest way to build and customize your own bot. Example: [`simple_pmm.py`](./scripts/simple_pmm.py), a basic market making script.
+* **[Controllers](./controllers)**: Reusable V2 strategies whose configs can be backtested, deployed, and tuned live while running. Example: [`pmm_mister.py`](./controllers/generic/pmm_mister.py), a full-featured market making controller.
+* **[Executors](./hummingbot/strategy_v2/executors)**: Self-contained building blocks that manage order lifecycles for common patterns — position, DCA, grid, arbitrage, XEMM, TWAP, and LP. Example: [`position_executor`](./hummingbot/strategy_v2/executors/position_executor), which manages a directional position with triple-barrier risk controls.
+* **[V1 Strategies](./hummingbot/strategy)**: Classic legacy strategies such as Pure Market Making, Avellaneda Market Making, and Cross-Exchange Market Making. Example: [`cross_exchange_market_making`](./hummingbot/strategy/cross_exchange_market_making), which market makes on one exchange and hedges fills on another.
 
 ## Exchange Connectors
 
@@ -135,29 +141,27 @@ We are grateful for the following exchanges that support the development and mai
 
 | Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
 |------|------|------|-------|----------|
+| [Backpack](https://hummingbot.org/exchanges/backpack/) | CLOB CEX | Spot, Perpetual | `backpack`, `backpack_perpetual` | [![Sign up for Backpack using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://backpack.exchange/join/1tvdqfkk) |
 | [Binance](https://hummingbot.org/exchanges/binance/) | CLOB CEX | Spot, Perpetual | `binance`, `binance_perpetual` | [![Sign up for Binance using Hummingbot's referral link for a 10% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d10%25&color=orange)](https://accounts.binance.com/register?ref=CBWO4LU6) |
-| [BitMart](https://hummingbot.org/exchanges/bitmart/) | CLOB CEX | Spot, Perpetual | `bitmart`, `bitmart_perpetual` | [![Sign up for BitMart using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitmart.com/invite/Hummingbot/en) |
 | [Bitget](https://hummingbot.org/exchanges/bitget/) | CLOB CEX | Spot, Perpetual | `bitget`, `bitget_perpetual` | [![Sign up for Bitget using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.bitget.com/expressly?channelCode=v9cb&vipCode=26rr&languageType=0) |
 | [Derive](https://hummingbot.org/exchanges/derive/) | CLOB DEX | Spot, Perpetual | `derive`, `derive_perpetual` | [![Sign up for Derive using Hummingbot's referral link!](https://img.shields.io/static/v1?label=Sponsor&message=Link&color=orange)](https://www.derive.xyz/invite/7SA0V) |
-| [dYdX](https://hummingbot.org/exchanges/dydx/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | - |
 | [Gate.io](https://hummingbot.org/exchanges/gate-io/) | CLOB CEX | Spot, Perpetual | `gate_io`, `gate_io_perpetual` | [![Sign up for Gate.io using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.gate.io/referral/invite/HBOTGATE_0_103) |
-| [HTX (Huobi)](https://hummingbot.org/exchanges/htx/) | CLOB CEX | Spot | `htx` | [![Sign up for HTX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.htx.com.pk/invite/en-us/1h?invite_code=re4w9223) |
 | [Hyperliquid](https://hummingbot.org/exchanges/hyperliquid/) | CLOB DEX | Spot, Perpetual | `hyperliquid`, `hyperliquid_perpetual` | - |
 | [KuCoin](https://hummingbot.org/exchanges/kucoin/) | CLOB CEX | Spot, Perpetual | `kucoin`, `kucoin_perpetual` | [![Sign up for Kucoin using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.kucoin.com/r/af/hummingbot) |
+| [Meteora](https://hummingbot.org/exchanges/gateway/meteora/) | AMM DEX | CLMM | `meteora` | - |
 | [OKX](https://hummingbot.org/exchanges/okx/) | CLOB CEX | Spot, Perpetual | `okx`, `okx_perpetual` | [![Sign up for OKX using Hummingbot's referral link for a 20% discount!](https://img.shields.io/static/v1?label=Fee&message=%2d20%25&color=orange)](https://www.okx.com/join/1931920269) |
+| [Orca](https://hummingbot.org/exchanges/gateway/orca/) | AMM DEX | CLMM | `orca` | - |
 | [XRP Ledger](https://hummingbot.org/exchanges/xrpl/) | CLOB DEX | Spot | `xrpl` | - |
 
 ### Other Exchange Connectors
 
-Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/governance/) for more information.
+Currently, the master branch of Hummingbot also includes the following exchange connectors, which are maintained and updated through the Hummingbot Foundation governance process. See [Governance](https://hummingbot.org/about/governance/) for more information.
 
 | Exchange | Type | Sub-Type(s) | Connector ID(s) | Discount |
 |------|------|------|-------|----------|
-| [0x Protocol](https://hummingbot.org/exchanges/gateway/0x/) | AMM DEX | Router | `0x` | - |
+| [0x Protocol](https://hummingbot.org/gateway/connectors/) | AMM DEX | Router | `0x` | - |
 | [Aevo](https://hummingbot.org/exchanges/aevo/) | CLOB CEX | Perpetual | `aevo_perpetual` | - |
 | [Architect](https://hummingbot.org/exchanges/architect/) | CLOB CEX | Perpetual | `architect_perpetual` | - |
-| [AscendEx](https://hummingbot.org/exchanges/ascendex/) | CLOB CEX | Spot | `ascend_ex` | - |
-| [Backpack](https://hummingbot.org/exchanges/backpack/) | CLOB CEX | Spot, Perpetual | `backpack`, `backpack_perpetual` | - |
 | [Balancer](https://hummingbot.org/exchanges/gateway/balancer/) | AMM DEX | AMM | `balancer` | - |
 | [BingX](https://hummingbot.org/exchanges/bing_x/) | CLOB CEX | Spot | `bing_x` | - |
 | [Bitrue](https://hummingbot.org/exchanges/bitrue/) | CLOB CEX | Spot | `bitrue` | - |
@@ -165,36 +169,46 @@ Currently, the master branch of Hummingbot also includes the following exchange 
 | [BTC Markets](https://hummingbot.org/exchanges/btc-markets/) | CLOB CEX | Spot | `btc_markets` | - |
 | [Bybit](https://hummingbot.org/exchanges/bybit/) | CLOB CEX | Spot, Perpetual | `bybit`, `bybit_perpetual` | - |
 | [Coinbase](https://hummingbot.org/exchanges/coinbase/) | CLOB CEX | Spot | `coinbase_advanced_trade` | - |
-| [Cube](https://hummingbot.org/exchanges/cube/) | CLOB CEX | Spot | `cube` | - |
 | [Curve](https://hummingbot.org/exchanges/gateway/curve/) | AMM DEX | AMM | `curve` | - |
 | [Decibel](https://hummingbot.org/exchanges/decibel/) | CLOB CEX | Perpetual | `decibel_perpetual` | - |
 | [Dexalot](https://hummingbot.org/exchanges/dexalot/) | CLOB DEX | Spot | `dexalot` | - |
+| [DFlow](https://hummingbot.org/exchanges/gateway/jupiter/#other-solana-routers) | AMM DEX | Router | `dflow` | - |
+| [dYdX](https://hummingbot.org/exchanges/dydx/) | CLOB DEX | Perpetual | `dydx_v4_perpetual` | - |
 | [EVEDEX](https://hummingbot.org/exchanges/evedex/) | CLOB CEX | Perpetual | `evedex_perpetual` | - |
 | [Foxbit](https://hummingbot.org/exchanges/foxbit/) | CLOB CEX | Spot | `foxbit` | - |
+| [Gemini](https://hummingbot.org/exchanges/gemini/) | CLOB CEX | Spot | `gemini` | - |
 | [GRVT](https://hummingbot.org/exchanges/grvt/) | CLOB CEX | Perpetual | `grvt_perpetual` | - |
+| [HTX (Huobi)](https://hummingbot.org/exchanges/htx/) | CLOB CEX | Spot | `htx` | - |
 | [Injective Helix](https://hummingbot.org/exchanges/injective/) | CLOB DEX | Spot, Perpetual | `injective_v2`, `injective_v2_perpetual` | - |
 | [Jupiter](https://hummingbot.org/exchanges/gateway/jupiter/) | AMM DEX | Router | `jupiter` | - |
 | [Kraken](https://hummingbot.org/exchanges/kraken/) | CLOB CEX | Spot | `kraken` | - |
-| [Meteora](https://hummingbot.org/exchanges/gateway/meteora/) | AMM DEX | CLMM | `meteora` | - |
+| [Lambdaplex](https://hummingbot.org/exchanges/lambdaplex/) | CLOB DEX | Spot | `lambdaplex` | - |
+| [Lighter](https://hummingbot.org/exchanges/lighter/) | CLOB DEX | Spot, Perpetual | `lighter`, `lighter_perpetual` | - |
 | [MEXC](https://hummingbot.org/exchanges/mexc/) | CLOB CEX | Spot | `mexc` | - |
 | [NDAX](https://hummingbot.org/exchanges/ndax/) | CLOB CEX | Spot | `ndax` | - |
+| [OKX DEX](https://hummingbot.org/exchanges/gateway/jupiter/#other-solana-routers) | AMM DEX | Router | `okx` | - |
 | [Pacifica](https://hummingbot.org/exchanges/pacifica/) | CLOB CEX | Perpetual | `pacifica_perpetual` | - |
 | [PancakeSwap](https://hummingbot.org/exchanges/gateway/pancakeswap/) | AMM DEX | AMM | `pancakeswap` | - |
-| [QuickSwap](https://hummingbot.org/exchanges/gateway/quickswap/) | AMM DEX | AMM | `quickswap` | - |
 | [Raydium](https://hummingbot.org/exchanges/gateway/raydium/) | AMM DEX | AMM, CLMM | `raydium` | - |
-| [SushiSwap](https://hummingbot.org/exchanges/gateway/sushiswap/) | AMM DEX | AMM | `sushiswap` | - |
-| [Trader Joe](https://hummingbot.org/exchanges/gateway/traderjoe/) | AMM DEX | AMM | `traderjoe` | - |
+| [Titan](https://hummingbot.org/exchanges/gateway/jupiter/#other-solana-routers) | AMM DEX | Router | `titan` | - |
 | [Uniswap](https://hummingbot.org/exchanges/gateway/uniswap/) | AMM DEX | Router, AMM, CLMM | `uniswap` | - |
-| [Vertex](https://hummingbot.org/exchanges/vertex/) | CLOB DEX | Spot | `vertex` | - |
 
 ## Other Hummingbot Repos
 
-* [Condor](https://github.com/hummingbot/condor): Telegram Interface for Hummingbot
+* [Condor](https://github.com/hummingbot/condor): AI harness for building and running agentic strategies and bot instances
 * [Hummingbot API](https://github.com/hummingbot/hummingbot-api): The central hub for running Hummingbot trading bots
-* [Hummingbot MCP](https://github.com/hummingbot/mcp): Enables AI assistants like Claude and Gemini to interact with Hummingbot for automated cryptocurrency trading across multiple exchanges.
-* [Quants Lab](https://github.com/hummingbot/quants-lab): Jupyter notebooks that enable you to fetch data and perform research using Hummingbot
 * [Gateway](https://github.com/hummingbot/gateway): Typescript based API client for DEX connectors
 * [Hummingbot Site](https://github.com/hummingbot/hummingbot-site): Official documentation for Hummingbot - we welcome contributions here too!
+
+## Getting Help
+
+If you encounter issues or have questions, here's how you can get assistance:
+
+* Consult our [FAQ](https://hummingbot.org/faq/), [Troubleshooting Guide](https://hummingbot.org/troubleshooting/), or [Glossary](https://hummingbot.org/glossary/)
+* To report bugs or suggest features, submit a [GitHub issue](https://github.com/hummingbot/hummingbot/issues)
+* Join our [Discord community](https://discord.gg/hummingbot) and ask questions in the #support channel
+
+We pledge that we will not use the information/data you provide us for trading purposes nor share them with third parties.
 
 ## Contributions
 
@@ -202,7 +216,7 @@ The Hummingbot architecture features modular components that can be maintained a
 
 We welcome contributions from the community! Please review these [guidelines](./CONTRIBUTING.md) before submitting a pull request.
 
-To have your exchange connector or other pull request merged into the codebase, please submit a New Connector Proposal or Pull Request Proposal, following these [guidelines](https://hummingbot.org/about/proposals/). Note that you will need some amount of [HBOT tokens](https://etherscan.io/token/0xe5097d9baeafb89f9bcb78c9290d545db5f9e9cb) in your Ethereum wallet to submit a proposal.
+If you represent an exchange that wants an official Hummingbot connector, see [How to Add a Hummingbot Connector](https://hummingbot.org/exchanges/#how-to-add-a-hummingbot-connector) for the available integration options.
 
 ## Legal
 

@@ -14,13 +14,11 @@ if typing.TYPE_CHECKING:  # avoid circular import problems
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.sources.aevo_rate_source import AevoRateSource
 from hummingbot.core.rate_oracle.sources.architect_perpetual_rate_source import ArchitectPerpetualRateSource
-from hummingbot.core.rate_oracle.sources.ascend_ex_rate_source import AscendExRateSource
 from hummingbot.core.rate_oracle.sources.backpack_rate_source import BackpackRateSource
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
 from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRateSource
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
-from hummingbot.core.rate_oracle.sources.cube_rate_source import CubeRateSource
 from hummingbot.core.rate_oracle.sources.decibel_perpetual_rate_source import DecibelPerpetualRateSource
 from hummingbot.core.rate_oracle.sources.derive_rate_source import DeriveRateSource
 from hummingbot.core.rate_oracle.sources.dexalot_rate_source import DexalotRateSource
@@ -43,10 +41,8 @@ RATE_ORACLE_SOURCES = {
     "coin_gecko": CoinGeckoRateSource,
     "coin_cap": CoinCapRateSource,
     "kucoin": KucoinRateSource,
-    "ascend_ex": AscendExRateSource,
     "gate_io": GateIoRateSource,
     "coinbase_advanced_trade": CoinbaseAdvancedTradeRateSource,
-    "cube": CubeRateSource,
     "dexalot": DexalotRateSource,
     "hyperliquid": HyperliquidRateSource,
     "hyperliquid_perpetual": HyperliquidPerpetualRateSource,

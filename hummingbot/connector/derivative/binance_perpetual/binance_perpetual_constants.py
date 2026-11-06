@@ -44,6 +44,12 @@ CHANGE_POSITION_MODE_URL = "v1/positionSide/dual"
 POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
 GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
+# Per-verb limit ids for ORDER_URL: only New Order (POST) consumes the order-count pools;
+# Query Order (GET) and Cancel Order (DELETE) only count against the IP REQUEST_WEIGHT pool.
+GET_ORDER_LIMIT_ID = f"GET{ORDER_URL}"
+POST_ORDER_LIMIT_ID = f"POST{ORDER_URL}"
+DELETE_ORDER_LIMIT_ID = f"DELETE{ORDER_URL}"
+
 # Private API v2 Endpoints
 ACCOUNT_INFO_URL = "v2/account"
 POSITION_INFORMATION_URL = "v2/positionRisk"
@@ -105,10 +111,18 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    # New Order (POST /fapi/v1/order): consumes the order-count pools (IP weight is 0 per doc;
+    # keep weight 1 on REQUEST_WEIGHT as a conservative margin).
+    RateLimit(limit_id=POST_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
                              LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
                              LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
+    # Query Order (GET /fapi/v1/order): weight 1 on IP, does not consume the order-count pools.
+    RateLimit(limit_id=GET_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    # Cancel Order (DELETE /fapi/v1/order): weight 1 on IP, does not consume the order-count pools.
+    RateLimit(limit_id=DELETE_ORDER_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,

@@ -1,8 +1,9 @@
 import importlib
 import inspect
 import os
+from collections import deque
 from decimal import Decimal
-from typing import Dict, List, Optional, Type, Union
+from typing import Deque, Dict, List, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -153,7 +154,20 @@ class BacktestPositionHold:
 class BacktestingEngineBase:
     __controller_class_cache = LazyDict[str, Type[ControllerBase]]()
 
-    def __init__(self):
+    #: Seconds of terminated-executor history exposed to the controller on every tick. The full
+    #: ledger is always kept internally for the results; this only bounds the controller's view so
+    #: a run stays linear in the number of executors instead of quadratic. One hour comfortably
+    #: covers the cooldown/refresh windows the shipped controller bases look back over (the market
+    #: making base cools down for 15s by default, the directional one for 300s).
+    DEFAULT_TERMINATED_EXECUTORS_WINDOW: float = 60 * 60
+
+    def __init__(self, terminated_executors_window: Optional[float] = DEFAULT_TERMINATED_EXECUTORS_WINDOW):
+        """
+        Args:
+            terminated_executors_window: How far back (in seconds of simulated time) terminated
+                executors stay visible in ``controller.executors_info``. Pass ``None`` to hand the
+                controller the full history instead, which is quadratic in the number of executors.
+        """
         self.controller = None
         self.backtesting_resolution = None
         self.backtesting_data_provider = BacktestingDataProvider(connectors={})
@@ -161,6 +175,8 @@ class BacktestingEngineBase:
         self.dca_executor_simulator = DCAExecutorSimulator()
         self.grid_executor_simulator = GridExecutorSimulator()
         self.order_executor_simulator = OrderExecutorSimulator()
+        self.terminated_executors_window = terminated_executors_window
+        self._reset_simulation_state()
 
     @classmethod
     def load_controller_config(cls,
@@ -261,15 +277,7 @@ class BacktestingEngineBase:
             List[ExecutorInfo]: List of executor information objects detailing the simulation results.
         """
         processed_features = self.prepare_market_data()
-        self.active_executor_simulations: List[ExecutorSimulation] = []
-        self.stopped_executors_info: List[ExecutorInfo] = []
-        self.active_position_holds: Dict[str, BacktestPositionHold] = {}
-        self._position_hold_processed_ids: set = set()
-        self._pending_position_hold_executors: List[ExecutorInfo] = []
-        self.position_held_timeseries: List[Dict] = []
-        self.pnl_timeseries: List[Dict] = []
-        self._executor_realized_pnl = 0.0
-        self._cumulative_volume = 0.0
+        self._reset_simulation_state()
         last_index = processed_features.index[-1]
         for i, row in processed_features.iterrows():
             await self.update_state(row)
@@ -282,9 +290,76 @@ class BacktestingEngineBase:
                 elif isinstance(action, StopExecutorAction):
                     self.handle_stop_action(action, row["timestamp"])
 
+        # Closing tick: everything determine_executor_actions() did on the last row happened
+        # after that tick's update_executors_info(). Give the engine one last look so those
+        # executors are terminated, booked into the running totals and — when they keep their
+        # position — routed to the position-hold ledger, exactly as on any other tick. Without
+        # it a maker order created and filled on the last row reached the ledger as a
+        # POSITION_HOLD whose exposure no BacktestPositionHold ever accounted for, so its fill
+        # was dropped from both the executor PnL and the position summaries.
+        self.update_executors_info(last_index)
         # Final flush: convert any last-tick POSITION_HOLD executors into position holds
         self._update_positions_from_stopped_executors()
-        return self.controller.executors_info
+        return self.collect_executors_ledger(last_index)
+
+    def _reset_simulation_state(self):
+        """Reset every accumulator a single backtesting run writes to."""
+        self.active_executor_simulations: List[ExecutorSimulation] = []
+        self.stopped_executors_info: List[ExecutorInfo] = []
+        self.active_position_holds: Dict[str, BacktestPositionHold] = {}
+        self._position_hold_processed_ids: set = set()
+        self._pending_position_hold_executors: List[ExecutorInfo] = []
+        self.position_held_timeseries: List[Dict] = []
+        self.pnl_timeseries: List[Dict] = []
+        self._executor_realized_pnl = 0.0
+        self._cumulative_volume = 0.0
+        # Time-windowed view of terminated executors handed to the controller: the oldest ones
+        # fall out of the left end. ``None`` means the controller gets the whole ledger.
+        self._terminated_executors_view: Optional[Deque[ExecutorInfo]] = (
+            None if self.terminated_executors_window is None else deque())
+
+    def collect_executors_ledger(self, timestamp: float) -> List[ExecutorInfo]:
+        """The run ledger at ``timestamp``: every executor of the run, terminated or not.
+
+        This is what ``simulate_execution`` returns and what the results are summarized from, so
+        it must stay complete regardless of how much of it the controller gets to see. It is built
+        from the two places an executor can live rather than from the view the controller was last
+        handed, so executors the controller created or stopped on the closing tick — after that
+        tick's ``update_executors_info()`` had already run — are reported too.
+
+        A simulation is either still in ``active_executor_simulations`` or has been moved to
+        ``stopped_executors_info``, never both, so nothing is counted twice.
+        """
+        still_simulating = [simulation.get_executor_info_at_timestamp(timestamp)
+                            for simulation in self.active_executor_simulations]
+        return still_simulating + self.stopped_executors_info
+
+    def _record_terminated_executor(self, executor_info: ExecutorInfo):
+        """Add a terminated executor to the complete ledger and to the controller's bounded view.
+
+        Every close type goes into the view, POSITION_HOLD included. Their exposure is indeed
+        already tracked by the position-hold ledger and surfaced through
+        ``controller.positions_held``, but controllers read more than exposure off a terminated
+        executor: a market maker on top of OrderExecutor sees a *filled* maker order as a
+        POSITION_HOLD termination, and that is the very event its cooldown keys off before
+        re-quoting the level. Dropping them would silently change quoting behaviour. The time
+        window is what bounds the list; the close type does not need to.
+        """
+        self.stopped_executors_info.append(executor_info)
+        if self._terminated_executors_view is not None:
+            self._terminated_executors_view.append(executor_info)
+
+    def _prune_terminated_executors_view(self, timestamp: float):
+        """Drop terminated executors that closed longer ago than the configured window."""
+        if self._terminated_executors_view is None:
+            return
+        cutoff = timestamp - self.terminated_executors_window
+        while self._terminated_executors_view:
+            oldest = self._terminated_executors_view[0]
+            close_timestamp = oldest.close_timestamp if oldest.close_timestamp is not None else oldest.timestamp
+            if close_timestamp >= cutoff:
+                break
+            self._terminated_executors_view.popleft()
 
     async def update_state(self, row):
         key = f"{self.controller.config.connector_name}_{self.controller.config.trading_pair}"
@@ -341,7 +416,7 @@ class BacktestingEngineBase:
         for executor in self.active_executor_simulations:
             executor_info = executor.get_executor_info_at_timestamp(timestamp)
             if executor_info.status == RunnableStatus.TERMINATED:
-                self.stopped_executors_info.append(executor_info)
+                self._record_terminated_executor(executor_info)
                 simulations_to_remove.append(executor.config.id)
                 self._cumulative_volume += float(executor_info.filled_amount_quote)
                 if executor_info.close_type == CloseType.POSITION_HOLD and executor_info.filled_amount_quote > 0:
@@ -356,7 +431,10 @@ class BacktestingEngineBase:
             else:
                 active_executors_info.append(executor_info)
         self.active_executor_simulations = [es for es in self.active_executor_simulations if es.config.id not in simulations_to_remove]
-        self.controller.executors_info = active_executors_info + self.stopped_executors_info
+        self._prune_terminated_executors_view(timestamp)
+        terminated_view = (self.stopped_executors_info if self._terminated_executors_view is None
+                           else list(self._terminated_executors_view))
+        self.controller.executors_info = active_executors_info + terminated_view
 
     async def update_processed_data(self, row: pd.Series):
         """
@@ -516,7 +594,7 @@ class BacktestingEngineBase:
                     executor_info.close_type = CloseType.EARLY_STOP
                     self._executor_realized_pnl += float(executor_info.net_pnl_quote)
 
-                self.stopped_executors_info.append(executor_info)
+                self._record_terminated_executor(executor_info)
                 self.active_executor_simulations.remove(executor)
                 return
 
@@ -580,17 +658,19 @@ class BacktestingEngineBase:
                 returns = pnl_series / float(total_amount_quote)
                 sharpe_ratio = float(returns.mean() / returns.std()) if returns.std() > 0 else 0
             elif total_positions > 0:
-                cumulative_returns = non_hold_with_position["net_pnl_quote"].cumsum()
+                # net_pnl_quote / filled_amount_quote come from ExecutorInfo as Decimal; cast once
+                # here so the whole branch stays in floats, like the pnl_timeseries branch above.
+                cumulative_returns = non_hold_with_position["net_pnl_quote"].astype(float).cumsum()
                 non_hold_with_position = non_hold_with_position.copy()
                 non_hold_with_position["cumulative_returns"] = cumulative_returns
-                non_hold_with_position["cumulative_volume"] = non_hold_with_position["filled_amount_quote"].cumsum()
-                non_hold_with_position["inventory"] = total_amount_quote + cumulative_returns
+                non_hold_with_position["cumulative_volume"] = non_hold_with_position[
+                    "filled_amount_quote"].astype(float).cumsum()
+                non_hold_with_position["inventory"] = float(total_amount_quote) + cumulative_returns
                 peak = np.maximum.accumulate(cumulative_returns)
                 drawdown = cumulative_returns - peak
                 max_draw_down = float(np.min(drawdown))
                 max_drawdown_pct = max_draw_down / non_hold_with_position["inventory"].iloc[0]
-                returns = pd.to_numeric(
-                    non_hold_with_position["cumulative_returns"] / non_hold_with_position["cumulative_volume"])
+                returns = non_hold_with_position["cumulative_returns"] / non_hold_with_position["cumulative_volume"]
                 sharpe_ratio = float(returns.mean() / returns.std()) if len(returns) > 1 else 0
             else:
                 max_draw_down = 0

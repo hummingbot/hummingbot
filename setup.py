@@ -23,7 +23,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20260616"
+    version = "20260922"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = [
         "hummingbot.connector.gateway.clob_spot.data_sources.injective",
@@ -52,6 +52,7 @@ def main():
         "base58>=2.1.1",
         "bidict>=0.22.1",
         "bip-utils",
+        "Brotli>=1.2.0",
         "cachetools>=5.3.1",
         "cryptography>=41.0.2",
         "decibel-python-sdk==0.2.1",
@@ -80,12 +81,13 @@ def main():
         "tabulate==0.9.0",
         "TA-Lib>=0.6.4",
         "tqdm>=4.67.1",
+        "typer>=0.9.0",
         "ujson>=5.7.0",
         "urllib3>=1.26.15,<2.0",
         "web3",
         "xrpl-py>=4.4.0",
         "PyYaml>=0.2.5",
-        "lighter-sdk==1.0.8"
+        "lighter-sdk==1.1.2"
     ]
 
     # --- 1. Define Flags (But don't pass them to Cython yet) ---
