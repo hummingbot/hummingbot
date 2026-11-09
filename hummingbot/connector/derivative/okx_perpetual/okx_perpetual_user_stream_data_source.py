@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
@@ -7,7 +7,7 @@ from hummingbot.connector.derivative.okx_perpetual import (
 )
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth import OkxPerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSPlainTextRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -160,8 +160,13 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     websocket_assistant=websocket_assistant,
                     queue=queue)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"ping"})
+                ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(ping_request)
+
+    async def _process_event_message(self, event_message: Union[str, Dict[str, Any]], queue: asyncio.Queue):
+        if event_message == "pong":
+            return
+        await super()._process_event_message(event_message=event_message, queue=queue)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass  # unused
