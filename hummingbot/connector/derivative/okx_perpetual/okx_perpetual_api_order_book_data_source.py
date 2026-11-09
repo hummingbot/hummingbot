@@ -51,7 +51,13 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         ct_val = self._trading_rules[ex_trading_pair]
         snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_data: Dict[str, Any] = snapshot_response['data'][0]
-        snapshot_timestamp: float = int(snapshot_data["ts"])
+        # OKX V5 returns `ts` in milliseconds; the OrderBookMessage.timestamp
+        # field is expected to be in seconds, matching every other source
+        # consumed by the order book tracker. The okx (spot) OBDS already
+        # does this scaling on every analogous path; this perpetual OBDS was
+        # missing it on every path, leaving its timestamps ~1000x too large
+        # and incomparable with any WS-side message.
+        snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
         update_id: int = int(snapshot_timestamp)
 
         order_book_message_content = {
@@ -325,7 +331,8 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         await self._set_trading_rules()
 
         for diff_data in diff_updates:
-            timestamp: float = int(diff_data["ts"])
+            # OKX V5 ts is milliseconds; downstream expects seconds (see _order_book_snapshot).
+            timestamp: float = int(diff_data["ts"]) * 1e-3
             update_id: int = int(timestamp)
             ex_trading_pair = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
@@ -348,7 +355,8 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["arg"]["instId"])
         snapshot_data = raw_message["data"][0]
-        snapshot_timestamp: float = int(snapshot_data["ts"])
+        # OKX V5 ts is milliseconds; downstream expects seconds (see _order_book_snapshot).
+        snapshot_timestamp: float = int(snapshot_data["ts"]) * 1e-3
         update_id: int = int(snapshot_timestamp)
 
         order_book_message_content = {
@@ -380,7 +388,8 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trade_message: Optional[OrderBookMessage] = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
                 content=message_content,
-                timestamp=(int(trade_data["ts"])))
+                # OKX V5 ts is milliseconds; downstream expects seconds.
+                timestamp=int(trade_data["ts"]) * 1e-3)
 
             message_queue.put_nowait(trade_message)
 

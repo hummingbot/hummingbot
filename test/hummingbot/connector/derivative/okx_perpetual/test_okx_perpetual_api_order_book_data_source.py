@@ -415,7 +415,10 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         order_book = await self.data_source.get_new_order_book(self.trading_pair)
 
-        expected_update_id = int(float(resp["data"][0]["ts"]))
+        # OKX V5 ts is milliseconds; the OBDS now scales to seconds before
+        # using the value as both timestamp and update_id, so the expected
+        # update_id is int(ts_ms * 1e-3), not the pre-fix int(ts_ms).
+        expected_update_id = int(float(resp["data"][0]["ts"]) * 1e-3)
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
@@ -654,7 +657,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(trade_event["data"][0]["tradeId"], msg.trade_id)
-        self.assertEqual(int(trade_event["data"][0]["ts"]), msg.timestamp)
+        # OKX V5 trade ts is milliseconds; OrderBookMessage.timestamp is seconds.
+        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
 
     async def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -706,8 +710,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(int(diff_event["data"][0]["ts"]), msg.timestamp)
-        expected_update_id = int(int(diff_event["data"][0]["ts"]))
+        # OKX V5 diff ts is milliseconds; OrderBookMessage.timestamp is seconds.
+        self.assertEqual(int(diff_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        expected_update_id = int(int(diff_event["data"][0]["ts"]) * 1e-3)
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
@@ -794,8 +799,9 @@ class OKXPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(int(snapshot_event["data"][0]["ts"]), msg.timestamp)
-        expected_update_id = int(int(snapshot_event["data"][0]["ts"]))
+        # OKX V5 snapshot ts is milliseconds; OrderBookMessage.timestamp is seconds.
+        self.assertEqual(int(snapshot_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        expected_update_id = int(int(snapshot_event["data"][0]["ts"]) * 1e-3)
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
