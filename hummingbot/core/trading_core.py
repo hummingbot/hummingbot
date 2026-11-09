@@ -485,6 +485,7 @@ class TradingCore:
             # Start rate oracle (required for PNL calculation)
             RateOracle.get_instance().start()
 
+            self.start_time = time.time() * 1e3
             self._strategy_running = True
 
             self.logger().info(f"Strategy {strategy_name} started successfully")
