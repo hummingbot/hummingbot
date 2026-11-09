@@ -598,6 +598,13 @@ class BitgetPerpetualDerivative(BitgetPerpetualClassicAccountMixin, PerpetualDer
         under the collateral token of the USDT- and USDC-margined pairs traded, USDT when none is configured.
         When that is both, they share one budget (see BitgetPerpetualBudgetChecker). A coin-margined
         pair keeps its coin's own balance; the rest of the wallet is the spot connector's to list.
+
+        Listing the pool under each traded collateral token is deliberate: per-pair readers (order sizing,
+        the history command's PerformanceMetrics) look up the pair's own collateral token. A reader that adds
+        up every balance of a connector trading both USDT- and USDC-margined pairs, or a coin-margined pair,
+        therefore counts the pool more than once. Account totals do not: the balance command builds its
+        connectors without trading pairs, so the pool is listed once under USDT, and account_group_id counts
+        a UTA wallet shared with the spot connector once.
         """
         pairs = [split_hb_trading_pair(trading_pair) for trading_pair in self._trading_pairs or []]
         margin_tokens = {quote for _, quote in pairs if quote in ("USDT", "USDC")} or {"USDT"}
