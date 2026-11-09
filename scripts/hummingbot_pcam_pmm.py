@@ -1,4 +1,3 @@
-```python
 """
 NEOMA P-CAM Shock-Damped Pure Market Making (PMM) Strategy for Hummingbot
 Protects passive liquidity orders from toxic sweeps using 15µs physical relaxation.
@@ -64,10 +63,11 @@ class PCAMHummingbotStrategy(StrategyV2Base):
         self.last_velocity = 0.0
         self.last_timestamp = time.perf_counter()
 
-        # P-CAM 상태 변수
+        # P-CAM 상태 변수 (초기 상태는 안전하지 않음으로 간주하여 첫 응답 전 주문 생성 방지)
         self.current_zeta = 1.0
-        self.should_cancel = False
-        self.api_failed = False
+        self.should_cancel = True
+        self.api_failed = True
+        self.is_safe_to_trade = False
         self.query_task = None
 
     def on_tick(self):
@@ -81,7 +81,7 @@ class PCAMHummingbotStrategy(StrategyV2Base):
         connector = self.connectors[self.config.exchange]
         order_book = connector.get_order_book(self.config.trading_pair)
 
-        # 1. 실시간 오더북 최우선 호가 및 볼륨 조회 (수정됨)
+        # 1. 실시간 오더북 최우선 호가 및 볼륨 조회
         best_bid = float(connector.get_price(self.config.trading_pair, True))
         best_ask = float(connector.get_price(self.config.trading_pair, False))
 
@@ -92,7 +92,7 @@ class PCAMHummingbotStrategy(StrategyV2Base):
 
         mid_price = (best_bid + best_ask) / 2.0
 
-        # 2. 4차원 물리 텐서 파라미터 연산 (가속도 도출 추가)
+        # 2. 4차원 물리 텐서 파라미터 연산 (가속도 도출)
         imbalance = (bid_vol - ask_vol) / max(1e-6, bid_vol + ask_vol)
         flux_v = round(0.080 + (abs(imbalance) * 0.020), 4)
 
@@ -109,13 +109,13 @@ class PCAMHummingbotStrategy(StrategyV2Base):
                 self.query_pcam_reflex(flux_v, abs(velocity), abs(acceleration))
             )
 
-        # 4. 방어 로직: API 실패 또는 감쇠비 Zeta > 1.2 초과 시 주문 전량 즉시 취소 (스윕 회피)
-        if self.api_failed or self.should_cancel:
+        # 4. 방어 로직: 첫 응답 대기 중, API 실패, 또는 감쇠비 Zeta > 1.2 초과 시 주문 전량 즉시 취소
+        if not self.is_safe_to_trade:
             if self.api_failed:
                 self.logger().warning(
-                    "🚨 [P-CAM] API connection failed or invalid response. PULL_QUOTES active for safety."
+                    "🚨 [P-CAM] API connection pending/failed. PULL_QUOTES active for safety."
                 )
-            else:
+            elif self.should_cancel:
                 self.logger().warning(
                     f"🚨 [P-CAM SHOCK DAMPING] Non-equilibrium stress detected! Zeta={self.current_zeta:.4f} > 1.2. "
                     f"PULL_QUOTES active - canceling all open limit orders to eliminate slippage."
@@ -151,6 +151,7 @@ class PCAMHummingbotStrategy(StrategyV2Base):
                             self.current_zeta = zeta
                             self.should_cancel = (zeta > 1.2)
                             self.api_failed = False
+                            self.is_safe_to_trade = not self.should_cancel
                             return
         except Exception:
             pass
@@ -158,6 +159,7 @@ class PCAMHummingbotStrategy(StrategyV2Base):
         # API 호출 실패, 타임아웃, 또는 유효하지 않은 응답 시 방어 모드 활성화
         self.api_failed = True
         self.should_cancel = True
+        self.is_safe_to_trade = False
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.config.exchange):
@@ -167,7 +169,6 @@ class PCAMHummingbotStrategy(StrategyV2Base):
         buy_price = Decimal(str(mid_price)) * (Decimal("1") - self.config.bid_spread)
         sell_price = Decimal(str(mid_price)) * (Decimal("1") + self.config.ask_spread)
 
-        # TradeType.BUY, TradeType.SELL 사용 (수정됨)
         buy_order = OrderCandidate(
             trading_pair=self.config.trading_pair,
             is_maker=True,
@@ -206,4 +207,3 @@ if __name__ == "__main__":
     print(" ✔ The bot will ping P-CAM asynchronously. Continuous live execution")
     print("   automatically converts via RapidAPI PRO tier ($499/mo).")
     print("=" * 78)
-```
