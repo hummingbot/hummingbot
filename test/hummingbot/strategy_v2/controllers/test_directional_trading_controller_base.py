@@ -10,7 +10,7 @@ from hummingbot.strategy_v2.controllers.directional_trading_controller_base impo
     DirectionalTradingControllerConfigBase,
 )
 from hummingbot.strategy_v2.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
-from hummingbot.strategy_v2.models.executor_actions import ExecutorAction
+from hummingbot.strategy_v2.models.executor_actions import ExecutorAction, StopExecutorAction
 
 
 class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
@@ -112,3 +112,44 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(None, self.mock_controller_config.parse_trailing_stop(""))
         trailing_stop = TrailingStop(activation_price=Decimal("2"), trailing_delta=Decimal(0.5))
         self.assertEqual(trailing_stop, self.mock_controller_config.parse_trailing_stop(trailing_stop))
+
+    def test_configurable_open_order_type(self):
+        self.mock_controller_config.open_order_type = OrderType.LIMIT
+        config = self.mock_controller_config.triple_barrier_config
+        self.assertEqual(config.open_order_type, OrderType.LIMIT)
+
+    def test_can_create_executor_blocks_opposing_in_oneway(self):
+        self.controller.config.position_mode = PositionMode.ONEWAY
+        mock_executor = MagicMock()
+        mock_executor.side = TradeType.SELL
+        mock_executor.is_active = True
+        mock_executor.is_done = False
+        mock_executor.timestamp = 100
+        self.controller.executors_info = [mock_executor]
+        self.mock_market_data_provider.time.return_value = 500
+
+        # Opposing BUY signal (1) must be blocked while SELL executor is active
+        self.assertFalse(self.controller.can_create_executor(signal=1))
+
+        # Same side SELL signal (-1) is evaluated normally against max_executors_per_side
+        self.assertTrue(self.controller.can_create_executor(signal=-1))
+
+    def test_stop_actions_proposal_in_oneway(self):
+        self.controller.config.position_mode = PositionMode.ONEWAY
+        mock_executor = MagicMock()
+        mock_executor.id = "exec_short_1"
+        mock_executor.side = TradeType.SELL
+        mock_executor.is_active = True
+        mock_executor.is_done = False
+        self.controller.executors_info = [mock_executor]
+
+        # Same side signal: no stop actions
+        self.controller.processed_data = {"signal": -1}
+        self.assertEqual(len(self.controller.stop_actions_proposal()), 0)
+
+        # Opposing side signal: emits StopExecutorAction for active opposing executor
+        self.controller.processed_data = {"signal": 1}
+        stop_actions = self.controller.stop_actions_proposal()
+        self.assertEqual(len(stop_actions), 1)
+        self.assertIsInstance(stop_actions[0], StopExecutorAction)
+        self.assertEqual(stop_actions[0].executor_id, "exec_short_1")
