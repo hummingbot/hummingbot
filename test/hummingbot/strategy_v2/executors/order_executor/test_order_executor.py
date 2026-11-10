@@ -1009,3 +1009,91 @@ class TestOrderExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
         held_ids = {order["client_order_id"] for order in executor._held_position_orders}
         self.assertEqual(held_ids, {"OID-FILLED", "OID-PARTIAL"})
+
+    @patch.object(OrderExecutor, "get_in_flight_order")
+    def test_early_stop_after_order_completed_does_not_reopen_terminated_executor(self, in_flight_order_mock):
+        """A queued StopExecutorAction arriving after OrderCompletedEvent must not flip TERMINATED back to SHUTTING_DOWN (#8528)."""
+        order = InFlightOrder(
+            client_order_id="OID-COMPLETE-RACE",
+            exchange_order_id="EOID-RACE",
+            trading_pair="ETH-USDT",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED,
+        )
+        in_flight_order_mock.return_value = order
+
+        config = OrderExecutorConfig(
+            id="test-race",
+            timestamp=123,
+            side=TradeType.SELL,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT,
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.RUNNING
+        executor._order = TrackedOrder("OID-COMPLETE-RACE")
+
+        from hummingbot.core.event.events import SellOrderCompletedEvent
+        completed_event = SellOrderCompletedEvent(
+            timestamp=1234567890,
+            order_id="OID-COMPLETE-RACE",
+            base_asset="ETH",
+            quote_asset="USDT",
+            base_asset_amount=config.amount,
+            quote_asset_amount=config.amount * config.price,
+            order_type=OrderType.LIMIT,
+            exchange_order_id="EOID-RACE",
+        )
+        executor.process_order_completed_event("102", MagicMock(), completed_event)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertTrue(executor.executor_info.is_done)
+
+        # Late StopExecutorAction calls early_stop on the already-terminated executor
+        executor.early_stop(keep_position=True)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertTrue(executor.executor_info.is_done)
+
+    @patch.object(OrderExecutor, "_sleep")
+    async def test_control_shutdown_process_prefers_is_filled_over_is_open(self, mock_sleep):
+        """An order whose full fill arrived while current_state is still PENDING_CANCEL closes immediately as POSITION_HOLD."""
+        config = OrderExecutorConfig(
+            id="test-filled-pending-cancel",
+            timestamp=123,
+            side=TradeType.SELL,
+            connector_name="binance",
+            trading_pair="ETH-USDT",
+            amount=Decimal("1"),
+            price=Decimal("100"),
+            execution_strategy=ExecutionStrategy.LIMIT,
+        )
+        executor = self.get_order_executor_from_config(config)
+        executor._status = RunnableStatus.SHUTTING_DOWN
+
+        order = InFlightOrder(
+            client_order_id="OID-FILLED-CANCEL",
+            trading_pair=config.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=config.side,
+            price=Decimal("100"),
+            amount=Decimal("1"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PENDING_CANCEL,
+        )
+        order.executed_amount_base = Decimal("1")
+        executor._order = TrackedOrder("OID-FILLED-CANCEL")
+        executor._order.order = order
+
+        await executor.control_shutdown_process()
+        self.strategy.cancel.assert_not_called()
+        self.assertEqual(executor.close_type, CloseType.POSITION_HOLD)
+        self.assertEqual(executor.status, RunnableStatus.TERMINATED)
+        self.assertEqual(len(executor._held_position_orders), 1)
