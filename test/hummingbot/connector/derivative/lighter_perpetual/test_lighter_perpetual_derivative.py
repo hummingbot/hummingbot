@@ -1495,3 +1495,67 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.assertEqual(OrderState.CANCELED, order_update.new_state)
         # Verify partial fill was recovered before cancel finalized
         self.assertEqual(Decimal("1"), order.executed_amount_base)
+
+    @aioresponses()
+    async def test_update_orders_fills_groups_by_market_shared_pagination(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="101",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "2",
+            exchange_order_id="102",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("3"),
+        )
+        order1 = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order2 = self.exchange.in_flight_orders[self.client_order_id_prefix + "2"]
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "1",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order1.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "101",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+                {
+                    "trade_id": "2",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1.5",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order2.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "102",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        await self.exchange._update_orders_fills([order1, order2])
+
+        self.assertEqual(Decimal("1"), order1.executed_amount_base)
+        self.assertEqual(Decimal("1.5"), order2.executed_amount_base)
