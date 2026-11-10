@@ -13,7 +13,7 @@ from hummingbot.strategy_v2.executors.position_executor.data_types import (
     TrailingStop,
     TripleBarrierConfig,
 )
-from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction
+from hummingbot.strategy_v2.models.executor_actions import CreateExecutorAction, ExecutorAction, StopExecutorAction
 from hummingbot.strategy_v2.utils.common import parse_enum_value
 
 
@@ -81,6 +81,12 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             "prompt": "Enter the order type for take profit (LIMIT/MARKET): ",
             "prompt_on_new": True, "is_updatable": True}
     )
+    open_order_type: OrderType = Field(
+        default=OrderType.MARKET,
+        json_schema_extra={
+            "prompt": "Enter the order type for open order (MARKET/LIMIT/LIMIT_MAKER): ",
+            "prompt_on_new": True, "is_updatable": True}
+    )
     trailing_stop: Optional[TrailingStop] = Field(
         default=None,
         json_schema_extra={
@@ -128,7 +134,7 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             take_profit=self.take_profit,
             time_limit=self.time_limit,
             trailing_stop=self.trailing_stop,
-            open_order_type=OrderType.MARKET,  # Defaulting to MARKET as is a Taker Controller
+            open_order_type=self.open_order_type,
             take_profit_order_type=self.take_profit_order_type,
             stop_loss_order_type=OrderType.MARKET,  # Defaulting to MARKET as per requirement
             time_limit_order_type=OrderType.MARKET  # Defaulting to MARKET as per requirement
@@ -185,7 +191,17 @@ class DirectionalTradingControllerBase(ControllerBase):
     def can_create_executor(self, signal: int) -> bool:
         """
         Check if an executor can be created based on the signal, the quantity of active executors and the cooldown time.
+        In PositionMode.ONEWAY, prevent executor creation if an opposing executor is active or shutting down.
         """
+        if signal == 0:
+            return False
+        if self.config.position_mode == PositionMode.ONEWAY:
+            opposing_side = TradeType.SELL if signal > 0 else TradeType.BUY
+            opposing_executors = self.filter_executors(
+                executors=self.executors_info,
+                filter_func=lambda x: (not x.is_done) and x.side == opposing_side)
+            if len(opposing_executors) > 0:
+                return False
         active_executors_by_signal_side = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: x.is_active and (x.side == TradeType.BUY if signal > 0 else TradeType.SELL))
@@ -197,8 +213,19 @@ class DirectionalTradingControllerBase(ControllerBase):
     def stop_actions_proposal(self) -> List[ExecutorAction]:
         """
         Stop actions based on the provided executor handler report.
+        In PositionMode.ONEWAY, propose stopping active opposing executors upon arrival of an opposing signal.
         """
         stop_actions = []
+        signal = self.processed_data.get("signal", 0)
+        if self.config.position_mode == PositionMode.ONEWAY and signal != 0:
+            opposing_side = TradeType.SELL if signal > 0 else TradeType.BUY
+            active_opposing_executors = self.filter_executors(
+                executors=self.executors_info,
+                filter_func=lambda x: x.is_active and (not x.is_done) and x.side == opposing_side)
+            for executor in active_opposing_executors:
+                stop_actions.append(StopExecutorAction(
+                    controller_id=self.config.id,
+                    executor_id=executor.id))
         return stop_actions
 
     def get_executor_config(self, trade_type: TradeType, price: Decimal, amount: Decimal):
