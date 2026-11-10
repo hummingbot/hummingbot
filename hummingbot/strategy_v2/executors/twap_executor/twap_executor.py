@@ -96,6 +96,9 @@ class TWAPExecutor(ExecutorBase):
             await self.evaluate_all_orders_closed()
 
     def evaluate_create_order(self):
+        total_executed_amount = self.get_total_executed_amount_quote()
+        if total_executed_amount >= self.config.total_amount_quote:
+            return
         for timestamp, tracked_order in self._order_plan.items():
             if self._strategy.current_timestamp >= timestamp and tracked_order is None:
                 self.create_order(timestamp)
@@ -126,8 +129,12 @@ class TWAPExecutor(ExecutorBase):
         total_executed_amount = self.get_total_executed_amount_quote()
         open_orders_open_amount = sum([order.order.amount * order.order.price for order in self._order_plan.values() if order and order.order and not order.is_done])
         orders_amount_quote_left = self.config.total_amount_quote - total_executed_amount - open_orders_open_amount
-        number_or_orders_left = self.config.number_of_orders - len([order for order in self._order_plan.values() if order])
-        amount = (orders_amount_quote_left / number_or_orders_left) / price
+        if orders_amount_quote_left <= Decimal("0"):
+            return
+        number_of_orders_left = self.config.number_of_orders - len([order for order in self._order_plan.values() if order])
+        if number_of_orders_left <= 0:
+            number_of_orders_left = 1
+        amount = (orders_amount_quote_left / number_of_orders_left) / price
         if self.config.is_maker:
             order_price = price * (1 + self.config.limit_order_buffer) if self.config.side == TradeType.SELL else price * (1 - self.config.limit_order_buffer)
         else:
@@ -164,15 +171,17 @@ class TWAPExecutor(ExecutorBase):
         This method is responsible for processing the order failed event. Here we will check if the order id is one of
         the order plan and if it is we will move the order to the failed collection and retry with a new order.
         """
-        all_orders = self._order_plan.values()
+        all_orders = [order for order in self._order_plan.values() if order]
         active_order = next((order for order in all_orders if order.order_id == event.order_id), None)
         if active_order:
             self._failed_orders.append(active_order)
-            self._order_plan = {timestamp: None for timestamp, order in self._order_plan.items() if order == active_order}
+            for timestamp, order in list(self._order_plan.items()):
+                if order == active_order:
+                    self._order_plan[timestamp] = None
             self._current_retries += 1
 
     def update_tracked_orders_with_order_id(self, order_id: str):
-        all_orders = self._order_plan.values()
+        all_orders = [order for order in self._order_plan.values() if order]
         active_order = next((order for order in all_orders if order.order_id == order_id), None)
         if active_order:
             in_flight_order = self.get_in_flight_order(self.config.connector_name, order_id)
@@ -188,11 +197,18 @@ class TWAPExecutor(ExecutorBase):
         of the order plan and if it is we will check if the rest of the orders are completed and if they are we will
         pass the executor to SHUTTING_DOWN state.
         """
-        active_order = next((order for order in self._order_plan.values() if order.order_id == event.order_id), None)
+        active_order = next((order for order in self._order_plan.values() if order and order.order_id == event.order_id), None)
         if active_order:
             self.evaluate_all_orders_completed()
 
     def evaluate_all_orders_completed(self):
+        total_executed_amount = self.get_total_executed_amount_quote()
+        active_orders = [order for order in self._order_plan.values() if order and order.order]
+        all_active_closed = all(order.is_done for order in active_orders)
+        if total_executed_amount >= self.config.total_amount_quote and all_active_closed:
+            self._status = RunnableStatus.SHUTTING_DOWN
+            return
+
         if self.evaluate_all_orders_created():
             if all([order.order.is_filled for order in self._order_plan.values() if order and order.order]):
                 self._status = RunnableStatus.SHUTTING_DOWN
@@ -201,9 +217,11 @@ class TWAPExecutor(ExecutorBase):
         return all([order for order in self._order_plan.values()])
 
     async def evaluate_all_orders_closed(self):
+        plan_orders = [order for order in self._order_plan.values() if order]
+        all_plan_done = all([order.is_done for order in plan_orders])
         refreshed_orders_done = all([order.is_done for order in self._refreshed_orders])
         failed_orders_done = all([order.is_done for order in self._failed_orders])
-        if refreshed_orders_done and failed_orders_done:
+        if all_plan_done and refreshed_orders_done and failed_orders_done:
             self.close_execution_by(CloseType.COMPLETED)
             self._status = RunnableStatus.TERMINATED
         else:
