@@ -102,10 +102,11 @@ class TWAPExecutor(ExecutorBase):
 
     def evaluate_refresh_orders(self):
         if self.config.is_maker:
-            for timestamp, tracked_order in self._order_plan.items():
+            for timestamp, tracked_order in list(self._order_plan.items()):
                 if self.refresh_order_condition(tracked_order):
                     self._strategy.cancel(self.config.connector_name, self.config.trading_pair, tracked_order.order_id)
                     self._refreshed_orders.append(tracked_order)
+                    self._order_plan[timestamp] = None
                     self.create_order(timestamp)
 
     def refresh_order_condition(self, tracked_order: TrackedOrder):
@@ -269,7 +270,8 @@ class TWAPExecutor(ExecutorBase):
         """
         This method is responsible for calculating the cumulative fees in quote asset
         """
-        return sum([order.cum_fees_quote for order in self._order_plan.values() if order])
+        all_orders = [order for order in list(self._order_plan.values()) + self._refreshed_orders + self._failed_orders if order]
+        return sum([order.cum_fees_quote for order in all_orders])
 
     def get_net_pnl_quote(self) -> Decimal:
         """
@@ -291,13 +293,15 @@ class TWAPExecutor(ExecutorBase):
         total_executed_amount = self.get_total_executed_amount()
         if total_executed_amount == Decimal("0"):
             return Decimal("0")
-        return sum([order.average_executed_price * order.executed_amount_base for order in self._order_plan.values() if order]) / total_executed_amount
+        all_orders = [order for order in list(self._order_plan.values()) + self._refreshed_orders + self._failed_orders if order]
+        return sum([order.average_executed_price * order.executed_amount_base for order in all_orders]) / total_executed_amount
 
     def get_total_executed_amount(self) -> Decimal:
         """
         Get the total executed amount of the orders.
         """
-        return sum([order.executed_amount_base for order in self._order_plan.values() if order])
+        all_orders = [order for order in list(self._order_plan.values()) + self._refreshed_orders + self._failed_orders if order]
+        return sum([order.executed_amount_base for order in all_orders])
 
     def get_total_executed_amount_quote(self) -> Decimal:
         """

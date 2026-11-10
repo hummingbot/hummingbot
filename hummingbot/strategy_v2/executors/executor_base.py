@@ -366,7 +366,7 @@ class ExecutorBase(RunnableBase):
             d_price = price if isinstance(price, Decimal) else Decimal(str(price))
         except (InvalidOperation, TypeError, ValueError):
             return False
-        if d_price.is_nan() or not d_price.is_finite():
+        if d_price.is_nan() or not d_price.is_finite() or d_price <= Decimal("0"):
             return False
         return True
 

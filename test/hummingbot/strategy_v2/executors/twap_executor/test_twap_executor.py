@@ -123,7 +123,9 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
         executor._status = RunnableStatus.RUNNING
         await executor.control_task()
-        executor._order_plan[1].order = self.in_flight_order_maker
+        order_maker = self.in_flight_order_maker
+        order_maker.amount = Decimal("0.4")
+        executor._order_plan[1].order = order_maker
         await executor.control_task()
         self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-3")
 
@@ -270,3 +272,26 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             executor.create_order(timestamp)
 
         self.assertIsNone(executor._order_plan[timestamp])
+
+    @patch.object(TWAPExecutor, "get_price", MagicMock(return_value=Decimal("120")))
+    async def test_refresh_order_rejected_clears_slot_and_retries(self):
+        """When refreshing an order and placement is rejected (e.g. NaN price), slot is cleared to None so it can be retried later."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_maker)
+        executor._status = RunnableStatus.RUNNING
+        await executor.control_task()
+        self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-1")
+        executor._order_plan[1].order = self.in_flight_order_maker
+
+        # Simulate rejection during refresh
+        with patch.object(executor, "place_order", return_value=None):
+            executor.evaluate_refresh_orders()
+
+        # Slot must be None, not holding the cancelled order
+        self.assertIsNone(executor._order_plan[1])
+        self.assertEqual(len(executor._refreshed_orders), 1)
+
+        # When price recovers and placement succeeds, evaluate_create_order can retry the slot
+        with patch.object(executor, "place_order", return_value="OID-BUY-RETRY"):
+            executor.evaluate_create_order()
+        self.assertIsNotNone(executor._order_plan[1])
+        self.assertEqual(executor._order_plan[1].order_id, "OID-BUY-RETRY")
