@@ -9,7 +9,7 @@ capital on live or paper connectors.
 
 Usage:
     python scripts/bench_matching_engine_latency.py
-    python scripts/bench_matching_engine_latency.py --orders 2000 --depth 100 --json results.json
+    python scripts/bench_matching_engine_latency.py --orders 2000 --depth 100 --order-size 5.0 --json results.json
 """
 
 import argparse
@@ -19,7 +19,6 @@ import os
 import sys
 import time
 from dataclasses import asdict, dataclass
-from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -35,6 +34,7 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 class LatencyStats:
     total_orders: int
     total_fills: int
+    avg_levels_walked: float
     elapsed_time_s: float
     throughput_ops_sec: float
     min_us: float
@@ -64,6 +64,13 @@ class MatchingEngineBenchmark:
         depth_levels: int = 50,
         dex_mode: bool = False,
     ):
+        if not math.isfinite(initial_mid) or initial_mid <= 0:
+            raise ValueError(f"initial_mid must be a positive finite number, got {initial_mid}")
+        if not math.isfinite(spread_bps) or spread_bps < 0:
+            raise ValueError(f"spread_bps must be non-negative and finite, got {spread_bps}")
+        if not isinstance(depth_levels, int) or depth_levels < 1:
+            raise ValueError(f"depth_levels must be an integer >= 1, got {depth_levels}")
+
         self.initial_mid = initial_mid
         self.spread_bps = spread_bps
         self.depth_levels = depth_levels
@@ -95,22 +102,29 @@ class MatchingEngineBenchmark:
     def run_benchmark(
         self,
         num_orders: int = 1000,
-        order_size: float = 0.5,
+        order_size: float = 5.0,
         randomize_sizes: bool = True,
         seed: int = 42,
     ) -> Tuple[LatencyStats, List[float]]:
         """
         Executes order matching simulation across buy and sell flows,
         recording per-operation latency in nanoseconds.
+        Simulate methods are non-mutating, so no mid-run order book rebuilds are performed.
         """
+        if not isinstance(num_orders, int) or num_orders < 1:
+            raise ValueError(f"num_orders must be an integer >= 1, got {num_orders}")
+        if not math.isfinite(order_size) or order_size <= 0:
+            raise ValueError(f"order_size must be a positive finite number, got {order_size}")
+
         np.random.seed(seed)
         latencies_ns: List[int] = []
         fills_count = 0
+        total_levels_walked = 0
 
         # Pre-generate sides and sizes for consistent benchmarking
         is_buys = np.random.choice([True, False], size=num_orders)
         if randomize_sizes:
-            sizes = np.random.uniform(0.1, order_size * 2, size=num_orders)
+            sizes = np.random.uniform(max(0.1, order_size * 0.2), order_size * 1.8, size=num_orders)
         else:
             sizes = np.full(num_orders, order_size, dtype=np.float64)
 
@@ -131,13 +145,11 @@ class MatchingEngineBenchmark:
             latencies_ns.append(t1 - t0)
             if rows:
                 fills_count += 1
-
-            # Refresh depth if book gets depleted
-            if (i + 1) % 100 == 0:
-                self.reset_order_book()
+                total_levels_walked += len(rows)
 
         total_elapsed = time.perf_counter() - t_start
-        stats = self.calculate_stats(latencies_ns, fills_count, total_elapsed)
+        avg_levels = (total_levels_walked / fills_count) if fills_count > 0 else 0.0
+        stats = self.calculate_stats(latencies_ns, fills_count, avg_levels, total_elapsed)
         latencies_us = [ns / 1000.0 for ns in latencies_ns]
         return stats, latencies_us
 
@@ -145,11 +157,12 @@ class MatchingEngineBenchmark:
     def calculate_stats(
         latencies_ns: List[int],
         total_fills: int,
+        avg_levels_walked: float,
         total_elapsed_s: float,
     ) -> LatencyStats:
         """Calculates latency summary percentiles and throughput in microseconds."""
         if not latencies_ns:
-            return LatencyStats(0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return LatencyStats(0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
         latencies_us = np.array(latencies_ns, dtype=np.float64) / 1000.0
         n = len(latencies_us)
@@ -157,6 +170,7 @@ class MatchingEngineBenchmark:
         return LatencyStats(
             total_orders=n,
             total_fills=total_fills,
+            avg_levels_walked=float(avg_levels_walked),
             elapsed_time_s=float(total_elapsed_s),
             throughput_ops_sec=float(n / max(total_elapsed_s, 1e-9)),
             min_us=float(np.min(latencies_us)),
@@ -179,6 +193,7 @@ class MatchingEngineBenchmark:
             "=" * 56,
             f" Total Orders Evaluated : {stats.total_orders:,}",
             f" Total Successful Fills : {stats.total_fills:,}",
+            f" Avg Book Levels Walked : {stats.avg_levels_walked:.2f} levels/order",
             f" Total Wall Time        : {stats.elapsed_time_s:.4f} s",
             f" Throughput             : {stats.throughput_ops_sec:,.1f} fills/sec",
             "-" * 56,
@@ -202,6 +217,7 @@ def main():
         description="Hummingbot matching engine fill latency benchmark harness."
     )
     parser.add_argument("--orders", type=int, default=1000, help="Number of simulated orders to evaluate (default: 1000)")
+    parser.add_argument("--order-size", type=float, default=5.0, help="Order size to evaluate book walking depth (default: 5.0)")
     parser.add_argument("--depth", type=int, default=50, help="Number of price levels per side (default: 50)")
     parser.add_argument("--mid-price", type=float, default=100.0, help="Initial mid market price (default: 100.0)")
     parser.add_argument("--spread-bps", type=float, default=10.0, help="Spread in basis points (default: 10.0)")
@@ -211,6 +227,18 @@ def main():
 
     args = parser.parse_args()
 
+    # CLI input validation
+    if args.orders < 1:
+        parser.error(f"--orders must be an integer >= 1, got {args.orders}")
+    if not math.isfinite(args.order_size) or args.order_size <= 0:
+        parser.error(f"--order-size must be a positive finite number, got {args.order_size}")
+    if args.depth < 1:
+        parser.error(f"--depth must be an integer >= 1, got {args.depth}")
+    if not math.isfinite(args.mid_price) or args.mid_price <= 0:
+        parser.error(f"--mid-price must be a positive finite number, got {args.mid_price}")
+    if not math.isfinite(args.spread_bps) or args.spread_bps < 0:
+        parser.error(f"--spread-bps must be non-negative and finite, got {args.spread_bps}")
+
     bench = MatchingEngineBenchmark(
         initial_mid=args.mid_price,
         spread_bps=args.spread_bps,
@@ -218,7 +246,7 @@ def main():
         dex_mode=args.dex,
     )
 
-    stats, raw_latencies = bench.run_benchmark(num_orders=args.orders)
+    stats, raw_latencies = bench.run_benchmark(num_orders=args.orders, order_size=args.order_size)
     print(bench.format_table(stats))
 
     if args.json:

@@ -34,10 +34,26 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
         best_ask = asks.iloc[0]["price"]
         self.assertLess(best_bid, best_ask)
 
-    def test_run_benchmark(self):
-        stats, raw_latencies = self.benchmark.run_benchmark(num_orders=150, order_size=0.2, seed=123)
+    def test_input_validation(self):
+        with self.assertRaises(ValueError):
+            MatchingEngineBenchmark(depth_levels=0)
+        with self.assertRaises(ValueError):
+            MatchingEngineBenchmark(initial_mid=-100.0)
+        with self.assertRaises(ValueError):
+            MatchingEngineBenchmark(spread_bps=-1.0)
+
+        bench = MatchingEngineBenchmark(depth_levels=10)
+        with self.assertRaises(ValueError):
+            bench.run_benchmark(num_orders=0)
+        with self.assertRaises(ValueError):
+            bench.run_benchmark(order_size=-5.0)
+
+    def test_run_benchmark_with_book_walking(self):
+        # Order size 5.0 with level size ~1.0 will cross multiple book levels
+        stats, raw_latencies = self.benchmark.run_benchmark(num_orders=150, order_size=5.0, seed=123)
         self.assertEqual(150, stats.total_orders)
         self.assertGreater(stats.total_fills, 0)
+        self.assertGreater(stats.avg_levels_walked, 1.0)
         self.assertEqual(150, len(raw_latencies))
         self.assertGreater(stats.throughput_ops_sec, 0)
 
@@ -50,7 +66,7 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
         self.assertLessEqual(stats.p99_9_us, stats.max_us)
 
     def test_calculate_stats_empty(self):
-        stats = MatchingEngineBenchmark.calculate_stats([], 0, 0.0)
+        stats = MatchingEngineBenchmark.calculate_stats([], 0, 0.0, 0.0)
         self.assertEqual(0, stats.total_orders)
         self.assertEqual(0.0, stats.mean_us)
 
@@ -58,6 +74,7 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
         stats, _ = self.benchmark.run_benchmark(num_orders=50, seed=42)
         table = MatchingEngineBenchmark.format_table(stats)
         self.assertIn("HUMMINGBOT MATCHING ENGINE LATENCY BENCHMARK", table)
+        self.assertIn("Avg Book Levels Walked", table)
         self.assertIn("p50 (Median)", table)
         self.assertIn("p99", table)
 
@@ -73,6 +90,7 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
                 sys.executable,
                 script_path,
                 "--orders", "100",
+                "--order-size", "4.0",
                 "--depth", "20",
                 "--json", json_path,
                 "--csv", csv_path,
@@ -80,11 +98,14 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
             res = subprocess.run(cmd, capture_output=True, text=True)
             self.assertEqual(0, res.returncode, f"CLI failed: {res.stderr}")
             self.assertIn("HUMMINGBOT MATCHING ENGINE LATENCY BENCHMARK", res.stdout)
+            self.assertIn("Avg Book Levels Walked", res.stdout)
 
             self.assertTrue(os.path.exists(json_path))
             with open(json_path) as f:
                 data = json.load(f)
                 self.assertEqual(100, data["total_orders"])
+                self.assertIn("avg_levels_walked", data)
+                self.assertGreater(data["avg_levels_walked"], 1.0)
                 self.assertIn("p50_us", data)
                 self.assertIn("p99_us", data)
 
@@ -92,6 +113,21 @@ class MatchingEngineBenchmarkTests(unittest.TestCase):
             with open(csv_path) as f:
                 lines = f.readlines()
                 self.assertEqual(101, len(lines))  # 1 header + 100 rows
+
+    def test_cli_invalid_arguments_rejected(self):
+        script_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "scripts", "bench_matching_engine_latency.py"
+        )
+        invalid_cases = [
+            ["--depth", "0"],
+            ["--orders", "0"],
+            ["--mid-price", "-5.0"],
+            ["--order-size", "-1.0"],
+            ["--spread-bps", "-0.5"],
+        ]
+        for args in invalid_cases:
+            res = subprocess.run([sys.executable, script_path] + args, capture_output=True, text=True)
+            self.assertNotEqual(0, res.returncode, f"Expected error for {args}, got success")
 
 
 if __name__ == "__main__":
