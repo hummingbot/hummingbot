@@ -1303,3 +1303,88 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
         self.exchange._schedule_balance_refresh()
         self.assertIsNot(self.exchange._balance_refresh_task, first_task)
         await self.exchange._balance_refresh_task
+
+    @aioresponses()
+    async def test_all_trade_updates_for_order_reconciles_account_trades(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "999888",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        trade_updates = await self.exchange._all_trade_updates_for_order(order)
+        self.assertEqual(1, len(trade_updates))
+        self.assertEqual(order.client_order_id, trade_updates[0].client_order_id)
+        self.assertEqual(Decimal("1"), trade_updates[0].fill_base_amount)
+        self.assertEqual(Decimal("2500"), trade_updates[0].fill_price)
+
+    @aioresponses()
+    async def test_request_order_status_reconciles_fills_for_filled_order(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self._mock_active(mock_api, {"orders": []})
+        self._mock_inactive(mock_api, self._inactive_order_payload(order, "filled"))
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "999888",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "1",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": str(self.expected_exchange_order_id),
+                    "ask_id_str": "8888",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                }
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        order_update = await self.exchange._request_order_status(order)
+        self.assertEqual(OrderState.FILLED, order_update.new_state)
+        # Verify fill arrived and executed amount is non-zero
+        self.assertEqual(Decimal("1"), order.executed_amount_base)
+        self.assertTrue(order.is_filled)

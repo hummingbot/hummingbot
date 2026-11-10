@@ -72,3 +72,15 @@ class LighterPerpetualAuthTests(TestCase):
         self.assertEqual("token-1", token_one)
         self.assertEqual("token-2", token_two)
         self.assertEqual(2, self.signer_client.calls)
+
+    @patch("hummingbot.connector.derivative.lighter_perpetual.lighter_perpetual_auth.time.time")
+    def test_invalidate_auth_token_forces_new_token(self, time_mock):
+        time_mock.return_value = 1000
+
+        token_one = self.async_run_with_timeout(self.auth._get_auth_token())
+        self.assertEqual("token-1", token_one)
+
+        self.auth.invalidate_auth_token()
+        token_two = self.async_run_with_timeout(self.auth._get_auth_token())
+        self.assertEqual("token-2", token_two)
+        self.assertEqual(2, self.signer_client.calls)
