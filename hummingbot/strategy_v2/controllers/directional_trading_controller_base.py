@@ -113,14 +113,14 @@ class DirectionalTradingControllerConfigBase(ControllerConfigBase):
             return Decimal(v)
         return v
 
-    @field_validator('take_profit_order_type', mode="before")
+    @field_validator('take_profit_order_type', 'open_order_type', mode="before")
     @classmethod
     def validate_order_type(cls, v) -> OrderType:
         if v is None:
             return OrderType.MARKET
         if isinstance(v, str):
             v = v.replace("OrderType.", "")
-        return parse_enum_value(OrderType, v, "take_profit_order_type")
+        return parse_enum_value(OrderType, v, "order_type")
 
     @field_validator('position_mode', mode="before")
     @classmethod

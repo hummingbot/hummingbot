@@ -118,6 +118,29 @@ class TestDirectionalTradingControllerBase(IsolatedAsyncioWrapperTestCase):
         config = self.mock_controller_config.triple_barrier_config
         self.assertEqual(config.open_order_type, OrderType.LIMIT)
 
+        # Test string parsing from YAML / config loading
+        cfg_from_str = DirectionalTradingControllerConfigBase(
+            id="test-yaml",
+            controller_name="directional_trading_test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100.0),
+            open_order_type="LIMIT",
+            take_profit_order_type="LIMIT",
+        )
+        self.assertEqual(cfg_from_str.open_order_type, OrderType.LIMIT)
+        self.assertEqual(cfg_from_str.take_profit_order_type, OrderType.LIMIT)
+
+        cfg_from_enum_str = DirectionalTradingControllerConfigBase(
+            id="test-enum-str",
+            controller_name="directional_trading_test_controller",
+            connector_name="binance_perpetual",
+            trading_pair="ETH-USDT",
+            total_amount_quote=Decimal(100.0),
+            open_order_type="OrderType.MARKET",
+        )
+        self.assertEqual(cfg_from_enum_str.open_order_type, OrderType.MARKET)
+
     def test_can_create_executor_blocks_opposing_in_oneway(self):
         self.controller.config.position_mode = PositionMode.ONEWAY
         mock_executor = MagicMock()
