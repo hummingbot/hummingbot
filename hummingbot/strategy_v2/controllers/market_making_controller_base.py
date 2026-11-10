@@ -1,5 +1,6 @@
-from decimal import Decimal
-from typing import List, Optional, Tuple, Union
+import math
+from decimal import Decimal, InvalidOperation
+from typing import Any, List, Optional, Tuple, Union
 
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -244,6 +245,11 @@ class MarketMakingControllerBase(ControllerBase):
         levels_to_execute = self.get_levels_to_execute()
         for level_id in levels_to_execute:
             price, amount = self.get_price_and_amount(level_id)
+            if not self.is_valid_price(price) or not self.is_valid_price(amount):
+                self.logger().warning(
+                    f"Skipping executor creation for {level_id}: invalid price={price} amount={amount}"
+                )
+                continue
             executor_config = self.get_executor_config(level_id, price, amount)
             if executor_config is not None:
                 create_actions.append(CreateExecutorAction(
@@ -345,6 +351,13 @@ class MarketMakingControllerBase(ControllerBase):
         if "_perpetual" in self.config.connector_name or "reference_price" not in self.processed_data or self.config.skip_rebalance:
             return None
 
+        raw_ref_price = self.processed_data.get("reference_price")
+        if not self.is_valid_price(raw_ref_price):
+            self.logger().warning(f"Skipping position rebalance: invalid reference_price={raw_ref_price}")
+            return None
+
+        reference_price = raw_ref_price if isinstance(raw_ref_price, Decimal) else Decimal(str(raw_ref_price))
+
         active_rebalance = self.filter_executors(
             executors=self.executors_info,
             filter_func=lambda x: x.is_active and x.custom_info.get("level_id") == "position_rebalance"
@@ -353,7 +366,10 @@ class MarketMakingControllerBase(ControllerBase):
             # If there's already an active rebalance executor, skip rebalancing
             return None
 
-        required_base_amount = self.config.get_required_base_amount(Decimal(self.processed_data["reference_price"]))
+        required_base_amount = self.config.get_required_base_amount(reference_price)
+        if not self.is_valid_price(required_base_amount):
+            self.logger().warning(f"Skipping position rebalance: invalid required_base_amount={required_base_amount}")
+            return None
         current_base_amount = self.get_current_base_position()
 
         # Calculate the difference
@@ -412,3 +428,26 @@ class MarketMakingControllerBase(ControllerBase):
             controller_id=self.config.id,
             executor_config=order_config
         )
+
+    @staticmethod
+    def is_valid_price(price: Any) -> bool:
+        """
+        Deterministic fail-safe guard to ensure price/amount is positive, finite, and not NaN.
+        """
+        if price is None:
+            return False
+        if isinstance(price, float):
+            if math.isnan(price) or not math.isfinite(price):
+                return False
+        if isinstance(price, Decimal):
+            if price.is_nan() or not price.is_finite():
+                return False
+        try:
+            d_price = price if isinstance(price, Decimal) else Decimal(str(price))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        if d_price.is_nan() or not d_price.is_finite() or d_price <= Decimal("0"):
+            return False
+        return True
+
+    _is_positive_finite_decimal = is_valid_price

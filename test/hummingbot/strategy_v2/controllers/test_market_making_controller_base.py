@@ -436,3 +436,47 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
 
         # Should not include any rebalance actions
         self.assertEqual(len(actions), 0)
+
+    @patch(
+        "hummingbot.strategy_v2.controllers.market_making_controller_base.MarketMakingControllerBase.get_executor_config",
+        new_callable=MagicMock,
+    )
+    def test_create_actions_proposal_skips_invalid_price_and_amount(self, executor_config_mock: MagicMock):
+        self.controller.processed_data = {"reference_price": Decimal("NaN"), "spread_multiplier": Decimal("1")}
+        self.controller.executors_info = []
+
+        actions = self.controller.create_actions_proposal()
+
+        self.assertEqual([], actions)
+        executor_config_mock.assert_not_called()
+
+    def test_check_position_rebalance_skips_invalid_reference_price(self):
+        self.mock_controller_config.connector_name = "binance"
+        controller = MarketMakingControllerBase(
+            config=self.mock_controller_config,
+            market_data_provider=self.mock_market_data_provider,
+            actions_queue=self.mock_actions_queue
+        )
+        controller.processed_data = {"reference_price": Decimal("NaN")}
+        controller.executors_info = []
+
+        result = controller.check_position_rebalance()
+
+        self.assertIsNone(result)
+
+    def test_is_valid_price(self):
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(Decimal("NaN")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(float("nan")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(float("inf")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(float("-inf")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(Decimal("Infinity")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(Decimal("-Infinity")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(Decimal("0")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(Decimal("-10")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(-1.5))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price(None))
+        self.assertFalse(MarketMakingControllerBase.is_valid_price("invalid"))
+
+        self.assertTrue(MarketMakingControllerBase.is_valid_price(Decimal("100")))
+        self.assertTrue(MarketMakingControllerBase.is_valid_price(100.5))
+        self.assertTrue(MarketMakingControllerBase.is_valid_price("50.25"))
