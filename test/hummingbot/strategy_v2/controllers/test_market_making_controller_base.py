@@ -480,3 +480,39 @@ class TestMarketMakingControllerBase(IsolatedAsyncioWrapperTestCase):
         self.assertTrue(MarketMakingControllerBase.is_valid_price(Decimal("100")))
         self.assertTrue(MarketMakingControllerBase.is_valid_price(100.5))
         self.assertTrue(MarketMakingControllerBase.is_valid_price("50.25"))
+
+    def test_is_valid_target(self):
+        self.assertFalse(MarketMakingControllerBase.is_valid_target(Decimal("NaN")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_target(float("nan")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_target(float("inf")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_target(Decimal("-1")))
+        self.assertFalse(MarketMakingControllerBase.is_valid_target(None))
+        self.assertFalse(MarketMakingControllerBase.is_valid_target("invalid"))
+
+        # Zero is a valid inventory target (e.g. 100% quote allocation / zero sell spreads)
+        self.assertTrue(MarketMakingControllerBase.is_valid_target(Decimal("0")))
+        self.assertTrue(MarketMakingControllerBase.is_valid_target(0))
+        self.assertTrue(MarketMakingControllerBase.is_valid_target(Decimal("10")))
+
+    def test_check_position_rebalance_zero_target_sells_existing_position(self):
+        mock_config = MagicMock()
+        mock_config.id = "test"
+        mock_config.connector_name = "binance"
+        mock_config.trading_pair = "ETH-USDT"
+        mock_config.skip_rebalance = False
+        mock_config.position_rebalance_threshold_pct = Decimal("0.01")
+        mock_config.get_required_base_amount.return_value = Decimal("0")
+        controller = MarketMakingControllerBase(
+            config=mock_config,
+            market_data_provider=self.mock_market_data_provider,
+            actions_queue=self.mock_actions_queue
+        )
+        controller.processed_data = {"reference_price": Decimal("100")}
+        controller.executors_info = []
+
+        with patch.object(controller, "get_current_base_position", return_value=Decimal("5")):
+            action = controller.check_position_rebalance()
+
+        self.assertIsNotNone(action)
+        self.assertEqual(action.executor_config.side, TradeType.SELL)
+        self.assertEqual(action.executor_config.amount, Decimal("5"))

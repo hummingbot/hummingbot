@@ -367,7 +367,7 @@ class MarketMakingControllerBase(ControllerBase):
             return None
 
         required_base_amount = self.config.get_required_base_amount(reference_price)
-        if not self.is_valid_price(required_base_amount):
+        if not self.is_valid_target(required_base_amount):
             self.logger().warning(f"Skipping position rebalance: invalid required_base_amount={required_base_amount}")
             return None
         current_base_amount = self.get_current_base_position()
@@ -380,12 +380,15 @@ class MarketMakingControllerBase(ControllerBase):
 
         if abs(base_amount_diff) > threshold_amount:
             # We need to rebalance
+            order_amount = abs(base_amount_diff)
+            if not self.is_valid_price(order_amount):
+                return None
             if base_amount_diff > 0:
                 # Need to buy more base asset
-                return self.create_position_rebalance_order(TradeType.BUY, abs(base_amount_diff))
+                return self.create_position_rebalance_order(TradeType.BUY, order_amount)
             else:
                 # Need to sell base asset (unlikely for market making but possible)
-                return self.create_position_rebalance_order(TradeType.SELL, abs(base_amount_diff))
+                return self.create_position_rebalance_order(TradeType.SELL, order_amount)
 
         return None
 
@@ -428,6 +431,27 @@ class MarketMakingControllerBase(ControllerBase):
             controller_id=self.config.id,
             executor_config=order_config
         )
+
+    @staticmethod
+    def is_valid_target(target: Any) -> bool:
+        """
+        Deterministic fail-safe guard to ensure target inventory amount is finite, non-NaN, and non-negative (>= 0).
+        """
+        if target is None:
+            return False
+        if isinstance(target, float):
+            if math.isnan(target) or not math.isfinite(target):
+                return False
+        if isinstance(target, Decimal):
+            if target.is_nan() or not target.is_finite():
+                return False
+        try:
+            d_target = target if isinstance(target, Decimal) else Decimal(str(target))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        if d_target.is_nan() or not d_target.is_finite() or d_target < Decimal("0"):
+            return False
+        return True
 
     @staticmethod
     def is_valid_price(price: Any) -> bool:

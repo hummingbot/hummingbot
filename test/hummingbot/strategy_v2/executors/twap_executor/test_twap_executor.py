@@ -260,3 +260,13 @@ class TestTWAPExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(executor.status, RunnableStatus.TERMINATED)
         held_ids = {order["client_order_id"] for order in executor._held_position_orders}
         self.assertEqual(held_ids, {"OID-BUY-1"})
+
+    def test_create_order_rejected_placement_does_not_track_none_order_id(self):
+        """When place_order fails or is rejected, _order_plan[timestamp] must remain None so it can be retried."""
+        executor = self.get_twap_executor_from_config(self.twap_config_long_taker)
+        timestamp = list(executor._order_plan.keys())[0]
+
+        with patch.object(executor, "place_order", return_value=None):
+            executor.create_order(timestamp)
+
+        self.assertIsNone(executor._order_plan[timestamp])

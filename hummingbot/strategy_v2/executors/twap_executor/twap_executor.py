@@ -140,7 +140,10 @@ class TWAPExecutor(ExecutorBase):
             price=order_price,
             position_action=PositionAction.OPEN
         )
-        self._order_plan[timestamp] = TrackedOrder(order_id=order_id)
+        if order_id:
+            self._order_plan[timestamp] = TrackedOrder(order_id=order_id)
+        else:
+            self.logger().warning(f"Executor ID: {self.config.id} - Refusing to track TWAP order at {timestamp}: invalid price/amount or placement rejected.")
 
     def process_order_created_event(self,
                                     event_tag: int,
