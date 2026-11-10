@@ -1,7 +1,8 @@
 import asyncio
-from decimal import Decimal
+import math
+from decimal import Decimal, InvalidOperation
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
