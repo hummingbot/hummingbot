@@ -1559,3 +1559,46 @@ class LighterPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpetual
 
         self.assertEqual(Decimal("1"), order1.executed_amount_base)
         self.assertEqual(Decimal("1.5"), order2.executed_amount_base)
+
+    @aioresponses()
+    async def test_update_orders_fills_reconciles_filled_status_order_with_missing_trades(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "3",
+            exchange_order_id="103",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("2500"),
+            amount=Decimal("2"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "3"]
+        # Simulate order state marked FILLED via websocket but trade fills not yet processed
+        order.current_state = OrderState.FILLED
+        self.assertTrue(order.is_filled)
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+
+        trades_url = web_utils.public_rest_url(CONSTANTS.TRADES_PATH_URL, domain=self.domain)
+        trades_payload = {
+            "trades": [
+                {
+                    "trade_id": "3",
+                    "market_id": 1,
+                    "price": "2500",
+                    "size": "2",
+                    "bid_account_id": self.ACCOUNT_INDEX,
+                    "ask_account_id": 999,
+                    "bid_client_id_str": order.client_order_id,
+                    "ask_client_id_str": "other",
+                    "bid_id_str": "103",
+                    "ask_id_str": "99",
+                    "is_maker_ask": True,
+                    "timestamp": 1640780000000,
+                },
+            ]
+        }
+        mock_api.get(re.compile(f"^{re.escape(trades_url)}"), body=json.dumps(trades_payload))
+
+        await self.exchange._update_orders_fills([order])
+
+        self.assertEqual(Decimal("2"), order.executed_amount_base)

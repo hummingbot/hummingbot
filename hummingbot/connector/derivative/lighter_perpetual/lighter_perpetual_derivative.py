@@ -276,7 +276,10 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
-        orders_needing_fills = [order for order in orders if not order.is_filled]
+        orders_needing_fills = [
+            order for order in orders
+            if order.amount > Decimal("0") and order.executed_amount_base < order.amount
+        ]
         if not orders_needing_fills:
             return
 
@@ -326,7 +329,7 @@ class LighterPerpetualDerivative(PerpetualDerivativePyBase):
                             if trade_update is not None:
                                 self._order_tracker.process_trade_update(trade_update)
 
-                    if all(o.is_filled for o in market_orders):
+                    if all(o.executed_amount_base >= o.amount for o in market_orders):
                         break
 
                     next_cursor = response.get("next_cursor")
