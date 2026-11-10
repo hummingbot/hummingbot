@@ -105,7 +105,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
 
         self.assertEqual(len(aggregated_buys), 2)
         trade = aggregated_buys[0]
-        self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == 15)
+        self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == Decimal("17.5"))
         self.assertEqual(aggregated_buys[1], trades[1])
         self.assertEqual(len(aggregated_sells), 0)
 
@@ -120,7 +120,7 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(len(aggregated_buys), 0)
         self.assertEqual(len(aggregated_sells), 2)
         trade = aggregated_sells[0]
-        self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == 15)
+        self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == Decimal("17.5"))
         self.assertEqual(aggregated_sells[1], trades[1])
 
     def test_performance_metrics(self):
@@ -341,3 +341,60 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         performance_metric = PerformanceMetrics()
         returned_impact = performance_metric._process_deducted_fees_impact_in_quote_vol(dummy_trade)
         self.assertEqual(returned_impact, Decimal("-100.0"))
+
+    def test_aggregated_position_uses_volume_weighted_price_and_keeps_fills_unchanged(self):
+        fills = [
+            self.mock_trade(id="order1", amount=Decimal("1"), price=Decimal("100")),
+            self.mock_trade(id="order1", amount=Decimal("9"), price=Decimal("110")),
+        ]
+
+        aggregated_buys, _ = PerformanceMetrics.aggregate_position_order(fills, [])
+
+        self.assertEqual(1, len(aggregated_buys))
+        self.assertEqual("order1", aggregated_buys[0].order_id)
+        self.assertEqual("OPEN", aggregated_buys[0].position)
+        self.assertEqual(Decimal("109"), aggregated_buys[0].price)
+        self.assertEqual(Decimal("10"), aggregated_buys[0].amount)
+        # the original fills are left as they were
+        self.assertEqual((Decimal("100"), Decimal("1")), (fills[0].price, fills[0].amount))
+        self.assertEqual((Decimal("110"), Decimal("9")), (fills[1].price, fills[1].amount))
+
+    def test_performance_metrics_for_derivatives_with_partially_filled_open_order(self):
+        rate_oracle = RateOracle()
+        rate_oracle._prices[trading_pair] = Decimal("120")
+        RateOracle._shared_instance = rate_oracle
+
+        def fill(order_id, trade_type, position, price, amount):
+            return TradeFill(
+                config_file_path="some-strategy.yml",
+                strategy="directional_v2",
+                market="binance_perpetual",
+                symbol=trading_pair,
+                base_asset=base,
+                quote_asset=quote,
+                timestamp=int(time.time()),
+                order_id=order_id,
+                trade_type=trade_type,
+                order_type="MARKET",
+                price=Decimal(price),
+                amount=Decimal(amount),
+                trade_fee=AddedToCostTradeFee(percent=Decimal("0.001")).to_json(),
+                exchange_trade_id=f"{order_id}-{price}",
+                position=position,
+            )
+
+        # One long round trip: the open order fills 1 @ 100 and 9 @ 110 (average entry 109),
+        # the close order fills 10 @ 120.
+        trades = [
+            fill("open-order", "BUY", PositionAction.OPEN.value, "100", "1"),
+            fill("open-order", "BUY", PositionAction.OPEN.value, "110", "9"),
+            fill("close-order", "SELL", PositionAction.CLOSE.value, "120", "10"),
+        ]
+
+        metrics = self.async_run_with_timeout(
+            PerformanceMetrics.create(trading_pair, trades, {base: Decimal("0"), quote: Decimal("10000")}))
+
+        self.assertEqual(Decimal("110"), metrics.trade_pnl)  # (120 - 109) * 10
+        self.assertEqual(Decimal("2.290"), metrics.fee_in_quote)  # 0.1% of 100 + 990 + 1200
+        self.assertEqual(Decimal("107.710"), metrics.total_pnl)
+        self.assertEqual((Decimal("100"), Decimal("1")), (trades[0].price, trades[0].amount))
