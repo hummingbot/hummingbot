@@ -365,6 +365,23 @@ class ExchangePyBase(ExchangeBase, ABC):
         safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order addressed by the venue's own order id.
+
+        The in-flight tracker only holds orders placed by *this* process, so an
+        order left behind by a crashed or archived session cannot be reached
+        through :meth:`cancel` at all -- it sits on the venue until a human
+        clears it. Connectors that can address an order by the venue's id
+        override this method.
+
+        :param trading_pair: the trading pair the order belongs to, when known
+        :param exchange_order_id: the venue-side order id
+        :return: the exchange order id of the cancelled order
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support cancelling by exchange order id"
+        )
+
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         Cancels all currently active orders. The cancellations are performed in parallel tasks.

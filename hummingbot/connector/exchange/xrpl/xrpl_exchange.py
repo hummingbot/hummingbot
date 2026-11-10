@@ -1120,6 +1120,44 @@ class XrplExchange(ExchangePyBase):
                 error=str(e),
             )
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an XRPL offer by its offer sequence, tracked or not.
+
+        ``_place_cancel`` reaches the venue through the in-flight tracker, so an
+        offer whose owning process is gone is unreachable. The ledger only needs
+        the offer sequence, which is the leading field of the exchange order id
+        (``<sequence>-<pair>``), so an untracked offer can be cancelled exactly
+        like a tracked one.
+        """
+        try:
+            offer_sequence = int(str(exchange_order_id).split("-")[0])
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"XRPL exchange order id must start with the offer sequence: {exchange_order_id!r}"
+            ) from None
+
+        transaction = OfferCancel(
+            account=self._xrpl_auth.get_account(),
+            offer_sequence=offer_sequence,
+        )
+        submit_result: TransactionSubmitResult = await self.tx_pool.submit_transaction(
+            transaction=transaction,
+            fail_hard=True,
+            max_retries=CONSTANTS.CANCEL_MAX_RETRY,
+        )
+        # temBAD_SEQUENCE means the offer is already gone -- that is the outcome
+        # we wanted, so it is not an error.
+        if not submit_result.success and submit_result.prelim_result != "temBAD_SEQUENCE":
+            raise ValueError(
+                f"OfferCancel for sequence {offer_sequence} failed: "
+                f"{submit_result.error or submit_result.prelim_result}"
+            )
+        self.logger().info(
+            f"Cancelled offer by sequence {offer_sequence} "
+            f"(prelim_result={submit_result.prelim_result}, tx_hash={submit_result.tx_hash})"
+        )
+        return exchange_order_id
+
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         """
         Execute order cancellation using the worker pools.
