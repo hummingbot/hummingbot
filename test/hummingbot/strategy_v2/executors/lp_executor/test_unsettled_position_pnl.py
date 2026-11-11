@@ -6,10 +6,7 @@ from unittest.mock import MagicMock
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.strategy_v2.executors.lp_executor.data_types import LPExecutorConfig
-from hummingbot.strategy_v2.executors.lp_executor.lp_executor import (
-    LPExecutor,
-    LPExecutorStates,
-)
+from hummingbot.strategy_v2.executors.lp_executor.lp_executor import LPExecutor, LPExecutorStates
 
 # The deposit that produced the live reading this test pins down: 5.879999 USDC
 # into a ZEC-USDC range at 82.77.
