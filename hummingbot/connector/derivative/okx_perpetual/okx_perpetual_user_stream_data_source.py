@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
@@ -162,6 +162,10 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.TimeoutError:
                 ping_request = WSPlainTextRequest(payload="ping")
                 await websocket_assistant.send(ping_request)
+
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if len(event_message) > 0 and "data" in event_message:
+            queue.put_nowait(event_message)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         pass  # unused
