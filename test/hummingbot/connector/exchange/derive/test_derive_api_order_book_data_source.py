@@ -324,6 +324,80 @@ class DeriveAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase):
         result = await self.data_source._request_order_book_snapshot(self.trading_pair)
         self.assertEqual(99999, result["params"]["data"]["publish_id"])
 
+    async def test_first_snapshot_request_is_answered_by_the_snapshot_listener(self):
+        """
+        The first book for a pair comes from the listener, the only reader of the snapshot queue.
+        The request used to read that queue as well, giving up its place in line every second, and
+        on a channel that publishes once a second the listener took every message: the request
+        failed after 100 attempts while the book it was waiting for sat in the cache.
+        """
+        self._simulate_trading_rules_initialized()
+        # The fixture's -1 sends the listener straight to its silent-channel branch; this is about
+        # the ordinary one, where it reads the queue.
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = self._original_full_order_book_reset_time
+        queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        forwarded = asyncio.Queue()
+        request = asyncio.create_task(self.data_source._request_order_book_snapshot(self.trading_pair))
+        listener = asyncio.create_task(
+            self.data_source.listen_for_order_book_snapshots(asyncio.get_running_loop(), forwarded)
+        )
+        await asyncio.sleep(0)
+        frame = self.get_ws_snapshot_msg()
+        queue.put_nowait(frame)
+
+        try:
+            result = await asyncio.wait_for(request, timeout=1)
+        finally:
+            listener.cancel()
+
+        self.assertEqual(frame["params"]["data"]["publish_id"], result["params"]["data"]["publish_id"])
+        # The listener read the frame, so the order book tracker was given it too.
+        self.assertEqual(1, forwarded.qsize())
+        self.assertEqual(0, queue.qsize())
+
+    async def test_first_snapshot_request_leaves_the_queue_to_the_listener(self):
+        self._simulate_trading_rules_initialized()
+        queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        queue.put_nowait(self.get_ws_snapshot_msg())
+        self.data_source.INITIAL_SNAPSHOT_TIMEOUT = 0.05
+
+        # No listener is running, and the frame is not the request's to take.
+        with self.assertRaises(RuntimeError) as context:
+            await self.data_source._request_order_book_snapshot(self.trading_pair)
+
+        self.assertIn(f"Failed to receive orderbook snapshot for {self.trading_pair} within", str(context.exception))
+        self.assertEqual(1, queue.qsize())
+
+    async def test_snapshot_for_another_pair_does_not_answer_the_request(self):
+        self._simulate_trading_rules_initialized()
+        request = asyncio.create_task(self.data_source._request_order_book_snapshot(self.trading_pair))
+        await asyncio.sleep(0)
+        self.data_source._snapshot_received_event("OTHER-PAIR").set()
+        await asyncio.sleep(0)
+        self.assertFalse(request.done())
+
+        frame = self.get_ws_snapshot_msg()
+        await self.data_source._parse_order_book_snapshot_message(frame, asyncio.Queue())
+        result = await asyncio.wait_for(request, timeout=1)
+        self.assertEqual(frame["params"]["data"]["publish_id"], result["params"]["data"]["publish_id"])
+
+    async def test_silent_channel_refresh_passes_on_cached_books_without_waiting(self):
+        """
+        After an hour without a message the listener calls this itself. It must not wait for a book
+        there: the listener is what receives them, so it would be waiting on itself.
+        """
+        self._simulate_trading_rules_initialized()
+        output = asyncio.Queue()
+
+        await asyncio.wait_for(self.data_source._request_order_book_snapshots(output), timeout=1)
+        self.assertEqual(0, output.qsize())             # no pair has had a book: nothing to pass on
+
+        frame = self.get_ws_snapshot_msg()
+        await self.data_source._parse_order_book_snapshot_message(frame, asyncio.Queue())
+        await asyncio.wait_for(self.data_source._request_order_book_snapshots(output), timeout=1)
+        self.assertEqual(1, output.qsize())
+        self.assertEqual(frame["params"]["data"]["publish_id"], output.get_nowait().update_id)
+
     # Dynamic subscription tests
     async def test_subscribe_to_trading_pair_successful(self):
         """Test successful subscription to a new trading pair."""

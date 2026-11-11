@@ -6,8 +6,12 @@ from eth_account import Account
 from hexbytes import HexBytes
 from web3 import Web3
 
-from hummingbot.connector.derivative.derive_perpetual.derive_perpetual_web_utils import decimal_to_big_int
-from hummingbot.connector.other.derive_common_utils import SignedAction, TradeModuleData
+from hummingbot.connector.other.derive_common_utils import (
+    SignedAction,
+    TradeModuleData,
+    decimal_to_big_int,
+    describe_error,
+)
 
 
 @pytest.fixture
@@ -30,7 +34,7 @@ def signed_action(trade_module_data):
         owner=Web3.to_checksum_address("0x3F5CE5FBFe3E9af3971dD833D26BA9b5C936F0bE"),  # noqa: mock
         signer=Web3().eth.account.from_key("0x4c0883a69102937d6231471b5dbb6204fe512961708279ca6f297d6b50ab8148").address,  # noqa: mock
         signature_expiry_sec=1700000000,
-        nonce=1695836058725001,
+        nonce=1720000000000000001,
         module_address=Web3.to_checksum_address("0x53d284357ec70cE289D6D64134DfAc8E511c8a3D"),  # noqa: mock
         DOMAIN_SEPARATOR="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
         ACTION_TYPEHASH="0x4d7a9f27c403ff9c0f19bce61d76d82f9aa29f8d6d4b0c5474607d9770d1af17",  # noqa: mock
@@ -90,9 +94,12 @@ def test_signed_action_to_json(signed_action):
     assert json_data[
         "subaccount_id"
     ] == signed_action.subaccount_id
+    # v3 requires the nanosecond nonce as a JSON string; as a number it would lose precision in
+    # any consumer that parses JSON numbers as doubles.
     assert json_data[
         "nonce"
-    ] == signed_action.nonce
+    ] == str(signed_action.nonce)
+    assert isinstance(json_data["nonce"], str)
     assert json_data[
         "signer"
     ] == signed_action.signer
@@ -135,3 +142,28 @@ def test_signed_action_sign_and_validate(signed_action):
 
     # Run validate_signature() to ensure it works
     signed_action.validate_signature()
+
+
+def test_describe_error_carries_the_exchanges_own_detail():
+    """
+    v3 puts what was actually wrong in ``data``. An order for an instrument outside the
+    subaccount's risk universe is refused as -32602 "Invalid params"; the reason is only there.
+    """
+    refused = {
+        "code": -32602,
+        "message": "Invalid params",
+        "data": "subaccount 37799 is in risk universe 1 but instrument XRP-PERP is in risk universe 3",
+    }
+    assert describe_error(refused) == (
+        "code=-32602 Invalid params (subaccount 37799 is in risk universe 1 but instrument XRP-PERP is in risk universe 3)"
+    )
+
+
+def test_describe_error_without_usable_detail_is_code_and_message():
+    for empty in ({}, {"data": None}, {"data": ""}, {"data": []}, {"data": {}}):
+        assert describe_error({"code": 11006, "message": "Does not exist", **empty}) == "code=11006 Does not exist"
+    # A structured detail is rendered rather than dropped, and a very long one is cut short.
+    assert describe_error({"code": 1, "message": "m", "data": {"field": "amount"}}) == 'code=1 m ({"field": "amount"})'
+    assert describe_error({"code": 1, "message": "m", "data": "x" * 1000}) == f"code=1 m ({'x' * 300})"
+    # Whatever arrives in place of an error object is still put into words.
+    assert describe_error("gateway timeout") == "gateway timeout"

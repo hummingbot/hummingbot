@@ -32,10 +32,13 @@ class DeriveRateSource(RateSourceBase):
                 base, quote = split_hb_trading_pair(trading_pair=trading_pair)
                 if quote != quote_token:
                     continue
-                bid_price = pair_price["symbol"].get("best_bid")
-                ask_price = pair_price["symbol"].get("best_ask")
-                if bid_price is not None and ask_price is not None and 0 < Decimal(bid_price) <= Decimal(ask_price):
-                    results[trading_pair] = (Decimal(bid_price) + Decimal(ask_price)) / Decimal("2")
+
+            # This used to sit inside the quote filter above, so the common quote_token=None call
+            # returned an empty mapping and the oracle silently had no Derive prices at all.
+            bid_price = pair_price["symbol"].get("best_bid")
+            ask_price = pair_price["symbol"].get("best_ask")
+            if bid_price is not None and ask_price is not None and 0 < Decimal(bid_price) <= Decimal(ask_price):
+                results[trading_pair] = (Decimal(bid_price) + Decimal(ask_price)) / Decimal("2")
 
         return results
 
