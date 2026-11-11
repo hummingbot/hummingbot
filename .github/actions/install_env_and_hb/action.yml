@@ -23,9 +23,12 @@ runs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-    # Install hummingbot env if pyproject.toml/uv.lock have changed
+    # Install hummingbot env if pyproject.toml/uv.lock have changed, or re-sync a
+    # cached .venv whenever code changed too: uv sync is cheap when the lockfile is
+    # already satisfied, and it repairs a cached venv whose interpreter the runner
+    # no longer has (the cache only stores .venv/~/.cache/uv, not the interpreter).
     - name: Install Hummingbot
-      if: ${{inputs.dependencies-cache-hit}} != 'true'
+      if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash -l {0}
       run: |
         ./install
