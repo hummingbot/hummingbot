@@ -3,6 +3,8 @@ import json
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aiohttp import WSMessage, WSMsgType
+
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth import OkxPerpetualAuth
@@ -184,6 +186,57 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
         await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
 
         self.assertEqual(0, msg_queue.qsize())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
+            self,
+            ws_connect_mock):
+        successful_login_response = {
+            "event": "login",
+            "code": "0",
+            "msg": "",
+            "connId": "a4d3ae55"
+        }
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.receive.side_effect = [
+            WSMessage(type=WSMsgType.TEXT, data=json.dumps(successful_login_response), extra=None),
+            asyncio.TimeoutError("Test timeout"),
+            asyncio.CancelledError]
+
+        msg_queue = asyncio.Queue()
+
+        try:
+            await self.data_source.listen_for_user_stream(msg_queue)
+        except asyncio.CancelledError:
+            pass
+
+        sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        expected_ping_message = "ping"
+        self.assertEqual(expected_ping_message, sent_messages[0])
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_user_stream_does_not_queue_pong_response(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, self._authentication_response(True)
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "pong")
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, self._subscription_response(CONSTANTS.WS_ORDERS_CHANNEL)
+        )
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.local_event_loop.create_task(
+            self.data_source._listen_for_user_stream_on_url("test_url", msg_queue)
+        )
+
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+        await asyncio.sleep(0.01)
+
+        self.assertEqual(1, msg_queue.qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_user_stream_connection_failed(self, mock_ws):
