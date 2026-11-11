@@ -9,18 +9,22 @@ DEFAULT_TIME_IN_FORCE = "GTC"
 
 REST_URLS = {
     "bybit_perpetual_main": "https://api.bybit.com/",
-    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"
+    "bybit_perpetual_testnet": "https://api-testnet.bybit.com/",
+    "bybit_perpetual_eu": "https://api.bybit.eu/"
 }
 WSS_NON_LINEAR_PUBLIC_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/inverse",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse"}
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/inverse",
+    "bybit_perpetual_eu": "wss://stream.bybit.com/v5/public/inverse"}
 WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
 WSS_LINEAR_PUBLIC_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/public/linear",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear"}
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/public/linear",
+    "bybit_perpetual_eu": "wss://stream.bybit.com/v5/public/linear"}
 WSS_LINEAR_PRIVATE_URLS = {
     "bybit_perpetual_main": "wss://stream.bybit.com/v5/private",
-    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private"
+    "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/v5/private",
+    "bybit_perpetual_eu": "wss://stream.bybit.com/v5/private"
 }
 WS_HEARTBEAT_TIME_INTERVAL = 20.0
 
