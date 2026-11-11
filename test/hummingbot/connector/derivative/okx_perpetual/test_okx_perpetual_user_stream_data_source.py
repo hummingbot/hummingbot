@@ -10,6 +10,8 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_dat
     OkxPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.web_assistant.connections.data_types import WSPlainTextRequest
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
@@ -212,3 +214,21 @@ class OkxPerpetualUserStreamDataSourceTests(IsolatedAsyncioWrapperTestCase):
             self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(messages))
             await self.listening_task
+
+    async def test_process_websocket_messages_sends_plain_text_ping_on_timeout(self):
+        ws_mock = AsyncMock(spec=WSAssistant)
+        ws_mock.send = AsyncMock(side_effect=asyncio.CancelledError)
+        queue = asyncio.Queue()
+
+        with patch(
+            "hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_data_source."
+            "UserStreamTrackerDataSource._process_websocket_messages",
+            side_effect=asyncio.TimeoutError,
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await self.data_source._process_websocket_messages(
+                    websocket_assistant=ws_mock, queue=queue)
+
+        sent_request = ws_mock.send.call_args.args[0]
+        self.assertIsInstance(sent_request, WSPlainTextRequest)
+        self.assertEqual("ping", sent_request.payload)
