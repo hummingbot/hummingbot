@@ -682,6 +682,40 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
 
         return float(resp_json[0]["last"])
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an order addressed by Gate's own order id.
+
+        ``cancel`` takes the client order id and only reaches orders this process
+        placed: the in-flight tracker dies with the process. An order left resting
+        by a crashed, archived or restarted session therefore cannot be cleared at
+        all, even though Gate's own DELETE endpoint takes the venue id directly.
+
+        :param trading_pair: the trading pair the order belongs to, when known
+        :param exchange_order_id: the venue-side order id
+        :return: the exchange order id
+        """
+        path_url = CONSTANTS.ORDER_DELETE_PATH_URL.format(id=exchange_order_id)
+        await self._api_delete(
+            path_url=path_url,
+            is_auth_required=True,
+            limit_id=CONSTANTS.CANCEL_ORDERS_LIMITS_ID,
+        )
+        client_order_id = self._client_order_id_for(exchange_order_id)
+        if client_order_id:
+            # A cancelled order that still reads as live is retried by the next
+            # control loop, which cancels it again and logs a failure each time.
+            tracked = self.in_flight_orders.get(client_order_id)
+            if tracked is not None:
+                tracked.current_state = OrderState.CANCELED
+        return exchange_order_id
+
+    def _client_order_id_for(self, exchange_order_id: str) -> str:
+        """The tracked order behind a venue id, or "" when this process has none."""
+        for client_order_id, order in list(self.in_flight_orders.items()):
+            if str(getattr(order, "exchange_order_id", "")) == str(exchange_order_id):
+                return client_order_id
+        return ""
+
     async def _update_positions(self):
         """
         Retrieves all positions using the REST API.
