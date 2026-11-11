@@ -1006,15 +1006,55 @@ class DydxV4PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         # Dydx has no partial fill status
         pass
 
-    @aioresponses()
-    async def test_set_position_mode_success(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+    async def test_set_position_mode_success(self):
+        success, msg = await self.exchange._trading_pair_position_mode_set(
+            PositionMode.ONEWAY, self.trading_pair
+        )
 
-    @aioresponses()
-    async def test_set_position_mode_failure(self, mock_api):
-        # There's only ONEWAY position mode
-        pass
+        self.assertTrue(success)
+        self.assertEqual("", msg)
+        self.assertTrue(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 switching position mode to {PositionMode.ONEWAY} for {self.trading_pair} succeeded.",
+            )
+        )
+
+    async def test_set_position_mode_failure(self):
+        success, msg = await self.exchange._trading_pair_position_mode_set(
+            PositionMode.HEDGE, self.trading_pair
+        )
+
+        self.assertFalse(success)
+        self.assertEqual("dydx_v4 only supports the ONEWAY position mode.", msg)
+        self.assertTrue(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 encountered a problem switching position mode to "
+                f"{PositionMode.HEDGE} for {self.trading_pair}"
+                f" (dydx_v4 only supports the ONEWAY position mode)",
+            )
+        )
+
+    async def test_set_position_mode_already_set_is_a_no_op(self):
+        # dydx_v4 only supports ONEWAY and tracks it locally (there is no exchange endpoint to
+        # query it), so a resubmission of the already-set mode must short-circuit instead of
+        # flooding the logs with a repeated (or, before the fix, an unhandled-exception) error
+        # every time it is called (GitHub #8482).
+        self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
+
+        await self.exchange._execute_set_position_mode(PositionMode.ONEWAY)
+
+        self.assertTrue(
+            self.is_logged("INFO", f"Position mode already set to {PositionMode.ONEWAY} on exchange.")
+        )
+        self.assertFalse(
+            self.is_logged(
+                "DEBUG",
+                f"dydx_v4 switching position mode to {PositionMode.ONEWAY} for {self.trading_pair} succeeded.",
+            )
+        )
+        self.assertFalse(any(record.levelname == "ERROR" for record in self.log_records))
 
     @aioresponses()
     async def test_cancel_order_not_found_in_the_exchange(self, mock_api):
