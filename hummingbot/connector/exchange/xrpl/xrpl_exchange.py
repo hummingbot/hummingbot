@@ -1120,6 +1120,71 @@ class XrplExchange(ExchangePyBase):
                 error=str(e),
             )
 
+    async def cancel_by_exchange_order_id(self, trading_pair: str, exchange_order_id: str) -> str:
+        """Cancel an XRPL offer by its offer sequence, tracked or not.
+
+        ``_place_cancel`` reaches the venue through the in-flight tracker, so an
+        offer whose owning process is gone is unreachable. The ledger needs one
+        thing to cancel an offer -- the offer sequence -- and that is the leading
+        field of the exchange order id this connector issues:
+
+            ``<offer_sequence>-<last_ledger_sequence>-<tx_hash_prefix>``
+
+        Only the first field is read, so a bare ``"106553233"`` is accepted too;
+        anything else is rejected before a transaction is built. That makes an
+        untracked offer cancellable exactly like a tracked one.
+        """
+        try:
+            offer_sequence = int(str(exchange_order_id).split("-")[0])
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"XRPL exchange order id must start with the offer sequence: {exchange_order_id!r}"
+            ) from None
+
+        transaction = OfferCancel(
+            account=self._xrpl_auth.get_account(),
+            offer_sequence=offer_sequence,
+        )
+        submit_result: TransactionSubmitResult = await self.tx_pool.submit_transaction(
+            transaction=transaction,
+            fail_hard=True,
+            max_retries=CONSTANTS.CANCEL_MAX_RETRY,
+        )
+        # temBAD_SEQUENCE means the offer is already gone -- that is the outcome
+        # we wanted, so it is not an error and there is nothing to confirm.
+        already_gone = submit_result.prelim_result == "temBAD_SEQUENCE"
+        if not submit_result.success and not already_gone:
+            raise ValueError(
+                f"OfferCancel for sequence {offer_sequence} failed: "
+                f"{submit_result.error or submit_result.prelim_result}"
+            )
+
+        # Confirmation, not submission. The pool reports success for tesSUCCESS
+        # *and* terQUEUED, and a queued transaction can still fail or expire
+        # later. An orphaned offer has no tracker entry to notice that, so a
+        # cancel that only got as far as the queue would be reported as done
+        # while the offer is still live and fillable (review, #8542).
+        if not already_gone and submit_result.is_accepted and submit_result.signed_tx is not None:
+            verify_result: TransactionVerifyResult = (
+                await self.verification_pool.submit_verification(
+                    signed_tx=submit_result.signed_tx,
+                    prelim_result=submit_result.prelim_result or "tesSUCCESS",
+                    timeout=CONSTANTS.VERIFY_TX_TIMEOUT,
+                )
+            )
+            if not verify_result.verified:
+                raise ValueError(
+                    f"OfferCancel for sequence {offer_sequence} was submitted but is "
+                    f"not confirmed on the ledger: "
+                    f"{verify_result.error or verify_result.final_result}"
+                )
+
+        self.logger().info(
+            f"Cancelled offer by sequence {offer_sequence} "
+            f"(prelim_result={submit_result.prelim_result}, tx_hash={submit_result.tx_hash})"
+        )
+        return exchange_order_id
+
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         """
         Execute order cancellation using the worker pools.
