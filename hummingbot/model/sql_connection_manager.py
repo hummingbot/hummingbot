@@ -83,11 +83,16 @@ class SQLConnectionManager(TransactionBase):
 
                 for tname, fkcs in reversed(
                         inspector.get_sorted_table_and_fkc_names()):
+                    # tname may be a tuple (schema, table) in newer sqlalchemy
+                    if isinstance(tname, (tuple, list)):
+                        tname = tname[-1] if tname else None
                     if fkcs:
                         if not self._engine.dialect.supports_alter:
                             continue
                         for fkc in fkcs:
-                            fk_constraint = ForeignKeyConstraint((), (), name=fkc)
+                            # fkc may be a (tname, fkname) tuple in newer sqlalchemy
+                            fk_name = fkc[1] if isinstance(fkc, (tuple, list)) else fkc
+                            fk_constraint = ForeignKeyConstraint((), (), name=fk_name)
                             Table(tname, MetaData(), fk_constraint)
                             conn.execute(DropConstraint(fk_constraint))
 
