@@ -10,8 +10,6 @@ from aioresponses import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_web_utils as web_utils
-from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.bitget_perpetual import bitget_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_api_order_book_data_source import (
     BitgetPerpetualAPIOrderBookDataSource,
@@ -40,9 +38,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.log_records: List[Any] = []
         self.listening_task: Optional[asyncio.Task] = None
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = BitgetPerpetualDerivative(
-            client_config_map,
             bitget_perpetual_api_key="test_api_key",
             bitget_perpetual_secret_key="test_secret_key",
             bitget_perpetual_passphrase="test_passphrase",
@@ -131,6 +127,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         """
         snapshot: Dict[str, Any] = self.ws_order_book_snapshot_mock_response()
         snapshot["action"] = "update"
+        snapshot["data"][0]["pseq"] = snapshot["data"][0]["seq"]
+        snapshot["data"][0]["seq"] = snapshot["data"][0]["seq"] + 7
 
         return snapshot
 
@@ -143,9 +141,9 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                "instId": self.exchange_trading_pair
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                "symbol": self.exchange_trading_pair
             },
             "data": [
                 {
@@ -157,7 +155,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
                         ["27000.0", "2.710"],
                         ["26999.5", "1.460"]
                     ],
-                    "checksum": 0,
+                    "pseq": 0,
                     "seq": 123,
                     "ts": "1695716059516"
                 }
@@ -174,33 +172,29 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                "instId": self.exchange_trading_pair,
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                "symbol": self.exchange_trading_pair,
             },
             "data": [
+                # V3 UTA ticker push: the symbol lives on the envelope ("arg"), not in the entry.
                 {
-                    "instId": self.exchange_trading_pair,
-                    "lastPr": "27000.5",
-                    "bidPr": "27000",
-                    "askPr": "27000.5",
-                    "bidSz": "2.71",
-                    "askSz": "8.76",
-                    "open24h": "27000.5",
-                    "high24h": "30668.5",
-                    "low24h": "26999.0",
-                    "change24h": "-0.00002",
+                    "lastPrice": "27000.5",
+                    "bid1Price": "27000",
+                    "ask1Price": "27000.5",
+                    "bid1Size": "2.71",
+                    "ask1Size": "8.76",
+                    "openPrice24h": "27000.5",
+                    "highPrice24h": "30668.5",
+                    "lowPrice24h": "26999.0",
+                    "price24hPcnt": "-0.00002",
                     "fundingRate": "0.000010",
                     "nextFundingTime": "1695722400000",
                     "markPrice": "27000.0",
                     "indexPrice": "25702.4",
-                    "holdingAmount": "929.502",
-                    "baseVolume": "368.900",
-                    "quoteVolume": "10152429.961",
-                    "openUtc": "27000.5",
-                    "symbolType": 1,
-                    "symbol": self.exchange_trading_pair,
-                    "deliveryPrice": "0",
+                    "openInterest": "929.502",
+                    "volume24h": "368.900",
+                    "turnover24h": "10152429.961",
                     "ts": "1695715383021"
                 }
             ]
@@ -222,19 +216,19 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
             "op": "subscribe",
             "args": [
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_BOOKS,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_BOOKS,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                    "symbol": symbol
                 },
                 {
-                    "instType": product_type,
-                    "channel": CONSTANTS.PUBLIC_WS_TICKER,
-                    "instId": symbol
+                    "instType": product_type.lower(),
+                    "topic": CONSTANTS.PUBLIC_WS_TICKER,
+                    "symbol": symbol
                 }
             ],
         }
@@ -264,24 +258,24 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         return {
             "action": "snapshot",
             "arg": {
-                "instType": CONSTANTS.USDT_PRODUCT_TYPE,
-                "channel": CONSTANTS.PUBLIC_WS_TRADE,
-                "instId": "BTCUSDT"
+                "instType": CONSTANTS.USDT_PRODUCT_TYPE.lower(),
+                "topic": CONSTANTS.PUBLIC_WS_TRADE,
+                "symbol": "BTCUSDT"
             },
             "data": [
                 {
-                    "ts": "1695716760565",
-                    "price": "27000.5",
-                    "size": "0.001",
-                    "side": "buy",
-                    "tradeId": "1"
+                    "T": "1695716760565",
+                    "p": "27000.5",
+                    "v": "0.001",
+                    "S": "buy",
+                    "i": "1"
                 },
                 {
-                    "ts": "1695716759514",
-                    "price": "27000.0",
-                    "size": "0.001",
-                    "side": "sell",
-                    "tradeId": "2"
+                    "T": "1695716759514",
+                    "p": "27000.0",
+                    "v": "0.001",
+                    "S": "sell",
+                    "i": "2"
                 }
             ],
             "ts": 1695716761589
@@ -612,8 +606,8 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         msg: OrderBookMessage = await msg_queue.get()
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(int(trade_event["data"][0]["tradeId"]), msg.trade_id)
-        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        self.assertEqual(int(trade_event["data"][0]["i"]), msg.trade_id)
+        self.assertEqual(int(trade_event["data"][0]["T"]) * 1e-3, msg.timestamp)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_listen_for_order_book_diffs_cancelled(self, mock_ws: AsyncMock) -> None:
@@ -913,6 +907,29 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         )
         self.assertEqual(Decimal(str(msg_result["fundingRate"])), funding_info.rate)
 
+    @aioresponses()
+    async def test_get_funding_info_accepts_next_funding_time_field(self, mock_api) -> None:
+        """
+        V3 names the next settlement "nextFundingTime" (as the ticker channel does). Reading only
+        "nextUpdate" would raise a KeyError and leave the pair without initial funding info.
+        """
+        rate_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_FUNDING_RATE_ENDPOINT)
+        rate_regex_url = re.compile(rate_url.replace(".", r"\.").replace("?", r"\?"))
+        mark_url = web_utils.public_rest_url(path_url=CONSTANTS.PUBLIC_SYMBOL_PRICE_ENDPOINT)
+        mark_regex_url = re.compile(mark_url.replace(".", r"\.").replace("?", r"\?"))
+
+        resp: Dict[str, Any] = self.expected_funding_info_data()
+        resp["data"][0]["nextFundingTime"] = resp["data"][0].pop("nextUpdate")
+        mock_api.get(rate_regex_url, body=json.dumps(resp))
+        mock_api.get(mark_regex_url, body=json.dumps(resp))
+
+        funding_info: FundingInfo = await self.data_source.get_funding_info(self.trading_pair)
+
+        self.assertEqual(
+            int(resp["data"][0]["nextFundingTime"]) * 1e-3,
+            funding_info.next_funding_utc_timestamp
+        )
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     async def test_events_enqueued_correctly_after_channel_detection(
         self,
@@ -962,3 +979,249 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(IsolatedAsyncioWrapperTestCase)
         self.assertEqual(funding_event, funding_queue.get_nowait())
         self.assertEqual(1, trade_queue.qsize())
         self.assertEqual(trade_event, trade_queue.get_nowait())
+
+    def _books_push(self, action: str, seq: int, pseq: int, symbol: Optional[str] = None) -> Dict[str, Any]:
+        message: Dict[str, Any] = self.ws_order_book_snapshot_mock_response()
+        message["action"] = action
+        message["arg"]["symbol"] = symbol or self.exchange_trading_pair
+        message["data"][0]["seq"] = seq
+        message["data"][0]["pseq"] = pseq
+        return message
+
+    def test_books_sequence_accepts_a_continuous_chain(self) -> None:
+        channels = [
+            self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0)),
+            self.data_source._channel_originating_message(self._books_push("update", seq=105, pseq=100)),
+            self.data_source._channel_originating_message(self._books_push("update", seq=111, pseq=105)),
+        ]
+
+        self.assertEqual(
+            [
+                self.data_source._snapshot_messages_queue_key,
+                self.data_source._diff_messages_queue_key,
+                self.data_source._diff_messages_queue_key,
+            ],
+            channels,
+        )
+
+    def test_books_sequence_gap_raises_connection_error(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+        self.data_source._channel_originating_message(self._books_push("update", seq=105, pseq=100))
+
+        with self.assertRaises(ConnectionError) as context:
+            self.data_source._channel_originating_message(self._books_push("update", seq=120, pseq=110))
+
+        self.assertIn("last seq 105, next pseq 110", str(context.exception))
+
+    def test_first_update_after_snapshot_only_has_to_bracket_it(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+
+        channel = self.data_source._channel_originating_message(self._books_push("update", seq=110, pseq=95))
+
+        self.assertEqual(self.data_source._diff_messages_queue_key, channel)
+        # From the second update on, pseq has to repeat the previous seq exactly.
+        with self.assertRaises(ConnectionError):
+            self.data_source._channel_originating_message(self._books_push("update", seq=120, pseq=100))
+
+    def test_first_update_after_snapshot_that_does_not_bracket_it_raises(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+
+        with self.assertRaises(ConnectionError):
+            self.data_source._channel_originating_message(self._books_push("update", seq=110, pseq=101))
+
+    def test_books_sequence_reset_mid_stream_raises_connection_error(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+        self.data_source._channel_originating_message(self._books_push("update", seq=105, pseq=100))
+
+        with self.assertRaises(ConnectionError):
+            self.data_source._channel_originating_message(self._books_push("update", seq=3, pseq=0))
+
+    def test_snapshot_restarts_the_books_sequence(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+        self.data_source._channel_originating_message(self._books_push("update", seq=105, pseq=100))
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=900, pseq=0))
+
+        channel = self.data_source._channel_originating_message(self._books_push("update", seq=905, pseq=900))
+
+        self.assertEqual(self.data_source._diff_messages_queue_key, channel)
+
+    def test_books_sequence_is_tracked_per_symbol(self) -> None:
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=500, pseq=0, symbol="ETHUSDT"))
+        self.data_source._channel_originating_message(self._books_push("update", seq=105, pseq=100))
+        self.data_source._channel_originating_message(self._books_push("update", seq=510, pseq=500, symbol="ETHUSDT"))
+
+        self.assertEqual((105, False), self.data_source._book_sequences[self.exchange_trading_pair])
+        self.assertEqual((510, False), self.data_source._book_sequences["ETHUSDT"])
+
+    def test_books_push_without_sequence_fields_is_not_checked(self) -> None:
+        message = self.ws_order_book_diff_mock_response()
+        del message["data"][0]["seq"]
+        del message["data"][0]["pseq"]
+
+        channel = self.data_source._channel_originating_message(message)
+
+        self.assertEqual(self.data_source._diff_messages_queue_key, channel)
+        self.assertEqual({}, self.data_source._book_sequences)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    async def test_listen_for_subscriptions_resubscribes_after_a_books_sequence_gap(self, mock_ws: AsyncMock) -> None:
+        first_connection = self.mocking_assistant.create_websocket_mock()
+        second_connection = self.mocking_assistant.create_websocket_mock()
+        mock_ws.side_effect = [first_connection, second_connection]
+        for message in [
+            self._books_push("snapshot", seq=100, pseq=0),
+            self._books_push("update", seq=105, pseq=100),
+            self._books_push("update", seq=120, pseq=110),
+        ]:
+            self.mocking_assistant.add_websocket_aiohttp_message(
+                websocket_mock=first_connection, message=json.dumps(message)
+            )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=second_connection, message=json.dumps(self._books_push("snapshot", seq=200, pseq=0))
+        )
+
+        self.listening_task = self.local_event_loop.create_task(self.data_source.listen_for_subscriptions())
+        await self.mocking_assistant.run_until_all_aiohttp_messages_delivered(second_connection)
+
+        self.assertEqual(2, mock_ws.call_count)
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            f"The websocket connection was closed (Order book sequence broken for {self.exchange_trading_pair} "
+            f"(last seq 105, next pseq 110); resubscribing for a fresh snapshot)"
+        ))
+        expected_subscription = await self.expected_subscription_response(self.trading_pair)
+        self.assertEqual(
+            [expected_subscription], self.mocking_assistant.json_messages_sent_through_websocket(second_connection)
+        )
+        snapshot_queue = self.data_source._message_queue[self.data_source._snapshot_messages_queue_key]
+        diff_queue = self.data_source._message_queue[self.data_source._diff_messages_queue_key]
+        self.assertEqual(2, snapshot_queue.qsize())
+        self.assertEqual(1, diff_queue.qsize())
+        self.assertEqual((200, True), self.data_source._book_sequences[self.exchange_trading_pair])
+
+    async def test_subscribe_channels_starts_the_ping_task(self) -> None:
+        ws = AsyncMock()
+
+        await self.data_source._subscribe_channels(ws)
+        await asyncio.sleep(0)
+
+        self.assertIsNotNone(self.data_source._ping_task)
+        self.assertEqual(2, ws.send.call_count)  # the subscription, then the first ping
+        await self.data_source._on_order_stream_interruption(websocket_assistant=ws)
+
+    async def test_stream_interruption_stops_the_ping_task_and_clears_sequences(self) -> None:
+        ws = AsyncMock()
+        self.data_source._channel_originating_message(self._books_push("snapshot", seq=100, pseq=0))
+        ping_task = self.local_event_loop.create_task(self.data_source.send_interval_ping(ws))
+        self.data_source._ping_task = ping_task
+        await asyncio.sleep(0)
+
+        await self.data_source._on_order_stream_interruption(websocket_assistant=ws)
+
+        self.assertTrue(ping_task.cancelled())
+        self.assertIsNone(self.data_source._ping_task)
+        self.assertEqual({}, self.data_source._book_sequences)
+        ws.disconnect.assert_awaited_once()
+
+    async def test_subscribe_to_trading_pair_successful(self) -> None:
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertTrue(result)
+        self.assertIn(new_pair, self.data_source._trading_pairs)
+        self.assertEqual(1, mock_ws.send.call_count)
+        self.assertEqual(
+            await self.expected_subscription_response(new_pair), mock_ws.send.call_args[0][0].payload
+        )
+        self.assertTrue(self._is_logged("INFO", f"Successfully subscribed to {new_pair}"))
+
+    async def test_subscribe_to_trading_pair_websocket_not_connected(self) -> None:
+        new_pair = "ETH-USDT"
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(self._is_logged(
+            "WARNING", f"Cannot subscribe to {new_pair}: WebSocket connection not established."
+        ))
+
+    async def test_subscribe_to_trading_pair_raises_cancel_exception(self) -> None:
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.subscribe_to_trading_pair(new_pair)
+
+    async def test_subscribe_to_trading_pair_raises_exception_and_logs_error(self) -> None:
+        new_pair = "ETH-USDT"
+        ex_new_pair = "ETHUSDT"
+        self.connector._set_trading_pair_symbol_map(
+            bidict({self.exchange_trading_pair: self.trading_pair, ex_new_pair: new_pair})
+        )
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.subscribe_to_trading_pair(new_pair)
+
+        self.assertFalse(result)
+        self.assertNotIn(new_pair, self.data_source._trading_pairs)
+        self.assertTrue(self._is_logged("ERROR", f"Error subscribing to {new_pair}: Test Error"))
+
+    async def test_unsubscribe_from_trading_pair_successful(self) -> None:
+        mock_ws = AsyncMock()
+        self.data_source._ws_assistant = mock_ws
+        expected_unsubscription = await self.expected_subscription_response(self.trading_pair)
+        expected_unsubscription["op"] = "unsubscribe"
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertTrue(result)
+        self.assertNotIn(self.trading_pair, self.data_source._trading_pairs)
+        self.assertEqual(1, mock_ws.send.call_count)
+        self.assertEqual(expected_unsubscription, mock_ws.send.call_args[0][0].payload)
+        self.assertTrue(self._is_logged("INFO", f"Successfully unsubscribed from {self.trading_pair}"))
+
+    async def test_unsubscribe_from_trading_pair_websocket_not_connected(self) -> None:
+        self.data_source._ws_assistant = None
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertTrue(self._is_logged(
+            "WARNING", f"Cannot unsubscribe from {self.trading_pair}: WebSocket connection not established."
+        ))
+
+    async def test_unsubscribe_from_trading_pair_raises_cancel_exception(self) -> None:
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+        self.data_source._ws_assistant = mock_ws
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+    async def test_unsubscribe_from_trading_pair_raises_exception_and_logs_error(self) -> None:
+        mock_ws = AsyncMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+        self.data_source._ws_assistant = mock_ws
+
+        result = await self.data_source.unsubscribe_from_trading_pair(self.trading_pair)
+
+        self.assertFalse(result)
+        self.assertIn(self.trading_pair, self.data_source._trading_pairs)
+        self.assertTrue(self._is_logged("ERROR", f"Error unsubscribing from {self.trading_pair}: Test Error"))
