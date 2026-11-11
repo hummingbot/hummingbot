@@ -2,9 +2,9 @@
 Backtest bollinger_v2 directional trading strategy with optional chart output.
 
 Usage:
-    conda run -n hummingbot python scripts/backtest_bollinger_v2.py
-    conda run -n hummingbot python scripts/backtest_bollinger_v2.py --days 3 --chart
-    conda run -n hummingbot python scripts/backtest_bollinger_v2.py --chart --output backtest.html
+    uv run python scripts/backtest_bollinger_v2.py
+    uv run python scripts/backtest_bollinger_v2.py --days 3 --chart
+    uv run python scripts/backtest_bollinger_v2.py --chart --output backtest.html
 """
 import argparse
 import asyncio

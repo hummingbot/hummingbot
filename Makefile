@@ -2,9 +2,9 @@
 .PHONY: test run run_coverage report_coverage development-diff-cover uninstall build install setup deploy down link-cli
 
 DYDX ?= 0
-ENV_FILE := setup/environment.yml
+UV_EXTRA :=
 ifeq ($(DYDX),1)
-  ENV_FILE := setup/environment_dydx.yml
+  UV_EXTRA := --extra dydx
 endif
 
 test:
@@ -33,35 +33,25 @@ build:
 
 
 uninstall:
-	conda env remove -n hummingbot -y
+	rm -rf .venv
 
 install:
-	@if ! command -v conda >/dev/null 2>&1; then \
-		echo "Error: Conda is not found in PATH. Please install Conda or add it to your PATH."; \
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "Error: uv is not found in PATH. Please install uv: https://docs.astral.sh/uv/getting-started/installation/"; \
 		exit 1; \
 	fi
 	@mkdir -p logs
-	@echo "Using env file: $(ENV_FILE)"
-	@if conda env list | awk '{print $$1}' | grep -qx hummingbot; then \
-		conda env update -n hummingbot -f "$(ENV_FILE)"; \
-	else \
-		conda env create -n hummingbot -f "$(ENV_FILE)"; \
-	fi
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		conda install -n hummingbot -y appnope; \
-	fi
-	@conda run -n hummingbot conda develop .
-	@conda run -n hummingbot python -m pip install --no-deps -r setup/pip_packages.txt > logs/pip_install.log 2>&1
-	@conda run -n hummingbot pre-commit install
+	@uv sync $(UV_EXTRA)
+	@uv run pre-commit install
 	@if [ "$$(uname)" = "Linux" ] && command -v dpkg >/dev/null 2>&1; then \
 		if ! dpkg -s build-essential >/dev/null 2>&1; then \
 			echo "build-essential not found, installing..."; \
 			sudo apt-get update && sudo apt-get upgrade -y && sudo apt-get install -y build-essential; \
 		fi; \
 	fi
-	@conda run -n hummingbot --no-capture-output python setup.py build_ext --inplace
-	@conda run -n hummingbot bash -c 'ln -sf "$(CURDIR)/bin/hbot" "$$CONDA_PREFIX/bin/hbot"'
-	@echo "Done. Run: conda activate hummingbot && hbot --help"
+	@uv run python setup.py build_ext --inplace
+	@ln -sf "$(CURDIR)/bin/hbot" ".venv/bin/hbot"
+	@echo "Done. Run: source .venv/bin/activate && hbot --help"
 
 link-cli:
 	@src="$(CURDIR)/bin/hbot-host"; dir="$${HBOT_BIN:-}"; \
@@ -81,7 +71,7 @@ link-cli:
 	echo "Now 'hbot <command>' dispatches to your source env or the docker container."
 
 run:
-	conda run -n hummingbot --no-capture-output ./bin/hummingbot_quickstart.py $(ARGS)
+	uv run ./bin/hummingbot_quickstart.py $(ARGS)
 
 setup:
 	@read -r -p "Include Gateway? [y/N] " ans; \

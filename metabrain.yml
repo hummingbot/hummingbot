@@ -23,10 +23,9 @@
 name: hummingbot
 
 services:
-  # Absolute interpreter path, not `conda run -n hummingbot ...`: the shared
-  # tmux server on this Mac carries a stale PATH with this checkout's own
-  # .venv/bin ahead of /opt/anaconda3/{bin,condabin} (see TASK filed below),
-  # which makes `conda run`'s own env resolution pick the wrong python in a
-  # fresh window. The absolute path sidesteps that PATH lookup entirely.
+  # Absolute interpreter path into this checkout's own uv-managed venv, not a bare
+  # `python`/`uv run`: the shared tmux server on this Mac carries a PATH whose
+  # resolution order isn't guaranteed per window, so naming the venv explicitly
+  # sidesteps that lookup entirely.
   - name: client
-    command: /opt/anaconda3/envs/hummingbot/bin/python ./bin/hummingbot_quickstart.py
+    command: .venv/bin/python ./bin/hummingbot_quickstart.py

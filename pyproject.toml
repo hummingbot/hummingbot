@@ -1,3 +1,112 @@
+[project]
+name = "hummingbot"
+version = "20260922"
+description = "Hummingbot"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Hummingbot Foundation", email = "dev@hummingbot.org" }]
+requires-python = ">=3.12,<3.14" # pandas-ta>=0.4.71b0 (pinned below) needs >=3.12; <3.14 is untested
+dependencies = [
+    "aiohttp>=3.8.5,<3.14", # aiohttp 3.14 requires a stream_writer arg that aioresponses 0.7.8 doesn't pass, breaking HTTP-mocked tests
+    "aiomqtt>=2.0.0",
+    "aioprocessing>=2.0.1",
+    "aioresponses>=0.7.4",
+    "aiounittest>=1.4.2",
+    "aptos-sdk>=0.8.0",
+    "appnope>=0.1.4; sys_platform == 'darwin'",
+    "async-timeout>=4.0.2,<5",
+    "asyncssh>=2.13.2",
+    "base58>=2.1.1",
+    "bidict>=0.22.1",
+    "bip-utils",
+    "Brotli>=1.2.0", # aiohttp>=3.13.3 calls Decompressor.process(data, max_length); Brotli<1.2.0 takes only one arg
+    "cachetools>=5.3.1",
+    "cryptography>=41.0.2",
+    "decibel-python-sdk==0.2.1",
+    "eth-account>=0.13.0",
+    "injective-py==1.14.*",
+    "lighter-sdk==1.1.2",
+    "msgpack-python",
+    "numba>=0.61.2",
+    "numpy>=2.2.6",
+    "objgraph",
+    "pandas>=2.3.2",
+    "pandas-ta>=0.4.71b",
+    "prompt_toolkit>=3.0.39",
+    "protobuf>=4.23.3",
+    "psutil>=5.9.5",
+    "ptpython>3.0.25",
+    "pydantic>=2",
+    "pyjwt>=2.3.0",
+    "pyperclip>=1.8.2",
+    "PyYaml>=0.2.5",
+    "requests>=2.31.0",
+    "ruamel.yaml>=0.2.5",
+    "safe-pysha3",
+    "scalecodec",
+    "scipy>=1.11.1",
+    "six>=1.16.0",
+    "solders>=0.19.0",
+    "sqlalchemy>=1.4.49",
+    "tabulate==0.9.0",
+    "TA-Lib>=0.6.4",
+    "tqdm>=4.67.1",
+    "typer>=0.9.0",
+    "ujson>=5.7.0",
+    # This needs to be restricted to <2.0 - tests fail otherwise
+    "urllib3>=1.26.15,<2.0",
+    "web3",
+    "xrpl-py==4.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hummingbot/hummingbot"
+
+[project.optional-dependencies]
+# Extra packages for the dYdX v4 build (`make install DYDX=1`), on top of the base dependencies.
+# (environment_dydx.yml also pinned "backports>=1.0" — dropped: nothing in the codebase imports
+# it directly, and it has no release compatible with every Python this project's requires-python
+# permits, which made dependency resolution unsatisfiable.)
+dydx = [
+    "v4-proto", # conda-forge packaged this same project as "dydxprotocol-v4-proto-py"; PyPI's name is "v4-proto" (import name: v4_proto)
+    "gql[aiohttp]>=3.4.1", # conda-forge split gql's aiohttp transport into "gql-with-aiohttp"; PyPI's equivalent is the gql[aiohttp] extra
+]
+
+[dependency-groups]
+dev = [
+    "autopep8",
+    "coverage>=7.2.7",
+    "cython>=3.0.12",
+    "diff-cover>=7.7.0",
+    "flake8>=6.0.0",
+    "pre-commit>=3.3.3",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.16.0",
+    "pytest-timeout>=2.1.0",
+    "setuptools==80.8.0",
+]
+
+[tool.uv]
+# This project builds its own Cython extensions in place via `setup.py build_ext` (see
+# Makefile/install), not through a wheel/editable install — uv should only manage the
+# dependency venv, the same division of labor conda had between `conda env create` and
+# the separate `setup.py build_ext --inplace` step.
+package = false
+# The Makefile/install/start scripts are bash-only (no native Windows support, same as the old
+# conda-based flow), and at least one dydx-extra dependency has no Windows distribution on PyPI
+# (conda-forge built its own). Scope universal resolution to the platforms actually supported.
+environments = [
+    "sys_platform == 'linux'",
+    "sys_platform == 'darwin'",
+]
+# bip32==5.0.0 (pulled in transitively by injective-py) caps coincurve<21; coincurve<21 ships no
+# prebuilt wheel for Python>=3.12, forcing a source build whose own build-system pin is unbounded
+# and picks up a scikit-build-core that broke backward compat with coincurve's pyproject.toml,
+# failing before the build starts. bip32 is unmaintained (5.0.0 is 3+ years old) and its only use
+# of coincurve is the same secp256k1 FFI surface coincurve>=21 still exposes, so force the newer,
+# wheel-having version rather than waiting on a fix that likely isn't coming.
+override-dependencies = ["coincurve>=21.0.0"]
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 # Fail any single test that runs longer than this (seconds) instead of hanging the
@@ -24,7 +133,7 @@ exclude = '''
 '''
 
 [build-system]
-requires = ["setuptools", "wheel", "numpy>=2.2.6", "cython>=3.0.12"]
+requires = ["setuptools==80.8.0", "wheel", "numpy>=2.2.6", "cython>=3.0.12"]
 build-backend = "setuptools.build_meta"
 
 [tool.isort]
@@ -34,6 +143,5 @@ include_trailing_comma = true
 use_parentheses = true
 ensure_newline_before_comments = true
 combine_as_imports = true
-conda_env = "hummingbot"
 filter_files = true
 skip = ["setup.py"]

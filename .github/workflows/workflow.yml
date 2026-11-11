@@ -53,33 +53,32 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
-      # Check for setup/environment.yml changes
-      - name: Cache conda dependencies
-        id: conda-dependencies
+      # Check for pyproject.toml/uv.lock changes
+      - name: Cache uv dependencies
+        id: uv-dependencies
         uses: actions/cache@v5
         env:
-          # Increase this value to manually reset cache if setup/environment.yml has not changed
-          CONDA_CACHE_NUMBER: 0
+          # Increase this value to manually reset cache if pyproject.toml/uv.lock have not changed
+          UV_CACHE_NUMBER: 0
         with:
           path: |
-            /home/runner/conda_pkgs_dir/
-            /usr/share/miniconda/envs
-          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment.yml') }}
+            .venv
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ env.UV_CACHE_NUMBER }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
         uses: ./.github/actions/install_env_and_hb
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
-          dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+          dependencies-cache-hit: ${{steps.uv-dependencies.outputs.cache-hit}}
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
         shell: bash
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.uv-dependencies.outputs.cache-hit != 'true'
         run: |
-          source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          source .venv/bin/activate
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             pre-commit run --files $(git diff --name-only origin/${{ github.base_ref }})
           else
@@ -87,27 +86,24 @@ jobs:
           fi
 
       - name: Run stable tests and calculate coverage
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.uv-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          source .venv/bin/activate
           make test
 
       - name: Check and report global coverage
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.uv-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          source .venv/bin/activate
           make report_coverage
 
       - name: Validate coverage for the changes
-        if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
+        if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.uv-dependencies.outputs.cache-hit != 'true')
         shell: bash
         run: |
-          source $CONDA/etc/profile.d/conda.sh
-          conda activate hummingbot
+          source .venv/bin/activate
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml
