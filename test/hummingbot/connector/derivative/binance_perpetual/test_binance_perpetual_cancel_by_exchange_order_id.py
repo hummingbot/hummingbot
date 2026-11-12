@@ -24,7 +24,7 @@ class BinancePerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
     def setUp(self) -> None:
         self.exchange = BinancePerpetualDerivative(
             binance_perpetual_api_key="testKey",
-            binance_perpetual_secret_key="testSecret",
+            binance_perpetual_api_secret="testSecret",
             trading_pairs=["BTC-USDT"],
         )
 
