@@ -20,7 +20,6 @@ from hummingbot.connector.derivative.bitget_perpetual import (
 from hummingbot.connector.derivative.bitget_perpetual.bitget_perpetual_derivative import (
     BitgetPerpetualDerivative,
 )
-from hummingbot.connector.exchange_py_base import ExchangePyBase
 
 
 class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
@@ -35,8 +34,7 @@ class BitgetPerpetualCancelByExchangeOrderIdTest(unittest.TestCase):
     def _run(self, coro):
         return asyncio.get_event_loop().run_until_complete(coro)
 
-    def test_base_contract_is_present(self):
-        self.assertIn("cancel_by_exchange_order_id", dir(ExchangePyBase))
+    # See the spot test: the base contract is asserted in the XRPL PR.
 
     def test_classic_account_sends_symbol_product_type_and_order_id(self):
         posted = {}

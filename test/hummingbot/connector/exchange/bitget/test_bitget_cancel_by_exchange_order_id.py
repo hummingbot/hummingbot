@@ -23,7 +23,6 @@ from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.exchange.bitget import bitget_constants as CONSTANTS
 from hummingbot.connector.exchange.bitget.bitget_exchange import BitgetExchange
-from hummingbot.connector.exchange_py_base import ExchangePyBase
 
 
 class BitgetCancelByExchangeOrderIdTest(unittest.TestCase):
@@ -38,9 +37,9 @@ class BitgetCancelByExchangeOrderIdTest(unittest.TestCase):
     def _run(self, coro):
         return asyncio.get_event_loop().run_until_complete(coro)
 
-    def test_base_contract_is_present(self):
-        """The contract is declared on the base, so an unimplemented connector fails loudly."""
-        self.assertIn("cancel_by_exchange_order_id", dir(ExchangePyBase))
+    # The base contract (`ExchangePyBase.cancel_by_exchange_order_id`) lives in the
+    # XRPL PR this one is complementary to, so it is asserted there, not here: this
+    # branch applies cleanly and stays green whether or not that one lands first.
 
     def test_classic_account_cancels_with_symbol_and_order_id(self):
         posted = {}
